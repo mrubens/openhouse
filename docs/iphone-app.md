@@ -68,7 +68,9 @@ both widgets with the household's events and list, Milk ticked off on the widget
    `{"keyId": "…", "teamId": "…", "key": "-----BEGIN PRIVATE KEY-----\n…"}`, at `/home-cloud/apns-key`
    (`openhouse-cloud/docs/cloud.md`). Until it's there, the cloud answers 503 and notes on iPhones don't go; the page's
    Web Push still works from Safari's home-screen copy.
-3. App Store Connect: the app record, then TestFlight from Xcode's Archive.
+3. App Store Connect: the app record is **OpenHouse: Household AI** ("OpenHouse" was taken; the home screen still says
+   OpenHouse), with an internal TestFlight group, Household, that gets each uploaded build by itself. Upload: Archive
+   in Xcode (or `xcodebuild archive`, then `-exportArchive` with method `app-store-connect` and destination `upload`).
 
 ## Not yet
 
