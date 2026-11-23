@@ -22,8 +22,13 @@ const isJs = (rel, f) => /\.m?js$/.test(rel) || /javascript/.test(f.t);
 
 // import x from './a.js', import './a.js', export * from '../b.js', import('./c.js'): to the blob: URL of that file.
 const SPEC = /(\bimport\s*(?:[\w$*{}\s,]+?\s*from\s*)?|\bexport\s*(?:\*(?:\s*as\s+[\w$]+)?|\{[^}]*\})\s*from\s*|\bimport\s*\(\s*)(['"])([^'"\n]+)\2/g;
+// MapLibre (the kit's maplibre-gl.js, the Map app) drops a message between its page and its worker unless both name the
+// same origin; in a frame with no origin the page names its address's ("http://…") and its worker, a blob made here,
+// "null", so no tile ever arrives. Here it lets "null" through, as it does file:// pages. (Only its own worker and page
+// talk on that channel.)
+const fixes = (text) => text.split('"file://"!==e.origin&&"file://"!==location.origin&&').join('"file://"!==e.origin&&"file://"!==location.origin&&"null"!==e.origin&&"null"!==location.origin&&');
 function js(rel, text) {
-  return text.replace(SPEC, (all, head, q, spec) => {
+  return fixes(text).replace(SPEC, (all, head, q, spec) => {
     if (!/^(\.{1,2}\/|\/)/.test(spec)) return all; // a package or a full address: as it was (it won't load here)
     const r = relOf(new URL(spec, BASE + rel).href);
     const u = r != null && urlOf(r);

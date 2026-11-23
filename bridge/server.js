@@ -215,7 +215,7 @@ const screens = screensRoutes({ HERE, json, body, APP_DIR, apns: (b) => cloud.ap
   // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv). A phone
   // shows every app that runs on phones (apps.js onScreen), each in a frame of its own (docs/phones.md, "Every app").
   screenApps: (kind) => apps.list().filter((a) => a.web && onScreen(a.meta, kind))
-    .map((a) => ({ id: a.id, name: String(a.meta.name || a.id), ours: plugins.ownerOf?.(a.id)?.e?.kind === 'builtin', icon: a.icon, tabIcon: typeof a.meta.tabIcon === 'string' ? a.meta.tabIcon.slice(0, 40) : null, shared: !!a.shared }))
+    .map((a) => ({ id: a.id, name: String(a.meta.name || a.id), ours: plugins.ownerOf?.(a.id)?.e?.kind === 'builtin', icon: a.icon, tabIcon: typeof a.meta.tabIcon === 'string' ? a.meta.tabIcon.slice(0, 40) : null, shared: !!a.shared, reaches: plugins.reachesOf(a.id) }))
     .sort((x, y) => Number(x.ours) - Number(y.ours)),
   dispatch: (req, res, url) => {
     // What a screen's app asks for (through the screen's page around it): only what that app may do, as on the tablet.

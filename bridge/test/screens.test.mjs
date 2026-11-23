@@ -236,6 +236,10 @@ test('a phone runs the household\'s apps: each call only what that app may do, i
   const fr = await fetch(lan + '/phone/frame.html');
   assert.match(fr.headers.get('content-security-policy'), /connect-src 'none'/);
   assert.match(fr.headers.get('content-security-policy'), new RegExp(`frame-ancestors ${lan}$`));
+  // An app's own hosts (its "reaches"), named by the phone's page in the frame's address, and nothing else.
+  const csp = (await fetch(lan + '/phone/frame.html?r=' + encodeURIComponent('tiles.example.org,*.maps.example.com,evil example.com,http://x.org,10.0.0.1'))).headers.get('content-security-policy');
+  assert.match(csp, /connect-src https:\/\/tiles\.example\.org https:\/\/\*\.maps\.example\.com;/);
+  assert.doesNotMatch(csp, /evil|x\.org|10\.0\.0\.1/);
   // A TV's app files never go to a phone's token, nor a phone's frames to a TV.
   const tvc = (await c.json('GET', '/screens/apps')).json.find((a) => a.at);
   assert.equal(tvc, undefined);

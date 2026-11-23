@@ -146,7 +146,7 @@ export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQue
     <div className="appframe" hidden={hidden}>
       {state === 'offline' && <p className="soft pad">{app.name} opens here once the phone is in touch with home.</p>}
       <iframe ref={ref} key={`${app.id}@${app.v}#${gen}`} title={app.name} className={state === 'ready' ? 'ready' : ''}
-        sandbox="allow-scripts allow-forms allow-modals" allow="clipboard-write" referrerPolicy="no-referrer" src={`${FRAME}#${frameHash(style, app)}`} />
+        sandbox="allow-scripts allow-forms allow-modals" allow="clipboard-write" referrerPolicy="no-referrer" src={`${FRAME}${app.reaches?.length ? '?r=' + encodeURIComponent(app.reaches.join(',')) : ''}#${frameHash(style, app)}`} />
     </div>
   );
 }

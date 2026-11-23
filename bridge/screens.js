@@ -197,9 +197,13 @@ export function appFiles(APP_DIR, id, kitDir) {
 }
 // The page a phone's app frame starts as (chat/phone-frame.html): it may be framed only by the phone's page, and it and
 // the app in it reach nothing (connect-src 'none'): every call goes to the page around it, which seals it.
-export const frameHeaders = (host) => ({
+/** The hosts a frame may reach, from its address (?r=a.example.org,*.b.example.org): the app's own "reaches", as on the
+ *  tablet, which the phone's page names when it makes the frame. (A frame that sets its own address to name others
+ *  gets nothing: the page sends an app's files only once to each frame, and makes a new frame when one goes elsewhere.) */
+export const frameReaches = (r) => [...new Set(String(r || '').toLowerCase().split(',').filter((h) => /^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z][a-z0-9-]*$/.test(h) && h.length <= 120))].slice(0, 14).map((h) => `https://${h}`).join(' ');
+export const frameHeaders = (host, reaches = '') => ({
   'cache-control': 'max-age=3600', // (the same for every app, and a new frame for each: kept an hour, not asked for each time) 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff',
-  'content-security-policy': `default-src 'none'; script-src ${host} blob: 'unsafe-eval'; style-src ${host} blob: 'unsafe-inline'; img-src ${host} blob: data:; media-src blob: data:; font-src ${host} blob: data:; worker-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri https://app.invalid; frame-ancestors ${host}`,
+  'content-security-policy': `default-src 'none'; script-src ${host} blob: 'unsafe-eval'; style-src ${host} blob: 'unsafe-inline'; img-src ${host} blob: data:${reaches ? ' ' + reaches : ''}; media-src blob: data:${reaches ? ' ' + reaches : ''}; font-src ${host} blob: data:; worker-src blob:; connect-src ${reaches || "'none'"}; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri https://app.invalid; frame-ancestors ${host}`,
 });
 
 /**
@@ -404,7 +408,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
         const f = path.join(PUBLIC, 'phone', file[2]);
         if (!fs.existsSync(f)) return plain(res, 404, { error: 'not found' });
         const host = /^[a-z0-9.-]{1,80}(:\d{2,5})?$/i.test(String(req.headers.host || '')) ? req.headers.host : `127.0.0.1:${PORT}`;
-        res.writeHead(200, { 'content-type': TYPES[path.extname(f)], ...frameHeaders(`${TLS ? 'https' : 'http'}://${host}`) });
+        res.writeHead(200, { 'content-type': TYPES[path.extname(f)], ...frameHeaders(`${TLS ? 'https' : 'http'}://${host}`, frameReaches(url.searchParams.get('r'))) });
         return res.end(fs.readFileSync(f));
       }
       if (file) {
@@ -429,7 +433,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
       }
       if (req.method === 'GET' && p === '/pair/wait') {
         const pair = String(url.searchParams.get('pair') || ''), x = pairs.get(pair);
-        if (!x || !x.asked) { miss(ip); return plain(res, 404, { error: 'ended' }); }
+        if (!x || !x.asked) { if (pair !== '-') miss(ip); return plain(res, 404, { error: 'ended' }); } // ('-': a paired device asking whether it's home, screen-client.js)
         const reply = () => { if (x.answer) { pairs.delete(pair); plain(res, 200, { box: b64(x.answer) }); } else if (!pairs.has(pair)) plain(res, 404, { error: 'ended' }); else plain(res, 200, { waiting: true }); };
         if (x.answer) return reply();
         const t = setTimeout(() => { x.waiters.delete(done); reply(); }, 25e3);
@@ -704,7 +708,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     }
     if (s.kind === 'phone') {
       const out = [];
-      for (const a of appsFor(s)) { const files = appFileList(APP_DIR, a.id, KIT); if (!usesPackages(files)) out.push({ id: a.id, name: a.name, icon: a.icon || null, tabIcon: a.tabIcon || null, shared: !!a.shared, v: appVersion(files) }); }
+      for (const a of appsFor(s)) { const files = appFileList(APP_DIR, a.id, KIT); if (!usesPackages(files)) out.push({ id: a.id, name: a.name, icon: a.icon || null, tabIcon: a.tabIcon || null, shared: !!a.shared, reaches: a.reaches || [], v: appVersion(files) }); }
       json(res, 200, out); return true;
     }
     // v: when its files last changed, so a TV showing it loads it again after an edit.
