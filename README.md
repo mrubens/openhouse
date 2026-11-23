@@ -2,7 +2,7 @@
 
 A shared screen for the household that changes whenever you tell it to. It comes ready with a calendar, meals,
 chores, lists and photos. Don't like something? Just say so: anyone at home can ask it to add, change or remove
-anything, and every change can be undone.
+anything.
 
 It is open source (MIT). Ready-made tablets and the hosted service are at [openhouse.computer](https://openhouse.computer);
 this repo is everything that runs in the home, for anyone who wants to build it, run it or change it.
@@ -23,11 +23,10 @@ connected to the tablet.
 - **Change anything by asking.** "Move photos first." "Add a homework tab." "Make the chore chart bigger for the
   kids." The assistant changes the apps and the home screen while you watch, and makes new ones when you want
   something that isn't there: a game, a countdown, a typing tutor.
-- **Every change can be undone.** Each change is saved with who asked and what they said. "Undo" takes back the
-  latest; any earlier one can be taken back on its own.
+- **Every change is recorded.** Each one is saved as a version, with who asked and what they said.
 - **Customize it from your own AI app.** Pair a computer once (Settings, then "Screens and computers") and
   ask Claude Code or Claude Desktop for new tabs and apps there, with a big screen and a keyboard; the tablet shows
-  each change as it lands, and undo works the same. See [docs/workshop-mcp.md](docs/workshop-mcp.md).
+  each change as it lands. See [docs/workshop-mcp.md](docs/workshop-mcp.md).
 - **Other screens in the house.** A phone, laptop or another tablet on the same Wi-Fi can show the same home
   screen, after someone pairs it with a QR code.
 
