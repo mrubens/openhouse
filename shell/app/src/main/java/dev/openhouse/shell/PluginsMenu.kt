@@ -165,18 +165,87 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         }
     }
 
+    /**
+     * Two halves (one above the other on a narrow screen): "Find an app", OpenHouse's list with a search box that
+     * filters by name and description as you type (a tap goes on to the card, as before), and "Make your own with AI",
+     * a few lines on connecting Claude or ChatGPT from a computer, with a button for that pairing step.
+     */
     private fun galleryList(list: List<JSONObject>, error: String?, pics: Map<String, Bitmap?>) {
-        val rows = list.map { e ->
-            val here = e.optJSONObject("installed")
-            // What it is in a line; what it may do is on its card, when it's tapped.
-            val detail = when { here == null -> e.optString("description"); e.optBoolean("update") -> "On this tablet · a newer version is out"; else -> "On this tablet" }
-            CalmDialog.Row(e.optString("title"), detail, image = pics[e.optString("name")]) to {
-                if (here != null) installedOne(here.optString("name")) else look(e.optString("name"))
+        val c = act
+        val u = Calm.u(c)
+        val wide = c.resources.displayMetrics.widthPixels / u >= 1300
+        var dialog: android.app.Dialog? = null
+        fun go(f: () -> Unit) { dialog?.dismiss(); f() }
+
+        // ---- Find an app ----
+        val rows = Calm.column(c)
+        fun line(title: String, detail: String?, image: Bitmap?, onTap: () -> Unit) = Calm.row(c).apply {
+            val rr = 16 * u
+            background = Calm.pressable(c, Calm.rounded(0x00FFFFFF, rr), rr); isClickable = true
+            minimumHeight = Calm.px(c, 72); setPadding(Calm.px(c, 16), Calm.px(c, 12), Calm.px(c, 16), Calm.px(c, 12))
+            image?.let { b -> addView(android.widget.ImageView(c).apply { setImageBitmap(b); scaleType = android.widget.ImageView.ScaleType.CENTER_CROP; clipToOutline = true; background = Calm.rounded(Calm.TINT2, 12 * u) },
+                android.widget.LinearLayout.LayoutParams(Calm.px(c, 96), Calm.px(c, 66)).apply { rightMargin = Calm.px(c, 18) }) }
+            addView(Calm.column(c, 4).apply {
+                addView(Calm.text(c, title, 22f, 500))
+                detail?.takeIf { it.isNotEmpty() }?.let { addView(Calm.text(c, it, 17f, 400, Calm.SOFT).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END }) }
+            }, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+            setOnClickListener { go(onTap) }
+        }
+        fun fill(q: String) {
+            rows.removeAllViews()
+            val words = q.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            val shown = list.filter { e -> val hay = (e.optString("title") + " " + e.optString("description")).lowercase(); words.all { hay.contains(it) } }
+            for (e in shown) {
+                val here = e.optJSONObject("installed")
+                val detail = when { here == null -> e.optString("description"); e.optBoolean("update") -> "On this tablet · a newer version is out"; else -> "On this tablet" }
+                rows.addView(line(e.optString("title"), detail, pics[e.optString("name")]) { if (here != null) installedOne(here.optString("name")) else look(e.optString("name")) })
             }
-        } + listOf(CalmDialog.Row("From a link") to { askLink() })
-        CalmDialog(act).setTitle("Add a plugin").setWidth(900f)
-            .setMessage(error ?: if (list.isEmpty()) "OpenHouse's list is empty right now." else null)
-            .setRows(rows.map { it.first }) { _, i -> rows[i].second() }.setNegativeButton(if (fromApps) "Close" else "Back") { _, _ -> if (!fromApps) show() }.show()
+            if (shown.isEmpty()) rows.addView(Calm.text(c, error ?: if (list.isEmpty()) "OpenHouse's list is empty right now." else "Nothing called that.", 19f, 400, Calm.SOFT).apply { setPadding(Calm.px(c, 16), Calm.px(c, 16), 0, Calm.px(c, 16)) })
+            rows.addView(line("From a link", "A git or .tgz link someone shared", null) { askLink() })
+        }
+        val search = Calm.field(c, "Search", 22f).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun afterTextChanged(e: android.text.Editable?) { fill(e?.toString().orEmpty()) }
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, n: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, n: Int) {}
+            })
+        }
+        fill("")
+        val screenH = c.resources.displayMetrics.let { minOf(it.widthPixels, it.heightPixels) }
+        val find = Calm.column(c).apply {
+            addView(Calm.eyebrow(c, "Find an app"))
+            addView(search, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 14) })
+            addView(Calm.Capped(c, (screenH * (if (wide) .52f else .3f)).toInt()).apply { addView(rows); isVerticalScrollBarEnabled = false },
+                android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 10); leftMargin = -Calm.px(c, 16); rightMargin = -Calm.px(c, 16) })
+        }
+
+        // ---- Make your own with AI ----
+        val make = Calm.column(c).apply {
+            setPadding(Calm.px(c, 32), Calm.px(c, 28), Calm.px(c, 32), Calm.px(c, 32))
+            background = Calm.rounded(Calm.TINT, 24 * u)
+            addView(Calm.eyebrow(c, "Make your own with AI"))
+            addView(Calm.text(c, "Connect Claude or ChatGPT on a computer, then ask it for the app you want.", 21f, 400).apply { setPadding(0, Calm.px(c, 14), 0, Calm.px(c, 18)) })
+            for (ex in listOf("A chore chart with stars for the week", "A countdown to our next trip", "Keep track of the dog's walks and meals")) {
+                addView(Calm.text(c, "\u201C$ex\u201D", 19f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, 6), 0, Calm.px(c, 6)) })
+            }
+            addView(Calm.quiet(c, "Pair a computer") { go { Screens.computer(act) } }.apply { setPadding(0, Calm.px(c, 18), 0, 0) },
+                android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 12) })
+        }
+
+        val both = if (wide) Calm.row(c).apply {
+            gravity = android.view.Gravity.TOP
+            addView(find, android.widget.LinearLayout.LayoutParams(0, -2, 1.15f))
+            addView(Calm.gap(c, 32, 1))
+            addView(make, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+        } else Calm.column(c).apply {
+            addView(find, android.widget.LinearLayout.LayoutParams(-1, -2))
+            addView(make, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 24) })
+        }
+        dialog = CalmDialog(act).setTitle("Add apps").setWidth(if (wide) 1320f else 760f).setView(both)
+            .setNegativeButton(if (fromApps) "Close" else "Back") { _, _ -> if (!fromApps) show() }.show()
+        // the search box shouldn't bring up the keyboard by itself (CalmDialog focuses the first field)
+        search.clearFocus(); dialog?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     }
 
     private fun installedOne(name: String) = thread {
