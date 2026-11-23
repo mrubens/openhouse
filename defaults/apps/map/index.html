@@ -6,67 +6,129 @@
   <link rel="stylesheet" href="/kit/openhouse.css">
   <link rel="stylesheet" href="/kit/maplibre-gl.css">
   <style>
-    :root { --u: calc(100vw / 1536); }
+    :root { --u: calc(100vw / 1536); --map-land: #eef0ea; }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; overflow: hidden; }
     body { background: var(--bg); color: var(--ink); user-select: none; -webkit-user-select: none; }
-    button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
-    #app { position: fixed; inset: 0; padding: calc(32 * var(--u)) calc(40 * var(--u)) calc(32 * var(--u)); display: grid; grid-template-columns: calc(440 * var(--u)) 1fr; gap: calc(36 * var(--u)); }
-    .label { font-size: calc(14 * var(--u)); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
-    .soft { color: var(--ink-soft); }
+    button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; text-align: left; -webkit-tap-highlight-color: transparent; }
+    /* The map fills the pane (the stage itself in a tab), and the panel floats over its right side. */
+    #app { position: fixed; inset: 0; padding: calc(24 * var(--u)); }
+    .mapbox { position: absolute; inset: 0; overflow: hidden; background: var(--map-land); }
+    html:not(.in-tab) .mapbox { inset: calc(24 * var(--u)); border-radius: calc(28 * var(--u)); }
+    #map { position: absolute; inset: 0; }
+    .ic { display: inline-flex; flex: none; }
+    .ic svg { width: 100%; height: 100%; }
 
-    .side { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; padding-bottom: calc(120 * var(--u)); scrollbar-width: none; }
+    .side { position: absolute; right: calc(16 * var(--u)); top: calc(16 * var(--u)); bottom: calc(16 * var(--u)); width: calc(392 * var(--u)); z-index: 3; display: flex; flex-direction: column;
+      padding: calc(22 * var(--u)) calc(22 * var(--u)) calc(18 * var(--u)); border-radius: var(--r-panel); background: var(--card);
+      box-shadow: 0 30px 60px -28px rgba(40, 30, 10, .45), 0 0 0 1px color-mix(in srgb, var(--ink) 5%, transparent); overflow-y: auto; scrollbar-width: none; }
+    html:not(.in-tab) .side { right: calc(40 * var(--u)); top: calc(40 * var(--u)); bottom: calc(40 * var(--u)); }
     .side::-webkit-scrollbar { display: none; }
-    .sec { margin-top: calc(30 * var(--u)); }
-    .sec:first-child { margin-top: calc(6 * var(--u)); }
-    .rows { margin-top: calc(10 * var(--u)); border-top: 1px solid var(--line); }
-    .row { display: grid; grid-template-columns: calc(18 * var(--u)) 1fr auto; align-items: center; column-gap: calc(14 * var(--u)); width: 100%; text-align: left;
-      padding: calc(16 * var(--u)) calc(6 * var(--u)); border-bottom: 1px solid var(--line); }
-    .row.on { background: var(--tint); border-radius: calc(12 * var(--u)); }
-    .row .what { font-size: calc(21 * var(--u)); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row .sub { font-size: calc(16 * var(--u)); color: var(--ink-soft); margin-top: calc(3 * var(--u)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .row .end { text-align: right; font-size: calc(17 * var(--u)); color: var(--ink-soft); white-space: nowrap; }
-    .row .end b { display: block; font-weight: 600; color: var(--ink); font-size: calc(18 * var(--u)); }
-    .pin { width: calc(14 * var(--u)); height: calc(14 * var(--u)); border-radius: 50%; background: var(--accent); }
-    .pin.home { background: var(--ink); border-radius: calc(3 * var(--u)); }
-    .pin.ev { background: transparent; box-shadow: inset 0 0 0 calc(3 * var(--u)) var(--accent); }
-    .add { margin-top: calc(14 * var(--u)); font-size: calc(18 * var(--u)); font-weight: 500; padding: calc(14 * var(--u)) calc(20 * var(--u)); border-radius: calc(26 * var(--u)); background: var(--tint); }
-    .add:active { background: var(--tint-2); }
-    .empty { font-size: calc(17 * var(--u)); color: var(--ink-soft); padding: calc(14 * var(--u)) calc(6 * var(--u)); }
+    .side h1 { margin: 0 0 calc(4 * var(--u)); font-size: calc(40 * var(--u)); font-weight: 650; letter-spacing: -.025em; line-height: 1.1; }
+    .side .sub { font-size: calc(17 * var(--u)); font-weight: 550; color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: none; }
+    .side .q-label { margin: calc(22 * var(--u)) 0 calc(8 * var(--u)); flex: none; }
+
+    /* when to leave: a card in the color of whoever is going (ink reads on every person's color) */
+    .go { display: block; width: 100%; flex: none; border-radius: calc(22 * var(--u)); padding: calc(18 * var(--u)) calc(20 * var(--u)); margin-top: calc(14 * var(--u)); color: #15132b; background: var(--c);
+      box-shadow: 0 16px 30px -16px color-mix(in srgb, var(--c) 70%, #201808), inset 0 1px 0 rgba(255, 255, 255, .35); }
+    .go.plain { background: var(--tint); color: var(--ink); box-shadow: none; }
+    .go.on { outline: calc(3 * var(--u)) solid var(--ink); outline-offset: calc(2 * var(--u)); }
+    .go .lab { display: flex; justify-content: space-between; gap: calc(12 * var(--u)); font-size: calc(12.5 * var(--u)); font-weight: 650; letter-spacing: .13em; text-transform: uppercase; opacity: .66; white-space: nowrap; }
+    .go .lab span:first-child { overflow: hidden; text-overflow: ellipsis; }
+    .go .m-big { font-size: calc(42 * var(--u)); font-weight: 700; letter-spacing: -.035em; line-height: 1; margin: calc(10 * var(--u)) 0 calc(8 * var(--u)); }
+    .go .m-big small { font-size: calc(19 * var(--u)); font-weight: 650; letter-spacing: -.01em; opacity: .7; margin-left: calc(8 * var(--u)); }
+    .go b { display: block; font-size: calc(21 * var(--u)); font-weight: 700; letter-spacing: -.015em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .go .m { display: block; font-size: calc(16 * var(--u)); font-weight: 600; opacity: .7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* places, and today's events that aren't on the map yet: rows with a small tile */
+    .m-rows { flex: none; }
+    .m-row { display: flex; align-items: center; gap: calc(14 * var(--u)); width: 100%; min-height: calc(58 * var(--u)); padding: calc(8 * var(--u)) 0; border-top: 1px solid var(--hair); }
+    .m-row:first-child { border-top: 0; }
+    .m-row .d { width: calc(40 * var(--u)); height: calc(40 * var(--u)); border-radius: calc(13 * var(--u)); display: grid; place-items: center; background: var(--tint); flex: none; }
+    .m-row .d .ic { width: calc(22 * var(--u)); height: calc(22 * var(--u)); }
+    .m-row.on .d { background: var(--ink); color: var(--on-ink); }
+    .m-row .t { flex: 1; min-width: 0; }
+    .m-row .m-what { font-size: calc(20 * var(--u)); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .m-row .m-line { font-size: calc(15 * var(--u)); font-weight: 500; color: var(--fg2); margin-top: calc(2 * var(--u)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .m-row em { flex: none; font-style: normal; font-size: calc(16 * var(--u)); font-weight: 550; color: var(--fg2); white-space: nowrap; }
+    .m-empty { font-size: calc(17 * var(--u)); font-weight: 500; color: var(--fg2); padding: calc(12 * var(--u)) 0; }
+    .side .btn.m-add { align-self: flex-start; flex: none; margin-top: calc(14 * var(--u)); }
+    .side .grow { flex: 1; min-height: calc(6 * var(--u)); }
 
     /* the one in view: what Opie showed, or the row tapped */
-    .card { background: var(--tint); border-radius: calc(18 * var(--u)); padding: calc(20 * var(--u)) calc(22 * var(--u)); }
-    .card h2 { margin: calc(6 * var(--u)) 0 0; font-size: calc(28 * var(--u)); font-weight: 600; letter-spacing: -.01em; }
-    .card .addr { font-size: calc(17 * var(--u)); color: var(--ink-soft); margin-top: calc(4 * var(--u)); line-height: 1.35; }
-    .card .drive { font-size: calc(24 * var(--u)); font-weight: 500; margin-top: calc(14 * var(--u)); }
-    .card .note { font-size: calc(19 * var(--u)); margin-top: calc(8 * var(--u)); }
-    .card .fine { font-size: calc(15 * var(--u)); color: var(--ink-soft); margin-top: calc(6 * var(--u)); }
-    .card .acts { display: flex; gap: calc(10 * var(--u)); margin-top: calc(16 * var(--u)); }
-    .card .acts button { font-size: calc(17 * var(--u)); font-weight: 500; padding: calc(12 * var(--u)) calc(18 * var(--u)); border-radius: calc(22 * var(--u)); background: var(--bg); }
+    .card { flex: none; background: var(--tint); border-radius: calc(22 * var(--u)); padding: calc(18 * var(--u)) calc(20 * var(--u)); margin-top: calc(14 * var(--u)); }
+    .side .card .q-label { margin: 0; }
+    .card h2 { margin: calc(8 * var(--u)) 0 0; font-size: calc(26 * var(--u)); font-weight: 700; letter-spacing: -.02em; line-height: 1.15; }
+    .card .addr { font-size: calc(16 * var(--u)); font-weight: 500; color: var(--fg2); margin-top: calc(4 * var(--u)); line-height: 1.35; }
+    .card .drive { font-size: calc(21 * var(--u)); font-weight: 600; letter-spacing: -.01em; margin-top: calc(12 * var(--u)); }
+    .card .note { font-size: calc(17 * var(--u)); font-weight: 500; margin: calc(6 * var(--u)) 0 0; color: var(--ink); }
+    .card .fine { font-size: calc(14 * var(--u)); font-weight: 500; color: var(--fg2); margin-top: calc(6 * var(--u)); line-height: 1.35; }
+    .card .acts { display: flex; gap: calc(8 * var(--u)); margin-top: calc(14 * var(--u)); }
+    .card .acts .btn.soft { background: var(--card); }
 
-    .mapbox { position: relative; border-radius: calc(22 * var(--u)); overflow: hidden; background: var(--tint); min-height: 0; }
-    #map { position: absolute; inset: 0; }
-    .mk { display: flex; align-items: center; gap: calc(8 * var(--u)); pointer-events: auto; }
-    .mk i { width: calc(18 * var(--u)); height: calc(18 * var(--u)); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 calc(3 * var(--u)) #fff; }
-    .mk.home i { background: var(--ink); border-radius: calc(4 * var(--u)); }
-    .mk.ev i { background: #fff; box-shadow: inset 0 0 0 calc(4 * var(--u)) var(--accent), 0 0 0 calc(2 * var(--u)) #fff; }
-    .mk.shown i { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
-    .mk span { font-size: calc(15 * var(--u)); font-weight: 600; color: #2a2826; background: rgba(255, 255, 255, .92); padding: calc(4 * var(--u)) calc(9 * var(--u)); border-radius: calc(8 * var(--u)); white-space: nowrap; }
-    .maplibregl-ctrl-attrib { font-size: calc(12 * var(--u)); }
+    /* on the map: home an ink mark with a soft ring, places small white ones, what's today in its person's color */
+    .mk { width: 0; height: 0; position: relative; }
+    .mk i { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); width: calc(34 * var(--u)); height: calc(34 * var(--u)); border-radius: 50%; display: grid; place-items: center;
+      background: #fff; color: #15132b; box-shadow: 0 0 0 1.5px rgba(21, 19, 43, .18), 0 6px 12px rgba(40, 30, 10, .2); }
+    .mk i .ic { width: 58%; height: 58%; }
+    .mk > span { position: absolute; left: calc(26 * var(--u)); top: 0; transform: translateY(-50%); white-space: nowrap; font-size: calc(15 * var(--u)); font-weight: 600; line-height: 1.15; color: var(--map-ink, rgba(21, 19, 43, .75));
+      text-shadow: 0 0 4px var(--map-land), 0 0 10px var(--map-land), 0 0 10px var(--map-land); }
+    .mk > span small { display: block; font-size: calc(14 * var(--u)); font-weight: 550; opacity: .7; }
+    .mk.ev i, .mk.shown i { width: calc(46 * var(--u)); height: calc(46 * var(--u)); background: var(--c, var(--accent)); box-shadow: 0 0 0 4px #fff, 0 8px 18px rgba(40, 30, 10, .35); }
+    .mk.shown i { color: #fff; }
+    .mk.ev > span, .mk.shown > span { left: calc(36 * var(--u)); font-size: calc(17 * var(--u)); font-weight: 650; color: var(--map-strong, #15132b); }
+    .mk.home i { width: calc(54 * var(--u)); height: calc(54 * var(--u)); background: #15132b; color: #fff; box-shadow: 0 0 0 calc(10 * var(--u)) rgba(21, 19, 43, .1), 0 0 0 calc(22 * var(--u)) rgba(21, 19, 43, .05), 0 10px 22px rgba(40, 30, 10, .35); }
+    .mk.home > span { left: calc(52 * var(--u)); font-size: calc(19 * var(--u)); font-weight: 650; color: var(--map-strong, #15132b); }
+    html.dark { --map-ink: rgba(240, 236, 230, .78); --map-strong: #f0ece6; }
+    html.dark .mk.home i { background: #f0ece6; color: #1b1a20; box-shadow: 0 0 0 calc(10 * var(--u)) rgba(240, 236, 230, .14), 0 0 0 calc(22 * var(--u)) rgba(240, 236, 230, .06), 0 10px 22px rgba(0, 0, 0, .5); }
+    .zoom { position: absolute; left: calc(20 * var(--u)); bottom: calc(20 * var(--u)); z-index: 2; display: flex; gap: calc(10 * var(--u)); }
+    :root .zoom .round { width: calc(52 * var(--u)); height: calc(52 * var(--u)); background: var(--card); box-shadow: 0 10px 22px -10px rgba(40, 30, 10, .45), 0 0 0 1px color-mix(in srgb, var(--ink) 6%, transparent); display: grid; place-items: center; border-radius: 50%; }
+    .zoom .round .ic { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
+    .maplibregl-ctrl-attrib { font-size: calc(11 * var(--u)); }
+    .maplibregl-ctrl-bottom-right { right: calc(416 * var(--u)); bottom: calc(8 * var(--u)); }
 
-    .none { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: calc(14 * var(--u)); }
-    .none h2 { margin: 0; font-size: calc(28 * var(--u)); font-weight: 500; }
-    .none p { margin: 0; max-width: calc(640 * var(--u)); font-size: calc(18 * var(--u)); line-height: 1.45; color: var(--ink-soft); }
-    .go { font-size: calc(22 * var(--u)); font-weight: 500; padding: calc(16 * var(--u)) calc(28 * var(--u)); border-radius: calc(16 * var(--u)); background: var(--ink); color: var(--bg) !important; margin-top: calc(10 * var(--u)); }
+    /* off, or not here: a panel in the middle of the world, with what turning it on does */
+    .m-off { position: absolute; inset: 0; display: grid; place-items: center; padding: calc(24 * var(--u)); }
+    .m-off .q-panel { width: calc(600 * var(--u)); max-width: 100%; padding: calc(36 * var(--u)) calc(40 * var(--u)) calc(34 * var(--u)); display: flex; flex-direction: column; align-items: flex-start; gap: calc(14 * var(--u)); }
+    .m-off .mark { width: calc(60 * var(--u)); height: calc(60 * var(--u)); border-radius: calc(19 * var(--u)); background: var(--tint); display: grid; place-items: center; margin-bottom: calc(6 * var(--u)); }
+    .m-off .mark .ic { width: calc(30 * var(--u)); height: calc(30 * var(--u)); }
+    .m-off h1 { margin: 0; font-size: calc(40 * var(--u)); font-weight: 650; letter-spacing: -.025em; color: var(--ink); line-height: 1.1; }
+    .m-off p { margin: 0; font-size: calc(18 * var(--u)); font-weight: 500; line-height: 1.45; color: var(--fg2); }
+    .m-off p.lead { font-size: calc(21 * var(--u)); font-weight: 600; color: var(--ink); letter-spacing: -.01em; line-height: 1.35; }
+    .m-off .btn { margin-top: calc(10 * var(--u)); height: calc(54 * var(--u)); border-radius: calc(27 * var(--u)); padding: 0 calc(26 * var(--u)); font-size: calc(19 * var(--u)); }
 
-    .scrim { position: fixed; inset: 0; background: color-mix(in srgb, var(--ink) 30%, transparent); display: flex; align-items: center; justify-content: center; }
-    .sheet { width: calc(620 * var(--u)); background: var(--bg); border-radius: calc(24 * var(--u)); padding: calc(30 * var(--u)); box-shadow: 0 20px 60px rgba(0, 0, 0, .18); }
-    .sheet h2 { margin: 0 0 calc(18 * var(--u)); font-size: calc(26 * var(--u)); font-weight: 600; }
-    .sheet input { display: block; width: 100%; font: inherit; font-size: calc(22 * var(--u)); padding: calc(14 * var(--u)) calc(18 * var(--u)); margin-top: calc(12 * var(--u)); border: 1px solid var(--line); border-radius: calc(14 * var(--u)); background: var(--bg); color: var(--ink); }
-    .sheet .btns { display: flex; justify-content: flex-end; gap: calc(12 * var(--u)); margin-top: calc(22 * var(--u)); }
-    .sheet .btns button { font-size: calc(20 * var(--u)); font-weight: 500; padding: calc(14 * var(--u)) calc(24 * var(--u)); border-radius: calc(14 * var(--u)); background: var(--tint); }
-    .sheet .btns button.main { background: var(--ink); color: var(--bg); }
-    .sheet .msg { min-height: 1.4em; font-size: calc(17 * var(--u)); color: var(--ink-soft); margin-top: calc(12 * var(--u)); }
+    .scrim { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; }
+    .sheet { width: calc(620 * var(--u)); padding: calc(30 * var(--u)); display: flex; flex-direction: column; gap: calc(12 * var(--u)); }
+    .sheet h2 { margin: 0 0 calc(6 * var(--u)); }
+    .sheet .field { display: block; width: 100%; font: inherit; padding: calc(14 * var(--u)) calc(18 * var(--u)); border: 0; outline: none; user-select: text; -webkit-user-select: text; }
+    .sheet .btns { display: flex; justify-content: flex-end; gap: calc(10 * var(--u)); margin-top: calc(8 * var(--u)); }
+    .sheet .msg { min-height: 1.4em; font-size: calc(16 * var(--u)); font-weight: 500; color: var(--fg2); }
+
+    /* a phone: the map on top, the panel under it, as wide as the screen */
+    @media (max-width: 700px) {
+      html:root #app { padding: 0; display: flex; flex-direction: column; }
+      html:root .mapbox { position: relative; inset: auto; flex: none; height: 44vh; border-radius: 0; }
+      html:root .side { position: relative; inset: auto; width: auto; flex: 1; min-height: 0; border-radius: calc(34 * var(--u)) calc(34 * var(--u)) 0 0; margin-top: calc(-28 * var(--u)); box-shadow: 0 -16px 30px -18px rgba(40, 30, 10, .4); padding: calc(26 * var(--u)) calc(26 * var(--u)) calc(140 * var(--u)); background: var(--card); }
+      html:root .side h1 { font-size: calc(49 * var(--u)); font-weight: 700; letter-spacing: -.03em; }
+      html:root .side .sub { font-size: calc(21 * var(--u)); }
+      html:root .go .lab { font-size: calc(15.5 * var(--u)); }
+      html:root .go .m-big { font-size: calc(50 * var(--u)); } html:root .go .m-big small { font-size: calc(23 * var(--u)); }
+      html:root .go b { font-size: calc(25 * var(--u)); } html:root .go .m { font-size: calc(19.5 * var(--u)); }
+      html:root .m-row { min-height: calc(80 * var(--u)); }
+      html:root .m-row .d { width: calc(50 * var(--u)); height: calc(50 * var(--u)); border-radius: calc(16 * var(--u)); }
+      html:root .m-row .m-what { font-size: calc(25 * var(--u)); } html:root .m-row .m-line, html:root .m-row em { font-size: calc(19.5 * var(--u)); }
+      html:root .card h2 { font-size: calc(30 * var(--u)); } html:root .card .addr, html:root .card .note { font-size: calc(20 * var(--u)); }
+      html:root .card .drive { font-size: calc(25 * var(--u)); } html:root .card .fine { font-size: calc(17 * var(--u)); }
+      html:root .zoom { left: calc(16 * var(--u)); bottom: calc(44 * var(--u)); }
+      html:root .maplibregl-ctrl-bottom-right { right: 0; bottom: calc(30 * var(--u)); }
+      html:root .mk i { width: calc(40 * var(--u)); height: calc(40 * var(--u)); } html:root .mk > span { font-size: calc(18 * var(--u)); left: calc(30 * var(--u)); }
+      html:root .mk.ev i, html:root .mk.shown i, html:root .mk.home i { width: calc(52 * var(--u)); height: calc(52 * var(--u)); }
+      html:root .mk.ev > span, html:root .mk.shown > span, html:root .mk.home > span { left: calc(40 * var(--u)); font-size: calc(20 * var(--u)); }
+      html:root .m-off { padding: calc(22 * var(--u)); }
+      html:root .m-off .q-panel { padding: calc(32 * var(--u)); }
+      html.m-off h1 { font-size: calc(44 * var(--u)); } html.m-off p { font-size: calc(21.5 * var(--u)); } html.m-off p.lead { font-size: calc(24 * var(--u)); }
+      html:root .m-off .btn { height: calc(62 * var(--u)); border-radius: calc(31 * var(--u)); font-size: calc(22 * var(--u)); }
+    }
   </style>
   <link rel="stylesheet" href="/kit/quiet.css">
   <link rel="stylesheet" href="/kit/narrow.css">

@@ -2,19 +2,42 @@
 :root { --u: calc(100vw / 1536); }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; overflow: hidden; }
-body { background: var(--bg, var(--door)); color: var(--ink); user-select: none; -webkit-user-select: none; touch-action: none; }
+body { background: var(--bg); color: var(--ink); user-select: none; -webkit-user-select: none; touch-action: none; }
+button { -webkit-tap-highlight-color: transparent; }
 #wrap { position: fixed; inset: 0; display: flex; flex-direction: column; padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u)); }
-.top { display: flex; align-items: center; gap: calc(14 * var(--u)); margin-bottom: calc(22 * var(--u)); flex: none; }
-.title { flex: 1; min-width: 0; margin: 0; font-size: calc(52 * var(--u)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.group { flex: none; display: flex; align-items: center; gap: calc(6 * var(--u)); height: calc(80 * var(--u)); padding: 0 calc(8 * var(--u)); border-radius: calc(40 * var(--u)); background: rgba(36, 40, 42, .06); }
-.pick { flex: none; width: calc(64 * var(--u)); height: calc(64 * var(--u)); border-radius: 50%; display: grid; place-items: center; background: transparent; }
-.pick.on { background: #fff; box-shadow: 0 calc(1 * var(--u)) calc(4 * var(--u)) rgba(0, 0, 0, .12); }
-.pick .dot { width: calc(34 * var(--u)); height: calc(34 * var(--u)); border-radius: 50%; }
+html.in-tab #wrap { padding: 0; }
+.top { display: flex; align-items: center; flex: none; }
+.title { flex: 1; min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* the trays: the pens and the eraser, how thick, back and forward: white pills on the world */
+:root .top { min-height: calc(68 * var(--u)); padding-top: calc(4 * var(--u)); margin-bottom: calc(14 * var(--u)); }
+.group { flex: none; display: flex; align-items: center; gap: calc(6 * var(--u)); height: calc(62 * var(--u)); padding: 0 calc(10 * var(--u)); border-radius: calc(31 * var(--u)); background: var(--card); box-shadow: var(--shadow); }
+.pick { flex: none; width: calc(46 * var(--u)); height: calc(46 * var(--u)); border-radius: 50%; display: grid; place-items: center; background: transparent; color: var(--ink); }
+.pick.on { background: var(--tint-2); box-shadow: inset 0 0 0 calc(1.5 * var(--u)) var(--tint-2); }
+:root .pick .dot { width: calc(34 * var(--u)); height: calc(34 * var(--u)); border-radius: 50%; box-shadow: inset 0 calc(-3 * var(--u)) calc(6 * var(--u)) rgba(0, 0, 0, .2), inset 0 calc(2 * var(--u)) calc(3 * var(--u)) rgba(255, 255, 255, .3); }
+:root .pick.on .dot { width: calc(32 * var(--u)); height: calc(32 * var(--u)); }
 .pick .sz { background: var(--ink); border-radius: 50%; }
-.pick svg { width: calc(38 * var(--u)); height: calc(38 * var(--u)); }
-.clear, .save { flex: none; }
-.clear.armed { background: rgba(214, 69, 69, .14); color: #b33a3a; }
-#board { flex: 1; min-height: 0; position: relative; background: #fff; border-radius: calc(28 * var(--u)); overflow: hidden; }
+.pick svg { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
+:root .top .btn { flex: none; height: calc(62 * var(--u)); border-radius: calc(31 * var(--u)); padding: 0 calc(26 * var(--u)); }
+.clear.armed { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+/* the board: paper, whatever the palette (what's drawn is saved on white, in the pens' own colors) */
+#board { flex: 1; min-height: 0; position: relative; border-radius: calc(30 * var(--u)); overflow: hidden; margin: 0 0 calc(22 * var(--u));
+  background: #fdfdfb radial-gradient(rgba(20, 40, 60, .13) calc(1.4 * var(--u)), transparent calc(1.6 * var(--u))) 0 0 / calc(34 * var(--u)) calc(34 * var(--u));
+  box-shadow: 0 18px 26px -18px rgba(40, 30, 10, .45), 0 0 0 1px rgba(21, 19, 43, .08); }
+html.in-tab #board { margin: 0 calc(1 * var(--u)) calc(24 * var(--u)); }
+html.dark .pick .dot { outline: 1px solid color-mix(in srgb, var(--ink) 30%, transparent); }
+html.dark #board { box-shadow: 0 18px 26px -18px rgba(0, 0, 0, .8); }
 canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+/* a phone: the name with Clear and Save beside it, then the trays in a row that scrolls */
+@media (max-width: 700px) {
+  html:root .top { column-gap: calc(10 * var(--u)); }
+  html:root .top > .title { flex: 1 1 0; order: -3; }
+  html:root .top > .btn { order: -2; height: calc(58 * var(--u)); min-width: 0; }
+  html:root .group { height: calc(66 * var(--u)); border-radius: calc(33 * var(--u)); gap: calc(2 * var(--u)); padding: 0 calc(8 * var(--u)); }
+  html:root .group.pens { flex: 1 0 100%; justify-content: space-between; }
+  html:root .group.sizes { flex: 1; justify-content: space-around; }
+  html:root .pick { width: calc(52 * var(--u)); height: calc(52 * var(--u)); }
+  html:root .pick svg { width: calc(30 * var(--u)); height: calc(30 * var(--u)); }
+  html:root #board { border-radius: calc(34 * var(--u)); }
+}
 </style><link rel="stylesheet" href="/kit/quiet.css">
   <link rel="stylesheet" href="/kit/narrow.css"></head><body><div id="wrap"><div class="top" id="top"><h1 class="title">Whiteboard</h1></div><div id="board"><canvas id="c"></canvas></div></div><script type="module" src="./main.js"></script></body></html>

@@ -1,8 +1,9 @@
 import { house } from '/kit/openhouse.js';
 const KEY = 'app.whiteboard.';
-const colors = ['#1f2329', '#2f6fd6', '#d64545', '#2e9e5b', '#e08a1e', '#8a4fd1'];
+const colors = ['#1d2233', '#3d7bff', '#ff5a4f', '#21b573', '#ffb020', '#9a5cf5'];
 const sizes = [6, 14, 28];
-let color = localStorage.getItem(KEY + 'color') || colors[0];
+let color = localStorage.getItem(KEY + 'color');
+if (!colors.includes(color)) color = colors[0]; // (a pen from before the colors changed)
 let size = +(localStorage.getItem(KEY + 'size') || 14);
 let erasing = false;
 
@@ -22,27 +23,35 @@ function el(cls, html, onTap, parent) {
   b.addEventListener('pointerdown', (e) => { e.preventDefault(); onTap(b); });
   parent.append(b); return b;
 }
-function group() { const g = document.createElement('div'); g.className = 'group'; top.append(g); return g; }
+function group(cls) { const g = document.createElement('div'); g.className = 'group ' + cls; top.append(g); return g; }
 
-const pens = group();
+const pens = group('pens');
 const penBtns = colors.map((c) => {
   const b = el('pick', `<span class="dot" style="background:${c}"></span>`, () => { color = c; erasing = false; localStorage.setItem(KEY + 'color', c); mark(); }, pens);
   b.dataset.c = c; return b;
 });
 const eraseBtn = el('pick', eraserSvg, () => { erasing = true; mark(); }, pens);
-const sizesG = group();
+eraseBtn.setAttribute('aria-label', 'Eraser');
+const sizesG = group('sizes');
 const sizeBtns = sizes.map((s) => {
-  const d = Math.round(s * 1.1 + 6);
+  const d = Math.round(s * .72 + 4);
   const b = el('pick', `<span class="sz" style="width:calc(${d} * var(--u));height:calc(${d} * var(--u))"></span>`, () => { size = s; localStorage.setItem(KEY + 'size', s); mark(); }, sizesG);
   b.dataset.s = s; return b;
 });
-const historyG = group();
+const historyG = group('history');
 const undoBtn = el('pick', undoSvg, () => undo(), historyG);
 const redoBtn = el('pick', redoSvg, () => redo(), historyG);
 undoBtn.setAttribute('aria-label', 'Undo'); redoBtn.setAttribute('aria-label', 'Redo');
+let clearArmed = 0, clearT;
+const clearBtn = el('btn soft clear', 'Clear', (b) => {
+  // tap twice to wipe, so a stray tap doesn't erase everything (and Undo brings it back)
+  if (Date.now() - clearArmed < 2500) { wipe(); clearArmed = 0; disarm(); return; }
+  clearArmed = Date.now(); b.classList.add('armed'); b.textContent = 'Tap again';
+  clearTimeout(clearT); clearT = setTimeout(disarm, 2500);
+}, top);
 // Save: what's drawn, on white, goes into Photos (it stays on the board too).
 let saving = false, saveMsgT;
-const saveBtn = el('btn soft save', 'Save', async (b) => {
+const saveBtn = el('btn save', 'Save', async (b) => {
   if (saving || !ops.length && !base.width) return;
   saving = true; b.textContent = 'Saving…';
   let ok = false;
@@ -56,13 +65,6 @@ const saveBtn = el('btn soft save', 'Save', async (b) => {
   } catch {}
   saving = false; b.textContent = ok ? 'Saved to Photos' : 'Couldn’t save';
   clearTimeout(saveMsgT); saveMsgT = setTimeout(() => { b.textContent = 'Save'; }, 2500);
-}, top);
-let clearArmed = 0, clearT;
-const clearBtn = el('btn soft clear', 'Clear', (b) => {
-  // tap twice to wipe, so a stray tap doesn't erase everything (and Undo brings it back)
-  if (Date.now() - clearArmed < 2500) { wipe(); clearArmed = 0; disarm(); return; }
-  clearArmed = Date.now(); b.classList.add('armed'); b.textContent = 'Tap again';
-  clearTimeout(clearT); clearT = setTimeout(disarm, 2500);
 }, top);
 function disarm() { clearBtn.classList.remove('armed'); clearBtn.textContent = 'Clear'; }
 

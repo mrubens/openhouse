@@ -1,5 +1,6 @@
-// Photos: a slideshow, and all of them at a glance (tap to switch; its × or a hold takes it off). Albums gather some
-// of them (one can be what the idle screen shows); a tapped photo opens its card: a caption, its albums, take it off. "Add photos" shows a code a
+// Photos: all of them at a glance, a mosaic (a hold on one takes it off), one of them big (tap it: the next and the
+// last beside it, a strip of its neighbours under it, its card behind the dots: a caption, its albums, take it off),
+// and a slideshow. Albums gather some of them (one can be what the idle screen shows). "Add photos" shows a code a
 // phone on the home Wi-Fi scans to send photos from its camera roll. The same photos show on the display when nobody's around,
 // because app.json says "screensaver": true (take that out to stop it), except at night (the hours are set in the display's Settings).
 import { house, timer, say, phone, shell } from '/kit/openhouse.js';
@@ -42,15 +43,17 @@ function press(el, tap, hold) {
   if (tap) el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el && !el.disabled) { e.preventDefault(); tap(e); } });
 }
 
-const ICONS = { more: '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>', plus: '<path d="M12 4.5v15M4.5 12h15"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>', x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>' };
+const ICONS = { more: '<circle cx="5.5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18.5" cy="12" r="1.6"/>', plus: '<path d="M12 4.5v15M4.5 12h15"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>', x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+  play: '<path d="M8 5.5v13l10.5-6.5z"/>', picture: '<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="M4 17l4.5-4 3.5 3 3-2.5 5 4"/>' };
 const icon = (name, cls = '') => h('span', { class: 'icon ' + cls, 'aria-hidden': 'true',
-  html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>` });
+  html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>` });
 const STAR = [...Array(10)].map((_, i) => { const a = Math.PI / 5 * i - Math.PI / 2, r = i % 2 ? 22.5 : 50; return `${(50 + r * Math.cos(a)).toFixed(1)},${(50 + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
 const star = (color, size) => h('span', { class: 'star', style: `width:calc(${size} * var(--u));height:calc(${size} * var(--u))`, 'aria-hidden': 'true',
   html: `<svg viewBox="0 0 100 100"><polygon fill="${color}" points="${STAR}"/></svg>` });
 
-const btn = (label, tap, { soft = false, color = null, disabled = false, cls = '' } = {}) =>
-  h('button', { class: `btn ${soft ? 'soft' : ''} ${cls}`, style: color && !soft ? `background:${color}` : null, disabled, tap: disabled ? null : tap }, label);
+/** A pill: the ink one, a soft one, or (warn) the one that takes something away; ic: an icon before its words. */
+const btn = (label, tap, { soft = false, warn = false, disabled = false, cls = '', ic = null } = {}) =>
+  h('button', { class: `btn ${soft ? 'soft' : ''} ${warn ? 'warn' : ''} ${ic ? 'ic' : ''} ${cls}`, disabled, 'aria-label': ic ? label : null, tap: disabled ? null : tap }, ic && icon(ic), ic ? h('span', { class: 'lbl' }, label) : label);
 const chip = (label, on, tap, dot = null) => h('button', { class: 'chip' + (on ? ' on' : ''), tap }, dot && h('span', { class: 'dot', style: `background:${dot}` }), label);
 const round = (name, tap, { dark = false, disabled = false, label = null } = {}) =>
   h('button', { class: 'round' + (dark ? ' dark' : ''), disabled, 'aria-label': label, tap: disabled ? null : tap }, icon(name));
@@ -85,7 +88,7 @@ function openCard(render, { width = 720, onOutside = null } = {}) {
 function confirmCard(title, yes, onYes, no = 'Keep it', onNo = null) {
   return openCard((close) => [
     h('h2', { class: 'big' }, title),
-    h('div', { class: 'actions' }, btn(no, () => { close(); onNo?.(); }, { soft: true }), btn(yes, () => { close(); onYes(); }, { color: 'var(--red)' })),
+    h('div', { class: 'actions' }, btn(no, () => { close(); onNo?.(); }, { soft: true }), btn(yes, () => { close(); onYes(); }, { warn: true })),
   ], { onOutside: (close) => { close(); onNo?.(); } });
 }
 /** Asks for a few words with the keyboard (an item, a chore, a meal). extra(): more choices under the field. */
@@ -112,7 +115,9 @@ function ask({ title, hint = '', initial = '', extra = null, onDone }) {
 /** Seconds each photo stays up. */
 const SECONDS = 10;
 
-let H = null, grid = false;
+let H = null, grid = true;
+/** The photo being looked at on its own (its name), or null. */
+let one = null;
 /** The album being looked at (its id), or null for all of them. */
 let album = null;
 const albumOf = () => (album && H?.albums?.find((a) => a.id === album)) || null;
@@ -121,14 +126,14 @@ const shownPhotos = () => { const all = H?.photos || [], a = albumOf(); return a
 const captionOf = (n) => H?.captions?.[n] || '';
 /** Grid photos load as they come into view (a few hundred photos no longer load at once). */
 const seen = new IntersectionObserver((list) => {
-  for (const e of list) if (e.isIntersecting) { const img = e.target; seen.unobserve(img); house.thumb(img.dataset.name).then((src) => { img.src = src; }).catch(() => {}); }
+  for (const e of list) if (e.isIntersecting) { const img = e.target; seen.unobserve(img); house.thumb(img.dataset.name, Number(img.dataset.px) || undefined).then((src) => { img.src = src; }).catch(() => {}); }
 }, { rootMargin: '400px' });
 
-/** One of the family's photos, as an <img> (filled in when it arrives). */
+/** One of the family's photos, as an <img> (filled in when it arrives). small: true, or how wide a copy in px. */
 function photo(name, cls = '', small = false) {
   const img = h('img', { class: 'photo ' + cls, alt: '', draggable: 'false' });
   if (small) { // in the grid: a small copy, and only once it scrolls into view
-    seen.observe(img); img.dataset.name = name;
+    seen.observe(img); img.dataset.name = name; if (small !== true) img.dataset.px = small;
   } else house.photo(name).then((src) => { img.src = src; }).catch(() => {});
   return img;
 }
@@ -161,9 +166,12 @@ function draw() {
   if (album && !albumOf()) album = null; // taken away meanwhile
   const photos = shownPhotos();
   $app.className = '';
+  if (one && !photos.includes(one)) one = null; // taken off meanwhile
+  if (!one) alone = null;
   if (!H) { stopShow(); $app.replaceChildren(); }
   else if (!(H.photos || []).length) { stopShow(); $app.replaceChildren(empty()); }
   else if (!photos.length) { stopShow(); keepScroll($app, () => $app.replaceChildren(gridView(photos))); } // an empty album
+  else if (one) { stopShow(); $app.className = 'bare'; single(photos); }
   else if (grid) { stopShow(); keepScroll($app, () => $app.replaceChildren(gridView(photos))); }
   else { $app.className = 'bare'; slideshow(photos); }
   for (const s of sheets) s.redraw?.();
@@ -171,49 +179,66 @@ function draw() {
 
 function empty() {
   return h('div', { class: 'empty' },
+    h('span', { class: 'mark' }, icon('picture')),
     h('h1', null, 'No photos yet'),
-    h('p', null, 'Photos added to the display show here, and when the kitchen is quiet.'),
-    btn('Add photos', addPhotos));
+    h('p', null, 'Photos added to the display show here, and when nobody’s using it.'),
+    btn('Add photos', addPhotos, { ic: 'plus' }));
 }
 
 /** Choosing several photos to take off: the names picked (null when not choosing). */
 let picking = null;
 function gridView(photos) {
-  const top = h('div', { class: 'grid-top' });
+  const top = h('div', { class: 'top' });
   const a = albumOf(), albums = H.albums || [];
   const drawTop = () => top.replaceChildren(...(picking ? [
     h('span', { class: 'picked-count' }, picking.size ? `${picking.size} chosen` : a ? 'Tap the photos' : 'Tap the photos to take off or put in an album'),
-    h('span', { class: 'grow' }),
     btn('Cancel', () => { picking = null; draw(); }, { soft: true }),
     a ? btn('Take out of album', () => { const n = [...picking]; picking = null; a.photos = a.photos.filter((x) => !n.includes(x)); draw(); house.inAlbum(a.id, n, false); }, { soft: true, disabled: !picking.size })
       : btn('Put in an album', () => toAlbum([...picking]), { soft: true, disabled: !picking.size }),
-    btn(picking.size ? `Take off ${picking.size}` : 'Take off', () => removingMany([...picking]), { color: 'var(--red)', disabled: !picking.size }),
+    btn(picking.size ? `Take off ${picking.size}` : 'Take off', () => removingMany([...picking]), { warn: true, disabled: !picking.size }),
   ] : [
     // (Night hours, when the screen goes dark, are in the display's Settings.)
-    h('div', { class: 'chips albums', 'data-keep': 'albums' },
-      chip('All photos', !a, () => { album = null; draw(); }),
-      albums.map((x) => chip(x.name + (H.slideshow === x.id ? ' · idle screen' : ''), a === x, () => { album = x.id; draw(); })),
-      chip('New album', false, () => newAlbum([]))),
+    h('h1', { class: 'title' }, a ? a.name : 'Photos', ' ', h('span', null, String(photos.length))),
+    h('div', { class: 'albums hscroll', 'data-keep': 'albums' }, h('div', { class: 'q-seg' },
+      h('button', { class: a ? '' : 'on', tap: () => { album = null; draw(); } }, 'All'),
+      albums.map((x) => h('button', { class: a === x ? 'on' : '', tap: () => { album = x.id; draw(); } }, x.name + (H.slideshow === x.id ? ' · idle screen' : ''))),
+      h('button', { 'aria-label': 'New album', tap: () => newAlbum([]) }, icon('plus')))),
     a ? round('more', () => albumCard(a), { label: 'Album' }) : null,
+    photos.length ? btn('Slideshow', () => { grid = false; draw(); }, { soft: true, ic: 'play' }) : null,
     photos.length > 1 ? btn('Choose', () => { picking = new Set(); draw(); }, { soft: true }) : null,
     !a && H.removed?.length ? btn('Taken off', takenOff, { soft: true }) : null,
-    btn('Add photos', addPhotos, { color: 'var(--red)' }),
+    btn('Add photos', addPhotos, { ic: 'plus' }),
   ]).filter(Boolean));
   drawTop();
+  // The mosaic: every eleven tiles fill a screen (TILES). With all the photos in view, each album's cover is a big one.
+  const covers = !a && !picking ? albums.filter((x) => x.photos.some((n) => photos.includes(n))) : [];
+  const tiles = [], rest = [...photos];
+  for (let i = 0; rest.length || covers.length; i++) {
+    const kind = TILES[i % TILES.length], big = kind === 'b' || kind === 'b2';
+    if (big && covers.length) tiles.push(albumTile(covers.shift(), kind, photos));
+    else if (rest.length) tiles.push(tile(rest.shift(), kind));
+    else if (!big) tiles.push(albumTile(covers.shift(), 'w', photos)); // more albums than photos to go between them
+  }
+  function tile(p, kind) {
+    const cell = h('div', { class: `cell ${kind}` + (picking?.has(p) ? ' picked' : ''), tap: () => {
+      if (!picking) { one = p; draw(); return; }
+      if (picking.has(p)) picking.delete(p); else picking.add(p);
+      cell.classList.toggle('picked', picking.has(p)); drawTop(); // (not the whole grid: its photos stay loaded)
+    }, hold: () => (picking ? null : removing(p)) }, photo(p, '', kind === 'b' || kind === 'b2' ? 900 : kind === 'w' ? 600 : true),
+    picking ? h('span', { class: 'cell-check' }, icon('check')) : null);
+    return cell;
+  }
   return h('div', { class: 'grid-screen' + (picking ? ' picking' : '') }, top,
-    !photos.length ? h('p', { class: 'note' }, 'Nothing in this album yet. Tap a photo in All photos to put it in, or Choose several there.') : null,
-    h('div', { class: 'grid-scroll vscroll', 'data-keep': 'grid' }, h('div', { class: 'grid' },
-      photos.map((p) => {
-        const cell = h('div', { class: 'cell' + (picking?.has(p) ? ' picked' : ''), tap: () => {
-          if (!picking) { photoCard(p); return; }
-          if (picking.has(p)) picking.delete(p); else picking.add(p);
-          cell.classList.toggle('picked', picking.has(p)); drawTop(); // (not the whole grid: its photos stay loaded)
-        }, hold: () => (picking ? null : removing(p)) }, photo(p, '', true),
-        picking ? h('span', { class: 'cell-check' }, icon('check'))
-          : a && !a.from ? h('button', { class: 'cell-off', 'aria-label': 'Take it out of this album', tap: () => { a.photos = a.photos.filter((x) => x !== p); draw(); house.inAlbum(a.id, [p], false); } }, icon('x')) // (it stays in All photos)
-          : h('button', { class: 'cell-off', 'aria-label': 'Take this photo off', tap: () => removing(p) }, icon('x')));
-        return cell;
-      }))));
+    !photos.length ? h('p', { class: 'note' }, 'Nothing in this album yet. Tap a photo in All to put it in, or Choose several there.') : null,
+    h('div', { class: 'grid-scroll vscroll', 'data-keep': 'grid' }, h('div', { class: 'mos' }, tiles)));
+}
+/** The mosaic's tiles, in turn: b and b2 big (three across, two down), w wide (two across), s small. */
+const TILES = ['b', 'w', 's', 's', 's', 's', 's', 'w', 'b2', 'w', 's'];
+/** An album in the mosaic: its first photo, its name and how many over it. Tap for the album. */
+function albumTile(x, kind, photos) {
+  const mine = x.photos.filter((n) => photos.includes(n));
+  return h('div', { class: `cell q-scrim ${kind}`, tap: () => { album = x.id; draw(); } }, photo(mine[0], 'q-photo', 900),
+    h('div', { class: 'cap' }, x.name, h('small', null, `${mine.length} ${mine.length === 1 ? 'photo' : 'photos'}`)));
 }
 
 /** New album (with these photos in it). */
@@ -257,7 +282,7 @@ function albumCard(a) {
 function photoCard(p) {
   const field = h('input', { class: 'field', placeholder: 'A caption (optional): who, where, when', enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
   field.value = captionOf(p);
-  const keep = () => { const t = field.value.trim(); if (t === captionOf(p)) return; H.captions = { ...(H.captions || {}), [p]: t }; if (!t) delete H.captions[p]; house.caption(p, t); };
+  const keep = () => { const t = field.value.trim(); if (t === captionOf(p)) return; H.captions = { ...(H.captions || {}), [p]: t }; if (!t) delete H.captions[p]; house.caption(p, t); draw(); };
   field.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); field.blur(); } });
   field.addEventListener('blur', keep);
   const albums = h('div', { class: 'chips wrap' });
@@ -271,7 +296,7 @@ function photoCard(p) {
     h('div', { class: 'row' }, h('span', { class: 'label' }, 'Albums'), albums),
     h('div', { class: 'actions' },
       btn('Take it off', () => { keep(); close(); removing(p); }, { soft: true }),
-      btn('Play from here', () => { keep(); close(); grid = false; startAt = p; draw(); }, { soft: true }),
+      btn('Play from here', () => { keep(); close(); one = null; grid = false; startAt = p; draw(); }, { soft: true }),
       btn('Done', () => { keep(); close(); })),
   ], { width: 1000, onOutside: (close) => { keep(); close(); } });
   s.redraw = () => {}; // (drawn once: the field keeps what's being typed while the house updates)
@@ -297,7 +322,7 @@ function removingMany(names) {
     h('p', null, 'They’re put aside on the display, not deleted.'),
     h('div', { class: 'actions' },
       btn('Keep them', close, { soft: true }),
-      btn('Take them off', () => { close(); picking = null; H.photos = H.photos.filter((x) => !names.includes(x)); draw(); for (const n of names) house.removePhoto(n); }, { color: 'var(--red)' })),
+      btn('Take them off', () => { close(); picking = null; H.photos = H.photos.filter((x) => !names.includes(x)); draw(); for (const n of names) house.removePhoto(n); }, { warn: true })),
   ], { width: 760 });
 }
 
@@ -307,22 +332,59 @@ function removing(p) {
     h('h2', { class: 'big' }, 'Take this photo off?'),
     h('div', { class: 'actions' },
       btn('Keep it', close, { soft: true }),
-      btn('Take it off', () => { close(); H.photos = H.photos.filter((x) => x !== p); draw(); house.removePhoto(p); }, { color: 'var(--red)' })),
+      btn('Take it off', () => { close(); H.photos = H.photos.filter((x) => x !== p); draw(); house.removePhoto(p); }, { warn: true })),
   ], { width: 760 });
 }
+
+// One photo, filling the pane: the way back, the slideshow from here and its card at the top, the last and the next
+// at the sides, its caption and where it is at the foot, over a strip of its neighbours. It stays put while the house
+// updates (only its words are drawn again).
+let alone = null;
+function single(photos) {
+  const i = photos.indexOf(one), a = albumOf();
+  const go = (n) => { one = photos[(n + photos.length) % photos.length]; draw(); };
+  const words = () => [captionOf(one), [a?.name, `${i + 1} of ${photos.length}`].filter(Boolean).join(' · ')];
+  if (alone && alone.name === one && alone.key === photos.join('\n') && $app.contains(alone.el)) { const [c, l] = words(); alone.cap.textContent = c; alone.line.textContent = l; return; }
+  const glass = (label, ic, tap, cls = '') => h('button', { class: `pill glass ${cls}`, 'aria-label': label, tap }, icon(ic), h('span', { class: 'lbl' }, label));
+  const [c, l] = words(), cap = h('h1', null, c), line = h('p', null, l);
+  const back = h('img', { class: 'one-back', alt: '', draggable: 'false' }), pic = h('img', { class: 'one-pic', alt: '', draggable: 'false' });
+  // A picture near the pane's shape fills it; one far from it (a tall one on a wide screen) shows whole, on its own blur.
+  pic.addEventListener('load', () => { const r = (pic.naturalWidth / pic.naturalHeight) / (innerWidth / innerHeight); pic.classList.toggle('fill', r > .72 && r < 1.4); });
+  house.thumb(one).then((src) => { back.src = src; if (!pic.src) pic.src = src; }).catch(() => {});
+  house.photo(one).then((src) => { pic.src = src; }).catch(() => {});
+  const n = Math.min(photos.length, innerWidth <= 700 ? 5 : 11), from = Math.max(0, Math.min(i - (n >> 1), photos.length - n));
+  const el = h('div', { class: 'one' }, back, pic, h('div', { class: 'shade' }),
+    h('div', { class: 'one-top' },
+      glass(a ? a.name : 'All photos', 'left', () => { one = null; grid = true; draw(); }),
+      h('span', { class: 'grow' }),
+      glass('Slideshow', 'play', () => { const p = one; one = null; grid = false; startAt = p; draw(); }, 'ic'),
+      h('button', { class: 'rbtn glass', 'aria-label': 'Caption, albums, take it off', tap: () => photoCard(one) }, icon('more'))),
+    photos.length > 1 ? [h('button', { class: 'rbtn arr l glass', 'aria-label': 'The one before', tap: () => go(i - 1) }, icon('left')),
+      h('button', { class: 'rbtn arr r glass', 'aria-label': 'The next one', tap: () => go(i + 1) }, icon('right'))] : null,
+    h('div', { class: 'capt' }, cap, line),
+    photos.length > 1 ? h('div', { class: 'film glass' }, photos.slice(from, from + n).map((p) => h('div', { class: p === one ? 'on' : '', tap: () => { one = p; draw(); } }, photo(p, '', true)))) : null);
+  $app.replaceChildren(el);
+  alone = { name: one, key: photos.join('\n'), el, cap, line };
+}
+addEventListener('keydown', (e) => {
+  if (!one || sheets.length || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Escape')) return;
+  const photos = shownPhotos(), i = photos.indexOf(one);
+  one = e.key === 'Escape' ? null : photos[(i + (e.key === 'ArrowLeft' ? -1 : 1) + photos.length) % photos.length]; draw();
+});
 
 // The slideshow: newest first, then shuffled; crossfades every SECONDS. It stays put while the house updates.
 let show = null, startAt = null; // startAt: a photo tapped in the grid, shown first
 function slideshow(photos) {
   const key = photos.join('\n');
-  if (show && show.key === key && $app.contains(show.el) && !startAt) { show.count.textContent = `${photos.length} photos` + (albumOf() ? ` · ${albumOf().name}` : ''); show.cap.textContent = captionOf(show.order[show.i]); return; }
+  const line = () => [albumOf()?.name, `${photos.length} photos`].filter(Boolean).join(' · ');
+  if (show && show.key === key && $app.contains(show.el) && !startAt) { show.count.textContent = line(); show.cap.textContent = captionOf(show.order[show.i]); return; }
   stopShow();
   const first = startAt && photos.includes(startAt) ? startAt : photos[0]; startAt = null;
   const order = [first, ...photos.filter((x) => x !== first).sort(() => Math.random() - .5)];
   const layers = [h('img', { class: 'slide', alt: '', draggable: 'false' }), h('img', { class: 'slide', alt: '', draggable: 'false' })];
-  const count = h('div', { class: 'count' }, `${photos.length} photos` + (albumOf() ? ` · ${albumOf().name}` : ''));
-  const cap = h('div', { class: 'caption' });
-  const el = h('div', { class: 'show', tap: () => { grid = true; draw(); } }, layers, h('div', { class: 'shade' }), cap, count);
+  const count = h('p', null, line());
+  const cap = h('h1');
+  const el = h('div', { class: 'show', tap: () => { grid = true; draw(); } }, layers, h('div', { class: 'shade' }), h('div', { class: 'capt' }, cap, count));
   $app.replaceChildren(el);
   show = { key, el, count, cap, order, i: 0, front: 0, timer: 0 };
   const s = show;
