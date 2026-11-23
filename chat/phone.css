@@ -123,7 +123,7 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .opie .bars { display: inline-flex; align-items: center; gap: 3px; height: 16px; }
 .opie .bars i { width: 3px; border-radius: 2px; background: currentColor; opacity: .85; }
 .opie .bars i:nth-child(1) { height: 6px; } .opie .bars i:nth-child(2) { height: 14px; } .opie .bars i:nth-child(3) { height: 10px; } .opie .bars i:nth-child(4) { height: 5px; }
-.scrim { position: fixed; inset: 0; background: rgba(42,40,38,.28); z-index: 10; display: flex; align-items: flex-end; justify-content: center; }
+.scrim { position: fixed; inset: 0; background: rgba(42,40,38,.28); z-index: 38; display: flex; align-items: flex-end; justify-content: center; }
 .sheet { width: 100%; max-width: 560px; max-height: 86vh; display: flex; flex-direction: column; background: var(--bg); border-radius: 22px 22px 0 0; padding: 14px 20px calc(14px + env(safe-area-inset-bottom)); }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; }
 .sheet-head .t { font-weight: 600; }
