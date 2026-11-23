@@ -183,12 +183,30 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, WS = globalTh
     sink.status(400).end();
   }
 
-  /** The reply to one request: its status, its bytes in parts, its end (once). */
+  /** The reply to one request: its status, its bytes in parts, its end (once). A big one (over 64 KB) for a device that
+   *  said it takes boxes (bx: an app's files, a photo) goes in one box in the cloud's storage instead, sealed as it is:
+   *  one relay message, not a run of the relay's function for every 16 KB. */
   function reply(m, status, done = () => {}) {
     let head = false, ended = false, n = 0;
     // i: each message's place in the reply, since the cloud's relay may deliver them out of order.
     const base = () => ({ t: 'res', to: m.from, rid: m.rid, i: n++ });
     const send = sendPaced;
+    const parts = (code, bytes) => { send({ ...base(), s: code }); for (let i = 0; i < bytes.length; i += CHUNK) send({ ...base(), d: Buffer.from(bytes.subarray(i, i + CHUNK)).toString('base64url') }); send({ ...base(), e: 1 }); };
+    if (m.bx === 1 && cloud.leaveBox) {
+      let code = 200; const held = [];
+      const sink = {
+        status(c) { if (!head) { head = true; code = c; } return sink; },
+        data(b) { if (!ended) held.push(Buffer.from(b)); },
+        end() {
+          if (ended) return; ended = true;
+          const all = Buffer.concat(held);
+          if (all.length <= RELAY_MAX) { parts(code, all); return done(); }
+          cloud.leaveBox(all).then((key) => send({ ...base(), s: code, b: key, e: 1 }), () => parts(code, all)).finally(done);
+        },
+      };
+      if (status) sink.status(status);
+      return sink;
+    }
     const sink = {
       status(code) { if (!head) { head = true; send({ ...base(), s: code }); } return sink; },
       data(b) { if (ended) return; if (!head) sink.status(200); for (let i = 0; i < b.length; i += CHUNK) send({ ...base(), d: Buffer.from(b.subarray(i, i + CHUNK)).toString('base64url') }); },

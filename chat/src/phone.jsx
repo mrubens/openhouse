@@ -149,7 +149,7 @@ function usePhoto(c, name) {
     if (!name) return;
     if (photoCache.has(name)) return setSrc(photoCache.get(name));
     let stop = false;
-    c.request('GET', '/house/photo/' + encodeURIComponent(name)).then((r) => {
+    c.request('GET', '/house/photo/' + encodeURIComponent(name), undefined, { big: true }).then((r) => {
       if (r.status !== 200) return;
       const url = URL.createObjectURL(new Blob([r.body], { type: r.type }));
       photoCache.set(name, url);
@@ -505,7 +505,7 @@ function App() {
   const [me, setMe] = useState(() => (CLOUD_RELAY ? fromCloudHash() || get(STORE) : get(STORE))), [removed, setRemoved] = useState(false);
   useEffect(() => { if (CLOUD_RELAY && me) put(STORE, me); }, []);
   const c = useMemo(() => me && (CLOUD_RELAY
-    ? client({ id: me.id, key: me.key, relay: me.relay, onlyRelay: true })
+    ? client({ id: me.id, key: me.key, relay: me.relay, onlyRelay: true, api: location.origin }) // (the cloud's copy: big replies may come as boxes)
     : client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => { const n = { ...(get(STORE) || me), relay: r || undefined }; put(STORE, n); setMe(n); } })), [me?.id, me?.relay?.token]);
   if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">OpenHouse</div><h1>Not linked to a home yet</h1><p>On the tablet: Settings, Screens, Add a screen, Someone's phone. Scan the code with this phone's camera.</p></main>;
   if (!c) return <Join removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;

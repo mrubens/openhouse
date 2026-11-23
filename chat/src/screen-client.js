@@ -34,12 +34,12 @@ export class Removed extends Error {}
  * reach the home network goes through the cloud's relay instead, sealed the same way. onRelay(cfg or null) is told
  * what the tablet says about the relay now and then (keep it with the pairing).
  */
-export function client({ base = '', id, key, fetch: f = fetch, relay = null, onRelay = null, WS = globalThis.WebSocket, probeMs = 3000, onlyRelay = false }) {
+export function client({ base = '', id, key, fetch: f = fetch, relay = null, onRelay = null, WS = globalThis.WebSocket, probeMs = 3000, onlyRelay = false, api = null }) {
   const K = b64.dec(key);
   let last = 0;
   const next = () => (last = Math.max(Date.now() * 1000, last + 1));
   let rt = null, away = 0, checked = 0, asked = 0;
-  const viaRelay = () => (rt ??= relayTransport(relay, { WS }));
+  const viaRelay = () => (rt ??= relayTransport(relay, { WS, api }));
   /** On the home network? A quick answer from it (any status) says yes; asked at most every 30 s. */
   async function home() {
     if (!relay) return true;
@@ -49,12 +49,13 @@ export function client({ base = '', id, key, fetch: f = fetch, relay = null, onR
     try { await f(base + '/pair/wait?pair=-', { signal: AbortSignal.timeout(probeMs) }); checked = Date.now(); return true; }
     catch { away = Date.now() + 60e3; return false; }
   }
-  async function post(box, signal) {
+  async function post(box, signal, big) {
+    if (onlyRelay && !relay) throw new TypeError('no relay'); // (a page served by the cloud has no home network to try)
     if (await home()) {
       try { return await f(base + '/s', { method: 'POST', headers: { 'x-screen': id, 'content-type': 'application/octet-stream' }, body: box, signal }); }
       catch (e) { if (!relay || signal?.aborted) throw e; away = Date.now() + 60e3; }
     }
-    try { return await viaRelay().request({ k: 's', id }, box, { signal }); }
+    try { return await viaRelay().request({ k: 's', id }, box, { signal, big }); }
     catch (e) { if (e instanceof Refused) { relay = null; rt = null; onRelay?.(null); } throw e; }
   }
   /** Ask the tablet for the relay's address and this device's token (on the home network, every few hours). */
@@ -70,13 +71,14 @@ export function client({ base = '', id, key, fetch: f = fetch, relay = null, onR
 
   /** One request. onData(bytes) gets the body as it comes (a streamed answer); else it's returned whole. */
   /** app: the screen app asking (a TV's layout): the tablet answers only what that app may read. */
-  async function request(m, p, b, { signal, onData, app } = {}, again = true) {
+  /** big: an answer that may be large (an app's files, a photo): away, it may come in one box (relay-client.js). */
+  async function request(m, p, b, { signal, onData, app, big } = {}, again = true) {
     const n = next();
     const box = CP.seal(K, nonce(), te.encode(`req:${id}`), te.encode(JSON.stringify({ n, m, p, ...(b !== undefined ? { b } : {}), ...(app ? { a: app } : {}) })));
-    const r = await post(box, signal);
+    const r = await post(box, signal, big);
     // Removed: asked once more a moment later first, so a hub or tablet coming back up mid-request doesn't drop a pairing.
-    if (r.status === 401) { if (again !== 'gone?') { await new Promise((ok) => setTimeout(ok, 2000)); return request(m, p, b, { signal, onData, app }, 'gone?'); } throw new Removed('removed'); }
-    if (r.status === 409 && again) { const j = await r.json().catch(() => ({})); last = Math.max(last, Number(j.high) || 0); return request(m, p, b, { signal, onData, app }, false); }
+    if (r.status === 401) { if (again !== 'gone?') { await new Promise((ok) => setTimeout(ok, 2000)); return request(m, p, b, { signal, onData, app, big }, 'gone?'); } throw new Removed('removed'); }
+    if (r.status === 409 && again) { const j = await r.json().catch(() => ({})); last = Math.max(last, Number(j.high) || 0); return request(m, p, b, { signal, onData, app, big }, false); }
     if (!r.ok) throw new Error(`brain said ${r.status}`);
     const reader = r.body.getReader();
     let buf = new Uint8Array(0), i = 0, head = null, ended = false;

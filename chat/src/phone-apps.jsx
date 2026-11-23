@@ -53,7 +53,7 @@ export function appBundle(c, app) {
   const p = (async () => {
     const kept = await tx('readonly', (s) => s.get(k)).catch(() => null);
     if (kept?.files) return kept;
-    const r = await c.json('GET', '/screens/app-files?app=' + encodeURIComponent(app.id));
+    const r = await c.json('GET', '/screens/app-files?app=' + encodeURIComponent(app.id), undefined, { big: true });
     if (r.status !== 200 || !r.json?.files) throw new Error('no files');
     const b = { v: r.json.v, files: r.json.files };
     tx('readwrite', (s) => { s.put(b, k); const all = s.getAllKeys(); all.onsuccess = () => { for (const x of all.result) if (String(x).startsWith(app.id + '@') && x !== k) s.delete(x); }; }).catch(() => {});
@@ -99,7 +99,7 @@ export function AppFrame({ c, app, style, onOpen, onClose, onQueue, onRemoved })
       const p = String(m.p || ''), method = m.m === 'POST' ? 'POST' : 'GET';
       if (!p.startsWith('/') || p.length > 2000) return to({ oh: 'reply', id: m.id, status: 400 });
       try {
-        const r = await c.request(method, p, method === 'POST' ? m.b ?? {} : undefined, { app: app.id });
+        const r = await c.request(method, p, method === 'POST' ? m.b ?? {} : undefined, { app: app.id, big: method === 'GET' && p.startsWith('/house/photo/') });
         if (method === 'GET' && r.status === 200 && /^\/house(\/wait)?(\?|$)/.test(p)) put(houseKey(app.id), { body: new TextDecoder().decode(r.body), at: Date.now() });
         const body = r.body.buffer.slice(r.body.byteOffset, r.body.byteOffset + r.body.byteLength);
         to({ oh: 'reply', id: m.id, status: r.status, type: r.type, body }, [body]);

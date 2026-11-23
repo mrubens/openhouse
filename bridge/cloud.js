@@ -246,10 +246,21 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     call('POST', '/v1/relay/box/done', { key }).catch(() => {});
     return box;
   }
+  /** A big reply for one of this tablet's devices (relay.js, a request that said bx): left, already sealed for that
+   *  device, in the cloud's storage; the relay carries only its key. */
+  async function leaveBox(bytes) {
+    const d = device();
+    if (!d) throw new Error('not linked');
+    const r = await fetch(d.api + '/v1/relay/box/out', { method: 'POST', headers: { authorization: `Device ${d.credential}`, 'content-type': 'application/octet-stream' }, body: bytes, signal: AbortSignal.timeout(30e3) });
+    if (!r.ok) throw new Error(`the service answered ${r.status}`);
+    const { key } = await r.json();
+    if (!/^box\/[A-Za-z0-9_-]{22}\/o[A-Za-z0-9_-]{31}$/.test(String(key))) throw new Error('not a box');
+    return key;
+  }
   const credential = () => device()?.credential || null;
   /** The service's own address (a phone page it serves, /l, works from anywhere). */
   const apiBase = () => device()?.api || null;
-  return { handle, status, destination, escrow, voice, ai, decide, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { handle, status, destination, escrow, voice, ai, decide, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

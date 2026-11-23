@@ -7,8 +7,10 @@ import { b64 } from './seal.js';
 const CHUNK = 16 * 1024;
 export class Refused extends Error {}
 
-/** cfg: {url, relay, token} from the tablet's GET /relay/me. */
-export function relayTransport({ url, relay, token }, { WS = globalThis.WebSocket, pingMs = 4 * 60e3 } = {}) {
+/** cfg: {url, relay, token} from the tablet's GET /relay/me. api: the cloud's own address, when this page may reach it
+ *  (the cloud's copy of the phone page): a big reply can then come as a box in its storage (bx, openhouse-cloud
+ *  relay-box.ts box/out), fetched from there once, still sealed. */
+export function relayTransport({ url, relay, token }, { WS = globalThis.WebSocket, pingMs = 4 * 60e3, api = null, fetch: f = globalThis.fetch } = {}) {
   let ready = null, n = 0, ping = null;
   const pending = new Map();
   function connect() {
@@ -36,7 +38,8 @@ export function relayTransport({ url, relay, token }, { WS = globalThis.WebSocke
   }
 
   /** fields: {k, id?, p?}; bytes: the sealed request. Resolves to a Response (its body the sealed reply). */
-  async function request(fields, bytes, { signal } = {}) {
+  async function request(fields, bytes, { signal, big = false } = {}) {
+    if (big && api) fields = { ...fields, bx: 1 };
     const s = await connect();
     const rid = (++n).toString(36) + Math.random().toString(36).slice(2, 8);
     let ctl, gotHead = false, headOk, headNo;
@@ -46,6 +49,14 @@ export function relayTransport({ url, relay, token }, { WS = globalThis.WebSocke
     // that order (a tablet from before this sends no i: as they come).
     const early = new Map(); let next = 0;
     const take = (m) => {
+      if (m.b && api) { // the reply, whole, in a box: fetched from the cloud, then it's gone there
+        pending.delete(rid);
+        f(`${api}/v1/relay/box/out?key=${encodeURIComponent(m.b)}`, { headers: { authorization: `Relay ${relay}.${token}` }, signal })
+          .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(`box ${r.status}`))))
+          .then((buf) => { if (!gotHead) { gotHead = true; headOk(m.s ?? 200); } ctl.enqueue(new Uint8Array(buf)); ctl.close(); })
+          .catch((e) => { if (!gotHead) { gotHead = true; headNo(e); } else try { ctl.error(e); } catch {} });
+        return;
+      }
       if (m.s !== undefined && !gotHead) { gotHead = true; headOk(m.s); }
       if (m.d) ctl.enqueue(b64.dec(m.d));
       if (m.e) { pending.delete(rid); if (!gotHead) { gotHead = true; headOk(200); } try { ctl.close(); } catch {} }
