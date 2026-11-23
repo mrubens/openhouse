@@ -1,5 +1,7 @@
 # Settings
 
+The rules for every dialog, card and setting are in [ux.md](ux.md).
+
 One list, short words, the current value instead of an explanation. An optional PIN locks some rows. Opening a row
 and changing something comes back to the list; Back goes up one level, Done closes.
 
@@ -14,7 +16,7 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 | What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
 | Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add and Remove |
 | Account | the family's name, or Off | link or unlink, Backups (the cloud or a USB drive), reach from away | yes |
-| Advanced | | PIN Lock, Updates, Plugins, device control, Opie uses apps, check-ins (how often, what it looks for), home network, speech log, USB debugging, Android settings, leave kiosk mode | yes |
+| Advanced | | Lock and updates (PIN Lock, Updates, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
 
 "Tabs and look" stays its own button beside the gear (and holding a tab): it is the home screen's, already has no
 text, and is used more than any of the above.
