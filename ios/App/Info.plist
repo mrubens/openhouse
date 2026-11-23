@@ -13,7 +13,7 @@
 	<key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key><true/>
 	<key>UILaunchScreen</key><dict/>
-	<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
+	<key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationPortraitUpsideDown</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
 	<key>UIBackgroundModes</key><array><string>remote-notification</string></array>
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
 	<key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>computer.openhouse.phone</string><key>CFBundleURLSchemes</key><array><string>openhouse</string></array></dict></array>
