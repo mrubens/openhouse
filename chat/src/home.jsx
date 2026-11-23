@@ -438,7 +438,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   // The list: what's left to get, in two columns, eight at most (more than that, seven and a count).
   if (kinds.has('lists') && list) cards.push(<div key="lists" {...card('lists')}>
     <div className="t-top"><Basket /><div className="h-label">{list.name}</div>{items.length > 0 && <span className="t-n">{items.length} to get</span>}</div>
-    {items.length || ticked ? <div className="t-items">{items.slice(0, items.length > 8 ? 7 : 8).map((i) => (
+    {items.length || ticked ? <div className={'t-items' + (items.length <= 4 ? ' one' : '')}>{items.slice(0, items.length > 8 ? 7 : 8).map((i) => (
       <div key={i.id} className="t-item"><span className="t-box" role="button" aria-label={'Got ' + i.text} onClick={(e) => tick(e, i)} /><span className="h-grow">{i.text}</span></div>
     ))}{items.length > 8 && <div className="t-item t-more">and {items.length - 7} more</div>}</div>
       : <div className="t-big">Nothing to get</div>}
