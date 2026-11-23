@@ -373,12 +373,12 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
 
   // Calendar: what's next, then the rest of its day, then the days after it, grouped by day, as many as fit (a quiet
   // today and tomorrow showed "Nothing on today or tomorrow" with the week full); under it, the things on Today.
-  const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 7 * 864e5);
+  const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 28 * 864e5); // (four weeks: the card fills with what's coming rather than leaving gaps)
   const upcoming = (h.events || []).filter((e) => (e.allDay ? dayOf(e) >= t : new Date(e.end || e.start) >= now) && dayOf(e) < weekOut)
     .sort((a, b) => (dayOf(a) - dayOf(b)) || (b.allDay - a.allDay) || (new Date(a.start) - new Date(b.start)));
   const byDay = []; for (const e of upcoming) { const d = dayOf(e); if (+byDay.at(-1)?.[0] !== +d) byDay.push([d, []]); byDay.at(-1)[1].push(e); }
   const first = upcoming[0], firstDay = first && dayOf(first);
-  const dayName = (d) => (+d === +t ? 'Today' : +d === +tomorrow ? 'Tomorrow' : weekday(d, true));
+  const dayName = (d) => (+d === +t ? 'Today' : +d === +tomorrow ? 'Tomorrow' : d - t < 7 * 864e5 ? weekday(d, true) : d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }));
   const todays = byDay[0] && +byDay[0][0] === +t ? byDay[0][1] : [];
   // What the household's apps put on the day (a school lunch, trash day): today's, and tomorrow's once today's events
   // are over or it's evening.

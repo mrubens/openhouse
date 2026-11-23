@@ -85,13 +85,10 @@ export function syncTrouble(cal, calendars, now) {
   return out;
 }
 
-/** After 3 PM, nothing for dinner, in a family that plans dinners (some in the last two weeks). */
-export function dinner(house, d) {
-  if (d.getHours() < 15 || !(house?.mealSlots || ['dinner']).includes('dinner')) return [];
-  const meals = house?.meals || {}, today = dayKey(d);
-  if (meals[today]?.dinner) return [];
-  const planned = [...Array(14)].some((_, i) => meals[dayKey(new Date(d.getTime() - (i + 1) * DAY))]?.dinner);
-  return planned ? [{ key: `dinner:${today}`, kind: 'dinner', level: 'tidy', text: 'Nothing is planned for dinner tonight (they usually plan dinners in the Meals app)' }] : [];
+/** Dinner isn't nudged about any more: Today's Dinner card shows it's not planned, with picks (the user: the calendar should
+ *  be "helpful, not pushy"; "why does it say nothing planned for dinner"). Kept as a no-op so callers stay the same. */
+export function dinner() {
+  return [];
 }
 
 /** The morning (night's end until 10): what's on today, for a short prep note, if anything is. */

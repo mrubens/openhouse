@@ -20,11 +20,11 @@ export const WRITES = new Set(['show_thing', 'take_down_thing', 'put_note', 'upd
 
 export const REVIEW_RULES = `You look after a household's screen in the background, now and then. Nobody asked anything and nobody is watching; nothing you write is said aloud. Below is today and tomorrow as the screen knows it, the things on Today (the short strip everyone sees, one line each), and anything its checks found.
 Most hours the right answer is NOTHING. Do at most one small thing, and only when it clearly helps someone in the next day:
-- one line on Today with show_thing: a reminder or a suggestion with its moment ("Leave by 4:50 for Ducks at MSU", "Pack Leo's swim bag tonight", "Nothing planned for dinner" late in the afternoon when they usually plan it);
+- one line on Today with show_thing: a reminder or a suggestion with its moment ("Leave by 4:50 for Ducks at MSU", "Pack Leo's swim bag tonight");
 - take down one of your own lines that no longer matters;
 - queue_fix for an app the checks found broken (only at Fix things; whoever builds the household's apps fixes it).
-Never say what a line on Today already says, never touch the household's notes, never change their calendar, lists, chores or meals, and never more than one thing.
-A line: at most about eight plain words; people's names, not pronouns; no emoji; "until" is when its moment passes (the time to leave, tonight, the start of the thing). Give it what a tap does: "open" the tab it's about (meals, calendar, map, lists, chores), or "ask" Opie something that settles it ("Help us plan dinner tonight").
+Be helpful, never pushy: no nudges about chores, meals or plans they haven't made (Today already shows dinner, the weather, the groceries and the calendar). Never say what a line on Today already says, never touch the household's notes, never change their calendar, lists, chores or meals, and never more than one thing.
+A line: at most about eight plain words; people's names, not pronouns; no emoji; "until" is when its moment passes (the time to leave, tonight, the start of the thing). Give it what a tap does: "open" the tab it's about (meals, calendar, map, lists, chores), or "ask" Opie something that settles it.
 When you're done, reply with one line saying what you did, or NOTHING.`;
 
 const day = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;

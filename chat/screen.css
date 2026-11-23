@@ -308,7 +308,7 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
 .t-next { margin: calc(var(--u) * 10) 0 calc(var(--u) * 12); font-size: calc(var(--u) * 46 * var(--s)); font-weight: 700; line-height: 1; letter-spacing: -.03em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding-bottom: .08em; }
 .t-when-next { display: flex; align-items: center; gap: calc(var(--u) * 10); font-size: calc(var(--u) * 21 * var(--s)); font-weight: 650; white-space: nowrap; }
 .hand-type .t-next { font-size: calc(var(--u) * 54 * var(--s)); }
-.t-agenda { padding: calc(var(--u) * 8) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 18); display: flex; flex-direction: column; justify-content: space-between; }
+.t-agenda { padding: calc(var(--u) * 8) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 18); display: flex; flex-direction: column; justify-content: flex-start; /* packed from the top, filled with the days ahead (space-between left big gaps) */ }
 .t-daygroup:has(> [data-off]:first-child) { display: none; }
 .t-daygroup > .h-label { margin: calc(var(--u) * 12) 0 calc(var(--u) * 2); }
 .t-ev { display: grid; grid-template-columns: calc(var(--u) * 76 * var(--s)) calc(var(--u) * 30) minmax(0, 1fr); align-items: center; column-gap: calc(var(--u) * 12); height: calc(var(--u) * 44 * var(--s)); font-size: calc(var(--u) * 21 * var(--s)); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
