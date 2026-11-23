@@ -22,7 +22,10 @@ struct WebPage: UIViewRepresentable {
     cfg.userContentController.addUserScript(WKUserScript(source: early, injectionTime: .atDocumentStart, forMainFrameOnly: true))
     #if DEBUG
     // The voice session's own log, here in the app's log (Console, or simctl's).
-    let debug = "globalThis.OPENHOUSE_LIVE_DEBUG = true; const d = console.debug; console.debug = (...a) => { try { webkit.messageHandlers.log.postMessage(a.map(String).join(' ')); } catch (e) {} d.apply(console, a); };"
+    let debug = """
+    globalThis.OPENHOUSE_LIVE_DEBUG = true; const d = console.debug; console.debug = (...a) => { try { webkit.messageHandlers.log.postMessage(a.map(String).join(' ')); } catch (e) {} d.apply(console, a); };
+    const W = WebSocket; globalThis.WebSocket = function (u, p) { const s = new W(u, p); s.addEventListener('message', (e) => { const t = String(e.data); if (t.startsWith('{"t":"no"')) console.debug('[relay] ' + t); }); s.addEventListener('close', (e) => console.debug('[relay] closed ' + e.code)); return s; }; Object.assign(globalThis.WebSocket, W); globalThis.WebSocket.prototype = W.prototype;
+    """
     cfg.userContentController.addUserScript(WKUserScript(source: debug, injectionTime: .atDocumentStart, forMainFrameOnly: true))
     cfg.userContentController.add(context.coordinator, name: "log")
     #endif

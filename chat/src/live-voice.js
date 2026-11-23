@@ -35,7 +35,8 @@ export function talk(c, on = {}) {
     offer: async (sdp) => {
       const s = await setup;
       if (s?.quietS > idleS) idleS = Math.min(30, s.quietS);
-      const r = await c.json('POST', '/live/start', { sdp, name: 'Opie', idleTimeoutS: 60, ...(s ? { instructions: s.instructions, tools: s.tools, earlier: s.earlier || [] } : {}) }).catch(() => null);
+      // Only the offer: the hub makes the session's instructions and tools itself (the relay takes only small requests).
+      const r = await c.json('POST', '/live/start', { sdp, name: 'Opie', idleTimeoutS: 60 }).catch((e) => { log('start failed: ' + (e?.message || e)); return null; });
       const a = r?.status === 200 && r.json ? r.json : { error: r?.json?.error || "the hub didn't answer" };
       // 'off' (the household hasn't turned talking on) comes as 400 from the bridge or 403 from the service; a 403
       // 'not for screens' is the bridge refusing this device (or a tablet too old to take voice from other devices).

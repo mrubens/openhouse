@@ -362,7 +362,11 @@ async function route(req, res, url) {
     }
     // Live voice from another device (screens.js 'voice', chat/src/live-voice.js): its session starts through the cloud
     // as the tablet's does (/cloud/live/start), and its time is counted the same way.
-    if (req.method === 'POST' && /^\/live\/(start|usage)$/.test(url.pathname)) { await cloud.handle(req, res, new URL('/cloud' + url.pathname, 'http://x')); return true; }
+    // A device sends only its offer; the session's instructions and tools are the household's, made here (live-tools.js setupFor).
+    if (req.method === 'POST' && /^\/live\/(start|usage)$/.test(url.pathname)) {
+      if (url.pathname === '/live/start') req.liveSetup = await chat.live.setupFor(req);
+      await cloud.handle(req, res, new URL('/cloud' + url.pathname, 'http://x')); return true;
+    }
     // A hub's settings device (screens.js 'admin'): what the tablet's Settings reach on its loopback.
     if (hub) {
       if (await hub(req, res, url)) return true;

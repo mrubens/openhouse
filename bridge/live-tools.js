@@ -328,13 +328,8 @@ export function liveToolRoutes({ HERE, door, weather, prefsBlock = () => '', ass
     if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, { step: inSetup() ? setupStep : null, home_address: setupHome }); return true;
     }
     if (req.method === 'GET' && url.pathname === '/live/setup') {
-      const phone = onPhone(req), hf = phone ? { text: '' } : handsFree();
-      const woke = !phone && url.searchParams.get('how') === 'wake';
-      // A session its name opened starts fresh unless they were just talking (2 min): an old conversation turned a false wake
-      // into an answer about something nobody had just said (2026-11-21, "staying focused").
-      const recentlyTalked = () => { const a = talk.all(); return a.length > 0 && Date.now() - a[a.length - 1].at < 120e3; };
       convoStart = Date.now(); // a conversation begins (what it's given as earlier talk stays earlier)
-      json(res, 200, { instructions: instructions() + await rightNow() + hf.text + (phone ? phoneNote(phone) : '') + (woke ? wakeNote(assistantName()) : ''), tools: tools().filter((t) => !(phone && t.name === 'look_with_camera')), earlier: woke && !recentlyTalked() ? [] : talk.messages(), ...(hf.listen ? { quietS: hf.listen } : {}) }); return true; // (the tablet's camera is for someone at the tablet, not a phone)
+      json(res, 200, await setupFor(req, url.searchParams.get('how') === 'wake')); return true;
     }
     if (req.method === 'POST' && url.pathname === '/live/said') {
       const b = await body(req), role = String(b.role || '');
@@ -355,7 +350,18 @@ export function liveToolRoutes({ HERE, door, weather, prefsBlock = () => '', ass
   }
   // Someone's own phone (screens.js, docs/phones.md): who's talking is known, and nobody else is in the room.
   let whoOf = () => null;
+  /** What a live session is set up with: the household's instructions, tools and what was said lately. A paired device
+   *  (a phone) gets it from GET /live/setup to know the quiet time, but its session starts with this, made here again
+   *  (server.js /live/start): the relay takes only small requests, and a device shouldn't say what Opie's rules are. */
+  async function setupFor(req, woke = false) {
+    const phone = onPhone(req), hf = phone ? { text: '' } : handsFree();
+    woke = woke && !phone;
+    // A session its name opened starts fresh unless they were just talking (2 min): an old conversation turned a false wake
+    // into an answer about something nobody had just said (2026-11-21, "staying focused").
+    const recentlyTalked = () => { const a = talk.all(); return a.length > 0 && Date.now() - a[a.length - 1].at < 120e3; };
+    return { instructions: instructions() + await rightNow() + hf.text + (phone ? phoneNote(phone) : '') + (woke ? wakeNote(assistantName()) : ''), tools: tools().filter((t) => !(phone && t.name === 'look_with_camera')), earlier: woke && !recentlyTalked() ? [] : talk.messages(), ...(hf.listen ? { quietS: hf.listen } : {}) }; // (the tablet's camera is for someone at the tablet, not a phone)
+  }
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you.`;
-  return Object.assign(handle, { useAi: (f) => { ai = f; }, useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, heard, device: () => device });
+  return Object.assign(handle, { useAi: (f) => { ai = f; }, useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, heard, setupFor, device: () => device });
 }
