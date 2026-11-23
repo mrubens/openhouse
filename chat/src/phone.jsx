@@ -514,6 +514,23 @@ function App() {
   return <Phone me={me} c={c} onRemoved={() => { put(STORE, null); put(CACHE, null); put(QUEUE, null); setMe(null); setRemoved(true); }} />;
 }
 
-if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register(CLOUD_RELAY ? '/h/sw.js' : 'sw.js').catch(() => {});
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register(CLOUD_RELAY ? '/h/sw.js' : 'sw.js').then((reg) => {
+    // Look for a new version whenever the page comes back (an installed copy is often resumed, not reopened).
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
+  // A new version took over (its worker skips waiting and claims this page): load it, but never under someone's hands.
+  // Not while a sheet, More or a field (here or in an app's frame) is open; then when the page is next hidden, or idle.
+  const had = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!had) return; // (the first worker taking over a fresh page: nothing new to load)
+    const busy = () => !!document.querySelector('.scrim, .more.open') || /^(INPUT|TEXTAREA|IFRAME)$/.test(document.activeElement?.tagName || '');
+    const go = () => { if (document.hidden || !busy()) location.reload(); };
+    go();
+    const t = setInterval(go, 15e3);
+    document.addEventListener('visibilitychange', go);
+    void t;
+  });
+}
 addEventListener('hashchange', () => location.reload());
 createRoot(document.getElementById('root')).render(<App />);
