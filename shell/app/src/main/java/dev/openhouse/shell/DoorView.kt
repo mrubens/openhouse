@@ -55,6 +55,8 @@ class DoorView(private val act: ComponentActivity, private val ui: () -> String,
         }
         @JavascriptInterface fun openApp(g: String?, id: String) { if (ok(g)) main.post { o.openApp(id) } }
         @JavascriptInterface fun settings(g: String?) { if (ok(g)) main.post { o.showSettings = true } }
+        /** The Apps tab's "Add apps": OpenHouse's list of plugins (the same as Settings, Plugins); adding asks for the PIN. */
+        @JavascriptInterface fun plugins(g: String?) { if (ok(g)) main.post { (act as? MainActivity)?.let { PluginsMenu(it, fromApps = true).gallery() } } }
         @JavascriptInterface fun type(g: String?) { if (ok(g)) main.post { o.openTyping() } } // the sidebar's keyboard button
         @JavascriptInterface fun sleep(g: String?) { if (ok(g)) main.post { o.sleepNow(); dev.openhouse.ui.Heartbeat.sleep() } } // the sidebar's moon
         @JavascriptInterface fun weather(g: String?) { if (ok(g)) main.post { o.showWeather = true } }

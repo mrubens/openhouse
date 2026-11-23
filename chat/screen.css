@@ -258,6 +258,7 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
   filter: saturate(.78); opacity: .94; box-shadow: inset 0 0 0 1px rgba(0,0,0,.04); }
 .h-app-icon.own { object-fit: contain; background: var(--h-tint); padding: calc(var(--u) * 8 * var(--s)); box-sizing: border-box; }
 .h-app-icon.letter { display: grid; place-items: center; background: var(--h-tint); color: var(--h-soft); font-size: calc(var(--u) * 24 * var(--s)); font-weight: 500; filter: none; opacity: 1; }
+.h-app-icon.add svg { width: 46%; height: 46%; }
 .h-app-name { font-size: calc(var(--u) * 16 * var(--s)); color: var(--h-ink); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 calc(var(--u) * 4); }
 .h-apps-away { margin-top: calc(var(--u) * 28 * var(--s)); padding-left: calc(var(--u) * 6); }
 .h-link { font-size: calc(var(--u) * 16 * var(--s)); color: var(--h-soft); padding: calc(var(--u) * 12) 0; text-decoration: underline; text-decoration-color: var(--h-line); text-underline-offset: .25em; }

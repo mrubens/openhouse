@@ -18,7 +18,12 @@ import org.json.JSONObject
 import java.net.URLEncoder
 import kotlin.concurrent.thread
 
-internal class PluginsMenu(private val act: MainActivity, private val onBack: (() -> Unit)? = null) {
+// From the Apps tab ([fromApps]): the gallery alone, nobody has given the PIN yet, so adding, removing and updating ask
+// for it (askPin; none set, none asked), and Back closes it.
+internal class PluginsMenu(private val act: MainActivity, private val fromApps: Boolean = false, private val onBack: (() -> Unit)? = null) {
+    /** Where a dialog goes back to: Settings' list of plugins, or (from the Apps tab) the gallery. */
+    private fun home() { if (fromApps) gallery() else show() }
+    private fun guard(f: () -> Unit) { if (fromApps) askPin(act, act, "PIN", f) else f() }
     private fun get(path: String, readMs: Int = 15_000) = runCatching { JSONObject(BridgeClient.getText("${act.bridge}$path", 3000, readMs)) }.getOrNull()
     /** The answer (with "error" on a refusal), or null if the bridge didn't answer. */
     private fun post(path: String, body: JSONObject, readMs: Int = 120_000): JSONObject? = runCatching {
@@ -68,22 +73,22 @@ internal class PluginsMenu(private val act: MainActivity, private val onBack: ((
         // The household's version of one of ours: put ours back (theirs stays in the history of changes).
         if (p.optString("kind") == "local") {
             CalmDialog(act).setTitle(title).setMessage("Yours, based on OpenHouse's ${p.optString("basedOn", title)}.")
-                .setPositiveButton("Back") { _, _ -> show() }
-                .setNeutralButton("Put ours back") { _, _ -> thread {
+                .setPositiveButton("Back") { _, _ -> home() }
+                .setNeutralButton("Put ours back") { _, _ -> guard { thread {
                     val r = post("/plugins/reset", JSONObject().put("name", p.optString("name")), 30_000)
-                    ui { when { r == null -> say("Plugins", noBridge); r.has("error") -> say("Plugins", r.optString("error")); else -> { act.toast("OpenHouse's $title is back"); act.reloadHome(); show() } } }
-                } }.show()
+                    ui { when { r == null -> say("Plugins", noBridge); r.has("error") -> say("Plugins", r.optString("error")); else -> { act.toast("OpenHouse's $title is back"); act.reloadHome(); home() } } }
+                } } }.show()
             return
         }
         val text = standing(p) + ".\n\n" + strs(p.optJSONArray("rights")).joinToString("\n")
         val update = p.str("update")
         CalmDialog(act).setTitle(title).setMessage(text).setWidth(860f)
-            .setPositiveButton("Back") { _, _ -> show() }
+            .setPositiveButton("Back") { _, _ -> home() }
             .setNegativeButton(if (update != null) "Update to $update" else "Look for an update") { _, _ -> checkUpdate(p) }
-            .setNeutralButton("Remove") { _, _ -> thread {
+            .setNeutralButton("Remove") { _, _ -> guard { thread {
                 val r = post("/plugins/remove", JSONObject().put("name", p.optString("name")), 30_000)
-                ui { when { r == null -> say("Plugins", noBridge); r.has("error") -> say("Plugins", r.optString("error")); else -> { act.toast("Removed $title"); act.reloadHome(); show() } } }
-            } }.show()
+                ui { when { r == null -> say("Plugins", noBridge); r.has("error") -> say("Plugins", r.optString("error")); else -> { act.toast("Removed $title"); act.reloadHome(); home() } } }
+            } } }.show()
     }
 
     // ---- an update: what it is, then (if the household changed it) their choice ----
@@ -95,10 +100,10 @@ internal class PluginsMenu(private val act: MainActivity, private val onBack: ((
                 when {
                     r == null -> say("Plugins", noBridge)
                     r.has("error") -> say("That didn't work", r.optString("error"))
-                    !r.optBoolean("newer") -> say(p.optString("title"), "This is the newest version.") { show() }
+                    !r.optBoolean("newer") -> say(p.optString("title"), "This is the newest version.") { home() }
                     strs(r.optJSONArray("changedHere")).isEmpty() ->
                         CalmDialog(act).setTitle("Update ${r.optString("title")}?").setMessage(r.optString("text")).setWidth(860f)
-                            .setPositiveButton("Update") { _, _ -> choose(r, "theirs") }.setNegativeButton("Cancel") { _, _ -> show() }.show()
+                            .setPositiveButton("Update") { _, _ -> choose(r, "theirs") }.setNegativeButton("Cancel") { _, _ -> home() }.show()
                     else -> choices(r)
                 }
             }
@@ -116,10 +121,10 @@ internal class PluginsMenu(private val act: MainActivity, private val onBack: ((
         )
         CalmDialog(act).setTitle("Update $title?").setMessage(msg).setWidth(860f)
             .setRows(rows.map { it.first }) { _, i -> choose(r, rows[i].second) }
-            .setNegativeButton("Cancel") { _, _ -> show() }.show()
+            .setNegativeButton("Cancel") { _, _ -> home() }.show()
     }
 
-    private fun choose(c: JSONObject, choice: String) {
+    private fun choose(c: JSONObject, choice: String) = guard {
         val title = c.optString("title"); val v = c.optString("version")
         if (choice == "both") act.toast("Putting the two together…")
         thread {
@@ -127,18 +132,18 @@ internal class PluginsMenu(private val act: MainActivity, private val onBack: ((
             ui {
                 when {
                     r == null -> say("Plugins", noBridge)
-                    r.optBoolean("kept") && r.has("error") -> say("Kept yours", r.optString("error")) { show() }
-                    r.has("error") -> say("That didn't work", r.optString("error")) { show() }
-                    choice == "keep" -> { act.toast("Kept yours"); show() }
-                    choice == "both" -> say("Updated", "$title now has the changes in $v, along with yours." + (r.str("note")?.let { "\n\n$it" } ?: "")) { act.reloadHome(); show() }
-                    else -> say("Updated", "$title is version $v now.") { act.reloadHome(); show() }
+                    r.optBoolean("kept") && r.has("error") -> say("Kept yours", r.optString("error")) { home() }
+                    r.has("error") -> say("That didn't work", r.optString("error")) { home() }
+                    choice == "keep" -> { act.toast("Kept yours"); home() }
+                    choice == "both" -> say("Updated", "$title now has the changes in $v, along with yours." + (r.str("note")?.let { "\n\n$it" } ?: "")) { act.reloadHome(); home() }
+                    else -> say("Updated", "$title is version $v now.") { act.reloadHome(); home() }
                 }
             }
         }
     }
 
     // ---- the gallery: OpenHouse's list, then a link for anything else ----
-    private fun gallery() {
+    fun gallery() {
         act.toast("Getting the list…")
         thread {
             val g = get("/plugins/gallery", 30_000)
@@ -163,12 +168,12 @@ internal class PluginsMenu(private val act: MainActivity, private val onBack: ((
         } + listOf(CalmDialog.Row("From a link", "A git link or a .tgz someone shared") to { askLink() })
         CalmDialog(act).setTitle("Add a plugin").setWidth(900f)
             .setMessage(error ?: if (list.isEmpty()) "OpenHouse's list is empty right now." else "Plugins OpenHouse has looked over.")
-            .setRows(rows.map { it.first }) { _, i -> rows[i].second() }.setNegativeButton("Back") { _, _ -> show() }.show()
+            .setRows(rows.map { it.first }) { _, i -> rows[i].second() }.setNegativeButton(if (fromApps) "Close" else "Back") { _, _ -> if (!fromApps) show() }.show()
     }
 
     private fun installedOne(name: String) = thread {
         val p = objs(get("/plugins")?.optJSONArray("plugins")).find { it.optString("name") == name }
-        ui { if (p == null) show() else one(p) }
+        ui { if (p == null) home() else one(p) }
     }
 
     private fun askLink() {
@@ -189,7 +194,7 @@ internal class PluginsMenu(private val act: MainActivity, private val onBack: ((
                     r.has("error") -> say("That didn't work", r.optString("error"))
                     r.optBoolean("already") -> say(r.optString("title"), r.optString("text"))
                     else -> CalmDialog(act).setTitle("Add ${r.optString("title")}?").setMessage(r.optString("text")).setWidth(860f)
-                        .setPositiveButton("Add it") { _, _ -> add(source, r.optString("title")) }.setNegativeButton("Cancel") { _, _ -> gallery() }.show()
+                        .setPositiveButton("Add it") { _, _ -> guard { add(source, r.optString("title")) } }.setNegativeButton("Cancel") { _, _ -> gallery() }.show()
                 }
             }
         }
@@ -201,7 +206,7 @@ internal class PluginsMenu(private val act: MainActivity, private val onBack: ((
             when {
                 r == null -> say("Plugins", noBridge)
                 r.has("error") -> say("That didn't work", r.optString("error"))
-                else -> say("Added", "$title is on the tablet.") { act.reloadHome(); show() }
+                else -> say("Added", "$title is on the tablet.") { act.reloadHome(); if (!fromApps) show() } // from Apps: back to Apps, where it now is
             }
         }
     }
