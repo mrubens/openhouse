@@ -39,6 +39,16 @@ the rows with each other, not with the tables below:
   chimes). Round 4 at 0.98 should cut false wakes by about a third at the same hearing; at home that's untested.
 - **Train:** `r3 --stage train --names s0w:300:1000:45000:256:b0w+r2:0:smooth=0` (key=value options after the spec).
 
+## Learning a home's own false wakes (opt-in)
+
+A household can let its tablet keep a few seconds around each wake, so the wakes that weren't for it can be learned
+from: `POST /voice/clips/setting {"on": true}` (off by default; off deletes them). Each wake keeps 2 s before it
+reached the bridge to 1 s after, as streamed (16 kHz mono wav), in `voice-clips/` with when and how sure
+(`clips.jsonl`). At most 300 clips, none older than 30 days; they never leave the tablet by themselves and aren't in
+backups. `GET /voice/clips` lists them, `GET /voice/clips/<file>` reads one, `POST /voice/clips/clear` deletes them.
+Whether a wake was real can be told from the speech log at the same moment (the live voice answered a request, or
+closed silently with `go_away` or after its quiet time).
+
 ## Results (2026-11-20, round 3: 1,550 hours of ordinary speech)
 
 Round 3 was on the tablet from voice set 4 (`models/wake/opie.onnx`, r2), at 0.9. Out of 10, the same test set as below:

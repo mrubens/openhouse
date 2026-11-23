@@ -1,6 +1,7 @@
 // Listening for its name. The shell streams the microphone here; a small wake model (bridge/voice-worker.js,
 // bridge/wake.js) listens for "Opie" and nothing else: no speech is transcribed, kept or sent anywhere, and no audio is
-// stored (except a test recording someone switched on: see `rec` below; the display shows a dot while one runs).
+// stored (except a test recording someone switched on: see `rec` below; the display shows a dot while one runs; and,
+// where a household switched it on, a few seconds around each wake: see `clips` below).
 // When it hears its name, the display hands the microphone to OpenAI's live voice (shell LiveVoice), which hears the
 // request; with the live voice off, the display says how to turn it on. There are no other speech models on the
 // tablet (docs/wake-word.md, docs/voice-models.md).
@@ -16,6 +17,9 @@
 // POST /voice/log/setting {on}  keep the speech log or not (off deletes it); GET /voice/log?n= reads it
 // POST /voice/record {on, minutes?}  test recording (see below): off unless switched on; GET /voice/record lists,
 //                               GET /voice/record/<file> reads one, POST /voice/record/clear deletes them all
+// POST /voice/clips/setting {on} keep ~3 s around each wake on this tablet, to learn this home's false wakes (off by
+//                               default; off deletes them); GET /voice/clips lists, GET /voice/clips/<file> reads one (wav),
+//                               POST /voice/clips/clear deletes them all
 // GET  /voice/events            SSE: wake, say, recording
 
 import fs from 'node:fs';
@@ -75,6 +79,31 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
   // Each time the model fires: when and how sure (nothing heard or said is kept), so false wakes can be counted.
   const WAKES = path.join(DIR, 'voice-wakes.jsonl');
   const wakeLog = (o) => { try { if (fs.existsSync(WAKES) && fs.statSync(WAKES).size > 1e6) fs.renameSync(WAKES, WAKES + '.1'); fs.appendFileSync(WAKES, JSON.stringify({ t: new Date().toISOString(), ...o }) + '\n'); } catch {} };
+  // Clips (a household's choice, off by default): the microphone's last seconds around each wake, kept only on this
+  // tablet (voice-clips/, not in backups: backup-format.js INCLUDE), so its own false wakes can be learned from.
+  // 2 s before the wake reached here to 1 s after, as streamed (16 kHz mono wav), with when and how sure in
+  // clips.jsonl. At most 300, none older than 30 days.
+  const CLIPS = path.join(DIR, 'voice-clips'), CLIPS_ON = path.join(DIR, 'voice-clips.on'), CLIP_FILE = /^[\w-]+\.wav$/;
+  const CLIP_MAX = 300, CLIP_DAYS = 30, RING = 4 * RATE * 2;
+  let clipsOn = fs.existsSync(CLIPS_ON), ring = Buffer.alloc(0);
+  const ringAdd = (d) => { if (!clipsOn) return; ring = Buffer.concat([ring, d]); if (ring.length > RING) ring = ring.subarray(ring.length - RING); };
+  const wav = (pcm) => { const h = Buffer.alloc(44); h.write('RIFF', 0); h.writeUInt32LE(36 + pcm.length, 4); h.write('WAVEfmt ', 8); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(RATE, 24); h.writeUInt32LE(RATE * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40); return Buffer.concat([h, pcm]); };
+  const clipLines = () => { try { return fs.readFileSync(path.join(CLIPS, 'clips.jsonl'), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; } };
+  function clipsPrune() {
+    const keep = clipLines().filter((c) => Date.now() - Date.parse(c.t) < CLIP_DAYS * 864e5 && fs.existsSync(path.join(CLIPS, c.file))).slice(-CLIP_MAX), names = new Set(keep.map((c) => c.file));
+    try { for (const f of fs.readdirSync(CLIPS)) if (CLIP_FILE.test(f) && !names.has(f)) fs.rmSync(path.join(CLIPS, f), { force: true }); } catch {}
+    try { fs.writeFileSync(path.join(CLIPS, 'clips.jsonl.tmp'), keep.map((c) => JSON.stringify(c) + '\n').join('')); fs.renameSync(path.join(CLIPS, 'clips.jsonl.tmp'), path.join(CLIPS, 'clips.jsonl')); } catch {}
+  }
+  function clipWake(p) {
+    if (!clipsOn) return;
+    const t = new Date();
+    setTimeout(() => { // (1 s after: what was said right after the name)
+      const pcm = ring.subarray(Math.max(0, ring.length - 3 * RATE * 2));
+      if (!clipsOn || pcm.length < RATE) return;
+      const file = t.toISOString().replace(/[:.]/g, '-') + '.wav';
+      try { fs.mkdirSync(CLIPS, { recursive: true }); fs.writeFileSync(path.join(CLIPS, file), wav(Buffer.from(pcm))); fs.appendFileSync(path.join(CLIPS, 'clips.jsonl'), JSON.stringify({ t: t.toISOString(), p, file, level: micLevel() }) + '\n'); clipsPrune(); } catch {}
+    }, 1000);
+  }
   const wakeLines = () => { const r = []; for (const f of [WAKES + '.1', WAKES]) try { for (const l of fs.readFileSync(f, 'utf8').split('\n')) if (l) try { r.push(JSON.parse(l)); } catch {} } catch {} return r; };
 
   // A test recording, for whoever is working on the listening, of their own test session: off unless
@@ -141,7 +170,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
       console.log(ready ? `[voice] ready (${model})` : `[voice] not ready: ${error}`); return;
     }
     if (m.type === 'model-wake') { const { type, src, ...o } = m; if (src === 'mic') wakeLog(o); return; }
-    if (m.type === 'wake') { if (m.src !== 'mic') return; vlog('wake-word', { p: m.p }); handle.onWake?.(); emit({ type: 'wake', at: Date.now(), p: m.p }); return; }
+    if (m.type === 'wake') { if (m.src !== 'mic') return; vlog('wake-word', { p: m.p }); clipWake(m.p); handle.onWake?.(); emit({ type: 'wake', at: Date.now(), p: m.p }); return; }
     if (m.type === 'note') { vlog('note', { text: m.text }); console.log('[voice] ' + m.text); return; }
     if (m.type === 'mic-level') { try { fs.writeFileSync(MIC_LEVEL + '.tmp', JSON.stringify({ usual: m.level })); fs.renameSync(MIC_LEVEL + '.tmp', MIC_LEVEL); } catch {} return; }
     if (m.type === 'flushed') { const r = waiting.get(m.src); if (r) { waiting.delete(m.src); r({ woke: m.woke > 0, wakes: m.woke, peak: m.peak }); } }
@@ -198,6 +227,12 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
       const all = wakeLines(), n = Math.min(5000, Number(url.searchParams.get('n')) || 500), ago = (ms) => all.filter((w) => Date.now() - Date.parse(w.t) < ms).length;
       json(res, 200, { total: all.length, lastHour: ago(36e5), lastDay: ago(864e5), wakes: all.slice(-n) }); return true;
     }
+    if (req.method === 'GET' && p === '/voice/clips') { json(res, 200, { on: clipsOn, clips: clipLines() }); return true; }
+    if (req.method === 'GET' && p.startsWith('/voice/clips/')) {
+      const name = p.slice('/voice/clips/'.length), f = path.join(CLIPS, name);
+      if (!CLIP_FILE.test(name) || !fs.existsSync(f)) { json(res, 404, { error: 'no such clip' }); return true; }
+      res.writeHead(200, { 'content-type': 'audio/wav', 'content-length': fs.statSync(f).size }); fs.createReadStream(f).pipe(res); return true;
+    }
     if (req.method === 'GET' && p === '/voice/record') {
       json(res, 200, { on: !!rec, until: rec?.until || 0, now: rec?.name || null, files: recFiles().map((f) => ({ name: f.name, bytes: f.bytes, ...(f.name.endsWith('.pcm') ? { seconds: Math.round(f.bytes / 2 / RATE) } : {}) })) });
       return true;
@@ -218,6 +253,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
         if (d.length & 1) { carry = d.subarray(d.length - 1); d = d.subarray(0, d.length - 1); }
         if (!worker || !ready || !d.length) return;
         worker.send({ type: 'audio', src: 'mic', samples: toFloat(d) });
+        ringAdd(d);
         if (rec) { try { fs.writeSync(rec.pcm, d); rec.samples += d.length >> 1; } catch (e) { recStop(e.message); } if (rec && rec.samples * 2 > REC_MAX) recStop('full'); }
       });
       await new Promise((r) => { req.on('end', r); req.on('close', r); });
@@ -247,6 +283,12 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
       worker?.send({ type: 'wake-on', on: wakeOn }); vlog('wake-word-setting', { on: wakeOn });
       json(res, 200, { ok: true, on: wakeOn }); return true;
     }
+    if (p === '/voice/clips/setting' && typeof b.on === 'boolean') {
+      clipsOn = b.on; ring = Buffer.alloc(0);
+      try { if (clipsOn) fs.writeFileSync(CLIPS_ON, 'on\n'); else { fs.rmSync(CLIPS_ON, { force: true }); fs.rmSync(CLIPS, { recursive: true, force: true }); } } catch {}
+      vlog('wake-clips-setting', { on: clipsOn }); json(res, 200, { ok: true, on: clipsOn }); return true;
+    }
+    if (p === '/voice/clips/clear') { try { fs.rmSync(CLIPS, { recursive: true, force: true }); } catch {} json(res, 200, { ok: true }); return true; }
     if (p === '/voice/wakes/clear') { for (const f of [WAKES, WAKES + '.1']) try { fs.rmSync(f, { force: true }); } catch {} json(res, 200, { ok: true }); return true; }
     if (p === '/voice/say') { // an app's words (kit say): the display says them
       const text = String(b.text || '').replace(/\s+/g, ' ').trim().slice(0, 600);
