@@ -3,3 +3,4 @@
 .next { display: flex; flex-direction: column; gap: calc(10 * var(--u)); }
 .weeks { display: flex; flex-direction: column; }
 .sheet .chip { justify-content: flex-start; align-self: flex-start; }
+.row[hidden] { display: none; }

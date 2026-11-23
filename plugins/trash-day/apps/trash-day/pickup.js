@@ -1,7 +1,7 @@
 // The household's own pickup schedule, as they set it: the weekday, whether recycling (and yard waste) goes every
 // week or every other week, and whether a weekday holiday moves the rest of that week a day later. Or their city's
 // pickup calendar (iCal), whose own dates and words are used as they are. No page or kit here.
-import { dayKey, dateOf, addDays } from './ui.js';
+import { dayKey, dateOf, addDays, at, hm } from './ui.js';
 
 export const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -64,3 +64,20 @@ export function what(p) {
   return l.length < 2 ? l[0] : `${l.slice(0, -1).join(', ')} and ${l.at(-1)}`;
 }
 export const What = (p) => cap(what(p));
+
+/**
+ * Today's one line, if there's something to do now: the bins out (the evening before an early pickup, from 5 PM, on
+ * the sleep screen too; the morning of a later one), then back in once it's been (from noon, or two hours after a
+ * later pickup, until 9 PM) unless they turned that off. {text: '' | words, until}. list: the next pickups.
+ */
+export function todayLine(list, s, now = new Date()) {
+  const t = dayKey(now), p = list.find((x) => x.date >= t);
+  if (!p || !s) return { text: '', until: null };
+  const time = s.pickup && s.pickup !== 'early' ? s.pickup : null;
+  const pick = at(time || '06:00', dateOf(p.date)), early = !time || pick.getHours() < 9;
+  // (the same words through the night until the truck comes, so a line someone took down stays down)
+  if (early && ((p.date === addDays(t, 1) && now >= at('17:00', now)) || (p.date === t && now < pick))) return { text: `${What(p)} out tonight`, until: pick };
+  if (!early && p.date === t && now >= at('06:00', now) && now < pick) return { text: `${What(p)} out by ${hm(pick)}`, until: pick };
+  if (s.bringIn !== false && p.date === t && now >= new Date(Math.max(at('12:00', now), +pick + 2 * 3600e3)) && now < at('21:00', now)) return { text: 'Bring the bins back in', until: at('21:00', now) };
+  return { text: '', until: null };
+}

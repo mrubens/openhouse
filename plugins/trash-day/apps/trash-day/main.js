@@ -4,7 +4,7 @@
 // Runs in the background.
 import { store, today, days, web, onAction } from '/kit/openhouse.js';
 import { h, sheet, field, dayKey, addDays, whenDay, monthDay, weekday, put, whenShown } from './ui.js';
-import { DAYS, MONTHS, pickups, fromCalendar, what, What } from './pickup.js';
+import { DAYS, MONTHS, pickups, fromCalendar, what, What, todayLine } from './pickup.js';
 import { feedUrl, readIcs } from './ics.js';
 
 const $app = document.getElementById('app');
@@ -31,11 +31,10 @@ function update() {
   const l = list(8).map((p) => ({ date: p.date, label: 'Trash', short: What(p).slice(0, 28), text: `${What(p)}${p.text ? '' : ' go out'}${p.moved ? ` (a day later for ${p.moved})` : ''}` }));
   const k = JSON.stringify(l);
   if (k !== notesFor) { notesFor = k; days.set(l); }
-  // from 3 PM the day before until 9 AM on the day
-  const now = new Date(), t = dayKey(now), p = next();
-  let text = '', until = null;
-  if (p && p.date === addDays(t, 1) && now.getHours() >= 15) { text = `${What(p)} ${p.text ? 'pickup tomorrow' : 'go out tonight'}`; until = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 9); }
-  else if (p && p.date === t && now.getHours() < 9) { text = `${What(p)} ${p.text ? 'pickup today' : 'today'}`; until = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9); }
+  // One line at a time, and only when there's something to do: the bins out (the evening before an early pickup, on
+  // the sleep screen too; the morning of a later one), then back in once it's been (from noon). A tick or an x on
+  // Today takes it down, and the same words don't come back that day.
+  const { text, until } = todayLine(list(3), setup, new Date());
   if (text !== lineFor) { lineFor = text; if (text) today.show(text.slice(0, 80), until); else today.clear(); }
   draw();
 }
@@ -61,7 +60,9 @@ function draw() {
 }
 
 function openSetup() {
-  const s = { day: 'Monday', recycling: 'weekly', recyclingWeek: dayKey(), yard: 'none', yardWeek: dayKey(), yardFrom: 3, yardTo: 10, holidays: true, link: '', ...(setup || {}) };
+  const s = { day: 'Monday', recycling: 'weekly', recyclingWeek: dayKey(), yard: 'none', yardWeek: dayKey(), yardFrom: 3, yardTo: 10, holidays: true, link: '', pickup: 'early', bringIn: true, ...(setup || {}) };
+  const time = h('input', { class: 'field', type: 'time', value: s.pickup !== 'early' ? s.pickup : '10:00', onchange: (e) => { s.pickup = e.target.value || 'early'; } });
+  const atField = field('At', time); atField.hidden = s.pickup === 'early';
   const sel = (opts, v, on) => h('select', { class: 'field', onchange: (e) => on(e.target.value) }, opts.map(([k, t]) => h('option', { value: k, selected: String(k) === String(v) }, t)));
   const date = (v, on) => h('input', { class: 'field', type: 'date', value: v, onchange: (e) => on(e.target.value) });
   const link = h('input', { class: 'field', placeholder: 'webcal://… or https://… (optional)', value: s.link, autocapitalize: 'off', spellcheck: 'false' });
@@ -69,6 +70,9 @@ function openSetup() {
   sheet('Pickup schedule', [
     h('div', { class: 'pair' }, field('Pickup day', sel(DAYS.slice(1, 6).map((d) => [d, d]), s.day, (v) => { s.day = v; })),
       field('A weekday holiday', sel([['yes', 'Moves the rest of the week a day later'], ['no', 'Changes nothing']], s.holidays ? 'yes' : 'no', (v) => { s.holidays = v === 'yes'; }))),
+    h('div', { class: 'pair' }, field('The truck comes', sel([['early', 'Early in the morning'], ['time', 'At a time']], s.pickup === 'early' ? 'early' : 'time', (v) => { atField.hidden = v === 'early'; s.pickup = v === 'early' ? 'early' : time.value || '10:00'; }), 'Early: Today says so the evening before. Later: the morning of.'),
+      atField),
+    field('After it’s been', sel([['yes', 'Remind us to bring the bins back in'], ['no', 'No reminder']], s.bringIn === false ? 'no' : 'yes', (v) => { s.bringIn = v === 'yes'; })),
     h('div', { class: 'pair' }, field('Recycling', sel([['weekly', 'Every week'], ['alternate', 'Every other week'], ['none', 'Not picked up']], s.recycling, (v) => { s.recycling = v; })),
       field('A day in a recycling week', date(s.recyclingWeek, (v) => { s.recyclingWeek = v; }), 'Only for every other week.')),
     h('div', { class: 'pair' }, field('Yard waste or compost', sel([['none', 'Not picked up'], ['weekly', 'Every week'], ['alternate', 'Every other week']], s.yard, (v) => { s.yard = v; })),
