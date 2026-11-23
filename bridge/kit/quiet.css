@@ -146,10 +146,10 @@
 /* meals and recipes: the starting apps carry their own layout (defaults/apps/meals, recipes), built from the pieces
    above: a dish is a .q-photo of its recipe's own picture under a .q-scrim, or a .q-letter where it has none. These
    keep a household's older copy of Meals (a column per day) in the light look. */
-:root .days > .day { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); padding: calc(14 * var(--u)); }
-:root .days > .day .dow { font-size: calc(12.5 * var(--u)); font-weight: 650; letter-spacing: .13em; text-transform: uppercase; color: var(--fg2); }
-:root .days > .day.today .dow { color: var(--accent); }
-:root .days > .day .date { font-size: calc(15 * var(--u)); font-weight: 500; margin-top: 0; color: var(--fg2); }
+:root .days > .day:not(.wx .day) { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); padding: calc(14 * var(--u)); }
+:root .days > .day:not(.wx .day) .dow { font-size: calc(12.5 * var(--u)); font-weight: 650; letter-spacing: .13em; text-transform: uppercase; color: var(--fg2); }
+:root .days > .day:not(.wx .day).today .dow { color: var(--accent); }
+:root .days > .day:not(.wx .day) .date { font-size: calc(15 * var(--u)); font-weight: 500; margin-top: 0; color: var(--fg2); }
 :root .day > .meal { background: transparent; border: calc(2 * var(--u)) dashed color-mix(in srgb, var(--ink) 24%, transparent); border-radius: var(--r-tile); align-items: flex-start; justify-content: flex-start; text-align: left; padding: calc(14 * var(--u)); }
 :root .day > .meal.set { background: var(--tint); border-color: transparent; }
 :root .meal .add { align-self: center; margin: auto; width: calc(32 * var(--u)); height: calc(32 * var(--u)); color: var(--fg3); }
