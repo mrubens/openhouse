@@ -53,7 +53,12 @@ Tests: `ios/Tests/SealTests.swift` checks the keys and boxes against the bridge'
 Trying it in the Simulator against a local cloud and a sample household: run the local service
 (`scripts/cloud.sh node lambda/local.ts --port 8797 --base http://127.0.0.1:8797`), link a bridge to it with Reach from
 away on, add Sam's phone, and paste the join link into the app. The local service keeps the last note it would have
-sent to Apple as `last-push.apns`; dropping that file on the Simulator delivers it.
+sent to Apple as `last-push.apns`; `simctl push` (or dropping the file on the Simulator) delivers it, but the Simulator
+doesn't run the notification extension for those, so it shows the placeholder; the words show on a real phone.
+
+Tried this way on 2026-11-23 (iOS 27 Simulator, the sample household): joining by the pasted link, the page with no
+home-screen or Shortcut steps, notes allowed and the token on the tablet, Send to Opie from Safari's share sheet, and
+both widgets with the household's events and list, Milk ticked off on the widget and gone on the tablet.
 
 ## What it needs from the Apple account
 

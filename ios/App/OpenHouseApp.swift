@@ -14,7 +14,7 @@ struct OpenHouseApp: App {
   var body: some Scene {
     WindowGroup {
       Group {
-        if let url = home.url { WebPage(url: url).ignoresSafeArea(edges: .bottom) }
+        if let url = home.url { WebPage(url: url).ignoresSafeArea() } // (the page keeps to the safe area itself: viewport-fit=cover)
         else { JoinView() }
       }
       .onOpenURL { home.open($0) }
@@ -57,10 +57,11 @@ struct OpenHouseApp: App {
   /// This phone was removed on the tablet (the page says so): forget the pairing.
   func removed() { PairingStore.save(nil); pairing = nil; url = nil; WidgetCenter.shared.reloadAllTimelines() }
 
-  /// openhouse://tab/<today|lists|calendar|chores> from a widget, or a note's open ('opie:<conversation>').
+  /// openhouse://tab/<tab> from a widget: today, or one of the household's apps on the phone's bar (its id, as lists);
+  /// the page goes to Today when there's no such tab.
   func open(_ u: URL) {
     guard u.scheme == "openhouse" else { return }
-    if u.host == "tab", let tab = u.pathComponents.last, ["today", "lists", "calendar", "chores"].contains(tab) {
+    if u.host == "tab", let tab = u.pathComponents.last, tab.range(of: #"^[\w-]{1,40}$"#, options: .regularExpression) != nil {
       script = "localStorage.setItem('openhouse.phone.tab', JSON.stringify('\(tab)')); location.reload();"
     }
   }

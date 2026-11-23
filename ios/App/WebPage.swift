@@ -24,7 +24,7 @@ struct WebPage: UIViewRepresentable {
     v.navigationDelegate = context.coordinator
     v.uiDelegate = context.coordinator
     v.allowsBackForwardNavigationGestures = false
-    v.scrollView.contentInsetAdjustmentBehavior = .automatic
+    v.scrollView.contentInsetAdjustmentBehavior = .never
     v.isOpaque = false
     v.backgroundColor = .systemBackground
     #if DEBUG
