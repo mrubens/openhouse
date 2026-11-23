@@ -196,6 +196,51 @@ test('a TV shows an app for screens: its files with the TV\'s own token, its rea
   assert.deepEqual((await client({ base: lan, id: other.id, key: other.key }).json('GET', '/screens/apps')).json, []);
 });
 
+test('a phone runs the household\'s apps: each call only what that app may do, its files only for an app on phones', async () => {
+  const apps = path.join(root, 'webapp/apps');
+  const mk = (id, meta, files = {}) => { fs.mkdirSync(path.join(apps, id), { recursive: true }); fs.writeFileSync(path.join(apps, id, 'app.json'), JSON.stringify(meta)); fs.writeFileSync(path.join(apps, id, 'index.html'), '<!doctype html><script type="module" src="./main.js"></script>'); for (const [f, t] of Object.entries(files)) fs.writeFileSync(path.join(apps, id, f), t); };
+  mk('jot', { name: 'Jot' }, { 'main.js': "import { house } from '/kit/openhouse.js';" });
+  mk('bigboard', { name: 'Big board', screens: ['tablet'] }); // says it can't do a phone
+  mk('chorly', { name: 'Chorly' });
+  fs.mkdirSync(path.join(root, 'webapp/plugins'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'webapp/plugins/chorly.json'), JSON.stringify({ kind: 'shared', title: 'Chorly', apps: { chorly: { uses: ['lists'] } } })); // from a link: lists only
+  const p = await post('/screens/pair', { kind: 'phone', person: 'Maya', grownup: false });
+  const w = await pair({ base: lan, pair: p.pair, key: p.key, name: "Maya's phone" });
+  const c = client({ base: lan, id: w.id, key: w.key });
+  const list = (await c.json('GET', '/screens/apps')).json, ids = list.map((a) => a.id);
+  assert.ok(ids.includes('jot') && ids.includes('chorly'), ids.join());
+  assert.ok(!ids.includes('bigboard') && !ids.includes('tv') && !ids.includes('frame'), 'not an app that says it can\'t, nor a TV\'s');
+  assert.match(list.find((a) => a.id === 'jot').v, /^[\w-]{16}$/);
+  // Its files, for its frame: never app.json; the kit files it names come along.
+  const files = (await c.json('GET', '/screens/app-files?app=jot')).json;
+  assert.ok(files.files['index.html'] && files.files['main.js'] && files.files['kit/openhouse.js'] && !files.files['app.json'], Object.keys(files.files).join());
+  assert.equal((await c.json('GET', '/screens/app-files?app=bigboard')).status, 404);
+  assert.equal((await c.json('GET', '/screens/app-files?app=..%2fjot')).status, 404);
+  // A call marked with an app: that app's rights, as on the tablet.
+  assert.equal((await c.json('POST', '/house/list', { list: 'groceries', add: 'eggs' }, { app: 'chorly' })).status, 200);
+  assert.equal((await c.json('POST', '/house/chore', { add: { who: 'Maya', task: 'x' } }, { app: 'chorly' })).status, 403, 'not granted chores');
+  const seen = (await c.json('GET', '/house', undefined, { app: 'chorly' })).json;
+  assert.ok('lists' in seen && !('events' in seen) && !('chores' in seen), Object.keys(seen).join());
+  assert.equal((await c.json('GET', '/house', undefined, { app: 'bigboard' })).status, 403, 'an app not on phones');
+  assert.equal((await c.json('POST', '/voice/say', { text: 'hi' }, { app: 'jot' })).status, 403, 'a phone doesn\'t make the tablet speak');
+  // Each app's own saved things: one app never reads another's.
+  assert.equal((await c.json('POST', '/appdata/secret', { n: 1 }, { app: 'jot' })).status, 200);
+  assert.deepEqual((await c.json('GET', '/appdata/secret', undefined, { app: 'jot' })).json, { n: 1 });
+  assert.equal((await c.json('GET', '/appdata/secret', undefined, { app: 'chorly' })).status, 404);
+  assert.equal((await c.json('GET', '/appdata/secret')).status, 403, 'and the phone itself has no app data');
+  // The phone's own routes stay its scopes: an app's mark doesn't add to them, nor does a share key.
+  assert.equal((await c.json('POST', '/chat', { text: 'hi' }, { app: 'jot' })).status, 403);
+  // The frame's starting page: framed only by the phone's page, reaching nothing.
+  fs.mkdirSync(path.join(root, 'bridge/public/phone'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'bridge/public/phone/frame.html'), '<!doctype html>');
+  const fr = await fetch(lan + '/phone/frame.html');
+  assert.match(fr.headers.get('content-security-policy'), /connect-src 'none'/);
+  assert.match(fr.headers.get('content-security-policy'), new RegExp(`frame-ancestors ${lan}$`));
+  // A TV's app files never go to a phone's token, nor a phone's frames to a TV.
+  const tvc = (await c.json('GET', '/screens/apps')).json.find((a) => a.at);
+  assert.equal(tvc, undefined);
+});
+
 test('a phone is someone\'s: a kid\'s ticks and gets notes but can\'t ask; it gives its push address', async () => {
   const p = await post('/screens/pair', { kind: 'phone', person: 'Leo', grownup: false });
   // The code the tablet showed for Leo is the yes (whoever scans it is at the tablet): it joins with no Allow.

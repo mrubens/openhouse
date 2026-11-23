@@ -32,7 +32,9 @@
 //
 // Apps for screens (docs/phones-and-tv.md): an app whose app.json says "screens": ["tv"] is what a paired TV shows.
 //   GET /screens/apps  (sealed, door)  [{id, name, at}]: the apps for this screen's kind, the household's own first;
-//                                  at is /screen-app/<id>/<token>/, the token the screen's own (from its key)
+//                                  at is /screen-app/<id>/<token>/, the token the screen's own (from its key).
+//                                  A phone's: [{id, name, icon, shared, v}], every app that runs on phones.
+//   GET /screens/app-files?app=  (sealed, door, a phone)  {v, files}: that app's files, for its frame on the phone.
 //   GET /screen-app/<id>/<token>/<file>   that app's files, on the home network: the screen loads them into a sandboxed
 //                                  frame, and everything the app reads goes through the screen's sealed requests
 //                                  (marked with the app, {a}: read only, and only what that app may see).
@@ -54,7 +56,8 @@ export { newCode, pairingFromCode };
 const RULES = [
   ['door', 'GET', /^\/(door|door\/wait|door\/sketch|weather|board|house|house\/wait|apps|state)$/],
   ['door', 'GET', /^\/house\/photo\/[^/]{1,120}$/],
-  ['door', 'GET', /^\/screens\/apps$/], // the apps for this kind of screen (a TV's layout)
+  ['door', 'GET', /^\/screens\/apps$/], // the apps for this kind of screen (a TV's layout, a phone's tabs)
+  ['door', 'GET', /^\/screens\/app-files$/], // one app's files, for a phone's frame (appFiles)
   ['arrange', 'POST', /^\/door\/(arrange|place|remove|putback|keep|touch|timer|sketch)$/],
   ['arrange', 'POST', /^\/house\/(list|chore|remind|thing)$/], // the widgets' own taps: a grocery ticked, a chore done, a reminder or a thing on Today put away
   ['ask', 'POST', /^\/chat(\/stop|\/warm)?$/],
@@ -137,13 +140,64 @@ const appHeaders = (host) => ({
 });
 const APP_ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 /** Which apps a kind of screen shows (app.json "screens"). */
-export const SCREEN_KINDS = ['tv'];
+export const SCREEN_KINDS = ['tv', 'phone'];
+
+// One app's files for a phone (docs/phones.md, "Every app"): the phone's page runs the app in a sandboxed frame with no
+// origin of its own, which can't load anything from the tablet itself, so its files come in one sealed reply (kept on
+// the phone by v, so a tab opens at once the next time). The kit files it names come along.
+const TEXT = new Set(['.html', '.htm', '.js', '.mjs', '.css', '.json', '.svg', '.txt', '.md', '.csv', '.webmanifest', '.xml']);
+const KIND = { ...TYPES, '.mjs': 'text/javascript', '.htm': 'text/html; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.csv': 'text/csv; charset=utf-8',
+  '.xml': 'application/xml', '.gif': 'image/gif', '.mp3': 'audio/mpeg', '.wav': 'audio/wav', '.ogg': 'audio/ogg', '.m4a': 'audio/mp4', '.mp4': 'video/mp4', '.webm': 'video/webm', '.woff': 'font/woff', '.otf': 'font/otf', '.ico': 'image/x-icon', '.wasm': 'application/wasm', '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream' };
+const FILE_MAX = 3e6, ALL_MAX = 8e6;
+/** The app's files ([{rel, f}]), and the kit's that they name ([{rel: 'kit/…', f}]): never a dot name, app.json, or past 4 deep. */
+export function appFileList(APP_DIR, id, kitDir) {
+  const root = path.join(APP_DIR, 'apps', id), out = [];
+  const walk = (d, rel, depth) => {
+    let es = []; try { es = fs.readdirSync(d, { withFileTypes: true }); } catch { return; }
+    for (const e of es.sort((a, b) => (a.name < b.name ? -1 : 1))) {
+      if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+      const f = path.join(d, e.name), r = rel ? rel + '/' + e.name : e.name;
+      if (e.isDirectory()) { if (depth < 4) walk(f, r, depth + 1); }
+      else if (e.isFile() && r !== 'app.json') out.push({ rel: r, f });
+    }
+  };
+  walk(root, '', 0);
+  const kit = new Set(['openhouse.js']);
+  for (const x of out) if (TEXT.has(path.extname(x.rel)) && fs.statSync(x.f).size < FILE_MAX) for (const m of fs.readFileSync(x.f, 'utf8').matchAll(/\/kit\/([\w-]+(?:\.[\w-]+)+)/g)) kit.add(m[1]);
+  for (const k of [...kit].sort()) { const f = path.join(kitDir, k); if (kitDir && fs.existsSync(f) && fs.statSync(f).isFile()) out.push({ rel: 'kit/' + k, f }); }
+  return out;
+}
+/** When an app's files (or the kit's it uses) last changed, as a short hash: the phone keeps its copy by this. */
+export function appVersion(list) {
+  const h = crypto.createHash('sha256');
+  for (const x of list) { try { const st = fs.statSync(x.f); h.update(`${x.rel}|${st.size}|${Math.round(st.mtimeMs)}\n`); } catch {} }
+  return h.digest('base64url').slice(0, 16);
+}
+/** {v, files: {rel: {t, s} | {t, b}}}: text as is, anything else base64; files over 3 MB, or past 8 MB in all, are left out. */
+export function appFiles(APP_DIR, id, kitDir) {
+  const list = appFileList(APP_DIR, id, kitDir), files = {};
+  let total = 0;
+  for (const x of list) {
+    let buf; try { buf = fs.readFileSync(x.f); } catch { continue; }
+    if (buf.length > FILE_MAX || total + buf.length > ALL_MAX) continue;
+    total += buf.length;
+    const ext = path.extname(x.rel).toLowerCase(), t = KIND[ext] || 'application/octet-stream';
+    files[x.rel] = TEXT.has(ext) ? { t, s: buf.toString('utf8') } : { t, b: buf.toString('base64') };
+  }
+  return { v: appVersion(list), files };
+}
+// The page a phone's app frame starts as (chat/phone-frame.html): it may be framed only by the phone's page, and it and
+// the app in it reach nothing (connect-src 'none'): every call goes to the page around it, which seals it.
+export const frameHeaders = (host) => ({
+  'cache-control': 'no-cache', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff',
+  'content-security-policy': `default-src 'none'; script-src ${host} blob: 'unsafe-eval'; style-src ${host} blob: 'unsafe-inline'; img-src ${host} blob: data:; media-src blob: data:; font-src ${host} blob: data:; worker-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri https://app.invalid; frame-ancestors ${host}`,
+});
 
 /**
  * dispatch(req, res, url): the bridge's own routes, after its secret is checked (server.js). A screen's opened
  * request is handed to it as if it came from the display, once its scopes allow it.
  */
-export function screensRoutes({ HERE, json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
+export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
   const tryRead = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
   const state = tryRead(FILE) || { lan: false, screens: [] };
   state.screens ||= [];
@@ -337,6 +391,13 @@ export function screensRoutes({ HERE, json, body, dispatch, onChange = () => {},
       const sa = req.method === 'GET' && p.match(/^\/screen-app\/([a-z0-9][a-z0-9-]{0,60})\/([\w-]{22})\/(.*)$/);
       if (sa) return screenAppFile(req, res, ip, sa[1], sa[2], sa[3]);
       const file = req.method === 'GET' && p.match(/^\/(screen|app|phone|hub)\/(.*)$/);
+      if (file && file[1] === 'phone' && /^frame\.(html|js)$/.test(file[2])) { // an app frame's starting page (frameHeaders)
+        const f = path.join(PUBLIC, 'phone', file[2]);
+        if (!fs.existsSync(f)) return plain(res, 404, { error: 'not found' });
+        const host = /^[a-z0-9.-]{1,80}(:\d{2,5})?$/i.test(String(req.headers.host || '')) ? req.headers.host : `127.0.0.1:${PORT}`;
+        res.writeHead(200, { 'content-type': TYPES[path.extname(f)], ...frameHeaders(`${TLS ? 'https' : 'http'}://${host}`) });
+        return res.end(fs.readFileSync(f));
+      }
       if (file) {
         const root = path.join(PUBLIC, file[1]);
         const f = path.join(root, path.normalize(file[2] || 'index.html').replace(/^(\.\.[/\\])+/, ''));
@@ -378,7 +439,7 @@ export function screensRoutes({ HERE, json, body, dispatch, onChange = () => {},
   function screenAppFile(req, res, ip, id, token, rel) {
     if (blocked(ip)) return plain(res, 429, { error: 'wait' });
     const s = state.screens.find((x) => sameStr(token, appToken(x, id)));
-    if (!s || !APP_DIR || !appsFor(s).some((a) => a.id === id)) { miss(ip); return plain(res, 404, { error: 'not found' }); }
+    if (!s || s.kind !== 'tv' || !APP_DIR || !appsFor(s).some((a) => a.id === id)) { miss(ip); return plain(res, 404, { error: 'not found' }); }
     const root = path.join(APP_DIR, 'apps', id);
     const f = path.join(root, path.normalize(rel || 'index.html').replace(/^(\.\.[/\\])+/, ''));
     if (!f.startsWith(root + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory() || path.basename(f) === 'app.json') return plain(res, 404, { error: 'not found' });
@@ -441,8 +502,12 @@ export function screensRoutes({ HERE, json, body, dispatch, onChange = () => {},
     try { url = new URL(msg.p, 'http://x'); } catch { url = null; }
     // From a screen app (msg.a): read only, and the app has to be one this screen shows.
     const fromApp = msg.a === undefined ? null : String(msg.a);
-    const appOk = fromApp === null || (APP_ID.test(fromApp) && msg.m === 'GET' && appsFor(s).some((a) => a.id === fromApp));
-    if (!url || !appOk || (share ? !(msg.m === 'POST' && url.pathname === '/phone/share' && (s.scopes || []).includes('ask')) : !allowed(s.scopes, msg.m, url.pathname))) {
+    // (On a phone an app may change things too, when the phone may ('arrange'); what it may reach is the app's own
+    // rights, checked by dispatch as on the tablet, not the phone's routes.)
+    const sc = s.scopes || [];
+    const appOk = fromApp === null || (APP_ID.test(fromApp) && appsFor(s).some((a) => a.id === fromApp) && !share
+      && (msg.m === 'GET' ? sc.includes('door') : s.kind === 'phone' && sc.includes('arrange')));
+    if (!url || !appOk || (share ? !(msg.m === 'POST' && url.pathname === '/phone/share' && sc.includes('ask')) : fromApp === null && !allowed(sc, msg.m, url.pathname))) {
       frame(0, JSON.stringify({ status: 403, type: 'application/json' })); frame(1, '{"error":"not for screens"}'); frame(2, ''); return res.end();
     }
 
@@ -595,11 +660,19 @@ export function screensRoutes({ HERE, json, body, dispatch, onChange = () => {},
     return { pair, key: b64(key), port: PORT };
   };
   /** A paired device's name and kind, by its id (the x-openhouse-screen header a sealed request carries), else null. */
-  /** GET /screens/apps, from a paired screen: the apps it shows, with its token for their files. */
+  /** GET /screens/apps, from a paired screen: the apps it shows, with its token for their files (a TV), or each one's
+   *  version, name and icon (a phone: GET /screens/app-files has the files). */
   handle.apps = async (req, res, url) => {
-    if (url.pathname !== '/screens/apps' || req.method !== 'GET') return false;
+    if (!/^\/screens\/(apps|app-files)$/.test(url.pathname) || req.method !== 'GET') return false;
     const s = state.screens.find((x) => x.id === req.headers['x-openhouse-screen']);
     if (!s) { json(res, 403, { error: 'only a paired screen' }); return true; }
+    if (url.pathname === '/screens/app-files') {
+      const id = String(url.searchParams.get('app') || '');
+      if (s.kind !== 'phone' || !APP_ID.test(id) || !appsFor(s).some((a) => a.id === id)) { json(res, 404, { error: 'not on this phone' }); return true; }
+      json(res, 200, appFiles(APP_DIR, id, KIT));
+      return true;
+    }
+    if (s.kind === 'phone') { json(res, 200, appsFor(s).map((a) => ({ id: a.id, name: a.name, icon: a.icon || null, tabIcon: a.tabIcon || null, shared: !!a.shared, v: appVersion(appFileList(APP_DIR, a.id, KIT)) }))); return true; }
     // v: when its files last changed, so a TV showing it loads it again after an edit.
     const v = (id) => { let t = 0; const walk = (d, depth) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) { if (depth < 3) walk(f, depth + 1); } else t = Math.max(t, fs.statSync(f).mtimeMs); } };
       try { walk(path.join(APP_DIR, 'apps', id), 0); } catch {} return Math.round(t); };

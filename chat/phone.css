@@ -36,9 +36,41 @@ h2 .who { font-size: 14px; color: var(--ink); }
 .items li.done { color: var(--soft); text-decoration: line-through; }
 .box { width: 24px; height: 24px; border-radius: 7px; border: 2px solid #c9c3bb; flex: none; }
 .box.on { background: var(--ink); border-color: var(--ink); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%23fbf9f5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
-nav { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 4px; padding: 8px 12px calc(10px + env(safe-area-inset-bottom)); background: rgba(251,249,245,.94); backdrop-filter: blur(12px); border-top: 1px solid var(--line); }
-nav button { flex: 1; max-width: 130px; padding: 10px 4px; color: var(--soft); font-size: 15px; }
+/* The tabs: the first four along the bottom, and More (every tab, sliding in from the side). Kept plain so the
+   redesign can restyle it: nav, nav button(.here), .tab-icon, .more, .more-list, .more-row(.here). */
+nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: center; gap: 2px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); background: rgba(251,249,245,.96); backdrop-filter: blur(12px); border-top: 1px solid var(--line); }
+nav button { flex: 1; min-width: 0; max-width: 120px; padding: 6px 2px 4px; color: var(--soft); font-size: 12px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+nav button span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 nav button.here { color: var(--ink); font-weight: 600; }
+.tab-icon { width: 24px; height: 24px; flex: none; display: block; }
+.more { position: fixed; inset: 0; z-index: 30; pointer-events: none; visibility: hidden; transition: visibility 0s .3s; }
+.more-veil { position: absolute; inset: 0; background: rgba(42,40,38,.28); opacity: 0; transition: opacity .25s; }
+.more-list { position: absolute; top: 0; bottom: 0; right: 0; width: min(86vw, 360px); background: var(--bg); overflow-y: auto; transform: translateX(100%); transition: transform .28s cubic-bezier(.3,.7,.2,1);
+  padding: calc(14px + env(safe-area-inset-top)) 12px calc(20px + env(safe-area-inset-bottom)); box-shadow: -8px 0 30px rgba(42,40,38,.12); display: flex; flex-direction: column; }
+.more.open { pointer-events: auto; visibility: visible; transition: none; }
+.more.open .more-veil { opacity: 1; }
+.more.open .more-list { transform: none; }
+.more-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px 14px; }
+.more-head .quiet { color: var(--soft); padding: 8px 4px; }
+.more-row { display: flex; align-items: center; gap: 14px; padding: 13px 10px; border-radius: 12px; font-size: 18px; text-align: left; }
+.more-row.here { background: var(--tint); font-weight: 600; }
+.more-foot { margin-top: auto; padding: 20px 10px 0; font-size: 14px; }
+
+/* An app's tab: its frame fills the space between the top and the tabs */
+.app.framed { height: 100vh; height: 100dvh; min-height: 0; display: flex; flex-direction: column; padding: env(safe-area-inset-top) 0 calc(62px + env(safe-area-inset-bottom)); max-width: none; }
+.app.framed.asks { padding-bottom: calc(124px + env(safe-area-inset-bottom)); }
+.appframe { flex: 1; min-height: 0; position: relative; display: flex; flex-direction: column; }
+.appframe iframe { flex: 1; width: 100%; border: 0; display: block; opacity: 0; transition: opacity .15s; }
+.appframe iframe.ready { opacity: 1; }
+.appframe .pad { padding: 20px; }
+.openbar { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid var(--line); }
+.openbar .quiet { color: var(--soft); padding: 8px 6px; }
+.openbar span { font-weight: 600; }
+.title { font-size: 28px; font-weight: 600; letter-spacing: -.01em; margin: 18px 0 16px; }
+.app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 18px 10px; }
+.app-tile { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 14px; text-align: center; }
+.app-icon { width: 58px; height: 58px; border-radius: 16px; background: var(--tint); display: grid; place-items: center; object-fit: contain; padding: 8px; }
+.app-icon.letter { font-size: 24px; font-weight: 600; color: var(--soft); }
 .card.recipe input { width: 100%; font: inherit; padding: 13px 16px; border: 0; border-radius: 14px; background: var(--tint); color: inherit; margin: 10px 0; outline-color: var(--ink); }
 .card.recipe .go:disabled { opacity: .35; }
 .card.recipe .soft { margin-top: 8px; }
@@ -71,7 +103,7 @@ nav button.here { color: var(--ink); font-weight: 600; }
 
 /* Opie: a pill at the bottom centre, over the tabs, and the sheet it opens */
 .app.asks { padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
-.opie { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(70px + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 12px 18px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; box-shadow: 0 6px 20px rgba(42,40,38,.18); z-index: 5; }
+.opie { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(68px + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 12px 18px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; box-shadow: 0 6px 20px rgba(42,40,38,.18); z-index: 5; }
 .opie .bars { display: inline-flex; align-items: center; gap: 3px; height: 16px; }
 .opie .bars i { width: 3px; border-radius: 2px; background: currentColor; opacity: .85; }
 .opie .bars i:nth-child(1) { height: 6px; } .opie .bars i:nth-child(2) { height: 14px; } .opie .bars i:nth-child(3) { height: 10px; } .opie .bars i:nth-child(4) { height: 5px; }
@@ -103,7 +135,7 @@ nav button.here { color: var(--ink); font-weight: 600; }
 .opie-bars i:nth-child(2),.opie-bars i:nth-child(4){height:calc(9px + var(--lvl) * 8px)}
 .opie-bars i:nth-child(1),.opie-bars i:nth-child(5){height:calc(5px + var(--lvl) * 6px)}
 @keyframes opie-breathe{50%{opacity:.6}}
-.app .opie-talk{bottom:calc(70px + env(safe-area-inset-bottom))}
+.app .opie-talk{bottom:calc(68px + env(safe-area-inset-bottom))}
 
 /* Onto the home screen (AddToHome) */
 .home .steps { margin: 4px 0 28px; padding: 0 0 0 22px; font-size: 18px; line-height: 1.5; }

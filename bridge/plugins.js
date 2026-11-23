@@ -166,7 +166,8 @@ export function checkPlugin(dir) {
     const ck = validateChecks(meta.checks);
     for (const p of ck.problems) notes.push(`Left out of ${rel}: ${p}.`);
     // Fixed by the card, like its rights: whether it keeps running in the background, and whether it's for a TV.
-    const screens = (list(meta.screens) || []).filter((k) => k === 'tv');
+    // (where else it runs, docs/plugins.md "Phones": "tablet", "phone", "tv"; only the TV is a right on the card)
+    const screens = [...new Set((list(meta.screens) || []).filter((k) => ['tv', 'tablet', 'phone'].includes(k)))];
     return { id, name: String(meta.name || id).slice(0, 40), uses: [...new Set(uses)], reaches: [...new Set(reaches)].slice(0, 10), ...(setupReaches.length ? { setupReaches } : {}), actions, checks: ck.checks,
       background: meta.background === true, ...(screens.length ? { screens, tablet: meta.tablet === true } : {}), files };
   });
@@ -250,7 +251,7 @@ export function rightsMerged(apps) {
   out.push(reaches.size ? `Reaches ${line(reaches, (h) => h)}.` : "Can't reach the internet.");
   if (acts.size) out.push(`The voice can ask it to: ${line(acts, (x) => x)}.`);
   if (checks.size) out.push(`It looks out for: ${line(checks, (x) => x)}.`);
-  const bg = apps.filter((a) => a.background), tv = apps.filter((a) => a.screens?.length);
+  const bg = apps.filter((a) => a.background), tv = apps.filter((a) => a.screens?.includes('tv'));
   if (bg.length) out.push(`Keeps running in the background${many ? ` (${bg.map((a) => a.name).join(', ')})` : ''}.`);
   if (tv.length) out.push(`Shows on the TV${many ? ` (${tv.map((a) => a.name).join(', ')})` : ''}.`);
   return out;
@@ -733,7 +734,7 @@ export function pluginsRoutes({ APP_DIR, edits, door, json, body, approve = null
         ...(n.setupReaches || []).filter((s) => !(a.setupReaches || []).some((x) => x.key === s.key && x.why === s.why)).map((s) => `reaching a website you choose when you set it up (${s.why.replace(/\.$/, '')})`),
         ...(n.actions || []).filter((x) => !acts.has(x.name) || JSON.stringify(x) !== JSON.stringify(a.actions.find((y) => y.name === x.name))).map((x) => 'the voice asking it to ' + x.description.replace(/\.$/, '')),
         ...(n.checks || []).filter((x) => !cks.has(x.text)).map((x) => 'looking out for ' + x.text.replace(/\.$/, '')),
-        ...(n.background && !a.background ? ['running in the background'] : []), ...(n.screens?.length && !a.screens?.length ? ['showing on the TV'] : [])];
+        ...(n.background && !a.background ? ['running in the background'] : []), ...(n.screens?.includes('tv') && !a.screens?.includes('tv') ? ['showing on the TV'] : [])];
       if (more.length) out.newRights.push(`${n.name}: ${more.join(', ')}`);
     }
     const from = new Set(Object.values(e.apps || {}).map((a) => a.from));

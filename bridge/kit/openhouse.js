@@ -61,10 +61,12 @@ const B = '/bridge';
   }
 } // the dev server passes these on to the bridge
 
-// On a TV (a screen app, docs/phones-and-tv.md) the app runs in a sandboxed frame in the screen's page, which holds the
-// screen's key: the kit asks that page, and it asks the tablet, sealed. Read only there: anything that changes things fails.
+// On a TV or someone's phone (a screen app, docs/phones-and-tv.md, docs/phones.md) the app runs in a sandboxed frame in the
+// screen's page, which holds the screen's key: the kit asks that page, and it asks the tablet, sealed, marked with this
+// app (the page knows which frame is which). A TV only shows: anything that changes things fails there. On a phone the
+// app's own rights hold, as on the tablet.
 const SCREEN = window.parent !== window && new URLSearchParams(location.hash.slice(1)).get('screen') === '1';
-/** On a screen other than the tablet (a TV): its kind, else null. */
+/** On a screen other than the tablet: its kind ('tv' or 'phone'), else null. */
 export const screen = SCREEN ? { kind: new URLSearchParams(location.hash.slice(1)).get('kind') || 'tv' } : null;
 const asked = new Map(); let asks = 0;
 if (SCREEN) addEventListener('message', (e) => {
@@ -75,10 +77,11 @@ if (SCREEN) addEventListener('message', (e) => {
   if (m.oh === 'key' && typeof m.key === 'string') dispatchEvent(new KeyboardEvent('keydown', { key: m.key, bubbles: true, cancelable: true }));
 });
 function viaScreen(path, body) {
-  if (body !== undefined) return Promise.reject(new Error(`${path}: read only on a TV`));
+  if (body !== undefined && screen.kind !== 'phone') return Promise.reject(new Error(`${path}: read only on a TV`));
+  if (body instanceof Blob) return Promise.reject(new Error(`${path}: not from a phone yet`));
   return new Promise((resolve) => {
     const id = ++asks; asked.set(id, resolve);
-    window.parent.postMessage({ oh: 'call', id, m: 'GET', p: path }, '*');
+    window.parent.postMessage({ oh: 'call', id, m: body === undefined ? 'GET' : 'POST', p: path, ...(body !== undefined ? { b: body } : {}) }, '*');
   }).then((m) => new Response(m.status === 204 ? null : m.body, { status: m.status || 500, headers: { 'content-type': m.type || 'application/json' } }));
 }
 
@@ -98,6 +101,12 @@ async function call(path, body, raw = false) {
   return raw ? r : r.json();
 }
 const send = (path, body) => call(path, body).catch((e) => console.warn(e.message));
+/** POST /apps/fetch, its answer whatever the status (its error is in the body). */
+async function fetched(b) {
+  if (SCREEN) return viaScreen('/apps/fetch', b);
+  await keyReady;
+  return fetch(B + '/apps/fetch', { method: 'POST', headers: { 'x-openhouse-app': APP, 'x-openhouse-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify(b) });
+}
 
 // ---- the house ------------------------------------------------------------------------------------------
 /**
@@ -407,16 +416,14 @@ export const devices = {
  */
 export const web = {
   async get(url) {
-    await keyReady;
-    const r = await fetch(B + '/apps/fetch', { method: 'POST', headers: { 'x-openhouse-app': APP, 'x-openhouse-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ url: String(url) }) });
+    const r = await fetched({ url: String(url) });
     const v = await r.json().catch(() => ({}));
     if (!r.ok || v.error) throw new Error(v.error || `${url}: ${r.status}`);
     return v;
   },
   /** The bytes at url (a transit feed's protobuf, a zip), up to 20 MB: a Uint8Array. Throws when it can't. */
   async bytes(url) {
-    await keyReady;
-    const r = await fetch(B + '/apps/fetch', { method: 'POST', headers: { 'x-openhouse-app': APP, 'x-openhouse-key': KEY, 'content-type': 'application/json' }, body: JSON.stringify({ url: String(url), binary: true }) });
+    const r = await fetched({ url: String(url), binary: true });
     const v = await r.json().catch(() => ({}));
     if (!r.ok || v.error) throw new Error(v.error || `${url}: ${r.status}`);
     if (v.status < 200 || v.status >= 300) throw new Error(`${url}: ${v.status}`);
@@ -480,7 +487,7 @@ export async function say(text, who = null) {
  *  'list' (a list to take to the store; arg: its name). Only on the display. */
 // In an app's own window the shell shows the card; in a tab of the display's home (a frame there, told so with
 // phone=1), the home page asks the shell for it.
-const inHome = window.parent !== window && new URLSearchParams(location.hash.slice(1)).get('phone') === '1'; // in a tab of the display's home
+const inHome = window.parent !== window && (new URLSearchParams(location.hash.slice(1)).get('phone') === '1' || screen?.kind === 'phone'); // in a tab of the display's home, or of a phone's page
 const toPhone = (kind, arg) => {
   if (host?.phone) return host.phone(kind, arg);
   if (window.parent !== window && new URLSearchParams(location.hash.slice(1)).get('phone') === '1') { window.parent.postMessage({ openhouse: 'phone', kind, arg }, '*'); return true; }
@@ -515,7 +522,7 @@ export const phone = {
 
 export const shell = {
   /** Back to the door. */
-  close: () => (host?.close ? host.close() : history.back()),
+  close: () => (host?.close ? host.close() : SCREEN ? window.parent.postMessage({ oh: 'close' }, '*') : history.back()),
   /** Open another of the household's apps: its tab, or full screen (the home screen does it, for an app in one of its
    *  tabs). False where it can't; canOpenApps says whether it can. */
   openApp: (id) => { if (!inHome) return false; window.parent.postMessage({ openhouse: 'open', app: String(id) }, '*'); return true; },

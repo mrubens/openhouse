@@ -58,6 +58,16 @@ const APP_GROUPS = {
 /** What a plugin's app may ask for in "uses" (app.json): every group but the basics (always) and the family's own. */
 export const USES = Object.keys(APP_GROUPS).filter((g) => g !== 'basics' && g !== 'own');
 const ALL = Object.values(APP_GROUPS).flat();
+/**
+ * Whether an app runs on a kind of screen ('tablet', 'phone', 'tv'), by its app.json "screens": with none, the tablet
+ * and the household's phones; with a list, only those ("tablet": true as well still means the tablet). A TV shows only
+ * an app that says "tv" (docs/plugins.md, "Phones").
+ */
+export function onScreen(meta, kind) {
+  const s = meta?.screens;
+  if (!Array.isArray(s)) return kind === 'tablet' || kind === 'phone';
+  return s.includes(kind) || (kind === 'tablet' && meta.tablet === true);
+}
 /** rights: null for the family's own app (everything), else the Set of groups a plugin's app was granted. */
 export function appAllowed(method, pathname, rights = null) {
   const rules = rights ? ['basics', ...rights].flatMap((g) => APP_GROUPS[g] || []) : ALL;
@@ -192,7 +202,7 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
     }
     if (req.method !== 'GET') return false;
     // An app for screens (app.json "screens": ["tv"]) isn't one of the tablet's: it's what a TV shows (screens.js).
-    if (url.pathname === '/apps') { json(res, 200, list().filter((a) => !Array.isArray(a.meta.screens) || a.meta.tablet === true)); return true; }
+    if (url.pathname === '/apps') { json(res, 200, list().filter((a) => onScreen(a.meta, 'tablet'))); return true; }
     if (url.pathname === '/apps/key') {
       const id = String(url.searchParams.get('app') || '');
       if (!ID.test(id)) { json(res, 400, { error: 'which app?' }); return true; }

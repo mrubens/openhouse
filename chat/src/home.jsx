@@ -12,17 +12,11 @@ import { cloneElement, useEffect, useLayoutEffect, useMemo, useRef, useState } f
 import { Widget } from './door-widgets.jsx';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
+import { PALETTES } from './look.js';
 import { card as weatherCard } from '../../bridge/kit/weather-look.js';
 
 const DEFAULT_TABS = ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'];
-/** bg: behind everything; sheet: the page the tab is on; ink: text; accent: today, the chosen things. */
-export const PALETTES = {
-  paper: { bg: '#efeae1', sheet: '#fbf9f5', ink: '#2a2826', accent: '#b5562f' },
-  linen: { bg: '#e8dac6', sheet: '#fcf5ea', ink: '#35291f', accent: '#b0502a' },
-  sage: { bg: '#dce2d8', sheet: '#f7f9f4', ink: '#25302a', accent: '#4f7d5c' },
-  mist: { bg: '#dce3ea', sheet: '#f8fafc', ink: '#222b34', accent: '#3d6ea8' },
-  dusk: { bg: '#1d1b19', sheet: '#292624', ink: '#eee8df', accent: '#e0a26a' },
-};
+export { PALETTES };
 const FACES = { clean: "'Inter', Roboto, system-ui, sans-serif", serif: "'Newsreader', Georgia, serif", round: "'Nunito', system-ui, sans-serif", hand: "'Caveat', cursive" };
 const PEOPLE = ['#d9a441', '#6fae8f', '#d97a5e', '#7d9ad6', '#b689cf', '#d6a86a'];
 const pad = (n) => String(n).padStart(2, '0');

@@ -26,7 +26,7 @@ import { eventStream } from './events.js';
 import { isTab } from './door.js';
 import { builderRoutes } from './builder.js';
 import { screensRoutes } from './screens.js';
-import { appsRoutes, appAllowed, houseFor } from './apps.js';
+import { appsRoutes, onScreen, appAllowed, houseFor } from './apps.js';
 import { appFetch, reachMatches } from './app-web.js';
 import { pluginsRoutes } from './plugins.js';
 import { workshopRoutes } from './workshop.js';
@@ -212,17 +212,18 @@ backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, 
 let relay = null;
 const screens = screensRoutes({ HERE, json, body, APP_DIR, kit: (req, res, url) => apps.kit(req, res, url), onChange: () => relay?.changed(),
   // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv).
-  screenApps: (kind) => apps.list().filter((a) => a.web && Array.isArray(a.meta.screens) && a.meta.screens.includes(kind))
-    .map((a) => ({ id: a.id, name: String(a.meta.name || a.id), ours: plugins.ownerOf?.(a.id)?.e?.kind === 'builtin' }))
+  // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv). A phone
+  // shows every app that runs on phones (apps.js onScreen), each in a frame of its own (docs/phones.md, "Every app").
+  screenApps: (kind) => apps.list().filter((a) => a.web && onScreen(a.meta, kind))
+    .map((a) => ({ id: a.id, name: String(a.meta.name || a.id), ours: plugins.ownerOf?.(a.id)?.e?.kind === 'builtin', icon: a.icon, tabIcon: typeof a.meta.tabIcon === 'string' ? a.meta.tabIcon.slice(0, 40) : null, shared: !!a.shared }))
     .sort((x, y) => Number(x.ours) - Number(y.ours)),
   dispatch: (req, res, url) => {
-    // What a screen app asks for (through the screen around it): only what that app may see, as on the tablet.
+    // What a screen's app asks for (through the screen's page around it): only what that app may do, as on the tablet.
+    // A phone may not make the tablet speak or run its timers for an app (it isn't in the room).
     const app = req.headers['x-openhouse-screen-app'];
     if (!app) return route(req, res, url);
-    const rights = plugins.rightsOf(app);
-    if (!appAllowed(req.method, url.pathname, rights)) return json(res, 403, { error: 'not for this app' });
-    if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => houseFor(v, rights)), url);
-    return route(req, res, url);
+    if (!appAllowed(req.method, url.pathname, plugins.rightsOf(app)) || /^\/(voice\/say|door\/handsfree|door\/timer)$/.test(url.pathname)) return json(res, 403, { error: 'not for this app' });
+    return appCall(req, res, url, app);
   } });
 // Away from home (relay.js, docs/networking.md): the same sealed requests through the cloud's relay. Off until someone
 //  turns it on, and only for a linked tablet.
@@ -293,32 +294,8 @@ http.createServer(async (req, res) => {
   // A family app, with its own key: only what APP_RULES allow (apps.js).
   const app = apps.caller(req);
   if (app) {
-    const rights = plugins.rightsOf(app); // null: the family's own app
-    if (!loopbackHost(req) || !appAllowed(req.method, url.pathname, rights)) { res.writeHead(403, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); return res.end('{"error":"not for apps"}'); }
-    if (url.pathname.startsWith('/appdata/')) { try { await apps.handle(req, res, url, app); } catch (e) { if (!res.headersSent) json(res, 500, { error: e.message }); } return; }
-    // The web through the bridge, only the hosts the app reaches (app-web.js); its own one line on Today (things.js).
-    // A website it chooses at setup (a shared app whose card said so): the tablet's card with the PIN, then the plugin's manifest.
-    if (url.pathname === '/apps/reach') { const b = await body(req); const r = await plugins.askReach(app, b.host, b.key || null); return json(res, 200, r); }
-    if (url.pathname === '/apps/reach/forget') { const b = await body(req); return json(res, 200, plugins.forgetReach(app, b.host)); }
-    if (url.pathname === '/apps/fetch') { const b = await body(req); const r = await appFetch(app, b.url, plugins.reachesOf(app), { binary: b.binary === true }); return json(res, r.error ? r.status || 502 : 200, r); }
-    if (url.pathname === '/calendar/days') { const b = await body(req), reaches = plugins.reachesOf(app); const n = chat.notes.put(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.days, { imageOk: (u) => reachMatches(u.host, reaches) }); return json(res, 200, { ok: true, days: n }); } // a note's photos only from hosts the app reaches
-    if (url.pathname === '/calendar/events') { const b = await body(req); const n = chat.notes.putEvents(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.events); return json(res, 200, { ok: true, events: n }); }
-    // The home's speakers and TVs (devices/index.js forApp): the app's own ids, the same asks as Opie, rate-limited.
-    if (url.pathname.startsWith('/apps/devices')) {
-      const b = await body(req), who = { id: app, name: apps.list().find((a) => a.id === app)?.meta?.name || app };
-      const r = url.pathname === '/apps/devices' ? await devices.forApp.list(who, { state: b.state === true })
-        : url.pathname === '/apps/devices/get' ? await devices.forApp.get(who, b.id)
-        : await devices.forApp.do(who, b.id, b.action, b.args);
-      return json(res, r.limited ? 429 : 200, r);
-    }
-    if (url.pathname === '/today/line') {
-      const b = await body(req);
-      if (b.off || !String(b.text || '').trim()) { chat.things.takeApp(app); return json(res, 200, { ok: true }); }
-      const r = chat.things.putApp(app, { text: b.text, until: b.until, sleep: b.sleep });
-      return r ? json(res, 200, { ok: true, text: r.item.text, until: r.item.until }) : json(res, 400, { error: 'Say what it is.' });
-    }
-    if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => houseFor(v, rights)), url);
-    return route(req, res, url);
+    if (!loopbackHost(req) || !appAllowed(req.method, url.pathname, plugins.rightsOf(app))) { res.writeHead(403, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); return res.end('{"error":"not for apps"}'); }
+    return appCall(req, res, url, app);
   }
   if (!authorized(req, url)) { res.writeHead(401, { 'content-type': 'application/json' }); return res.end('{"error":"unauthorized"}'); } // auth.js
   if (await screens(req, res, url)) return; // Settings' screens (loopback only: screens never reach these)
@@ -338,6 +315,38 @@ function onlyThe(res, fn) {
     },
     on: res.on.bind(res), once: res.once.bind(res),
   });
+}
+
+/**
+ * A call from one of the apps (its rights already checked, apps.js appAllowed): from its page on the tablet (its key),
+ * or from its frame on someone's phone (screens.js, the phone's page marks each call with the frame's app).
+ */
+async function appCall(req, res, url, app) {
+  const rights = plugins.rightsOf(app); // null: the family's own app
+  if (url.pathname.startsWith('/appdata/')) { try { await apps.handle(req, res, url, app); } catch (e) { if (!res.headersSent) json(res, 500, { error: e.message }); } return; }
+  // The web through the bridge, only the hosts the app reaches (app-web.js); its own one line on Today (things.js).
+  // A website it chooses at setup (a shared app whose card said so): the tablet's card with the PIN, then the plugin's manifest.
+  if (url.pathname === '/apps/reach') { const b = await body(req); const r = await plugins.askReach(app, b.host, b.key || null); return json(res, 200, r); }
+  if (url.pathname === '/apps/reach/forget') { const b = await body(req); return json(res, 200, plugins.forgetReach(app, b.host)); }
+  if (url.pathname === '/apps/fetch') { const b = await body(req); const r = await appFetch(app, b.url, plugins.reachesOf(app), { binary: b.binary === true }); return json(res, r.error ? r.status || 502 : 200, r); }
+  if (url.pathname === '/calendar/days') { const b = await body(req), reaches = plugins.reachesOf(app); const n = chat.notes.put(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.days, { imageOk: (u) => reachMatches(u.host, reaches) }); return json(res, 200, { ok: true, days: n }); } // a note's photos only from hosts the app reaches
+  if (url.pathname === '/calendar/events') { const b = await body(req); const n = chat.notes.putEvents(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.events); return json(res, 200, { ok: true, events: n }); }
+  // The home's speakers and TVs (devices/index.js forApp): the app's own ids, the same asks as Opie, rate-limited.
+  if (url.pathname.startsWith('/apps/devices')) {
+    const b = await body(req), who = { id: app, name: apps.list().find((a) => a.id === app)?.meta?.name || app };
+    const r = url.pathname === '/apps/devices' ? await devices.forApp.list(who, { state: b.state === true })
+      : url.pathname === '/apps/devices/get' ? await devices.forApp.get(who, b.id)
+      : await devices.forApp.do(who, b.id, b.action, b.args);
+    return json(res, r.limited ? 429 : 200, r);
+  }
+  if (url.pathname === '/today/line') {
+    const b = await body(req);
+    if (b.off || !String(b.text || '').trim()) { chat.things.takeApp(app); return json(res, 200, { ok: true }); }
+    const r = chat.things.putApp(app, { text: b.text, until: b.until, sleep: b.sleep });
+    return r ? json(res, 200, { ok: true, text: r.item.text, until: r.item.until }) : json(res, 400, { error: 'Say what it is.' });
+  }
+  if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => houseFor(v, rights)), url);
+  return route(req, res, url);
 }
 
 /** Every route, once the caller is known: the display (its secret), or a paired screen whose scopes allow it (screens.js). */

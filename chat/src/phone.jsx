@@ -9,6 +9,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { pair, client, Removed } from './screen-client.js';
 import { Talk, canTalk } from './talk.jsx';
 import { pairingFromCode } from './scrypt.js';
+import { AppFrame, AppIcon, usePhoneApps, phoneTabs } from './phone-apps.jsx';
+import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 
 // Served by OpenHouse's cloud (https, installable, notes by push): everything goes through the relay, and the
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
@@ -69,7 +71,7 @@ function useHouse(c, onRemoved) {
     try {
       let q = get(QUEUE, []);
       while (q.length) {
-        const r = await c.json('POST', q[0].p, q[0].b);
+        const r = await c.json('POST', q[0].p, q[0].b, q[0].a ? { app: q[0].a } : undefined);
         if (r.status >= 500) throw new Error('later');
         q = get(QUEUE, []).slice(1); put(QUEUE, q); setWaiting(q.length);
         if (r.json?.house) keepHouse(r.json.house);
@@ -97,11 +99,13 @@ function useHouse(c, onRemoved) {
     return () => { stop = true; removeEventListener('online', back); document.removeEventListener('visibilitychange', back); };
   }, [c]);
   /** A change: shown at once, sent now or when the phone is back in touch. */
-  function change(p, b, local) {
+  function change(p, b, local, a) {
     if (local && house) keepHouse(local(structuredClone(house)));
-    const q = [...get(QUEUE, []), { p, b }]; put(QUEUE, q); setWaiting(q.length); flush();
+    const q = [...get(QUEUE, []), { p, b, ...(a ? { a } : {}) }]; put(QUEUE, q); setWaiting(q.length); flush();
   }
-  return { house, door, messages, up, at, waiting, change };
+  /** A change an app made with no signal: it goes, marked with that app, when the phone is back in touch. */
+  const later = ({ p, b, a }) => { const q = [...get(QUEUE, []), { p, b, a }]; put(QUEUE, q); setWaiting(q.length); setUp(false); };
+  return { house, door, messages, up, at, waiting, change, later };
 }
 
 // ---- the tabs --------------------------------------------------------------------------------------------
@@ -249,84 +253,6 @@ function Event({ house, e }) {
     <div className="row ev">
       <span className="when">{when}</span>
       <span className="what">{e.title}{whoOf(e).length > 0 && <span className="who">{whoOf(e).map((w) => <i key={w} style={{ background: colorOf(house, w) || '#8a8580' }} />)}{whoOf(e).join(', ')}</span>}</span>
-    </div>
-  );
-}
-
-function Lists({ me, h }) {
-  const lists = h.house?.lists || [];
-  const [id, setId] = useState(() => get('openhouse.phone.list') || 'groceries');
-  const l = lists.find((x) => x.id === id) || lists[0];
-  const [text, setText] = useState(''), [copied, setCopied] = useState(false);
-  useEffect(() => put('openhouse.phone.list', l?.id), [l?.id]);
-  useEffect(() => { if (!copied) return; const t = setTimeout(() => setCopied(false), 1800); return () => clearTimeout(t); }, [copied]);
-  if (!l) return <div className="page"><p className="soft">No lists yet.</p></div>;
-  const tick = (it) => h.change('/house/list', { list: l.id, [it.done ? 'uncheck' : 'check']: [it.id] }, (hh) => { const x = hh.lists.find((y) => y.id === l.id)?.items.find((y) => y.id === it.id); if (x) x.done = !it.done; return hh; });
-  const add = (e) => {
-    e.preventDefault(); const t = text.trim(); if (!t) return; setText('');
-    h.change('/house/list', { list: l.id, add: t, who: me.person }, (hh) => { hh.lists.find((y) => y.id === l.id)?.items.push({ id: 'new-' + Date.now(), text: t[0].toUpperCase() + t.slice(1), done: false }); return hh; });
-  };
-  const open = l.items.filter((i) => !i.done), done = l.items.filter((i) => i.done);
-  /** What's still to get, one per line, to paste anywhere (another app's assistant, a message). */
-  async function copy() {
-    const words = open.map((i) => i.text).join('\n');
-    try { await navigator.clipboard.writeText(words); }
-    catch { const t = document.createElement('textarea'); t.value = words; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0'; document.body.append(t); t.select(); try { document.execCommand('copy'); } catch {} t.remove(); }
-    setCopied(true);
-  }
-  return (
-    <div className="page">
-      {lists.length > 1 && <div className="chips">{lists.map((x) => <button key={x.id} className={x.id === l.id ? 'here' : ''} onClick={() => setId(x.id)}>{x.name}</button>)}</div>}
-      <form className="add" onSubmit={add}><input value={text} onChange={(e) => setText(e.target.value)} placeholder={`Add to ${l.name}`} enterKeyHint="done" /></form>
-      {open.length > 0 && <div className="listbar"><button className="quiet" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button></div>}
-      <ul className="items">
-        {open.map((it) => <li key={it.id} onClick={() => tick(it)}><span className="box" />{it.text}</li>)}
-        {done.map((it) => <li key={it.id} className="done" onClick={() => tick(it)}><span className="box on" />{it.text}</li>)}
-      </ul>
-      {!l.items.length && <p className="soft">Nothing on it right now.</p>}
-    </div>
-  );
-}
-
-function Calendar({ h }) {
-  const house = h.house;
-  if (!house) return null;
-  const days = [...Array(14)].map((_, i) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + i); return d; });
-  return (
-    <div className="page">
-      {days.map((d, i) => {
-        const a = new Date(d); a.setHours(0, 0, 0, 0); const b = new Date(a); b.setDate(b.getDate() + 1);
-        const evs = (house.events || []).filter((e) => Date.parse(e.start) < b && Date.parse(e.end || e.start) > a).sort((x, y) => (y.allDay ? 1 : 0) - (x.allDay ? 1 : 0) || Date.parse(x.start) - Date.parse(y.start));
-        if (!evs.length && i > 1) return null;
-        return (
-          <section key={i}>
-            <h2>{i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</h2>
-            {evs.length ? evs.map((e, k) => (
-              <div key={k} className="row ev"><span className="when">{e.allDay ? 'All day' : time(e.start)}</span>
-                <span className="what">{e.title}{whoOf(e).length > 0 && <span className="who">{whoOf(e).map((w) => <i key={w} style={{ background: colorOf(house, w) || '#8a8580' }} />)}{whoOf(e).join(', ')}</span>}</span></div>
-            )) : <p className="soft">Nothing.</p>}
-          </section>
-        );
-      })}
-    </div>
-  );
-}
-
-function Chores({ me, h }) {
-  const house = h.house;
-  if (!house) return null;
-  const today = (house.chores || []).filter((c) => c.today && !c.skipped);
-  const people = [...new Set(today.map((c) => c.who || 'Anyone'))].sort((a, b) => (mine(me, b) ? 1 : 0) - (mine(me, a) ? 1 : 0));
-  const flip = (c) => h.change('/house/chore', { done: { who: c.who, task: c.task, ...(c.who ? {} : { by: me.person }) }, value: !c.done }, (hh) => { const x = hh.chores.find((y) => y.who === c.who && y.task === c.task); if (x) x.done = !c.done; return hh; });
-  return (
-    <div className="page">
-      {!today.length && <p className="soft">No chores today.</p>}
-      {people.map((p) => (
-        <section key={p}>
-          <h2><span className="who"><i style={{ background: colorOf(house, p) || '#8a8580' }} />{p}</span></h2>
-          <ul className="items">{today.filter((c) => (c.who || 'Anyone') === p).map((c, i) => <li key={i} className={c.done ? 'done' : ''} onClick={() => flip(c)}><span className={'box' + (c.done ? ' on' : '')} />{c.task}</li>)}</ul>
-        </section>
-      ))}
     </div>
   );
 }
@@ -498,11 +424,21 @@ function AddToHome({ me, onLater }) {
 }
 
 // ---- the page ------------------------------------------------------------------------------------------
-const TABS = [['today', 'Today'], ['lists', 'Lists'], ['calendar', 'Calendar'], ['chores', 'Chores']];
+// The household's own tabs, in the tablet's order (its home style), each one's app running here in a frame of its own
+// (phone-apps.jsx). The first four along the bottom, and More: every tab, in a list that slides in from the side.
+const TabIcon = ({ t }) => {
+  const d = TAB_ICONS[t.app?.tabIcon] || TAB_ICONS[TAB_ICON_BY_ID[t.id]];
+  return d ? <svg className="tab-icon" viewBox="0 0 256 256" aria-hidden="true"><path d={d} fill="currentColor" /></svg> : <span className="tab-icon" />;
+};
+const MoreIcon = () => <svg className="tab-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
 function Phone({ me, c, onRemoved }) {
   const h = useHouse(c, onRemoved);
+  const { apps, style } = usePhoneApps(c, h.door);
+  const tabs = phoneTabs(style, apps);
   const [setup, setSetup] = useState(() => (me.scopes || []).includes('setup') && !get(DONE));
-  const [tab, setTab] = useState(() => (shared ? 'today' : get('openhouse.phone.tab') || 'today'));
+  const [want, setTab] = useState(() => (shared ? 'today' : get('openhouse.phone.tab') || 'today'));
+  const [opened, setOpened] = useState(null); // an app from Apps (or one an app opened) that isn't a tab
+  const [more, setMore] = useState(false);
   const [asking, setAsking] = useState(() => (openedConvo && canAsk(me) ? { convo: openedConvo } : !!shared && canAsk(me)));
   useEffect(() => {
     if (openedConvo) history.replaceState(null, '', location.pathname + location.hash);
@@ -510,6 +446,7 @@ function Phone({ me, c, onRemoved }) {
     navigator.serviceWorker?.addEventListener('message', onMsg);
     return () => navigator.serviceWorker?.removeEventListener('message', onMsg);
   }, []);
+  const tab = tabs.some((t) => t.id === want) ? want : 'today';
   useEffect(() => put('openhouse.phone.tab', tab), [tab]);
   const [home, setHome] = useState(wantsHome);
   // On the Wi-Fi's page: once it knows the household's installable copy, go there (it works at home too).
@@ -519,17 +456,55 @@ function Phone({ me, c, onRemoved }) {
   if (setup) return <SetupFlow me={me} c={c} h={h} onDone={() => { put(DONE, true); setSetup(false); }} />;
   if (home) return <AddToHome me={me} onLater={() => { put(LATER, true); setHome(false); }} />;
   const ago = h.at ? Math.round((Date.now() - h.at) / 60e3) : null;
+  const go = (id) => { setOpened(null); setMore(false); setTab(id); };
+  const open = (id) => { if (tabs.some((t) => t.id === id)) return go(id); const a = (apps || []).find((x) => x.id === id); if (a) { setMore(false); setOpened(a); } };
+  const bar = tabs.length > 5 ? tabs.slice(0, 4) : tabs;
+  const cur = opened ? null : tabs.find((t) => t.id === tab);
+  const frame = (a) => <AppFrame key={a.id} c={c} app={a} style={style} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} />;
   return (
-    <div className={'app' + (canAsk(me) ? ' asks' : '')}>
-      <header><span className="brand">OpenHouse</span><span className="soft">{me.person}</span></header>
+    <div className={'app' + (canAsk(me) ? ' asks' : '') + (opened || cur?.app ? ' framed' : '')}>
       {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
-      {!h.house ? <div className="page"><p className="soft">Loading…</p></div>
-        : tab === 'lists' ? <Lists me={me} h={h} /> : tab === 'calendar' ? <Calendar h={h} /> : tab === 'chores' ? <Chores me={me} h={h} /> : <Today me={me} h={h} c={c} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} />}
-      {canAsk(me) && !asking && (canTalk(talkScopes(me))
+      {opened ? <><div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>{frame(opened)}</>
+        : !h.house && tab === 'today' ? <div className="page"><p className="soft">Loading…</p></div>
+        : tab === 'today' ? <><header><span className="brand">OpenHouse</span><span className="soft">{me.person}</span></header><Today me={me} h={h} c={c} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} /></>
+        : tab === 'apps' ? <AppsList apps={apps} tabs={tabs} onOpen={open} />
+        : cur?.app ? frame(cur.app) : <div className="page"><p className="soft">Loading…</p></div>}
+      {canAsk(me) && !asking && !more && (canTalk(talkScopes(me))
         ? <Talk c={c} scopes={talkScopes(me)} onType={() => setAsking(true)} />
         : <button className="opie" onClick={() => setAsking(true)}><span className="bars"><i /><i /><i /><i /></span>Ask Opie</button>)}
       {asking && <Ask key={asking.convo || 'new'} me={me} c={c} convoId={asking.convo || null} onClose={() => setAsking(false)} />}
-      <nav>{TABS.map(([id, name]) => <button key={id} className={tab === id ? 'here' : ''} onClick={() => setTab(id)}>{name}</button>)}</nav>
+      <nav>
+        {bar.map((t) => <button key={t.id} className={!opened && tab === t.id ? 'here' : ''} onClick={() => go(t.id)}><TabIcon t={t} /><span>{t.name}</span></button>)}
+        {bar.length < tabs.length && <button className={more ? 'here' : ''} onClick={() => setMore(true)}><MoreIcon /><span>More</span></button>}
+      </nav>
+      <More open={more} tabs={tabs} tab={opened ? null : tab} me={me} onGo={go} onClose={() => setMore(false)} />
+    </div>
+  );
+}
+
+/** Every tab, in a list that slides in from the side. */
+function More({ open, tabs, tab, me, onGo, onClose }) {
+  return (
+    <div className={'more' + (open ? ' open' : '')} aria-hidden={!open}>
+      <div className="more-veil" onClick={onClose} />
+      <aside className="more-list">
+        <div className="more-head"><span className="brand">OpenHouse</span><button className="quiet" onClick={onClose}>Done</button></div>
+        {tabs.map((t) => <button key={t.id} className={'more-row' + (tab === t.id ? ' here' : '')} onClick={() => onGo(t.id)}><TabIcon t={t} /><span>{t.name}</span></button>)}
+        <div className="soft more-foot">{me.person ? `${me.person}'s phone` : 'This phone'}</div>
+      </aside>
+    </div>
+  );
+}
+
+/** The Apps tab: every app on phones that isn't a tab. */
+function AppsList({ apps, tabs, onOpen }) {
+  const inTabs = new Set(tabs.map((t) => t.id));
+  const rest = (apps || []).filter((a) => !inTabs.has(a.id)).sort((a, b) => a.name.localeCompare(b.name));
+  return (
+    <div className="page">
+      <h1 className="title">Apps</h1>
+      {!apps ? <p className="soft">Loading…</p> : rest.length ? <div className="app-grid">{rest.map((a) => <button key={a.id} className="app-tile" onClick={() => onOpen(a.id)}><AppIcon app={a} /><span>{a.name}</span></button>)}</div>
+        : <p className="soft">Every app is a tab.</p>}
     </div>
   );
 }
