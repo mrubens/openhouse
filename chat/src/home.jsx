@@ -262,6 +262,7 @@ function DayNote({ c, house, n, day, openApp, style }) {
   return <>
     {pics.length ? <div role="button" tabIndex={0} className="t-card t-lunch t-pic-card" style={style} onClick={() => setOpen(true)}>
       {img(pics[0], 't-cover')}
+      {pics.length > 1 && <div className="t-sides">{pics.slice(1, 3).map((p) => img(p))}</div>}
       <div className="t-cap"><div className="h-label">{label(' · ')}</div><div className="t-big">{plain(pics[0].text || n.text)}</div>
         {pics.slice(1, 3).map((p, i) => <div key={i} className="t-or">or {plain(p.text)}</div>)}</div>
     </div> : <div role="button" tabIndex={0} className="t-card t-acts t-daynote" style={style} onClick={() => setOpen(true)}>
