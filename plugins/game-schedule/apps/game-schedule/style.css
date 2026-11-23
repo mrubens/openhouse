@@ -1,0 +1,4 @@
+/* Game days: a line a game */
+.body { margin-top: calc(26 * var(--u)); gap: 0; max-width: calc(1200 * var(--u)); }
+.when { width: calc(240 * var(--u)); flex: none; font-weight: 600; }
+.dot { display: inline-block; width: calc(12 * var(--u)); height: calc(12 * var(--u)); border-radius: 50%; margin-right: calc(10 * var(--u)); vertical-align: middle; }

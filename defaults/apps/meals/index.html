@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/kit/openhouse.css">
+  <style>
+    /* Sizes are in u: one pixel of a 1536-wide layout, scaled to the screen, so it reads the same from across the room. */
+    :root { --u: calc(100vw / 1536); --red: #d9543f; --blue: #3f74d9; --green: #4fa87a; --gold: #e2a93b; --scrim: rgba(0, 0, 0, .6); }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; overflow: hidden; }
+    body { background: var(--door); user-select: none; -webkit-user-select: none; touch-action: manipulation; -webkit-touch-callout: none; }
+    #app { position: fixed; inset: 0; display: flex; flex-direction: column; padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u)); }
+    .top { display: flex; align-items: center; gap: calc(16 * var(--u)); margin-bottom: calc(22 * var(--u)); flex: none; }
+    .title { flex: 1; min-width: 0; margin: 0; font-size: calc(52 * var(--u)); font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .icon { display: inline-flex; }
+    .icon svg { width: 100%; height: 100%; }
+    .star { display: inline-flex; flex: none; }
+    .star svg { width: 100%; height: 100%; }
+    .chip { flex: none; height: calc(70 * var(--u)); border-radius: calc(35 * var(--u)); background: rgba(36, 40, 42, .07); padding: 0 calc(26 * var(--u)); font-size: calc(24 * var(--u)); font-weight: 700;
+      display: inline-flex; align-items: center; gap: calc(12 * var(--u)); white-space: nowrap; }
+    .chip.on { background: var(--ink); color: #fff; }
+    .chip .dot { width: calc(22 * var(--u)); height: calc(22 * var(--u)); border-radius: 50%; flex: none; }
+    .btn { flex: none; height: calc(84 * var(--u)); border-radius: calc(42 * var(--u)); background: var(--ink); color: #fff; padding: 0 calc(40 * var(--u)); font-size: calc(28 * var(--u)); font-weight: 800; white-space: nowrap; }
+    .btn.soft { background: rgba(36, 40, 42, .08); color: var(--ink); }
+    .btn:disabled { opacity: .35; }
+    .round { flex: none; width: calc(80 * var(--u)); height: calc(80 * var(--u)); border-radius: 50%; background: rgba(255, 255, 255, .8); color: var(--ink); display: grid; place-items: center; }
+    .round .icon { width: calc(44 * var(--u)); height: calc(44 * var(--u)); }
+    .round.dark { background: var(--ink); color: #fff; }
+    .round:disabled { background: rgba(255, 255, 255, .3); color: rgba(36, 40, 42, .3); }
+    .scrim { position: fixed; inset: 0; background: var(--scrim); display: flex; align-items: center; justify-content: center; z-index: 10; }
+    .scrim.high { align-items: flex-start; padding-top: calc(70 * var(--u)); }
+    .sheet { width: calc(820 * var(--u)); max-width: 96vw; max-height: 92vh; overflow: auto; background: var(--paper); border-radius: calc(30 * var(--u)); padding: calc(30 * var(--u)) calc(36 * var(--u));
+      display: flex; flex-direction: column; gap: calc(22 * var(--u)); color: var(--ink); }
+    .sheet h2 { margin: 0; font-size: calc(34 * var(--u)); font-weight: 800; }
+    .sheet h2.big { font-size: calc(36 * var(--u)); }
+    .field { font: inherit; font-size: calc(36 * var(--u)); font-weight: 600; width: 100%; border-radius: calc(18 * var(--u)); background: #fff; border: calc(2 * var(--u)) solid rgba(36, 40, 42, .15);
+      padding: calc(18 * var(--u)) calc(24 * var(--u)); color: var(--ink); outline: none; user-select: text; -webkit-user-select: text; }
+    .field::placeholder { color: rgba(94, 100, 102, .6); }
+    .extra { display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
+    .extra:empty { display: none; }
+    .chips { display: flex; gap: calc(10 * var(--u)); overflow-x: auto; scrollbar-width: none; }
+    .chips::-webkit-scrollbar, .hscroll::-webkit-scrollbar, .vscroll::-webkit-scrollbar { display: none; }
+    .hscroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+    .vscroll { overflow-y: auto; overflow-x: hidden; scrollbar-width: none; min-height: 0; }
+    .actions { display: flex; gap: calc(16 * var(--u)); justify-content: flex-end; flex-wrap: wrap; }
+    .soft-text { color: var(--ink-soft); }
+    .screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+    .days { height: 90%; display: flex; gap: calc(12 * var(--u)); }
+    .day { flex: 1; min-width: 0; border-radius: calc(24 * var(--u)); background: rgba(255, 255, 255, .6); padding: calc(16 * var(--u)); display: flex; flex-direction: column; gap: calc(12 * var(--u)); }
+    .day.today { background: #fff; }
+    .dow { font-size: calc(24 * var(--u)); font-weight: 800; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .day.today .dow { color: var(--red); }
+    .date { font-size: calc(18 * var(--u)); font-weight: 700; color: var(--ink-soft); margin-top: calc(-8 * var(--u)); }
+    .meal { flex: 1; min-height: 0; border-radius: calc(18 * var(--u)); background: rgba(36, 40, 42, .05); padding: calc(14 * var(--u)); display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center; overflow: hidden; }
+    .meal.set { background: var(--sticky); }
+    .has-recipe { margin-top: calc(6 * var(--u)); font-size: calc(14 * var(--u)); font-weight: 700; color: var(--ink-soft); }
+    .grow { flex: 1; }
+    .chips.wrap { flex-wrap: wrap; overflow: visible; margin-top: calc(16 * var(--u)); }
+    .field.small { font-size: calc(22 * var(--u)); font-weight: 500; margin-top: calc(14 * var(--u)); }
+    .field.notes { height: calc(380 * var(--u)); resize: none; line-height: 1.4; display: block; }
+    .link { font-size: calc(22 * var(--u)); color: var(--ink-soft); overflow-wrap: anywhere; margin-top: calc(8 * var(--u)); user-select: text; -webkit-user-select: text; }
+    .recipe { white-space: pre-wrap; font-size: calc(21 * var(--u)); line-height: 1.45; max-height: calc(520 * var(--u)); overflow: auto; margin: calc(16 * var(--u)) 0; user-select: text; -webkit-user-select: text; }
+    .note { color: var(--ink-soft); font-size: calc(20 * var(--u)); }
+    .which { font-size: calc(17 * var(--u)); font-weight: 700; color: var(--ink-soft); }
+    .what { font-size: calc(44 * var(--u)); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
+    .meal .add { width: calc(48 * var(--u)); height: calc(48 * var(--u)); color: rgba(94, 100, 102, .5); }
+    .work { font-size: calc(17 * var(--u)); font-weight: 700; color: var(--ink-soft); padding-top: calc(8 * var(--u)); }
+  </style>
+  <link rel="stylesheet" href="/kit/quiet.css">
+</head>
+<body><div id="app"></div><script type="module" src="./main.js"></script></body>
+</html>

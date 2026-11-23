@@ -1,0 +1,182 @@
+# The wake word: "Opie"
+
+Every household wakes the assistant the same way: **"Opie"** or **"Hey Opie"** (or "Hi/Okay Opie"). It isn't a
+setting any more. The household record can still give the assistant another display name, but the word it answers
+to can't change.
+
+**Now (2026-11-20):** a small wake model listens all the time (`bridge/wake.js`, `models/wake/opie.onnx`), alone: a
+score of at least 0.9 is its name (round 3's model, voice set 4), and the display hands the microphone to OpenAI's live voice, which hears the
+request. It's the only speech model on the tablet: the speech model (Parakeet), the speaker model (TitaNet), the
+keyword spotter, the voice detector (silero), the turn model (Smart Turn) and the voices (Kitten) are gone
+(`docs/voice-models.md`, voice set 3). The microphone and the wake model
+run only while Live voice is on (a wake word with no live voice has nothing to wake): with it off, or the tablet not linked,
+nothing listens, and Settings shows Live voice: Off (Hey Opie only shows while it's on). There's no local fallback.
+
+**Before:** the speech model (Parakeet) found the name. It transcribed every utterance in the room at its start
+(1.0, 1.6 and 2.2 s in, then at the end) and looked for the ways it writes "Opie". It was slow, it ran Parakeet on
+all the talk in the room, and it missed half the time.
+
+## Results (2026-11-20, round 3: 1,550 hours of ordinary speech)
+
+Round 3 is on the tablet from voice set 4 (`models/wake/opie.onnx`, r2), at 0.9. Out of 10, the same test set as below:
+
+| | up close | kitchen noise | across the room | TV or talk behind | false wakes per hour |
+|---|---|---|---|---|---|
+| round 2 (voice set 3), 0.9 | 8.9 | 8.6 | 8.2 | 6.0 | 2.7 |
+| round 3, first try (b0w), 0.9 | 9.6 | 8.5 | 7.7 | 5.3 | 1.0 |
+| round 3 (r2), 0.85 | 9.7 | 9.1 | 8.3 | 6.5 | 1.5 |
+| **round 3 (r2), 0.9** | **9.5** | **8.9** | **8.0** | **6.1** | **1.2** |
+
+- **At home it wakes far more than the bench says.** The first evening at 0.85 (2026-11-20, from 5 pm):
+  19 wakes with nobody talking to it, 6 an hour at dinner; 8 of them scored 0.85–0.9. Back at 0.9 the next day. And
+  a session its name opened now checks it was spoken to before it says anything: if not (other talk, the TV, its name
+  inside someone else's sentence), it calls `go_away` and stays silent (`wakeNote` in `bridge/live-tools.js`,
+  `/live/setup?how=wake`).
+- **The silent check at home** (2026-11-21 to 23, 29 wakes): 22 false, and it stayed silent in all of them; 7 real
+  requests answered. One false wake still got an answer: a cut-off sentence to someone else, transcribed as starting
+  with its name, answered from an earlier conversation. Since then the check answers only a clear, finished request
+  (or its name alone), and a session its name opened starts without the earlier conversation unless someone talked to
+  it in the last two minutes. Each false wake still chimes.
+
+- **What changed:** about 1,550 hours of commercial-use ordinary speech it learns to ignore (four times round 2's,
+  from five sources: talks and podcasts, parliament, YouTube, earnings calls, audiobooks), and the name clips again
+  in hard rooms (across the room half the time, always over something, often music or talk as loud as a TV).
+- **What the extra speech did alone:** it halved false wakes, but the model then took any talk-like sound for "not the
+  name", so it heard less across the room and over a TV (b0w). The hard-room clips won that back.
+- **False wakes:** 1.5 an hour over 12 hours (round 2: 2.7). Sound-alike sentences wake it 65 times in 384, as
+  before. The real voice's takes weren't run.
+- **Size:** 2.4 MB (width 192), up from 1.1 MB.
+- **Cost:** about $80 on Modal.
+
+## Results (2026-11-20, round 2: the model alone, no speech check)
+
+The on-device speech models are going away, so the wake model has to work alone: what it hears wakes the assistant,
+and each false wake opens a paid live session. Out of 10 "Opie"s from voices it never trained on (macOS voices and
+half of Kokoro's, adults and children), at the default threshold (0.9):
+
+| | up close | kitchen noise | across the room | TV or talk behind | a real voice's takes | false wakes per hour |
+|---|---|---|---|---|---|---|
+| before: words only (Parakeet) | 6.8 | 5.5 | 4.2 | 2.3 | 10 of 28 | 0 |
+| round 1 model + Parakeet's check | 7.5 | 5.7 | 4.9 | 1.9 | 16 of 28 | 0 |
+| round 2 model alone (`opie.onnx`), old listener | 8.6 | 7.7 | 7.9 | 4.1 | 19 of 28 | 2.8 |
+| **the same model, today's listener (no speech models)** | **8.9** | **8.6** | **8.2** | **6.0** | not run | **2.7** |
+| same, threshold 0.5 | 9.2 | 8.3 | 8.8 | 4.9 | 22 of 28 | 6.4 |
+| bigger, trained longer (v2a), 0.9 | 9.4 | 8.4 | 8.6 | 4.8 | 23 of 28 | 9.6 |
+
+- **Today's listener** (no voice detector: the microphone's level is learned from the loud moments of the last
+  minute) hears more than the old one with the same model, most of all with a TV behind (6.0 in 10, from 4.1).
+- **False wakes** come from talk without the name: 2.6 an hour on audiobooks, 4.8 on meetings, none on music or
+  household noise (12 hours in all; 4.4 and 3 with the old listener). Sound-alike sentences ("Okay, please pass the
+  peas", "I hope he…") wake it 65 times in 384.
+- **Inside someone else's talk** ("Hey Opie, …" said during a call or TV, the old `rollwake` bench): it woke for 1 of 6
+  close up and 3 of 6 across the room at 0.5, with 5–7 false wakes an hour in 26 minutes of nonstop talk.
+- **Time:** it fires as the name ends (median 50 ms before the end of the word).
+- **What limits it:** the model learns its training speech too well. It barely fires on the 100 hours it trained
+  against, but does on speech it hasn't heard. Longer training hears more and false-wakes more (v2a). Fewer false
+  wakes need more *different* ordinary speech to learn from, not more rounds on the same. The next round needs more
+  Modal budget than the Starter plan's limit (see below).
+- Not compared: Picovoice Porcupine (no Picovoice key).
+
+<details><summary>Round 1 (2026-11-19)</summary>
+
+A small model (two dense layers) trained on Piper voices and 27 hours of speech, with Parakeet's reading as a second
+check: 7.5 / 5.7 / 4.9 / 1.9 out of 10 and no false requests, but alone it would make 19 false requests an hour.
+</details>
+
+## How it works on the tablet
+
+- **Features:** openWakeWord's front end (Apache-2.0, v0.5.1): every 80 ms, log-mel frames (`melspectrogram.onnx`)
+  and one 96-number speech embedding (`embedding_model.onnx`) of the last 0.775 s. `bridge/wake.js` is
+  openWakeWord's streaming code in JavaScript; `scripts/wake/check.mjs` checks it scores exactly as the Python the
+  model was trained with (largest difference 0.0000 over a test clip).
+- **Model:** `models/wake/opie.onnx` (ours, 2.4 MB): the last 16 embeddings (1.28 s) through a projection, three
+  1-D convolutions, a GRU and attention pooling to one score (`Head2` in `scripts/wake/train.py`, width 192). It runs
+  with `onnxruntime-node` in the listener process.
+- **The listener** (`bridge/voice-worker.js`): the microphone brought up to a steady level (the loud moments of the
+  last minute toward 0.3 of full scale, at most 32x, squashed so a near voice isn't clipped; the level is kept across
+  restarts), then the model. A score of at least `VOICE_WAKE_THRESHOLD` (0.9) wakes it, once per name (1.5 s).
+  Nothing is transcribed or kept.
+- **Then** (`shell/…/Listening.kt`, `LiveVoice.kt`): the wake goes to the display (`/voice/events`), which stops the
+  tablet's own speech, chimes and opens a live voice session at once. "Hey Opie, add milk to the list" said in one
+  breath works: while the session connects (about 2 s), the tablet's own listening keeps the microphone and keeps what
+  it hears, from 0.7 s before the wake model fired (in memory only). Once the session can hear (`session.started`),
+  that goes first, played into the session's audio track (GPT-Live over WebRTC takes audio only on the track), brought
+  up to a steady level, with each pause cut to 160 ms while it's behind so it catches up. Caught up, at a pause (or
+  once the live voice starts talking, or 10 s on), the tablet lets go and the session's own microphone, with
+  Chromium's echo cancelling, replaces the track. The log's `t+… ms` lines (`adb logcat -s LiveVoice`) time each step
+  from the wake. While a session runs the tablet doesn't listen for its name; the live voice hears being talked over itself.
+- **Counting false wakes:** each time it fires, the bridge keeps when and how sure (`voice-wakes.jsonl`, nothing heard
+  or said). `GET /voice/wakes` gives them with the counts for the last hour and day; `POST /voice/wakes/clear`
+  empties it. Compare the times with the live voice's conversations to tell real wakes from false ones.
+- **Only with the live voice:** `MainActivity.micWanted()` is the microphone switch and `LiveVoice.chosen`; the
+  microphone stream stops and starts as the live voice goes off and on, and the wake model is fetched only then.
+- **A tap** on the assistant opens a live voice session too; without the live voice it opens typing. The typing box
+  has no microphone now (dictating needed the speech model).
+- **Shipping:** voice set 3 (`docs/voice-models.md`): the three files under `models/wake/`, with `onnxruntime-node`
+  (linux-arm64 only). `scripts/voice-models.sh` fetches openWakeWord's two files and copies `opie.onnx` from this
+  repo; `scripts/voice-bundle.sh` makes the set; `scripts/voice-install.sh` puts it on a debug build.
+
+## How it was trained
+
+On Modal (`scripts/wake/modal_app.py`, workspace openhouse-wake), from synthetic and public data whose licenses allow
+commercial use. No household audio goes there, and only the model and its scores come back.
+
+- **Voices saying it:** 29 Piper voice models (about 2,000 speakers: LibriTTS-R and LibriTTS, VCTK, ARCTIC,
+  L2-ARCTIC's accented English and 22 others), half of Kokoro's 28 English voices, and about 240 voices cloned from
+  LibriTTS-R speakers with Chatterbox (MIT; each cloned clip kept only if Parakeet hears the name in it: 2,655 of
+  7,520). 273,000 training windows. Piper's phonemizer reads "Opie" as "oh-pie", so it's spelled as said
+  ("Opee", "Ohpee"…); Kokoro gets "opie" added to its lexicon. Children: the voices pitched up and sped up.
+- **Near-misses** from the same voices: "Okay", "Copy", "Obi", "Hoping", "Open", "Opal", "Toby", "Soapy"…
+- **Rooms** (`scripts/wake/features.py`): reverb, distance and the tablet's quiet microphone, the listener's gain,
+  kitchen and household noise (DEMAND), music and noise (MUSAN), other people talking, 12% as over a call.
+- **Ordinary sound to ignore:** about 390 hours of speech (LibriSpeech dev/test-other and train-clean-360, AMI
+  meetings; CC-BY 4.0) and MUSAN's music and noise (CC-BY 4.0), all in the same rooms, as 684,000 windows, plus
+  24,000 hard negatives: moments earlier models took for the name. openWakeWord's 2,000 hours of negatives are
+  non-commercial (CC-BY-NC-SA), so they aren't used.
+- **Training:** weighted cross-entropy (a false wake costs 300 times a miss, a hard negative 1,000), labels smoothed
+  by 5% so scores don't all pile up at 1.00; 30,000 steps (longer memorises the training speech).
+- **Round 3** (`r3` in `modal_app.py`, a Modal workspace): a speech bank of ~1,550 h, each source's shard
+  placed in rooms 20 s at a time and embedded on L4s (YODAS2 English, CC-BY 3.0; People's Speech clean, CC-BY;
+  VoxPopuli English and accented English, CC0; Earnings-22, CC-BY-SA 4.0; LibriSpeech train-other-500, CC-BY 4.0;
+  none gated). One shard of each is held out to count false wakes an hour per source. Training samples 6 million
+  windows from it beside round 2's, mines what the first model took for the name (883 windows), and adds every
+  name clip again in hard rooms (`features.place(hard=True)`). 45,000 steps, width 192, on an A100.
+- **Cost (rounds 1–2):** $36.67 on Modal in all, inside the Starter plan's $42.50 limit. About $18 of it was one round-1 run whose
+  process pool hung; the cloning and mining steps now have hard time limits.
+
+## The test set
+
+`scripts/wake/testset.py` builds it on the Mac; `scripts/wake/bench.mjs --set <dir>` runs it through the real
+listener (`bridge/voice-worker.js`, the tablet's model), keeping every score to try thresholds afterwards.
+`scripts/voice-replay.mjs` runs a test recording from a tablet (`scripts/voice-rec.sh`) through it again.
+
+- **Positives:** macOS voices and Kokoro's voices, adults and children (pitched up): six phrases each ("Opie.",
+  "Hey Opie.", "Hey Opie, what's the weather tomorrow?", "Opie, set a timer for ten minutes.", "Hey Opie, add milk
+  to the shopping list.", "Hi Opie, what time is it?"). The spelling is picked per voice, by Parakeet reading
+  "Opie." alone; nine voices that can't say it in any spelling are left out. Four rooms each: up close and quiet,
+  kitchen noise 5–15 dB below the voice, across the room (reverb, the tablet's level, noise), music or other speech
+  5–12 dB below. Kokoro's voices that Modal trained on are skipped (`--skip-voices`): 1,152 clips.
+- **A real voice:** 7 takes, recorded on a Mac with the speaker's OK, kept there (not in the repo).
+- **Near-misses:** 35 sentences that sound like the name.
+- **Other sound:** 5 h of read speech (LibriSpeech test-clean), 4 h of meetings from a table microphone (AMI), 2 h of
+  music with vocals (GTZAN), 1 h of household noise (DEMAND). None of it is used in training.
+
+## Reproducing
+
+```
+MODAL_CONFIG_PATH=<config> modal run scripts/wake/modal_app.py::main --stage data      # public data onto the volume
+... --stage voices      # the voices saying it (CPU containers)
+... --stage features    # in rooms, as features
+... --stage train --names nw300
+... --stage harden --names nw300,h1000      # mine nw300's mistakes, train h1000 against them
+... --stage harden --names h1000,g1000      # and again
+... --stage data2 / clone / features2       # round 2: cloned voices, 360 h more speech
+... --stage train2 --names v2d:300:1000:30000:128 --hard nw300,h1000,v2a
+... ::r3 --stage bank --hours 20 / mine --names b0w --thr 0.5 / featureshard   # round 3
+... ::r3 --stage train --names r2:300:1000:45000:192:b0w
+modal volume get opie-wake models/r2.onnx models/wake/opie.onnx
+scripts/wake/setup.sh                       # on the Mac: Python, the listener's models, the test set's sources
+VOICE_DIR=<listener dir with models/wake/> node scripts/wake/bench.mjs --set <testset> --skip-voices <file>
+```
+
+`scripts/wake/{synth,build,train}.py` are the same steps for one machine (the first, slower version of this work).

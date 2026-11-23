@@ -1,0 +1,21 @@
+/* Trivia night: the question big, the four choices as tiles, the scores along the bottom */
+.top { margin-bottom: calc(20 * var(--u)); }
+.stage { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: calc(24 * var(--u)); }
+.question { font-size: calc(48 * var(--u)); font-weight: 600; line-height: 1.2; letter-spacing: -.01em; max-width: calc(1300 * var(--u)); }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: calc(16 * var(--u)); }
+.choice { display: flex; align-items: center; gap: calc(20 * var(--u)); text-align: left; padding: calc(22 * var(--u)) calc(26 * var(--u)); border-radius: calc(22 * var(--u)); background: var(--tint); font-size: calc(30 * var(--u)); font-weight: 500; min-height: calc(110 * var(--u)); }
+.choice .letter { width: calc(56 * var(--u)); height: calc(56 * var(--u)); border-radius: 50%; display: grid; place-items: center; background: var(--bg); font-weight: 700; flex: none; }
+.choice .who { margin-left: auto; font-size: calc(18 * var(--u)); color: var(--ink-soft); }
+.choice.right { background: var(--ink); color: var(--bg); }
+.choice.right .letter { color: var(--ink); }
+.choice.right .who { color: color-mix(in srgb, var(--bg) 75%, transparent); }
+.choice.wrong { opacity: .45; }
+.tap { display: flex; gap: calc(10 * var(--u)); align-items: center; flex-wrap: wrap; }
+.chip.on { background: var(--ink); color: var(--bg); }
+.scores { flex: none; display: flex; gap: calc(36 * var(--u)); padding-top: calc(16 * var(--u)); border-top: 1px solid var(--line); flex-wrap: wrap; }
+.player { display: flex; align-items: center; gap: calc(10 * var(--u)); font-size: calc(24 * var(--u)); }
+.player .dot { width: calc(14 * var(--u)); height: calc(14 * var(--u)); border-radius: 50%; }
+.player .pts { font-weight: 700; }
+.player .locked { font-size: calc(15 * var(--u)); color: var(--ink-soft); }
+.player.lead .pname { font-weight: 700; }
+.body { margin-top: calc(30 * var(--u)); }

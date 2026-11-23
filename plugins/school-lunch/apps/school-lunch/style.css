@@ -1,0 +1,58 @@
+/* School lunch. Sizes are in u: one pixel of a 1536-wide layout, scaled to the screen. quiet.css (after this) sets the type and tints. */
+:root { --u: calc(100vw / 1536); }
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg); touch-action: manipulation; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+#app { position: fixed; inset: 0; display: flex; flex-direction: column; padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(20 * var(--u)); }
+
+.top { display: flex; align-items: center; gap: calc(16 * var(--u)); margin-bottom: calc(24 * var(--u)); flex: none; }
+.title { flex: 1; min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.weeks { display: flex; gap: calc(8 * var(--u)); }
+.chip { display: inline-flex; align-items: center; white-space: nowrap; }
+.btn { flex: none; background: var(--ink); white-space: nowrap; }
+
+.groups { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: calc(26 * var(--u)); scrollbar-width: none; }
+.group { display: flex; flex-direction: column; gap: calc(12 * var(--u)); }
+.who { display: flex; align-items: baseline; gap: calc(14 * var(--u)); }
+.names { font-size: calc(24 * var(--u)); font-weight: 600; }
+.school { font-size: calc(17 * var(--u)); color: var(--ink-soft); text-transform: capitalize; }
+.days { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: calc(10 * var(--u)); }
+/* a day as the Meals app draws one (quiet.css .day: a rule above, no box); today's rule and name in the accent */
+.day { min-height: calc(190 * var(--u)); display: flex; flex-direction: column; gap: calc(8 * var(--u)); }
+.day.past { opacity: .55; }
+:root .day.today { border-top: calc(3 * var(--u)) solid var(--accent); }
+:root .day.asked { border-top: calc(3 * var(--u)) solid var(--ink); }
+:root .day.today.asked { border-top-color: var(--accent); }
+.dow { font-size: calc(17 * var(--u)); font-weight: 600; color: var(--ink-soft); display: flex; gap: calc(8 * var(--u)); align-items: baseline; }
+.day.today .dow { color: var(--accent); }
+.date { font-weight: 400; }
+.main { font-size: calc(22 * var(--u)); font-weight: 600; line-height: 1.25; display: flex; flex-direction: column; gap: calc(4 * var(--u)); }
+.sides, .also { font-size: calc(16 * var(--u)); color: var(--ink-soft); line-height: 1.35; }
+.also { margin-top: auto; }
+.none { font-size: calc(18 * var(--u)); color: var(--ink-soft); }
+.daily { font-size: calc(16 * var(--u)); color: var(--ink-soft); }
+.foot { flex: none; padding-top: calc(12 * var(--u)); font-size: calc(15 * var(--u)); color: var(--ink-soft); min-height: calc(30 * var(--u)); }
+
+.empty { max-width: calc(760 * var(--u)); display: flex; flex-direction: column; align-items: flex-start; gap: calc(16 * var(--u)); margin-top: calc(40 * var(--u)); }
+.lead { margin: 0; font-size: calc(28 * var(--u)); font-weight: 500; }
+.soft { margin: 0; font-size: calc(19 * var(--u)); color: var(--ink-soft); line-height: 1.4; }
+
+/* setup */
+.scrim { position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: calc(60 * var(--u)); z-index: 10; }
+.sheet { width: calc(980 * var(--u)); max-width: 96vw; max-height: 90vh; overflow: auto; border-radius: calc(26 * var(--u)); padding: calc(30 * var(--u)) calc(34 * var(--u));
+  display: flex; flex-direction: column; gap: calc(18 * var(--u)); color: var(--ink); }
+.sheet h2 { margin: 0; }
+.kid { display: grid; grid-template-columns: calc(230 * var(--u)) 1fr auto; gap: calc(12 * var(--u)); align-items: center; }
+.field { font: inherit; width: 100%; border-radius: calc(14 * var(--u)); border: calc(2 * var(--u)) solid var(--line); padding: calc(14 * var(--u)) calc(18 * var(--u)); color: var(--ink); outline: none; }
+.field.name { font-size: calc(22 * var(--u)); }
+.field.link { font-size: calc(18 * var(--u)); }
+.field.bad { border-color: var(--warn); }
+.round { border-radius: 50%; display: grid; place-items: center; font-size: calc(28 * var(--u)); }
+.hint { grid-column: 2 / 4; font-size: calc(15 * var(--u)); color: var(--warn); }
+.actions { display: flex; gap: calc(12 * var(--u)); align-items: center; margin-top: calc(8 * var(--u)); }
+.grow { flex: 1; }
+
+/* a dish with its photo (Nutrislice's, where it has one): small and rounded, the name under it */
+.dish { display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
+.dish img { width: 100%; max-width: calc(150 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(14 * var(--u)); background: var(--tint); }

@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/kit/openhouse.css">
+  <link rel="stylesheet" href="/kit/maplibre-gl.css">
+  <style>
+    :root { --u: calc(100vw / 1536); }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; overflow: hidden; }
+    body { background: var(--bg); color: var(--ink); user-select: none; -webkit-user-select: none; }
+    button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+    #app { position: fixed; inset: 0; padding: calc(32 * var(--u)) calc(40 * var(--u)) calc(32 * var(--u)); display: grid; grid-template-columns: calc(440 * var(--u)) 1fr; gap: calc(36 * var(--u)); }
+    .label { font-size: calc(14 * var(--u)); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+    .soft { color: var(--ink-soft); }
+
+    .side { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; padding-bottom: calc(120 * var(--u)); scrollbar-width: none; }
+    .side::-webkit-scrollbar { display: none; }
+    .sec { margin-top: calc(30 * var(--u)); }
+    .sec:first-child { margin-top: calc(6 * var(--u)); }
+    .rows { margin-top: calc(10 * var(--u)); border-top: 1px solid var(--line); }
+    .row { display: grid; grid-template-columns: calc(18 * var(--u)) 1fr auto; align-items: center; column-gap: calc(14 * var(--u)); width: 100%; text-align: left;
+      padding: calc(16 * var(--u)) calc(6 * var(--u)); border-bottom: 1px solid var(--line); }
+    .row.on { background: var(--tint); border-radius: calc(12 * var(--u)); }
+    .row .what { font-size: calc(21 * var(--u)); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row .sub { font-size: calc(16 * var(--u)); color: var(--ink-soft); margin-top: calc(3 * var(--u)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row .end { text-align: right; font-size: calc(17 * var(--u)); color: var(--ink-soft); white-space: nowrap; }
+    .row .end b { display: block; font-weight: 600; color: var(--ink); font-size: calc(18 * var(--u)); }
+    .pin { width: calc(14 * var(--u)); height: calc(14 * var(--u)); border-radius: 50%; background: var(--accent); }
+    .pin.home { background: var(--ink); border-radius: calc(3 * var(--u)); }
+    .pin.ev { background: transparent; box-shadow: inset 0 0 0 calc(3 * var(--u)) var(--accent); }
+    .add { margin-top: calc(14 * var(--u)); font-size: calc(18 * var(--u)); font-weight: 500; padding: calc(14 * var(--u)) calc(20 * var(--u)); border-radius: calc(26 * var(--u)); background: var(--tint); }
+    .add:active { background: var(--tint-2); }
+    .empty { font-size: calc(17 * var(--u)); color: var(--ink-soft); padding: calc(14 * var(--u)) calc(6 * var(--u)); }
+
+    /* the one in view: what Opie showed, or the row tapped */
+    .card { background: var(--tint); border-radius: calc(18 * var(--u)); padding: calc(20 * var(--u)) calc(22 * var(--u)); }
+    .card h2 { margin: calc(6 * var(--u)) 0 0; font-size: calc(28 * var(--u)); font-weight: 600; letter-spacing: -.01em; }
+    .card .addr { font-size: calc(17 * var(--u)); color: var(--ink-soft); margin-top: calc(4 * var(--u)); line-height: 1.35; }
+    .card .drive { font-size: calc(24 * var(--u)); font-weight: 500; margin-top: calc(14 * var(--u)); }
+    .card .note { font-size: calc(19 * var(--u)); margin-top: calc(8 * var(--u)); }
+    .card .fine { font-size: calc(15 * var(--u)); color: var(--ink-soft); margin-top: calc(6 * var(--u)); }
+    .card .acts { display: flex; gap: calc(10 * var(--u)); margin-top: calc(16 * var(--u)); }
+    .card .acts button { font-size: calc(17 * var(--u)); font-weight: 500; padding: calc(12 * var(--u)) calc(18 * var(--u)); border-radius: calc(22 * var(--u)); background: var(--bg); }
+
+    .mapbox { position: relative; border-radius: calc(22 * var(--u)); overflow: hidden; background: var(--tint); min-height: 0; }
+    #map { position: absolute; inset: 0; }
+    .mk { display: flex; align-items: center; gap: calc(8 * var(--u)); pointer-events: auto; }
+    .mk i { width: calc(18 * var(--u)); height: calc(18 * var(--u)); border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 calc(3 * var(--u)) #fff; }
+    .mk.home i { background: var(--ink); border-radius: calc(4 * var(--u)); }
+    .mk.ev i { background: #fff; box-shadow: inset 0 0 0 calc(4 * var(--u)) var(--accent), 0 0 0 calc(2 * var(--u)) #fff; }
+    .mk.shown i { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
+    .mk span { font-size: calc(15 * var(--u)); font-weight: 600; color: #2a2826; background: rgba(255, 255, 255, .92); padding: calc(4 * var(--u)) calc(9 * var(--u)); border-radius: calc(8 * var(--u)); white-space: nowrap; }
+    .maplibregl-ctrl-attrib { font-size: calc(12 * var(--u)); }
+
+    .none { grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: calc(14 * var(--u)); }
+    .none h2 { margin: 0; font-size: calc(28 * var(--u)); font-weight: 500; }
+    .none p { margin: 0; max-width: calc(640 * var(--u)); font-size: calc(18 * var(--u)); line-height: 1.45; color: var(--ink-soft); }
+    .go { font-size: calc(22 * var(--u)); font-weight: 500; padding: calc(16 * var(--u)) calc(28 * var(--u)); border-radius: calc(16 * var(--u)); background: var(--ink); color: var(--bg) !important; margin-top: calc(10 * var(--u)); }
+
+    .scrim { position: fixed; inset: 0; background: color-mix(in srgb, var(--ink) 30%, transparent); display: flex; align-items: center; justify-content: center; }
+    .sheet { width: calc(620 * var(--u)); background: var(--bg); border-radius: calc(24 * var(--u)); padding: calc(30 * var(--u)); box-shadow: 0 20px 60px rgba(0, 0, 0, .18); }
+    .sheet h2 { margin: 0 0 calc(18 * var(--u)); font-size: calc(26 * var(--u)); font-weight: 600; }
+    .sheet input { display: block; width: 100%; font: inherit; font-size: calc(22 * var(--u)); padding: calc(14 * var(--u)) calc(18 * var(--u)); margin-top: calc(12 * var(--u)); border: 1px solid var(--line); border-radius: calc(14 * var(--u)); background: var(--bg); color: var(--ink); }
+    .sheet .btns { display: flex; justify-content: flex-end; gap: calc(12 * var(--u)); margin-top: calc(22 * var(--u)); }
+    .sheet .btns button { font-size: calc(20 * var(--u)); font-weight: 500; padding: calc(14 * var(--u)) calc(24 * var(--u)); border-radius: calc(14 * var(--u)); background: var(--tint); }
+    .sheet .btns button.main { background: var(--ink); color: var(--bg); }
+    .sheet .msg { min-height: 1.4em; font-size: calc(17 * var(--u)); color: var(--ink-soft); margin-top: calc(12 * var(--u)); }
+  </style>
+  <link rel="stylesheet" href="/kit/quiet.css">
+  <script src="/kit/maplibre-gl.js"></script>
+</head>
+<body><div id="app"></div><script type="module" src="./main.js"></script></body>
+</html>

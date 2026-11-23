@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- One layout width everywhere: 1536 CSS px reads well across a room on a 10-11" tablet and scales to any screen. -->
+<meta name="viewport" content="width=1536">
+<title>Ask</title>
+<link rel="stylesheet" href="/app/ui.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: transparent; color: var(--text); -webkit-tap-highlight-color: transparent; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  button:disabled { opacity: .35; }
+  .muted { color: var(--muted); }
+
+  /* the bottom strip stays free for the shell's timer pills */
+  .scrim { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: flex-start; justify-content: center; padding-top: 16px; }
+  .panel { width: min(1240px, 96vw); height: calc(100% - 100px); background: var(--panel); border-radius: 28px; display: flex; flex-direction: column;
+    box-shadow: 0 30px 80px rgba(0,0,0,.5); overflow: hidden; border: 1px solid var(--line); }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px 14px 30px; border-bottom: 1px solid var(--line); }
+  .title { font-size: 22px; font-weight: 600; display: flex; align-items: center; gap: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .spark { color: var(--accent); font-size: 26px; display: inline-flex; vertical-align: -4px; margin-right: 10px; }
+  .hbtns { display: flex; gap: 8px; align-items: center; }
+  .ghost { padding: 10px 18px; border-radius: 999px; background: var(--card); font-size: 17px; }
+  .ghost.small { padding: 6px 14px; font-size: 15px; margin-left: 12px; }
+  .close { width: 48px; height: 48px; border-radius: 24px; background: var(--card); font-size: 20px; }
+  .close.big { width: auto; padding: 14px 26px; font-size: 20px; }
+
+  .scroll { position: relative; flex: 1; overflow-y: auto; padding: 28px 34px 40px; scroll-behavior: smooth; }
+  .empty { max-width: 900px; margin: 6vh auto 0; text-align: center; }
+  .empty h1 { font-size: 44px; margin: 0 0 10px; font-weight: 600; }
+  .empty p { font-size: 20px; margin: 0 0 30px; }
+  .starters { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .label { margin: 44px 0 14px; text-transform: uppercase; letter-spacing: .1em; font-size: 14px; color: var(--muted); }
+  .apps { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+  .app { width: 120px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .app .ic { width: 96px; height: 96px; border-radius: 24px; background: var(--card); font-size: 46px; display: flex; align-items: center; justify-content: center; }
+  .app .nm { font-size: 15px; color: var(--muted); }
+
+  .chip { padding: 12px 20px; border-radius: 999px; background: var(--card); border: 1px solid var(--line); font-size: 18px; text-align: left; }
+  .chip.big { font-size: 20px; padding: 16px 24px; }
+  .turns { max-width: 1060px; margin: 0 auto; display: flex; flex-direction: column; gap: 22px; }
+  .you { align-self: flex-end; max-width: 70%; background: var(--you); padding: 14px 22px; border-radius: 22px 22px 6px 22px; font-size: 21px; }
+  .answer { display: flex; flex-direction: column; gap: 16px; }
+  .answer.failed .prose { color: var(--warn); }
+  .prose { font-size: 22px; line-height: 1.45; max-width: 900px; }
+  .bullet { display: block; padding-left: 4px; }
+  .status { display: flex; align-items: center; gap: 10px; font-size: 19px; color: var(--muted); }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--accent); animation: b 1.2s infinite ease-in-out; }
+  .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+  @keyframes b { 0%, 80%, 100% { opacity: .25; transform: scale(.8); } 40% { opacity: 1; transform: scale(1); } }
+  .building, .ui-error { color: var(--muted); font-size: 18px; }
+  .building-app { color: var(--accent); font-size: 19px; }
+  .keep { display: flex; gap: 10px; }
+
+  .history { max-width: 900px; margin: 0 auto; }
+  .history h2 { font-size: 26px; font-weight: 600; }
+  .hist { display: flex; justify-content: space-between; width: 100%; padding: 18px 22px; border-radius: 16px; background: var(--card); margin-bottom: 10px; font-size: 20px; text-align: left; gap: 20px; }
+
+  .ask { display: flex; gap: 12px; padding: 16px 22px 22px; border-top: 1px solid var(--line); }
+  .ask input { flex: 1; height: 64px; border-radius: 32px; border: 2px solid var(--line); background: var(--bg); color: var(--text); font-size: 22px; padding: 0 26px; outline: none; }
+  .ask input:focus { border-color: var(--accent); }
+  .send { height: 64px; padding: 0 34px; border-radius: 32px; background: var(--accent); color: var(--accent-ink); font-size: 21px; font-weight: 600; }
+
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="module" src="/app/main.js"></script>
+</body>
+</html>

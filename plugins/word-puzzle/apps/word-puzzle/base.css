@@ -1,0 +1,40 @@
+/* The page's frame. Sizes are in u: one pixel of a 1536-wide layout, scaled to the screen. quiet.css (after this)
+   sets the type and tints, so it sits on the home screen's sheet like the starting apps. */
+:root { --u: calc(100vw / 1536); }
+* { box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body { background: var(--bg); touch-action: manipulation; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+#app { position: fixed; inset: 0; display: flex; flex-direction: column; padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(20 * var(--u)); }
+.top { display: flex; align-items: center; gap: calc(14 * var(--u)); flex: none; }
+.title { flex: 1; min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip { display: inline-flex; align-items: center; white-space: nowrap; }
+.btn { flex: none; background: var(--ink); white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; }
+.btn:disabled { opacity: .4; }
+.body { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: calc(26 * var(--u)); }
+.foot { flex: none; padding-top: calc(12 * var(--u)); font-size: calc(15 * var(--u)); color: var(--ink-soft); min-height: calc(30 * var(--u)); }
+.empty { max-width: calc(780 * var(--u)); display: flex; flex-direction: column; align-items: flex-start; gap: calc(16 * var(--u)); margin-top: calc(40 * var(--u)); }
+.lead { margin: 0; font-size: calc(28 * var(--u)); font-weight: 500; line-height: 1.3; }
+.soft { margin: 0; font-size: calc(19 * var(--u)); color: var(--ink-soft); line-height: 1.45; }
+.big { font-size: calc(64 * var(--u)); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; }
+.label { font-size: calc(15 * var(--u)); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.rule { border-top: 1px solid var(--line); padding-top: calc(14 * var(--u)); }
+.cols { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: calc(28 * var(--u)); }
+.line { display: flex; align-items: baseline; gap: calc(14 * var(--u)); padding: calc(12 * var(--u)) 0; border-bottom: 1px solid var(--line); font-size: calc(22 * var(--u)); }
+.line .grow, .grow { flex: 1; min-width: 0; }
+.line .side { color: var(--ink-soft); font-size: calc(18 * var(--u)); white-space: nowrap; }
+.x { color: var(--ink-soft); font-size: calc(26 * var(--u)); width: calc(48 * var(--u)); height: calc(48 * var(--u)); border-radius: 50%; display: inline-grid; place-items: center; }
+.x:active { background: var(--tint-2); }
+
+/* a sheet */
+.scrim { position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding-top: calc(50 * var(--u)); z-index: 10; }
+.sheet { width: calc(940 * var(--u)); max-width: 96vw; max-height: 90vh; overflow: auto; border-radius: calc(26 * var(--u)); padding: calc(30 * var(--u)) calc(34 * var(--u));
+  display: flex; flex-direction: column; gap: calc(16 * var(--u)); color: var(--ink); }
+.sheet h2 { margin: 0; }
+.row { display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
+.pair { display: grid; grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)) auto; gap: calc(10 * var(--u)); align-items: center; }
+.field { font: inherit; width: 100%; border-radius: calc(14 * var(--u)); border: calc(2 * var(--u)) solid var(--line); padding: calc(12 * var(--u)) calc(16 * var(--u)); color: var(--ink); outline: none; font-size: calc(21 * var(--u)) !important; }
+textarea.field { min-height: calc(110 * var(--u)); resize: none; line-height: 1.4; }
+.hint { font-size: calc(15 * var(--u)); color: var(--ink-soft); line-height: 1.4; }
+.bad { color: var(--warn); }
+.actions { display: flex; gap: calc(12 * var(--u)); align-items: center; margin-top: calc(8 * var(--u)); flex-wrap: wrap; }

@@ -1,0 +1,14 @@
+**/node_modules
+.git
+.claude
+shell
+cloud
+spikes
+runtime
+models
+docs
+dist
+bridge/public
+**/*.log
+hub/data
+hub/backups

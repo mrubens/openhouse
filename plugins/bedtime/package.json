@@ -1,0 +1,8 @@
+{
+  "name": "bedtime",
+  "version": "1.0.0",
+  "description": "At bedtime Today asks; on a yes the speakers turn down, the TV goes off and lights dim through the tablet's devices, and the bedtime routine comes up.",
+  "keywords": ["openhouse-plugin"],
+  "license": "MIT",
+  "openhouse": { "apps": ["apps/bedtime"], "made": "2026-11-23" }
+}

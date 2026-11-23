@@ -1,0 +1,166 @@
+// The family and the assistant's hourly look at the day ("curation"): it reads the household, the
+// calendar and the door, and keeps its notes on the door current (door.js), plus a one-line headline.
+//
+// GET  /board                 { assistant: {at, headline, weather}, curating, error, family, events, chores }
+// POST /board/pin {title, text, conversation?, who?}   keep an answer: it goes on the door as a kept note
+// POST /board/refresh         re-curate now
+// GET  /household             the family, where they live, whose calendars are read, chores (setup)
+// POST /household {family?, location?, chores?, routines?}   save what changed
+// POST /calendar/feeds {feeds: [{id, who, ics?, error?}]}   the shell: what the family's calendars say now
+// POST /calendar/claim         the shell: calendar links saved here before they moved to it (then gone from here)
+//
+// files: board.json (the last curation) and household.json (family, calendar, chores, location), next to the chats.
+import fs from 'node:fs';
+import path from 'node:path';
+import { calendars } from './calendar.js';
+
+export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, door }) {
+  const BOARD = path.join(DIR, 'board.json');
+  const HOUSE = path.join(DIR, '../household.json');
+  const read = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
+  const load = () => ({ assistant: null, ...read(BOARD, {}) });
+  const save = (b) => fs.writeFileSync(BOARD, JSON.stringify(b));
+  let curating = false, lastError = null;
+  // The family's calendars, read by the shell, which keeps their links (calendar.js).
+  const cal = calendars({ DIR });
+  const withoutLinks = ({ calendars: _, ...h }) => h; // links saved here before they moved to the shell
+
+  // Until someone sets it up, the household is empty: nothing made up is ever said about a real family.
+  function household() {
+    const h = read(HOUSE, { family: [], location: null, routines: [], events: [], chores: [] });
+    return { ...withoutLinks(h), events: [...(h.events || []), ...cal.events(), ...(handle.localEvents?.() || [])] };
+  }
+
+  /** Save what changed about the household (the setup sheet, or the assistant's tools). */
+  function saveHousehold(b, { quiet = false } = {}) {
+    const h = read(HOUSE, { family: [], location: null, routines: [], events: [], chores: [] });
+    const str = (v, n = 80) => String(v ?? '').trim().slice(0, n);
+    if (Array.isArray(b.family)) {
+      // A person's color stays theirs when the list is saved again without it (the family sheet, the assistant).
+      const had = new Map((h.family || []).map((f) => [String(f.name).toLowerCase(), f.color]));
+      const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v || '')) ? String(v).toLowerCase() : null);
+      h.family = b.family.map((f) => { const name = str(f.name, 40), color = f.color === null ? null : hex(f.color) || had.get(name.toLowerCase()) || null;
+        return { name, ...(str(f.note) ? { note: str(f.note) } : {}), ...(color ? { color } : {}) }; }).filter((f) => f.name).slice(0, 12);
+    }
+    if (b.location != null) h.location = str(b.location, 100) || null;
+    if (b.address != null) h.address = str(b.address, 160) || null; // the home's street address (the first setup): directions, deliveries
+    if (Array.isArray(b.chores)) {
+      // A chore's stars stay when the list is saved again without them (the family sheet).
+      // (and its picture, and whether it waits until done)
+      const had = new Map((h.chores || []).map((c) => [`${String(c.who || '').toLowerCase()}|${String(c.task).toLowerCase()}`, c]));
+      h.chores = b.chores.map((c) => { const who = str(c.who, 40), task = str(c.task, 100), was = had.get(`${who.toLowerCase()}|${task.toLowerCase()}`) || {};
+        const n = Math.round(Number('stars' in c ? c.stars : was.stars)), pic = 'pic' in c ? c.pic : was.pic, keep = 'keep' in c ? c.keep : was.keep;
+        const every = Math.round(Number('every' in c ? c.every : was.every)), since = 'since' in c ? c.since : was.since, after = 'after' in c ? c.after : was.after;
+        return { who, task, ...(Array.isArray(c.days) && c.days.length ? { days: c.days.map((d) => str(d, 3).toLowerCase()) } : {}), ...(n >= 2 && n <= 10 ? { stars: n } : {}),
+          ...(typeof pic === 'string' && /^[a-z]{2,12}$/.test(pic) ? { pic } : {}), ...(keep ? { keep: true } : {}),
+          ...(every >= 2 && every <= 90 ? { every, ...(after ? { after: true } : /^\d{4}-\d{2}-\d{2}$/.test(since || '') ? { since } : {}) } : {}) }; }).filter((c) => c.task).slice(0, 40);
+    }
+    // The Map's saved places (maps.js): found once, kept with their name; home: Home's own street address.
+    if (Array.isArray(b.places)) {
+      const num = (v, lim) => { const n = Number(v); return Number.isFinite(n) && Math.abs(n) <= lim ? n : null; };
+      h.places = b.places.map((p) => ({ name: str(p.name, 40), address: str(p.address, 160), lat: num(p.lat, 90), lon: num(p.lon, 180), ...(p.home ? { home: true } : {}) }))
+        .filter((p) => p.name && p.lat != null && p.lon != null).slice(0, 40);
+    }
+    if (b.maps != null) { if (b.maps === true) h.maps = true; else delete h.maps; } // the Map turned on (its services: docs/maps.md)
+    delete h.assistant; // (it was once renamable; it's always Opie now)
+    if (Array.isArray(b.routines)) h.routines = b.routines.map((r) => str(r, 160)).filter(Boolean).slice(0, 20);
+    fs.writeFileSync(HOUSE, JSON.stringify(h, null, 2));
+    if (!quiet) curate('household'); // a chore ticked on or off isn't worth a curation
+    return h;
+  }
+  const householdView = () => { const h = read(HOUSE, null); return { setup: !!h, family: h?.family || [], location: h?.location || '', address: h?.address || '', calendars: cal.labels(), chores: h?.chores || [], routines: h?.routines || [], calendar: cal.status() }; };
+
+  function context() {
+    const h = household(), now = new Date();
+    const soon = (h.events || []).filter((e) => new Date(e.start) > new Date(now - 3600e3) && new Date(e.start) - now < 3 * 86400e3)
+      .sort((a, c) => new Date(a.start) - new Date(c.start))
+      .map((e) => `- ${new Date(e.start).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}: ${e.who} — ${e.title}${e.bring ? ` (bring: ${e.bring})` : ''}`);
+    return [
+      `Now: ${now.toString()}`,
+      h.family?.length ? `Family: ${h.family.map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ')}` : 'Family: not set up yet (ask who lives here, or someone can fill it in under Settings)',
+      h.location ? `Location: ${h.location}` : 'Location: unknown (no weather)',
+      h.routines?.length ? `Routines:\n${h.routines.map((r) => '- ' + r).join('\n')}` : '',
+      `Calendar, next 3 days:\n${soon.join('\n') || '- nothing'}`,
+      h.chores?.length ? `Chores:\n${h.chores.map((c) => `- ${c.who}: ${c.task}${c.days ? ` (${c.days.join(', ')})` : ''}`).join('\n')}` : '',
+      handle.houseContext?.() || '', // lists, meals, chores done today (house.js)
+    ].filter(Boolean).join('\n\n');
+  }
+
+  const parse = (text) => ({ headline: text.match(/^HEADLINE:\s*(.+)$/m)?.[1]?.trim() || '', weather: text.match(/^WEATHER:\s*(.+)$/m)?.[1]?.trim() || '' });
+
+  async function curate(why) {
+    if (curating) return;
+    curating = true; lastError = null;
+    const t0 = Date.now();
+    try {
+      const agent = await currentAgent();
+      if (!agent.chat) throw new Error(`${agentName()} can't curate`);
+      const sys = fs.readFileSync(path.join(HERE, 'CURATE.md'), 'utf8') + '\n\n---\n\n' + fs.readFileSync(path.join(HERE, 'DOOR.md'), 'utf8') + (handle.prefs?.() || '') + '\n\n---\n\n' + fs.readFileSync(path.join(HERE, 'chat-prompt.md'), 'utf8');
+      const prompt = context() + `\n\nThe fridge door right now:\n${door.describe()}`;
+      const { result: r, notes } = await door.during({ by: 'assistant' }, (run) => agent.chat({ prompt, cwd: WORK, systemPrompt: sys, onEvent: () => {}, resume: null, doorToken: run.token, route: false }));
+      if (!r.ok) throw new Error(r.text);
+      const a = parse(r.text);
+      save({ ...load(), assistant: { at: Date.now(), headline: a.headline, weather: a.weather } });
+      console.log(`[board] curated (${why}) in ${Date.now() - t0} ms: ${notes.map((c) => c.title).join(' · ')}`);
+    } catch (e) { lastError = e.message; console.log('[board] curation failed:', e.message); }
+    finally { curating = false; }
+  }
+
+  // (No longer on a schedule: those notes were for the board, and Today now shows the day itself. /board/refresh still curates.)
+
+  handle.household = () => context(); // what conversations know about the family
+  handle.saveHousehold = saveHousehold;
+  handle.householdView = householdView;
+  /** Synced calendars plus events in household.json (house.js adds the display's own). */
+  handle.calendarEvents = () => [...(read(HOUSE, {}).events || []), ...cal.events()];
+  door.migrate(load().pins); // pins from before the door had notes
+  return handle;
+  async function handle(req, res, url) {
+    const p = url.pathname;
+    if (p === '/household' && req.method === 'GET') {
+      json(res, 200, householdView());
+      return true;
+    }
+    // Only the place (a ZIP code or town), from the Weather tab when none is set yet.
+    if (p === '/household/location' && req.method === 'POST') {
+      const loc = String((await body(req)).location || '').trim().slice(0, 100);
+      if (!loc) { json(res, 400, { error: 'location' }); return true; }
+      saveHousehold({ location: loc }); json(res, 200, { ok: true, location: loc }); return true;
+    }
+    if (p === '/household' && req.method === 'POST') { saveHousehold(await body(req)); json(res, 200, { ok: true }); return true; }
+    if (p === '/calendar/feeds' && req.method === 'POST') {
+      const st = cal.setFeeds((await body(req)).feeds);
+      json(res, 200, st);
+      return true;
+    }
+    if (p === '/calendar/claim' && req.method === 'POST') {
+      const h = read(HOUSE, null), links = (h?.calendars || []).filter((c) => c && c.url).map((c) => ({ url: String(c.url), who: c.who || null }));
+      if (h && 'calendars' in h) fs.writeFileSync(HOUSE, JSON.stringify(withoutLinks(h), null, 2));
+      json(res, 200, { calendars: links });
+      return true;
+    }
+    if (req.method === 'GET' && p === '/board') {
+      const b = load(), h = household();
+      json(res, 200, {
+        assistant: b.assistant && { at: b.assistant.at, headline: b.assistant.headline, weather: b.assistant.weather },
+        curating, error: lastError, family: (h.family || []).map((f) => ({ name: f.name, note: f.note || '' })),
+        // for the view that turns toward whoever is talking: the next two days and chores
+        events: (h.events || []).filter((e) => { const t = new Date(e.start) - Date.now(); return t > -3 * 3600e3 && t < 48 * 3600e3; }),
+        chores: h.chores || [],
+      });
+      return true;
+    }
+    if (req.method !== 'POST' || !p.startsWith('/board/')) return false;
+    const b = await body(req);
+    if (p === '/board/pin') { // "keep this": it goes on the door as a note the family kept
+      const text = String(b.text || '');
+      if (!text.trim()) { json(res, 400, { error: 'nothing to pin' }); return true; }
+      const { result: r } = await door.during({ by: 'family', who: b.who || null, conversation: b.conversation || null },
+        async (run) => run.put({ title: String(b.title || 'Kept').slice(0, 60), content: text, size: 'large', paper: 'card', for: b.who || null, keep: true }, { makeRoom: true }));
+      json(res, r.error ? 409 : 200, r.error ? { error: r.error } : r.note);
+      return true;
+    }
+    if (p === '/board/refresh') { curate('asked'); json(res, 202, { ok: true }); return true; }
+    return false;
+  };
+}

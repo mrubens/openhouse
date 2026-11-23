@@ -1,0 +1,8 @@
+{
+  "name": "bus-times",
+  "version": "1.0.0",
+  "description": "Live arrivals at your stop from your transit agency's open data (GTFS-realtime): on Today only in the hours you choose, on a card, and from the voice.",
+  "keywords": ["openhouse-plugin"],
+  "license": "MIT",
+  "openhouse": { "apps": ["apps/bus-times"], "made": "2026-11-23" }
+}

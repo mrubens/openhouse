@@ -1,0 +1,209 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>OpenHouse</title>
+<style>
+:root{--bg:#fbf9f5;--ink:#2a2826;--soft:#6e6a65;--line:#e7e3dc;--tint:#f1eee9;--go:#2a2826;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:480px;margin:0 auto;padding:28px 20px 48px}
+main::before{content:"OpenHouse";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
+h1{font-size:28px;font-weight:600;letter-spacing:-.01em;margin:0 0 20px}
+ol{margin:0 0 8px;padding:0;list-style:none;counter-reset:s}
+ol li{counter-increment:s;position:relative;padding:0 0 14px 40px;color:var(--ink)}
+ol li::before{content:counter(s);position:absolute;left:0;top:-1px;width:26px;height:26px;border-radius:50%;background:var(--tint);font-size:15px;font-weight:600;display:grid;place-items:center}
+label{display:block;color:var(--soft);font-size:15px;margin:18px 0 6px}
+input,select{width:100%;font:inherit;padding:13px 16px;border:0;border-radius:14px;background:var(--tint);color:inherit;outline-color:var(--ink)}
+button,a.b{display:block;width:100%;margin-top:22px;padding:15px;border:0;border-radius:999px;background:var(--go);color:var(--bg);font:inherit;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+a.b{background:var(--tint);color:var(--ink)}
+button:disabled{opacity:.5}
+p{color:var(--soft)}
+[hidden]{display:none!important}
+</style><style>
+input[type=file]{padding:18px;border-style:dashed}
+#how{font-size:15px}
+.bar{height:10px;border-radius:5px;background:var(--line);margin-top:18px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--go)}
+</style></head>
+<body><main>
+<h1 id="t">Photos for OpenHouse</h1>
+<div id="f" hidden>
+  <p id="ready" hidden></p>
+  <label for="pick">Photos</label>
+  <input id="pick" type="file" accept="image/*" multiple>
+  <button id="go" disabled>Send</button>
+  <div class="bar" id="bar" hidden><i id="fill"></i></div>
+</div>
+<p id="m"></p>
+<p id="how" hidden></p>
+</main>
+<script>
+// The household's lasting photo page (PhotoShare.kt): any time, photos from this phone go into the tablet's
+// Photos. Served two ways, the same code:
+//   by the tablet on the home Wi-Fi: http://<tablet>:<port>/#<key>  (bookmark it, or add it to the home screen)
+//   by OpenHouse's cloud, when the household turned on reaching the tablet from away: /p/#<key>.<relay>.<token>,
+//     through the relay (it can't open what passes). There it can be installed, and on Android it's in the share
+//     sheet (Web Share Target: the service worker, /p/sw.js, keeps what was shared for this page to send).
+// The key is after #, so it never leaves the phone; this page keeps it (localStorage) so it opens again without it.
+// Each photo is made screen-sized here, sealed with the key and sent; only the tablet can open it.
+'use strict';
+const CP = (() => {
+  const rotl = (x, n) => (x << n) | (x >>> (32 - n));
+  function block(k, ctr, n) { // k: Uint32Array(8), n: Uint32Array(3) -> 64 bytes
+    const s = new Uint32Array([0x61707865, 0x3320646e, 0x79622d32, 0x6b206574, ...k, ctr, ...n]), x = s.slice();
+    const q = (a, b, c, d) => { x[a] += x[b]; x[d] = rotl(x[d] ^ x[a], 16); x[c] += x[d]; x[b] = rotl(x[b] ^ x[c], 12);
+      x[a] += x[b]; x[d] = rotl(x[d] ^ x[a], 8); x[c] += x[d]; x[b] = rotl(x[b] ^ x[c], 7); };
+    for (let i = 0; i < 10; i++) { q(0, 4, 8, 12); q(1, 5, 9, 13); q(2, 6, 10, 14); q(3, 7, 11, 15); q(0, 5, 10, 15); q(1, 6, 11, 12); q(2, 7, 8, 13); q(3, 4, 9, 14); }
+    for (let i = 0; i < 16; i++) x[i] += s[i];
+    return new Uint8Array(x.buffer);
+  }
+  const words = (b) => { const w = new Uint32Array(b.length / 4), v = new DataView(b.buffer, b.byteOffset, b.length); for (let i = 0; i < w.length; i++) w[i] = v.getUint32(i * 4, true); return w; };
+  function xor(key, nonce, ctr, data) {
+    const k = words(key), n = words(nonce), out = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i += 64) { const ks = block(k, ctr++, n); for (let j = 0; j < 64 && i + j < data.length; j++) out[i + j] = data[i + j] ^ ks[j]; }
+    return out;
+  }
+  const num = (b) => { let r = 0n; for (let i = b.length - 1; i >= 0; i--) r = (r << 8n) | BigInt(b[i]); return r; };
+  function poly(key, msg) {
+    const r = num(key.subarray(0, 16)) & 0x0ffffffc0ffffffc0ffffffc0fffffffn, s = num(key.subarray(16, 32)), p = (1n << 130n) - 5n;
+    let a = 0n;
+    for (let i = 0; i < msg.length; i += 16) { const c = msg.subarray(i, i + 16); a = ((a + num(c) + (1n << BigInt(8 * c.length))) * r) % p; }
+    a = (a + s) & ((1n << 128n) - 1n);
+    const t = new Uint8Array(16); for (let i = 0; i < 16; i++) { t[i] = Number(a & 0xffn); a >>= 8n; } return t;
+  }
+  function mac(key, nonce, aad, ct) {
+    const pad = (n) => (16 - (n % 16)) % 16, m = new Uint8Array(aad.length + pad(aad.length) + ct.length + pad(ct.length) + 16);
+    m.set(aad, 0); m.set(ct, aad.length + pad(aad.length));
+    const v = new DataView(m.buffer, m.length - 16); v.setUint32(0, aad.length, true); v.setUint32(8, ct.length, true);
+    return poly(block(words(key), 0, words(nonce)).subarray(0, 32), m);
+  }
+  return {
+    seal(key, nonce, aad, pt) { const ct = xor(key, nonce, 1, pt), out = new Uint8Array(12 + ct.length + 16); out.set(nonce); out.set(ct, 12); out.set(mac(key, nonce, aad, ct), 12 + ct.length); return out; },
+    open(key, aad, box) {
+      const nonce = box.subarray(0, 12), ct = box.subarray(12, box.length - 16), tag = box.subarray(box.length - 16);
+      const want = mac(key, nonce, aad, ct); let d = 0; for (let i = 0; i < 16; i++) d |= want[i] ^ tag[i];
+      return d || box.length < 28 ? null : xor(key, nonce, 1, ct);
+    },
+  };
+})();
+const b64 = { dec: (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
+  enc: (b) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') };
+const te = new TextEncoder(), td = new TextDecoder();
+(async () => {
+  const $ = (id) => document.getElementById(id), say = (t) => { $('m').textContent = t; };
+  const cloudRelay = document.querySelector('meta[name="openhouse-relay"]')?.content || '';
+  const KEEP = 'openhouse-photos';
+  let saved = ''; try { saved = localStorage.getItem(KEEP) || ''; } catch {}
+  const hash = location.hash.slice(1) || saved;
+  const [k64, rid, rtok] = hash.split('.');
+  let key, relay = null;
+  try { key = b64.dec(k64 || ''); } catch {}
+  if (!key || key.length !== 32) return say('Scan the code on the tablet again (Photos, Add photos, From the household’s phones).');
+  if (cloudRelay && rid && rtok) relay = { url: cloudRelay, relay: rid, token: rtok };
+  else if (cloudRelay) return say('Scan the code on the tablet again.');
+  try { localStorage.setItem(KEEP, hash); } catch {}
+  // (The key stays in the address: a bookmark, or the home screen's copy on an iPhone, which has its own storage.)
+  if (cloudRelay && 'serviceWorker' in navigator) navigator.serviceWorker.register('/p/sw.js', { scope: '/p/' }).catch(() => {});
+
+  // Through the relay: the same sealed requests, in parts (the relay takes about 24 KB a message).
+  let rready = null, rn = 0;
+  const rwait = new Map();
+  function rconnect() {
+    if (rready) return rready;
+    const p = new Promise((ok, no) => {
+      const s = new WebSocket(relay.url);
+      s.onopen = () => s.send(JSON.stringify({ t: 'hello', role: 'device', relay: relay.relay, token: relay.token }));
+      s.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch { return; } if (m.t === 'ok') ok(s); else if (m.t === 'no') no(new Error('no')); else if (m.t === 'res') rwait.get(m.rid)?.(m); };
+      s.onclose = () => { if (rready === p) rready = null; no(new Error('closed')); for (const f of rwait.values()) f({ closed: true }); rwait.clear(); };
+    });
+    rready = p; p.catch(() => { if (rready === p) rready = null; });
+    return p;
+  }
+  async function viaRelay(path, bytes) {
+    const s = await rconnect(), id = 'r' + (++rn);
+    // A photo is too big for the relay's parts: it goes, sealed, to the service's storage, and the relay carries only
+    // where (a relay box: the service's relay-box.ts; the tablet fetches it from there itself).
+    let key = null;
+    if (bytes && bytes.length > 60000) {
+      const r = await fetch('/v1/relay/box', { method: 'POST', headers: { authorization: `Relay ${relay.relay}.${relay.token}`, 'content-type': 'application/octet-stream' }, body: bytes });
+      if (!r.ok) throw new Error('box ' + r.status);
+      key = (await r.json()).key;
+    }
+    return new Promise((ok, no) => {
+      let st = 200; const parts = [];
+      const t = setTimeout(() => { rwait.delete(id); no(new Error('slow')); }, 60000);
+      // The cloud's relay may pass a reply's messages on out of order: each has its place (i), taken in that order.
+      const early = new Map(); let next = 0;
+      rwait.set(id, (m) => {
+        if (Number.isInteger(m.i) && !m.closed && !m.off) { early.set(m.i, m); while (early.has(next)) { const x = early.get(next); early.delete(next); next++; take(x); } return; }
+        take(m);
+      });
+      const take = (m) => {
+        if (m.closed) { clearTimeout(t); return no(new Error('closed')); }
+        if (m.s !== undefined) st = m.s;
+        if (m.off) { clearTimeout(t); rwait.delete(id); return ok({ ok: false, off: true, text: async () => '' }); }
+        if (m.d) parts.push(b64.dec(m.d));
+        if (m.e) {
+          clearTimeout(t); rwait.delete(id);
+          const all = new Uint8Array(parts.reduce((n, x) => n + x.length, 0)); let at = 0; for (const x of parts) { all.set(x, at); at += x.length; }
+          ok({ ok: st >= 200 && st < 300, text: async () => td.decode(all) });
+        }
+      };
+      if (key) return s.send(JSON.stringify({ t: 'req', rid: id, k: 'b', m: 'h', p: path, i: 0, d: b64.enc(te.encode(key)) }));
+      const b = bytes || new Uint8Array(0), PART = 17000;
+      for (let i = 0, n = 0; i === 0 || i < b.length; i += PART) {
+        const last = i + PART >= b.length;
+        s.send(JSON.stringify({ t: 'req', rid: id, k: 'h', p: path, i: n++, d: b64.enc(b.subarray(i, i + PART)), ...(last ? {} : { more: 1 }) }));
+      }
+    });
+  }
+  const call = (path, bytes) => relay ? viaRelay(path, bytes)
+    : fetch(path, bytes ? { method: 'POST', body: bytes, headers: { 'content-type': 'application/octet-stream' } } : { cache: 'no-store' });
+
+  let info;
+  try { const r = await call('i'); const box = CP.open(key, te.encode('info'), b64.dec(await r.text())); info = box && JSON.parse(td.decode(box)); } catch {}
+  if (!info) return say(relay ? 'The tablet isn’t answering. It may be off, or reaching it from away is off.' : 'The tablet isn’t answering. Is this phone on the home Wi-Fi?');
+  if (info.title) $('t').textContent = info.title;
+  $('f').hidden = false;
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent), alone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  if (!alone) { $('how').hidden = false; $('how').textContent = ios ? 'Tip: Share, then Add to Home Screen, and this page is one tap away.' : relay ? 'Tip: install this page (the browser’s menu, Add to Home screen). Then Share, OpenHouse sends photos from any app.' : 'Tip: add this page to your home screen, and it’s one tap away when you’re on the home Wi-Fi.'; }
+
+  // Shared from another app (Android's share sheet): the service worker kept them.
+  let shared = [];
+  if (new URLSearchParams(location.search).has('shared') && 'caches' in self) {
+    try { const c = await caches.open('openhouse-shared'); for (const req of await c.keys()) { const r = await c.match(req); if (r) shared.push(await r.blob()); await c.delete(req); } } catch {}
+    history.replaceState(null, '', location.pathname + (saved ? '#' + saved : ''));
+  }
+  const showReady = () => { $('ready').hidden = !shared.length; $('ready').textContent = shared.length === 1 ? '1 photo to send.' : `${shared.length} photos to send.`; $('go').disabled = !shared.length && !$('pick').files.length; };
+  $('pick').onchange = () => { showReady(); say(''); };
+  showReady();
+
+  const MAX = 2200; // longest side: sharp on the tablet, a few hundred KB (under what the relay takes at once)
+  async function shrink(file) {
+    const img = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const k = Math.min(1, MAX / Math.max(img.width, img.height));
+    const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); img.close?.();
+    for (const q of [0.85, 0.72, 0.6]) { const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', q)); if (blob.size < 1.6e6 || q === 0.6) return new Uint8Array(await blob.arrayBuffer()); }
+  }
+  async function send() {
+    const files = [...shared, ...$('pick').files]; if (!files.length) return;
+    $('go').disabled = true; $('pick').disabled = true; $('bar').hidden = false;
+    let done = 0, failed = 0;
+    for (const f of files) {
+      say(`Sending ${done + failed + 1} of ${files.length}…`);
+      try {
+        const box = CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), await shrink(f));
+        const r = await call('s', box);
+        if (!r.ok) throw 0;
+        done++;
+      } catch { failed++; }
+      $('fill').style.width = `${Math.round(100 * (done + failed) / files.length)}%`;
+    }
+    shared = []; $('pick').value = ''; $('pick').disabled = false; $('bar').hidden = true; $('fill').style.width = '0'; showReady();
+    say(failed ? `${done} sent, ${failed} didn’t go through. Try those again.` : done === 1 ? 'Sent. It’s in Photos on the tablet.' : `All ${done} sent. They’re in Photos on the tablet.`);
+  }
+  $('go').onclick = send;
+  if (shared.length) send(); // shared on purpose: straight on its way
+})();
+</script>
+</body></html>

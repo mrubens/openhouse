@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The update cover: the home screen's paper (Calm.PAPER in the display) from the first frame (no splash, no icon). -->
+    <style name="Cover" parent="@android:style/Theme.Material.Light.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+    <color name="paper">#EFEAE1</color>
+</resources>

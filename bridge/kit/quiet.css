@@ -1,0 +1,105 @@
+/* The quiet look of the starting apps (calendar, chores, lists, meals, photos), to sit on the home screen's sheet:
+   one plain type, lighter weights, smaller headings, soft tints instead of bright blocks. Link it after the kit:
+   <link rel="stylesheet" href="/kit/quiet.css">. Selectors start with :root so they win over an app's own rules.
+   In a tab the home screen hands the app its paper, ink, accent and type (openhouse.js), and these follow them. */
+@font-face { font-family: 'Inter'; src: url('fonts/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
+:root { --quiet: 'Inter', Roboto, system-ui, sans-serif; --tint: color-mix(in srgb, var(--ink) 5%, var(--bg)); --tint-2: color-mix(in srgb, var(--ink) 9%, var(--bg));
+  --card: color-mix(in srgb, #fff 70%, var(--bg)); --accent: #b5562f; --accent-ink: #fff; }
+:root body { background: var(--bg); font-family: var(--quiet); color: var(--ink); -webkit-font-smoothing: antialiased; }
+:root body * { font-family: inherit; }
+
+/* the shared pieces */
+:root .title { font-size: calc(34 * var(--u)); font-weight: 600; letter-spacing: -.01em; }
+:root .chip { height: calc(60 * var(--u)); border-radius: calc(27 * var(--u)); padding: 0 calc(22 * var(--u)); font-size: calc(18 * var(--u)); font-weight: 500; background: var(--tint); }
+:root .chip.on { background: var(--ink); color: var(--bg); }
+:root .chip .dot { width: calc(14 * var(--u)); height: calc(14 * var(--u)); }
+:root .btn { height: calc(62 * var(--u)); border-radius: calc(31 * var(--u)); padding: 0 calc(30 * var(--u)); font-size: calc(20 * var(--u)); font-weight: 600; color: var(--bg); }
+:root .btn.soft { background: var(--tint-2); color: var(--ink); }
+:root .round { width: calc(62 * var(--u)); height: calc(62 * var(--u)); background: var(--tint); }
+:root .round .icon { width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
+:root .round.dark { background: var(--ink); color: var(--bg); }
+:root .round:disabled { background: transparent; color: color-mix(in srgb, var(--ink) 25%, transparent); }
+:root .scrim { background: color-mix(in srgb, var(--ink) 30%, transparent); }
+:root .sheet { background: var(--bg); box-shadow: 0 20px 60px rgba(0, 0, 0, .18); }
+:root .sheet h2, :root .sheet h2.big { font-size: calc(28 * var(--u)); font-weight: 600; }
+:root .field { font-size: calc(26 * var(--u)); font-weight: 400; background: var(--card); border-color: var(--line); }
+:root .top { margin-bottom: calc(26 * var(--u)); }
+:root .nothing, :root .none h2 { font-size: calc(24 * var(--u)); font-weight: 400; }
+:root .none p, :root .hint, :root .note, :root .last { font-size: calc(17 * var(--u)); font-weight: 400; }
+:root .quiet { font-size: calc(16 * var(--u)); font-weight: 500; min-height: calc(58 * var(--u)); padding: 0 calc(20 * var(--u)); border-radius: calc(29 * var(--u)); }
+:root .quiet:active { background: var(--tint-2); }
+
+/* calendar */
+:root .col, :root .month .cell { background: transparent; border-radius: 0; border-top: 1px solid var(--line); }
+:root .col.today, :root .month .cell.today { background: transparent; }
+:root .month .cell.out { background: transparent; opacity: .5; }
+:root .col-top .dow, :root .mdow { font-size: calc(14 * var(--u)); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+:root .col.today .dow, :root .aday.today, :root .day-name.today { color: var(--accent); }
+:root .num { font-size: calc(24 * var(--u)); font-weight: 400; width: calc(42 * var(--u)); height: calc(42 * var(--u)); }
+:root .today > .col-top .num, :root .month .cell.today .num { background: var(--accent); color: var(--bg); }
+:root .month .cell .num { font-size: calc(18 * var(--u)); width: calc(34 * var(--u)); height: calc(34 * var(--u)); }
+:root .chipv { border-radius: calc(12 * var(--u)); padding: calc(10 * var(--u)) calc(12 * var(--u)); }
+:root .chipv .when, :root .chipv .whose { font-size: calc(14 * var(--u)); font-weight: 500; }
+:root .chipv .what { font-size: calc(18 * var(--u)); font-weight: 500; line-height: 1.3; }
+:root .mev { font-size: calc(14 * var(--u)); font-weight: 500; }
+:root .aday { font-size: calc(22 * var(--u)); font-weight: 600; }
+:root .rows { background: var(--card); }
+:root .erow .when, :root .erow .whose { font-size: calc(18 * var(--u)); font-weight: 400; }
+:root .erow .what { font-size: calc(21 * var(--u)); font-weight: 500; }
+:root .dot { width: calc(12 * var(--u)); height: calc(12 * var(--u)); }
+:root .dot.big { width: calc(16 * var(--u)); height: calc(16 * var(--u)); }
+:root .day-name { font-size: calc(32 * var(--u)); font-weight: 600; }
+:root .day-date, :root .line { font-size: calc(19 * var(--u)); font-weight: 400; }
+
+/* meals */
+:root .day { background: transparent; border-radius: 0; border-top: 1px solid var(--line); padding: calc(14 * var(--u)) calc(4 * var(--u)) 0; }
+:root .day.today { background: transparent; }
+:root .day .dow { font-size: calc(14 * var(--u)); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+:root .day.today .dow { color: var(--accent); }
+:root .date { font-size: calc(15 * var(--u)); font-weight: 400; margin-top: 0; }
+:root .meal { background: transparent; border: 1px dashed var(--line); align-items: flex-start; justify-content: flex-start; text-align: left; padding: calc(16 * var(--u)); }
+:root .meal.set { background: var(--tint); border-color: transparent; }
+:root .meal .add { align-self: center; margin: auto; width: calc(32 * var(--u)); height: calc(32 * var(--u)); color: color-mix(in srgb, var(--ink) 30%, transparent); }
+:root .what { font-size: calc(24 * var(--u)); font-weight: 500; line-height: 1.25; overflow-wrap: break-word; hyphens: auto; }
+:root .which, :root .work { font-size: calc(14 * var(--u)); font-weight: 500; }
+
+/* lists */
+:root .paper { border-radius: calc(20 * var(--u)); padding: calc(22 * var(--u)) calc(24 * var(--u)); }
+:root .paper .name { font-size: calc(26 * var(--u)); font-weight: 600; }
+:root .item { padding: calc(12 * var(--u)) 0; border-bottom: 1px solid var(--line); gap: calc(16 * var(--u)); }
+:root .item .box { width: calc(30 * var(--u)); height: calc(30 * var(--u)); background: transparent; border: calc(2 * var(--u)) solid color-mix(in srgb, var(--ink) 40%, transparent); color: var(--bg); }
+:root .item .box .icon { width: calc(20 * var(--u)); height: calc(20 * var(--u)); }
+:root .item.done .box { background: color-mix(in srgb, var(--ink) 45%, transparent); border-color: transparent; }
+:root .item .text { font-size: calc(22 * var(--u)); font-weight: 400; }
+:root .item .who { width: calc(10 * var(--u)); height: calc(10 * var(--u)); }
+
+/* chores */
+:root .person { border-radius: calc(22 * var(--u)); }
+:root .initial { width: calc(44 * var(--u)); height: calc(44 * var(--u)); font-size: calc(20 * var(--u)); font-weight: 600; }
+:root .person .name { font-size: calc(24 * var(--u)); font-weight: 600; }
+:root .stars, :root .reward-stars { font-size: calc(20 * var(--u)); font-weight: 600; }
+:root .stars .star { width: calc(20 * var(--u)) !important; height: calc(20 * var(--u)) !important; }
+:root .chore { background: var(--card); border-radius: calc(16 * var(--u)); padding: calc(12 * var(--u)) calc(14 * var(--u)); gap: calc(14 * var(--u)); }
+:root .chore .check { width: calc(40 * var(--u)); height: calc(40 * var(--u)); background: var(--tint-2); }
+:root .chore .check .icon { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
+:root .chore .task { font-size: calc(20 * var(--u)); font-weight: 500; }
+:root .all-done { font-size: calc(22 * var(--u)); font-weight: 600; }
+:root .routine-name, :root .step-text { font-size: calc(16 * var(--u)); font-weight: 500; }
+:root .step, :root .reward, :root .routine-card { background: var(--card); }
+:root .kid { height: calc(60 * var(--u)); font-size: calc(20 * var(--u)); font-weight: 600; background: var(--tint); }
+:root .reward-title { font-size: calc(26 * var(--u)); font-weight: 600; }
+:root .reward-note { font-size: calc(18 * var(--u)); font-weight: 500; min-height: calc(62 * var(--u)); }
+:root .routine-card h2 { font-size: calc(26 * var(--u)); font-weight: 600; }
+:root .bar { height: calc(10 * var(--u)); }
+
+/* photos */
+:root .empty h1 { font-size: calc(32 * var(--u)); font-weight: 600; }
+:root .empty p { font-size: calc(18 * var(--u)); font-weight: 400; }
+:root .night { font-weight: 500; }
+:root .count { font-weight: 500; }
+
+/* Big enough to hit from a step away (at least about 48 px on the tablet), and a clear mark for the keyboard's focus. */
+:root .btn { min-width: calc(110 * var(--u)); }
+:root .item, :root .chore, :root .erow { min-height: calc(60 * var(--u)); }
+:root [role="button"]:focus-visible, :root button:focus-visible, :root .field:focus-visible { outline: calc(3 * var(--u)) solid var(--accent); outline-offset: calc(2 * var(--u)); }
+:root .mev { padding: calc(4 * var(--u)) calc(8 * var(--u)); }

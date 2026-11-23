@@ -1,0 +1,62 @@
+{
+  "name": "School food",
+  "tabIcon": "basket",
+  "background": true,
+  "uses": [
+    "family",
+    "today",
+    "days"
+  ],
+  "reaches": [
+    "*.api.nutrislice.com",
+    "client-food-images.nutrislice.com"
+  ],
+  "actions": [
+    {
+      "name": "menu",
+      "description": "What's on a kid's school menu on a day: lunch, or breakfast where the school has it (\"what's for lunch tomorrow?\", \"what's Sam having for breakfast on Tuesday?\").",
+      "parameters": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The day they mean, as YYYY-MM-DD. Leave out for the next school day."
+          },
+          "who": {
+            "type": "string",
+            "description": "The kid, by name, if they said one"
+          },
+          "meal": {
+            "type": "string",
+            "enum": [
+              "lunch",
+              "breakfast"
+            ],
+            "description": "Which meal, if they said"
+          }
+        }
+      },
+      "open": true,
+      "answer": true,
+      "wait": 20
+    },
+    {
+      "name": "week",
+      "description": "A whole week's school menus, a day at a time (\"what are the lunches this week?\").",
+      "parameters": {
+        "properties": {
+          "who": {
+            "type": "string",
+            "description": "The kid, by name, if they said one"
+          },
+          "next": {
+            "type": "boolean",
+            "description": "Next week instead of this one"
+          }
+        }
+      },
+      "open": true,
+      "answer": true,
+      "wait": 20
+    }
+  ]
+}

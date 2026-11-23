@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="device_access_desc">Lets the family display\'s assistant see and use other apps when someone asks it to. Taps that send, pay or delete always ask on screen first.</string>
+</resources>

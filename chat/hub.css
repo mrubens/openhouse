@@ -1,0 +1,19 @@
+/* A hub's settings page (src/hub.jsx), on the phone page's look (phone.css). */
+.hub section { margin-bottom: 28px; }
+.hub header a { text-decoration: none; font-size: 15px; }
+.list { list-style: none; margin: 0; padding: 0; }
+.list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.small { font-size: 14px; }
+.mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .02em; }
+.big { font-size: 22px; margin: 8px 0; }
+.break { word-break: break-all; }
+.btns { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.btns.wrap { flex-wrap: wrap; }
+.go.small { width: auto; padding: 10px 18px; }
+.pill { padding: 10px 16px; border-radius: 999px; background: var(--tint); }
+.pill:disabled, .go:disabled { opacity: .45; cursor: default; }
+.plain { color: var(--soft); padding: 8px 0; }
+.check { display: flex; gap: 10px; align-items: baseline; padding: 10px 0; }
+.field, .join .code { width: 100%; font: inherit; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: inherit; margin: 10px 0; }
+.join form { display: grid; gap: 12px; }
+code { font-size: 14px; background: var(--tint); padding: 1px 5px; border-radius: 5px; }

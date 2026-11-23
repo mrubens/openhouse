@@ -1,0 +1,39 @@
+{
+  "name": "Game days",
+  "tabIcon": "soccer-ball",
+  "background": true,
+  "uses": [
+    "family",
+    "today",
+    "calendar-events"
+  ],
+  "reaches": [
+    "calendar.google.com",
+    "*.teamsnap.com",
+    "*.gc.com",
+    "*.sportsengine.com",
+    "*.leagueapps.com",
+    "*.icloud.com",
+    "outlook.office365.com",
+    "outlook.live.com",
+    "*.teamapp.com",
+    "*.demosphere-secure.com"
+  ],
+  "actions": [
+    {
+      "name": "next_game",
+      "description": "When and where the next game is, for one of the kids' teams or any, with when to leave (\"when's Sam's next game?\", \"is there a game this weekend?\").",
+      "parameters": {
+        "properties": {
+          "who": {
+            "type": "string",
+            "description": "The kid or the team, if they said"
+          }
+        }
+      },
+      "answer": true,
+      "open": true,
+      "wait": 25
+    }
+  ]
+}

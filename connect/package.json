@@ -1,0 +1,12 @@
+{
+  "name": "openhouse-mcp",
+  "version": "0.1.0",
+  "description": "Change your OpenHouse's apps and home screen from Claude or ChatGPT on your computer.",
+  "author": "Roo Code, Inc.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "bin": { "openhouse-mcp": "dist/openhouse-mcp.mjs" },
+  "files": ["dist/openhouse-mcp.mjs"],
+  "engines": { "node": ">=18" }
+}

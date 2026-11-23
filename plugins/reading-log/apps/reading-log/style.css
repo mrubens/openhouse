@@ -1,0 +1,19 @@
+/* Reading log: a column per reader, the week as bars, the goal as a thin line across them */
+.body { margin-top: calc(28 * var(--u)); }
+.reader { display: flex; flex-direction: column; gap: calc(16 * var(--u)); border-top: 1px solid var(--line); padding-top: calc(14 * var(--u)); }
+.who { display: flex; align-items: center; gap: calc(10 * var(--u)); }
+.who .dot { width: calc(14 * var(--u)); height: calc(14 * var(--u)); border-radius: 50%; }
+.who .name { font-size: calc(26 * var(--u)); font-weight: 600; }
+.nums { display: flex; gap: calc(40 * var(--u)); }
+.nums .big { font-size: calc(52 * var(--u)); }
+.chart { display: grid; grid-template-columns: repeat(7, 1fr); gap: calc(8 * var(--u)); height: calc(210 * var(--u)); }
+.col { display: flex; flex-direction: column; align-items: stretch; gap: calc(6 * var(--u)); min-width: 0; }
+.col .n { font-size: calc(14 * var(--u)); color: var(--ink-soft); text-align: center; height: calc(18 * var(--u)); }
+.col .well { flex: 1; position: relative; display: flex; align-items: flex-end; }
+.col .bar { width: 100%; border-radius: calc(6 * var(--u)); background: color-mix(in srgb, var(--ink) 22%, transparent); min-height: calc(3 * var(--u)); }
+.col.met .bar { background: var(--ink); }
+.col .goal { position: absolute; left: 0; right: 0; border-top: calc(2 * var(--u)) dashed color-mix(in srgb, var(--ink) 30%, transparent); }
+.col .d { font-size: calc(14 * var(--u)); font-weight: 600; color: var(--ink-soft); text-align: center; text-transform: uppercase; letter-spacing: .06em; }
+.col.today .d { color: var(--accent); }
+.recent { display: flex; flex-direction: column; max-width: calc(900 * var(--u)); }
+.sheet .chip.on { background: var(--ink); color: var(--bg); }

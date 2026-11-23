@@ -1,0 +1,8 @@
+{
+  "name": "pantry",
+  "version": "1.0.0",
+  "description": "What's in the pantry and freezer, kept by voice or by tap, with dinner ideas from the household's own meals that fit what's on hand.",
+  "keywords": ["openhouse-plugin"],
+  "license": "MIT",
+  "openhouse": { "apps": ["apps/pantry"], "made": "2026-11-23" }
+}

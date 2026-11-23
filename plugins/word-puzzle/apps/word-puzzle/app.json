@@ -1,0 +1,65 @@
+{
+  "name": "Word puzzle",
+  "tabIcon": "puzzle-piece",
+  "background": true,
+  "today": {
+    "size": "small"
+  },
+  "uses": [
+    "today-card"
+  ],
+  "actions": [
+    {
+      "name": "puzzle",
+      "description": "Say today's word puzzle: the mixed-up letters and the clue (\"what's today's word puzzle?\").",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "hint",
+      "description": "One more hint for today's word puzzle (\"give me a hint\"). Say what it answers, and nothing more: don't give the word away.",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "guess",
+      "description": "Someone's guess at today's word puzzle (\"is it penguin?\").",
+      "parameters": {
+        "properties": {
+          "word": {
+            "type": "string",
+            "description": "The word they guessed"
+          },
+          "who": {
+            "type": "string",
+            "description": "Who guessed, if you know"
+          }
+        },
+        "required": [
+          "word"
+        ]
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "reveal",
+      "description": "Give up and say today's word, only when they ask for the answer.",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    }
+  ]
+}

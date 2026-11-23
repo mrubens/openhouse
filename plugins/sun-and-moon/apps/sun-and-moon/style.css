@@ -1,0 +1,7 @@
+/* Sun and moon: two halves, the times big */
+.cols { margin-top: calc(34 * var(--u)); gap: calc(60 * var(--u)); }
+.part { display: flex; flex-direction: column; gap: calc(16 * var(--u)); border-top: 1px solid var(--line); padding-top: calc(16 * var(--u)); }
+.pair-big { display: flex; gap: calc(48 * var(--u)); }
+.big.mid { font-size: calc(44 * var(--u)); }
+.moonrow { display: flex; gap: calc(28 * var(--u)); align-items: center; }
+.moon { width: calc(150 * var(--u)); height: calc(150 * var(--u)); flex: none; }

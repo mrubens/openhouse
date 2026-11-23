@@ -1,0 +1,77 @@
+/* Target: 1920x1080 landscape touchscreen, weak GPU. Avoid blur, big shadows,
+   and continuous animations. */
+:root {
+  --bg: #f6f1e9;
+  --card: #fffdf9;
+  --ink: #2b2a28;
+  --muted: #7a756d;
+  --line: #e7dfd3;
+  --day: #faf6ef;
+  --today: #fff3dc;
+  --today-line: #e9c46a;
+  --event: #fff;
+  --radius: 18px;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); }
+
+.screen {
+  height: 100vh;
+  padding: 24px;
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 1fr 420px;
+  grid-template-rows: auto auto 1fr 300px;
+  grid-template-areas:
+    'header header'
+    'calendar bus'
+    'calendar chores'
+    'recipe photos';
+}
+.area-recipe { grid-area: recipe; display: flex; flex-direction: column; }
+.recipe-body { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; min-height: 0; }
+.recipe-num { font-size: 26px; font-weight: 600; color: var(--muted); }
+.recipe-step { font-size: 48px; font-weight: 700; line-height: 1.15; }
+.recipe-btns { display: flex; gap: 20px; justify-content: flex-end; }
+.recipe-btn { min-width: 220px; height: 84px; font-size: 38px; font-weight: 700; border-radius: 16px; border: 2px solid var(--line); background: var(--day); color: var(--ink); }
+.recipe-next { background: var(--today-line); border-color: var(--today-line); color: #2b2a28; }
+.recipe-btn:disabled { opacity: .4; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 24px; overflow: hidden; }
+.card h2 { margin: 0 0 14px; font-size: 22px; font-weight: 600; color: var(--muted); letter-spacing: .02em; }
+.area-header { grid-area: header; display: flex; align-items: baseline; gap: 28px; background: none; border: none; padding: 0 8px; }
+.area-calendar { grid-area: calendar; display: flex; flex-direction: column; }
+.area-chores { grid-area: chores; }
+.area-photos { grid-area: photos; padding: 0; }
+.area-bus { grid-area: bus; }
+.bus-time { font-size: 56px; font-weight: 700; line-height: 1.1; }
+.bus-when { font-size: 20px; color: var(--muted); }
+.area-bus.bus-late { background: #d62828; border-color: #d62828; }
+.area-bus.bus-late h2, .area-bus.bus-late .bus-time, .area-bus.bus-late .bus-when { color: #fff; }
+
+.clock { font-size: 72px; font-weight: 700; line-height: 1; }
+.date { font-size: 30px; color: var(--muted); }
+.weather { margin-left: auto; font-size: 30px; }
+
+.week { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); gap: 12px; min-height: 0; }
+.day { border-radius: 12px; padding: 10px; background: var(--day); overflow: hidden; }
+.day.today { background: var(--today); outline: 2px solid var(--today-line); }
+.day-name { font-weight: 600; font-size: 18px; margin-bottom: 10px; color: var(--muted); }
+.day-name span { color: var(--ink); font-size: 26px; margin-left: 4px; }
+/* the person's color tints the whole event (no side stripe) */
+.event { background: color-mix(in srgb, var(--c) 22%, var(--event)); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.event-time { font-size: 14px; color: var(--muted); }
+.event-title { font-size: 18px; font-weight: 600; }
+.event-who { font-size: 14px; color: var(--c); font-weight: 600; }
+
+.chores { list-style: none; margin: 0; padding: 0; }
+.chores li { display: flex; align-items: center; gap: 14px; padding: 12px 4px; border-bottom: 1px solid var(--line); font-size: 20px; }
+.chores .check { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--c); flex: none; }
+.chores li.done .check { background: var(--c); }
+.chores li.done .task { text-decoration: line-through; color: var(--muted); }
+.chores .who { margin-left: auto; font-size: 15px; color: var(--c); font-weight: 600; }
+
+.photo { height: 100%; position: relative; transition: background .6s; }
+.caption { position: absolute; left: 20px; bottom: 16px; color: #fff; font-size: 24px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,.4); }

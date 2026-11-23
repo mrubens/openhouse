@@ -1,0 +1,22 @@
+{
+  "name": "Trash day",
+  "tabIcon": "recycle",
+  "background": true,
+  "today": { "size": "small" },
+  "uses": ["today", "days", "today-card"],
+  "reaches": ["api.recollect.net", "recollect.a.ssl.fastly.net", "calendar.google.com", "*.icloud.com", "outlook.office365.com", "outlook.live.com"],
+  "actions": [
+    {
+      "name": "pickup",
+      "description": "When the trash, recycling or yard waste next goes out at the curb (\"when's trash day?\", \"is it recycling week?\").",
+      "parameters": {
+        "properties": {
+          "which": { "type": "string", "enum": ["trash", "recycling", "yard"], "description": "What they asked about, if one thing" }
+        }
+      },
+      "open": true,
+      "answer": true,
+      "wait": 15
+    }
+  ]
+}

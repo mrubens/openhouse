@@ -1,0 +1,27 @@
+{
+  "name": "Bedtime",
+  "tabIcon": "bed",
+  "background": true,
+  "today": {
+    "size": "small"
+  },
+  "uses": [
+    "family",
+    "chores",
+    "today",
+    "today-card",
+    "devices"
+  ],
+  "actions": [
+    {
+      "name": "start",
+      "description": "Start the bedtime scene: the speakers down, the TV off, the lights dimmed, and the bedtime routine up, when someone says it's bedtime (\"start bedtime\"). The tablet may ask the people there first.",
+      "parameters": {
+        "properties": {}
+      },
+      "open": true,
+      "answer": true,
+      "wait": 25
+    }
+  ]
+}

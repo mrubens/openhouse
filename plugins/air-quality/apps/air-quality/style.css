@@ -1,0 +1,6 @@
+/* Air quality: the number big, the scale beside it */
+.body { max-width: calc(980 * var(--u)); margin-top: calc(30 * var(--u)); }
+.scale { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+.band { display: flex; gap: calc(20 * var(--u)); padding: calc(10 * var(--u)) 0; border-bottom: 1px solid var(--line); font-size: calc(19 * var(--u)); color: var(--ink-soft); }
+.band .n { width: calc(110 * var(--u)); font-variant-numeric: tabular-nums; }
+.band.on { color: var(--ink); font-weight: 600; }

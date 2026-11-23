@@ -1,0 +1,25 @@
+{
+  "name": "Air quality",
+  "tabIcon": "drop",
+  "background": true,
+  "uses": [
+    "weather",
+    "today"
+  ],
+  "reaches": [
+    "air-quality-api.open-meteo.com",
+    "geocoding-api.open-meteo.com"
+  ],
+  "actions": [
+    {
+      "name": "air",
+      "description": "How the air quality is outside today and tomorrow, by the US Air Quality Index (\"how's the air today?\", \"is it OK to play outside?\").",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "wait": 20,
+      "open": true
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "name": "Daylight",
+  "tabIcon": "sun-horizon",
+  "background": true,
+  "today": {
+    "size": "small"
+  },
+  "uses": [
+    "weather",
+    "today-card"
+  ],
+  "actions": [
+    {
+      "name": "sky",
+      "description": "When the sun rises or sets, how much daylight there is, or what the moon looks like, today or tomorrow (\"when's sunset?\", \"what time is sunrise tomorrow?\", \"is it a full moon tonight?\").",
+      "parameters": {
+        "properties": {
+          "what": {
+            "type": "string",
+            "enum": [
+              "sunset",
+              "sunrise",
+              "daylight",
+              "moon"
+            ]
+          },
+          "day": {
+            "type": "string",
+            "enum": [
+              "today",
+              "tomorrow"
+            ]
+          }
+        },
+        "required": [
+          "what"
+        ]
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    }
+  ]
+}

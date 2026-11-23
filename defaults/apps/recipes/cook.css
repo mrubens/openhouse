@@ -1,0 +1,56 @@
+/* Cooking: the whole recipe on one page, quiet like the home screen: plain type, room around it, nothing boxed. The
+   steps are listed down the side to jump to one; the step they're on is the only one with its extras (what it uses,
+   its timer) and is kept in view. After quiet.css, so these win. */
+.cook { position: fixed; inset: 0; display: grid; grid-template-columns: calc(340 * var(--u)) minmax(0, 1fr); background: var(--bg); color: var(--ink); z-index: 5; }
+
+.cook .toc { display: flex; flex-direction: column; min-height: 0; padding: calc(40 * var(--u)) calc(16 * var(--u)) calc(30 * var(--u)) calc(36 * var(--u)); gap: calc(18 * var(--u)); }
+.cook .toc-top { display: flex; align-items: center; gap: calc(12 * var(--u)); flex: none; padding-left: calc(12 * var(--u)); }
+.cook .dish { flex: 1; min-width: 0; font-size: calc(20 * var(--u)); font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cook .stop, .cook .vid { flex: none; height: calc(52 * var(--u)); padding: 0 calc(22 * var(--u)); border-radius: calc(26 * var(--u)); background: var(--tint-2); font-size: calc(18 * var(--u)); font-weight: 500; }
+.cook .vid { align-self: flex-start; margin-left: calc(12 * var(--u)); }
+.cook .toc-list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cook .tpart { font-size: calc(14 * var(--u)); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); padding: calc(20 * var(--u)) calc(12 * var(--u)) calc(6 * var(--u)); }
+.cook .ti { display: grid; grid-template-columns: calc(34 * var(--u)) minmax(0, 1fr); align-items: baseline; text-align: left; padding: calc(9 * var(--u)) calc(12 * var(--u)); border-radius: calc(12 * var(--u)); font-size: calc(19 * var(--u)); line-height: 1.3; color: var(--ink-soft); }
+.cook .ti .n { font-variant-numeric: tabular-nums; }
+.cook .ti .t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cook .ti.need { grid-template-columns: 1fr; }
+.cook .ti.on { color: var(--ink); background: var(--tint-2); }
+
+.cook .page { min-height: 0; padding: calc(56 * var(--u)) calc(72 * var(--u)) 45vh calc(40 * var(--u)); }
+.cook .page > * { max-width: calc(900 * var(--u)); }
+.cook .need { padding: 0 0 calc(20 * var(--u)); }
+.cook .need-head { display: flex; gap: calc(36 * var(--u)); align-items: flex-start; }
+.cook .need-head > div { flex: 1; min-width: 0; }
+.cook h1 { margin: 0; font-size: calc(40 * var(--u)); font-weight: 500; letter-spacing: -.01em; line-height: 1.15; }
+.cook .makes { margin-top: calc(8 * var(--u)); font-size: calc(20 * var(--u)); color: var(--ink-soft); }
+.cook .need h2 { margin: calc(34 * var(--u)) 0 calc(14 * var(--u)); }
+.cook h2 { font-size: calc(14 * var(--u)); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
+.cook h2.part { margin: calc(48 * var(--u)) 0 calc(6 * var(--u)) calc(70 * var(--u)); }
+.cook .dishpic { width: calc(260 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(16 * var(--u)); flex: none; }
+.cook ul.all { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: calc(48 * var(--u)); }
+.cook ul.all li { break-inside: avoid; font-size: calc(21 * var(--u)); line-height: 1.4; padding: calc(4 * var(--u)) 0; }
+.cook ul.all b { font-weight: 500; }
+.cook .none { font-size: calc(20 * var(--u)); color: var(--ink-soft); }
+
+.cook .rstep { display: grid; grid-template-columns: calc(52 * var(--u)) minmax(0, 1fr) auto; column-gap: calc(18 * var(--u)); padding: calc(22 * var(--u)) calc(18 * var(--u)); border-radius: calc(22 * var(--u)); }
+.cook .rstep .num { font-size: calc(22 * var(--u)); color: var(--ink-soft); font-variant-numeric: tabular-nums; text-align: right; padding-top: calc(3 * var(--u)); }
+.cook .rstep .body { min-width: 0; display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
+.cook .rstep p { margin: 0; font-size: calc(26 * var(--u)); line-height: 1.45; color: var(--ink-soft); }
+.cook .rstep .snote { font-size: calc(18 * var(--u)); color: var(--ink-soft); }
+.cook .rstep .suses { display: flex; flex-wrap: wrap; gap: calc(6 * var(--u)) calc(22 * var(--u)); font-size: calc(19 * var(--u)); color: var(--ink-soft); }
+.cook .rstep .suses b { color: var(--ink); font-weight: 500; }
+.cook .rstep .spic { width: calc(220 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(14 * var(--u)); }
+.cook .rstep.on { background: var(--tint-2); }
+.cook .rstep.on .num { color: var(--accent); }
+.cook .rstep.on p { color: var(--ink); font-size: calc(32 * var(--u)); }
+.cook .timer { align-self: flex-start; height: calc(64 * var(--u)); padding: 0 calc(30 * var(--u)); border-radius: calc(32 * var(--u)); background: var(--ink); color: var(--bg); font-size: calc(20 * var(--u)); font-weight: 500; white-space: nowrap; }
+.cook .timer.on { background: var(--bg); color: var(--ink); }
+.cook .end { display: flex; align-items: center; gap: calc(30 * var(--u)); padding: calc(48 * var(--u)) calc(18 * var(--u)) 0 calc(88 * var(--u)); }
+.cook .end .big { font-size: calc(24 * var(--u)); color: var(--ink-soft); }
+.cook .end .btn { height: calc(64 * var(--u)); padding: 0 calc(36 * var(--u)); border-radius: calc(32 * var(--u)); font-size: calc(20 * var(--u)); }
+
+.cook .video.spot { display: none; }
+.video.over { position: fixed; z-index: 6; top: calc(30 * var(--u)); right: calc(30 * var(--u)); width: calc(460 * var(--u)); height: auto; aspect-ratio: 16 / 9; border-radius: calc(14 * var(--u)); overflow: hidden; background: #000; }
+.video.over[hidden] { display: none; }
+.video.over iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.cook .wait { flex: 1; display: flex; align-items: center; font-size: calc(40 * var(--u)); color: var(--ink-soft); }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The app's first frame is the home screen's paper (Calm.PAPER), not a dark window. -->
+    <style name="OpenHouse" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
+        <item name="android:windowBackground">@color/paper</item>
+    </style>
+    <color name="paper">#EFEAE1</color>
+</resources>

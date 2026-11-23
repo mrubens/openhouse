@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Only to copy the old Drawing app's saved pictures into the family's photos, once (GalleryDrawings.kt). -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CAMERA" /> <!-- Opie's look_with_camera, only after a person taps Allow (CameraLook) -->
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- the first setup's guess at the home address (SetupDevice) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" /> <!-- the web view's WebRTC microphone (LiveVoice) -->
+    <!-- Device discovery (bridge/devices): Android filters Wi-Fi multicast (mDNS, SSDP) unless an app holds a lock. -->
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <!-- Bluetooth devices (Bluetooth.kt, docs/bluetooth.md): finding, pairing after a yes, BLE reads and writes, speakers.
+         Scanning is never used to tell where anyone is. The device owner grants the runtime ones to itself. -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <!-- Granted once over adb (pm grant): lets the shell switch its own device-control service on. -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <!-- Installing apps from Aurora Store (silently: the shell is device owner). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Self-update's guard (UpdateGuard) still watches a new display after a restart mid-update. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- testOnly (debug builds only, see build.gradle.kts): lets `dpm remove-active-admin` undo device owner during the prototype. -->
+    <application
+        android:testOnly="${testOnly}"
+        android:label="OpenHouse"
+        android:enableOnBackInvokedCallback="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/OpenHouse">
+        <!-- Android's camera treatment for apps fixed in one orientation turns the display and restarts the activity when
+             the camera opens, which closed the camera again (CameraLook): not for the display. -->
+        <property android:name="android.window.PROPERTY_CAMERA_COMPAT_ALLOW_FORCE_ROTATION" android:value="false" />
+        <property android:name="android.window.PROPERTY_CAMERA_COMPAT_ALLOW_REFRESH" android:value="false" />
+        <activity
+            android:name=".MainActivity"
+            android:launchMode="singleTask"
+            android:exported="true"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|keyboardHidden|keyboard|screenLayout"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <!-- Device control: lets the agent use other apps (served to it as MCP tools by DeviceServer). -->
+        <service
+            android:name=".DeviceAccess"
+            android:exported="true"
+            android:label="OpenHouse assistant"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
+            <meta-data android:name="android.accessibilityservice" android:resource="@xml/device_access" />
+        </service>
+        <!-- Takes "install this APK" from Aurora Store (preferred handler, set as device owner); see AppStore. -->
+        <activity
+            android:name=".InstallActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.INSTALL_PACKAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="application/vnd.android.package-archive" />
+            </intent-filter>
+        </activity>
+        <!-- Reopens the board after an update (otherwise the device sits on its stock launcher). -->
+        <!-- Before an update: cover the screen and point home at the cover (scripts/install-display.sh). -->
+        <!-- Only adb (the shell user holds DUMP) may send these; other apps can't. -->
+        <receiver android:name=".PrepareUpdateReceiver" android:exported="true" android:permission="android.permission.DUMP">
+            <intent-filter><action android:name="dev.openhouse.shell.PREPARE_UPDATE" /></intent-filter>
+        </receiver>
+        <receiver android:name=".ConfigReceiver" android:exported="true" android:permission="android.permission.DUMP">
+            <intent-filter><action android:name="dev.openhouse.shell.CONFIG" /></intent-filter>
+        </receiver>
+        <receiver android:name=".UpdatedReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /></intent-filter>
+        </receiver>
+        <!-- Self-update (docs/self-update.md): watches a new display in a process of its own and goes back to the
+             rescue build if it doesn't come up healthy. -->
+        <receiver android:name=".UpdateGuard" android:exported="false" android:process=":guard">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+            <intent-filter><action android:name="dev.openhouse.shell.RESCUE_RESULT" /></intent-filter>
+        </receiver>
+        <service android:name=".GuardJob" android:exported="false" android:process=":guard"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+        <!-- Set up from a QR code (Provisioning.kt): how to be set up (the tablet's owner), and finishing. -->
+        <activity android:name=".ProvisioningActivity" android:exported="true" android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.app.action.GET_PROVISIONING_MODE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.app.action.ADMIN_POLICY_COMPLIANCE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <!-- Moving to OpenHouse's package IDs (Move.kt): the new display's screen while it takes over, and the old
+             display's end of it (answers only the new display, signed with the release key; checked in code). -->
+        <activity android:name=".MoveActivity" android:exported="true" android:excludeFromRecents="true"
+            android:screenOrientation="sensorLandscape" android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
+        <provider android:name=".MoveOut" android:authorities="${applicationId}.move" android:exported="true" />
+        <receiver
+            android:name=".AdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin" />
+            <intent-filter><action android:name="android.app.action.DEVICE_ADMIN_ENABLED" /></intent-filter>
+        </receiver>
+    </application>
+</manifest>

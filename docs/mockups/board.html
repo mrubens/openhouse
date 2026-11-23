@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board mockup</title>
+<style>
+  :root {
+    --bg: #161513; --card: #22211e; --card2: #2b2926; --line: #36332e; --text: #f3efe6; --muted: #a59f93; --faint: #6f6a61;
+    --accent: #e9b949; --ink: #1d1c1a; --ok: #7fc8a9; --warn: #e76f51; --blue: #7fb3e6; --pink: #e98fb0;
+    font-family: Roboto, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0c0b0a; color: var(--text); }
+  button { font: inherit; color: inherit; border: 0; background: none; }
+  .muted { color: var(--muted); } .faint { color: var(--faint); }
+
+  /* page chrome (not part of the display) */
+  .chrome { display: flex; gap: 8px; justify-content: center; padding: 14px 16px 10px; flex-wrap: wrap; }
+  .chrome button { padding: 9px 18px; border-radius: 999px; background: #24221f; color: #cfc8bb; font-size: 15px; cursor: pointer; }
+  .chrome button.on { background: var(--accent); color: var(--ink); font-weight: 600; }
+  .note { text-align: center; color: #8d877c; font-size: 14px; margin: 0 16px 12px; }
+  .fit { display: flex; justify-content: center; }
+  .frame { width: 1920px; height: 1080px; transform-origin: top left; border-radius: 26px; overflow: hidden; background: var(--bg); position: relative; box-shadow: 0 0 0 14px #1d1c1a, 0 30px 80px rgba(0,0,0,.6); }
+
+  /* the board */
+  .screen { position: absolute; inset: 0; padding: 30px 36px 120px; display: none; }
+  .screen.on { display: block; }
+  .top { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; }
+  .clock { font-size: 92px; font-weight: 600; letter-spacing: -2px; line-height: .9; }
+  .hello { font-size: 30px; margin-left: 26px; padding-bottom: 8px; }
+  .hello b { color: var(--accent); font-weight: 600; }
+  .wx { text-align: right; font-size: 26px; } .wx small { display: block; font-size: 18px; color: var(--muted); margin-top: 4px; }
+  .grid { display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(7, 1fr); gap: 18px; height: 828px; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 20px 24px; display: flex; flex-direction: column; gap: 12px; overflow: hidden; position: relative; }
+  .card h3 { margin: 0; font-size: 24px; font-weight: 600; }
+  .card .who { position: absolute; top: 16px; right: 18px; font-size: 14px; color: var(--faint); display: flex; gap: 10px; align-items: center; }
+  .who .x { width: 28px; height: 28px; border-radius: 14px; background: var(--card2); display: inline-flex; align-items: center; justify-content: center; font-size: 13px; color: var(--muted); }
+  .tag { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 5px; display: inline-block; }
+  .spark { color: var(--accent); }
+
+  .big { font-size: 64px; font-weight: 600; line-height: 1; letter-spacing: -1px; }
+  .row { display: flex; gap: 14px; align-items: center; }
+  .pill { padding: 8px 16px; border-radius: 999px; background: var(--card2); font-size: 17px; }
+
+  .check { display: flex; align-items: center; gap: 14px; font-size: 21px; padding: 3px 0; }
+  .box { width: 30px; height: 30px; border-radius: 9px; border: 2px solid var(--muted); flex: none; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 17px; }
+  .check.on .box { background: var(--ok); border-color: var(--ok); color: var(--ink); }
+  .check.on span:last-child { color: var(--muted); text-decoration: line-through; }
+
+  .event { display: flex; gap: 14px; align-items: baseline; font-size: 21px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .event:last-child { border: 0; }
+  .event time { width: 92px; flex: none; color: var(--muted); font-size: 18px; }
+  .event .p { margin-left: auto; font-size: 16px; }
+
+  .steps-num { color: var(--muted); font-size: 18px; display: flex; justify-content: space-between; }
+  .pips { display: flex; gap: 6px; } .pips i { width: 13px; height: 13px; border-radius: 7px; background: var(--line); } .pips i.d { background: var(--muted); } .pips i.o { background: var(--accent); width: 30px; }
+  .step { font-size: 44px; font-weight: 500; line-height: 1.25; }
+  .btn { height: 62px; padding: 0 34px; border-radius: 31px; font-size: 22px; font-weight: 600; display: inline-flex; align-items: center; }
+  .btn.p { background: var(--accent); color: var(--ink); } .btn.s { background: var(--line); }
+
+  .timer { display: flex; align-items: center; gap: 18px; }
+  .ring { width: 92px; height: 92px; border-radius: 50%; flex: none; background: conic-gradient(var(--accent) var(--p), var(--card2) 0); display: flex; align-items: center; justify-content: center; }
+  .ring::after { content: ''; width: 74px; height: 74px; border-radius: 50%; background: var(--card); position: absolute; }
+  .ring { position: relative; }
+  .timer b { font-size: 46px; font-weight: 600; letter-spacing: -1px; display: block; line-height: 1; }
+  .timer span { font-size: 18px; color: var(--muted); }
+
+  .thumb { border-radius: 14px; background: linear-gradient(135deg, #8a6a3f, #3d2e1c 60%, #1a1410); position: relative; flex: 1; display: flex; align-items: flex-end; padding: 14px; font-size: 17px; font-weight: 600; }
+  .thumb .play { position: absolute; left: 50%; top: 45%; transform: translate(-50%,-50%); width: 64px; height: 64px; border-radius: 32px; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; font-size: 24px; padding-left: 4px; }
+
+  .answer { border: 2px solid var(--accent); box-shadow: 0 0 0 6px rgba(233,185,73,.12); }
+  .answer .q { font-size: 17px; color: var(--muted); }
+  .answer p { margin: 0; font-size: 21px; line-height: 1.4; }
+  .actions { display: flex; gap: 10px; margin-top: auto; }
+  .chip { padding: 10px 18px; border-radius: 999px; background: var(--card2); border: 1px solid var(--line); font-size: 17px; }
+  .chip.pin { background: var(--accent); color: var(--ink); border-color: var(--accent); font-weight: 600; }
+
+  .askbar { position: absolute; left: 36px; right: 36px; bottom: 26px; height: 74px; display: flex; gap: 14px; align-items: center; }
+  .askbar .in { flex: 1; height: 74px; border-radius: 37px; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; padding: 0 30px; font-size: 24px; color: var(--faint); gap: 16px; }
+  .askbar .mic { width: 74px; height: 74px; border-radius: 37px; background: var(--accent); color: var(--ink); display: flex; align-items: center; justify-content: center; font-size: 30px; }
+  .askbar .sug { display: flex; gap: 10px; margin-left: auto; }
+  .askbar .sug span { font-size: 17px; padding: 8px 16px; border-radius: 999px; background: var(--card2); color: var(--muted); }
+
+  .apps { display: flex; gap: 16px; }
+  .app { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+  .app i { width: 70px; height: 70px; border-radius: 20px; background: var(--card2); display: flex; align-items: center; justify-content: center; font-size: 34px; font-style: normal; }
+
+  /* evening / ambient */
+  .ambient { position: absolute; inset: 0; background:
+      radial-gradient(1200px 600px at 70% 30%, rgba(255,190,120,.35), transparent 60%),
+      radial-gradient(900px 500px at 20% 80%, rgba(80,120,170,.35), transparent 60%),
+      linear-gradient(160deg, #3b3a52 0%, #6b5266 35%, #c7865f 62%, #2a2b3a 100%); }
+  .ambient::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 420px;
+      background: linear-gradient(transparent, rgba(10,10,12,.85)); }
+  .hills { position: absolute; left: -5%; right: -5%; bottom: 0; height: 380px; background:
+      radial-gradient(700px 260px at 25% 100%, #1d2230 60%, transparent 61%),
+      radial-gradient(900px 300px at 75% 100%, #171b26 60%, transparent 61%); }
+  .amb-clock { position: absolute; left: 70px; bottom: 150px; z-index: 2; }
+  .amb-clock .clock { font-size: 170px; font-weight: 500; letter-spacing: -5px; }
+  .amb-clock .muted { font-size: 30px; color: rgba(255,255,255,.75); margin-top: 8px; }
+  .glass { position: absolute; z-index: 2; background: rgba(20,19,17,.55); backdrop-filter: blur(18px); border: 1px solid rgba(255,255,255,.12); border-radius: 24px; padding: 20px 26px; }
+  .caption { position: absolute; right: 70px; top: 50px; z-index: 2; font-size: 17px; color: rgba(255,255,255,.7); }
+  .ann { position: absolute; z-index: 5; background: #fff7e0; color: #2a2414; font-size: 15px; line-height: 1.35; padding: 10px 14px; border-radius: 12px; max-width: 300px; box-shadow: 0 8px 24px rgba(0,0,0,.35); font-weight: 500; }
+  .ann::before { content: attr(data-n); position: absolute; left: -12px; top: -12px; width: 26px; height: 26px; border-radius: 13px; background: var(--accent); color: var(--ink); font-weight: 700; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+  .hideann .ann { display: none; }
+</style>
+</head>
+<body>
+<div class="chrome">
+  <button data-s="morning" class="on">7:24 AM · Morning</button>
+  <button data-s="cooking">5:52 PM · Cooking</button>
+  <button data-s="evening">9:10 PM · Nobody around</button>
+  <button id="ann">Hide notes</button>
+</div>
+<p class="note">Mockup: the home screen as a board of cards that the conversation creates. Static, not wired to anything.</p>
+<div class="fit"><div class="frame" id="frame">
+
+<!-- ============ MORNING ============ -->
+<section class="screen on" id="morning">
+  <div class="top">
+    <div class="row" style="align-items:flex-end"><div class="clock">7:24</div><div class="hello">Good morning. <b>Bus in 26 min</b> — Leo and Maya</div></div>
+    <div class="wx">☁️ 9° → 14°<small>Rain after 3 PM · jackets today</small></div>
+  </div>
+  <div class="grid">
+    <!-- assistant: leave-by -->
+    <div class="card" style="grid-column: span 4; grid-row: span 3;">
+      <div class="who"><span class="tag"><span class="spark">✦</span> for this morning</span></div>
+      <h3>School run</h3>
+      <div class="big">Leave 7:42</div>
+      <div class="muted" style="font-size:20px">Bus at 7:50 from Oak St. Field trip forms are due today.</div>
+      <div class="row" style="margin-top:auto"><span class="pill">🧥 Jackets</span><span class="pill">☔ Umbrella for pickup</span></div>
+    </div>
+    <!-- assistant: who needs what -->
+    <div class="card" style="grid-column: span 4; grid-row: span 5;">
+      <div class="who"><span class="tag"><span class="spark">✦</span> from the calendar</span></div>
+      <h3>Before you go</h3>
+      <div class="muted" style="font-size:17px;margin-top:-4px"><span class="dot" style="background:var(--accent)"></span> Maya</div>
+      <div class="check on"><span class="box">✓</span><span>Field trip form signed</span></div>
+      <div class="check"><span class="box"></span><span>Swim bag (practice 4:30)</span></div>
+      <div class="muted" style="font-size:17px;margin-top:6px"><span class="dot" style="background:var(--ok)"></span> Leo</div>
+      <div class="check"><span class="box"></span><span>Soccer cleats (5:00)</span></div>
+      <div class="check"><span class="box"></span><span>Library book back</span></div>
+      <div class="muted" style="font-size:17px;margin-top:6px"><span class="dot" style="background:var(--warn)"></span> Alex</div>
+      <div class="check"><span class="box"></span><span>Dentist 9:15 — card is in the drawer</span></div>
+    </div>
+    <!-- calendar, compact -->
+    <div class="card" style="grid-column: span 4; grid-row: span 5;">
+      <div class="who"><span class="tag">📅 today</span></div>
+      <h3>Monday</h3>
+      <div class="event"><time>9:15</time>Dentist<span class="p" style="color:var(--warn)">Alex</span></div>
+      <div class="event"><time>3:10</time>Pickup — rain, take the car<span class="p muted">Sam</span></div>
+      <div class="event"><time>4:30</time>Swim practice<span class="p" style="color:var(--accent)">Maya</span></div>
+      <div class="event"><time>5:00</time>Soccer<span class="p" style="color:var(--ok)">Leo</span></div>
+      <div class="event"><time>7:30</time>Book club<span class="p" style="color:var(--blue)">Sam</span></div>
+      <div class="muted" style="margin-top:auto;font-size:17px">Tomorrow: Piano 3:45 · Wed: Team dinner</div>
+    </div>
+    <!-- pinned by a kid -->
+    <div class="card" style="grid-column: span 4; grid-row: span 4;">
+      <div class="who"><span class="tag"><span class="dot" style="background:var(--accent)"></span> Pinned by Maya</span><span class="x">✕</span></div>
+      <h3>Spelling test Friday</h3>
+      <div class="row" style="flex-wrap:wrap;gap:10px;font-size:22px"><span class="pill">necessary</span><span class="pill">rhythm</span><span class="pill">separate</span><span class="pill">believe</span><span class="pill">+6</span></div>
+      <div class="row" style="gap:28px;margin-top:6px"><div><div class="big" style="font-size:44px">7/10</div><span class="muted" style="font-size:16px">last practice</span></div><div><div class="big" style="font-size:44px">4</div><span class="muted" style="font-size:16px">days left</span></div></div>
+      <div class="actions"><span class="chip pin">Quiz me</span><span class="chip">Hard ones only</span></div>
+    </div>
+    <!-- apps -->
+    <div class="card" style="grid-column: span 8; grid-row: span 2; flex-direction: row; align-items: center; gap: 28px;">
+      <h3 style="font-size:20px;color:var(--muted);font-weight:500">Apps</h3>
+      <div class="apps">
+        <div class="app"><i>🍬</i>Candy Bounce</div><div class="app"><i>✖️</i>Times Tables</div><div class="app"><i>🖍️</i>Rainbow Draw</div><div class="app"><i>⭐</i>Star Basket</div>
+      </div>
+      <div class="muted" style="margin-left:auto;font-size:18px">Chores: 2 of 6 done</div>
+    </div>
+  </div>
+  <div class="askbar">
+    <div class="in"><span class="spark" style="font-size:28px">✦</span>Ask anything, or say what you need…
+      <span class="sug"><span>What's for dinner?</span><span>Remind me at 3</span><span>Plan the weekend</span></span></div>
+    <div class="mic">🎙</div>
+  </div>
+  <div class="ann" data-n="1" style="left:380px;top:420px">The assistant writes these cards from the calendar, the weather and the time of day. They change through the day.</div>
+  <div class="ann" data-n="2" style="left:120px;top:760px">Anyone can pin an answer from a conversation. Pins show who made them and stay until someone removes them.</div>
+  <div class="ann" data-n="3" style="left:1360px;top:880px">The question box is always on the board. Answers open as cards right here, not in a pop-up.</div>
+</section>
+
+<!-- ============ COOKING ============ -->
+<section class="screen" id="cooking">
+  <div class="top">
+    <div class="row" style="align-items:flex-end"><div class="clock">5:52</div><div class="hello">Fresh pasta tonight · <b>step 4 of 7</b></div></div>
+    <div class="wx">🌧 11°<small>Leo's soccer moved indoors</small></div>
+  </div>
+  <div class="grid">
+    <!-- pinned recipe, big -->
+    <div class="card" style="grid-column: span 7; grid-row: span 5;">
+      <div class="who"><span class="tag"><span class="dot" style="background:var(--blue)"></span> Pinned by Sam · from "How do I make pasta?"</span><span class="x">✕</span></div>
+      <div class="steps-num" style="margin-top:28px"><span>Fresh pasta ribbons · Step 4 of 7</span><span class="pips"><i class="d"></i><i class="d"></i><i class="d"></i><i class="o"></i><i></i><i></i><i></i></span></div>
+      <div class="step">Cut the dough into four. Roll one piece very thin — about 1 mm, until you can almost see your hand through it.</div>
+      <div class="row" style="margin-top:auto"><span class="btn s">Back</span><span class="btn p">Next</span><span style="margin-left:auto" class="muted">Say “next” with messy hands</span></div>
+    </div>
+    <!-- timers -->
+    <div class="card" style="grid-column: span 5; grid-row: span 2; flex-direction: row; align-items: center; gap: 30px;">
+      <div class="timer"><div class="ring" style="--p: 72%"></div><div><b>8:14</b><span>Dough rest</span></div></div>
+      <div class="timer"><div class="ring" style="--p: 25%; background: conic-gradient(var(--ok) 25%, var(--card2) 0)"></div><div><b>14:40</b><span>Sauce simmer</span></div></div>
+    </div>
+    <!-- ingredients -->
+    <div class="card" style="grid-column: span 5; grid-row: span 3;">
+      <h3>Ingredients</h3>
+      <div class="check on"><span class="box">✓</span><span>300 g ‘00’ flour</span></div>
+      <div class="check on"><span class="box">✓</span><span>3 large eggs</span></div>
+      <div class="check"><span class="box"></span><span>Salt for the water</span></div>
+      <div class="check"><span class="box"></span><span>Butter + Parmesan (sauce)</span></div>
+    </div>
+    <!-- a fresh answer -->
+    <div class="card answer" style="grid-column: span 5; grid-row: span 3;">
+      <div class="q">Leo asked: “Can I make it without a rolling pin?”</div>
+      <p><b>Yes!</b> A clean wine bottle works great. Flour it well, press firmly and turn the dough a quarter turn every few rolls.</p>
+      <div class="actions"><span class="chip pin">📌 Pin</span><span class="chip">Show me</span><span class="chip">✕</span></div>
+    </div>
+    <!-- video -->
+    <div class="card" style="grid-column: span 4; grid-row: span 3;">
+      <h3 style="font-size:20px">Watch this step</h3>
+      <div class="thumb"><span class="play">▶</span>Jamie Oliver · rolling by hand · 2:03</div>
+    </div>
+    <!-- calendar sliver -->
+    <div class="card" style="grid-column: span 3; grid-row: span 3;">
+      <div class="who"><span class="tag">📅 tonight</span></div>
+      <h3>Next up</h3>
+      <div class="event"><time>6:45</time>Leo pickup</div>
+      <div class="event"><time>7:30</time>Book club</div>
+      <div class="muted" style="font-size:17px;margin-top:auto">Dinner ready ~6:40 if you keep this pace</div>
+    </div>
+  </div>
+  <div class="askbar">
+    <div class="in"><span class="spark" style="font-size:28px">✦</span>“Next step” · “Set a timer for the water” · ask anything…</div>
+    <div class="mic">🎙</div>
+  </div>
+  <div class="ann" data-n="1" style="left:520px;top:470px">The pinned recipe takes over the board while you cook, with the current step in huge type.</div>
+  <div class="ann" data-n="2" style="left:1420px;top:110px">Timers belong to the display: they keep running through everything else.</div>
+  <div class="ann" data-n="3" style="left:470px;top:648px">A follow-up answer lands as a card. Pin it to keep it, or dismiss it.</div>
+</section>
+
+<!-- ============ EVENING / AMBIENT ============ -->
+<section class="screen" id="evening" style="padding:0">
+  <div class="ambient"></div><div class="hills"></div>
+  <div class="caption">📷 Lake trip, August · from the family album</div>
+  <div class="amb-clock"><div class="clock">9:10</div><div class="muted">Sunday · lights out in 20 min for Leo</div></div>
+  <div class="glass" style="right:70px;bottom:250px;width:520px">
+    <div style="font-size:16px;color:rgba(255,255,255,.65);margin-bottom:6px"><span class="spark">✦</span> for tomorrow</div>
+    <div style="font-size:24px;line-height:1.45">Field trip — <b>pack lunch</b> for Leo.<br>Rain until noon, then clearing.<br>Bus 7:50.</div>
+  </div>
+  <div class="glass" style="right:70px;bottom:140px;width:520px;display:flex;align-items:center;gap:16px;padding:16px 24px">
+    <span style="font-size:24px">⏱</span><span style="font-size:22px">Dishwasher done in 12 min</span>
+  </div>
+  <div class="ann" data-n="1" style="left:700px;top:120px">When nobody's around it fades to photos, a big clock and only what matters for tomorrow. It wakes to the full board when someone walks up or touches it.</div>
+</section>
+
+</div></div>
+<script>
+  const frame = document.getElementById('frame');
+  function fit() {
+    const s = Math.min((innerWidth - 40) / 1920, (innerHeight - 150) / 1080, 1);
+    frame.style.transform = `scale(${s})`;
+    frame.parentElement.style.height = (1080 * s + 30) + 'px';
+    frame.style.marginLeft = Math.max(0, (document.documentElement.clientWidth - 1920 * s) / 2) + 'px';
+  }
+  frame.parentElement.style.display = 'block';
+  addEventListener('resize', fit); fit();
+  document.querySelectorAll('[data-s]').forEach((b) => b.onclick = () => {
+    document.querySelectorAll('[data-s]').forEach((x) => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('on', s.id === b.dataset.s));
+  });
+  document.getElementById('ann').onclick = (e) => { const h = document.body.classList.toggle('hideann'); e.target.textContent = h ? 'Show notes' : 'Hide notes'; };
+</script>
+</body>
+</html>

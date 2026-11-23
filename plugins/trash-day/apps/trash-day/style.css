@@ -1,0 +1,5 @@
+/* Trash day: the next pickup big, the weeks after as lines */
+.body { max-width: calc(980 * var(--u)); margin-top: calc(30 * var(--u)); }
+.next { display: flex; flex-direction: column; gap: calc(10 * var(--u)); }
+.weeks { display: flex; flex-direction: column; }
+.sheet .chip { justify-content: flex-start; align-self: flex-start; }

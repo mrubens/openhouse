@@ -1,0 +1,14 @@
+/* A card on Today: the page sits on the card's tint and keeps about 22 px at the sides (the frame is the card's
+   width plus those). Sizes follow the card's width (c = 1/420 of it, up to a small card's), since Today makes a card as tall as it needs. */
+:root { --c: calc(min(100vw, 680px) / 420); }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; background: transparent !important; }
+body { font-family: var(--quiet); color: var(--ink); padding: calc(6 * var(--c)) 22px calc(14 * var(--c)); display: flex; flex-direction: column; gap: calc(8 * var(--c)); }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
+.k-big { font-size: calc(54 * var(--c)); font-weight: 600; letter-spacing: -.02em; line-height: 1.05; }
+.k-mid { font-size: calc(26 * var(--c)); font-weight: 500; line-height: 1.25; }
+.k-soft { font-size: calc(19 * var(--c)); color: var(--ink-soft); line-height: 1.35; }
+.k-grow { flex: 1; min-height: 0; }
+.k-btn { align-self: flex-start; height: calc(46 * var(--c)); border-radius: calc(23 * var(--c)); padding: 0 calc(22 * var(--c)); font-size: calc(19 * var(--c)); font-weight: 600; background: var(--ink); color: var(--bg); }
+.k-btn.soft { background: color-mix(in srgb, var(--ink) 9%, transparent); color: var(--ink); }
+.k-row { display: flex; gap: calc(10 * var(--c)); align-items: center; }

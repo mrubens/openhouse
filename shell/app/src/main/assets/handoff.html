@@ -1,0 +1,110 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>OpenHouse</title>
+<style>
+:root{--bg:#fbf9f5;--ink:#2a2826;--soft:#6e6a65;--line:#e7e3dc;--tint:#f1eee9;--go:#2a2826;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:480px;margin:0 auto;padding:28px 20px 48px}
+main::before{content:"OpenHouse";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
+h1{font-size:28px;font-weight:600;letter-spacing:-.01em;margin:0 0 20px}
+ol{margin:0 0 8px;padding:0;list-style:none;counter-reset:s}
+ol li{counter-increment:s;position:relative;padding:0 0 14px 40px;color:var(--ink)}
+ol li::before{content:counter(s);position:absolute;left:0;top:-1px;width:26px;height:26px;border-radius:50%;background:var(--tint);font-size:15px;font-weight:600;display:grid;place-items:center}
+label{display:block;color:var(--soft);font-size:15px;margin:18px 0 6px}
+input,select{width:100%;font:inherit;padding:13px 16px;border:0;border-radius:14px;background:var(--tint);color:inherit;outline-color:var(--ink)}
+button,a.b{display:block;width:100%;margin-top:22px;padding:15px;border:0;border-radius:999px;background:var(--go);color:var(--bg);font:inherit;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+a.b{background:var(--tint);color:var(--ink)}
+button:disabled{opacity:.5}
+p{color:var(--soft)}
+[hidden]{display:none!important}
+</style></head>
+<body><main>
+<h1 id="t"></h1>
+<ol id="steps" hidden></ol>
+<form id="f" hidden>
+  <a class="b" id="open" target="_blank" rel="noopener noreferrer" hidden></a>
+  <div id="whoBox" hidden><label for="who">Whose</label><input id="who" list="names" autocomplete="off" maxlength="40"><datalist id="names"></datalist></div>
+  <label for="v" id="vl"></label><input id="v" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+  <button id="go">Send</button>
+  <p id="h"></p>
+</form>
+<p id="m"></p>
+</main>
+<script>
+// The secret is sealed here with the key from the QR code (after #, so it never reaches the network) and only
+// the display can open it. Plain http on the home network has no WebCrypto, so ChaCha20-Poly1305 is inlined.
+'use strict';
+const CP = (() => {
+  const rotl = (x, n) => (x << n) | (x >>> (32 - n));
+  function block(k, ctr, n) { // k: Uint32Array(8), n: Uint32Array(3) -> 64 bytes
+    const s = new Uint32Array([0x61707865, 0x3320646e, 0x79622d32, 0x6b206574, ...k, ctr, ...n]), x = s.slice();
+    const q = (a, b, c, d) => { x[a] += x[b]; x[d] = rotl(x[d] ^ x[a], 16); x[c] += x[d]; x[b] = rotl(x[b] ^ x[c], 12);
+      x[a] += x[b]; x[d] = rotl(x[d] ^ x[a], 8); x[c] += x[d]; x[b] = rotl(x[b] ^ x[c], 7); };
+    for (let i = 0; i < 10; i++) { q(0, 4, 8, 12); q(1, 5, 9, 13); q(2, 6, 10, 14); q(3, 7, 11, 15); q(0, 5, 10, 15); q(1, 6, 11, 12); q(2, 7, 8, 13); q(3, 4, 9, 14); }
+    for (let i = 0; i < 16; i++) x[i] += s[i];
+    return new Uint8Array(x.buffer);
+  }
+  const words = (b) => { const w = new Uint32Array(b.length / 4), v = new DataView(b.buffer, b.byteOffset, b.length); for (let i = 0; i < w.length; i++) w[i] = v.getUint32(i * 4, true); return w; };
+  function xor(key, nonce, ctr, data) {
+    const k = words(key), n = words(nonce), out = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i += 64) { const ks = block(k, ctr++, n); for (let j = 0; j < 64 && i + j < data.length; j++) out[i + j] = data[i + j] ^ ks[j]; }
+    return out;
+  }
+  const num = (b) => { let r = 0n; for (let i = b.length - 1; i >= 0; i--) r = (r << 8n) | BigInt(b[i]); return r; };
+  function poly(key, msg) {
+    const r = num(key.subarray(0, 16)) & 0x0ffffffc0ffffffc0ffffffc0fffffffn, s = num(key.subarray(16, 32)), p = (1n << 130n) - 5n;
+    let a = 0n;
+    for (let i = 0; i < msg.length; i += 16) { const c = msg.subarray(i, i + 16); a = ((a + num(c) + (1n << BigInt(8 * c.length))) * r) % p; }
+    a = (a + s) & ((1n << 128n) - 1n);
+    const t = new Uint8Array(16); for (let i = 0; i < 16; i++) { t[i] = Number(a & 0xffn); a >>= 8n; } return t;
+  }
+  function mac(key, nonce, aad, ct) {
+    const pad = (n) => (16 - (n % 16)) % 16, m = new Uint8Array(aad.length + pad(aad.length) + ct.length + pad(ct.length) + 16);
+    m.set(aad, 0); m.set(ct, aad.length + pad(aad.length));
+    const v = new DataView(m.buffer, m.length - 16); v.setUint32(0, aad.length, true); v.setUint32(8, ct.length, true);
+    return poly(block(words(key), 0, words(nonce)).subarray(0, 32), m);
+  }
+  return {
+    seal(key, nonce, aad, pt) { const ct = xor(key, nonce, 1, pt), out = new Uint8Array(12 + ct.length + 16); out.set(nonce); out.set(ct, 12); out.set(mac(key, nonce, aad, ct), 12 + ct.length); return out; },
+    open(key, aad, box) {
+      const nonce = box.subarray(0, 12), ct = box.subarray(12, box.length - 16), tag = box.subarray(box.length - 16);
+      const want = mac(key, nonce, aad, ct); let d = 0; for (let i = 0; i < 16; i++) d |= want[i] ^ tag[i];
+      return d || box.length < 28 ? null : xor(key, nonce, 1, ct);
+    },
+  };
+})();
+const b64 = { dec: (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
+  enc: (b) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') };
+const te = new TextEncoder(), td = new TextDecoder();
+if (typeof module === 'object') module.exports = { CP, b64 }; // tests (bridge/test)
+else (async () => {
+  const $ = (id) => document.getElementById(id), say = (t) => { $('m').textContent = t; };
+  let key;
+  try { key = b64.dec(location.hash.slice(1)); history.replaceState(null, '', location.pathname); } catch {}
+  if (!key || key.length !== 32) return say('Scan the code on the display again.');
+  let info;
+  try { const r = await fetch('i', { cache: 'no-store' }); const box = CP.open(key, te.encode('info'), b64.dec(await r.text())); info = box && JSON.parse(td.decode(box)); } catch {}
+  if (!info) return say('This link has ended. Start again on the display.');
+  $('t').textContent = info.title;
+  if (Array.isArray(info.steps)) { for (const t of info.steps) { const li = document.createElement('li'); li.textContent = t; $('steps').append(li); } $('steps').hidden = false; }
+  $('vl').textContent = info.field; $('h').textContent = info.help || ''; $('v').placeholder = info.hint || '';
+  if (info.link) { $('open').hidden = false; $('open').href = info.link; $('open').textContent = info.linkText; }
+  if (info.who) { $('whoBox').hidden = false; for (const n of info.names || []) $('names').append(new Option(n)); }
+  $('f').hidden = false;
+  $('f').onsubmit = async (e) => {
+    e.preventDefault();
+    const value = $('v').value.trim(); if (!value) return;
+    const msg = te.encode(JSON.stringify(info.who ? { value, who: $('who').value.trim() } : { value }));
+    const box = CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), msg);
+    $('go').disabled = true;
+    try {
+      const r = await fetch('s', { method: 'POST', body: b64.enc(box), headers: { 'content-type': 'text/plain' } });
+      if (!r.ok) throw 0;
+      $('f').hidden = true; $('v').value = ''; say(info.done);
+    } catch { $('go').disabled = false; say('That didn’t go through. Try again.'); }
+  };
+})();
+</script>
+</body></html>

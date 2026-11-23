@@ -1,0 +1,50 @@
+/* Read from the sofa: sizes in vh, so they're the same on any TV. Dark around the photos, light paper for the lists. */
+@font-face { font-family: Inter; src: url('/kit/fonts/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
+html, body { margin: 0; height: 100%; background: #14130f; overflow: hidden; cursor: none; }
+#app { position: fixed; inset: 0; color: #f6f3ee; font-family: Inter, system-ui, sans-serif; font-size: 2.2vh; }
+.photos { position: absolute; inset: 0; background: #14130f; }
+.photos img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.6s ease; }
+.photos img.on { opacity: 1; }
+.photos::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, rgba(10,9,8,.62), rgba(10,9,8,0) 42%); }
+.empty { position: absolute; inset: 0; display: grid; place-items: center; color: #b7b1a8; font-size: 3vh; }
+.corner { position: absolute; bottom: 9vh; z-index: 1; text-shadow: 0 1px 12px rgba(0,0,0,.35); }
+.corner.left { left: 5vw; }
+.corner.right { right: 5vw; max-width: 38vw; display: grid; gap: 1.6vh; text-align: right; }
+.corner.right .event { justify-items: end; }
+.time { font-size: 11vh; font-weight: 300; letter-spacing: -.02em; line-height: 1; }
+.date { font-size: 3vh; margin-top: 1vh; color: rgba(246,243,238,.85); }
+.caption { font-size: 2.6vh; margin-top: 2vh; color: rgba(246,243,238,.8); max-width: 40vw; }
+.event { display: grid; gap: .3vh; }
+.when { font-size: 2.2vh; color: rgba(246,243,238,.7); }
+.what { font-size: 3vh; font-weight: 500; }
+.who { display: inline-flex; align-items: center; gap: .8vh; font-size: 2.1vh; color: rgba(246,243,238,.75); }
+.who i { width: 1.2vh; height: 1.2vh; border-radius: 50%; display: inline-block; }
+.sheet { position: absolute; inset: 0; background: #f6f3ee; color: #2a2826; padding: 7vh 6vw 11vh; box-sizing: border-box; }
+.sheet .date, .sheet .when, .sheet .who { color: #6e6a65; }
+.sheet .time { font-size: 8vh; }
+.cols { display: grid; grid-template-columns: 1.2fr 1fr; gap: 6vw; margin-top: 5vh; }
+.sheet h2 { font-size: 2.2vh; font-weight: 600; color: #6e6a65; margin: 0 0 1.6vh; letter-spacing: .01em; }
+.sheet section > h2 ~ h2 { margin-top: 4vh; }
+.sheet .event.big { padding: 1.4vh 0; border-bottom: 1px solid #e7e3dc; }
+.sheet .event.big .what { font-size: 3.4vh; }
+.big { font-size: 3.6vh; margin: 0; }
+.soft { color: #8a8580; }
+.sheet p { font-size: 2.8vh; margin: 0; }
+.chores { display: grid; grid-template-columns: 14vw 1fr; gap: 1vw; font-size: 2.8vh; padding: .8vh 0; }
+.chores .who { font-size: 2.8vh; color: #2a2826; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 1.6vw; height: 100%; }
+.week section { display: flex; flex-direction: column; gap: 1.4vh; min-width: 0; }
+.week h3 { font-size: 2.4vh; font-weight: 600; margin: 0 0 1vh; color: #6e6a65; }
+.week h3 span { color: #2a2826; margin-left: .4vw; }
+.week section.today h3 { color: #2a2826; }
+.wk { display: grid; gap: .3vh; font-size: 2.2vh; padding-bottom: 1vh; border-bottom: 1px solid #e7e3dc; }
+.wk .who { margin-left: .8vw; font-size: 2vh; }
+.wk-what { font-weight: 500; overflow: hidden; text-overflow: ellipsis; }
+.dinner { margin-top: auto; font-size: 2.1vh; color: #6e6a65; }
+nav { position: absolute; bottom: 2.5vh; left: 50%; transform: translateX(-50%); display: flex; gap: 2.4vw; align-items: baseline; z-index: 2;
+  padding: 1.2vh 2.4vw; border-radius: 99px; background: rgba(20,19,15,.55); color: rgba(246,243,238,.65); font-size: 2.2vh; opacity: 0; transition: opacity .5s; }
+nav.on { opacity: 1; }
+nav .here { color: #f6f3ee; font-weight: 600; }
+nav em { font-style: normal; font-size: 1.8vh; color: rgba(246,243,238,.5); }
+.night { position: absolute; inset: 0; background: #000; color: rgba(246,243,238,.42); display: grid; place-content: center; text-align: center; gap: 2vh; }
+.night .date { color: rgba(246,243,238,.32); }

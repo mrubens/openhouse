@@ -1,0 +1,1 @@
+{ "name": "openhouse-hub", "private": true, "version": "0.1.0", "license": "MIT", "description": "OpenHouse as a hub: the bridge headless, phones and computers as its screens (docs/hub.md)" }

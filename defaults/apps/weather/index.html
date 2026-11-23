@@ -1,0 +1,31 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/kit/openhouse.css">
+  <link rel="stylesheet" href="/kit/weather-look.css">
+  <style>
+    /* One unit of the 1302-wide design; a phone gets the one-column layout at its own size. */
+    :root { --wu: calc(100vw / 1302); }
+    @media (max-width: 760px) { :root { --wu: 1px; } }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { background: var(--bg); color: var(--ink); user-select: none; -webkit-user-select: none; overflow: hidden; }
+    #app { position: fixed; inset: 0; }
+    #app.narrow { position: relative; min-height: 100%; }
+    html:has(#app.narrow), html:has(#app.narrow) body { overflow: auto; height: auto; min-height: 100%; }
+
+    .none { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: calc(12 * var(--wu)); }
+    .none h2 { margin: 0; font-size: calc(28 * var(--wu)); font-weight: 500; }
+    .none p { margin: 0; font-size: calc(19 * var(--wu)); color: var(--ink-soft); }
+    @media (max-width: 760px) { .none h2 { font-size: 24px; } .none p { font-size: 17px; } }
+    .ask .row { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; justify-content: center; }
+    .ask input { font: inherit; font-size: 22px; width: 340px; max-width: 80vw; padding: 14px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg); color: var(--ink); }
+    .ask button { font: inherit; font-size: 20px; font-weight: 500; padding: 14px 22px; border: 0; border-radius: 14px; background: var(--ink); color: var(--bg); }
+    .ask .note { min-height: 1.4em; }
+  </style>
+  <link rel="stylesheet" href="/kit/quiet.css">
+</head>
+<body><div id="app"></div><script type="module" src="./main.js"></script></body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "air-quality",
+  "version": "1.0.0",
+  "description": "The US Air Quality Index for home, with a line on Today only on bad days, and an answer for the voice.",
+  "keywords": ["openhouse-plugin"],
+  "license": "MIT",
+  "openhouse": { "apps": ["apps/air-quality"], "made": "2026-11-23" }
+}

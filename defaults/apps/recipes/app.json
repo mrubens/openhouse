@@ -1,0 +1,167 @@
+{
+ "name": "Recipes",
+ "tabIcon": "cooking-pot",
+ "actions": [
+  {
+   "name": "find",
+   "description": "Find recipes on the web for what they want (\"find a good weeknight chili\") and show 3 or 4 on the Recipes screen, with pictures. Use this, not your own web search, for recipes. Say what it answers.",
+   "parameters": {
+    "properties": {
+     "what": {
+      "type": "string",
+      "description": "What to look for, in their words"
+     }
+    },
+    "required": [
+     "what"
+    ]
+   },
+   "open": true,
+   "answer": true,
+   "wait": 28
+  },
+  {
+   "name": "choose",
+   "description": "Open one of the recipes just found (\"the second one\"): it is saved in the recipe box and made into steps. Then \"let's make it\" is cook with no recipe.",
+   "parameters": {
+    "properties": {
+     "number": {
+      "type": "integer",
+      "description": "1 for the first one shown"
+     }
+    },
+    "required": [
+     "number"
+    ]
+   },
+   "open": true,
+   "answer": true
+  },
+  {
+   "name": "look",
+   "description": "Look through their saved recipes and favorite meals by name or ingredient (\"what can I make with chicken and rice?\", \"do we have a soup?\"), and show them. Say what it answers.",
+   "parameters": {
+    "properties": {
+     "for": {
+      "type": "string",
+      "description": "Their words: a dish or ingredients"
+     }
+    },
+    "required": [
+     "for"
+    ]
+   },
+   "open": true,
+   "answer": true
+  },
+  {
+   "name": "cook",
+   "description": "Start cooking one of their recipes on the screen, the whole recipe on one page, a step at a time by voice (\"let's make the tacos\"). Leave recipe out for the one just chosen, else tonight's meal. Say what it answers.",
+   "parameters": {
+    "properties": {
+     "recipe": {
+      "type": "string",
+      "description": "The recipe or meal by name"
+     }
+    }
+   },
+   "open": true,
+   "answer": true,
+   "reply": "Opening the recipe."
+  },
+  {
+   "name": "step",
+   "description": "While cooking (the whole recipe is on the screen, the step they're on marked): next, back, again (this step again), ahead (what comes after, without moving), first, or to a step by its number. Go where they need to be: when they start, or say what they've done, pick the step that needs them now, past what's done or was done ahead (a dough made yesterday), and say it if one has to be done ahead or mostly waits. \"Next\", \"go back\", \"what's after this?\" said without the name are this. Say the step it answers, as it is, and nothing more (never \"say next when you're ready\").",
+   "parameters": {
+    "properties": {
+     "go": {
+      "type": "string",
+      "enum": [
+       "next",
+       "back",
+       "again",
+       "ahead",
+       "first",
+       "to"
+      ]
+     },
+     "to": {
+      "type": "integer",
+      "description": "With go to: the step's number"
+     }
+    },
+    "required": [
+     "go"
+    ]
+   },
+   "open": true,
+   "answer": true
+  },
+  {
+   "name": "how_much",
+   "description": "While cooking: how much of an ingredient the recipe uses, in all and in this step (\"how much cumin?\").",
+   "parameters": {
+    "properties": {
+     "ingredient": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "ingredient"
+    ]
+   },
+   "answer": true
+  },
+  {
+   "name": "ingredients",
+   "description": "While cooking: what this step needs, or everything the recipe needs (all: true).",
+   "parameters": {
+    "properties": {
+     "all": {
+      "type": "boolean"
+     }
+    }
+   },
+   "answer": true
+  },
+  {
+   "name": "timer",
+   "description": "While cooking: start the timer this step calls for (\"simmer 20 minutes\"), named after the step, or one of the minutes they say. Several can run at once.",
+   "parameters": {
+    "properties": {
+     "minutes": {
+      "type": "number"
+     }
+    }
+   },
+   "answer": true
+  },
+  {
+   "name": "video",
+   "description": "While cooking: the recipe's video beside the steps: show, play, pause, back (ten seconds), or hide.",
+   "parameters": {
+    "properties": {
+     "do": {
+      "type": "string",
+      "enum": [
+       "show",
+       "play",
+       "pause",
+       "back",
+       "hide"
+      ]
+     }
+    },
+    "required": [
+     "do"
+    ]
+   },
+   "answer": true
+  },
+  {
+   "name": "stop",
+   "description": "Stop cooking: the screen goes back to the recipes.",
+   "answer": true
+  }
+ ]
+}

@@ -1,0 +1,71 @@
+{
+  "name": "Laundry",
+  "tabIcon": "washing-machine",
+  "background": true,
+  "uses": [
+    "devices",
+    "today",
+    "say",
+    "timer"
+  ],
+  "actions": [
+    {
+      "name": "started",
+      "description": "The washer or dryer was just started (\"the washer's on\", \"I started the dryer, 70 minutes\").",
+      "parameters": {
+        "properties": {
+          "machine": {
+            "type": "string",
+            "enum": [
+              "washer",
+              "dryer"
+            ]
+          },
+          "minutes": {
+            "type": "integer",
+            "description": "How long the cycle is, if they said"
+          }
+        }
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "status",
+      "description": "Whether the washer or dryer is done (\"is the laundry done?\").",
+      "parameters": {
+        "properties": {
+          "machine": {
+            "type": "string",
+            "enum": [
+              "washer",
+              "dryer"
+            ]
+          }
+        }
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "emptied",
+      "description": "The washer or dryer has been emptied, so it's no longer done and waiting.",
+      "parameters": {
+        "properties": {
+          "machine": {
+            "type": "string",
+            "enum": [
+              "washer",
+              "dryer"
+            ]
+          }
+        }
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    }
+  ]
+}

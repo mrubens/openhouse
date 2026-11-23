@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="/kit/openhouse.css"><style>
+:root { --u: calc(100vw / 1536); }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body { background: var(--bg, var(--door)); color: var(--ink); user-select: none; -webkit-user-select: none; touch-action: none; }
+#wrap { position: fixed; inset: 0; display: flex; flex-direction: column; padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u)); }
+.top { display: flex; align-items: center; gap: calc(14 * var(--u)); margin-bottom: calc(22 * var(--u)); flex: none; }
+.title { flex: 1; min-width: 0; margin: 0; font-size: calc(52 * var(--u)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.group { flex: none; display: flex; align-items: center; gap: calc(6 * var(--u)); height: calc(80 * var(--u)); padding: 0 calc(8 * var(--u)); border-radius: calc(40 * var(--u)); background: rgba(36, 40, 42, .06); }
+.pick { flex: none; width: calc(64 * var(--u)); height: calc(64 * var(--u)); border-radius: 50%; display: grid; place-items: center; background: transparent; }
+.pick.on { background: #fff; box-shadow: 0 calc(1 * var(--u)) calc(4 * var(--u)) rgba(0, 0, 0, .12); }
+.pick .dot { width: calc(34 * var(--u)); height: calc(34 * var(--u)); border-radius: 50%; }
+.pick .sz { background: var(--ink); border-radius: 50%; }
+.pick svg { width: calc(38 * var(--u)); height: calc(38 * var(--u)); }
+.clear, .save { flex: none; }
+.clear.armed { background: rgba(214, 69, 69, .14); color: #b33a3a; }
+#board { flex: 1; min-height: 0; position: relative; background: #fff; border-radius: calc(28 * var(--u)); overflow: hidden; }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
+</style><link rel="stylesheet" href="/kit/quiet.css"></head><body><div id="wrap"><div class="top" id="top"><h1 class="title">Whiteboard</h1></div><div id="board"><canvas id="c"></canvas></div></div><script type="module" src="./main.js"></script></body></html>

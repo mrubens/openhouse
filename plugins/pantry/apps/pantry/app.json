@@ -1,0 +1,122 @@
+{
+  "name": "Pantry",
+  "tabIcon": "cooking-pot",
+  "background": true,
+  "uses": [
+    "meals",
+    "decide"
+  ],
+  "actions": [
+    {
+      "name": "add",
+      "description": "Add something to the pantry or freezer (\"we have two bags of frozen peas\", \"put lasagna in the freezer\").",
+      "parameters": {
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "What it is, in a few words (\"frozen peas\")"
+          },
+          "where": {
+            "type": "string",
+            "enum": [
+              "pantry",
+              "freezer"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "description": "How many, if they said"
+          }
+        },
+        "required": [
+          "item",
+          "where"
+        ]
+      },
+      "answer": true,
+      "wait": 20,
+      "open": true
+    },
+    {
+      "name": "remove",
+      "description": "Take something out of the pantry or freezer when it's used up or eaten (\"we used the last of the rice\", \"took out one lasagna\").",
+      "parameters": {
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "where": {
+            "type": "string",
+            "enum": [
+              "pantry",
+              "freezer"
+            ]
+          },
+          "count": {
+            "type": "integer",
+            "description": "How many were used, if they said"
+          },
+          "all": {
+            "type": "boolean",
+            "description": "All of it is gone"
+          }
+        },
+        "required": [
+          "item"
+        ]
+      },
+      "answer": true,
+      "wait": 20,
+      "open": true
+    },
+    {
+      "name": "whats_there",
+      "description": "What's in the pantry or freezer, or whether there's something in particular (\"what's in the freezer?\", \"do we have black beans?\").",
+      "parameters": {
+        "properties": {
+          "where": {
+            "type": "string",
+            "enum": [
+              "pantry",
+              "freezer"
+            ]
+          },
+          "item": {
+            "type": "string",
+            "description": "One thing they asked about"
+          }
+        }
+      },
+      "answer": true,
+      "wait": 20,
+      "open": true
+    },
+    {
+      "name": "dinner_ideas",
+      "description": "Dinner ideas from what's in the pantry and freezer, from the household's own meals (\"what can we make for dinner?\").",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "wait": 20,
+      "open": true
+    },
+    {
+      "name": "plan_dinner",
+      "description": "Make one of the ideas tonight's dinner in Meals, when they pick it (\"let's do the chili\").",
+      "parameters": {
+        "properties": {
+          "meal": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "meal"
+        ]
+      },
+      "answer": true,
+      "open": true,
+      "wait": 20
+    }
+  ]
+}

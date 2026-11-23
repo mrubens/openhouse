@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Board moments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,500;9..144,700;9..144,900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: #0d0c0b; color: #f3efe6; font-family: 'DM Sans', system-ui, sans-serif; }
+  .serif { font-family: 'Fraunces', Georgia, serif; }
+
+  /* page chrome */
+  .chrome { display: flex; gap: 8px; justify-content: center; padding: 14px 16px 8px; flex-wrap: wrap; }
+  .chrome button { padding: 9px 16px; border-radius: 999px; background: #24221f; color: #cfc8bb; font: 500 14px 'DM Sans'; border: 0; cursor: pointer; }
+  .chrome button.on { background: #e9b949; color: #1d1c1a; }
+  .caption { text-align: center; color: #a39c90; font-size: 15px; margin: 4px auto 12px; max-width: 980px; padding: 0 16px; line-height: 1.45; min-height: 44px; }
+  .caption b { color: #e9e2d4; font-weight: 500; }
+  .fit { position: relative; }
+  .frame { width: 1920px; height: 1080px; transform-origin: top left; border-radius: 28px; overflow: hidden; position: absolute; top: 0; box-shadow: 0 0 0 14px #1b1a18, 0 30px 80px rgba(0,0,0,.6); }
+  .scene { position: absolute; inset: 0; display: none; overflow: hidden; }
+  .scene.on { display: block; }
+  .row { display: flex; align-items: center; }
+  .ask { position: absolute; left: 60px; right: 60px; bottom: 40px; height: 76px; border-radius: 38px; display: flex; align-items: center; gap: 18px; padding: 0 12px 0 30px; font-size: 24px; }
+  .ask .mic { margin-left: auto; width: 56px; height: 56px; border-radius: 28px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
+
+  /* ===== 1. weekday morning ===== */
+  #s1 { background: linear-gradient(180deg, #1b2440 0%, #3b3f63 30%, #8f6a74 52%, #e8a77f 70%, #f4c79a 100%); color: #fff9f0; }
+  #s1 .sky { position: absolute; right: 520px; top: 10px; width: 900px; height: 520px; }
+  #s1 .leave { position: absolute; left: 90px; top: 70px; }
+  #s1 .leave small { display: block; font-size: 30px; opacity: .8; letter-spacing: .02em; }
+  #s1 .leave .n { font-size: 290px; font-weight: 700; line-height: .85; letter-spacing: -8px; }
+  #s1 .leave .n i { font-style: normal; font-size: 110px; letter-spacing: -2px; font-weight: 500; margin-left: 10px; }
+  #s1 .leave .sub { font-size: 30px; margin-top: 18px; opacity: .92; }
+  #s1 .wx { position: absolute; right: 90px; top: 80px; text-align: right; }
+  #s1 .wx .t { font-size: 68px; font-weight: 500; }
+  #s1 .wx .d { font-size: 22px; opacity: .85; margin-top: 4px; }
+  #s1 .wx .warn { display: inline-block; margin-top: 14px; background: rgba(20,24,48,.45); padding: 10px 18px; border-radius: 999px; font-size: 20px; backdrop-filter: blur(8px); }
+  .tl { position: absolute; left: 90px; right: 90px; top: 520px; height: 110px; }
+  .tl .bar { position: absolute; left: 0; right: 0; top: 40px; height: 8px; border-radius: 4px; background: rgba(255,255,255,.25); }
+  .tl .fill { position: absolute; left: 0; top: 40px; height: 8px; border-radius: 4px; background: #fff; width: 22%; }
+  .tl .stop { position: absolute; top: 28px; transform: translateX(-50%); text-align: center; width: 200px; }
+  .tl .stop i { display: block; width: 32px; height: 32px; margin: 0 auto 12px; border-radius: 50%; background: #fff; border: 6px solid rgba(255,255,255,.35); background-clip: padding-box; }
+  .tl .stop.todo i { background: #3b3f63; }
+  .tl .stop b { font-size: 21px; display: block; } .tl .stop span { font-size: 17px; opacity: .8; }
+  .tl .now { position: absolute; top: 0; left: 22%; transform: translateX(-50%); background: #fff; color: #1b2440; font-weight: 700; font-size: 16px; padding: 4px 10px; border-radius: 8px; }
+  .kids { position: absolute; left: 60px; right: 60px; bottom: 140px; display: grid; grid-template-columns: 1fr 1fr 0.8fr; gap: 24px; }
+  .kid { background: rgba(255,250,240,.92); color: #2a2320; border-radius: 30px; padding: 22px 26px; }
+  .kid h4 { display: flex; align-items: center; gap: 14px; font-size: 30px; font-weight: 700; margin-bottom: 16px; }
+  .kid h4 .av { width: 50px; height: 50px; border-radius: 25px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; }
+  .kid h4 small { margin-left: auto; font-size: 18px; font-weight: 500; color: #7a6f66; }
+  .items { display: flex; gap: 14px; }
+  .item { flex: 1; border-radius: 22px; padding: 16px 12px 14px; text-align: center; background: #f1e8dc; position: relative; }
+  .item .e { font-size: 50px; display: block; line-height: 1.1; }
+  .item b { display: block; font-size: 18px; margin-top: 6px; }
+  .item.ok { background: #dff0e3; }
+  .item.ok::after { content: '✓'; position: absolute; top: 8px; right: 12px; width: 30px; height: 30px; border-radius: 15px; background: #3f9b62; color: #fff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 17px; }
+  .kid.alex { background: rgba(27,36,64,.55); color: #fff9f0; backdrop-filter: blur(10px); }
+  .kid.alex .big { font-size: 46px; font-weight: 700; }
+  .kid.alex p { font-size: 20px; opacity: .85; margin-top: 8px; line-height: 1.4; }
+  #s1 .ask { background: rgba(255,250,240,.18); backdrop-filter: blur(10px); color: rgba(255,255,255,.8); }
+  #s1 .ask .mic { background: #fff; color: #1b2440; }
+
+  /* ===== 2. after school (Maya) ===== */
+  #s2 { background: #fbf3e4; color: #2b2118; }
+  #s2 .confetti { position: absolute; inset: 0; pointer-events: none; }
+  #s2 .hi { position: absolute; left: 90px; top: 70px; }
+  #s2 .hi h1 { font-size: 150px; font-weight: 900; letter-spacing: -4px; line-height: .9; color: #2b2118; }
+  #s2 .hi h1 span { color: #e3a21a; }
+  #s2 .hi p { font-size: 32px; margin-top: 16px; color: #6d5b48; }
+  #s2 .hi p b { color: #2b2118; }
+  #s2 .clock2 { position: absolute; right: 90px; top: 80px; font-size: 40px; font-weight: 700; color: #6d5b48; }
+  .tiles { position: absolute; left: 60px; right: 60px; top: 380px; bottom: 150px; display: grid; grid-template-columns: 1.1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 24px; }
+  .t { border-radius: 34px; padding: 28px 30px; position: relative; overflow: hidden; }
+  .t h3 { font-size: 30px; font-weight: 700; margin-bottom: 14px; }
+  .t.list { background: #fff; grid-row: span 2; box-shadow: 0 2px 0 #eadcc4; }
+  .t.list .li { display: flex; align-items: center; gap: 18px; font-size: 26px; padding: 14px 0; border-bottom: 2px dashed #efe3cf; }
+  .t.list .li:last-child { border: 0; }
+  .t.list .li i { width: 46px; height: 46px; border-radius: 14px; border: 3px solid #d9c7a8; flex: none; display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 24px; }
+  .t.list .li.ok i { background: #ffd34d; border-color: #ffd34d; }
+  .t.list .li.ok span { color: #a8977f; text-decoration: line-through; }
+  .stars { display: flex; gap: 8px; margin-top: 18px; font-size: 40px; }
+  .stars .off { filter: grayscale(1); opacity: .3; }
+  .t.piano { background: #2b2118; color: #fbf3e4; display: flex; align-items: center; gap: 30px; }
+  .dial { width: 190px; height: 190px; border-radius: 50%; flex: none; background: conic-gradient(#ffd34d 0 0%, #4a3b2c 0); display: flex; align-items: center; justify-content: center; position: relative; }
+  .dial::after { content: ''; position: absolute; inset: 16px; border-radius: 50%; background: #2b2118; }
+  .dial b { position: relative; z-index: 1; font-size: 44px; font-weight: 700; }
+  .t.piano .go { display: inline-block; margin-top: 18px; background: #ffd34d; color: #2b2118; font-weight: 700; font-size: 24px; padding: 14px 28px; border-radius: 999px; }
+  .t.piano p { font-size: 22px; opacity: .8; line-height: 1.4; }
+  .t.spell { background: #7cc6a4; color: #10261c; }
+  .letters { display: flex; gap: 10px; margin: 6px 0 16px; }
+  .letters span { width: 62px; height: 72px; border-radius: 14px; background: #fff; display: flex; align-items: center; justify-content: center; font: 900 38px 'Fraunces'; box-shadow: 0 5px 0 #4f9a77; }
+  .letters span.blank { background: rgba(255,255,255,.45); box-shadow: none; color: transparent; }
+  .t.spell p { font-size: 22px; } .t.spell b.cta { display: inline-block; margin-top: 12px; background: #10261c; color: #fff; padding: 12px 24px; border-radius: 999px; font-size: 22px; }
+  .t.snack { background: #f7c8b8; }
+  .t.snack .big { font-size: 64px; } .t.snack p { font-size: 24px; line-height: 1.35; margin-top: 8px; }
+  .t.week { background: #c9dcf5; }
+  .week-row { display: flex; gap: 12px; margin-top: 6px; }
+  .week-row div { flex: 1; text-align: center; font-size: 18px; font-weight: 700; color: #3a5373; }
+  .week-row div span { display: block; height: 70px; border-radius: 18px; background: #fff; margin-top: 8px; font-size: 38px; display: flex; align-items: center; justify-content: center; }
+  .week-row div.today span { outline: 4px solid #3a5373; }
+  #s2 .ask { background: #fff; color: #9b8a73; box-shadow: 0 2px 0 #eadcc4; }
+  #s2 .ask .mic { background: #ffd34d; }
+
+  /* ===== 3. cooking ===== */
+  #s3 { background: radial-gradient(1400px 900px at 30% 40%, #2e1d12 0%, #160e09 70%); color: #fbeedd; }
+  #s3 .top3 { position: absolute; left: 80px; right: 80px; top: 54px; display: flex; justify-content: space-between; font-size: 22px; color: #c9a988; }
+  #s3 .stepno { position: absolute; left: 80px; top: 130px; font-size: 24px; color: #e9a35a; letter-spacing: .12em; text-transform: uppercase; font-weight: 700; }
+  #s3 .pips { display: flex; gap: 10px; margin-top: 14px; } #s3 .pips i { width: 54px; height: 8px; border-radius: 4px; background: #4a3424; } #s3 .pips i.d { background: #e9a35a; } #s3 .pips i.o { background: #fbeedd; }
+  #s3 .step { position: absolute; left: 80px; top: 230px; width: 1050px; font-size: 80px; line-height: 1.12; font-weight: 500; letter-spacing: -1.5px; }
+  #s3 .step em { color: #e9a35a; font-style: italic; }
+  #s3 .hint { position: absolute; left: 80px; bottom: 150px; display: flex; gap: 16px; align-items: center; font-size: 22px; color: #c9a988; }
+  #s3 .hint .b { padding: 18px 40px; border-radius: 999px; font-size: 26px; font-weight: 700; }
+  #s3 .hint .b.next { background: #e9a35a; color: #160e09; } #s3 .hint .b.back { background: #3a281b; color: #fbeedd; }
+  #s3 .side { position: absolute; right: 70px; top: 120px; width: 600px; display: flex; flex-direction: column; gap: 22px; }
+  #s3 .vid { height: 340px; border-radius: 28px; overflow: hidden; position: relative; }
+  #s3 .vid .cap { position: absolute; left: 22px; bottom: 18px; font-size: 20px; font-weight: 700; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+  #s3 .vid .play { position: absolute; left: 50%; top: 45%; transform: translate(-50%,-50%); width: 84px; height: 84px; border-radius: 42px; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; font-size: 30px; padding-left: 6px; }
+  #s3 .timers3 { display: flex; gap: 22px; }
+  #s3 .tm { flex: 1; background: #24170e; border-radius: 28px; padding: 22px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  #s3 .tm .ring { width: 150px; height: 150px; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
+  #s3 .tm .ring::after { content: ''; position: absolute; inset: 12px; border-radius: 50%; background: #24170e; }
+  #s3 .tm .ring b { position: relative; z-index: 1; font-size: 40px; font-weight: 700; }
+  #s3 .tm span { font-size: 20px; color: #c9a988; }
+  #s3 .ing { position: absolute; left: 80px; right: 80px; bottom: 50px; display: flex; gap: 14px; align-items: center; }
+  #s3 .ing span { padding: 12px 20px; border-radius: 999px; background: #24170e; font-size: 19px; color: #e2cdb5; }
+  #s3 .ing span.ok { color: #7d6650; text-decoration: line-through; }
+  #s3 .ing .who { margin-left: auto; background: #3a281b; color: #fbeedd; }
+
+  /* ===== 4. bedtime ===== */
+  #s4 { background: radial-gradient(1200px 800px at 50% 0%, #1d2a5a 0%, #0b1030 55%, #060820 100%); color: #e8ecff; }
+  #s4 .moon { position: absolute; left: 50%; top: 60px; transform: translateX(-50%); width: 420px; height: 420px; }
+  #s4 .center { position: absolute; left: 0; right: 0; top: 170px; text-align: center; }
+  #s4 .center small { font-size: 26px; color: #aab4e8; letter-spacing: .04em; }
+  #s4 .center .n { font-size: 150px; font-weight: 300; letter-spacing: -4px; line-height: 1; margin-top: 6px; }
+  #s4 .center .who { font-size: 26px; color: #aab4e8; margin-top: 6px; }
+  #s4 .routine { position: absolute; left: 50%; transform: translateX(-50%); top: 455px; display: flex; gap: 26px; }
+  #s4 .r { width: 160px; text-align: center; }
+  #s4 .r .c { width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; background: rgba(255,255,255,.07); display: flex; align-items: center; justify-content: center; font-size: 54px; border: 2px solid rgba(255,255,255,.1); }
+  #s4 .r.ok .c { background: rgba(140,170,255,.25); }
+  #s4 .r.now .c { background: #ffe9a8; border-color: #ffe9a8; box-shadow: 0 0 60px rgba(255,233,168,.5); }
+  #s4 .r b { display: block; font-size: 20px; margin-top: 12px; font-weight: 500; } #s4 .r.ok b { color: #8e99cc; }
+  #s4 .tomorrow { position: absolute; right: 70px; bottom: 150px; width: 470px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 28px; padding: 26px 28px; }
+  #s4 .tomorrow h3 { font-size: 30px; font-weight: 500; } #s4 .tomorrow .tag { color: #ffe9a8; font-size: 18px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; }
+  #s4 .tomorrow .li { display: flex; gap: 14px; align-items: center; font-size: 22px; margin-top: 14px; }
+  #s4 .tomorrow .li i { width: 30px; height: 30px; border-radius: 9px; border: 2px solid #8e99cc; flex: none; font-style: normal; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  #s4 .tomorrow .li.ok i { background: #8e99cc; color: #0b1030; }
+  #s4 .story { position: absolute; left: 70px; bottom: 150px; width: 520px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 28px; padding: 26px 28px; }
+  #s4 .story .tag { color: #ffe9a8; font-size: 18px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; }
+  #s4 .story h3 { font-size: 34px; font-weight: 500; line-height: 1.2; }
+  #s4 .story p { font-size: 20px; color: #aab4e8; margin-top: 10px; }
+  #s4 .story .play { display: inline-flex; margin-top: 16px; gap: 10px; align-items: center; background: #ffe9a8; color: #0b1030; padding: 12px 24px; border-radius: 999px; font-size: 21px; font-weight: 700; }
+  #s4 .ask { background: rgba(255,255,255,.06); color: #6d77a8; border: 1px solid rgba(255,255,255,.08); }
+  #s4 .ask .mic { background: rgba(255,255,255,.1); }
+
+  /* ===== 5. weekend ===== */
+  #s5 { background: #f3eee6; color: #1f1b16; }
+  #s5 .mast { position: absolute; left: 80px; right: 80px; top: 50px; display: flex; align-items: baseline; border-bottom: 2px solid #1f1b16; padding-bottom: 16px; }
+  #s5 .mast h1 { font-size: 84px; font-weight: 900; letter-spacing: -2px; }
+  #s5 .mast span { margin-left: 28px; font-size: 24px; color: #6b6156; }
+  #s5 .mast .w { margin-left: auto; font-size: 26px; }
+  #s5 .grid5 { position: absolute; left: 80px; right: 80px; top: 200px; bottom: 150px; display: grid; grid-template-columns: 1.35fr 1fr 1fr; grid-template-rows: 1.1fr 1fr; gap: 26px; }
+  #s5 .hero { grid-row: span 2; border-radius: 30px; overflow: hidden; position: relative; background: #e5dccd; }
+  #s5 .hero .txt { position: absolute; left: 34px; right: 34px; bottom: 30px; }
+  #s5 .kick { font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: #b4532a; font-weight: 700; }
+  #s5 .hero h2 { font-size: 72px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; margin-top: 8px; }
+  #s5 .hero p { font-size: 24px; color: #4b443c; margin-top: 12px; line-height: 1.35; }
+  #s5 .pill5 { display: inline-block; margin: 14px 8px 0 0; padding: 10px 18px; border-radius: 999px; background: #1f1b16; color: #f3eee6; font-size: 19px; }
+  #s5 .box { border-radius: 30px; padding: 26px 28px; background: #fff; display: flex; flex-direction: column; }
+  #s5 .box h3 { font-size: 40px; font-weight: 700; letter-spacing: -.5px; margin-top: 6px; line-height: 1.05; }
+  #s5 .box p { font-size: 21px; color: #5d554b; margin-top: 10px; line-height: 1.4; }
+  #s5 .ideas { grid-column: span 2; background: #1f1b16; color: #f3eee6; }
+  #s5 .ideas .kick { color: #e9b949; }
+  #s5 .idea-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 16px; flex: 1; }
+  #s5 .idea { border-radius: 22px; padding: 20px; display: flex; flex-direction: column; justify-content: flex-end; font-size: 25px; font-weight: 700; line-height: 1.15; position: relative; overflow: hidden; }
+  #s5 .idea small { font-size: 16px; font-weight: 500; opacity: .75; margin-top: 6px; }
+  #s5 .idea .e { position: absolute; top: 14px; right: 16px; font-size: 54px; }
+  #s5 .mem { background: linear-gradient(160deg, #f6c58f, #e88d6a 45%, #6aa4c4 100%); color: #fff; position: relative; overflow: hidden; }
+  #s5 .mem .kick { color: #fff; opacity: .9; }
+  #s5 .ask { background: #fff; color: #9a9085; }
+  #s5 .ask .mic { background: #1f1b16; color: #fff; }
+
+  /* ===== 6. night ===== */
+  #s6 { background: #050404; color: #6e2a1c; }
+  #s6 .nclock { position: absolute; left: 0; right: 0; top: 330px; text-align: center; font-size: 300px; font-weight: 300; letter-spacing: -10px; color: #7a2e1f; }
+  #s6 .nline { position: absolute; left: 0; right: 0; top: 700px; text-align: center; font-size: 30px; color: #5a2216; }
+  #s6 .nhint { position: absolute; left: 0; right: 0; bottom: 60px; text-align: center; font-size: 18px; color: #3a160e; }
+</style>
+</head>
+<body>
+<div class="chrome" id="chrome">
+  <button data-s="s1" class="on">6:58 AM · Out the door</button>
+  <button data-s="s2">3:42 PM · Maya's home</button>
+  <button data-s="s3">5:48 PM · Cooking</button>
+  <button data-s="s4">8:12 PM · Bedtime</button>
+  <button data-s="s5">Sat 9:05 AM · Weekend</button>
+  <button data-s="s6">11:40 PM · Night</button>
+</div>
+<p class="caption" id="cap"></p>
+<div class="fit" id="fit"><div class="frame" id="frame">
+
+<!-- ================= 1. OUT THE DOOR ================= -->
+<section class="scene on" id="s1" data-cap="<b>One job: get everyone out on time.</b> The countdown is the whole screen. The sky is the actual forecast (rain from 3), the timeline shows where the morning should be, and each kid has big tap-to-check tiles for what to bring, written from the calendar. Alex's dentist is the only other thing that matters right now.">
+  <svg class="sky" viewBox="0 0 900 520">
+    <defs><radialGradient id="sun1" cx="0.5" cy="0.5" r="0.5"><stop offset="0" stop-color="#ffe2b0"/><stop offset="1" stop-color="#ffe2b0" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="560" cy="430" r="220" fill="url(#sun1)" opacity=".7"/>
+    <g fill="#fff" opacity=".9"><ellipse cx="300" cy="250" rx="120" ry="44"/><ellipse cx="370" cy="225" rx="90" ry="56"/><ellipse cx="240" cy="262" rx="70" ry="34"/></g>
+    <g fill="#c7cde8" opacity=".75"><ellipse cx="640" cy="170" rx="140" ry="48"/><ellipse cx="720" cy="140" rx="100" ry="62"/><ellipse cx="580" cy="186" rx="80" ry="36"/></g>
+    <g stroke="#c7cde8" stroke-width="4" stroke-linecap="round" opacity=".55"><line x1="600" y1="225" x2="588" y2="260"/><line x1="640" y1="230" x2="628" y2="265"/><line x1="680" y1="225" x2="668" y2="260"/><line x1="720" y1="232" x2="708" y2="267"/><line x1="760" y1="222" x2="748" y2="257"/></g>
+  </svg>
+  <div class="leave">
+    <small>Leave in</small>
+    <div class="n serif">19<i>min</i></div>
+    <div class="sub">Bus 7:50 from Oak St · Maya and Leo</div>
+  </div>
+  <div class="wx"><div class="t">9° <span style="opacity:.6">→ 14°</span></div><div class="d">Cloudy morning</div><div class="warn">☔ Rain from 3 PM — jackets &amp; umbrella for pickup</div></div>
+  <div class="tl">
+    <div class="now">now 6:58</div>
+    <div class="bar"></div><div class="fill"></div>
+    <div class="stop" style="left:0%"><i></i><b>Breakfast</b><span>6:40</span></div>
+    <div class="stop todo" style="left:30%"><i></i><b>Teeth &amp; hair</b><span>7:15</span></div>
+    <div class="stop todo" style="left:58%"><i></i><b>Shoes &amp; coats</b><span>7:30</span></div>
+    <div class="stop todo" style="left:80%"><i></i><b>Out the door</b><span>7:42</span></div>
+    <div class="stop todo" style="left:100%"><i></i><b>Bus</b><span>7:50</span></div>
+  </div>
+  <div class="kids">
+    <div class="kid"><h4><span class="av" style="background:#e3a21a">M</span>Maya<small>Swim after school</small></h4>
+      <div class="items"><div class="item ok"><span class="e">📝</span><b>Trip form</b></div><div class="item"><span class="e">🏊</span><b>Swim bag</b></div><div class="item"><span class="e">🧥</span><b>Rain jacket</b></div><div class="item ok"><span class="e">🍎</span><b>Lunch</b></div></div></div>
+    <div class="kid"><h4><span class="av" style="background:#4f9a6f">L</span>Leo<small>Soccer at 5</small></h4>
+      <div class="items"><div class="item"><span class="e">⚽</span><b>Cleats</b></div><div class="item"><span class="e">📚</span><b>Library book</b></div><div class="item"><span class="e">🧥</span><b>Rain jacket</b></div><div class="item ok"><span class="e">🥪</span><b>Lunch</b></div></div></div>
+    <div class="kid alex"><h4 style="margin-bottom:6px"><span class="av" style="background:#e76f51">A</span>Alex</h4><div class="big serif">Dentist 9:15</div><p>Leave by 8:50 — it's 20 min with rain traffic. The insurance card is in the hall drawer.</p></div>
+  </div>
+  <div class="ask"><span>✦</span>“Where are Leo's cleats?” · “Make the kids' lunch list for tomorrow”<span class="mic">🎙</span></div>
+</section>
+
+<!-- ================= 2. MAYA'S HOME ================= -->
+<section class="scene" id="s2" data-cap="<b>The display knows who walked up.</b> When Maya comes home it becomes hers: bright, big, a little game-like. Her afternoon list earns stars, piano practice is a timer she starts herself, spelling practice is a mini game the assistant made from her pinned word list, and the snack idea is from what's actually in the fridge list.">
+  <svg class="confetti" viewBox="0 0 1920 1080">
+    <circle cx="1500" cy="140" r="14" fill="#ffd34d"/><circle cx="1690" cy="300" r="9" fill="#7cc6a4"/><rect x="1300" y="70" width="18" height="18" rx="4" fill="#f7a08a" transform="rotate(20 1309 79)"/>
+    <circle cx="1180" cy="230" r="7" fill="#89aee0"/><rect x="1610" y="180" width="14" height="14" rx="3" fill="#ffd34d" transform="rotate(35 1617 187)"/><circle cx="1400" cy="290" r="11" fill="#f7a08a"/>
+    <path d="M1080 320 q20 -30 40 0 t40 0" stroke="#7cc6a4" stroke-width="7" fill="none" stroke-linecap="round"/>
+  </svg>
+  <div class="hi"><h1 class="serif">Hi <span>Maya!</span> 👋</h1><p>Swim at <b>4:30</b> — leave in <b>38 min</b>. Snack first?</p></div>
+  <div class="clock2">3:42</div>
+  <div class="tiles">
+    <div class="t list"><h3>Before swim</h3>
+      <div class="li ok"><i>⭐</i><span>Feed the cat</span></div>
+      <div class="li ok"><i>⭐</i><span>Unpack lunchbox</span></div>
+      <div class="li"><i></i><span>Piano 20 min</span></div>
+      <div class="li"><i></i><span>Swim bag by the door</span></div>
+      <div class="stars"><span>⭐</span><span>⭐</span><span class="off">⭐</span><span class="off">⭐</span></div>
+      <p style="font-size:20px;color:#8a7862;margin-top:10px">2 more stars for a sticker 🎉</p>
+    </div>
+    <div class="t piano"><div class="dial"><b>20:00</b></div><div><h3>Piano practice</h3><p>Scales, then “Für Elise” bars 1–8.</p><span class="go">▶ Start</span></div></div>
+    <div class="t spell"><h3>Spelling game</h3><div class="letters"><span>R</span><span>H</span><span>Y</span><span class="blank">T</span><span>H</span><span class="blank">M</span></div><p>7 of 10 last time. Test on Friday.</p><b class="cta">Play — 5 words</b></div>
+    <div class="t snack"><span class="big">🍎🥜</span><h3 style="margin-top:6px">Snack idea</h3><p>Apple slices with peanut butter. Apples are on the shopping list as “bought Sat.”</p></div>
+    <div class="t week"><h3>Maya's week</h3><div class="week-row"><div>M<span>⭐</span></div><div class="today">T<span>✨</span></div><div>W<span></span></div><div>T<span></span></div><div>F<span></span></div></div></div>
+  </div>
+  <div class="ask"><span style="color:#e3a21a">✦</span>Ask me anything, Maya — “Why do cats purr?”<span class="mic">🎙</span></div>
+</section>
+
+<!-- ================= 3. COOKING ================= -->
+<section class="scene" id="s3" data-cap="<b>Hands-free kitchen.</b> Everything else gets out of the way. One step, huge, readable from the stove; “next” by voice. Timers are big dials, the right video is cued to this exact step, and the bottom rail shows what's left to gather — and who's handling pickup so dinner isn't interrupted.">
+  <div class="top3"><span>Fresh pasta · pinned by Sam</span><span>5:48 · dinner ready ~6:40</span></div>
+  <div class="stepno">Step 4 of 7<div class="pips"><i class="d"></i><i class="d"></i><i class="d"></i><i class="o"></i><i></i><i></i><i></i></div></div>
+  <div class="step serif">Cut the dough into four. Roll one piece <em>thin enough to see your hand</em> through it.</div>
+  <div class="hint"><span class="b back">Back</span><span class="b next">Next step</span><span style="margin-left:14px">or just say <b style="color:#fbeedd">“next”</b></span></div>
+  <div class="side">
+    <div class="vid">
+      <svg viewBox="0 0 600 340" width="600" height="340" style="display:block">
+        <defs><linearGradient id="wood" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8723f"/><stop offset="1" stop-color="#5b3a1f"/></linearGradient></defs>
+        <rect width="600" height="340" fill="url(#wood)"/>
+        <g stroke="#8a5a30" stroke-width="2" opacity=".5"><path d="M0 60 Q300 40 600 70"/><path d="M0 150 Q300 130 600 160"/><path d="M0 250 Q300 235 600 260"/></g>
+        <ellipse cx="300" cy="190" rx="210" ry="90" fill="#f3e2b8"/><ellipse cx="300" cy="186" rx="190" ry="76" fill="#f8ecc9"/>
+        <rect x="80" y="120" width="440" height="34" rx="17" fill="#d9b483" transform="rotate(-12 300 137)"/>
+        <circle cx="96" cy="170" r="20" fill="#c99a62"/><circle cx="504" cy="104" r="20" fill="#c99a62"/>
+      </svg>
+      <div class="play">▶</div><div class="cap">Rolling by hand · Jamie Oliver · starts at 2:03</div>
+    </div>
+    <div class="timers3">
+      <div class="tm"><div class="ring" style="background:conic-gradient(#e9a35a 0 72%, #3a281b 0)"><b>8:14</b></div><span>Dough rest</span></div>
+      <div class="tm"><div class="ring" style="background:conic-gradient(#7fc8a9 0 30%, #3a281b 0)"><b>3:02</b></div><span>Water to boil</span></div>
+    </div>
+  </div>
+  <div class="ing"><span class="ok">300 g flour</span><span class="ok">3 eggs</span><span>Salt for the water</span><span>Butter</span><span>Parmesan</span><span class="who">🚗 Sam picks up Leo at 6:45</span></div>
+</section>
+
+<!-- ================= 4. BEDTIME ================= -->
+<section class="scene" id="s4" data-cap="<b>Wind-down.</b> The screen dims and warms. Leo's bedtime routine is a row of glowing steps he can tap through, with the moon counting down to lights-out. The assistant has already prepared for tomorrow's field trip and made up tonight's story from things Leo did today.">
+  <svg class="moon" viewBox="0 0 420 420">
+    <defs><radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset=".55" stop-color="#ffe9a8" stop-opacity=".25"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient></defs>
+    <circle cx="210" cy="210" r="210" fill="url(#glow)"/>
+  </svg>
+  <svg viewBox="0 0 1920 1080" style="position:absolute;inset:0" fill="#fff">
+    <circle cx="160" cy="120" r="2"/><circle cx="320" cy="260" r="1.5"/><circle cx="520" cy="90" r="2.5"/><circle cx="760" cy="200" r="1.5"/><circle cx="1220" cy="110" r="2"/><circle cx="1420" cy="250" r="1.5"/><circle cx="1650" cy="80" r="2.5"/><circle cx="1800" cy="300" r="1.5"/><circle cx="240" cy="420" r="1.5"/><circle cx="1720" cy="470" r="2"/><circle cx="1080" cy="60" r="1.5"/><circle cx="900" cy="330" r="1"/>
+  </svg>
+  <div class="center"><small>LIGHTS OUT IN</small><div class="n serif">18 min</div><div class="who">Leo · 8:30 &nbsp;·&nbsp; Maya · 9:00</div></div>
+  <div class="routine">
+    <div class="r ok"><div class="c">🛁</div><b>Bath</b></div>
+    <div class="r ok"><div class="c">👕</div><b>Pajamas</b></div>
+    <div class="r now"><div class="c">🪥</div><b>Teeth</b></div>
+    <div class="r"><div class="c">📖</div><b>Story</b></div>
+    <div class="r"><div class="c">🌙</div><b>Lights out</b></div>
+  </div>
+  <div class="story"><div class="tag">Tonight's story</div><h3 class="serif">Leo and the soccer ball that wanted to see the rain</h3><p>Made from today: soccer moved indoors, and Leo's first goal.</p><span class="play">▶ Read it to us · 6 min</span></div>
+  <div class="tomorrow"><div class="tag">Tomorrow</div><h3 class="serif">Leo's field trip 🚌 8:30</h3>
+    <div class="li ok"><i>✓</i>Signed form in his bag</div>
+    <div class="li"><i></i>Pack lunch tonight — no nuts</div>
+    <div class="li"><i></i>Water bottle &amp; rain jacket</div>
+    <div class="li"><i></i>Bus 7:50 as usual · rain until noon</div>
+  </div>
+  <div class="ask"><span style="color:#ffe9a8">✦</span>“Add milk to the list” · “What's on tomorrow?”<span class="mic">🎙</span></div>
+</section>
+
+<!-- ================= 5. WEEKEND ================= -->
+<section class="scene" id="s5" data-cap="<b>Weekend edition.</b> No rush, so the board reads like a magazine: the day's big thing as a cover story with a map, Maya's sleepover packing, Sunday's visit, and a few ideas for the free afternoon that fit the weather and the family.">
+  <div class="mast"><h1 class="serif">Saturday</h1><span>November 21 · the weekend</span><span class="w">☀️ 12° and clear until 4</span></div>
+  <div class="grid5">
+    <div class="hero">
+      <svg viewBox="0 0 800 640" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0">
+        <rect width="800" height="640" fill="#e8dfcf"/>
+        <g stroke="#fff" stroke-width="22" fill="none" stroke-linecap="round"><path d="M-20 140 L820 220"/><path d="M180 -20 L260 660"/><path d="M-20 420 L820 360"/><path d="M560 -20 L520 660"/></g>
+        <g stroke="#fff" stroke-width="10" fill="none"><path d="M-20 290 L820 300"/><path d="M380 -20 L400 660"/></g>
+        <rect x="270" y="235" width="110" height="110" rx="14" fill="#cfe0c3"/><rect x="420" y="380" width="90" height="70" rx="12" fill="#cfe0c3"/>
+        <path d="M232 178 C 300 230, 380 250, 470 300" stroke="#b4532a" stroke-width="7" stroke-dasharray="2 16" stroke-linecap="round" fill="none"/>
+        <circle cx="232" cy="178" r="14" fill="#1f1b16"/><text x="252" y="170" font-family="DM Sans" font-size="20" fill="#1f1b16" font-weight="700">Home</text>
+        <g transform="translate(470 300)"><path d="M0 0 C -26 -30 -26 -62 0 -62 C 26 -62 26 -30 0 0 Z" fill="#b4532a"/><circle cx="0" cy="-42" r="9" fill="#fff"/></g>
+      </svg>
+      <div class="txt"><div class="kick">Today · 9–11</div><h2 class="serif">Farmers market</h2><p>8 min walk. Sam's list has apples, eggs and the good bread — and Leo wants to find the honey stand again.</p><span class="pill5">🛍 Bring bags</span><span class="pill5">☀️ Clear till 4</span></div>
+    </div>
+    <div class="box"><div class="kick">Tonight · 6 PM</div><h3 class="serif">Maya's sleepover at Ava's</h3><p>Pack: pajamas, toothbrush, sleeping bag, the board game she promised. Pick up Sun 10 AM.</p></div>
+    <div class="box"><div class="kick">Sunday · noon</div><h3 class="serif">Grandma's coming 💛</h3><p>She liked the lemon cake last time. Want a shopping list for it?</p></div>
+    <div class="box ideas"><div class="kick">For the free afternoon</div>
+      <div class="idea-row">
+        <div class="idea" style="background:#c0643c"><span class="e">🍂</span>Leaf pile &amp; hot cocoa<small>Clear until 4 · backyard</small></div>
+        <div class="idea" style="background:#3d6b5a"><span class="e">🍝</span>Make pasta together<small>The kids loved step 5</small></div>
+        <div class="idea" style="background:#36477a"><span class="e">🎲</span>Game tournament<small>Maya's taking one to Ava's</small></div>
+      </div>
+    </div>
+  </div>
+  <div class="ask"><span>✦</span>“Plan Sunday lunch for Grandma” · “Is the library open?”<span class="mic">🎙</span></div>
+</section>
+
+<!-- ================= 6. NIGHT ================= -->
+<section class="scene" id="s6" data-cap="<b>Night.</b> Nearly off: a dim red clock that won't light up the kitchen, and one line about the morning. It wakes fully when someone walks up.">
+  <div class="nclock serif">11:40</div>
+  <div class="nline">Bus 7:50 · rain until noon · Leo's field trip</div>
+  <div class="nhint">wakes when someone's near</div>
+</section>
+
+</div></div>
+<script>
+  const frame = document.getElementById('frame'), fit = document.getElementById('fit');
+  function size() {
+    const avail = innerHeight - document.getElementById('chrome').offsetHeight - document.getElementById('cap').offsetHeight - 40;
+    const s = Math.min((document.documentElement.clientWidth - 40) / 1920, avail / 1080, 1);
+    frame.style.transform = `scale(${s})`;
+    fit.style.height = (1080 * s + 30) + 'px';
+    frame.style.left = (document.documentElement.clientWidth - 1920 * s) / 2 + 'px';
+  }
+  function show(id) {
+    document.querySelectorAll('[data-s]').forEach((b) => b.classList.toggle('on', b.dataset.s === id));
+    document.querySelectorAll('.scene').forEach((s) => s.classList.toggle('on', s.id === id));
+    document.getElementById('cap').innerHTML = document.getElementById(id).dataset.cap;
+    size();
+  }
+  document.querySelectorAll('[data-s]').forEach((b) => b.onclick = () => show(b.dataset.s));
+  addEventListener('resize', size);
+  show(location.hash.slice(1) || 's1');
+</script>
+</body>
+</html>

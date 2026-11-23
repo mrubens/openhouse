@@ -1,0 +1,80 @@
+{
+  "name": "Reading log",
+  "tabIcon": "book-open",
+  "background": true,
+  "today": {
+    "size": "wide"
+  },
+  "uses": [
+    "family",
+    "chores",
+    "today-card"
+  ],
+  "actions": [
+    {
+      "name": "log",
+      "description": "Write down that someone read, for how many minutes (\"Maya read 20 minutes\", \"Sam read half an hour of Wings of Fire last night\").",
+      "parameters": {
+        "properties": {
+          "who": {
+            "type": "string",
+            "description": "Who read, by name"
+          },
+          "minutes": {
+            "type": "integer",
+            "description": "How long, in minutes"
+          },
+          "book": {
+            "type": "string",
+            "description": "The book, if they said"
+          },
+          "day": {
+            "type": "string",
+            "description": "The day, as YYYY-MM-DD, if it wasn't today"
+          }
+        },
+        "required": [
+          "who",
+          "minutes"
+        ]
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "how_much",
+      "description": "How much someone (or everyone) has read today or this week, and their streak (\"how much has Maya read this week?\").",
+      "parameters": {
+        "properties": {
+          "who": {
+            "type": "string",
+            "description": "Who, by name; leave out for everyone"
+          },
+          "week": {
+            "type": "boolean",
+            "description": "This week instead of today"
+          }
+        }
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "take_back",
+      "description": "Take off the reading just logged, when they say it was wrong.",
+      "parameters": {
+        "properties": {
+          "who": {
+            "type": "string",
+            "description": "Whose, if they said"
+          }
+        }
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    }
+  ]
+}

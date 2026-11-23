@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <!-- The cover watches for the new display (its install time) and opens it: Android hides other apps unless listed. -->
+    <queries><package android:name="${displayPkg}" /></queries>
+    <application
+        android:label="OpenHouse apps"
+        android:usesCleartextTraffic="true"
+        android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen">
+        <!-- Covers the screen while the display updates (CoverActivity.kt). -->
+        <activity android:name=".CoverActivity" android:exported="true" android:launchMode="singleInstance"
+            android:taskAffinity="dev.openhouse.cover" android:excludeFromRecents="true" android:theme="@style/Cover">
+            <!-- Home only while the display is being replaced: the display points home here first. -->
+            <intent-filter android:priority="-100">
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

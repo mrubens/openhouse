@@ -1,0 +1,201 @@
+// The edit lock, undo and the door's per-run context, against a real bridge with the fake agent.
+//   node --test bridge/test/*.test.mjs   (or: cd bridge && npm test)
+// Each server runs from a copy of bridge/ in a temp folder, with its own webapp git repo, so nothing
+// here touches the checkout.
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawn, execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import net from 'node:net';
+import { fileURLToPath } from 'node:url';
+import { initRepo } from '../edits.js';
+
+const BRIDGE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const freePort = () => new Promise((r) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
+
+// The bridge wants the display's secret on every request (auth.js).
+const TOKEN = 'test-token', H = { 'x-openhouse-token': TOKEN };
+
+async function startBridge(env = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-test-'));
+  fs.cpSync(BRIDGE, path.join(root, 'bridge'), { recursive: true, filter: (f) => !/[\\/](node_modules|test|public)$|\.jsonl$|undo\.json$/.test(f) });
+  const app = path.join(root, 'webapp');
+  fs.mkdirSync(app); initRepo(app);
+  const port = await freePort();
+  const child = spawn(process.execPath, [path.join(root, 'bridge/server.js')], {
+    env: { ...process.env, PORT: String(port), AGENT: 'fake', VOICE_DIR: path.join(root, 'novoice'), FAKE_RUN_MS: '1500', OPENHOUSE_TOKEN: TOKEN, ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let log = ''; child.stdout.on('data', (d) => (log += d)); child.stderr.on('data', (d) => (log += d));
+  const url = `http://127.0.0.1:${port}`;
+  for (let i = 0; i < 100; i++) { try { await fetch(url + '/state', { headers: H }); break; } catch { await wait(100); } }
+  const git = (...a) => execFileSync('git', a, { cwd: app, encoding: 'utf8' }).trim();
+  return {
+    url, app, root, git, log: () => log,
+    stop: () => { child.kill(); fs.rmSync(root, { recursive: true, force: true }); },
+    /** One conversation turn; resolves with its events once it's done. */
+    async chat(text, who, extra = {}) {
+      const r = await fetch(url + '/chat', { method: 'POST', headers: H, body: JSON.stringify({ text, who, ...extra }) });
+      const events = (await r.text()).split('\n').filter(Boolean).map((l) => JSON.parse(l));
+      return { events, id: events.find((e) => e.type === 'start')?.id, done: events.find((e) => e.type === 'done') };
+    },
+    post: async (p, b = {}) => { const r = await fetch(url + p, { method: 'POST', headers: H, body: JSON.stringify(b) }); return { status: r.status, body: await r.json() }; },
+    get: async (p) => (await fetch(url + p, { headers: H })).json(),
+    /** Commits since the start, oldest first: { sha, msg, files } */
+    commits() {
+      return git('log', '--reverse', '--format=%H\t%s', 'HEAD').split('\n').slice(1).map((l) => {
+        const [sha, msg] = l.split('\t');
+        return { sha, msg, files: git('show', '--name-only', '--format=', sha).split('\n').filter(Boolean) };
+      });
+    },
+    read: (f) => { try { return fs.readFileSync(path.join(app, f), 'utf8'); } catch { return null; } },
+    clean: () => !git('status', '--porcelain'),
+  };
+}
+
+let b;
+before(async () => { b = await startBridge(); });
+after(() => b?.stop());
+
+test('a conversation that only talks does not commit another one\'s half-done edits', async () => {
+  const n = b.commits().length;
+  const mom = b.chat('make the clock bigger [edit:apps/clock/a.txt=one] [wait:800] [edit:apps/clock/a.txt=two]', 'Mom');
+  await wait(200);
+  const kid = await b.chat('what is the weather', 'Kid'); // finishes while Mom's turn is mid-edit
+  assert.equal(kid.done.ok, true);
+  assert.equal(b.commits().length, n, 'the talking turn committed nothing');
+  await mom;
+  const c = b.commits().slice(n);
+  assert.equal(c.length, 1);
+  assert.equal(c[0].msg, 'Mom: make the clock bigger [edit:apps/clock/a.txt=one] [wait:800] [edit:apps/clock/a.txt=two]');
+  assert.deepEqual(c[0].files.filter((f) => !f.startsWith('plugins/')), ['apps/clock/a.txt']);
+  assert.equal(b.read('apps/clock/a.txt'), 'one\ntwo\n');
+  assert.ok(b.clean());
+});
+
+test('two overlapping turns that both edit each commit their own change, with their own words', async () => {
+  const n = b.commits().length;
+  const mom = b.chat('a game [start_editing] [edit:apps/game/g.txt=mom1] [wait:600] [edit:apps/game/g.txt=mom2]', 'Mom');
+  await wait(150);
+  const kid = b.chat('a pet [start_editing] [edit:apps/pet/p.txt=kid]', 'Kid'); // waits for Mom's change to end
+  const [m, k] = await Promise.all([mom, kid]);
+  assert.equal(m.done.ok, true); assert.equal(k.done.ok, true);
+  assert.ok(k.events.some((e) => e.type === 'status' && /Waiting/.test(e.text)), 'the second one said it was waiting');
+  const c = b.commits().slice(n);
+  assert.equal(c.length, 2);
+  assert.match(c[0].msg, /^Mom: a game/); assert.deepEqual(c[0].files.filter((f) => !f.startsWith('plugins/')), ['apps/game/g.txt']);
+  assert.match(c[1].msg, /^Kid: a pet/); assert.deepEqual(c[1].files.filter((f) => !f.startsWith('plugins/')), ['apps/pet/p.txt']);
+  assert.ok(b.clean());
+});
+
+test('an edit made with a shell command (only the watcher sees it) is still that turn\'s change', async () => {
+  const n = b.commits().length;
+  const r = await b.chat('quiet edit [sh:apps/shell/s.txt=x] [wait:600]', 'Dad');
+  assert.equal(r.done.ok, true);
+  const c = b.commits().slice(n);
+  assert.equal(c.length, 1); assert.match(c[0].msg, /^Dad: quiet edit/); assert.deepEqual(c[0].files.filter((f) => !f.startsWith('plugins/')), ['apps/shell/s.txt']);
+});
+
+test('"undo" right after a change that was never saved takes back that change, not the one before it', async () => {
+  await b.chat('keep [edit:apps/v/keep.txt=keep]', 'Mom');
+  fs.writeFileSync(path.join(b.app, 'apps/v/loose.txt'), 'loose\n'); // a turn's edit nobody committed
+  const r = (await b.post('/undo')).body;
+  assert.equal(r.ok, true);
+  assert.equal(b.read('apps/v/loose.txt'), null, 'the unsaved change is the one taken back');
+  assert.equal(b.read('apps/v/keep.txt'), 'keep\n', 'the change before it stays');
+});
+
+test('changes made by hand before a turn are not that turn\'s change', async () => {
+  fs.writeFileSync(path.join(b.app, 'apps/hand.txt'), 'by hand\n');
+  const n = b.commits().length;
+  await b.chat('mine [edit:apps/mine/m.txt=m]', 'Kid');
+  const c = b.commits().slice(n);
+  assert.deepEqual(c.map((x) => x.msg.split(' ')[0]), ['checkpoint', 'Kid:']);
+  assert.deepEqual(c[1].files.filter((f) => !f.startsWith('plugins/')), ['apps/mine/m.txt']);
+});
+
+test('undo of one change by id keeps the ones after it; undo takes back the latest', async () => {
+  await b.chat('x [edit:apps/u/x.txt=x]', 'Mom');
+  await b.chat('y [edit:apps/u/y.txt=y]', 'Mom');
+  await b.chat('z [edit:apps/u/z.txt=z]', 'Mom');
+  const y = b.commits().find((c) => c.msg.startsWith('Mom: y '));
+  const before = b.commits().length;
+  const r = await b.chat(`undo the y change [undo:${y.sha.slice(0, 8)}]`, 'Kid');
+  assert.match(r.done.text, /Took back: Mom: y/);
+  assert.equal(b.read('apps/u/y.txt'), null);
+  assert.equal(b.read('apps/u/x.txt'), 'x\n'); assert.equal(b.read('apps/u/z.txt'), 'z\n');
+  assert.equal(b.commits().length, before + 1, 'a revert commit; nothing dropped from history');
+  // "undo" takes back the latest change: that undo was one, so y comes back; then z goes
+  assert.match((await b.post('/undo')).body.undid, /^Undo: Mom: y/);
+  assert.equal(b.read('apps/u/y.txt'), 'y\n');
+  assert.match((await b.post('/undo')).body.undid, /^z /);
+  assert.equal(b.read('apps/u/z.txt'), null);
+  assert.equal(b.read('apps/u/x.txt'), 'x\n');
+  assert.ok(b.git('log', '--format=%s').includes('Mom: y'), 'history is kept');
+  assert.ok(b.clean());
+});
+
+test('a stopped turn puts back its half-done change and lets go of the lock', async () => {
+  const n = b.commits().length, head = b.git('rev-parse', 'HEAD');
+  const p = b.chat('a long one [edit:apps/stop/s.txt=half] [wait:5000] [edit:apps/stop/s.txt=rest]', 'Mom');
+  await wait(400);
+  assert.equal(b.read('apps/stop/s.txt'), 'half\n');
+  const { id } = (await b.get('/chats'))[0];
+  await b.post('/chat/stop', { id });
+  const r = await p;
+  assert.equal(r.done.ok, false);
+  assert.equal(b.read('apps/stop/s.txt'), null);
+  assert.equal(b.commits().length, n); assert.equal(b.git('rev-parse', 'HEAD'), head);
+  assert.ok(b.clean());
+  const next = await b.chat('after [edit:apps/stop/after.txt=ok]', 'Kid');
+  assert.equal(next.done.ok, true);
+  assert.match(b.commits().at(-1).msg, /^Kid: after/);
+});
+
+test('a turn that throws puts back what it changed', async () => {
+  const head = b.git('rev-parse', 'HEAD');
+  const r = await b.chat('boom [edit:apps/boom/b.txt=x] [throw]', 'Kid');
+  assert.equal(r.done.ok, false);
+  assert.equal(b.read('apps/boom/b.txt'), null);
+  assert.equal(b.git('rev-parse', 'HEAD'), head);
+  assert.ok(b.clean());
+});
+
+test('a cancelled build puts back only its own work and never resets history', async () => {
+  const head = b.git('rev-parse', 'HEAD');
+  assert.equal((await b.post('/request', { text: 'tint it', who: 'Mom' })).status, 202);
+  await wait(300);
+  assert.equal((await b.post('/cancel')).status, 200);
+  await wait(1800); // the fake agent stops
+  assert.equal(b.git('rev-parse', 'HEAD'), head);
+  assert.ok(b.clean());
+  const r = await b.chat('after the build [edit:apps/b2/x.txt=x]', 'Kid');
+  assert.equal(r.done.ok, true); assert.match(b.commits().at(-1).msg, /^Kid: after the build/);
+});
+
+async function doorIsolation(br) {
+  const mom = br.chat('recipe [wait:300] [note:Mom note] [progress:Mom working] [wait:400]', 'Mom');
+  await wait(100);
+  const kid = br.chat('bye [note:Kid note] [end] [wait:500]', 'Kid');
+  const [m, k] = await Promise.all([mom, kid]);
+  const door = await br.get('/door');
+  const note = (t) => door.notes.find((n) => n.title === t);
+  assert.equal(note('Mom note').askedBy, 'Mom'); assert.equal(note('Mom note').conversation, m.id);
+  assert.equal(note('Kid note').askedBy, 'Kid'); assert.equal(note('Kid note').conversation, k.id);
+  assert.ok(m.events.some((e) => e.type === 'progress' && e.text === 'Mom working'));
+  assert.ok(!k.events.some((e) => e.type === 'progress'), "Mom's progress didn't go to Kid");
+  assert.equal(k.done.end, true, 'Kid ended their conversation');
+  assert.ok(!m.done.end, "Kid's end_conversation didn't end Mom's");
+  assert.deepEqual(m.events.find((e) => e.type === 'notes').notes.map((n) => n.title), ['Mom note']);
+  assert.deepEqual(k.events.find((e) => e.type === 'notes').notes.map((n) => n.title), ['Kid note']);
+}
+
+test('door tools: each overlapping turn gets its own context (per-turn tokens)', () => doorIsolation(b));
+
+test('unknown door tokens are refused', async () => {
+  const r = await fetch(b.url + '/door/mcp', { method: 'POST', headers: { authorization: 'Bearer nope' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
+  assert.equal(r.status, 401);
+});

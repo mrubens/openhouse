@@ -1,0 +1,19 @@
+{
+  "name": "For the sitter",
+  "tabIcon": "clipboard-text",
+  "uses": [
+    "family"
+  ],
+  "actions": [
+    {
+      "name": "show",
+      "description": "Bring up the babysitter card: who to call, bedtimes, allergies and the Wi-Fi (\"show the babysitter card\", \"the sitter's here\").",
+      "parameters": {
+        "properties": {}
+      },
+      "open": true,
+      "answer": true,
+      "wait": 15
+    }
+  ]
+}

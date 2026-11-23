@@ -1,0 +1,22 @@
+# OpenHouse hub (docs/hub.md). From the repo:  docker compose -f hub/compose.yml up -d --build
+# The settings code:  docker logs openhouse   (or data/hub-setup.txt)
+#
+# Linux: the hub shares the machine's network (network_mode: host), so it finds the TVs, speakers and printers on the
+# Wi-Fi (their discovery is multicast and a sweep of the home network, which don't reach a container's own network).
+# It answers on 8788 (phones, computers, the TV), and 8789 only if the own-address connector is on.
+# Docker Desktop on a Mac or Windows runs containers in a VM: its host network isn't the home network, so devices
+# aren't found there. Use compose.desktop.yml, or on a Mac run it natively (hub/install-mac.sh).
+services:
+  openhouse:
+    container_name: openhouse
+    image: openhouse-hub
+    build: { context: .., dockerfile: hub/Dockerfile }
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./data:/data          # the household's things, the bridge's state
+      - ./backups:/backups    # encrypted backups (point it at a USB drive or a share)
+    environment:
+      TZ: ${TZ:-UTC}
+      # HUB_TLS_CERT: /data/tls/cert.pem   # https on the home network, for live voice in phone browsers
+      # HUB_TLS_KEY: /data/tls/key.pem

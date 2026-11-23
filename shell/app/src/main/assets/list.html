@@ -1,0 +1,214 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>OpenHouse</title>
+<style>
+:root{--bg:#fbf9f5;--ink:#2a2826;--soft:#6e6a65;--line:#e7e3dc;--tint:#f1eee9;--go:#2a2826;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:480px;margin:0 auto;padding:28px 20px 48px}
+main::before{content:"OpenHouse";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
+h1{font-size:28px;font-weight:600;letter-spacing:-.01em;margin:0 0 20px}
+ol{margin:0 0 8px;padding:0;list-style:none;counter-reset:s}
+ol li{counter-increment:s;position:relative;padding:0 0 14px 40px;color:var(--ink)}
+ol li::before{content:counter(s);position:absolute;left:0;top:-1px;width:26px;height:26px;border-radius:50%;background:var(--tint);font-size:15px;font-weight:600;display:grid;place-items:center}
+label{display:block;color:var(--soft);font-size:15px;margin:18px 0 6px}
+input,select{width:100%;font:inherit;padding:13px 16px;border:0;border-radius:14px;background:var(--tint);color:inherit;outline-color:var(--ink)}
+button,a.b{display:block;width:100%;margin-top:22px;padding:15px;border:0;border-radius:999px;background:var(--go);color:var(--bg);font:inherit;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
+a.b{background:var(--tint);color:var(--ink)}
+button:disabled{opacity:.5}
+p{color:var(--soft)}
+[hidden]{display:none!important}
+</style><style>
+ul{list-style:none;margin:0;padding:0}li{display:flex;gap:14px;align-items:center;padding:14px 4px;border-bottom:1px solid var(--line);font-size:20px}
+li input{width:26px;height:26px;margin:0;accent-color:var(--go)}li.d span{text-decoration:line-through;color:var(--soft)}
+.row{display:flex;gap:10px}.row a,.row button{flex:1}
+</style></head>
+<body><main>
+<h1 id="t"></h1>
+<ul id="l"></ul>
+<form id="add" class="row" hidden style="margin-top:14px"><input id="new" placeholder="Add something" autocomplete="off" enterkeyhint="done"><button style="flex:none;width:auto;padding:12px 18px">Add</button></form>
+<div id="f" hidden>
+  <div class="row"><a class="b" id="sms">Text it</a><a class="b" id="mail">Email it</a></div>
+  <button id="copy">Copy the list</button>
+</div>
+<p id="m"></p>
+</main>
+<script>
+// A list from the display (Groceries...), on a phone on the home Wi-Fi: live while on the Wi-Fi (ticks and new
+// items both ways), kept working at the store (what's done there goes to the display back home), or text, email or
+// copy it before leaving. It arrives sealed with the key from the QR code (after
+// #, so it never reaches the network). Plain http has no WebCrypto, so ChaCha20-Poly1305 is inlined (as handoff.html).
+'use strict';
+const CP = (() => {
+  const rotl = (x, n) => (x << n) | (x >>> (32 - n));
+  function block(k, ctr, n) { // k: Uint32Array(8), n: Uint32Array(3) -> 64 bytes
+    const s = new Uint32Array([0x61707865, 0x3320646e, 0x79622d32, 0x6b206574, ...k, ctr, ...n]), x = s.slice();
+    const q = (a, b, c, d) => { x[a] += x[b]; x[d] = rotl(x[d] ^ x[a], 16); x[c] += x[d]; x[b] = rotl(x[b] ^ x[c], 12);
+      x[a] += x[b]; x[d] = rotl(x[d] ^ x[a], 8); x[c] += x[d]; x[b] = rotl(x[b] ^ x[c], 7); };
+    for (let i = 0; i < 10; i++) { q(0, 4, 8, 12); q(1, 5, 9, 13); q(2, 6, 10, 14); q(3, 7, 11, 15); q(0, 5, 10, 15); q(1, 6, 11, 12); q(2, 7, 8, 13); q(3, 4, 9, 14); }
+    for (let i = 0; i < 16; i++) x[i] += s[i];
+    return new Uint8Array(x.buffer);
+  }
+  const words = (b) => { const w = new Uint32Array(b.length / 4), v = new DataView(b.buffer, b.byteOffset, b.length); for (let i = 0; i < w.length; i++) w[i] = v.getUint32(i * 4, true); return w; };
+  function xor(key, nonce, ctr, data) {
+    const k = words(key), n = words(nonce), out = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i += 64) { const ks = block(k, ctr++, n); for (let j = 0; j < 64 && i + j < data.length; j++) out[i + j] = data[i + j] ^ ks[j]; }
+    return out;
+  }
+  const num = (b) => { let r = 0n; for (let i = b.length - 1; i >= 0; i--) r = (r << 8n) | BigInt(b[i]); return r; };
+  function poly(key, msg) {
+    const r = num(key.subarray(0, 16)) & 0x0ffffffc0ffffffc0ffffffc0fffffffn, s = num(key.subarray(16, 32)), p = (1n << 130n) - 5n;
+    let a = 0n;
+    for (let i = 0; i < msg.length; i += 16) { const c = msg.subarray(i, i + 16); a = ((a + num(c) + (1n << BigInt(8 * c.length))) * r) % p; }
+    a = (a + s) & ((1n << 128n) - 1n);
+    const t = new Uint8Array(16); for (let i = 0; i < 16; i++) { t[i] = Number(a & 0xffn); a >>= 8n; } return t;
+  }
+  function mac(key, nonce, aad, ct) {
+    const pad = (n) => (16 - (n % 16)) % 16, m = new Uint8Array(aad.length + pad(aad.length) + ct.length + pad(ct.length) + 16);
+    m.set(aad, 0); m.set(ct, aad.length + pad(aad.length));
+    const v = new DataView(m.buffer, m.length - 16); v.setUint32(0, aad.length, true); v.setUint32(8, ct.length, true);
+    return poly(block(words(key), 0, words(nonce)).subarray(0, 32), m);
+  }
+  return {
+    seal(key, nonce, aad, pt) { const ct = xor(key, nonce, 1, pt), out = new Uint8Array(12 + ct.length + 16); out.set(nonce); out.set(ct, 12); out.set(mac(key, nonce, aad, ct), 12 + ct.length); return out; },
+    open(key, aad, box) {
+      const nonce = box.subarray(0, 12), ct = box.subarray(12, box.length - 16), tag = box.subarray(box.length - 16);
+      const want = mac(key, nonce, aad, ct); let d = 0; for (let i = 0; i < 16; i++) d |= want[i] ^ tag[i];
+      return d || box.length < 28 ? null : xor(key, nonce, 1, ct);
+    },
+  };
+})();
+const b64 = { dec: (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)),
+  enc: (b) => btoa(String.fromCharCode(...b)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') };
+const te = new TextEncoder(), td = new TextDecoder();
+(async () => {
+  const $ = (id) => document.getElementById(id), say = (t) => { $('m').textContent = t; };
+  // Served by the display on the Wi-Fi: #<key>. Served by OpenHouse's cloud (its address works anywhere, so the page
+  // opens at the store too): #<key>.<relay>.<token>, and a meta tag names the relay; everything then goes through it.
+  const cloudRelay = document.querySelector('meta[name="openhouse-relay"]')?.content || '';
+  const [k64, rid, rtok] = location.hash.slice(1).split('.');
+  let key, relay = null;
+  try { key = b64.dec(k64 || ''); } catch {}
+  if (!key || key.length !== 32) return say('Scan the code on the display again.');
+  if (cloudRelay && rid && rtok) relay = { url: cloudRelay, relay: rid, token: rtok };
+  else if (cloudRelay) return say('Scan the code on the display again.');
+  else history.replaceState(null, '', location.pathname); // the key leaves the address bar (on the cloud's page it stays, so the page reopens)
+  // Away from home, when the family turned that on (the display's Cloud settings): the same sealed requests through
+  // OpenHouse's relay, which can't open them (docs/networking.md). The Wi-Fi first; after it misses, the relay for a minute.
+  let rready = null, rn = 0, awayUntil = 0, via = 'home';
+  const rwait = new Map();
+  function rconnect() {
+    if (rready) return rready;
+    const p = new Promise((ok, no) => {
+      const s = new WebSocket(relay.url);
+      s.onopen = () => s.send(JSON.stringify({ t: 'hello', role: 'device', relay: relay.relay, token: relay.token }));
+      s.onmessage = (e) => { let m; try { m = JSON.parse(e.data); } catch { return; } if (m.t === 'ok') ok(s); else if (m.t === 'no') { relay = null; no(new Error('no')); } else if (m.t === 'res') rwait.get(m.rid)?.(m); };
+      s.onclose = () => { if (rready === p) rready = null; no(new Error('closed')); for (const f of rwait.values()) f({ closed: true }); rwait.clear(); };
+    });
+    rready = p; p.catch(() => { if (rready === p) rready = null; });
+    return p;
+  }
+  async function viaRelay(path, bytes) {
+    const s = await rconnect(), rid = 'r' + (++rn);
+    return new Promise((ok, no) => {
+      let st = 200; const parts = [];
+      const t = setTimeout(() => { rwait.delete(rid); no(new Error('slow')); }, 15000);
+      // The cloud's relay may pass a reply's messages on out of order: each has its place (i), taken in that order.
+      const early = new Map(); let next = 0;
+      rwait.set(rid, (m) => {
+        if (Number.isInteger(m.i) && !m.closed && !m.off) { early.set(m.i, m); while (early.has(next)) { const x = early.get(next); early.delete(next); next++; take(x); } return; }
+        take(m);
+      });
+      const take = (m) => {
+        if (m.closed) { clearTimeout(t); return no(new Error('closed')); }
+        if (m.s !== undefined) st = m.s;
+        if (m.d) parts.push(b64.dec(m.d));
+        if (m.e) {
+          clearTimeout(t); rwait.delete(rid);
+          const all = new Uint8Array(parts.reduce((n, x) => n + x.length, 0)); let at = 0; for (const x of parts) { all.set(x, at); at += x.length; }
+          ok({ ok: st >= 200 && st < 300, text: async () => td.decode(all) });
+        }
+      };
+      s.send(JSON.stringify({ t: 'req', rid, k: 'h', p: path, i: 0, d: bytes ? b64.enc(bytes) : '' }));
+    });
+  }
+  /** GET i or POST s: on the Wi-Fi, else through the relay. */
+  async function call(path, bytes) {
+    if (!relay || Date.now() >= awayUntil) {
+      const c = new AbortController(), t = relay ? setTimeout(() => c.abort(), 4000) : 0;
+      try {
+        const r = await fetch(path, bytes ? { method: 'POST', body: bytes, headers: { 'content-type': 'application/octet-stream' }, signal: c.signal } : { cache: 'no-store', signal: c.signal });
+        via = 'home'; return r;
+      } catch (e) { if (!relay) throw e; awayUntil = Date.now() + 60e3; }
+      finally { clearTimeout(t); }
+    }
+    const r = await viaRelay(path, bytes); via = 'relay'; return r;
+  }
+  if (cloudRelay) awayUntil = Infinity; // never the Wi-Fi from here: the page isn't the display's
+  let info;
+  try { const r = await call('i'); const box = CP.open(key, te.encode('info'), b64.dec(await r.text())); info = box && JSON.parse(td.decode(box)); } catch {}
+  if (!info) return say('This link has ended. Start again on the display.');
+  if (!relay && info.relay) relay = info.relay;
+  // Live while the phone is on the home Wi-Fi: ticks and new items go to the display, and its changes come here
+  // (every few seconds). Away (at the store), the page keeps working: what's done waits here and goes when back.
+  $('t').textContent = info.title;
+  let items = (info.items || []).map((t, i) => (typeof t === 'string' ? { id: 'x' + i, text: t, done: false } : t));
+  const live = info.live === true, queue = [];
+  let home = true;
+  const send = async (op) => {
+    const box = CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), te.encode(JSON.stringify(op)));
+    const r = await call('s', box);
+    if (!r.ok) throw new Error(String(r.status));
+  };
+  const status = () => say(!live ? '' : home ? (queue.length ? 'Sending…' : via === 'relay' && !cloudRelay ? 'Live with the display, from away.' : 'Live with the display.') : `Away from the home Wi-Fi: ${queue.length ? (queue.length === 1 ? 'one change waits here and goes' : queue.length + ' changes wait here and go') : 'changes go'} to the display when you’re back. Keep this page open.`);
+  async function flush() {
+    while (queue.length) {
+      try { await send(queue[0]); queue.shift(); home = true; } catch { home = false; break; }
+    }
+    status();
+  }
+  function draw() {
+    const l = $('l'); l.replaceChildren();
+    if (!items.length) { const li = document.createElement('li'); li.textContent = 'Nothing on it right now.'; li.style.color = 'var(--soft)'; l.append(li); }
+    for (const it of items) {
+      const li = document.createElement('li'), c = document.createElement('input'), s = document.createElement('span');
+      c.type = 'checkbox'; c.checked = !!it.done; s.textContent = it.text; li.classList.toggle('d', !!it.done);
+      const flip = () => { it.done = !it.done; draw(); if (live && !String(it.id).startsWith('new')) { queue.push({ check: it.id, done: it.done }); flush(); } };
+      c.onchange = flip; li.append(c, s); li.onclick = (e) => { if (e.target !== c) flip(); };
+      l.append(li);
+    }
+    const open = items.filter((i) => !i.done).map((i) => i.text);
+    const text = `${info.title}:\n${open.map((t) => '- ' + t).join('\n')}`;
+    $('sms').href = 'sms:?&body=' + encodeURIComponent(text);
+    $('mail').href = 'mailto:?subject=' + encodeURIComponent(info.title) + '&body=' + encodeURIComponent(text);
+    $('copy').onclick = () => { // no clipboard API on plain http: the old way
+      const a = document.createElement('textarea'); a.value = text; document.body.append(a); a.select();
+      const ok = document.execCommand('copy'); a.remove(); say(ok ? 'Copied.' : 'Couldn’t copy here; text or email it instead.');
+    };
+  }
+  if (live) {
+    $('add').hidden = false;
+    $('add').onsubmit = (e) => {
+      e.preventDefault();
+      const t = $('new').value.trim(); if (!t) return;
+      $('new').value = ''; items.push({ id: 'new' + Date.now(), text: t, done: false }); draw();
+      queue.push({ add: t }); flush();
+    };
+    // The display's list, every few seconds (what's still waiting here stays as it is on this phone).
+    setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const r = await call('i'); if (!r.ok) throw 0;
+        const box = CP.open(key, te.encode('info'), b64.dec(await r.text())); if (!box) throw 0;
+        home = true;
+        if (queue.length) return flush();
+        items = (JSON.parse(td.decode(box)).items || []); draw(); status();
+      } catch { home = false; status(); }
+    }, 4000);
+  }
+  draw(); status();
+  $('f').hidden = false;
+})();
+</script>
+</body></html>

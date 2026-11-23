@@ -1,0 +1,81 @@
+# Talking to it like a person
+
+> **Status (1.0.9):** superseded. pi is off the tablet; a conversation is OpenAI's live voice with the household's tools (docs/assistant.md). Kept for the measurements.
+
+From trying Opie on a real tablet (2026-11-19): too many kinds of thinking indicators, and it didn't talk
+naturally. The voice log at 18:31 UTC showed first sound 10.5 s and 6.8 s after the request (about 1.2 s of that
+was hearing and speaking), every "Hey Opie" starting a new conversation, and answers of several written sentences.
+
+## Speed: spoken turns on a fast model
+
+- A spoken turn switches the conversation's running pi to the provider's fast model with pi's `set_model`. It's the
+  same pi and the same session, so the conversation carries on (`agents/boxed.js` `piUse`).
+- The fast models are in `agents/model.js` (`piVoiceModel`): `claude-code/claude-sonnet-5-5` and
+  `openrouter/anthropic/claude-sonnet-5.5`. ChatGPT stays on its own model. To override, put `"pi-voice"` in the
+  model file (a model of the chosen provider, or `"same"`), or set `PI_VOICE_MODEL`.
+- These stay on the family's own model (Opus 5.5 by default): typed turns, making or changing an app or game, and
+  "think harder" (`chat.js` `wantsDepth`).
+- If pi doesn't have the fast model, it asks once and logs it; that pi then stays on its own model.
+- Saying its name also switches the waiting pi ahead of time (`prewarm`).
+
+Measured on the laptop through `claude -p`, with the family's rules (45 KB) and the new spoken rules:
+
+| | first words, cold | first words, warm (same process) |
+| --- | --- | --- |
+| Haiku 5.5 | 4.3 to 8.5 s | 1.4 to 2.7 s |
+| Sonnet 5.5 | | 1.2 to 1.7 s |
+| Opus 5.5 | 3.9 to 4.8 s | |
+
+The model is only part of the time. A cold Claude Code process (a new conversation, or more than 5 minutes since
+the last turn: pi-claude-code's limit) costs seconds on its own. Haiku made up what tools would have said, so it
+isn't used.
+
+## Conversation: a wake carries on
+
+- `Conversations.kt`: a wake counts as "someone else" only when both voices are known and differ.
+- In the tablet's log the speaker was only guessed (`who: null`, `guess: "Sam"`, score 0.64 to 0.67, under the
+  0.68 bar), and a null voice counted as someone else. So every wake started over, and with it a cold process.
+- A wake within 5 minutes of the last answer now continues the conversation, so "and tomorrow?" works. The bridge
+  prewarms the same conversation within the same 5 minutes.
+
+## How it talks
+
+- `CHAT.md` tells it to talk, not write: answer first and stop, one or two short sentences, no lists or written
+  phrasing, at most one question back, and no "I'll check" preface when no tool is needed.
+- Every spoken request ends with a short reminder of this (`chat.js` `SPOKEN`), so it's the last thing the model
+  reads.
+
+## One indicator
+
+The assistant's button (`Buddy.kt`, `Face`) is the only thing that shows its state:
+
+- **Listening:** dark, and the bars follow the room.
+- **Thinking:** dark, with a slow wave across the bars.
+- **Talking:** the accent color, and the bars move with its voice.
+- Otherwise it rests.
+
+Hearing now looks like listening, working looks like thinking, and finished answers no longer have a look of their
+own.
+
+These are gone:
+- the dots above the button
+- the dots and italic "Searching…" status in the caption
+- the "Got it, next" line and the thought text in the bubble over other apps
+- the card of dots in the conversation screen (the button shows thinking there too)
+
+Captions are only words: what they're saying, along the bottom, and what it says while it talks. Over other apps,
+the bubble still shows what it's doing in that app, with Stop.
+
+Tried on an emulator against a bridge with the fake agent and injected "heard" events:
+- While it thinks, only the dark button shows.
+- While it talks, the button is the accent color and its words show above it.
+- A second wake 15 s later, with the speaker only guessed, logged "(follow-up)" in the same conversation.
+
+## Not done
+
+- **Starting the model while the end of speech is still being confirmed.** That is the listening pipeline
+  (`voice-worker.js`), which the cloud-voice work owns. What's here is safe without it: the wake switches the pi
+  ahead of time.
+- **Keeping a Claude Code process warm for the next new conversation.** pi-claude-code starts one at the first
+  request. Fixing that needs a change upstream.
+- **Not yet measured on the tablet with a real model.**

@@ -1,0 +1,12 @@
+{
+  "name": "Bus times",
+  "tabIcon": "clock",
+  "background": true,
+  "today": { "size": "small" },
+  "uses": ["today", "today-card"],
+  "reaches": ["files.mobilitydatabase.org", { "setup": "transit-feed", "why": "Live arrivals and stops from your transit agency" }],
+  "actions": [
+    { "name": "next_bus", "description": "When the next buses come to the household's stop, live from their transit agency (\"when's the next bus?\").",
+      "parameters": { "properties": {} }, "open": true, "answer": true, "wait": 20 }
+  ]
+}

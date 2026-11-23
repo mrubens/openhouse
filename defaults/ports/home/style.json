@@ -1,0 +1,10 @@
+{
+  "door": "#263a40",
+  "clock": "compact",
+  "scenery": [
+    "https://images.unsplash.com/photo-1721739316828-1cf9490f04d7?auto=format&fit=crop&w=2304&q=85",
+    "https://images.unsplash.com/photo-1723804522779-c9541bd6f4e6?auto=format&fit=crop&w=2304&q=85",
+    "https://images.unsplash.com/photo-1650220249478-ee2dd536564a?auto=format&fit=crop&w=2304&q=85"
+  ],
+  "credits": "Photos: Viktor Solomonik, Simon Wiedensohler, Ilia Bronskiy / Unsplash"
+}

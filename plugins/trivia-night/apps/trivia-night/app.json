@@ -1,0 +1,107 @@
+{
+  "name": "Trivia night",
+  "tabIcon": "trophy",
+  "background": true,
+  "uses": [
+    "family"
+  ],
+  "actions": [
+    {
+      "name": "start",
+      "description": "Start a family trivia game, with you as the host (\"let's play trivia\", \"trivia with Sam and Dad\"). Read out what it answers: the first question and its choices.",
+      "parameters": {
+        "properties": {
+          "players": {
+            "type": "string",
+            "description": "Who's playing, by name, separated by commas; leave out for the whole family"
+          },
+          "questions": {
+            "type": "integer",
+            "description": "How many questions, if they said (10 if not)"
+          }
+        }
+      },
+      "open": true,
+      "answer": true,
+      "wait": 15
+    },
+    {
+      "name": "answer",
+      "description": "A player's answer to the trivia question on the screen, as its letter (\"Sam says B\", \"I think it's the Pacific\" from Dad: give the letter of that choice). Read out what it answers.",
+      "parameters": {
+        "properties": {
+          "player": {
+            "type": "string",
+            "description": "Who answered"
+          },
+          "letter": {
+            "type": "string",
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          }
+        },
+        "required": [
+          "player",
+          "letter"
+        ]
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "next",
+      "description": "On to the next trivia question (\"next\", \"next question\"). Read out what it answers.",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "reveal",
+      "description": "Show the answer to the trivia question now, before everyone has answered. Read out what it answers.",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "repeat",
+      "description": "Read the trivia question and its choices again. Read out what it answers.",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "score",
+      "description": "The trivia scores so far (\"who's winning?\"). Say what it answers.",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    },
+    {
+      "name": "end",
+      "description": "End the trivia game now. Say what it answers.",
+      "parameters": {
+        "properties": {}
+      },
+      "answer": true,
+      "open": true,
+      "wait": 15
+    }
+  ]
+}

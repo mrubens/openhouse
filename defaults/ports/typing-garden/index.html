@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/kit/openhouse.css">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #EFF3E7; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+    canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+    /* Hidden but focusable, so a tablet's own keyboard can type into the lesson. */
+    #type { position: fixed; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0; font-size: 16px; pointer-events: none; caret-color: transparent; }
+  </style>
+</head>
+<body>
+  <canvas id="garden" aria-label="Typing Garden. Choose a learner and a lesson. Use a keyboard or tap the letter keys."></canvas>
+  <input id="type" type="text" inputmode="text" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" aria-label="Type here">
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

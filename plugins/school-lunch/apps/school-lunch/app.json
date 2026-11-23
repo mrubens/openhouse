@@ -1,0 +1,54 @@
+{
+  "name": "School lunch",
+  "tabIcon": "basket",
+  "background": true,
+  "uses": [
+    "family",
+    "today",
+    "days"
+  ],
+  "reaches": [
+    "*.api.nutrislice.com",
+    "client-food-images.nutrislice.com"
+  ],
+  "actions": [
+    {
+      "name": "lunch",
+      "description": "What's for school lunch on a day, from each kid's school menu (\"what's for lunch tomorrow?\", \"what's Maya having on Tuesday?\"). Say what it answers, as it is.",
+      "parameters": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "description": "The day they mean, as YYYY-MM-DD. Leave out for the next school day."
+          },
+          "who": {
+            "type": "string",
+            "description": "The kid, by name, if they said one"
+          }
+        }
+      },
+      "open": true,
+      "answer": true,
+      "wait": 15
+    },
+    {
+      "name": "week",
+      "description": "The school lunches for a whole week, a day at a time (\"what are the lunches this week?\"). Say what it answers.",
+      "parameters": {
+        "properties": {
+          "who": {
+            "type": "string",
+            "description": "The kid, by name, if they said one"
+          },
+          "next": {
+            "type": "boolean",
+            "description": "Next week instead of this one"
+          }
+        }
+      },
+      "open": true,
+      "answer": true,
+      "wait": 15
+    }
+  ]
+}

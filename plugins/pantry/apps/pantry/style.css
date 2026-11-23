@@ -1,0 +1,7 @@
+/* Pantry and freezer: two columns of what's here, the ideas under them */
+.body { margin-top: calc(28 * var(--u)); }
+.place { display: flex; flex-direction: column; }
+.count { display: inline-flex; align-items: center; gap: calc(6 * var(--u)); }
+.count .n { min-width: calc(36 * var(--u)); text-align: center; font-variant-numeric: tabular-nums; }
+.ideas { display: flex; flex-direction: column; max-width: calc(900 * var(--u)); }
+.ideas .btn { height: calc(48 * var(--u)); }

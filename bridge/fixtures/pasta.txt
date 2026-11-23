@@ -1,0 +1,20 @@
+Fresh pasta only needs flour, eggs and a bit of patience. Here's a simple version you can follow right at the counter — about an hour, most of it resting time.
+
+```spec
+{"op":"add","path":"/root","value":"main"}
+{"op":"add","path":"/elements/main","value":{"type":"Stack","props":{"direction":"vertical","gap":"large"},"children":["stats","row","steps","videos","tip","more"]}}
+{"op":"add","path":"/elements/stats","value":{"type":"Stack","props":{"direction":"horizontal","gap":"medium"},"children":["s1","s2","s3"]}}
+{"op":"add","path":"/elements/s1","value":{"type":"Stat","props":{"label":"Total time","value":"1 h 10 min"},"children":[]}}
+{"op":"add","path":"/elements/s2","value":{"type":"Stat","props":{"label":"Serves","value":"4"},"children":[]}}
+{"op":"add","path":"/elements/s3","value":{"type":"Stat","props":{"label":"Difficulty","value":"Easy"},"children":[]}}
+{"op":"add","path":"/elements/row","value":{"type":"Stack","props":{"direction":"horizontal","gap":"medium"},"children":["ing","tools"]}}
+{"op":"add","path":"/elements/ing","value":{"type":"Card","props":{"title":"Ingredients"},"children":["ingl"]}}
+{"op":"add","path":"/elements/ingl","value":{"type":"Checklist","props":{"items":["300 g “00” flour (or plain flour)","3 large eggs","Pinch of salt","Semolina for dusting"]},"children":[]}}
+{"op":"add","path":"/elements/tools","value":{"type":"Card","props":{"title":"You'll need"},"children":["tooll"]}}
+{"op":"add","path":"/elements/tooll","value":{"type":"List","props":{"items":["A clean counter or big board","A fork","Rolling pin or pasta machine","Sharp knife"]},"children":[]}}
+{"op":"add","path":"/elements/steps","value":{"type":"Steps","props":{"title":"Fresh pasta","steps":[{"text":"Pile the flour on the counter and make a deep well in the middle. Crack the eggs into it and add the salt."},{"text":"Beat the eggs with a fork, slowly pulling in flour from the inside wall until it gets too thick to stir."},{"text":"Knead with your hands for **8–10 minutes** until the dough is smooth and springs back when poked.","timerSeconds":600,"timerLabel":"Kneading"},{"text":"Wrap the dough and let it rest at room temperature.","timerSeconds":1800,"timerLabel":"Dough rest"},{"text":"Cut into 4 pieces. Roll each one out as thin as you can — you should almost see your hand through it."},{"text":"Dust with semolina, fold loosely and cut into ribbons about 1 cm wide."},{"text":"Boil in well-salted water until they float and are just tender.","timerSeconds":150,"timerLabel":"Pasta boil"}]},"children":[]}}
+{"op":"add","path":"/elements/videos","value":{"type":"Card","props":{"title":"Watch it done"},"children":["v1"]}}
+{"op":"add","path":"/elements/v1","value":{"type":"Video","props":{"url":"https://www.youtube.com/watch?v=7z-WKvuYp6s","title":"Homemade Fresh Pasta","channel":"Jamie Oliver","why":"Shows the well-and-fork method by hand, no machine"},"children":[]}}
+{"op":"add","path":"/elements/tip","value":{"type":"Tip","props":{"text":"If the dough feels dry and cracks, wet your hands and keep kneading. If it's sticky, add flour a spoon at a time.","tone":"tip"},"children":[]}}
+{"op":"add","path":"/elements/more","value":{"type":"Suggestions","props":{"items":["What sauce goes with it?","Can I make it without eggs?","How do I make ravioli?"]},"children":[]}}
+```
