@@ -1,7 +1,8 @@
-// Calendar: the week in columns, the whole month, or everything coming up as a list, each person in their color. Tap a day
-// to see all of it and add to it. Events come from the family's synced calendars (added in Settings) plus ones added here,
+// Calendar: one day by the hour, the week in columns, the whole month, or everything coming up as a list, each person in
+// their color. Tap a day to see all of it and add to it. Events come from the family's synced calendars (added in Settings) plus ones added here,
 // which can repeat and stay on this display (synced calendars are read-only here). The events live in the bridge, not here.
 import { house, timer, say, phone, shell, weather, screen as onScreen } from '/kit/openhouse.js';
+import { icon as skyIcon } from '/kit/weather-look.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
@@ -43,7 +44,12 @@ function press(el, tap, hold) {
 
 const ICONS = { plus: '<path d="M12 4.5v15M4.5 12h15"/>', edit: '<path d="M5 19h4L19.5 8.5l-4-4L5 15v4z"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>', up: '<path d="M5.5 14.5L12 8l6.5 6.5"/>', down: '<path d="M5.5 9.5L12 16l6.5-6.5"/>',
   photo: '<rect x="3.5" y="6.5" width="17" height="13" rx="2.5"/><path d="M8.5 6.5l1.5-2.5h4l1.5 2.5"/><circle cx="12" cy="13" r="3.2"/>',
-  bell: '<path d="M6.5 16.5V11a5.5 5.5 0 0111 0v5.5l1.5 1.5h-14z"/><path d="M10 20.5a2 2 0 004 0"/>' };
+  bell: '<path d="M6.5 16.5V11a5.5 5.5 0 0111 0v5.5l1.5 1.5h-14z"/><path d="M10 20.5a2 2 0 004 0"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+  horizon: '<path d="M3 17h18M7 17a5 5 0 0110 0M12 6.5V9M5.4 10.4l1.7 1.7M18.6 10.4l-1.7 1.7M8 20.5h8"/>',
+  moon: '<path d="M19.5 14.2A8 8 0 019.8 4.5a8 8 0 109.7 9.7z"/>',
+  fork: '<path d="M7 3.5v17M4.5 3.5v4a2.5 2.5 0 005 0v-4M17.5 20.5v-17c-2.2 1.2-3.5 4-3.5 7.5v2h3.5"/>',
+  note: '<path d="M5 4.5h14v10l-5 5H5z"/><path d="M14 19.5v-5h5M8.5 9h7M8.5 12.5h4"/>' };
 const icon = (name, cls = '') => h('span', { class: 'icon ' + cls, 'aria-hidden': 'true',
   html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>` });
 const STAR = [...Array(10)].map((_, i) => { const a = Math.PI / 5 * i - Math.PI / 2, r = i % 2 ? 22.5 : 50; return `${(50 + r * Math.cos(a)).toFixed(1)},${(50 + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
@@ -55,8 +61,6 @@ const btn = (label, tap, { soft = false, color = null, disabled = false, cls = '
 const chip = (label, on, tap, dot = null) => h('button', { class: 'chip' + (on ? ' on' : ''), tap }, dot && h('span', { class: 'dot', style: `background:${dot}` }), label);
 const round = (name, tap, { dark = false, disabled = false, label = null } = {}) =>
   h('button', { class: 'round' + (dark ? ' dark' : ''), disabled, 'aria-label': label, tap: disabled ? null : tap }, icon(name));
-/** A color with some see-through: alpha('#e9b949', .32). */
-const alpha = (hex, a) => hex + Math.round(a * 255).toString(16).padStart(2, '0');
 const same = (a, b) => String(a ?? '').toLowerCase() === String(b ?? '').toLowerCase();
 
 /** Everyone an event is for: its person and whoever else it's for (also). */
@@ -64,10 +68,15 @@ const same = (a, b) => String(a ?? '').toLowerCase() === String(b ?? '').toLower
 const isPerson = (n) => (H?.family || []).some((p) => p.name.toLowerCase() === String(n).toLowerCase());
 const people = (e) => [e.who, ...(e.also || [])].filter((n) => n && isPerson(n));
 const whoText = (e) => people(e).join(' & ');
-/** An event's colour: its person's; for two or more, their colours side by side. */
-/** An event's background: its person's color, or stripes of each person's color when it's for several. */
-const paint = (e, a) => { const cs = people(e).map((n) => alpha(house.color(n), a)); return cs.length > 1 ? `repeating-linear-gradient(135deg, ${cs.map((c, i) => `${c} calc(${i * 9} * var(--u)) calc(${(i + 1) * 9} * var(--u))`).join(', ')})` : alpha(house.color(e.who), a); };
-const dotPaint = (e) => { const cs = people(e).map((n) => house.color(n)); return cs.length > 1 ? `linear-gradient(135deg, ${cs.map((c, i) => `${c} ${i * 100 / cs.length}% ${(i + 1) * 100 / cs.length}%`).join(', ')})` : house.color(e.who); };
+/** An event's color: its person's, or stripes of each one's when it's for several (null: nobody's). */
+const paint = (e) => { const cs = people(e).map((n) => house.color(n)); return cs.length > 1 ? `repeating-linear-gradient(135deg, ${cs.map((c, i) => `${c} calc(${i * 9} * var(--u)) calc(${(i + 1) * 9} * var(--u))`).join(', ')})` : cs[0] || null; };
+/** How an event is drawn anywhere (index.html .ev): on its person's color; nobody's is a soft card, or ink when all day. */
+const evLook = (e, cls, past = false, style = '') => ({ class: `${cls} ev${people(e).length ? '' : e.allDay ? ' solid' : ' plain'}${past ? ' past' : ''}`, style: [style, people(e).length ? `background:${paint(e)}` : ''].filter(Boolean).join(';') || null });
+/** A person's round mark: their initial, in their color. */
+const mark = (name, cls = '') => h('span', { class: 'q-av ' + cls, style: `--c:${house.color(name)}` }, String(name).trim().charAt(0).toUpperCase());
+const marks = (e, cls = 'sm') => (people(e).length ? h('span', { class: 'avs' }, people(e).map((n) => mark(n, cls))) : null);
+/** A person to choose: their mark and name on a pill. */
+const who = (name, on, tap) => h('button', { class: 'q-who' + (on ? ' on' : ''), tap }, h('span', { class: 'q-av sm', style: `background:${house.color(name)}` }, String(name).trim().charAt(0).toUpperCase()), name);
 /** Redraw an element's insides, keeping where each [data-keep] part was scrolled to. */
 function keepScroll(root, fn) {
   const at = {};
@@ -124,12 +133,14 @@ const DAYS = 7;
 /** How far ahead the list goes. */
 const AGENDA_DAYS = 21;
 /** The view it opens on: "day", "week", "month" or "list". */
-const START_VIEW = matchMedia('(max-width: 700px)').matches ? 'list' : 'week'; // (a phone: the list, docs/phones.md)
+const START_VIEW = 'week';
+/** A phone (docs/phones.md, "Narrow screens"): the week is a list under its days, and the top row is shorter. */
+const narrow = () => matchMedia('(max-width: 700px)').matches;
 const REPEATS = [[null, 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month'], ['yearly', 'Every year']];
 
 let H = null, events = [], view = START_VIEW, weeks = 0, months = 0, days = 0;
 /** The day view's hours (it scrolls to now; earlier and later are a scroll away). */
-const FIRST_HOUR = 0, HOURS = 24, HOUR_U = 64;
+const FIRST_HOUR = 0, HOURS = 24, HOUR_U = 60;
 let scrolledTo = null; // the day the day view last scrolled itself to (after that it stays where they put it)
 
 function draw() {
@@ -143,16 +154,20 @@ const monthStart = (t, plus = 0) => { const d = new Date(dayStart(t)); d.setDate
 const FIRST_DAY = (() => { try { const l = new Intl.Locale(navigator.language); const w = l.getWeekInfo?.() || l.weekInfo; return (w?.firstDay ?? 7) % 7; } catch { return 0; } })(); // 0: Sunday
 const weekStart = (t) => { let d = dayStart(t); while (new Date(d).getDay() !== FIRST_DAY) d = dayStart(d, -1); return d; };
 const fmt = (t, o) => new Date(t).toLocaleDateString(undefined, o);
+/** The time, short, for where there's little room: "9:15a", "5p". */
+const shortTime = (t) => { const d = new Date(t), hr = d.getHours(), m = d.getMinutes(); return `${hr % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''}${hr < 12 ? 'a' : 'p'}`; };
+/** An event's hours: "9:15 – 10:45a", "11a – 1p". */
+const shortSpan = (e) => { if (!e.t1) return shortTime(e.t0); const a = shortTime(e.t0), b = shortTime(e.t1); return `${a.at(-1) === b.at(-1) ? a.slice(0, -1) : a} – ${b}`; };
 const timeOf = (t) => { const d = new Date(t), hr = d.getHours(), m = d.getMinutes(); return `${hr % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''} ${hr < 12 ? 'AM' : 'PM'}`; };
 const onDay = (e, day) => e.t0 < dayStart(day, 1) && (e.t1 ?? e.t0 + 1) > day && !(e.allDay && (e.t1 ?? 0) <= day);
 const eventsOn = (day) => events.filter((e) => onDay(e, day)).sort((a, b) => (b.allDay - a.allDay) || a.t0 - b.t0);
 /** All day, or running past midnight into another day: shown as one bar across its days (week and month). */
 const spans = (e) => e.allDay || (e.t1 != null && dayStart(e.t1 - 1) > dayStart(e.t0));
 /** The bars for the days from `first`, `n` of them: each spanning event once, packed into lanes (rows) so none overlap.
- *  a, b: its first and last column; cutL/cutR: it goes on before or after these days. */
-function bars(first, n) {
+ *  a, b: its first and last column; cutL/cutR: it goes on before or after these days. keep: which of them. */
+function bars(first, n, keep = () => true) {
   const last = dayStart(first, n);
-  const list = events.filter((e) => spans(e) && e.t0 < last && (e.t1 ?? e.t0 + 1) > first)
+  const list = events.filter((e) => spans(e) && keep(e) && e.t0 < last && (e.t1 ?? e.t0 + 1) > first)
     .sort((x, y) => x.t0 - y.t0 || (y.t1 ?? 0) - (x.t1 ?? 0));
   const col = (t) => Math.round((dayStart(t) - first) / 86400000);
   const lanes = [];
@@ -222,33 +237,39 @@ function fromAppsCard() {
     ];
   }, { width: 1100 });
 }
-const barKids = (e, cutL) => [!e.allDay && !cutL ? h('span', { class: 'bt' }, timeOf(e.t0)) : null, h('span', { class: 'bw' }, e.title)];
+const barKids = (e, cutL) => [!e.allDay && !cutL ? h('span', { class: 'bt' }, shortTime(e.t0)) : null, h('span', { class: 'bw' }, e.title)];
 const repeatLabel = (r) => REPEATS.find(([k]) => k === r)?.[1];
 const dayName = (d, today) => d === today ? 'Today' : d === dayStart(today, 1) ? 'Tomorrow' : null;
 
+const VIEWS = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List']];
+
 function screen() {
   if (!H) return h('div');
-  const today = dayStart(Date.now()), from = dayStart(today, weeks * DAYS);
-  const oneDay = dayStart(today, days);
-  const title = view === 'month' ? fmt(monthStart(today, months), { month: 'long', year: 'numeric' }) : view === 'day' ? (dayName(oneDay, today) || fmt(oneDay, { weekday: 'long' })) + ' ' + fmt(oneDay, { month: 'long', day: 'numeric' }) : fmt(view === 'list' ? today : from, { month: 'long' });
+  const today = dayStart(Date.now()), from = dayStart(today, weeks * DAYS), oneDay = dayStart(today, days), small = narrow();
+  const at = view === 'month' ? monthStart(today, months) : view === 'list' ? today : from;
+  const [name, rest] = view === 'day' ? [fmt(oneDay, { weekday: small ? 'short' : 'long' }), fmt(oneDay, { month: small ? 'short' : 'long', day: 'numeric' })] : [fmt(at, { month: 'long' }), small ? null : fmt(at, { year: 'numeric' })];
   const set = (f) => () => { f(); draw(); };
+  // Stepping: earlier, later and back to today (how far each view goes is the same as ever).
+  const step = view === 'day' ? { back: () => days--, noBack: days <= -30, on: () => days++, noOn: days >= 60, home: () => { days = 0; }, away: days !== 0 }
+    : view === 'week' ? { back: () => weeks--, noBack: weeks <= -4, on: () => weeks++, noOn: weeks >= 9, home: () => { weeks = 0; }, away: weeks !== 0 }
+    : view === 'month' ? { back: () => months--, noBack: months <= -1, on: () => months++, noOn: months >= 2, home: () => { months = 0; }, away: months !== 0 } : null;
+  const tools = [round('photo', fromPhoto, { label: 'From a photo of a flyer' }), round('bell', remindersCard, { label: 'Reminders' })];
+  const link = (label, tap) => h('button', { class: 'quiet', tap }, label);
   return h('div', { class: 'screen' },
     h('div', { class: 'top' },
-      h('h1', { class: 'title' }, title),
-      chip('Day', view === 'day', set(() => { view = 'day'; })),
-      chip('Week', view === 'week', set(() => { view = 'week'; })),
-      chip('Month', view === 'month', set(() => { view = 'month'; })),
-      chip('List', view === 'list', set(() => { view = 'list'; })),
-      view === 'day' ? [round('left', set(() => days--), { disabled: days <= -30, label: 'Earlier' }), days !== 0 ? chip('Today', false, set(() => { days = 0; })) : null, round('right', set(() => days++), { disabled: days >= 60, label: 'Later' })] : null,
-      view === 'week' ? [round('left', set(() => weeks--), { disabled: weeks <= -4, label: 'Earlier' }), weeks !== 0 ? chip('This week', false, set(() => { weeks = 0; })) : null, round('right', set(() => weeks++), { disabled: weeks >= 9, label: 'Later' })] : null,
-      view === 'month' ? [round('left', set(() => months--), { disabled: months <= -1, label: 'Earlier' }), round('right', set(() => months++), { disabled: months >= 2, label: 'Later' })] : null,
-      round('photo', fromPhoto, { label: 'From a photo of a flyer' }),
-      round('bell', remindersCard, { label: 'Reminders' }),
+      h('h1', { class: 'title' }, name, rest ? [' ', h('span', null, rest)] : null),
+      h('div', { class: 'q-seg' }, VIEWS.map(([k, l]) => h('button', { class: view === k ? 'on' : null, 'aria-pressed': String(view === k), tap: set(() => { view = k; }) }, l))),
+      step ? [round('left', set(step.back), { disabled: step.noBack, label: 'Earlier' }), small ? null : chip('Today', false, set(step.home)), round('right', set(step.on), { disabled: step.noOn, label: 'Later' })] : null,
+      small ? null : tools,
       round('plus', () => guard(() => eventForm(null, view === 'day' ? oneDay : today)), { dark: true, label: 'Add' })),
-    view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? agenda(today) : view === 'day' ? dayView(oneDay, today) : weekView(from, today),
-    h('div', { class: 'note' },
-      onScreen?.kind === 'phone' ? null : btn('Add a calendar', addCalendar, { soft: H.calendars !== 0 }), // (on the display, behind the PIN)
-      H.fromApps?.length ? btn('From apps', fromAppsCard, { soft: true }) : null));
+    view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? dayList(today, AGENDA_DAYS, today, false)
+      : view === 'day' ? dayView(oneDay, today) : small ? [strip(from, today, today, openDay), dayList(from, DAYS, today, true)] : weekView(from, today),
+    // (a phone has less of a top row: its tools are down here, and Today only once they've stepped away)
+    h('div', { class: 'foot' },
+      small && step?.away ? chip('Today', false, set(step.home)) : null,
+      small ? tools : null,
+      onScreen?.kind === 'phone' ? null : H.calendars === 0 ? btn('Add a calendar', addCalendar, { soft: true }) : link('Add a calendar', addCalendar), // (on the display, behind the PIN)
+      H.fromApps?.length ? link('From apps', fromAppsCard) : null));
 }
 
 /** A calendar by its link: on the display, behind the PIN (the shell keeps the links, sealed). */
@@ -256,41 +277,73 @@ function addCalendar() {
   if (!phone.addCalendar()) openCard((close) => [h('h2', null, 'Add a calendar'), h('p', { class: 'line light' }, 'On the display: Add a calendar here, or Settings, Family. From a computer, ask Claude or ChatGPT to add it with the calendar’s link.'), h('div', { class: 'actions' }, btn('OK', close))]);
 }
 
-/** The forecast by day ("YYYY-MM-DD" -> {high, rain}), for the day headers. */
-let forecast = {};
-const loadForecast = () => weather().then((w) => { if (!w?.days) return; forecast = Object.fromEntries(w.days.map((d) => [d.date, d])); if (H) draw(); });
-const dayWeather = (day) => {
-  const f = forecast[house.dayKey(new Date(day))]; if (!f) return null;
-  return h('span', { class: 'wx' }, `${f.high}°`, f.rain >= 40 ? h('span', { class: 'wx-rain', title: 'chance of rain' }, ` ${f.rain}%`) : null);
-};
+/** The weather: all of it (today's sunrise and sunset), and its days by date ("YYYY-MM-DD" -> {high, low, code, condition, rain}). */
+let sky = null, forecast = {};
+const loadForecast = () => weather().then((w) => { if (!w?.days) return; sky = w; forecast = Object.fromEntries(w.days.map((d) => [d.date, d])); if (H) draw(); });
+const forecastOn = (day) => forecast[house.dayKey(new Date(day))] || null;
+const skyMark = (code) => h('span', { class: 'sky', html: skyIcon(code) });
+const U = (n) => `calc(${n} * var(--u))`;
+/** Is it over? (a day's own things once the day is, the rest once they end) */
+const isPast = (e, now) => (e.t1 ?? (e.allDay ? dayStart(e.t0, 1) : e.t0)) <= now;
 
-/** The week: a column a day; across the top, under the days, all-day and multi-day things as one bar each. */
+/** Seven days to step through, one of them chosen (the day view's, and a phone's week). */
+const strip = (from, on, today, pick) => h('div', { class: 'strip q-panel' }, [...Array(7)].map((_, i) => {
+  const d = dayStart(from, i);
+  return h('div', { class: 'sday' + (d === today ? ' today' : '') + (d === on ? ' on' : ''), tap: () => pick(d) }, h('small', null, fmt(d, { weekday: 'short' })), fmt(d, { day: 'numeric' }));
+}));
+
+/** The parts of a day the week is laid out in: [name, icon, the hour it ends, how much of the height it gets]. */
+const PARTS = [['Morning', 'horizon', 12, 1], ['Afternoon', 'sun', 17, 1], ['Evening', 'moon', 24, 1.25]];
+const partOf = (t) => { const hr = new Date(t).getHours(); return PARTS.findIndex(([, , end]) => hr < end); };
+
+/** The week: a column a day, and across the columns the parts of the day. All-day things (and what began before these
+ *  days) are bars under the days' names; something at a time that runs over several days is a card across them, in the
+ *  part of the day it starts. */
 function weekView(from, today) {
-  const now = Date.now(), { list, lanes } = bars(from, DAYS);
-  const L = 2 + lanes; // the grid row the timed events go in
-  return h('div', { class: 'week', style: `grid-template-rows:auto ${lanes ? `repeat(${lanes}, auto) ` : ''}minmax(0, 1fr)` },
+  const now = Date.now();
+  const timed = (e) => !e.allDay && e.t0 >= from;
+  const top = bars(from, DAYS, (e) => !timed(e)), across = PARTS.map((_, k) => bars(from, DAYS, (e) => timed(e) && partOf(e.t0) === k));
+  // The grid's rows: the days' names, a row per lane of bars, the apps' notes, then for each part its cards across days and its events.
+  const rows = ['auto']; let r = 2;
+  const barsAt = r; for (let i = 0; i < Math.max(1, top.lanes); i++, r++) rows.push(`minmax(${U(48)}, auto)`);
+  const notesAt = r++; rows.push(`minmax(${U(12)}, auto)`);
+  const at = PARTS.map(([, , , fr], k) => { const start = r; for (let i = 0; i < across[k].lanes; i++, r++) rows.push('auto'); rows.push(`minmax(min-content, ${fr}fr)`); return { start, cell: r++ }; });
+  const nowPart = partOf(now);
+  return h('div', { class: 'week', 'data-keep': 'week', style: `grid-template-rows:${rows.join(' ')}` },
     [...Array(DAYS)].map((_, i) => {
-      const day = dayStart(from, i), isToday = day === today;
+      const day = dayStart(from, i), isToday = day === today, c = `grid-column:${i + 2}`, f = forecastOn(day);
+      const list = eventsOn(day).filter((e) => !spans(e)), notes = notesEl(day, 'week'); // the apps' notes (a school lunch): with what holds all day
       return [
-        h('div', { class: 'col' + (isToday ? ' today' : ''), style: `grid-column:${i + 1};grid-row:1 / -1` }),
-        h('div', { class: 'col-top' + (isToday ? ' today' : ''), style: `grid-column:${i + 1};grid-row:1`, tap: () => openDay(day) },
-          h('span', { class: 'dow' }, fmt(day, { weekday: 'short' })),
-          h('span', { class: 'num' }, fmt(day, { day: 'numeric' })),
-          dayWeather(day)),
-        h('div', { class: 'col-events vscroll', style: `grid-column:${i + 1};grid-row:${L}`, 'data-keep': 'col' + i },
-          eventsOn(day).filter((e) => !spans(e)).map((e) => eventChip(e, isToday && (e.t1 ?? e.t0) < now)),
-          notesEl(day, 'week'), // the apps' notes (a school lunch): the next thing after the day's events
-          h('div', { class: 'col-rest', tap: () => openDay(day) })),
+        h('div', { class: 'col' + (isToday ? ' today' : ''), style: `${c};grid-row:1 / -1` }),
+        h('div', { class: 'dh' + (isToday ? ' today' : ''), style: `${c};grid-row:1`, tap: () => openDay(day) },
+          h('div', { class: 'q-label' }, isToday ? 'Today' : fmt(day, { weekday: 'short' })),
+          h('div', { class: 'n' }, h('b', null, fmt(day, { day: 'numeric' })), f ? h('span', { class: 'wxm' }, skyMark(f.code), `${f.high}°`) : null)),
+        notes ? h('div', { class: 'wcell notes', style: `${c};grid-row:${top.list.some((x) => x.a <= i && x.b >= i) ? notesAt : barsAt} / ${notesAt + 1}` }, notes) : null, // (under the bars that cross this day)
+        PARTS.map((_, k) => {
+          const mine = list.filter((e) => partOf(e.t0) === k), kids = mine.map((e) => eventChip(e, isPast(e, now)));
+          // now, between what's done and what's to come
+          if (isToday && k === nowPart) { const next = mine.findIndex((e) => e.t0 > now); kids.splice(next < 0 ? kids.length : next, 0, h('div', { class: 'now' })); }
+          // (under a card that crosses this day; else from the top of the part, level with the days beside it)
+          const under = across[k].list.some((x) => x.a <= i && x.b >= i);
+          return h('div', { class: 'wcell', style: `${c};grid-row:${under ? at[k].cell : at[k].start} / ${at[k].cell + 1}`, tap: () => openDay(day) }, kids);
+        }),
       ];
     }),
-    list.map(({ e, a, b, lane, cutL, cutR }) => h('div', {
-      class: 'wbar' + (cutL ? ' cut-l' : '') + (cutR ? ' cut-r' : '') + ((e.t1 ?? (e.allDay ? dayStart(e.t0, 1) : e.t0)) <= now ? ' past' : ''),
-      style: `grid-column:${a + 1} / ${b + 2};grid-row:${2 + lane};background:${paint(e, .32)}`, tap: () => openEvent(e) }, barKids(e, cutL))));
+    h('div', { class: 'bline', style: `grid-row:${barsAt}` }), h('div', { class: 'band', style: `grid-row:${barsAt} / ${notesAt + 1}` }, 'All day'),
+    PARTS.map(([name, ic], k) => [h('div', { class: 'bline', style: `grid-row:${at[k].start}` }), h('div', { class: 'band', style: `grid-row:${at[k].start} / ${at[k].cell + 1}` }, icon(ic, 'thin'), name)]),
+    top.list.map(({ e, a, b, lane, cutL, cutR }) => h('div', { ...evLook(e, 'wbar' + (cutL ? ' cut-l' : '') + (cutR ? ' cut-r' : ''), isPast(e, now), `grid-column:${a + 2} / ${b + 3};grid-row:${barsAt + lane}`), tap: () => openEvent(e) }, barKids(e, cutL))),
+    across.map((p, k) => p.list.map(({ e, a, b, lane, cutR }) => h('div', { ...evLook(e, 'chipv across' + (cutR ? ' cut-r' : ''), isPast(e, now), `grid-column:${a + 2} / ${b + 3};grid-row:${at[k].start + lane}`), tap: () => openEvent(e) },
+      h('div', { class: 'when' }, shortTime(e.t0)), h('div', { class: 'what' }, e.title),
+      h('div', { class: 'whose' }, [whoText(e), `until ${fmt(e.t1, { weekday: 'long' })}`].filter(Boolean).join(' · '))))));
 }
 
-/** One day by the hour: all-day things across the top, the rest where they fall, and a line at now. */
+/** How soon: "in 20 minutes", "in 2 hours" ('' when it's far off). */
+const inText = (t, now) => { const m = Math.round((t - now) / 60e3), hrs = Math.round(m / 60); return m < 60 ? `in ${m} ${m === 1 ? 'minute' : 'minutes'}` : m < 600 ? `in ${hrs} ${hrs === 1 ? 'hour' : 'hours'}` : ''; };
+
+/** One day: at the left the days to step through, what's next and what holds for the whole day (all-day things, the
+ *  apps' notes, the meals, the weather); at the right the day by the hour, with a line at now. */
 function dayView(day, today) {
-  const list = eventsOn(day), all = list.filter((e) => e.allDay), timed = list.filter((e) => !e.allDay);
+  const now = Date.now(), list = eventsOn(day), all = list.filter((e) => e.allDay), timed = list.filter((e) => !e.allDay);
   const top = dayStart(day) + FIRST_HOUR * 3600e3, end = top + HOURS * 3600e3;
   // Side by side where they overlap: each takes a lane.
   const lanes = [], placed = timed.map((e) => {
@@ -298,34 +351,52 @@ function dayView(day, today) {
     let lane = lanes.findIndex((l) => l <= a); if (lane < 0) { lane = lanes.length; lanes.push(0); } lanes[lane] = b;
     return { e, a, b, lane };
   });
-  const n = Math.max(1, lanes.length), y = (t) => ((t - top) / 3600e3) * HOUR_U;
-  const grid = h('div', { class: 'hours vscroll', 'data-keep': 'hours', role: 'none', tap: () => {} },
-    h('div', { class: 'hours-in', style: `height:calc(${HOURS * HOUR_U} * var(--u))` },
-      [...Array(HOURS)].map((_, i) => h('div', { class: 'hour', style: `top:calc(${i * HOUR_U} * var(--u));height:calc(${HOUR_U} * var(--u))`,
+  const n = Math.max(1, lanes.length), y = (t) => ((t - top) / 3600e3) * HOUR_U, isNow = day === today && now >= top && now < end;
+  // Today's sunset, at its hour beside the events.
+  const suns = day === today && !narrow() ? [['Sunset', sky?.sunset]].map(([l, t]) => [l, Date.parse(t)]).filter(([, t]) => t >= top && t < end) : [];
+  const side = 96 + (suns.length ? 290 : 20); // what the events leave free: the hours' names, and the marks' column
+  const grid = h('div', { class: 'hours q-panel vscroll', 'data-keep': 'hours', role: 'none', tap: () => {} },
+    h('div', { class: 'hours-in', style: `height:${U(HOURS * HOUR_U)}` },
+      [...Array(HOURS)].map((_, i) => h('div', { class: 'hour', style: `top:${U(i * HOUR_U)};height:${U(HOUR_U)}`,
         tap: () => guard(() => eventForm(null, day, (FIRST_HOUR + i) * 60)) },
-        h('span', { class: 'hour-label' }, i ? `${(FIRST_HOUR + i) % 12 || 12} ${(FIRST_HOUR + i) < 12 ? 'AM' : 'PM'}` : ''))),
+        isNow && Math.abs(now - (top + i * 3600e3)) < 20 * 60e3 ? null : h('span', { class: 'hour-label' }, `${(FIRST_HOUR + i) % 12 || 12}${(FIRST_HOUR + i) < 12 ? 'a' : 'p'}`))),
       placed.map(({ e, a, b, lane }) => {
-        const c = house.color(e.who);
-        return h('div', { class: 'block', style: `top:calc(${y(a)} * var(--u));height:calc(${Math.max(28, y(b) - y(a) - 3)} * var(--u));left:calc(76 * var(--u) + (100% - 76 * var(--u)) * ${lane / n});width:calc((100% - 76 * var(--u)) / ${n} - 6 * var(--u));background:${paint(e, .28)};border-color:${c}`, tap: () => openEvent(e) },
-          h('div', { class: 'block-what' }, e.title), h('div', { class: 'block-when' }, `${timeOf(e.t0)}${e.t1 ? ' – ' + timeOf(e.t1) : ''}${whoText(e) ? ' · ' + whoText(e) : ''}`));
+        const tall = Math.max(30, y(b) - y(a) - 6);
+        return h('div', { ...evLook(e, 'block' + (tall < 52 ? ' tight' : tall < 84 ? ' snug' : ''), day === today && isPast(e, now),
+          `top:${U(y(a) + 3)};height:${U(tall)};left:calc(${U(96)} + (100% - ${U(side)}) * ${lane / n});width:calc((100% - ${U(side)}) / ${n} - ${U(8)})`), tap: () => openEvent(e) },
+          h('div', { class: 'block-when' }, [shortSpan(e), whoText(e)].filter(Boolean).join(' · ')), h('div', { class: 'block-what' }, e.title));
       }),
-      day === today && Date.now() >= top && Date.now() < end ? h('div', { class: 'now-line', style: `top:calc(${y(Date.now())} * var(--u))` }) : null));
-  // Opened on this day: start at the hour before now (or 7 AM), not at midnight.
-  if (scrolledTo !== day) requestAnimationFrame(() => { scrolledTo = day; grid.scrollTop = grid.scrollHeight / HOURS * Math.max(0, (day === today ? new Date().getHours() - 1 : 7) - FIRST_HOUR); });
-  const f = forecast[house.dayKey(new Date(day))];
+      suns.map(([label, t]) => h('div', { class: 'mark', style: `top:${U(y(t) - 31)}` }, h('div', { class: 'itile' }, icon('horizon', 'thin')), h('div', null, h('small', null, shortTime(t)), label))),
+      isNow ? h('div', { class: 'now-line', style: `top:${U(y(now))}` }, h('b', null, timeOf(now).replace(/ [AP]M$/, ''))) : null));
+  // Opened on this day: the day from the morning on (today: with now in view), not from midnight.
+  if (scrolledTo !== day) requestAnimationFrame(() => { scrolledTo = day; const hr = new Date().getHours(); grid.scrollTop = grid.scrollHeight / HOURS * Math.max(0, (day !== today ? 6.75 : hr < 8 ? hr - 1 : hr >= 19 ? Math.min(hr - 10, 10.25) : 6.75) - FIRST_HOUR); });
+
+  const cur = day === today ? timed.find((e) => (e.t1 ?? e.t0) > now) : null; // what's on now, or next
+  const f = forecastOn(day), meals = H.meals?.[house.dayKey(new Date(day))] || {}, slots = (H.mealSlots || []).filter((s) => typeof meals[s] === 'string' && meals[s]);
+  const open = (app) => (shell.canOpenApps ? () => shell.openApp(app) : null);
+  const row = (tile, label, value, tap = null, soft = false) => h('div', { class: 'irow', tap }, tile, h('div', null, h('div', { class: 'q-label' }, label), h('b', { class: soft ? 'soft' : null }, value)));
+  const tile = (...kids) => h('div', { class: 'itile' }, kids);
+  const rows = [
+    all.map((e) => row(h('div', { class: 'itile q-letter', style: people(e).length ? `--c:${house.color(people(e)[0])}` : null }, e.title.trim().charAt(0).toUpperCase()), ['All day', whoText(e)].filter(Boolean).join(' · '), e.title, () => openEvent(e))),
+    notesOn(day).map((x) => row(x.pics?.[0]?.image ? tile(h('img', { class: 'q-photo', src: x.pics[0].image, alt: '' })) : tile(icon('note', 'thin')), noteLabel(x), choices(x.text), () => openNote(x, day))),
+    slots.map((s) => row(tile(icon('fork', 'thin')), s.charAt(0).toUpperCase() + s.slice(1), meals[s], open('meals'))),
+    !slots.length && day >= today && (H.mealSlots || []).includes('dinner') ? row(tile(icon('fork', 'thin')), 'Dinner', 'Not planned yet', open('meals'), true) : null,
+    f ? row(tile(skyMark(f.code)), f.rain >= 40 ? `Weather · ${f.rain}% rain` : 'Weather', `${f.condition ? f.condition + ', ' : ''}${f.high}° / ${f.low}°`, open('weather')) : null,
+  ].flat().filter(Boolean);
   return h('div', { class: 'dayview' },
-    grid,
-    h('div', { class: 'dside vscroll', 'data-keep': 'dside' },
-      f ? h('div', { class: 'dwx' }, h('span', { class: 'hi' }, `${f.high}°`),
-        h('span', { class: 'rest' }, f.condition || '', f.rain >= 40 ? h('span', { class: 'wx-rain' }, `${f.condition ? ', ' : ''}${f.rain}% rain`) : null)) : null,
-      all.map((e) => h('div', { class: 'wbar', style: `background:${paint(e, .32)}`, tap: () => openEvent(e) }, barKids(e, true))),
-      notesEl(day, 'day')));
+    h('div', { class: 'dleft' },
+      strip(dayStart(today, Math.floor(days / 7) * 7), day, today, (d) => { days = Math.round((d - today) / 86400000); draw(); }),
+      cur ? h('div', { class: 'nextc', tap: () => openEvent(cur) },
+        h('div', { class: 'q-label' }, cur.t0 <= now ? 'Now' : ['Next', inText(cur.t0, now)].filter(Boolean).join(' · ')),
+        h('h2', null, cur.title),
+        h('div', { class: 'when' }, marks(cur, ''), [shortTime(cur.t0), whoText(cur), cur.place].filter(Boolean).join(' · '))) : null,
+      rows.length ? h('div', { class: 'info q-panel', 'data-keep': 'info' }, rows) : null),
+    grid);
 }
 
 function eventChip(e, past) {
-  const c = house.color(e.who);
-  return h('div', { class: 'chipv' + (past ? ' past' : ''), style: `background:${paint(e, past ? .14 : .32)}`, tap: () => openEvent(e) },
-    h('div', { class: 'when' }, e.allDay ? 'All day' : timeOf(e.t0)),
+  return h('div', { ...evLook(e, 'chipv', past), tap: () => openEvent(e) },
+    h('div', { class: 'when' }, e.allDay ? 'All day' : shortTime(e.t0)),
     h('div', { class: 'what' }, e.title),
     whoText(e) ? h('div', { class: 'whose' }, whoText(e)) : null,
     e.fromApp ? h('div', { class: 'src' }, e.appName || appName(e.fromApp)) : null);
@@ -336,48 +407,61 @@ function month(first, today) {
   const start = weekStart(first), m = new Date(first).getMonth();
   const last = dayStart(monthStart(first, 1), -1);
   const rows = Math.min(6, Math.max(4, Math.floor(Math.round((last - start) / 86400000) / 7) + 1));
-  const room = rows > 4 ? 2 : 3; // things a day shows, bars included (a third is cut off in a five-week month)
+  // A chip: the time, short (the hour's "a" or "p" only where there are no minutes to tell it by), then the name.
+  const hour = (t) => { const s = shortTime(t); return s.includes(':') ? s.slice(0, -1) : s; };
+  const mev = (e, cls, past, style, tap, cutL = false) => h('div', { ...evLook(e, 'mev' + cls, past, style), tap }, !e.allDay && !cutL ? h('span', null, hour(e.t0)) : null, h('em', null, e.title));
   return h('div', { class: 'month' },
-    h('div', { class: 'mhead' }, [...Array(7)].map((_, i) => h('div', { class: 'mdow' }, fmt(dayStart(start, i), { weekday: 'short' })))),
+    h('div', { class: 'mhead' }, [...Array(7)].map((_, i) => h('div', { class: 'mdow q-label' }, fmt(dayStart(start, i), { weekday: 'short' })))),
     [...Array(rows)].map((_, r) => {
-      const wk = dayStart(start, r * 7), { list, lanes } = bars(wk, 7);
-      const shown = list.filter((x) => x.lane < room), left = Math.max(0, room - lanes);
-      return h('div', { class: 'mweek', style: `grid-template-rows:auto ${Math.min(lanes, room) ? `repeat(${Math.min(lanes, room)}, auto) ` : ''}minmax(0, 1fr)` },
+      const wk = dayStart(start, r * 7), { list, lanes } = bars(wk, 7), thisWeek = today >= wk && today < dayStart(wk, 7);
+      const room = (rows > 4 ? 2 : 3) + (thisWeek && !narrow() ? 1 : 0); // things a day shows, bars included (this week's row is the tall one)
+      const shown = list.filter((x) => x.lane < room);
+      return h('div', { class: 'mweek' + (thisWeek ? ' this' : ''), style: `grid-template-rows:auto ${Math.min(lanes, room) ? `repeat(${Math.min(lanes, room)}, auto) ` : ''}minmax(0, 1fr)` },
         [...Array(7)].map((_, i) => {
-          const day = dayStart(wk, i), inMonth = new Date(day).getMonth() === m, isToday = day === today;
-          const all = eventsOn(day), rest = all.filter((e) => !spans(e)), hidden = all.length - rest.slice(0, left).length - shown.filter((x) => x.a <= i && x.b >= i).length;
+          const day = dayStart(wk, i), inMonth = new Date(day).getMonth() === m, isToday = day === today, date = new Date(day).getDate();
+          const all = eventsOn(day), rest = all.filter((e) => !spans(e)), over = shown.filter((x) => x.a <= i && x.b >= i);
+          // Its own events start under the lowest bar that crosses it (a day no bar crosses starts at the top).
+          const depth = Math.max(0, ...over.map((x) => x.lane + 1));
+          // What doesn't fit is counted on the last line, in place of the last chip.
+          let take = rest.slice(0, Math.max(0, room - depth)), hidden = all.length - take.length - over.length;
+          if (hidden > 0 && take.length) { take = take.slice(0, -1); hidden++; }
           return [
             h('div', { class: 'cell' + (isToday ? ' today' : inMonth ? '' : ' out'), style: `grid-column:${i + 1};grid-row:1 / -1`, tap: () => openDay(day) }),
-            h('span', { class: 'num' + (isToday ? ' now' : inMonth ? '' : ' out'), style: `grid-column:${i + 1};grid-row:1`, tap: () => openDay(day) }, fmt(day, { day: 'numeric' })),
-            h('div', { class: 'cell-rest', style: `grid-column:${i + 1};grid-row:-2`, tap: () => openDay(day) },
-              rest.slice(0, left).map((e) => h('div', { class: 'mev', style: `background:${paint(e, .32)}` }, e.title)),
+            h('div', { class: 'mnum' + (isToday ? ' today' : !inMonth ? ' out' : day < today ? ' past' : ''), style: `grid-column:${i + 1};grid-row:1`, tap: () => openDay(day) },
+              h('b', null, date), isToday ? h('small', { class: 'q-label' }, 'Today') : date === 1 ? h('small', { class: 'q-label' }, fmt(day, { month: 'short' })) : null),
+            h('div', { class: 'cell-rest', style: `grid-column:${i + 1};grid-row:${2 + depth} / -1`, tap: () => openDay(day) },
+              take.map((e) => mev(e, '', day < today)),
               hidden > 0 ? h('div', { class: 'more' }, `+${hidden} more`) : null),
           ];
         }),
-        shown.map(({ e, a, b, lane, cutL, cutR }) => h('div', { class: 'mev mbar' + (cutL ? ' cut-l' : '') + (cutR ? ' cut-r' : ''),
-          style: `grid-column:${a + 1} / ${b + 2};grid-row:${2 + lane};background:${paint(e, .32)}`, tap: () => openEvent(e) }, e.title)));
+        shown.map(({ e, a, b, lane, cutL, cutR }) => mev(e, ' mbar' + (cutL ? ' cut-l' : '') + (cutR ? ' cut-r' : ''), (e.t1 ?? dayStart(e.t0, 1)) <= today,
+          `grid-column:${a + 1} / ${b + 2};grid-row:${2 + lane}`, () => openEvent(e), cutL)));
     }));
 }
 
-function eventRow(e) {
-  return h('div', { class: 'erow', tap: () => openEvent(e) },
-    h('span', { class: 'when' }, e.allDay ? 'All day' : timeOf(e.t0)),
-    h('span', { class: 'dot', style: `background:${dotPaint(e)}` }),
+/** An event as a row, in its person's color: when, what, and whose (their marks). */
+function eventRow(e, past = false) {
+  return h('div', { ...evLook(e, 'erow', past), tap: () => openEvent(e) },
+    h('span', { class: 'when' }, e.allDay ? 'All day' : shortTime(e.t0)),
     h('span', { class: 'what' }, e.title),
-    whoText(e) ? h('span', { class: 'whose' }, whoText(e)) : null);
+    marks(e));
 }
 
-function agenda(today) {
+/** The days from `first` as a list, the ones with something on them: the day's name and weather, its events as rows,
+ *  the apps' notes. done: keep what's over today, faded (a week), or leave it out (what's coming up). */
+function dayList(first, n, today, done) {
   const now = Date.now(), out = [];
-  for (let i = 0; i < AGENDA_DAYS; i++) {
-    const day = dayStart(today, i);
-    const list = eventsOn(day).filter((e) => e.allDay || (e.t1 ?? e.t0) >= now || i > 0);
+  for (let i = 0; i < n; i++) {
+    const day = dayStart(first, i);
+    const list = eventsOn(day).filter((e) => done || e.allDay || (e.t1 ?? e.t0) >= now || day > today);
     if (!list.length && !notesOn(day).length) continue;
-    out.push(h('h2', { class: 'aday' + (i === 0 ? ' today' : '') }, dayName(day, today) || fmt(day, { weekday: 'long', month: 'short', day: 'numeric' })),
-      list.length ? h('div', { class: 'rows' }, list.map(eventRow)) : null,
+    const f = forecastOn(day), near = dayName(day, today);
+    out.push(h('h2', { class: 'dl', tap: () => openDay(day) }, near || fmt(day, { weekday: 'long' }),
+        h('span', null, [near ? null : fmt(day, { month: 'short', day: 'numeric' }), f ? `${f.condition ? f.condition.toLowerCase() + ', ' : ''}${f.high}°` : null].filter(Boolean).join(' · '))),
+      list.map((e) => eventRow(e, isPast(e, now))),
       notesEl(day, 'list'));
   }
-  return h('div', { class: 'agenda vscroll', 'data-keep': 'agenda' }, out.length ? out : h('p', { class: 'nothing' }, 'Nothing coming up'));
+  return h('div', { class: 'agenda', 'data-keep': 'agenda' }, out.length ? out : h('p', { class: 'nothing' }, done ? 'Nothing these days' : 'Nothing coming up'));
 }
 
 /** One day up close: everything on it, and adding to it. */
@@ -386,10 +470,10 @@ function openDay(day) {
     const today = dayStart(Date.now()), list = eventsOn(day);
     return [
       h('div', { class: 'card-top' },
-        h('h2', { class: 'day-name' + (day === today ? ' today' : '') }, dayName(day, today) || fmt(day, { weekday: 'long' })),
-        // The hour-by-hour view is a quiet link here, not a third button (docs/ux.md).
-        h('button', { class: 'day-date', onclick: () => { close(); view = 'day'; days = Math.round((day - today) / 86400000); draw(); } }, `${fmt(day, { month: 'long', day: 'numeric' })} · by the hour`)),
-      h('div', { class: 'rows vscroll day-rows', 'data-keep': 'day' }, list.length ? list.map(eventRow) : h('p', { class: 'nothing small' }, 'Nothing yet')),
+        h('h2', { class: 'day-name' }, dayName(day, today) || fmt(day, { weekday: 'long' }), ' ',
+          // The hour-by-hour view is a quiet link here, not a third button (docs/ux.md).
+          h('button', { class: 'by-hour', onclick: () => { close(); view = 'day'; days = Math.round((day - today) / 86400000); draw(); } }, `${fmt(day, { month: 'long', day: 'numeric' })} · by the hour`))),
+      h('div', { class: 'vscroll day-rows', 'data-keep': 'day' }, list.length ? list.map((e) => eventRow(e)) : h('p', { class: 'nothing small' }, 'Nothing yet')),
       h('div', { class: 'actions' }, btn('Close', close, { soft: true }), btn('Add', () => { close(); eventForm(null, day); })),
     ];
   }, { width: 860 });
@@ -403,7 +487,7 @@ function openEvent(e) {
   let counting = !!e.countdown;
   const later = e.t0 > Date.now() && (mine || e.uid);
   openCard((close) => [
-    h('div', { class: 'ev-title' }, h('span', { class: 'dot big', style: `background:${dotPaint(e)}` }), h('h2', { class: 'big' }, e.title)),
+    h('div', { class: 'ev-title' }, marks(e, 'lg'), h('h2', { class: 'big' }, e.title)),
     h('p', { class: 'line' }, fmt(e.t0, { weekday: 'long', month: 'long', day: 'numeric' }) + (e.allDay ? '' : ' · ' + timeOf(e.t0) + (e.t1 ? ' – ' + timeOf(e.t1) : ''))),
     e.repeat ? h('p', { class: 'line' }, repeatLabel(e.repeat) + (e.until ? `, until ${fmt(Date.parse(e.until + 'T12:00'), { month: 'long', day: 'numeric' })}` : '')) : null,
     e.place ? h('p', { class: 'line light' }, e.place) : null,
@@ -489,10 +573,10 @@ function showFlyer() {
     return [
       h('h2', null, evs.length === 1 ? 'Add this from the flyer?' : 'Add these from the flyer?'),
       h('div', { class: 'flyer-list' }, evs.map((e, i) => h('button', { class: 'flyer-ev' + (flyerPick.on.has(i) ? ' on' : ''), tap: () => { flyerPick.on.has(i) ? flyerPick.on.delete(i) : flyerPick.on.add(i); redraw(); } },
-        h('span', { class: 'tick' }, flyerPick.on.has(i) ? icon('check') : null),
-        h('span', { class: 'what' }, h('b', null, e.title), h('span', null, [when(e), e.place].filter(Boolean).join(' · ')), e.notes ? h('span', { class: 'n' }, e.notes) : null)))),
+        h('span', { class: 'q-check' + (flyerPick.on.has(i) ? ' on' : '') }, icon('check')),
+        h('span', { class: 'fwhat' }, h('b', null, e.title), h('span', null, [when(e), e.place].filter(Boolean).join(' · ')), e.notes ? h('span', { class: 'n' }, e.notes) : null)))),
       h('div', { class: 'row' }, h('span', { class: 'label' }, 'Whose'), h('div', { class: 'chips' }, chip('Everyone', flyerPick.who == null, () => { flyerPick.who = null; redraw(); }),
-        (H.family || []).map((p) => chip(p.name, same(flyerPick.who, p.name), () => { flyerPick.who = p.name; redraw(); }, house.color(p.name))))),
+        (H.family || []).map((p) => who(p.name, same(flyerPick.who, p.name), () => { flyerPick.who = p.name; redraw(); })))),
       h('div', { class: 'actions' }, btn('Not now', () => done(close), { soft: true }),
         btn(n === 0 ? 'Add' : n === 1 ? 'Add 1' : `Add ${n}`, () => guard(() => {
           for (const i of [...flyerPick.on].sort()) {
@@ -572,7 +656,7 @@ function eventForm(e = null, startDay = null, startMin = null) {
           h('span', { class: 'label soft' }, `until ${label((f.min + f.len) % 1440)}`))) : null,
       H.family?.length ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Whose'),
         h('div', { class: 'chips' }, chip('Everyone', !f.people.length, pick(() => { f.people = []; })),
-          H.family.map((p) => chip(p.name, f.people.some((n) => same(n, p.name)), pick(() => { f.people = f.people.some((n) => same(n, p.name)) ? f.people.filter((n) => !same(n, p.name)) : [...f.people, p.name]; }), house.color(p.name))))) : null,
+          H.family.map((p) => who(p.name, f.people.some((n) => same(n, p.name)), pick(() => { f.people = f.people.some((n) => same(n, p.name)) ? f.people.filter((n) => !same(n, p.name)) : [...f.people, p.name]; }))))) : null,
       h('div', { class: 'row' }, h('span', { class: 'label' }, 'Repeats'),
         h('div', { class: 'chips' }, REPEATS.map(([r, l]) => chip(l, f.repeat === r, pick(() => { f.repeat = r; if (!r) f.until = null; }))))),
       f.repeat ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Until'),
