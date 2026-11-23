@@ -156,7 +156,7 @@
 .ptoday .t-pick { border-radius: 16px; }
 .ptoday .t-dish { flex: none; height: 78px; }
 .ptoday .t-pick b { font-size: 14px; }
-.ptoday .t-items { flex: none; grid-template-rows: none; grid-auto-rows: 46px; }
+.ptoday .t-items { flex: none; grid-template-rows: none; grid-auto-rows: 46px; grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); } /* one column on a phone */
 .ptoday .t-rings { margin-bottom: 4px; }
 .ptoday .h-veil { z-index: 40; }
 .ptoday .h-note-full, .ptoday .t-nsheet.h-note-full { width: calc(100% - 32px); border-radius: 28px; }
