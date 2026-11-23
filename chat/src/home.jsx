@@ -419,10 +419,10 @@ function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp, shell,
   </div>);
   if (kinds.has('lists') && list) cards.push(<div key="lists" {...card('lists')}>
     <div className="h-label">{list.name}</div>
-    {/* As many as the card has room for (it showed three under "Groceries · 4"); the rest as a count that opens Lists. */}
-    {items.length || ticked ? <div className="t-rows">{items.slice(0, items.length > 6 ? 5 : 6).map((i) => (
+    {/* Five fit the card (six cut the last one off); more than that, four and a count. */}
+    {items.length || ticked ? <div className="t-rows">{items.slice(0, items.length > 5 ? 4 : 5).map((i) => (
       <div key={i.id} className="t-row"><span className="t-box" role="button" aria-label={'Got ' + i.text} onClick={(e) => tick(e, i)} /><span className="h-grow">{i.text}</span></div>
-    ))}{items.length > 6 && <div className="t-row t-soft">and {items.length - 5} more</div>}{ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Undo</span>}</div>
+    ))}{items.length > 5 && <div className="t-row t-soft">and {items.length - 4} more</div>}{ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Undo</span>}</div>
       : <div className="t-big t-quiet">Nothing to get</div>}
   </div>);
   // The apps' own cards the household turned on, in their order, before the notes and the photo (wide: across two columns).
