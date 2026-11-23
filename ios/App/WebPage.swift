@@ -20,7 +20,14 @@ struct WebPage: UIViewRepresentable {
     try { localStorage.setItem('openhouse.phone.homeLater', 'true'); localStorage.setItem('openhouse.phone.shortcut', 'true'); } catch (e) {}
     """
     cfg.userContentController.addUserScript(WKUserScript(source: early, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    #if DEBUG
+    // The voice session's own log, here in the app's log (Console, or simctl's).
+    let debug = "globalThis.OPENHOUSE_LIVE_DEBUG = true; const d = console.debug; console.debug = (...a) => { try { webkit.messageHandlers.log.postMessage(a.map(String).join(' ')); } catch (e) {} d.apply(console, a); };"
+    cfg.userContentController.addUserScript(WKUserScript(source: debug, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+    cfg.userContentController.add(context.coordinator, name: "log")
+    #endif
     let v = WKWebView(frame: .zero, configuration: cfg)
+    WebPage.noFormBar(v)
     v.navigationDelegate = context.coordinator
     v.uiDelegate = context.coordinator
     v.allowsBackForwardNavigationGestures = false
@@ -46,7 +53,24 @@ struct WebPage: UIViewRepresentable {
     }
   }
 
-  final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
+  /// No Safari form bar (up, down, Done) above the keyboard: an app's own text box has none. WebKit gives the content
+  /// view its accessory, so the content view gets a subclass that has none.
+  static func noFormBar(_ v: WKWebView) {
+    guard let content = v.scrollView.subviews.first(where: { String(describing: type(of: $0)).hasPrefix("WKContent") }) else { return }
+    let base: AnyClass = type(of: content), name = "\(NSStringFromClass(base))_NoFormBar"
+    var cls: AnyClass? = NSClassFromString(name)
+    if cls == nil, let c = objc_allocateClassPair(base, name, 0) {
+      let none: @convention(block) (AnyObject) -> AnyObject? = { _ in nil }
+      if let m = class_getInstanceMethod(UIView.self, #selector(getter: UIResponder.inputAccessoryView)) {
+        class_addMethod(c, #selector(getter: UIResponder.inputAccessoryView), imp_implementationWithBlock(none), method_getTypeEncoding(m))
+      }
+      objc_registerClassPair(c); cls = c
+    }
+    if let cls { object_setClass(content, cls) }
+  }
+
+  final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+    func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) { print("[page]", m.body) }
     var loaded: URL?
 
     func webView(_ v: WKWebView, decidePolicyFor a: WKNavigationAction) async -> WKNavigationActionPolicy {
@@ -71,7 +95,7 @@ struct WebPage: UIViewRepresentable {
     }
 
     // Talking to Opie: the microphone, for the household's own page only (the system asks the person first).
-    func webView(_ v: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame f: WKFrameInfo, type: WKMediaCaptureType) async -> WKPermissionDecision {
+    func webView(_ v: WKWebView, decideMediaCapturePermissionsFor origin: WKSecurityOrigin, initiatedBy f: WKFrameInfo, type: WKMediaCaptureType) async -> WKPermissionDecision {
       f.isMainFrame && type == .microphone && origin.host == loaded?.host ? .grant : .deny
     }
 
