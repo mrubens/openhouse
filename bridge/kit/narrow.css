@@ -40,10 +40,8 @@
   html:root .days { flex-direction: column; height: auto; }
   html:root .day { flex: none; min-height: calc(150 * var(--u)); }
   html:root .day .meal { min-height: calc(90 * var(--u)); }
-  /* Map: the map fills the top of the screen (pans and zooms by touch); today's places and the rest under it */
-  html:root #app:has(> .mapbox) { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 62%) minmax(0, 1fr); gap: calc(14 * var(--u)); padding: 0; }
-  html:root #app > .mapbox { order: -1; border-radius: 0; touch-action: none; }
-  html:root #app > .side { padding: 0 calc(22 * var(--u)) calc(60 * var(--u)); }
+  /* Map: its own layout puts the map on top on a phone (map/index.html); touch moves the map, not the page */
+  html:root .mapbox { touch-action: none; }
   /* Calendar: the list as wide as the screen; the week's columns a readable width, scrolling sideways */
   html:root .agenda { padding-right: 0; }
   html:root .agenda .rows > * { max-width: none; }

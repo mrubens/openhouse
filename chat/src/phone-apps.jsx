@@ -82,6 +82,11 @@ const WAITS = /^\/house\/(list|chore)$/;
 export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQueue, onRemoved }) {
   const ref = useRef(null);
   const [gen, setGen] = useState(0), [state, setState] = useState('loading');
+  // Hidden (kept running for a quick way back), it asks for nothing: its calls wait until it shows again, so a kept app
+  // polling every few seconds costs no relay messages meanwhile.
+  const shown = useRef(null);
+  if (!hidden && shown.current?.wait) { shown.current.go(); shown.current = null; }
+  if (hidden && !shown.current) { let go; const wait = new Promise((ok) => { go = ok; }); shown.current = { wait, go }; }
   useEffect(() => {
     const frame = ref.current;
     if (!frame || !app?.v) return;
@@ -99,6 +104,7 @@ export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQue
     frame.addEventListener('load', onLoad);
     const to = (m, t) => { try { frame.contentWindow?.postMessage(m, '*', t); } catch {} }; // (an opaque origin: '*' to this one frame)
     async function call(m) {
+      while (shown.current?.wait) await shown.current.wait;
       const p = String(m.p || ''), method = m.m === 'POST' ? 'POST' : 'GET';
       if (!p.startsWith('/') || p.length > 2000) return to({ oh: 'reply', id: m.id, status: 400 });
       // Its first look at the house: what it saw last time, at once (its next /house/wait then answers straight away
