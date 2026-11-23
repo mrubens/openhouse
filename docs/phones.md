@@ -134,6 +134,9 @@ What a native app would buy, in order of value:
 Each is a thin native shell around the same page, not a second app. Not before the web app is in daily use:
 it needs store accounts and reviews.
 
+**Built (2026-11-23): the iPhone app**, that thin shell, with a share extension, notes by APNs, widgets and Siri:
+[iphone-app.md](iphone-app.md).
+
 ### From scanning to installed (2026-11-20)
 
 The first real try failed: the copy on the home screen opened without its pairing and said to go back to the tablet.

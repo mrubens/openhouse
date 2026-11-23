@@ -125,6 +125,9 @@ export const relayToken = (key) => Buffer.from(crypto.hkdfSync('sha256', Buffer.
 /** A phone's share key (docs/phones.md, "Send to Opie"): its iPhone shortcut seals with this, through the cloud, and it
  *  may only send something to Opie (POST /phone/share). From the phone's own key, so removing the phone ends it too. */
 export const shareKey = (key) => Buffer.from(crypto.hkdfSync('sha256', Buffer.from(key, 'base64url'), Buffer.alloc(0), 'openhouse share', 32));
+/** A phone's note key (docs/iphone-app.md): notes for the iPhone app go through the cloud and APNs sealed with this, and
+ *  only the phone's notification extension opens them. From the phone's own key, like the share key. */
+export const noteKey = (key) => Buffer.from(crypto.hkdfSync('sha256', Buffer.from(key, 'base64url'), Buffer.alloc(0), 'openhouse note', 32));
 
 const TYPES = { '.webmanifest': 'application/manifest+json', '.json': 'application/json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
 const PAGE_HEADERS = {
@@ -203,7 +206,7 @@ export const frameHeaders = (host) => ({
  * dispatch(req, res, url): the bridge's own routes, after its secret is checked (server.js). A screen's opened
  * request is handed to it as if it came from the display, once its scopes allow it.
  */
-export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
+export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
   const tryRead = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
   const state = tryRead(FILE) || { lan: false, screens: [] };
   state.screens ||= [];
@@ -265,7 +268,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   const appsFor = (s) => (SCREEN_KINDS.includes(s?.kind) ? screenApps(s.kind) : []);
 
   const pub = (s) => ({ id: s.id, name: s.name, kind: s.kind || 'screen', scopes: s.scopes, added: s.added, seen: s.seen || null, away: s.away || null,
-    ...(s.person ? { person: s.person, push: !!s.push } : {}) });
+    ...(s.person ? { person: s.person, push: !!(s.push || s.apns) } : {}) });
 
   /** Yes or no to a device that asked: a yes makes it its own key and scopes, sealed to it with the pairing's key. */
   function answer(pairId, x, yes) {
@@ -550,14 +553,22 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   const PUSH_FILE = path.join(path.dirname(FILE), 'push.json');
   let vapid = null;
   const vapidKeys = () => (vapid ||= push.keys(PUSH_FILE));
-  /** GET/POST /phone/push, from a paired phone (its id comes with the opened request): the key, or its push address. */
+  /** GET/POST /phone/push, from a paired phone (its id comes with the opened request): the key, or its push address.
+   *  The iPhone app posts {apns: {token, env}} instead (its APNs device token; null to stop), and gets notes by APNs. */
   handle.phone = async (req, res, url) => {
     if (url.pathname !== '/phone/push' && url.pathname !== '/phone/messages') return false;
     const s = state.screens.find((x) => x.id === req.headers['x-openhouse-screen']);
     if (!s || !(s.scopes || []).includes('notify')) { json(res, 403, { error: 'only a paired phone' }); return true; }
     if (url.pathname === '/phone/messages') { json(res, 200, { messages: messagesFor(s.person) }); return true; }
-    if (req.method === 'GET') { json(res, 200, { key: vapidKeys().publicKey, on: !!s.push }); return true; }
+    if (req.method === 'GET') { json(res, 200, { key: vapidKeys().publicKey, on: !!(s.push || s.apns) }); return true; }
     const b = await body(req);
+    if (b.apns === null) { delete s.apns; write(); json(res, 200, { ok: true, on: !!s.push }); return true; }
+    if (b.apns !== undefined) {
+      const t = String(b.apns?.token || ''), env = b.apns?.env === 'sandbox' ? 'sandbox' : b.apns?.env === 'production' ? 'production' : null;
+      if (!/^[0-9a-f]{64,200}$/.test(t) || !env) { json(res, 400, { error: 'not an APNs device token' }); return true; }
+      s.apns = { token: t, env }; write();
+      json(res, 200, { ok: true, on: !!apns }); return true;
+    }
     if (b.subscription === null) { delete s.push; write(); json(res, 200, { ok: true, on: false }); return true; }
     const sub = b.subscription, k = sub?.keys || {};
     if (!push.okEndpoint(sub?.endpoint) || typeof k.p256dh !== 'string' || typeof k.auth !== 'string' || k.p256dh.length > 120 || k.auth.length > 40) { json(res, 400, { error: 'not a push subscription' }); return true; }
@@ -568,13 +579,24 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   /** A note for someone reaches their phones (each that allowed notifications). Quiet when nobody has one. */
   handle.notify = async (person, msg, { send = push.send } = {}) => {
     const who = String(person || '').toLowerCase();
-    const to = state.screens.filter((s) => s.push && String(s.person || '').toLowerCase() === who);
+    const to = state.screens.filter((s) => (s.push || s.apns) && String(s.person || '').toLowerCase() === who);
+    const note = { title: String(msg.title || '').slice(0, 80), body: String(msg.body || '').slice(0, 240), tag: msg.tag || undefined, ...(msg.open ? { open: msg.open } : {}) };
     let sent = 0;
     for (const s of to) {
       try {
-        const r = await send(s.push, { title: String(msg.title || '').slice(0, 80), body: String(msg.body || '').slice(0, 240), tag: msg.tag || undefined, ...(msg.open ? { open: msg.open } : {}) }, { keys: vapidKeys() });
-        if (r.ok) sent++;
-        else if (r.gone) { delete s.push; write(); }
+        if (s.apns && apns) {
+          // The iPhone app: through the cloud to APNs, sealed for the phone; the cloud and Apple see only that a note went.
+          const box = seal(noteKey(s.key), `note:${s.id}`, Buffer.from(JSON.stringify(note)));
+          const tag = note.tag && crypto.createHash('sha256').update(`${s.id}:${note.tag}`).digest('base64url').slice(0, 32);
+          const r = await apns({ token: s.apns.token, env: s.apns.env, box: box.toString('base64url'), ...(tag ? { tag } : {}) });
+          if (r?.ok) sent++;
+          else if (r?.gone) { delete s.apns; write(); }
+        }
+        if (s.push) {
+          const r = await send(s.push, note, { keys: vapidKeys() });
+          if (r.ok) sent++;
+          else if (r.gone) { delete s.push; write(); }
+        }
       } catch (e) { console.log('[screens] push:', e.message); }
     }
     return sent;
@@ -583,7 +605,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   /** Who of the family can be reached on a phone: {person: {phones, on}} (on: phones that allowed notifications). */
   handle.phones = () => {
     const out = {};
-    for (const s of state.screens) if (s.kind === 'phone' && s.person) { const o = (out[s.person] ||= { phones: 0, on: 0 }); o.phones++; if (s.push) o.on++; }
+    for (const s of state.screens) if (s.kind === 'phone' && s.person) { const o = (out[s.person] ||= { phones: 0, on: 0 }); o.phones++; if (s.push || s.apns) o.on++; }
     return out;
   };
   // What Opie was asked to tell someone ("tell Alex dinner's ready"): pushed to their phones, and kept here for a day

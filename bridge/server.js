@@ -210,7 +210,7 @@ const localDest = isHub() ? folderDestination({ dir: process.env.OPENHOUSE_BACKU
 backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest], escrow: cloud.escrow, busy: () => !!edits.holder() });
 // Other screens on the home network (off until someone adds one): their requests come to route() below.
 let relay = null;
-const screens = screensRoutes({ HERE, json, body, APP_DIR, kit: (req, res, url) => apps.kit(req, res, url), onChange: () => relay?.changed(),
+const screens = screensRoutes({ HERE, json, body, APP_DIR, apns: (b) => cloud.apns(b), kit: (req, res, url) => apps.kit(req, res, url), onChange: () => relay?.changed(),
   // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv).
   // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv). A phone
   // shows every app that runs on phones (apps.js onScreen), each in a frame of its own (docs/phones.md, "Every app").

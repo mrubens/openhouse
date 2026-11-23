@@ -17,6 +17,8 @@ import { Today as TabletToday, lookVars } from './home.jsx';
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
 // It stays in the address so a home-screen copy opens with it (iOS keeps an installed page's storage apart).
 const CLOUD_RELAY = document.querySelector('meta[name="openhouse-relay"]')?.content || '';
+// Inside the iPhone app (ios/, docs/iphone-app.md): it turns on notes, the share sheet and the home screen itself.
+const IN_APP = !!window.openhouseApp;
 const STORE = 'openhouse.phone', CACHE = 'openhouse.phone.house', QUEUE = 'openhouse.phone.queue';
 const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const put = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -255,7 +257,7 @@ function PushRow({ c, me }) {
       setState(r.json?.on ? 'on' : 'failed');
     } catch { setState('failed'); }
   }
-  if (state === 'no') return null;
+  if (state === 'no' || IN_APP) return null;
   const who = me.person || 'you';
   return (
     <div className="pushrow">
@@ -354,7 +356,7 @@ function Apps({ computer }) {
 const SHORTCUT = document.querySelector('meta[name="openhouse-shortcut"]')?.content || '';
 function SendToOpie({ me, c }) {
   const [key, setKey] = useState(null), [step, setStep] = useState(() => (get('openhouse.phone.shortcut') ? 'done' : 'ask'));
-  const can = !!(CLOUD_RELAY && SHORTCUT && /iPhone|iPad|iPod/.test(navigator.userAgent) && canAsk(me) && me.relay?.relay);
+  const can = !!(CLOUD_RELAY && SHORTCUT && !IN_APP && /iPhone|iPad|iPod/.test(navigator.userAgent) && canAsk(me) && me.relay?.relay);
   // Fetched before the tap: an iPhone copies only straight from a tap, not after waiting on something.
   useEffect(() => { if (can && step !== 'done') c.json('GET', '/phone/share-key').then((r) => r.json?.key && setKey(`${me.relay.relay}.${me.id}.${me.relay.token}.${r.json.key}`)).catch(() => {}); }, [can]);
   if (!can) return null;
@@ -383,7 +385,7 @@ const standalone = () => { try { return matchMedia('(display-mode: standalone)')
 let installPrompt = null; const promptWaiters = new Set();
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installPrompt = e; promptWaiters.forEach((f) => f(e)); });
 const LATER = 'openhouse.phone.homeLater';
-const wantsHome = () => !!CLOUD_RELAY && mobile && !standalone() && !get(LATER);
+const wantsHome = () => !!CLOUD_RELAY && mobile && !IN_APP && !standalone() && !get(LATER);
 const ShareIcon = () => <svg className="inline-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-label="Share"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5" /><path d="M6 11H5v10h14V11h-1" /></svg>;
 function AddToHome({ me, onLater }) {
   const [can, setCan] = useState(!!installPrompt), [added, setAdded] = useState(false);

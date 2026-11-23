@@ -260,7 +260,9 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const credential = () => device()?.credential || null;
   /** The service's own address (a phone page it serves, /l, works from anywhere). */
   const apiBase = () => device()?.api || null;
-  return { handle, status, destination, escrow, voice, ai, decide, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  /** A note for an iPhone (screens.js notify): sealed already; the service hands it to APNs. {ok} or {gone}. */
+  const apns = async (b) => { try { return await call('POST', '/v1/push/apns', b); } catch (e) { if (e.code === 'http410') return { gone: true }; throw e; } };
+  return { handle, status, destination, escrow, voice, ai, decide, apns, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);
