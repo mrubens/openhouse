@@ -162,3 +162,4 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 /* A list's Copy (what's still to get, one per line) */
 .listbar { display: flex; justify-content: flex-end; margin: -2px 0 2px; }
 .listbar .quiet { color: var(--soft); font-size: 15px; padding: 6px 2px; }
+.appframe[hidden] { display: none; }

@@ -207,10 +207,30 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, WS = globalTh
       if (status) sink.status(status);
       return sink;
     }
+    // As few messages as it can: the status, the bytes and the end go together while they fit in one (a small reply is
+    // one message, not three); what comes in a burst waits a moment to go with the rest. Every message is a run of the
+    // cloud's relay function and they go out paced, so each one saved is time saved for every reply behind it.
+    let code = null, buf = [], size = 0, timer = null;
+    const flush = (last) => {
+      clearTimeout(timer); timer = null;
+      let all = Buffer.concat(buf); buf = []; size = 0;
+      do {
+        const part = all.subarray(0, CHUNK); all = all.subarray(CHUNK);
+        const msg = { ...base() };
+        if (!head) { head = true; msg.s = code ?? 200; }
+        if (part.length) msg.d = Buffer.from(part).toString('base64url');
+        if (last && !all.length) msg.e = 1;
+        if (msg.s !== undefined || msg.d || msg.e) send(msg);
+      } while (all.length);
+    };
     const sink = {
-      status(code) { if (!head) { head = true; send({ ...base(), s: code }); } return sink; },
-      data(b) { if (ended) return; if (!head) sink.status(200); for (let i = 0; i < b.length; i += CHUNK) send({ ...base(), d: Buffer.from(b.subarray(i, i + CHUNK)).toString('base64url') }); },
-      end() { if (ended) return; if (!head) sink.status(200); ended = true; send({ ...base(), e: 1 }); done(); },
+      status(c) { if (!head && code === null) code = c; return sink; },
+      data(b) {
+        if (ended) return;
+        buf.push(Buffer.from(b)); size += b.length;
+        if (size >= CHUNK) flush(false); else if (!timer) timer = setTimeout(() => flush(false), 20);
+      },
+      end() { if (ended) return; ended = true; flush(true); done(); },
     };
     if (status) sink.status(status);
     return sink;

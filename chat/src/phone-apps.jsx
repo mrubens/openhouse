@@ -79,14 +79,17 @@ const WAITS = /^\/house\/(list|chore)$/;
  * One app, running in its frame. onOpen(id): it asked for another of the household's apps (an app from a link may
  * open only itself); onQueue({p, b, a}): a change to send later; onClose: its own Close.
  */
-export function AppFrame({ c, app, style, onOpen, onClose, onQueue, onRemoved }) {
+export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQueue, onRemoved }) {
   const ref = useRef(null);
   const [gen, setGen] = useState(0), [state, setState] = useState('loading');
   useEffect(() => {
     const frame = ref.current;
     if (!frame || !app?.v) return;
-    let sent = false, loads = 0, gone = false;
+    let sent = false, loads = 0, gone = false, firstHouse = false;
+    // How long each part of opening it took (window.__ohOpen[app]: ms from the frame's start), for looking into speed.
+    const t0 = performance.now(), T = ((window.__ohOpen ||= {})[app.id] = { at: Date.now() }), mark = (k) => { if (T[k] == null) T[k] = Math.round(performance.now() - t0); };
     const bundle = appBundle(c, app);
+    bundle.then(() => mark('files'), () => {});
     bundle.catch(() => { if (!gone) setState('offline'); });
     const again = () => { if (!gone) setGen((g) => g + 1); };
     // It went somewhere else (it set its own address): a new frame, from the start. Nothing it read goes with it. (Two
@@ -98,11 +101,19 @@ export function AppFrame({ c, app, style, onOpen, onClose, onQueue, onRemoved })
     async function call(m) {
       const p = String(m.p || ''), method = m.m === 'POST' ? 'POST' : 'GET';
       if (!p.startsWith('/') || p.length > 2000) return to({ oh: 'reply', id: m.id, status: 400 });
+      // Its first look at the house: what it saw last time, at once (its next /house/wait then answers straight away
+      // with what's new, as the version it gives is old).
+      const kept0 = method === 'GET' && p === '/house' && !firstHouse && get(houseKey(app.id));
+      if (method === 'GET' && p === '/house') firstHouse = true;
+      if (kept0 && Date.now() - kept0.at < 7 * 864e5) { mark('data'); mark('house'); return to({ oh: 'reply', id: m.id, status: 200, type: 'application/json', body: kept0.body }); }
+      const t1 = performance.now();
       try {
         const r = await c.request(method, p, method === 'POST' ? m.b ?? {} : undefined, { app: app.id, big: method === 'GET' && p.startsWith('/house/photo/') });
         if (method === 'GET' && r.status === 200 && /^\/house(\/wait)?(\?|$)/.test(p)) put(houseKey(app.id), { body: new TextDecoder().decode(r.body), at: Date.now() });
         const body = r.body.buffer.slice(r.body.byteOffset, r.body.byteOffset + r.body.byteLength);
         to({ oh: 'reply', id: m.id, status: r.status, type: r.type, body }, [body]);
+        if ((T.calls ||= []).length < 20) T.calls.push([p.slice(0, 40), Math.round(t1 - t0), Math.round(performance.now() - t1)]);
+        mark('data'); if (/^\/house(\?|$)/.test(p)) mark('house');
       } catch (e) {
         if (e instanceof Removed) { onRemoved?.(); return; }
         // No signal: what it last saw of the house, a tick that waits, else a plain no.
@@ -118,8 +129,8 @@ export function AppFrame({ c, app, style, onOpen, onClose, onQueue, onRemoved })
       const m = e.data;
       if (m.oh === 'ready') {
         if (sent) return again(); // started over without a new frame: a fresh one instead
-        sent = true;
-        try { const b = await bundle; if (!gone) { to({ oh: 'bundle', app: app.id, files: b.files, ls: get(lsKey(app.id), {}) }); setState('ready'); } } catch {}
+        sent = true; mark('frame');
+        try { const b = await bundle; if (!gone) { to({ oh: 'bundle', app: app.id, files: b.files, ls: get(lsKey(app.id), {}) }); mark('boot'); setState('ready'); } } catch {}
       }
       else if (m.oh === 'call' && Number.isSafeInteger(m.id)) call(m);
       else if (m.oh === 'ls' && m.data && typeof m.data === 'object') { const s = JSON.stringify(m.data); if (s.length < 2e6) put(lsKey(app.id), m.data); }
@@ -132,7 +143,7 @@ export function AppFrame({ c, app, style, onOpen, onClose, onQueue, onRemoved })
   }, [c, app?.id, app?.v, gen]);
   if (!app) return null;
   return (
-    <div className="appframe">
+    <div className="appframe" hidden={hidden}>
       {state === 'offline' && <p className="soft pad">{app.name} opens here once the phone is in touch with home.</p>}
       <iframe ref={ref} key={`${app.id}@${app.v}#${gen}`} title={app.name} className={state === 'ready' ? 'ready' : ''}
         sandbox="allow-scripts allow-forms allow-modals" allow="clipboard-write" referrerPolicy="no-referrer" src={`${FRAME}#${frameHash(style, app)}`} />

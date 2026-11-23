@@ -9,7 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { pair, client, Removed } from './screen-client.js';
 import { Talk, canTalk } from './talk.jsx';
 import { pairingFromCode } from './scrypt.js';
-import { AppFrame, AppIcon, usePhoneApps, phoneTabs } from './phone-apps.jsx';
+import { AppFrame, AppIcon, usePhoneApps, phoneTabs, appBundle } from './phone-apps.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { Today as TabletToday, lookVars } from './home.jsx';
 import { paletteOf, worldOf } from './look.js';
@@ -436,6 +436,19 @@ function Phone({ me, c, onRemoved }) {
   }, []);
   const tab = tabs.some((t) => t.id === want) ? want : 'today';
   useEffect(() => put('openhouse.phone.tab', tab), [tab]);
+  // The app showing, and the last few shown: they stay running, hidden, so going back to one is instant (four at most).
+  const showing = opened || tabs.find((t) => t.id === tab)?.app || null;
+  const [alive, setAlive] = useState([]);
+  useEffect(() => { if (showing) setAlive((l) => [showing, ...l.filter((a) => a.id !== showing.id)].slice(0, 4)); }, [showing?.id, showing?.v]);
+  // Each tab's app files, fetched in the background a moment after the page opens (kept by version, so only what
+  // changed), one at a time: a tab opened the first time doesn't wait for them.
+  const tabApps = tabs.map((t) => t.app).filter(Boolean).map((a) => `${a.id}@${a.v}`).join(',');
+  useEffect(() => {
+    if (!tabApps) return;
+    let stop = false;
+    const t = setTimeout(async () => { for (const t of tabs) if (t.app && !stop) await appBundle(c, t.app).catch(() => {}); }, 2500);
+    return () => { stop = true; clearTimeout(t); };
+  }, [c, tabApps]);
   const [home, setHome] = useState(wantsHome);
   // On the Wi-Fi's page: once it knows the household's installable copy, go there (it works at home too).
   const link = !CLOUD_RELAY && mobile && !setup && cloudLink(me);
@@ -448,15 +461,17 @@ function Phone({ me, c, onRemoved }) {
   const open = (id) => { if (tabs.some((t) => t.id === id)) return go(id); const a = (apps || []).find((x) => x.id === id); if (a) { setMore(false); setOpened(a); } };
   const bar = tabs.length > 5 ? tabs.slice(0, 4) : tabs;
   const cur = opened ? null : tabs.find((t) => t.id === tab);
-  const frame = (a) => <AppFrame key={a.id} c={c} app={a} style={style} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} />;
+  const frames = alive.map((a) => <AppFrame key={a.id} c={c} app={(apps || []).find((x) => x.id === a.id) || a} style={style} hidden={showing?.id !== a.id} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} />);
   return (
-    <div className={'app' + (canAsk(me) ? ' asks' : '') + (opened || cur?.app ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={phoneVars(style, opened ? opened.id : tab)}>
+    <div className={'app' + (canAsk(me) ? ' asks' : '') + (showing ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={phoneVars(style, opened ? opened.id : tab)}>
       {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
-      {opened ? <><div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>{frame(opened)}</>
+      {opened && <div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>}
+      {frames}
+      {showing ? (alive.some((a) => a.id === showing.id) ? null : <div className="page"><p className="soft">Loading…</p></div>)
         : !h.house && tab === 'today' ? <div className="page"><p className="soft">Loading…</p></div>
         : tab === 'today' ? <><Today me={me} h={h} c={c} tabs={tabs} apps={apps} go={open} style={style} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} /></>
         : tab === 'apps' ? <AppsList apps={apps} tabs={tabs} onOpen={open} />
-        : cur?.app ? frame(cur.app) : <div className="page"><p className="soft">Loading…</p></div>}
+        : <div className="page"><p className="soft">Loading…</p></div>}
       {canAsk(me) && !asking && !more && (canTalk(talkScopes(me))
         ? <Talk c={c} scopes={talkScopes(me)} onType={() => setAsking(true)} />
         : <button className="opie" onClick={() => setAsking(true)}><span className="bars"><i /><i /><i /><i /></span>Ask Opie</button>)}

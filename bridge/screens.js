@@ -198,7 +198,7 @@ export function appFiles(APP_DIR, id, kitDir) {
 // The page a phone's app frame starts as (chat/phone-frame.html): it may be framed only by the phone's page, and it and
 // the app in it reach nothing (connect-src 'none'): every call goes to the page around it, which seals it.
 export const frameHeaders = (host) => ({
-  'cache-control': 'no-cache', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff',
+  'cache-control': 'max-age=3600', // (the same for every app, and a new frame for each: kept an hour, not asked for each time) 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff',
   'content-security-policy': `default-src 'none'; script-src ${host} blob: 'unsafe-eval'; style-src ${host} blob: 'unsafe-inline'; img-src ${host} blob: data:; media-src blob: data:; font-src ${host} blob: data:; worker-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; form-action 'none'; base-uri https://app.invalid; frame-ancestors ${host}`,
 });
 
