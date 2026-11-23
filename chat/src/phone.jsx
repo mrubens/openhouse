@@ -12,6 +12,7 @@ import { pairingFromCode } from './scrypt.js';
 import { AppFrame, AppIcon, usePhoneApps, phoneTabs } from './phone-apps.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { Today as TabletToday, lookVars } from './home.jsx';
+import { paletteOf, worldOf } from './look.js';
 
 // Served by OpenHouse's cloud (https, installable, notes by push): everything goes through the relay, and the
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
@@ -129,8 +130,8 @@ function Today({ me, h, c, onOpen, tabs, apps, go, style }) {
   if (!house) return null;
   return (
     <>
-      <div className="date page">{new Date(now).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-      <div className="ptoday" style={lookVars(style)}>
+      <header className="phead"><div><div className="lab">{new Date(now).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div><h1>Today</h1></div><span className="soft">{me.person}</span></header>
+      <div className={'ptoday' + (style?.palette === 'dusk' ? ' dark' : '')} style={lookVars(style, 'today')}>
         <TabletToday c={c} house={house} now={now} notes={door?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} openApp={go} shell={null} usePhoto={usePhoto} look={style || {}} appsV={{}} />
       </div>
       <div className="page">
@@ -407,6 +408,9 @@ function AddToHome({ me, onLater }) {
   );
 }
 
+/** The page's own colors from the household's look (look.js): the world behind this tab, the panels' white, the ink. */
+const phoneVars = (style, tab) => { const p = paletteOf(style); return { '--bg': worldOf(style, tab), '--card': p.sheet, '--ink': p.ink }; };
+
 // ---- the page ------------------------------------------------------------------------------------------
 // The household's own tabs, in the tablet's order (its home style), each one's app running here in a frame of its own
 // (phone-apps.jsx). The first four along the bottom, and More: every tab, in a list that slides in from the side.
@@ -414,7 +418,7 @@ const TabIcon = ({ t }) => {
   const d = TAB_ICONS[t.app?.tabIcon] || TAB_ICONS[TAB_ICON_BY_ID[t.id]];
   return d ? <svg className="tab-icon" viewBox="0 0 256 256" aria-hidden="true"><path d={d} fill="currentColor" /></svg> : <span className="tab-icon" />;
 };
-const MoreIcon = () => <svg className="tab-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h16M4 12h16M4 17h16" /></svg>;
+const MoreIcon = () => <svg className="tab-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg>;
 function Phone({ me, c, onRemoved }) {
   const h = useHouse(c, onRemoved);
   const { apps, style } = usePhoneApps(c, h.door);
@@ -446,11 +450,11 @@ function Phone({ me, c, onRemoved }) {
   const cur = opened ? null : tabs.find((t) => t.id === tab);
   const frame = (a) => <AppFrame key={a.id} c={c} app={a} style={style} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} />;
   return (
-    <div className={'app' + (canAsk(me) ? ' asks' : '') + (opened || cur?.app ? ' framed' : '')}>
+    <div className={'app' + (canAsk(me) ? ' asks' : '') + (opened || cur?.app ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={phoneVars(style, opened ? opened.id : tab)}>
       {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
       {opened ? <><div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>{frame(opened)}</>
         : !h.house && tab === 'today' ? <div className="page"><p className="soft">Loading…</p></div>
-        : tab === 'today' ? <><header><span className="brand">OpenHouse</span><span className="soft">{me.person}</span></header><Today me={me} h={h} c={c} tabs={tabs} apps={apps} go={open} style={style} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} /></>
+        : tab === 'today' ? <><Today me={me} h={h} c={c} tabs={tabs} apps={apps} go={open} style={style} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} /></>
         : tab === 'apps' ? <AppsList apps={apps} tabs={tabs} onOpen={open} />
         : cur?.app ? frame(cur.app) : <div className="page"><p className="soft">Loading…</p></div>}
       {canAsk(me) && !asking && !more && (canTalk(talkScopes(me))
@@ -458,8 +462,8 @@ function Phone({ me, c, onRemoved }) {
         : <button className="opie" onClick={() => setAsking(true)}><span className="bars"><i /><i /><i /><i /></span>Ask Opie</button>)}
       {asking && <Ask key={asking.convo || 'new'} me={me} c={c} convoId={asking.convo || null} onClose={() => setAsking(false)} />}
       <nav>
-        {bar.map((t) => <button key={t.id} className={!opened && tab === t.id ? 'here' : ''} onClick={() => go(t.id)}><TabIcon t={t} /><span>{t.name}</span></button>)}
-        {bar.length < tabs.length && <button className={more ? 'here' : ''} onClick={() => setMore(true)}><MoreIcon /><span>More</span></button>}
+        {bar.map((t) => <button key={t.id} className={!opened && !more && tab === t.id ? 'here' : ''} onClick={() => go(t.id)}><TabIcon t={t} /><span>{t.name}</span></button>)}
+        {bar.length < tabs.length && <button className={more || opened || !bar.some((t) => t.id === tab) ? 'here' : ''} onClick={() => setMore(true)}><MoreIcon /><span>More</span></button>}
       </nav>
       <More open={more} tabs={tabs} tab={opened ? null : tab} me={me} onGo={go} onClose={() => setMore(false)} />
     </div>
@@ -472,9 +476,8 @@ function More({ open, tabs, tab, me, onGo, onClose }) {
     <div className={'more' + (open ? ' open' : '')} aria-hidden={!open}>
       <div className="more-veil" onClick={onClose} />
       <aside className="more-list">
-        <div className="more-head"><span className="brand">OpenHouse</span><button className="quiet" onClick={onClose}>Done</button></div>
+        <div className="more-head"><div><span className="brand">OpenHouse</span><div className="soft more-foot">{me.person ? `${me.person}'s phone` : 'This phone'}</div></div><button className="quiet" onClick={onClose}>Done</button></div>
         {tabs.map((t) => <button key={t.id} className={'more-row' + (tab === t.id ? ' here' : '')} onClick={() => onGo(t.id)}><TabIcon t={t} /><span>{t.name}</span></button>)}
-        <div className="soft more-foot">{me.person ? `${me.person}'s phone` : 'This phone'}</div>
       </aside>
     </div>
   );

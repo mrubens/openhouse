@@ -52,7 +52,7 @@ import { cookSource, readRecipeLink, cookPrompt, COOK_SYSTEM, parseCook, cookAsN
 const DAY = 86400e3;
 /** Each person's color, in the order the family is listed, unless they chose one (household.json family[].color).
  *  The one palette: the apps (kit), the home screen and its widgets all take a person's color from /house. */
-export const PEOPLE = ['#d9a441', '#6fae8f', '#d97a5e', '#7d9ad6', '#b689cf', '#d6a86a'];
+export const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'];
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const PHOTO = /\.(jpe?g|png|webp|gif|heic)$/i;
 const REPEATS = ['daily', 'weekdays', 'weekly', 'biweekly', 'monthly', 'yearly'];

@@ -6,11 +6,12 @@
   --door: #d5dbd4; --ink: #24282a; --ink-soft: #5e6466; --paper: #fbf8f0; --card: #ffffff; --tile: #2a2d31;
   --lines: #c9d6e6; --margin: #e9a3a0; --tape: rgba(255, 248, 214, .75);
   --sticky: #f7de79; --sticky-pink: #f6c5c9; --sticky-blue: #bfddf4; --sticky-green: #cde9c4; --sticky-orange: #f8cfa0;
-  /* inside apps */
-  --bg: #f5f2ea; --panel: #ece8de; --line: rgba(36, 40, 42, .13); --text: var(--ink); --muted: var(--ink-soft);
+  /* inside apps: the light look (a warm off-white world, ink type); quiet.css has the rest of the system, and in a
+     tab the home screen's palette comes over these (openhouse.js) */
+  --bg: #f1eee8; --panel: #e9e6e1; --line: rgba(21, 19, 43, .13); --text: var(--ink); --muted: var(--ink-soft);
   --accent: #e2a93b; --accent-ink: var(--ink); --ok: #4fa87a; --warn: #d9543f;
-  /* each person's color, in the order the family is listed (kit: house.color(name)) */
-  --person-0: #d9a441; --person-1: #6fae8f; --person-2: #d97a5e; --person-3: #7d9ad6; --person-4: #b689cf; --person-5: #d6a86a;
+  /* each person's color, in the order the family is listed (kit: house.color(name)); ink reads on all of them */
+  --person-0: #ffc247; --person-1: #56d6a0; --person-2: #ff8566; --person-3: #74acff; --person-4: #c3a0ff; --person-5: #ff9ec4;
   --hand: 'Caveat', cursive; --round: 'Nunito', system-ui, sans-serif;
   font-family: var(--round); color: var(--text);
 }

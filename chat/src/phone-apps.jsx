@@ -5,7 +5,7 @@
 // An app's files are kept here by their version, so a tab opens at once the second time, with no signal too.
 import { useEffect, useRef, useState } from 'react';
 import { Removed } from './screen-client.js';
-import { PALETTES } from './look.js';
+import { paletteOf, worldOf } from './look.js';
 
 const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const put = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -68,9 +68,9 @@ const FRAME = document.querySelector('meta[name="openhouse-relay"]') ? '/h/frame
 const lsKey = (id) => 'openhouse.phone.ls.' + id;
 const houseKey = (id) => 'openhouse.phone.house.' + id; // what this app last saw of the house (as cut for it), for no signal
 /** What the kit takes from its address: the household's colors and type, and that it's on a phone. */
-export function frameHash(style) {
-  const p = { ...(PALETTES[style?.palette] || PALETTES.paper), ...(style?.colors || {}) };
-  return new URLSearchParams({ screen: '1', kind: 'phone', bg: p.sheet, ink: p.ink, accent: p.accent, face: style?.type || 'clean', ...(style?.palette === 'dusk' ? { dark: '1' } : {}) }).toString();
+export function frameHash(style, app) {
+  const p = paletteOf(style);
+  return new URLSearchParams({ screen: '1', kind: 'phone', bg: worldOf(style, app?.id), panel: p.sheet, ink: p.ink, accent: p.accent, face: style?.type || 'clean', ...(style?.palette === 'dusk' ? { dark: '1' } : {}) }).toString();
 }
 // A change made with no signal waits and goes when the phone is back (only ticks and adds, as the phone always did).
 const WAITS = /^\/house\/(list|chore)$/;
@@ -135,7 +135,7 @@ export function AppFrame({ c, app, style, onOpen, onClose, onQueue, onRemoved })
     <div className="appframe">
       {state === 'offline' && <p className="soft pad">{app.name} opens here once the phone is in touch with home.</p>}
       <iframe ref={ref} key={`${app.id}@${app.v}#${gen}`} title={app.name} className={state === 'ready' ? 'ready' : ''}
-        sandbox="allow-scripts allow-forms allow-modals" allow="clipboard-write" referrerPolicy="no-referrer" src={`${FRAME}#${frameHash(style)}`} />
+        sandbox="allow-scripts allow-forms allow-modals" allow="clipboard-write" referrerPolicy="no-referrer" src={`${FRAME}#${frameHash(style, app)}`} />
     </div>
   );
 }

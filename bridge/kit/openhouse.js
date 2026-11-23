@@ -33,8 +33,8 @@ const B = '/bridge';
   addEventListener('focusout', (e) => { if (editable(e.target)) tell(false); });
   addEventListener('pagehide', () => tell(false));
 }
-// In a tab of the home screen the app gets the family's colors in its address too (bg, ink, accent): its page takes
-// them, so it sits on the same paper as the screen around it.
+// In a tab of the home screen the app gets the family's colors in its address too (bg, panel, ink, accent): its page
+// takes them, so it sits on the same world as the screen around it.
 {
   const q = new URLSearchParams(location.hash.slice(1)), hex = (v) => (/^#[0-9a-f]{6}$/i.test(v || '') ? v : null);
   const bg = hex(q.get('bg')), ink = hex(q.get('ink')), accent = hex(q.get('accent')), st = document.documentElement.style;
@@ -49,7 +49,11 @@ const B = '/bridge';
   if (bg) { r.setProperty('--bg', bg); r.setProperty('--door', bg); r.setProperty('--panel', `color-mix(in srgb, ${ink || '#24282a'} 6%, ${bg})`); }
   if (ink) { for (const k of ['--ink', '--text']) r.setProperty(k, ink); for (const k of ['--ink-soft', '--muted']) r.setProperty(k, `color-mix(in srgb, ${ink} 55%, ${bg || '#fff'})`); r.setProperty('--line', `color-mix(in srgb, ${ink} 13%, transparent)`); }
   if (accent) r.setProperty('--accent', accent);
-  if (q.get('dark') === '1') r.setProperty('color-scheme', 'dark');
+  // (the light system, quiet.css: bg is the world behind the tab, panel the white of the panels on it)
+  const panel = hex(q.get('panel')); if (panel) r.setProperty('--card', panel);
+  if (q.get('dark') === '1') { r.setProperty('color-scheme', 'dark'); document.documentElement.classList.add('dark'); }
+  // In a tab of the home screen the page is the stage itself: no padding of its own (quiet.css html.in-tab).
+  if (bg && window.parent !== window && q.get('screen') !== '1') document.documentElement.classList.add('in-tab');
   // and the screen's type: a quiet face takes the place of the kit's round and handwritten ones.
   const face = { clean: ['Inter', 'Inter.ttf', '100 900'], serif: ['Newsreader', 'Newsreader.ttf', '200 800'], round: ['Nunito'], hand: ['Caveat'] }[q.get('face')];
   if (face) {
@@ -146,7 +150,7 @@ async function follow() {
     catch { await new Promise((r) => setTimeout(r, 3000)); }
   }
 }
-const PEOPLE = ['#d9a441', '#6fae8f', '#d97a5e', '#7d9ad6', '#b689cf', '#d6a86a']; // only until /house says (it gives each person's own)
+const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4']; // only until /house says (it gives each person's own)
 const photos = new Map(), thumbs = new Map();
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d, allDay) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` + (allDay ? '' : `T${pad(d.getHours())}:${pad(d.getMinutes())}:00`);

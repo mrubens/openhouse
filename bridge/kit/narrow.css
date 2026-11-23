@@ -8,8 +8,24 @@
   /* the top row: the title on its own line, then its chips and buttons, which scroll sideways if they must */
   html:root .top { flex-wrap: wrap; row-gap: calc(12 * var(--u)); }
   html:root .top > .title, html:root .top > h1 { flex: 1 0 100%; }
+  /* the shared pieces at a phone's size (quiet.css): the title 34 px, pills 40 px tall, round buttons 42 px */
+  html:root .top { min-height: 0; padding: 0 calc(6 * var(--u)); margin-bottom: calc(20 * var(--u)); }
+  html:root .title { font-size: calc(49 * var(--u)); font-weight: 700; letter-spacing: -.03em; }
+  html:root .chip, html:root .btn, html:root .q-who { height: calc(58 * var(--u)); border-radius: calc(29 * var(--u)); font-size: calc(21.5 * var(--u)); padding: 0 calc(22 * var(--u)); }
+  html:root .q-who { padding-left: calc(8 * var(--u)); }
+  html:root .round { width: calc(60 * var(--u)); height: calc(60 * var(--u)); }
+  html:root .round .icon { width: calc(30 * var(--u)); height: calc(30 * var(--u)); }
+  html:root .quiet { min-height: calc(58 * var(--u)); font-size: calc(21.5 * var(--u)); }
+  html:root .field { font-size: calc(24 * var(--u)); }
+  html:root .q-seg > * { height: calc(52 * var(--u)); font-size: calc(21.5 * var(--u)); padding: 0 calc(20 * var(--u)); border-radius: calc(26 * var(--u)); }
+  html:root .q-seg { border-radius: calc(30 * var(--u)); }
+  html:root .q-label { font-size: calc(16.5 * var(--u)); }
+  html:root .q-av { width: calc(44 * var(--u)); height: calc(44 * var(--u)); font-size: calc(20 * var(--u)); }
+  html:root .q-check { width: calc(38 * var(--u)); height: calc(38 * var(--u)); }
+  html:root .q-count { height: calc(36 * var(--u)); font-size: calc(19 * var(--u)); padding: 0 calc(14 * var(--u)); border-radius: calc(18 * var(--u)); }
+  html:root .q-panel { border-radius: calc(34 * var(--u)); }
   /* cards and sheets: the width of the screen */
-  html:root .sheet { width: calc(100vw - 24px) !important; max-width: none; max-height: 88vh; }
+  html:root .sheet { width: calc(100vw - 24px) !important; max-width: none; max-height: 88vh; border-radius: calc(38 * var(--u)); }
   /* Recipes: the search field on its own line */
   html:root .top > .field.search { flex: 1 0 100%; order: 1; }
   /* Lists: one list a screen wide, the next a swipe away */

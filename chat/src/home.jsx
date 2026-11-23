@@ -1,5 +1,5 @@
-// The home screen: a column on the left with the time, the day and the tabs, and one calm sheet beside it showing the
-// chosen tab. A tab is Today (a glance at the day, with the notes the assistant put up), Apps (every app that isn't a
+// The home screen: a column on the left with the time, the day and the tabs, and the chosen tab beside it, on a world
+// of its own faint hue with white panels on it. A tab is Today (a glance at the day, with the notes the assistant put up), Apps (every app that isn't a
 // tab of its own, and the Android apps added), or any of the family's apps, the real app running in the
 // sheet, so an app the family or the assistant changed shows as they changed it. Today is the glance: the most
 // important bit of each tab, each opening its tab.
@@ -8,17 +8,17 @@
 // palette or the family's own colors, the type, the density and a photo backdrop. The assistant edits that file; the
 // "Tabs and look" sheet here (hold a tab, or the sliders below the tabs) writes it through POST /door/look, so "undo"
 // takes either back.
-import { cloneElement, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Widget } from './door-widgets.jsx';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
-import { PALETTES } from './look.js';
-import { card as weatherCard } from '../../bridge/kit/weather-look.js';
+import { PALETTES, paletteOf, worldOf } from './look.js';
+import { card as weatherCard, icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 
 const DEFAULT_TABS = ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'];
 export { PALETTES };
 const FACES = { clean: "'Inter', Roboto, system-ui, sans-serif", serif: "'Newsreader', Georgia, serif", round: "'Nunito', system-ui, sans-serif", hand: "'Caveat', cursive" };
-const PEOPLE = ['#d9a441', '#6fae8f', '#d97a5e', '#7d9ad6', '#b689cf', '#d6a86a'];
+const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'];
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const hm = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
@@ -31,11 +31,15 @@ const eventPeople = (house, e) => [e?.who, ...(e?.also || [])].filter((n) => n &
 const eventPaint = (house, e) => { const cs = eventPeople(house, e).map((n) => personColor(house, n)); return cs.length > 1 ? `linear-gradient(135deg, ${cs.map((c, i) => `${c} ${i * 100 / cs.length}% ${(i + 1) * 100 / cs.length}%`).join(', ')})` : cs[0] || null; };
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
-/** The look as CSS variables (the sheet's soft text, lines and tints come from its ink and paper). */
-export function lookVars(st) {
-  const p = { ...(PALETTES[st?.palette] || PALETTES.paper), ...(st?.colors || {}) };
-  return { '--h-bg': p.bg, '--h-sheet': p.sheet, '--h-ink': p.ink, '--h-accent': p.accent, '--h-face': FACES[st?.type] || FACES.clean };
+/** The look as CSS variables (the soft text, lines and tints come from its ink); tab: whose world is behind it. */
+export function lookVars(st, tab) {
+  const p = paletteOf(st);
+  return { '--h-bg': worldOf(st, tab), '--h-sheet': p.sheet, '--h-ink': p.ink, '--h-accent': p.accent, '--h-face': FACES[st?.type] || FACES.clean };
 }
+/** A person's (or an event's people's) round mark: their initial on their color; nobody's is a soft one. */
+const Av = ({ paint, name, className = '' }) => (paint
+  ? <span className={'h-av ' + className} style={{ background: paint }}>{String(name || '').trim()[0]?.toUpperCase() || ''}</span>
+  : <span className={'h-av none ' + className}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M15.5 6.2a3.2 3.2 0 0 1 0 5.6M17.5 14.2a5.5 5.5 0 0 1 3 4.8" /></svg></span>);
 
 export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, PhotoShow, Gear }) {
   const { door, house, weather, apps, appsLoaded } = brain;
@@ -93,13 +97,13 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
   const d = new Date(now);
   const timers = door?.timers || [];
   return (
-    <div className={'home' + (st.density === 'snug' ? ' snug' : '') + (st.type === 'hand' ? ' hand-type' : '') + (st.backdrop === 'photos' ? ' over-photos' : '') + (st.palette === 'dusk' ? ' dark' : '')} style={lookVars(st)}>
+    <div className={'home' + (st.density === 'snug' ? ' snug' : '') + (st.type === 'hand' ? ' hand-type' : '') + (st.backdrop === 'photos' ? ' over-photos' : '') + (st.palette === 'dusk' ? ' dark' : '')} data-tab={cur} style={lookVars(st, worldTab(tabs.find((t) => t.id === cur), appBy))}>
       {st.backdrop === 'photos' && <Backdrop c={c} names={house?.screensaver || house?.photos || []} now={now} usePhoto={usePhoto} />}
       <aside className="h-rail">
         <div className="h-time">{hm(d)}</div>
         <div className="h-day">{d.toLocaleDateString([], { weekday: 'long' })}</div>
         <div className="h-day h-date">{d.toLocaleDateString([], { day: 'numeric', month: 'long' })}</div>
-        {weather && !weather.error && <div className="h-day">{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}
+        {weather && !weather.error && <div className="h-wx"><span className="h-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(weather.code, weather.isDay !== false) }} />{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}
         {/* Tap a timer to change or clear it (a small sheet over the screen). */}
         {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b>{t.endAt <= now ? '0:00' : clock(Math.ceil((t.endAt - now) / 1000))}</b></button>)}
         <nav className="h-tabs">
@@ -214,14 +218,12 @@ function AppFrame({ c, shell, app, look, v, onOpen }) {
   return key && <iframe ref={frame} key={shownV} className="h-app" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/index.html#${hash}`} />;
 }
 
-/** What an app's page is given in its address: the screen's colors and type (the kit takes them). Never its key. */
+/** What an app's page is given in its address: the screen's colors and type (the kit takes them). Never its key.
+ *  bg is the world its tab sits on, panel the white (or the palette's) its panels are. */
 function lookHash(look, shell, paper, app) {
-  const p = { ...(PALETTES[look?.palette] || PALETTES.paper), ...(look?.colors || {}) };
-  return new URLSearchParams({ bg: paper ? paper(p) : p.sheet, ink: p.ink, accent: p.accent, face: look?.type || 'clean', ...(look?.palette === 'dusk' ? { dark: '1' } : {}), ...(shell?.phone && !app?.shared ? { phone: '1' } : {}) });
+  const p = paletteOf(look);
+  return new URLSearchParams({ bg: paper ? paper(p) : worldOf(look, app?.id), panel: p.sheet, ink: p.ink, accent: p.accent, face: look?.type || 'clean', ...(look?.palette === 'dusk' ? { dark: '1' } : {}), ...(shell?.phone && !app?.shared ? { phone: '1' } : {}) });
 }
-/** a mixed into b, k of it (#rrggbb): the cards' tint as a color an app's page can take. */
-const mixHex = (a, b, k) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) * k + parseInt(b.slice(i, i + 2), 16) * (1 - k)).toString(16).padStart(2, '0')).join('');
-
 /**
  * An app's own card on Today: its widget.html running in a card like the others ("today": {"size": "small" | "wide"}
  * in its app.json), with its key, so the kit works there as in the app. The widget takes its own taps; the app's name
@@ -238,40 +240,43 @@ function AppCard({ c, shell, app, look, v, openApp, style }) {
   useAppFrame(frame, shell, app, key, { onOpen: openApp }); // the widget asking to open its app, or another (kit shell.openApp)
   const [shownV, setShownV] = useState(v); // reloads once the app's files have settled after a change
   useEffect(() => { if (v === shownV) return; const t = setTimeout(() => setShownV(v), 700); return () => clearTimeout(t); }, [v]);
-  const hash = lookHash(look, shell, (p) => mixHex(p.ink, p.sheet, 0.05), app);
+  const hash = lookHash(look, shell, (p) => p.sheet, app);
   return <div className="t-card t-app" style={style}>
     <div className="h-label t-app-name" role="button" onClick={() => openApp(app.id)}>{app.meta?.name || app.id}</div>
     {key && <iframe ref={frame} key={shownV} className="t-app-pad" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/widget.html?today=${app.today}#${hash}`} />}
   </div>;
 }
 
-/** The apps' notes on the day (a school lunch, trash day): one outlined card under the calendar's, a row each, the label
- *  soft at the left and the whole text at the right. A tap opens it: all of it, where it's from, where that app's notes
- *  show, and opening the app. */
-function DayNotes({ c, house, notes, day, openApp }) {
-  const [open, setOpen] = useState(null), [shows, setShows] = useState({});
-  const showOf = (x) => shows[x.app] ?? (house?.fromApps || []).find((a) => a.app === x.app)?.show ?? x.show;
-  const setShow = (x, show) => { setShows({ ...shows, [x.app]: show }); c.json('POST', '/house/settings', { fromApp: { app: x.app, show } }).catch(() => {}); };
-  const label = (x, sep) => <>{x.label}{x.who && <>{sep}{personColor(house, x.who) && <span className="h-dot" style={{ background: personColor(house, x.who) }} />}{x.who}</>}</>;
-  const x = open;
-  // A card like the others on Today (the user: "the same format and style as the other bubbles"): its label small
-  // above, the words below; one card for each note.
+/** One of the apps' notes on the day (a school lunch, trash day), as a card on Today. With photos of its things (the
+ *  day's lunch dishes) it's a picture card: the first dish large, the others small at its corner. Without, a small
+ *  panel under the calendar's: its label above, the words below. A tap opens it: all of it, where it's from, where
+ *  that app's notes show, and opening the app. */
+const notePics = (n) => (n.pics || []).filter((p) => p.image);
+function DayNote({ c, house, n, day, openApp, style }) {
+  const [open, setOpen] = useState(false), [show, setShown] = useState(null), [bad, setBad] = useState(() => new Set());
+  const showNow = show ?? (house?.fromApps || []).find((a) => a.app === n.app)?.show ?? n.show;
+  const setShow = (v) => { setShown(v); c.json('POST', '/house/settings', { fromApp: { app: n.app, show: v } }).catch(() => {}); };
+  const label = (sep) => <>{n.label}{n.who && <>{sep}{n.who}</>}</>;
+  const pics = notePics(n).filter((p) => !bad.has(p.image));
+  const img = (p, cls) => <img key={p.image} className={cls} src={p.image} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setBad(new Set([...bad, p.image]))} />;
   return <>
-    {notes.map((n, i) => <div key={n.app + i} role="button" tabIndex={0} className="t-card t-acts t-daynote" onClick={() => setOpen(n)}>
-      <div className="h-label">{label(n, ' · ')}</div>
-      {n.pics?.some((p) => p.image) ? <div className="t-pics">{n.pics.map((p, k) => <div key={k} className="t-pic">
-        {p.image && <img src={p.image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} />}<span>{plain(p.text)}</span>
-      </div>)}</div> : <div className="t-line">{plain(n.text)}</div>}
-    </div>)}
-    {x && <div className="h-veil" onClick={() => setOpen(null)}>
+    {pics.length ? <div role="button" tabIndex={0} className="t-card t-lunch t-pic-card" style={style} onClick={() => setOpen(true)}>
+      {img(pics[0], 't-cover')}
+      {pics.length > 1 && <div className="t-sides">{pics.slice(1, 3).map((p) => img(p))}</div>}
+      <div className="t-cap"><div className="h-label">{label(' · ')}</div><div className="t-big">{plain(pics[0].text || n.text)}</div></div>
+    </div> : <div role="button" tabIndex={0} className="t-card t-acts t-daynote" style={style} onClick={() => setOpen(true)}>
+      <div className="h-label">{label(' · ')}</div>
+      <div className="t-line">{plain(n.text)}</div>
+    </div>}
+    {open && <div className="h-veil" onClick={() => setOpen(false)}>
       <div className="h-note-full t-nsheet" onClick={(e) => e.stopPropagation()}>
-        <div className="t-nk">{label(x, ' · ')} · {day.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-        <h2>{plain(x.text)}</h2>
-        <div className="t-nfrom">From {x.name || x.app}</div>
+        <div className="t-nk">{label(' · ')} · {day.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+        <h2>{plain(n.text)}</h2>
+        <div className="t-nfrom">From {n.name || n.app}</div>
         <div className="t-nshow"><span>Show</span>{[['week', 'Week and Today'], ['today', 'Today only'], ['off', 'Nowhere']].map(([k, l]) => (
-          <button key={k} className={'h-chip' + (showOf(x) === k ? ' on' : '')} onClick={() => setShow(x, k)}>{l}</button>))}</div>
-        <div className="t-nacts"><button className="h-chip" onClick={() => { setOpen(null); openApp(x.app); }}>Open {x.name || x.app}</button>
-          <button className="h-chip on" onClick={() => setOpen(null)}>Done</button></div>
+          <button key={k} className={'h-chip' + (showNow === k ? ' on' : '')} onClick={() => setShow(k)}>{l}</button>))}</div>
+        <div className="t-nacts"><button className="h-chip" onClick={() => { setOpen(false); openApp(n.app); }}>Open {n.name || n.app}</button>
+          <button className="h-chip on" onClick={() => setOpen(false)}>Done</button></div>
       </div>
     </div>}
   </>;
@@ -297,11 +302,13 @@ export function untilText(start, now) {
 
 // ---- Today: the most important bit of each tab, at a glance -------------------------------------------------
 // Each card is one tab's excerpt and opens that tab. Only the tabs the family has get a card (a renamed or remade app
-// still counts by its name), the most useful first, and they share the sheet without scrolling: Calendar down the left,
-// the others in a grid beside it, at most six.
+// still counts by its name), the most useful first, and they share the screen without scrolling: Calendar down the left
+// on a white panel, the others in rows beside it (two to a row, three in the last), each in its own color.
 const KINDS = ['calendar', 'weather', 'chores', 'meals', 'lists', 'photos'];
 /** Which of the starting apps a tab is, by its id or, for one the family remade, its name. */
 export function kindOf(t, app) { if (KINDS.includes(t.id)) return t.id; const n = String(t.name || app?.meta?.name || '').toLowerCase(); return KINDS.find((k) => n.includes(k.replace(/s$/, ''))) || null; }
+/** Whose world is behind a tab: the starting app it is, else its own id (look.js worldOf). */
+const worldTab = (t, appBy) => (t ? kindOf(t, appBy.get(t.id)) || t.id : null);
 // Titles from synced calendars can carry emoji ("🤸 Gymnastics"); the home screen draws no emoji as icons, so they go.
 const plain = (t) => String(t || '').replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}‍️⃣]/gu, '').replace(/\s+/g, ' ').trim() || t;
 
@@ -340,12 +347,28 @@ function WeatherCard({ w, now, dim, className, ...rest }) {
   return <div ref={ref} {...rest} className={className + ' ' + look.cls + (dim ? ' dim' : '')} dangerouslySetInnerHTML={{ __html: look.html }} />;
 }
 
+/** "in 20 minutes", "in 2 hours", "now": how far off the next thing is (only for one with a time, today). */
+const inText = (e, now) => {
+  if (!e || e.allDay) return '';
+  const m = Math.round((new Date(e.start) - now) / 60e3);
+  return m <= 0 ? 'now' : m < 60 ? `in ${m} ${m === 1 ? 'minute' : 'minutes'}` : m < 600 ? `in ${Math.round(m / 60)} ${Math.round(m / 60) === 1 ? 'hour' : 'hours'}` : '';
+};
+/** A dish's picture: its recipe's own (kept from its page), else a warm tile with its initial. */
+function DishPic({ house, name }) {
+  const [bad, setBad] = useState(false);
+  const src = house?.recipes?.[String(name || '').trim().toLowerCase()]?.image;
+  return src && !bad ? <img className="t-dish" src={src} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setBad(true)} />
+    : <span className="t-dish letter">{String(name || '').trim()[0]?.toUpperCase() || ''}</span>;
+}
+const Basket = () => <svg className="t-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5h18l-1.6 9a1.5 1.5 0 0 1-1.5 1.2H6.1a1.5 1.5 0 0 1-1.5-1.2zM8 9.5l3.2-5.5M16 9.5l-3.2-5.5M9 13v3.5M12 13v3.5M15 13v3.5" /></svg>;
+const Check = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
+
 /** Today (also on someone's phone, phone.jsx, in one column). */
 export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp, shell, usePhoto, look, appsV }) {
   const h = house || {};
   const kinds = new Map(); for (const t of tabs) { const k = kindOf(t, appBy.get(t.id)); if (k && !kinds.has(k)) kinds.set(k, t.id); }
   const t = new Date(now); t.setHours(0, 0, 0, 0);
-  const Dot = ({ e }) => { const bg = eventPaint(h, e); return bg ? <span className="h-dot" style={{ background: bg }} /> : <span className="h-dot none" />; };
+  const EvAv = ({ e, className }) => <Av paint={eventPaint(h, e)} name={eventPeople(h, e)[0]} className={className} />;
   const card = (kind, open) => ({ role: 'button', tabIndex: 0, className: 't-card t-' + kind, onClick: open || (() => go(kinds.get(kind))) });
 
   // Calendar: what's next, then the rest of its day, then the days after it, grouped by day, as many as fit (a quiet
@@ -362,12 +385,13 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   const hadToday = (h.events || []).some((e) => +dayOf(e) === +t);
   const notesDay = !todays.length && (hadToday || new Date(now).getHours() >= 18) ? tomorrow : t;
   const dayNotes = (h.dayNotes?.[dayKey(notesDay)] || []).filter((x) => x.show !== 'off');
+  const pictured = dayNotes.find((n) => notePics(n).length); // the one with photos is a card of its own beside the calendar
   const when = (e) => timeOf(e) || 'All day';
-  // Chores: each person's left today, and the routine that's on now.
-  const left = new Map();
-  for (const ch of h.chores || []) if (ch.today !== false && !ch.skipped) { const k = ch.who || ''; if (!left.has(k)) left.set(k, 0); if (!ch.done) left.set(k, left.get(k) + 1); }
+  // Chores: each person's today, done and left, and the routine that's on now.
+  const mine = new Map();
+  for (const ch of h.chores || []) if (ch.today !== false && !ch.skipped) { const k = ch.who || ''; if (!mine.has(k)) mine.set(k, [0, 0]); mine.get(k)[1]++; if (ch.done) mine.get(k)[0]++; }
   const routine = (h.checklists || []).find((r) => r.now);
-  // Lists: the groceries (or the first list), what's left, ticked right here with a moment to undo.
+  // Lists: the groceries (or the first list), what's left, ticked right here with a moment to put it back.
   const list = (h.lists || []).find((l) => l.id === 'groceries') || (h.lists || [])[0];
   const [ticked, setTicked] = useState(null);
   const [gone, setGone] = useState(() => new Set());
@@ -379,6 +403,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   // for tonight (only ones they have: nothing made up).
   const dinner = (d) => { const v = h.meals?.[dayKey(d)]?.dinner; return v && String(v).trim() ? String(v) : null; };
   const [picked, setPicked] = useState(null); // planned here a moment ago, until /house has it
+  const [noPic, setNoPic] = useState(() => new Set()); // a dish whose picture didn't load
   const tonight = dinner(t) || (picked?.day === dayKey(t) ? picked.text : null);
   const coming = [1, 2, 3, 4, 5, 6].map((n) => new Date(+t + n * 864e5)).filter(dinner);
   const picks = [];
@@ -394,79 +419,80 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   // it to the household's plans; with no line, the next days.
   const w = weather && !weather.error ? weather : null;
   if (w) cards.push(<WeatherCard key="weather" w={w} now={now} dim={look?.palette === 'dusk'} {...card('weather', kinds.has('weather') ? null : () => shell?.weather?.())} />);
-  if (kinds.has('chores') && (left.size || routine)) cards.push(<div key="chores" {...card('chores')}>
-    <div className="h-label">{routine ? `${routine.name} now` : 'Chores left'}</div>
-    {left.size ? <div className="t-rows">{[...left].slice(0, 4).map(([who, n]) => (
-      <div key={who} className="t-row"><Dot who={who} /><span className="h-grow">{who || 'Anyone'}</span><span className={n ? 't-count' : 't-soft'}>{n || 'done'}</span></div>
-    ))}</div> : <div className="t-line">{routine.steps?.length || 0} steps</div>}
-  </div>);
-  if (kinds.has('meals')) cards.push(<div key="meals" {...card('meals')}>
+  if (pictured) cards.push(<DayNote key="lunch" c={c} house={h} n={pictured} day={notesDay} openApp={openApp} />);
+  // Dinner: tonight's, on its own picture when its recipe has one; unplanned, three of theirs to tap, each with its picture.
+  const tonightPic = tonight && !noPic.has(tonight) && h.recipes?.[tonight.trim().toLowerCase()]?.image;
+  if (kinds.has('meals')) cards.push(<div key="meals" {...card('meals')} className={'t-card t-meals' + (tonightPic ? ' t-pic-card' : '')}>
+    {tonightPic && <img className="t-cover" src={tonightPic} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setNoPic(new Set([...noPic, tonight]))} />}
     <div className="h-label">Dinner tonight</div>
-    {tonight ? <div className="t-big">{tonight}</div> : <div className="t-big t-quiet">Not planned</div>}
+    {tonight ? <div className="t-big">{tonight}</div> : <div className="t-big">Not planned yet</div>}
     {!tonight && !picks.length && !coming.length && <div className="t-soft">Plan the week in Meals</div>}
-    <div className="t-fit" ref={mealFit}>
-      {!tonight && picks.length > 0 && <div className="t-picks">{picks.slice(0, 8).map((p) => (
-        <span key={p} role="button" className="t-pick" data-fit="" aria-label={'Have ' + p + ' tonight'} onClick={(e) => plan(e, p)}>{p}</span>))}</div>}
+    {!tonight && picks.length > 0 && <div className="t-picks">{picks.slice(0, 3).map((p) => (
+      <span key={p} role="button" className="t-pick" aria-label={'Have ' + p + ' tonight'} onClick={(e) => plan(e, p)}><DishPic house={h} name={p} /><b>{p}</b></span>))}</div>}
+    {(tonight || !picks.length) && <div className="t-fit" ref={mealFit}>
       {coming.length > 0 && <div className="t-rows t-gap-s">{coming.map((d) => <div key={+d} className="t-row" data-fit="">
         <span className="t-when">{+d === +tomorrow ? 'Tomorrow' : weekday(d)}</span><span className="h-grow">{dinner(d)}</span>
       </div>)}</div>}
-    </div>
+    </div>}
   </div>);
+  // The list: what's left to get, in two columns, eight at most (more than that, seven and a count).
   if (kinds.has('lists') && list) cards.push(<div key="lists" {...card('lists')}>
-    <div className="h-label">{list.name}</div>
-    {/* Five fit the card (six cut the last one off); more than that, four and a count. */}
-    {items.length || ticked ? <div className="t-rows">{items.slice(0, items.length > 5 ? 4 : 5).map((i) => (
-      <div key={i.id} className="t-row"><span className="t-box" role="button" aria-label={'Got ' + i.text} onClick={(e) => tick(e, i)} /><span className="h-grow">{i.text}</span></div>
-    ))}{items.length > 5 && <div className="t-row t-soft">and {items.length - 4} more</div>}{ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Undo</span>}</div>
-      : <div className="t-big t-quiet">Nothing to get</div>}
+    <div className="t-top"><Basket /><div className="h-label">{list.name}</div>{items.length > 0 && <span className="t-n">{items.length} to get</span>}</div>
+    {items.length || ticked ? <div className="t-items">{items.slice(0, items.length > 8 ? 7 : 8).map((i) => (
+      <div key={i.id} className="t-item"><span className="t-box" role="button" aria-label={'Got ' + i.text} onClick={(e) => tick(e, i)} /><span className="h-grow">{i.text}</span></div>
+    ))}{items.length > 8 && <div className="t-item t-more">and {items.length - 7} more</div>}</div>
+      : <div className="t-big">Nothing to get</div>}
+    {ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Put it back</span>}
   </div>);
-  // The apps' own cards the household turned on, in their order, before the notes and the photo (wide: across two columns).
-  if (shell?.ui) for (const id of look?.cards || []) { const a = appBy.get(id); if (a?.today) cards.push(<AppCard key={'app:' + id} c={c} shell={shell} app={a} look={look} v={appsV[id] || 0} openApp={openApp} wide={a.today === 'wide'} />); }
+  // Chores: a ring each, filling as theirs get done.
+  if (kinds.has('chores') && (mine.size || routine)) cards.push(<div key="chores" {...card('chores')}>
+    <div className="h-label">{routine ? `${routine.name} now` : 'Chores today'}</div>
+    {mine.size ? <div className="t-rings">{[...mine].slice(0, 4).map(([who, [done, n]]) => { const col = personColor(h, who) || 'var(--h-soft)', all = done === n; return (
+      <div key={who} className={'t-ring' + (all ? ' done' : '')}>
+        <span className="t-ring-o"><svg viewBox="0 0 58 58"><circle className="t-ring-bg" cx="29" cy="29" r="25" fill="none" strokeWidth="6" />{done > 0 && <circle cx="29" cy="29" r="25" fill={all ? col : 'none'} stroke={col} strokeWidth="6" strokeLinecap="round" strokeDasharray={`${157.1 * done / n} 157.1`} />}</svg>
+          <b>{all ? <Check /> : (who || 'A')[0].toUpperCase()}</b></span>
+        <span className="t-ring-n">{who || 'Anyone'}</span><em>{all ? 'Done' : `${n - done} left`}</em>
+      </div>); })}</div> : <div className="t-line">{routine.steps?.length || 0} steps</div>}
+  </div>);
+  // The apps' own cards the household turned on, in their order, before the notes and the photo (wide: a row of its own).
   if (notes.length) cards.push(<NotesCard key="notes" c={c} notes={notes} reminders={[]} />); // (reminders due are things on Today)
-  if (kinds.has('photos') && photos.length) cards.push(<PhotoCard key="photos" c={c} names={photos} now={now} usePhoto={usePhoto} {...card('photos')} />);
-  // Laid out in order, three rows at most: a wide card that doesn't fit the rest of a row starts the next, and the
-  // card before it fills the row instead (no holes); the last card fills its row too.
-  const cols = kinds.has('calendar') ? 2 : 3, side = [];
-  let col = 0, row = 0;
-  for (const x of cards) {
-    const span = x.props.wide ? Math.min(2, cols) : 1;
-    if (col + span > cols) { side[side.length - 1].span += cols - col; col = 0; row++; }
-    if (row >= 3) break;
-    side.push({ x, span }); col += span;
-    if (col === cols) { col = 0; row++; }
-  }
-  if (col > 0) { side[side.length - 1].span += cols - col; row++; }
-  const rows = Math.max(1, row);
-  // Each row as tall as its cards need (a short card doesn't stretch to fill a tall slot); a row with a photo or an
-  // app's card takes the rest, else the last row does, so the cards still reach the bottom.
-  const sizes = Array(rows).fill('auto'), grow = 'minmax(calc(var(--u) * 180), 1fr)';
-  { let r = 0, cc = 0; for (const { x, span } of side) { if (x.key === 'photos' || String(x.key).startsWith('app:')) sizes[r] = grow; cc += span; if (cc >= cols) { cc = 0; r++; } } }
-  if (!sizes.includes(grow)) sizes[rows - 1] = grow;
+  if (shell?.ui) for (const id of look?.cards || []) { const a = appBy.get(id); if (a?.today) cards.push(<AppCard key={'app:' + id} c={c} shell={shell} app={a} look={look} v={appsV[id] || 0} openApp={openApp} wide={a.today === 'wide'} />); }
+  if (kinds.has('photos') && photos.length) cards.push(<PhotoCard key="photos" c={c} names={photos} captions={h.captions} now={now} usePhoto={usePhoto} {...card('photos')} />);
+  // Laid out in rows, three at most: two to a row beside the calendar (three without it), a wide card a row of its own;
+  // the last row takes one more, so seven cards share the screen as two, two and three.
+  const per = kinds.has('calendar') ? 2 : 3, rows = [];
+  { let cur = null; for (const x of cards) { if (x.props.wide) { rows.push([x]); cur = null; } else { if (!cur || cur.length >= per) rows.push(cur = []); cur.push(x); } } }
+  if (rows.length > 3 && rows[2].length === per && !rows[2][0].props.wide && !rows[3][0].props.wide) rows[2].push(rows[3][0]);
+  rows.length = Math.min(rows.length, 3);
+  const tall = rows.length === 3 ? [346, 296, 242] : [1, 1, 1];
+  const wide = (x) => (x.key === 'photos' ? 1.5 : x.key === 'notes' ? 1 : 1.25);
 
   return (
     <div className="h-today">
-      <div className="h-head"><h1 className="h-title">Today</h1>{!kinds.has('calendar') && <Things c={c} things={h.things} className="t-things t-things-head" go={go} tabs={tabs} ask={shell?.ask} />}</div>
-      <div className={'t-grid' + (kinds.has('calendar') ? ' with-cal' : '')} style={{ '--rows': rows, '--cols': cols, gridTemplateRows: sizes.join(' ') }}>
-        {kinds.has('calendar') && <div className="t-calcol" style={{ gridRow: `span ${rows}` }}>
+      {!kinds.has('calendar') && <Things c={c} things={h.things} className="t-things t-things-head" go={go} tabs={tabs} ask={shell?.ask} />}
+      <div className={'t-grid' + (kinds.has('calendar') ? ' with-cal' : '')}>
+        {kinds.has('calendar') && <div className="t-calcol">
         <div {...card('calendar')}>
-          <div className="h-label">{!first ? 'Calendar' : +firstDay === +t ? 'Next' : dayName(firstDay)}</div>
           {first ? <>
-            <div className="t-next">{plain(first.title)}</div>
-            <div className="t-soft"><Dot e={first} />{[when(first), eventPeople(h, first).join(' & ') || null, first.place].filter(Boolean).join(' · ')}</div>
-            <div className="t-fit" ref={calFit}>{byDay.map(([d, l], k) => { // the rest of its day, then each day after it
+            <div className="t-hero">
+              <div className="h-label">{+firstDay === +t ? ['Next', inText(first, now)].filter(Boolean).join(' · ') : dayName(firstDay)}</div>
+              <div className="t-next">{plain(first.title)}</div>
+              <div className="t-when-next"><EvAv e={first} className="dark" /><span className="h-grow">{[when(first), eventPeople(h, first).join(' & ') || null, first.place].filter(Boolean).join(' · ')}</span></div>
+            </div>
+            <div className="t-agenda t-fit" ref={calFit}>{byDay.map(([d, l], k) => { // the rest of its day, then each day after it
               const rest = k ? l : l.slice(1);
-              return rest.length > 0 && <div key={+d}>
-                <div className="h-label t-gap" data-fit="label">{k ? dayName(d) : +d === +t ? 'Later today' : 'Then'}</div>
-                <div className="t-rows">{rest.map((e, i) => <div key={i} className="t-row" data-fit=""><span className="t-when">{when(e)}</span><Dot e={e} /><span className="h-grow">{plain(e.title)}</span></div>)}</div>
+              return rest.length > 0 && <div key={+d} className="t-daygroup">
+                <div className="h-label" data-fit="label">{k ? dayName(d) : +d === +t ? 'Later today' : 'Then'}</div>
+                {rest.map((e, i) => <div key={i} className="t-ev" data-fit=""><span className="t-when">{when(e)}</span><EvAv e={e} /><span className="h-grow">{plain(e.title)}</span></div>)}
               </div>;
             })}</div>
-          </> : <div className="t-big t-quiet">Nothing on this week</div>}
+          </> : <div className="t-empty"><div className="h-label">Calendar</div><div className="t-big t-quiet">Nothing on this week</div></div>}
           <Things c={c} things={h.things} go={go} tabs={tabs} ask={shell?.ask} />
         </div>
-        {/* the day's notes from the apps, the next thing under its events */}
-        {dayNotes.length > 0 && <DayNotes c={c} house={h} notes={dayNotes} day={notesDay} openApp={openApp} />}
+        {/* the day's other notes from the apps, the next thing under its events */}
+        {dayNotes.filter((n) => n !== pictured).map((n, i) => <DayNote key={n.app + i} c={c} house={h} n={n} day={notesDay} openApp={openApp} />)}
         </div>}
-        {side.map(({ x, span }) => (span > 1 ? cloneElement(x, { style: { gridColumn: `span ${span}` } }) : x))}
+        <div className="t-side">{rows.map((r, i) => <div key={i} className="t-siderow" style={{ flexGrow: tall[i], gridTemplateColumns: r.map((x) => `minmax(0, ${wide(x)}fr)`).join(' ') }}>{r}</div>)}</div>
       </div>
     </div>
   );
@@ -490,10 +516,10 @@ export function Things({ c, things, className = 't-things', go, tabs, ask }) {
   })}</div>;
 }
 
-/** A photo of theirs, a new one every minute, opening Photos. */
-function PhotoCard({ c, names, now, usePhoto, ...rest }) {
-  const src = usePhoto(c, names[Math.floor(now / 60e3) % names.length]);
-  return <div {...rest} className={rest.className + ' t-photo'}>{src && <img src={src} alt="" draggable={false} />}</div>;
+/** A photo of theirs, a new one every minute, with its caption if it has one, opening Photos. */
+function PhotoCard({ c, names, captions, now, usePhoto, ...rest }) {
+  const name = names[Math.floor(now / 60e3) % names.length], src = usePhoto(c, name), cap = captions?.[name];
+  return <div {...rest} className={rest.className + ' t-photo t-pic-card'}>{src && <img className="t-cover" src={src} alt="" draggable={false} />}{cap && <div className="t-cap"><div className="t-line">{cap}</div></div>}</div>;
 }
 
 // ---- Notes: what the assistant put up for them, and reminders due now ------------------------------------------------
@@ -506,13 +532,14 @@ function NotesCard({ c, notes, reminders, style }) {
   const note = open && notes.find((n) => n.id === open);
   const down = (n) => { setOpen(null); setGone(new Set([...gone, n.id])); c.json('POST', '/door/remove', { id: n.id }).catch(() => {}); };
   const room = Math.max(0, 3 - reminders.length);
+  // The newest large, as a note on yellow; the next ones small under it.
   return <div className="t-card t-notes" style={style}>
-    <div className="h-label">{reminders.length && !shown.length ? 'Now' : 'Notes'}</div>
+    <div className="h-label">{reminders.length && !shown.length ? 'Now' : shown.length > 1 ? 'Notes' : 'Note'}</div>
     <div className="t-rows">
       {reminders.slice(0, 3).map((r) => <div key={r.key} className="t-row t-due"><span className="t-when">{timeOf(r)}</span><span className="h-grow">{plain(r.title)}</span></div>)}
-      {shown.slice(0, room).map((n) => (
-        <div key={n.id} role="button" className="t-row t-note" onClick={() => { setOpen(n.id); c.json('POST', '/door/touch', { id: n.id }).catch(() => {}); }}>
-          <span className="t-note-title">{n.title}</span>{gist(n.content) && <span className="t-note-gist">{gist(n.content)}</span>}
+      {shown.slice(0, room).map((n, i) => (
+        <div key={n.id} role="button" className={'t-note' + (i ? '' : ' first')} onClick={(e) => { e.stopPropagation(); setOpen(n.id); c.json('POST', '/door/touch', { id: n.id }).catch(() => {}); }}>
+          <span className="t-note-title">{n.title}</span>{!i && gist(n.content) && <span className="t-note-gist">{gist(n.content)}</span>}
         </div>
       ))}
       {shown.length > room && room > 0 && <div className="t-soft">{shown.length - room} more</div>}
@@ -536,7 +563,7 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
   const [hid, setHid] = useState({}); // shown at once, until the door has it
   const [menu, setMenu] = useState(null);
   const inTabs = new Set(tabs.map((t) => t.id));
-  const all = [...apps.filter((a) => a.id !== 'home' && !inTabs.has(a.id)).map((a) => ({ id: a.id, name: a.meta?.name || a.id, svg: a.icon, web: a.web !== false, today: a.today })),
+  const all = [...apps.filter((a) => a.id !== 'home' && !inTabs.has(a.id)).map((a) => ({ id: a.id, name: a.meta?.name || a.id, about: a.meta?.description || '', svg: a.icon, web: a.web !== false, today: a.today })),
     ...android.map((a) => ({ id: a.id, name: a.name || a.id, img: a.icon, android: true }))]
     .sort((a, b) => a.name.localeCompare(b.name));
   const off = (a) => hid[a.id] ?? !!places['app:' + a.id]?.hidden;
@@ -560,14 +587,15 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
     : <span className="h-app-icon letter">{a.name[0].toUpperCase()}</span>;
   return (
     <div className="h-apps">
-      <div className="h-head"><h1 className="h-title">Apps</h1></div>
+      <div className="h-head"><h1 className="h-title">Apps <span>made for this house</span></h1></div>
+      {/* Each app a white panel: its icon large, its name and what it says of itself under. */}
       {here.length || shell?.plugins ? <div className="h-app-grid">{here.map((a) => (
-        <button key={a.id} className={'h-app-tile' + (a.web === false ? ' old' : '')} {...press(a)}><Icon a={a} /><span className="h-app-name">{a.name}</span></button>
+        <button key={a.id} className={'h-app-tile' + (a.web === false ? ' old' : '')} {...press(a)}><Icon a={a} /><span className="h-app-name">{a.name}</span><span className="h-app-about">{a.about}</span></button>
       ))}
         {/* OpenHouse's list of plugins (the shell's gallery, as in Settings, Plugins): adding one asks for the PIN */}
-        {shell?.plugins && <button className="h-app-tile" onClick={() => shell.plugins()}>
-          <span className="h-app-icon letter add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M12 6v12M6 12h12" /></svg></span>
-          <span className="h-app-name">Add apps</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : 'No other apps yet. Ask Opie to make one.'}</div>}
+        {shell?.plugins && <button className="h-app-tile add" onClick={() => shell.plugins()}>
+          <span className="h-app-icon letter add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg></span>
+          <span className="h-app-name">Add apps</span><span className="h-app-about">A gallery of plugins OpenHouse has looked over.</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : 'No other apps yet. Ask Opie to make one.'}</div>}
       {menu && <div className="h-veil" onClick={() => setMenu(null)}>
         <div className="h-menu" onClick={(e) => e.stopPropagation()}>
           <div className="h-menu-head"><Icon a={menu} /><span>{menu.name}</span></div>

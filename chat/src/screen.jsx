@@ -17,6 +17,7 @@ import { AnswerBody, Display, page as answerPage } from './answer.jsx';
 import { Widget, Fit, IconFill, U } from './door-widgets.jsx';
 import { Home as HomeTabs, appOrigin } from './home.jsx';
 import { pairingFromCode, cleanCode } from './scrypt.js';
+import { icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 
 /** A TV's browser (docs/phones-and-tv.md): it joins with a code typed on its remote, and shows the TV layout. */
 const TV = new URLSearchParams(location.search).has('tv');
@@ -179,7 +180,7 @@ const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-
 const hm = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
 const fmt = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return h ? `${h}:${pad(m)}:${pad(x)}` : `${m}:${pad(x)}`; };
 const MAGNETS = ['#d9543f', '#3f74d9', '#4fa87a', '#e2a93b', '#8b5cc9', '#2fa3a8'];
-const PEOPLE = ['#d9a441', '#6fae8f', '#d97a5e', '#7d9ad6', '#b689cf', '#d6a86a'];
+const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'];
 const hash = (s) => { let h = 0; for (const ch of String(s)) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h); };
 const personColor = (house, who) => { const i = (house?.family || []).findIndex((p) => p.name.toLowerCase() === String(who || '').toLowerCase()); return i < 0 ? null : house.family[i].color || PEOPLE[i % PEOPLE.length]; };
 /** An event's color: its person's, or each one's in turn when it's for several (its person and whoever else). */
@@ -740,19 +741,35 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
     wd && (eve ? `tomorrow ${lc(wd.condition)}, ${wd.high}°/${wd.low}°` : Number.isFinite(wd.high) && `high ${wd.high}°`),
     wd?.rain >= 30 && `rain ${wd.rain}%`].filter(Boolean).join(' · ');
   const counting = (house?.things || []).filter((x) => !x.sleepOff && !(x.start && coming.some((e) => x.title === e.title && Date.parse(x.start) === Date.parse(e.start)))); // (not an event shown already)
+  // What's next on its own card (its day above it when that's tomorrow), then a line each: the events after it, the
+  // day's notes from the apps, what they're counting down to, timers. A line is its time or label, a round mark, the words.
+  const rest = coming.slice(1), initial = (e) => (isPerson(e.who) ? e.who.trim()[0].toUpperCase() : '');
+  const Mark = ({ e }) => { const bg = e && eventPaint(house, e); return bg ? <i className="ambient-av" style={{ background: bg }}>{initial(e)}</i> : <i className="ambient-av none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></i>; };
+  const mins = next && !tmr ? Math.round((Date.parse(next.start) - now) / 60e3) : null;
+  const lines = [
+    ...allDay.map((x) => ({ k: 'a' + x, one: x })),
+    ...rest.map((e) => ({ k: (e.id || e.uid || e.start) + e.title, when: nextWhen(e).split(' · ')[0], e, text: e.title })),
+    ...dayNotes.map((n, i) => ({ k: 'n' + i, when: n.label, text: n.short || n.text })),
+    ...counting.map((x) => ({ k: x.id, one: x.text })),
+    ...(!next && board?.headline ? [{ k: 'head', one: board.headline }] : []),
+    ...timers.map((t) => ({ k: 't' + t.endAt, when: t.endAt <= now ? '0:00' : fmt(Math.ceil((t.endAt - now) / 1000)), text: t.label })),
+  ].slice(0, 5);
   return (
     <div className={'ambient' + (night ? ' night' : '')} onPointerDown={() => shell?.touch()}>
       {src && <img src={src} alt="" />}
       {src && caption && <div className="ambient-caption">{caption}</div>}
-      <div className="ambient-time"><div className="t">{hm(d)}</div><div className="d">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>{sky && <div className="w">{sky}</div>}</div>
-      {(next || allDay.length > 0 || dayNotes.length > 0 || counting.length > 0 || board?.headline || timers.length > 0) && <div className="ambient-side">
-        {(coming.length > 0 || allDay.length > 0) && tmr && <div className="ambient-day">Tomorrow</div>}
-        {allDay.length > 0 && <div className="ambient-allday">{allDay.join(' · ')}</div>}
-        {coming.map((e) => <div key={e.id || e.uid || e.start + e.title} className="ambient-ev">{eventPaint(house, e) && <i className="ambient-dot" style={{ background: eventPaint(house, e) }} />}<span>{nextWhen(e).split(' · ')[0]}</span> {e.title}</div>)}
-        {dayNotes.map((n, i) => <div key={'n' + i} className="ambient-note"><span>{n.label}</span> {n.short || n.text}</div>)}
-        {counting.map((x) => <div key={x.id}>{x.text}</div>)}
-        {!next && board?.headline && <div>{board.headline}</div>}
-        {timers.map((t) => <div key={t.endAt}>{t.label} · {t.endAt <= now ? '0:00' : fmt(Math.ceil((t.endAt - now) / 1000))}</div>)}
+      <div className="ambient-time"><div className="t">{hm(d)}</div><div className="d">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+        {sky && <div className="w"><span style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: weatherIcon(w.code, w.isDay !== false) }} />{sky}</div>}</div>
+      {(next || lines.length > 0) && <div className="ambient-side">
+        {next && <div className="ambient-next">
+          <div className="ambient-day">{tmr ? 'Tomorrow' : mins != null && mins < 60 ? `Next · in ${Math.max(1, mins)} ${mins <= 1 ? 'minute' : 'minutes'}` : 'Next'}</div>
+          <h2>{next.title}</h2><div className="t">{nextWhen(next)}</div>
+        </div>}
+        {lines.length > 0 && <div className="ambient-rows">
+          {tmr && !next && allDay.length > 0 && <div className="ambient-day">Tomorrow</div>}
+          {lines.map((l) => (l.one != null ? <div key={l.k} className="ambient-r one"><span>{l.one}</span></div>
+            : <div key={l.k} className="ambient-r"><span>{l.when}</span><Mark e={l.e} /><span>{l.text}</span></div>))}
+        </div>}
       </div>}
     </div>
   );
