@@ -1,7 +1,9 @@
 /* The phone page (src/phone.jsx), in the home screen's light look: a warm off-white world (--bg, with a faint hue per
    tab), white panels (--card), ink type, ink primary pills and soft secondary ones. The page takes the household's
    palette (phone.jsx phoneVars), so the soft tones are made from its ink. */
-:root { --bg: #f1eee8; --card: #fff; --ink: #15132b; color-scheme: light; }
+:root {
+  /* The floating tab bar: down in the home indicator's space, as an iPhone's own tab bars are (the rest sits above it). */
+  --navb: max(10px, calc(env(safe-area-inset-bottom) - 12px)); --bg: #f1eee8; --card: #fff; --ink: #15132b; color-scheme: light; }
 :root, .app { --soft: color-mix(in srgb, var(--ink) 62%, transparent); --line: color-mix(in srgb, var(--ink) 10%, transparent); --tint: color-mix(in srgb, var(--ink) 6%, transparent);
   --shadow: 0 20px 40px -26px rgba(40,30,10,.45), 0 0 0 1px color-mix(in srgb, var(--ink) 4.5%, transparent); }
 .app.dark { color-scheme: dark; --shadow: 0 20px 40px -24px rgba(0,0,0,.7), inset 0 0 0 1px color-mix(in srgb, var(--ink) 7%, transparent); }
@@ -16,7 +18,7 @@ button { font: inherit; color: inherit; background: none; border: 0; cursor: poi
 .join p { color: var(--soft); margin: 0 0 24px; }
 a.go { display: block; text-align: center; text-decoration: none; }
 .go, .pushrow button { background: var(--ink); color: var(--card); border-radius: 999px; padding: 14px 22px; font-weight: 600; width: 100%; box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--ink) 50%, transparent); }
-.app { max-width: 560px; margin: 0 auto; min-height: 100vh; padding-bottom: calc(104px + env(safe-area-inset-bottom)); background: var(--bg); color: var(--ink); transition: background .3s; }
+.app { max-width: 560px; margin: 0 auto; min-height: 100vh; padding-bottom: calc(88px + var(--navb)); background: var(--bg); color: var(--ink); transition: background .3s; }
 header { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; padding: calc(22px + env(safe-area-inset-top)) 20px 14px; }
 /* a tab's head: a small label over its name */
 .lab { font-size: 12.5px; font-weight: 650; letter-spacing: .13em; text-transform: uppercase; color: var(--soft); }
@@ -47,7 +49,7 @@ h2 .who { font-size: 14px; color: var(--ink); }
 .box.on { background: var(--ink); border-color: var(--ink); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 12.5l4 4 8-9' fill='none' stroke='%23fbf9f5' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 /* The tabs: the first four on a bar that floats over the foot of the page, and More (every tab, on a white panel that
    slides in from the left; the bar stays over it): nav, nav button(.here), .tab-icon, .more, .more-list, .more-row(.here). */
-nav { position: fixed; left: max(12px, calc(50% - 268px)); right: max(12px, calc(50% - 268px)); bottom: calc(16px + env(safe-area-inset-bottom)); z-index: 35; transform: translateZ(0); height: 68px; box-sizing: border-box; display: flex; padding: 5px; border-radius: 34px;
+nav { position: fixed; left: max(12px, calc(50% - 268px)); right: max(12px, calc(50% - 268px)); bottom: var(--navb); z-index: 35; transform: translateZ(0); height: 68px; box-sizing: border-box; display: flex; padding: 5px; border-radius: 34px;
   background: color-mix(in srgb, var(--card) 80%, transparent); -webkit-backdrop-filter: blur(28px) saturate(1.4); backdrop-filter: blur(28px) saturate(1.4); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 6%, transparent), 0 18px 36px -12px rgba(40,30,10,.4); }
 nav button { flex: 1; min-width: 0; border-radius: 29px; padding: 0 2px; color: color-mix(in srgb, var(--ink) 55%, transparent); font-size: 11.5px; font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; transition: background .2s, color .2s; }
 nav button span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -56,7 +58,7 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .more { position: fixed; inset: 0; z-index: 30; pointer-events: none; visibility: hidden; transition: visibility 0s .3s; }
 .more-veil { position: absolute; inset: 0; background: rgba(40,34,24,.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); opacity: 0; transition: opacity .25s; }
 .more-list { position: absolute; top: 0; bottom: 0; left: 0; width: min(78vw, 304px); box-sizing: border-box; background: var(--card); color: var(--ink); overflow-y: auto; scrollbar-width: none; transform: translateX(-100%); transition: transform .28s cubic-bezier(.3,.7,.2,1);
-  padding: calc(34px + env(safe-area-inset-top)) 14px calc(104px + env(safe-area-inset-bottom)); border-radius: 0 34px 34px 0; box-shadow: 30px 0 60px -20px rgba(40,30,10,.5); display: flex; flex-direction: column; gap: 1px; }
+  padding: calc(34px + env(safe-area-inset-top)) 14px calc(88px + var(--navb)); border-radius: 0 34px 34px 0; box-shadow: 30px 0 60px -20px rgba(40,30,10,.5); display: flex; flex-direction: column; gap: 1px; }
 .more.open { pointer-events: auto; visibility: visible; transition: none; }
 .more.open .more-veil { opacity: 1; }
 .more.open .more-list { transform: none; }
@@ -69,8 +71,8 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .more-foot { font-size: 15px; font-weight: 550; margin-top: 4px; }
 
 /* An app's tab: its frame fills the space between the top and the tabs */
-.app.framed { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: env(safe-area-inset-top) 0 calc(92px + env(safe-area-inset-bottom)); max-width: none; }
-.app.framed.asks { padding-bottom: calc(152px + env(safe-area-inset-bottom)); }
+.app.framed { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: env(safe-area-inset-top) 0 calc(76px + var(--navb)); max-width: none; }
+.app.framed.asks { padding-bottom: calc(136px + var(--navb)); }
 /* (iOS Safari can size a frame to its page instead of its box, wider or taller than the screen, which pushes the page and
    its fixed tabs past the bottom: the frame sits in a box that cuts it to the space it has.) */
 .appframe { flex: 1; min-height: 0; position: relative; overflow: hidden; }
@@ -118,8 +120,8 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .later .pushrow { margin: 10px 0 0; }
 
 /* Opie: a pill at the bottom centre, over the tabs, and the sheet it opens */
-.app.asks { padding-bottom: calc(164px + env(safe-area-inset-bottom)); }
-.opie { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(96px + env(safe-area-inset-bottom)); display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 12px 18px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; box-shadow: 0 6px 20px rgba(42,40,38,.18); z-index: 5; }
+.app.asks { padding-bottom: calc(148px + var(--navb)); }
+.opie { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(80px + var(--navb)); display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px 12px 18px; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 600; box-shadow: 0 6px 20px rgba(42,40,38,.18); z-index: 5; }
 .opie .bars { display: inline-flex; align-items: center; gap: 3px; height: 16px; }
 .opie .bars i { width: 3px; border-radius: 2px; background: currentColor; opacity: .85; }
 .opie .bars i:nth-child(1) { height: 6px; } .opie .bars i:nth-child(2) { height: 14px; } .opie .bars i:nth-child(3) { height: 10px; } .opie .bars i:nth-child(4) { height: 5px; }
@@ -151,7 +153,7 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .opie-bars i:nth-child(2),.opie-bars i:nth-child(4){height:calc(9px + var(--lvl) * 8px)}
 .opie-bars i:nth-child(1),.opie-bars i:nth-child(5){height:calc(5px + var(--lvl) * 6px)}
 @keyframes opie-breathe{50%{opacity:.6}}
-.app .opie-talk{bottom:calc(96px + env(safe-area-inset-bottom))}
+.app .opie-talk{bottom:calc(80px + var(--navb))}
 
 /* Onto the home screen (AddToHome) */
 .home .steps { margin: 4px 0 28px; padding: 0 0 0 22px; font-size: 18px; line-height: 1.5; }
