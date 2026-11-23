@@ -54,7 +54,7 @@ import androidx.compose.ui.text.style.TextOverflow
 private class Pair2(a: String, b: String, c: String = "") { var a by mutableStateOf(a); var b by mutableStateOf(b); var c by mutableStateOf(c) }
 
 /** The colors a person can have (the first six are the order the family is listed in, as /house gives them). */
-private val PERSON_COLORS = listOf("#d9a441", "#6fae8f", "#d97a5e", "#7d9ad6", "#b689cf", "#d6a86a", "#5fa3a8", "#c9708f", "#8a9a5b", "#9a8478")
+private val PERSON_COLORS = listOf("#ffc247", "#56d6a0", "#ff8566", "#74acff", "#c3a0ff", "#ff9ec4", "#5fa3a8", "#c9708f", "#8a9a5b", "#9a8478")
 private fun hexColor(h: String) = runCatching { Color(android.graphics.Color.parseColor(h)) }.getOrDefault(Color.Gray)
 
 /**

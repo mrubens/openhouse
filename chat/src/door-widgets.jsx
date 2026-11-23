@@ -8,7 +8,7 @@ import { AnswerBody } from './answer.jsx';
 export const U = (n) => `calc(var(--wu, var(--u)) * ${n})`; // --wu: a widget on half the page draws everything bigger
 const COLORS = { calendar: '#3F76DB', chores: '#4FA877', meals: '#D95740', lists: '#E6B04A', photos: '#8A5CC9' };
 const SOFT = 'rgba(255,255,255,.78)', INK = '#24282a';
-const PEOPLE = ['#d9a441', '#6fae8f', '#d97a5e', '#7d9ad6', '#b689cf', '#d6a86a'];
+const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'];
 const pad = (n) => String(n).padStart(2, '0');
 export const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const dayName = (d, style = 'long') => d.toLocaleDateString([], { weekday: style });
