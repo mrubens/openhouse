@@ -53,8 +53,8 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         val on = dests.filter { it.optBoolean("on") }
         val where = on.joinToString(" and ") { if (it.optString("id") == "cloud") "the cloud" else "the USB drive" + (it.optString("name").takeIf { n -> n.isNotEmpty() && !it.isNull("name") }?.let { n -> " ($n)" } ?: "") }
         val last = s.optJSONObject("last")
-        val text = when {
-                on.isEmpty() -> "Off."
+        val text: String? = when {
+                on.isEmpty() -> null // the rows say Off
                 last == null -> "Each night, to $where."
                 last.optBoolean("ok") -> "Each night, to $where. Last: ${ago(last.optString("at"))}."
                 else -> "The last backup didn't work (${ago(last.optString("at"))}): ${last.optString("error")}"

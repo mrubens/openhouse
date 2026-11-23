@@ -247,7 +247,6 @@ function screen() {
       round('plus', () => guard(() => eventForm(null, view === 'day' ? oneDay : today)), { dark: true, label: 'Add' })),
     view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? agenda(today) : view === 'day' ? dayView(oneDay, today) : weekView(from, today),
     h('div', { class: 'note' },
-      H.calendars === 0 && onScreen?.kind !== 'phone' ? h('p', null, 'Add the family’s Google, iCloud or Outlook calendars, and their events show here. Events you add here stay on this display.') : null,
       onScreen?.kind === 'phone' ? null : btn('Add a calendar', addCalendar, { soft: H.calendars !== 0 }), // (on the display, behind the PIN)
       H.fromApps?.length ? btn('From apps', fromAppsCard, { soft: true }) : null));
 }
@@ -388,9 +387,10 @@ function openDay(day) {
     return [
       h('div', { class: 'card-top' },
         h('h2', { class: 'day-name' + (day === today ? ' today' : '') }, dayName(day, today) || fmt(day, { weekday: 'long' })),
-        h('span', { class: 'day-date' }, fmt(day, { month: 'long', day: 'numeric' }))),
+        // The hour-by-hour view is a quiet link here, not a third button (docs/ux.md).
+        h('button', { class: 'day-date', onclick: () => { close(); view = 'day'; days = Math.round((day - today) / 86400000); draw(); } }, `${fmt(day, { month: 'long', day: 'numeric' })} · by the hour`)),
       h('div', { class: 'rows vscroll day-rows', 'data-keep': 'day' }, list.length ? list.map(eventRow) : h('p', { class: 'nothing small' }, 'Nothing yet')),
-      h('div', { class: 'actions' }, btn('Close', close, { soft: true }), btn('Day by the hour', () => { close(); view = 'day'; days = Math.round((day - today) / 86400000); draw(); }, { soft: true }), btn('Add', () => { close(); eventForm(null, day); })),
+      h('div', { class: 'actions' }, btn('Close', close, { soft: true }), btn('Add', () => { close(); eventForm(null, day); })),
     ];
   }, { width: 860 });
 }
