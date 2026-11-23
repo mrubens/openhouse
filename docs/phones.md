@@ -214,8 +214,10 @@ a phone-only copy of it. Adding a plugin on the tablet adds it to the phone.
 - **Where an app runs** is its `app.json` `"screens"`: none means the tablet and the phones; a list means only those
   (`"tablet"`, `"phone"`, `"tv"`). An app that can't do a phone says `"screens": ["tablet"]` and is left off phones.
 - **Narrow screens.** `/kit/quiet.css` makes `--u` a phone's size under 700 px wide, so every app that uses it scales;
-  `/kit/narrow.css` lays our starting apps out in one column there (a list or a person a screen wide, the next a swipe
-  away; Meals' days one under another; Calendar starts on its list). The example plugins' `base.css` does the same.
+  `/kit/narrow.css` lays our starting apps out in one column there (Meals' days one under another; Calendar starts on its
+  list). Chores and Lists lay themselves out (their own `index.html`): Chores stacks the people one under another, with
+  a row of tiles along the top for who has what left (tap one for just theirs, the last one adds a chore); Lists shows
+  one list at a time, picked from the names along the top. The example plugins' `base.css` does the same.
 
 Tests: `bridge/test/screens.test.mjs` ("a phone runs the household's apps"): only apps on phones, their files, each
 call only what that app may do, one app never reading another's saved things.

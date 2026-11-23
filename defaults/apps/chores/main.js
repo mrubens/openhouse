@@ -1,9 +1,10 @@
-// Chores: a column per person with today's chores; tap one when it's done, and it earns a star. Stars add up to rewards each
+// Chores: a card per person, in their color, with today's chores; tap one when it's done, and it earns a star. Stars add up to rewards each
 // kid saves for; a kid asks here and someone says yes on the display's own card (this app never says yes for them). Routines
-// (morning, bedtime) show at the top of each column during their hours, as pictures kids can follow before they can read. Hold a
+// (morning, bedtime) show at the top of each person's card during their hours, as pictures kids can follow before they can read. Hold a
 // chore (or its … button) to change it, skip it today or take it off; a chore anyone can do asks who did it, and the stars are theirs.
 // Hold a reward or step to take it off. Everything lives in the bridge, so the assistant changes it too.
 import { house, timer, say, phone, shell } from '/kit/openhouse.js';
+import { glyph } from './glyphs.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
@@ -52,11 +53,25 @@ const star = (color, size) => h('span', { class: 'star', style: `width:calc(${si
 
 const btn = (label, tap, { soft = false, color = null, disabled = false, cls = '' } = {}) =>
   h('button', { class: `btn ${soft ? 'soft' : ''} ${cls}`, style: color && !soft ? `background:${color}` : null, disabled, tap: disabled ? null : tap }, label);
-const chip = (label, on, tap, dot = null) => h('button', { class: 'chip' + (on ? ' on' : ''), tap }, dot && h('span', { class: 'dot', style: `background:${dot}` }), label);
+/** A pill to choose with; with a color it's a person's: their initial on it, then their name. */
+const chip = (label, on, tap, color = null) => (color
+  ? h('button', { class: 'q-who' + (on ? ' on' : ''), tap }, h('span', { class: 'q-av sm', style: `background:${color}` }, label.slice(0, 1).toUpperCase()), label)
+  : h('button', { class: 'chip' + (on ? ' on' : ''), tap }, label));
+/** A line picture (glyphs.js), drawn in the text color. */
+const gl = (name, cls = '') => h('span', { class: 'gl ' + cls, 'aria-hidden': 'true', html: glyph(name) });
 const round = (name, tap, { dark = false, disabled = false, label = null } = {}) =>
   h('button', { class: 'round' + (dark ? ' dark' : ''), disabled, 'aria-label': label, tap: disabled ? null : tap }, icon(name));
-/** A color with some see-through: alpha('#e9b949', .32). */
-const alpha = (hex, a) => hex + Math.round(a * 255).toString(16).padStart(2, '0');
+/** A person's card: their color (--c) from a little lighter at the top to a little deeper and a step round the wheel
+ *  at the foot, and the ink that reads on it (--pi). */
+function paint(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return `--c:${hex}`;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), l = (max + min) / 2, d = max - min, s = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  const hue = ((!d ? 0 : max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60 + 360) % 360;
+  const dir = hue < 100 || hue > 300 ? -1 : 1; // warm colors deepen toward red, cool ones toward violet
+  const at = (dh, dl, ds = 1) => `hsl(${((hue + dir * dh + 360) % 360).toFixed(0)} ${(s * 100 * ds).toFixed(0)}% ${Math.max(8, Math.min(92, l * 100 + dl)).toFixed(0)}%)`;
+  return `--c:${hex};${l < .45 ? '--pi:#fff;--on-pi:#15132b;' : ''}background:linear-gradient(165deg, ${at(-5, 7)}, ${at(5, -3)} 72%, ${at(16, -7, .94)})`;
+}
 const same = (a, b) => String(a ?? '').toLowerCase() === String(b ?? '').toLowerCase();
 
 /** Redraw an element's insides, keeping where each [data-keep] part was scrolled to. */
@@ -86,7 +101,7 @@ function openCard(render, { width = 720, onOutside = null } = {}) {
 function confirmCard(title, yes, onYes, no = 'Keep it', onNo = null) {
   return openCard((close) => [
     h('h2', { class: 'big' }, title),
-    h('div', { class: 'actions' }, btn(no, () => { close(); onNo?.(); }, { soft: true }), btn(yes, () => { close(); onYes(); }, { color: 'var(--red)' })),
+    h('div', { class: 'actions' }, btn(no, () => { close(); onNo?.(); }, { soft: true }), btn(yes, () => { close(); onYes(); }, { color: 'var(--accent)' })),
   ], { onOutside: (close) => { close(); onNo?.(); } });
 }
 /** Asks for a few words with the keyboard (an item, a chore, a meal). extra(): more choices under the field. */
@@ -177,7 +192,7 @@ function choreCard(c) {
     f.days.length || (f.every && !f.after) ? h('div', { class: 'chips wrap' }, chip('Gone after its day', !f.keep, () => { f.keep = false; s.redraw(); }), chip('Stays until done', f.keep, () => { f.keep = true; s.redraw(); })) : null,
     h('div', { class: 'chips wrap' }, h('span', { class: 'chip-label' }, 'Stars'), CHORE_STARS.map((n) => chip(String(n), f.stars === n, () => { f.stars = n; s.redraw(); }))),
     h('div', { class: 'pick-row hscroll', 'data-keep': 'chore-pics' },
-      PICS.map((p) => h('button', { class: 'pick' + (p === f.pic ? ' on' : ''), 'aria-label': p, tap: () => { f.pic = p; s.redraw(); } }, pic(p)))),
+      PICS.map((p) => h('button', { class: 'pick' + (p === f.pic ? ' on' : ''), 'aria-label': p, tap: () => { f.pic = p; s.redraw(); } }, gl(lineOf(p))))),
     h('div', { class: 'actions' },
       btn('Take it off', () => { close(); confirmCard(`Take off “${c.task}”?`, 'Take it off', () => { H.chores = H.chores.filter((x) => x !== c); draw(); house.removeChore(c.who, c.task); }); }, { soft: true }),
       btn(c.skipped ? 'Back on today' : 'Skip today', () => { close(); c.skipped = !c.skipped; if (c.skipped) c.done = false; draw(); house.skipChore(c.who, c.task, c.skipped); }, { soft: true }),
@@ -203,12 +218,12 @@ function updateRoutine(r, change) {
 function screen() {
   if (!H) return h('div');
   const tabTo = (t) => () => { tab = t; draw(); };
+  const day = new Date((H.today || '') + 'T12:00'), weekday = isNaN(day) ? '' : day.toLocaleDateString('en-US', { weekday: 'long' });
   return h('div', { class: 'screen' },
     h('div', { class: 'top' },
-      h('h1', { class: 'title' }, tab === 'rewards' ? 'Rewards' : tab === 'routines' ? 'Routines' : 'Chores'),
-      chip('Today', tab === 'today', tabTo('today')),
-      chip('Rewards', tab === 'rewards', tabTo('rewards')),
-      chip('Routines', tab === 'routines', tabTo('routines')),
+      h('h1', { class: 'title' }, tab === 'rewards' ? 'Rewards' : tab === 'routines' ? 'Routines' : ['Chores ', h('span', null, weekday)]),
+      h('div', { class: 'q-seg' }, [['today', 'Today'], ['rewards', 'Rewards'], ['routines', 'Routines']].map(([t, label]) =>
+        h('button', { class: tab === t ? 'on' : '', tap: tabTo(t) }, label))),
       tab === 'today' ? round('plus', addChore, { dark: true, label: 'Add a chore' }) : null),
     tab === 'rewards' ? rewards() : tab === 'routines' ? routines() : today());
 }
@@ -221,58 +236,102 @@ function manualAsk() {
 
 // ---- today ----
 
+/** On a phone: whose chores to show (a name), or everyone's. */
+let only = null;
+/** The line picture for a chore's or step's picture. */
+const LINE = { shirt: 't-shirt', coat: 't-shirt', teeth: 'tooth', shoes: 'sneaker', bath: 'bathtub', book: 'book-open', plate: 'fork-knife', hands: 'drop', hair: 'comb', toys: 'puzzle-piece', cup: 'coffee', pet: 'paw-print', laundry: 'washing-machine' };
+const lineOf = (p) => LINE[p] || p || 'star';
+const inFamily = (name) => (H.family || []).some((p) => same(p.name, name));
+
 function today() {
   const chores = (H.chores || []).filter((c) => c.today), routines = (H.checklists || []).filter((r) => r.now);
-  // One column per person (in family order), then anyone else's, then the ones for everybody.
+  // One card per person (in family order), then anyone else's; the ones for everybody are under them.
   const names = (H.family || []).map((p) => p.name);
   const others = [...new Set(chores.map((c) => c.who).filter((w) => w.trim() && !names.some((n) => same(n, w))))];
   const forOne = (n) => routines.filter((r) => !r.who.length || r.who.some((w) => same(w, n)));
   const columns = [...names, ...others].map((n) => [n, chores.filter((c) => same(c.who, n))])
     .filter(([n, list]) => list.length || forOne(n).length);
-  const everyone = chores.filter((c) => !c.who.trim());
-  if (everyone.length) columns.push(['Anyone', everyone]);
-  if (!columns.length) return h('div', { class: 'none' }, h('h2', null, 'No chores yet'), btn('Add a chore', addChore));
-  const width = columns.length <= 4 ? 1440 / Math.max(3, columns.length) - 30 : 330;
-  return h('div', { class: 'columns hscroll', 'data-keep': 'columns' },
-    columns.map(([name, list]) => person(name, list, name === 'Anyone' ? [] : forOne(name), width)));
+  const everyone = chores.filter((c) => !c.who.trim()), saving = savingUp();
+  if (!columns.length && !everyone.length) return h('div', { class: 'none' }, h('h2', null, 'No chores yet'), btn('Add a chore', addChore));
+  if (!columns.some(([n]) => n === only)) only = null;
+  // up to four across fill the screen (never wider than a third of it); more scroll sideways
+  const across = columns.length <= 4 ? Math.max(3, columns.length) : 4.3;
+  const left = (list) => list.filter((c) => !c.done && !c.skipped).length;
+  return h('div', { class: 'today', 'data-keep': 'today' },
+    // on a phone: who has what left (tap one for just theirs), and a way to add a chore at the end
+    h('div', { class: 'who-row', 'data-keep': 'who-row' },
+      columns.length > 1 ? h('button', { class: 'wt' + (only ? '' : ' on'), tap: () => { only = null; draw(); } }, h('span', { class: 'q-av all' }, 'All'), 'Everyone') : null,
+      columns.map(([n, list]) => h('button', { class: 'wt' + (only === n ? ' on' : ''), 'aria-label': n, tap: () => { only = only === n ? null : n; draw(); } },
+        h('span', { class: 'q-av', style: inFamily(n) ? `background:${house.color(n)}` : null }, n.slice(0, 1).toUpperCase()), left(list) ? `${left(list)} left` : list.length ? 'Done' : n)),
+      h('button', { class: 'wt', 'aria-label': 'Add a chore', tap: addChore }, h('span', { class: 'q-av none' }, icon('plus')), 'Add')),
+    columns.length ? h('div', { class: 'cols hscroll', 'data-keep': 'columns', style: `grid-auto-columns:calc((100% - ${(Math.ceil(across) - 1) * 16} * var(--u)) / ${across})` },
+      columns.filter(([n]) => !only || n === only).map(([name, list]) => person(name, list, forOne(name)))) : null,
+    everyone.length || saving.length ? h('div', { class: 'bot' + (everyone.length && saving.length ? '' : ' one') },
+      everyone.length ? h('section', { class: 'q-panel any' },
+        h('div', { class: 'q-label' }, 'Up for grabs · anyone'),
+        h('div', { class: 'any-list vscroll', 'data-keep': 'anyone' }, everyone.map((c) => choreRow(c)))) : null,
+      saving.length ? h('section', { class: 'q-panel rew', tap: () => { tab = 'rewards'; rewardsFor = saving[0].who; draw(); } },
+        h('div', { class: 'q-label' }, 'Saving up for'),
+        h('div', { class: 'rew-grid' }, saving.map(({ r, who, have }) => h('div', { style: `--c:${house.color(who)}` },
+          h('div', { class: 'rw' }, h('span', { class: 'gi' }, gl('gift')), h('div', null, h('b', null, r.title), h('span', null, `${who} · ${Math.min(have, r.stars)} of ${r.stars} stars`))),
+          h('div', { class: 'meter' }, h('div', { style: `width:${Math.min(100, Math.max(0, have / r.stars * 100))}%` })))))) : null) : null);
 }
 
-function person(name, chores, routines, width) {
-  const color = name === 'Anyone' ? '#5e6466' : house.color(name);
+/** What the stars are going toward, the closest first (two fit): each reward with whose it is, or whoever has the most stars for it. */
+function savingUp() {
+  const out = [];
+  for (const r of H.rewards || []) {
+    if (!(r.stars > 0)) continue;
+    const who = r.who ? (H.family || []).find((p) => same(p.name, r.who))?.name
+      : (H.family || []).map((p) => p.name).filter((n) => starsOf(n) > 0).sort((a, b) => starsOf(b) - starsOf(a))[0];
+    if (who) out.push({ r, who, have: starsOf(who) });
+  }
+  out.sort((a, b) => b.have / b.r.stars - a.have / a.r.stars);
+  const first = out.filter((x, i) => out.findIndex((y) => y.who === x.who) === i); // one each before anyone's second
+  return [...first, ...out.filter((x) => !first.includes(x))].slice(0, 2);
+}
+
+function person(name, chores, routines) {
+  const mine = inFamily(name), count = chores.filter((c) => !c.skipped).length, done = chores.filter((c) => c.done).length;
   const allDone = chores.length > 0 && chores.every((c) => c.done || c.skipped) && routines.every((r) => r.steps.every((s) => isDone(r, s, name)));
-  const week = name === 'Anyone' ? 0 : (H.chores || []).filter((c) => same(c.who, name)).reduce((n, c) => n + (c.week || 0), 0);
-  return h('section', { class: 'person', style: `width:calc(${width} * var(--u));background:${allDone ? alpha(color, .16) : 'var(--tint, rgba(255,255,255,.7))'}` },
-    h('div', { class: 'person-top' },
-      h('span', { class: 'initial', style: `background:${color}` }, name.slice(0, 1).toUpperCase()),
-      h('div', { class: 'name-box' }, h('h2', { class: 'name' }, name),
-        chores.length ? h('div', { class: 'week-done' }, `${chores.filter((c) => c.done).length} of ${chores.filter((c) => !c.skipped).length} today${week ? ` · ${week} this week` : ''}${H.streaks?.[name] ? ` · ${H.streaks[name]} days in a row` : ''}`) : null),
-      name !== 'Anyone' ? h('span', { class: 'stars' }, star('var(--gold)', 34), String(starsOf(name))) : null),
-    h('div', { class: 'person-list vscroll', 'data-keep': 'p-' + name },
-      routines.map((r) => routineSteps(r, name, color)),
-      chores.map((c) => choreRow(c, color))),
-    allDone ? h('div', { class: 'all-done' }, star('var(--gold)', 64), 'All done!') : null);
+  const next = chores.find((c) => !c.done && !c.skipped), stars = mine ? starsOf(name) : 0, around = 2 * Math.PI * 32;
+  return h('section', { class: 'pc' + (mine ? '' : ' plain') + (stars > 0 ? ' starred' : ''), style: mine ? paint(house.color(name)) : null },
+    // what's next, large and faint in the corner, while there's room under the rows for it
+    !allDone && next && !routines.length && chores.length <= 4 ? gl(lineOf(next.pic), 'deco') : null,
+    h('div', { class: 'pc-top' },
+      // their initial in a ring that closes as the day's chores get done
+      h('div', { class: 'ring' },
+        h('span', { 'aria-hidden': 'true', html: `<svg viewBox="0 0 76 76"><circle class="track" cx="38" cy="38" r="32" stroke-width="8"/>${done && count ? `<circle class="arc" cx="38" cy="38" r="32" stroke-width="8" stroke-dasharray="${(around * done / count).toFixed(1)} ${around.toFixed(1)}"/>` : ''}</svg>` }),
+        h('b', null, name.slice(0, 1).toUpperCase())),
+      h('div', { class: 'name-box' }, h('h2', { class: 'pname' }, name),
+        chores.length ? h('div', { class: 'of' }, `${allDone ? 'All done' : `${done} of ${count} done`}${H.streaks?.[name] ? ` · ${H.streaks[name]} days in a row` : ''}`) : null),
+      stars > 0 ? h('span', { class: 'starpill' }, star('#ffd35c', 19), String(stars)) : null),
+    h('div', { class: 'pc-list vscroll', 'data-keep': 'p-' + name },
+      routines.map((r) => routineSteps(r, name)),
+      chores.map((c) => choreRow(c))),
+    allDone ? h('div', { class: 'alld' }, gl('trophy'), 'All done today') : null);
 }
 
 /** A routine's steps as big pictures, two to a row; tap one when it's done. */
-function routineSteps(r, who, color) {
-  return h('div', { class: 'routine', style: `background:${alpha(color, .12)}` },
-    h('div', { class: 'routine-name' }, r.name),
+function routineSteps(r, who) {
+  return h('div', { class: 'routine' },
+    h('div', { class: 'rt-name' }, r.name),
     h('div', { class: 'steps' }, r.steps.map((s) => {
       const done = isDone(r, s, who);
-      return h('div', { class: 'step' + (done ? ' done' : ''), style: done ? `background:${alpha(color, .35)}` : null, tap: () => checkStep(r, s, who, !done) },
-        h('div', { class: 'pic-wrap' }, pic(s.pic, 'pic'), done ? h('span', { class: 'tick' + (fresh.has(r.id + '|' + `${s.text}|${who.toLowerCase()}`) ? ' pop' : ''), style: `background:${color}` }, icon('check')) : null),
-        h('div', { class: 'step-text' }, s.text));
+      return h('div', { class: 'stp' + (done ? ' done' : ''), tap: () => checkStep(r, s, who, !done) },
+        h('div', { class: 'pic-wrap' }, pic(s.pic, 'pic'), done ? h('span', { class: 'tick' + (fresh.has(r.id + '|' + `${s.text}|${who.toLowerCase()}`) ? ' pop' : '') }, icon('check')) : null),
+        h('div', { class: 'stp-text' }, s.text));
     })));
 }
 
-function choreRow(c, color) {
-  return h('div', { class: 'chore' + (c.done ? ' done' : '') + (c.skipped ? ' skipped' : '') + (fresh.has(c) ? ' pop' : ''), tap: () => (c.skipped ? choreCard(c) : choreDone(c, !c.done)), hold: () => choreCard(c) },
-  h('span', { class: 'check', style: c.done ? `background:${c.by ? house.color(c.by) : color}` : null }, c.done ? icon('check') : null),
-  pic(c.pic || 'star', 'chore-pic'),
+/** A chore: tap it when it's done; hold it (or tap its picture) to change it. */
+function choreRow(c) {
+  return h('div', { class: 'ch' + (c.done ? ' done' : '') + (c.skipped ? ' skipped' : '') + (fresh.has(c) ? ' pop' : ''), tap: () => (c.skipped ? choreCard(c) : choreDone(c, !c.done)), hold: () => choreCard(c) },
+  h('span', { class: 'ck' }, c.done ? icon('check') : null),
   h('span', { class: 'task' }, h('span', { class: 't' }, c.task), c.skipped ? h('span', { class: 'sub' }, 'Skipped today') : c.by ? h('span', { class: 'sub' }, c.by)
     : c.late ? h('span', { class: 'sub late' }, c.late === 1 ? 'From yesterday' : `${c.late} days late`) : null),
-  (c.stars || 1) > 1 ? h('span', { class: 'worth' }, star('var(--gold)', 20), String(c.stars)) : null,
-  h('button', { class: 'more', 'aria-label': 'Change', tap: () => choreCard(c) }, icon('dots')));
+  (c.stars || 1) > 1 ? h('span', { class: 'worth' }, star('currentColor', 15), String(c.stars)) : null,
+  h('button', { class: 'g', 'aria-label': 'Change', tap: () => choreCard(c) }, gl(lineOf(c.pic))));
 }
 
 function addChore() {
@@ -302,33 +361,29 @@ function rewards() {
   const list = (H.rewards || []).filter((r) => !r.who || same(r.who, who));
   return h('div', { class: 'rewards' },
     h('div', { class: 'kids chips', 'data-keep': 'kids' },
-      kids.map((k) => {
-        const on = k === who;
-        return h('button', { class: 'kid' + (on ? ' on' : ''), style: on ? `background:${house.color(k)}` : null, tap: () => { rewardsFor = k; draw(); } },
-          k, star(on ? '#fff' : 'var(--gold)', 30), String(starsOf(k)));
-      }),
+      kids.map((k) => h('button', { class: 'q-who' + (k === who ? ' on' : ''), tap: () => { rewardsFor = k; draw(); } },
+        h('span', { class: 'q-av sm', style: `background:${house.color(k)}` }, k.slice(0, 1).toUpperCase()), k,
+        h('span', { class: 'kstars' }, star('var(--gold)', 16), String(starsOf(k))))),
       h('span', { class: 'gap' }),
       btn('New reward', () => addReward(kids), { soft: true })),
-    list.length ? h('div', { class: 'reward-row hscroll', 'data-keep': 'rewards' }, list.map((r) => rewardCard(r, who, have)))
+    list.length ? h('div', { class: 'rw-grid vscroll', 'data-keep': 'rewards' }, list.map((r) => rewardCard(r, who, have)))
       : h('div', { class: 'none top-gap' }, h('h2', null, 'No rewards yet'), h('p', null, 'Pick something to save stars for, like a movie night.')),
     H.got?.[0] ? h('p', { class: 'last' }, `Last reward: ${H.got[0].who}, ${H.got[0].title}`) : null);
 }
 
 function rewardCard(r, who, have) {
-  const color = house.color(who);
   const waiting = (H.asks || []).some((a) => a.reward === r.id && same(a.who, who));
-  return h('div', { class: 'reward',
+  return h('div', { class: 'q-panel rw-card', style: `--c:${house.color(who)}`,
     hold: () => confirmCard(`Take off “${r.title}”?`, 'Take it off', () => { H.rewards = H.rewards.filter((x) => x !== r); draw(); house.removeReward(r.id); }) },
-  h('div', { class: 'reward-title' }, r.title),
-  h('div', { class: 'reward-stars' }, star('var(--gold)', 40), String(r.stars)),
+  h('div', { class: 'rw' }, h('span', { class: 'gi' }, gl('gift')), h('div', null, h('b', null, r.title), h('span', null, `${Math.min(have, r.stars)} of ${r.stars} stars`))),
   // how close: a bar that fills with their stars
-  h('div', { class: 'bar' }, h('div', { style: `width:${Math.min(100, Math.max(0, have / r.stars * 100))}%;background:${color}` })),
-  waiting ? h('div', { class: 'reward-note strong' }, 'Asking…')
+  h('div', { class: 'meter' }, h('div', { style: `width:${Math.min(100, Math.max(0, have / r.stars * 100))}%` })),
+  waiting ? h('div', { class: 'rw-note strong' }, 'Asking…')
     : have >= r.stars ? btn('Get it!', () => {
       H.asks = [...(H.asks || []), { id: 'new', who, reward: r.id, title: r.title, stars: r.stars, manual: false }]; draw();
       house.redeem(who, r.id); // someone says yes on the display's own card
-    }, { color, cls: 'wide' })
-      : h('div', { class: 'reward-note' }, `${r.stars - have} more to go`));
+    }, { cls: 'wide' })
+      : h('div', { class: 'rw-note' }, `${r.stars - have} more to go`));
 }
 
 function addReward(kids) {
@@ -348,7 +403,7 @@ function routines() {
   const list = H.checklists || [];
   const missing = ROUTINES.filter(([name]) => !list.some((r) => same(r.name, name)));
   return h('div', { class: 'routines vscroll', 'data-keep': 'routines' },
-    list.map((r) => h('div', { class: 'routine-card', hold: () => confirmCard(`Take off the ${r.name} routine?`, 'Take it off', () => {
+    list.map((r) => h('div', { class: 'q-panel rt-card', hold: () => confirmCard(`Take off the ${r.name} routine?`, 'Take it off', () => {
       H.checklists = H.checklists.filter((x) => x.id !== r.id); draw(); house.removeChecklist(r.id);
     }) },
     h('h2', null, r.name),
@@ -363,11 +418,11 @@ function routines() {
         const on = r.who.some((w) => same(w, p.name));
         return chip(p.name, on, () => updateRoutine(r, { who: on ? r.who.filter((w) => !same(w, p.name)) : [...r.who, p.name] }), house.color(p.name));
       })),
-    h('div', { class: 'step-row hscroll', 'data-keep': 'steps-' + r.id },
-      r.steps.map((s) => h('div', { class: 'step-tile', hold: () => confirmCard(`Take off “${s.text}”?`, 'Take it off', () => updateRoutine(r, { steps: r.steps.filter((x) => x !== s) })) },
-        pic(s.pic, 'pic'), h('div', { class: 'step-text' }, s.text))),
+    h('div', { class: 'stp-row hscroll', 'data-keep': 'steps-' + r.id },
+      r.steps.map((s) => h('div', { class: 'stp-tile', hold: () => confirmCard(`Take off “${s.text}”?`, 'Take it off', () => updateRoutine(r, { steps: r.steps.filter((x) => x !== s) })) },
+        pic(s.pic, 'pic'), h('div', { class: 'stp-text' }, s.text))),
       h('button', { class: 'round dark add-step', 'aria-label': 'Add a step', tap: () => addStep(r) }, icon('plus'))))),
-    !list.length ? h('p', { class: 'hint' }, 'Routines show at the top of each column during their hours, in pictures.') : null,
+    !list.length ? h('p', { class: 'hint' }, 'Routines show at the top of each person’s chores during their hours, in pictures.') : null,
     missing.length ? h('div', { class: 'actions start' }, missing.map(([name, [from, to], steps]) =>
       btn(`Add ${name}`, () => house.addChecklist({ name, from, to, steps: steps.map(([text, p]) => ({ text, pic: p })) }), { soft: true }))) : null);
 }

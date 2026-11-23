@@ -1,7 +1,8 @@
 /* The starting apps on a phone (docs/phones.md, "Narrow screens"): link it last, after quiet.css. Under 700 px wide the
    apps' unit (--u, one pixel of a 1536-wide layout) grows so their type and taps are a phone's size, and their layouts
-   go to one column: a list or a person a screen wide (the next a swipe away), a week's days one under another, cards
-   and sheets the width of the screen. Selectors start with html:root so they win over quiet.css and an app's own. */
+   go to one column: a week's days one under another, cards and sheets the width of the screen. Chores and Lists lay
+   themselves out in their own index.html (the people one under another; one list at a time, picked by name); the
+   rules for them here are for a household's older copy of those apps. Selectors start with html:root so they win over quiet.css and an app's own. */
 @media (max-width: 700px) {
   :root { --u: calc(100vw / 560); }
   html:root #app { padding-left: calc(22 * var(--u)); padding-right: calc(22 * var(--u)); }
@@ -28,10 +29,10 @@
   html:root .sheet { width: calc(100vw - 24px) !important; max-width: none; max-height: 88vh; border-radius: calc(38 * var(--u)); }
   /* Recipes: the search field on its own line */
   html:root .top > .field.search { flex: 1 0 100%; order: 1; }
-  /* Lists: one list a screen wide, the next a swipe away */
+  /* Lists, a household's older copy: one list a screen wide, the next a swipe away */
   html:root .papers { scroll-snap-type: x mandatory; padding-right: 0; gap: calc(14 * var(--u)); }
   html:root .paper { width: calc(100vw - 44 * var(--u)) !important; scroll-snap-align: start; }
-  /* Chores: one person a screen wide, the next a swipe away */
+  /* Chores, a household's older copy: one person a screen wide, the next a swipe away */
   html:root .people, html:root .persons { scroll-snap-type: x mandatory; }
   html:root .person { width: calc(100vw - 44 * var(--u)) !important; scroll-snap-align: start; }
   /* Meals: the week's days one under another */

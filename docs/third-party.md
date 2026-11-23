@@ -12,7 +12,7 @@ made, with their licenses. Anything marked **check** needs a decision before or 
 | libandroid-shmem 0.7 (Termux) | `jniLibs/arm64-v8a/libandroid-shmem.so` | BSD-3-Clause | Notice in `assets/licenses/libandroid-shmem-LICENSE.txt`. |
 | MapLibre GL JS 5.6.0 | `bridge/kit/maplibre-gl.js`, `.css` | BSD-3-Clause | Notice in `bridge/kit/maplibre-gl.LICENSE.txt`. |
 | Inter, Newsreader, Caveat, Nunito | `shell/app/src/main/assets/fonts/` | SIL OFL 1.1 | License texts beside the fonts (`OFL-*.txt`). |
-| Phosphor Icons 2.1.1 (path data) | `chat/src/tab-icons.js` | MIT | Credited in the file. |
+| Phosphor Icons 2.1.1 (path data) | `chat/src/tab-icons.js`, `defaults/apps/chores/glyphs.js`, `defaults/apps/lists/glyphs.js` | MIT | Credited in each file. |
 | IEEE MAC prefix registry (maker names) | `bridge/devices/oui.txt.gz`, built by `scripts/oui-build.mjs` | IEEE public listing | Facts (prefix to company name), freely published by IEEE; commonly redistributed (Wireshark, nmap). Fine. |
 | The "Opie" wake model | `models/wake/opie.onnx` | Ours (MIT) | Trained only on synthetic and public data whose licenses allow it (`docs/wake-word.md`): Piper and Kokoro voices, Chatterbox (MIT) clones of LibriTTS-R speakers, LibriSpeech, AMI, MUSAN, VoxPopuli (CC0/CC-BY), People's Speech, YODAS2 (CC-BY 3.0) and Earnings-22 (CC-BY-SA 4.0). openWakeWord's non-commercial negatives were left out. **check:** the CC-BY sets ask for attribution; a list in `docs/wake-word.md` covers it, but whether CC-BY-SA training data binds the weights is unsettled law. Low risk; say so in the model's notes. |
 
