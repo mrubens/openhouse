@@ -1,3 +1,5 @@
+<img src="brand/logo.svg" width="64" height="64" alt="OpenHouse logo">
+
 # OpenHouse
 
 OpenHouse turns an Android tablet into the screen your household shares: the calendar, what's for dinner, the

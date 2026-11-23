@@ -15,6 +15,9 @@ cat <<'HTML'
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Set up OpenHouse</title>
+<link rel="icon" href="/favicon.ico" sizes="48x48">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <style>
   :root { --bg: #f7f5f0; --ink: #1d1c1a; --soft: #6b6862; --line: #e2ded5; --card: #fff; }
   @media (prefers-color-scheme: dark) { :root { --bg: #1b1a18; --ink: #ece9e2; --soft: #a19d95; --line: #34322e; --card: #24231f; } }

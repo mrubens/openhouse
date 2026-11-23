@@ -1,9 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- OpenHouse's mark (connect/mcpb/icon.svg): a house with its door, inside the adaptive icon's safe zone. -->
+<!-- OpenHouse's logo (brand/logo.svg): the house outline, sized for the adaptive icon on its dark background. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="512" android:viewportHeight="512">
-    <group android:pivotX="256" android:pivotY="267" android:scaleX="0.72" android:scaleY="0.72">
-        <path android:fillColor="#FFFDFAF3" android:strokeColor="#FF1D1C1A" android:strokeWidth="22" android:strokeLineJoin="round"
-            android:pathData="M136,250 L256,146 L376,250 L376,372 Q376,388 360,388 L152,388 Q136,388 136,372 Z"/>
-        <path android:fillColor="#FFC8644A" android:pathData="M232,292 L280,292 Q290,292 290,302 L290,388 L222,388 L222,302 Q222,292 232,292 Z"/>
+    <group android:pivotX="256" android:pivotY="274" android:translateY="-18" android:scaleX="0.68" android:scaleY="0.68">
+        <path android:strokeColor="#FFFBF9F5" android:strokeWidth="28" android:strokeLineJoin="round"
+            android:pathData="M136,260 L256,152 L376,260 L376,376 A20,20 0 0,1 356,396 L156,396 A20,20 0 0,1 136,376 Z"/>
     </group>
 </vector>
