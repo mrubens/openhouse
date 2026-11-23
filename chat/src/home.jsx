@@ -262,8 +262,8 @@ function DayNote({ c, house, n, day, openApp, style }) {
   return <>
     {pics.length ? <div role="button" tabIndex={0} className="t-card t-lunch t-pic-card" style={style} onClick={() => setOpen(true)}>
       {img(pics[0], 't-cover')}
-      {pics.length > 1 && <div className="t-sides">{pics.slice(1, 3).map((p) => img(p))}</div>}
-      <div className="t-cap"><div className="h-label">{label(' · ')}</div><div className="t-big">{plain(pics[0].text || n.text)}</div></div>
+      <div className="t-cap"><div className="h-label">{label(' · ')}</div><div className="t-big">{plain(pics[0].text || n.text)}</div>
+        {pics.slice(1, 3).map((p, i) => <div key={i} className="t-or">or {plain(p.text)}</div>)}</div>
     </div> : <div role="button" tabIndex={0} className="t-card t-acts t-daynote" style={style} onClick={() => setOpen(true)}>
       <div className="h-label">{label(' · ')}</div>
       <div className="t-line">{plain(n.text)}</div>
@@ -395,6 +395,9 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   const list = (h.lists || []).find((l) => l.id === 'groceries') || (h.lists || [])[0];
   const [ticked, setTicked] = useState(null);
   const [gone, setGone] = useState(() => new Set());
+  const [adding, setAdding] = useState(null); // the words being added to the list, or null
+  const typingIn = adding !== null; useEffect(() => { if (!typingIn) return; shell?.editing?.(true); return () => shell?.editing?.(false); }, [typingIn]); // (the shell's keyboard goes to the box)
+  const add = () => { const t = String(adding || '').trim(); setAdding(null); if (t) c.json('POST', '/house/list', { list: list.name, add: [t] }).catch(() => {}); };
   useEffect(() => { if (!ticked) return; const x = setTimeout(() => setTicked(null), 6000); return () => clearTimeout(x); }, [ticked]);
   const items = (list?.items || []).filter((i) => !i.done && !gone.has(i.id));
   const tick = (e, i) => { e.stopPropagation(); setGone(new Set([...gone, i.id])); setTicked({ id: i.id, text: i.text }); c.json('POST', '/house/list', { list: list.name, check: [i.id] }).catch(() => {}); };
@@ -437,12 +440,19 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   </div>);
   // The list: what's left to get, in two columns, eight at most (more than that, seven and a count).
   if (kinds.has('lists') && list) cards.push(<div key="lists" {...card('lists')}>
-    <div className="t-top"><Basket /><div className="h-label">{list.name}</div>{items.length > 0 && <span className="t-n">{items.length} to get</span>}</div>
+    <div className="t-top"><Basket /><div className="h-label">{list.name}</div><span className="t-n t-add" role="button" onClick={(e) => { e.stopPropagation(); setAdding(''); }}>+ Add</span></div>
     {items.length || ticked ? <div className={'t-items' + (items.length <= 4 ? ' one' : '')}>{items.slice(0, items.length > 8 ? 7 : 8).map((i) => (
       <div key={i.id} className="t-item"><span className="t-box" role="button" aria-label={'Got ' + i.text} onClick={(e) => tick(e, i)} /><span className="h-grow">{i.text}</span></div>
     ))}{items.length > 8 && <div className="t-item t-more">and {items.length - 7} more</div>}</div>
       : <div className="t-big">Nothing to get</div>}
     {ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Put it back</span>}
+    {adding !== null && <div className="h-veil" onClick={(e) => { e.stopPropagation(); setAdding(null); }}>
+      <form className="h-note-full t-addsheet" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); add(); }}>
+        <h2>Add to {list.name}</h2>
+        <input autoFocus value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="Milk" aria-label={'Add to ' + list.name} />
+        <div className="t-nacts"><button type="button" className="h-chip" onClick={() => setAdding(null)}>Cancel</button><button type="submit" className="h-chip on">Add</button></div>
+      </form>
+    </div>}
   </div>);
   // Chores: a ring each, filling as theirs get done.
   if (kinds.has('chores') && (mine.size || routine)) cards.push(<div key="chores" {...card('chores')}>
