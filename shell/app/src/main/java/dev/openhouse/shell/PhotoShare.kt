@@ -144,25 +144,35 @@ object PhotoShare {
             val on = state() != null
             main.post {
                 if (!on) {
-                    CalmDialog(a).setTitle("Photos from phones, any time")
-                        .setMessage("A link for the household's phones: photos sent from it go straight into Photos. On the home Wi-Fi, or anywhere when reaching the tablet from away is on (Cloud); then on Android it's in the share sheet too.\n\nAnyone with the link can send photos here, so give it only to the household. You can make a new one any time.")
+                    CalmDialog(a).setTitle("Let phones send photos here?")
+                        .setMessage("Anyone with the link can send photos, so give it only to the household.")
+                        .setMore("Photos sent from the link go straight into Photos. It works on the home Wi-Fi, or anywhere with Use it away from home on (Account); then on Android it's in the share sheet too.")
                         .setPositiveButton("Turn on") { _, _ -> thread { fresh(); restartNow { show(a, immersive) } } }
                         .setNegativeButton("Not now", null).show().also { immersive() }
                     return@post
                 }
                 val url = link()
-                if (url == null) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("OK", null).show().also { immersive() }; return@post }
+                if (url == null) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return@post }
                 val anywhere = !url.startsWith("http://") || url.startsWith("http://localhost") || url.startsWith("http://10.0.2.2")
                 val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }
-                val line = if (anywhere) "Scan with each phone and keep the page: add it to the home screen. It works anywhere; on Android, install it and it's in the share sheet."
-                    else "Scan with each phone on the home Wi-Fi and add the page to its home screen. It works on the home Wi-Fi; turn on reaching the tablet from away (Cloud) for anywhere and the share sheet."
-                CalmDialog(a).setTitle("Photos from phones").setView(Calm.qr(a, qr, Calm.caption(a, line), 360) { Handoff.share(a, url) })
+                val line = if (anywhere) "Scan with each phone, then add the page to its home screen."
+                    else "Scan with each phone on the home Wi-Fi, then add the page to its home screen."
+                // Done is the one button; a new link and turning it off are rare, so quiet links under the code (docs/ux.md).
+                var d: android.app.Dialog? = null
+                val view = Calm.column(a).apply {
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    addView(Calm.qr(a, qr, Calm.caption(a, line), 360) { Handoff.share(a, url) })
+                    addView(Calm.row(a, 8).apply {
+                        addView(Calm.quiet(a, "New link") {
+                            d?.dismiss()
+                            CalmDialog(a).setTitle("Make a new link?").setMessage("Phones with the old one stop working until they scan the new one.")
+                                .setPositiveButton("New link") { _, _ -> thread { fresh(); restartNow { show(a, immersive) } } }.setNegativeButton("Cancel", null).show().also { immersive() }
+                        })
+                        addView(Calm.quiet(a, "Turn off") { d?.dismiss(); thread { off(); restartNow {} } })
+                    })
+                }
+                d = CalmDialog(a).setTitle("Photos from phones").setView(view)
                     .setPositiveButton("Done", null)
-                    .setNeutralButton("New link") { _, _ ->
-                        CalmDialog(a).setTitle("Make a new link?").setMessage("Phones with the old one can't send photos any more, until they scan the new one.")
-                            .setPositiveButton("New link") { _, _ -> thread { fresh(); restartNow { show(a, immersive) } } }.setNegativeButton("Cancel", null).show().also { immersive() }
-                    }
-                    .setNegativeButton("Turn off") { _, _ -> thread { off(); restartNow {} } }
                     .show().also { immersive() }
             }
         }

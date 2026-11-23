@@ -312,7 +312,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
         if (c.fix) {
           // A fix the tablet noticed goes in only after a yes on the tablet (null: no shell to ask, a laptop).
           const fx = fixes?.get(c.fix);
-          const yes = await approve(`Put in the fix for ${fx?.name || 'the app'}?`, `${who.name} fixed it from the workshop: ${String(a.summary || c.what).slice(0, 300)}.`, true);
+          const yes = await approve(`Put in ${who.name}'s fix for ${fx?.name || 'the app'}?`, `${String(a.summary || c.what).slice(0, 300).replace(/\.$/, '')}.`, true, { yes: 'Put it in' });
           if (yes === false) {
             clearTimeout(c.timer); open.delete(key); keep(); door.computerNote(null);
             try { edits.end(c.turn, false); } catch {}

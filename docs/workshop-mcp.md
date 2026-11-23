@@ -1,7 +1,7 @@
 # Customizing OpenHouse from Claude or ChatGPT (the workshop MCP)
 
 Status: first slice built (home network, Claude Code and Claude Desktop; from anywhere through the relay when the
-tablet has Reach from away from home on: [networking.md](networking.md)). The claude.ai and ChatGPT connectors are
+tablet has Use it away from home on: [networking.md](networking.md)). The claude.ai and ChatGPT connectors are
 built, not deployed: [web-chat-building.md](web-chat-building.md).
 
 ## Why

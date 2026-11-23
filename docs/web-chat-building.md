@@ -166,7 +166,7 @@ Building from Claude or ChatGPT (or any AI) is free for everyone with the right 
 2026-11-20). So:
 
 - **Through our cloud:** free, always, after the first year too, whether or not they subscribe. It needs only a
-  linked tablet with Reach from away from home on. Nothing in the connector or the relay checks a subscription or an
+  linked tablet with Use it away from home on. Nothing in the connector or the relay checks a subscription or an
   allowance (checked 2026-11-20: `relay.ts` and `connector.ts` only ask that the tablet is linked), and nothing should.
   It costs us about two cents a tablet-month.
 - **With no OpenHouse cloud at all: "Your own address".** The tablet serves the same connector itself
@@ -233,7 +233,7 @@ of value:
 ### Tried on an emulator (2026-11-20)
 
 A release-signed local build (1.0.9-local.40) went on an emulator, linked to the local service through
-`adb reverse`, with Reach from away from home on. Then:
+`adb reverse`, with Use it away from home on. Then:
 
 1. The Connect screen showed the connector address (above).
 2. A script stood in for claude.ai. It registered (DCR), opened the authorize page, typed the code, and the tablet

@@ -213,7 +213,12 @@ object DeviceServer {
                 // "pin": a yes that needs the PIN when the lock is on (a reward the kids saved stars for).
                 val ctx = acc.applicationContext
                 val parent = b.optBoolean("pin") && ParentPin.isSet(ctx)
-                val yes = synchronized(approveLock) { acc.approve(b.optString("title").take(120), b.optString("detail").take(if (b.optBoolean("pin")) 3000 else 200), parent = parent) }
+                // The card's words (docs/ux.md): a verb for the yes, what it may do as a list (always shown), and
+                // the rest behind More.
+                val rights = b.optJSONArray("rights")?.let { a -> (0 until minOf(a.length(), 40)).mapNotNull { a.optJSONObject(it) }.map { it.optString("kind").take(20) to it.optString("text").take(300) } }.orEmpty()
+                val yesWord = b.optString("yes").trim().take(20).ifEmpty { "Allow" }
+                val yes = synchronized(approveLock) { acc.approve(b.optString("title").take(120), b.optString("detail").take(if (b.optBoolean("pin")) 3000 else 200), parent = parent,
+                    yes = yesWord, rights = rights, more = b.optString("more").take(3000).ifBlank { null }, danger = b.optBoolean("danger")) }
                 acc.hideStatus()
                 200 to JSONObject().put("yes", yes).toString()
             }
@@ -390,7 +395,7 @@ object DeviceServer {
                 if (DeviceRules.neverOpen(hit.second, KioskApps.settingsPackages()))
                     return text("Opie doesn't open ${hit.first}: it's a way out of the tablet's own screen. Someone opens it themselves (Settings, This tablet); to add an app, use install_app.", true)
                 if (KioskApps.needsParent(hit.second)) { // system apps (a browser, Files...): someone says yes once
-                    if (!acc.approve("Let Opie open ${hit.first}?", "It goes with the apps added to this tablet.", parent = ParentPin.isSet(ctx)))
+                    if (!acc.approve("Let Opie open ${hit.first}?", "", parent = ParentPin.isSet(ctx), yes = "Open"))
                         return text("Nobody said yes, so ${hit.first} stays closed. Say so, and don't try another way in.", true)
                 }
                 acc.status("Opening ${hit.first}")
@@ -424,7 +429,7 @@ object DeviceServer {
                     val label = danger
                     acc.status("Waiting for a yes: “$label”")
                     val field = acc.fieldText()
-                    if (!acc.approve("Tap “$label” in $app?", if (field.isNotBlank()) "“$field”" else ""))
+                    if (!acc.approve("Tap “$label” in $app?", if (field.isNotBlank()) "“$field”" else "", yes = "Tap"))
                         return text("The people here said no (or didn't answer) to tapping “$label”. Don't try again; tell them it wasn't done.", true)
                 }
                 val at = pt?.let { android.graphics.PointF(it.first, it.second) } ?: target?.let { Rect().also { r -> it.getBoundsInScreen(r) } }?.let { android.graphics.PointF(it.exactCenterX(), it.exactCenterY()) }

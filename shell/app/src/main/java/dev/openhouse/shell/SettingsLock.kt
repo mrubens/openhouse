@@ -87,8 +87,8 @@ internal class SettingsLock(private val act: MainActivity) {
 
     private fun checkins(hb: JSONObject) {
         val items = listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            CalmDialog.Row("How often", everyLabel(hb)) to { howOften(hb) },
-            CalmDialog.Row("What it looks for", if (hb.optBoolean("ownPrompt")) "Yours" else "Ours") to { prompt(hb) },
+            CalmDialog.Row("How often", value = everyLabel(hb)) to { howOften(hb) },
+            CalmDialog.Row("What it looks for", value = if (hb.optBoolean("ownPrompt")) "Yours" else "Ours") to { prompt(hb) },
         )
         CalmDialog(act).setTitle("Check-ins").setRows(items.map { it.first }) { _, i -> items[i].second() }
             .setNegativeButton("Back") { _, _ -> tablet() }.show()
@@ -117,10 +117,16 @@ internal class SettingsLock(private val act: MainActivity) {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             gravity = android.view.Gravity.TOP or android.view.Gravity.START
         }
-        CalmDialog(act).setTitle("What it looks for").setView(box).setWidth(1000f)
+        // Putting ours back is rare: a quiet link under the box, not a third button (docs/ux.md).
+        var d: android.app.Dialog? = null
+        val view = dev.openhouse.ui.Calm.column(act).apply {
+            addView(box, android.widget.LinearLayout.LayoutParams(-1, -2))
+            if (hb.optBoolean("ownPrompt")) addView(dev.openhouse.ui.Calm.quiet(act, "Put ours back") { d?.dismiss(); saveCheckins(JSONObject().put("prompt", "")) }.apply { setPadding(0, 0, 0, 0) },
+                android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = dev.openhouse.ui.Calm.px(act, 8) })
+        }
+        d = CalmDialog(act).setTitle("What it looks for").setView(view).setWidth(1000f)
             .setPositiveButton("Save") { _, _ -> saveCheckins(JSONObject().put("prompt", box.text.toString())) }
-            .setNeutralButton("Ours") { _, _ -> saveCheckins(JSONObject().put("prompt", "")) }
-            .setNegativeButton("Back") { _, _ -> checkins(hb) }.show()
+            .setNegativeButton("Cancel") { _, _ -> checkins(hb) }.show()
     }
 
     // --- What Opie remembers ----------------------------------------------------------------------------------------
@@ -129,7 +135,7 @@ internal class SettingsLock(private val act: MainActivity) {
     private fun memory(): Thread = thread {
         val j = get("/memory")
         act.runOnUiThread {
-            if (j == null) { CalmDialog(act).setTitle("What Opie remembers").setMessage("The tablet's software isn't answering right now.").setPositiveButton("OK", null).show(); return@runOnUiThread }
+            if (j == null) { CalmDialog(act).setTitle("What Opie remembers").setMessage("The tablet's software isn't answering right now.").setPositiveButton("Close", null).show(); return@runOnUiThread }
             val things = j.optJSONArray("remembered")?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty().filter { it.isNotBlank() }
             val days = j.optJSONArray("days")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
             val items = mutableListOf<Pair<CalmDialog.Row, JSONObject?>>()
@@ -142,9 +148,9 @@ internal class SettingsLock(private val act: MainActivity) {
     }
 
     private fun forget(what: JSONObject, label: String) {
-        CalmDialog(act).setTitle("Forget this?").setMessage(label)
+        CalmDialog(act).setTitle("Forget this?").setMessage(label).setDanger()
             .setPositiveButton("Forget") { _, _ -> thread { CloudSetup.post("${act.bridge}/memory/forget", what); act.runOnUiThread { memory() } } }
-            .setNegativeButton("Back") { _, _ -> memory() }.show()
+            .setNegativeButton("Cancel") { _, _ -> memory() }.show()
     }
 
     /** "2026-11-20" as "Today", "Yesterday" or "Wednesday". */
@@ -165,9 +171,9 @@ internal class SettingsLock(private val act: MainActivity) {
                 c.updateMessage(st)
                 Updater.readyVersion(act)?.let { v ->
                     d.dismiss()
-                    CalmDialog(act).setTitle("Version $v is ready").setMessage("It takes about a minute.")
-                        .setPositiveButton("Install now") { _, _ -> Updater.installNow(act); act.toast("Installing $v") }
-                        .setNegativeButton("Later", null).show()
+                    CalmDialog(act).setTitle("Install version $v?").setMessage("The screen goes blank for about a minute.")
+                        .setPositiveButton("Install") { _, _ -> Updater.installNow(act); act.toast("Installing $v") }
+                        .setNegativeButton("Not now", null).show()
                 }
             }
         }
@@ -193,22 +199,28 @@ internal class SettingsLock(private val act: MainActivity) {
         fun again() = android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ tablet() }, 350)
         // A person's own: what Opie may do, ways out of OpenHouse, and what reaches past the tablet (DeviceServer.personOnly).
         fun person(what: String, f: () -> Unit): () -> Unit = { if (!DeviceServer.personOnly(what)) f() }
+        // A few sections, each row's value at its right, as the main Settings list (docs/ux.md).
+        fun head(t: String) = CalmDialog.Row(t, header = true) to {}
         val items = listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            CalmDialog.Row("PIN Lock", onOff(on)) to { if (on) turnOff() else turnOn() },
-            CalmDialog.Row("Updates", Updater.installedVersion(act)) to { updates() },
-            CalmDialog.Row("Plugins", count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
-            CalmDialog.Row("Device control", onOff(deviceOn)) to person("Device control") {
+            head("Lock and updates"),
+            CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },
+            CalmDialog.Row("Updates", value = Updater.installedVersion(act)) to { updates() },
+            CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
+            head("Opie"),
+            CalmDialog.Row("Device control", value = onOff(deviceOn)) to person("Device control") {
                 if (granted) { DeviceOwner.setDeviceControl(act, !deviceOn); again() }
                 else { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             },
             // Opie opening, installing and using other apps for someone (docs/device-control.md): off until someone turns it on.
-            CalmDialog.Row("Opie uses apps", if (!deviceOn) "Needs device control" else onOff(DeviceServer.appsOn(act))) to person("Opie uses apps") {
+            CalmDialog.Row("Opie uses apps", value = if (!deviceOn) "Needs device control" else onOff(DeviceServer.appsOn(act))) to person("Opie uses apps") {
                 if (deviceOn) DeviceServer.setAppsOn(act, !DeviceServer.appsOn(act)); again()
             },
-            CalmDialog.Row("Check-ins", hb?.let { everyLabel(it) } ?: "") to { hb?.let { checkins(it) } },
-            CalmDialog.Row("Home network", onOff(lan)) to person("Home network") { thread { CloudSetup.post("${act.bridge}/screens/lan", JSONObject().put("on", !lan)) }; again() },
-            CalmDialog.Row("Speech log", onOff(o.speechLog)) to { o.setSpeechLog(!o.speechLog); again() },
-            CalmDialog.Row("USB debugging", onOff(Kiosk.debugging(act))) to person("USB debugging") { Kiosk.setDebugging(act, !Kiosk.debugging(act)); again() },
+            CalmDialog.Row("Check-ins", value = hb?.let { everyLabel(it) } ?: "") to { hb?.let { checkins(it) } },
+            head("For developers"),
+            CalmDialog.Row("Home network", value = onOff(lan)) to person("Home network") { thread { CloudSetup.post("${act.bridge}/screens/lan", JSONObject().put("on", !lan)) }; again() },
+            CalmDialog.Row("Cloud address") to { CloudMenu(act).address() },
+            CalmDialog.Row("Speech log", value = onOff(o.speechLog)) to { o.setSpeechLog(!o.speechLog); again() },
+            CalmDialog.Row("USB debugging", value = onOff(Kiosk.debugging(act))) to person("USB debugging") { Kiosk.setDebugging(act, !Kiosk.debugging(act)); again() },
             CalmDialog.Row("Android settings") to person("Android settings") { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) },
             CalmDialog.Row("Leave kiosk mode") to person("Leave kiosk mode") {
                 CalmDialog(act).setTitle("Leave kiosk mode?").setMessage("Open OpenHouse from its icon to come back.")

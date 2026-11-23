@@ -81,7 +81,7 @@ it is free and on the tablet.
 | Several lists | Yes | Add, rename, delete (asks first); type right on a list to add | Done |
 | Edit an item | Yes | Its words and whose it is, from its … button | Done |
 | Sections (aisles) | AI sorts | Groceries by store section (on the display, no AI needed); any list can switch | Done |
-| On a phone at the shop | Live, through the app | By QR: live on the home Wi-Fi (ticks and new items both ways, for 3 hours); at the shop the page keeps working and what's ticked there goes to the display back home | Done; live away from home too when Cloud → Reach from away from home is on ([networking.md](networking.md)) |
+| On a phone at the shop | Live, through the app | By QR: live on the home Wi-Fi (ticks and new items both ways, for 3 hours); at the shop the page keeps working and what's ticked there goes to the display back home | Done; live away from home too when Cloud → Use it away from home is on ([networking.md](networking.md)) |
 
 ### Meals
 

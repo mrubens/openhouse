@@ -30,7 +30,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
     private fun ui(f: () -> Unit) = act.runOnUiThread(f)
     private fun CalmDialog.open(): android.app.Dialog = show() // the shared look (ui/Calm.kt)
     private fun say(title: String, text: String, then: (() -> Unit)? = null) {
-        CalmDialog(act).setTitle(title).setMessage(text).setPositiveButton("OK") { _, _ -> then?.invoke() }.open()
+        CalmDialog(act).setTitle(title).setMessage(text).setPositiveButton("Close") { _, _ -> then?.invoke() }.open()
     }
     private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
     private fun pad(v: LinearLayout) = v.apply { orientation = LinearLayout.VERTICAL }
@@ -53,28 +53,30 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         val on = dests.filter { it.optBoolean("on") }
         val where = on.joinToString(" and ") { if (it.optString("id") == "cloud") "the cloud" else "the USB drive" + (it.optString("name").takeIf { n -> n.isNotEmpty() && !it.isNull("name") }?.let { n -> " ($n)" } ?: "") }
         val last = s.optJSONObject("last")
-        val text = (if (on.isEmpty()) "Off." else "Each night, to $where.") + "\n" +
-            when {
-                last == null -> if (on.isEmpty()) "" else "No backup yet."
-                last.optBoolean("ok") -> "Last backup: ${ago(last.optString("at"))}."
+        val text = when {
+                on.isEmpty() -> "Off."
+                last == null -> "Each night, to $where."
+                last.optBoolean("ok") -> "Each night, to $where. Last: ${ago(last.optString("at"))}."
                 else -> "The last backup didn't work (${ago(last.optString("at"))}): ${last.optString("error")}"
             }
         val escrow = s.optJSONObject("escrow") ?: JSONObject()
         val hasKey = s.optJSONObject("key")?.optBoolean("has") == true
-        val items = mutableListOf<Pair<String, () -> Unit>>()
-        if (drive != null) items += (if (drive.optBoolean("on")) "Stop backing up to the USB drive" else "Back up to a USB drive") to {
-            if (drive.optBoolean("on")) setDest("drive", false) else if (drive.optBoolean("ready")) setDest("drive", true) else chooseDrive()
-        }
-        if (drive?.optBoolean("on") == true) items += "Use a different USB drive" to { chooseDrive() }
-        if (cloud != null) items += (if (cloud.optBoolean("on")) "Stop backing up to the cloud" else "Back up to the cloud") to {
+        // Rows with their value at the right, as Settings (docs/ux.md): a switch is its row.
+        fun onOff(b: Boolean) = if (b) "On" else "Off"
+        val items = mutableListOf<Pair<CalmDialog.Row, () -> Unit>>()
+        if (cloud != null) items += CalmDialog.Row("The cloud", value = onOff(cloud.optBoolean("on"))) to {
             if (cloud.optBoolean("on")) setDest("cloud", false) else if (!cloud.optBoolean("ready")) say("The cloud", cloud.optString("why")) else setDest("cloud", true)
         }
-        if (on.isNotEmpty()) items += "Back up now" to { backUpNow() }
-        items += "Restore from a backup" to { restoreList() }
-        if (hasKey) items += "Show the recovery code" to { showCode(first = false) }
-        if (hasKey && escrow.optBoolean("available")) items += (if (escrow.optBoolean("on")) "OpenHouse keeps a copy of the code: turn off" else "Keep a copy of the code with OpenHouse") to { escrowAsk(!escrow.optBoolean("on")) }
-        CalmDialog(act).setTitle("Backups").setMessage(text.trim().ifEmpty { null })
-            .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }.setNegativeButton("Back") { _, _ -> onBack?.invoke() }.open()
+        if (drive != null) items += CalmDialog.Row("USB drive", value = onOff(drive.optBoolean("on"))) to {
+            if (drive.optBoolean("on")) setDest("drive", false) else if (drive.optBoolean("ready")) setDest("drive", true) else chooseDrive()
+        }
+        if (drive?.optBoolean("on") == true) items += CalmDialog.Row("Change the USB drive") to { chooseDrive() }
+        if (on.isNotEmpty()) items += CalmDialog.Row("Back up now") to { backUpNow() }
+        items += CalmDialog.Row("Restore") to { restoreList() }
+        if (hasKey) items += CalmDialog.Row("Recovery code") to { showCode(first = false) }
+        if (hasKey && escrow.optBoolean("available")) items += CalmDialog.Row("OpenHouse keeps a copy", value = onOff(escrow.optBoolean("on"))) to { escrowAsk(!escrow.optBoolean("on")) }
+        CalmDialog(act).setTitle("Backups").setMessage(text)
+            .setRows(items.map { it.first }) { _, i -> items[i].second() }.setNegativeButton("Back") { _, _ -> onBack?.invoke() }.open()
     }
 
     private fun chooseDrive() = BackupDrive.choose(act) { }
@@ -106,16 +108,13 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         ui {
             if (code.isNullOrEmpty()) return@ui say("Recovery code", noBridge)
             val box = pad(LinearLayout(act))
-            box.addView(Calm.text(act, null, 19f, 400, Calm.SOFT).apply {
-                text = "Backups are locked with this code before they leave the tablet. Keep it somewhere safe: take a photo, print it, " +
-                    "keep it in a password manager, or send it to your phone. To open a backup on another tablet you'll need it. " +
-                    "Without it, a backup can't be opened by anyone."
-            })
+            box.addView(Calm.text(act, "Without it, nobody can open a backup. Keep it somewhere safe.", 19f, 400, Calm.SOFT))
             val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, 24, 0, 8) }
             runCatching { Handoff.qr(code, 280) }.getOrNull()?.let { bmp -> row.addView(ImageView(act).apply { setImageBitmap(bmp) }, LinearLayout.LayoutParams(280, 280)) }
             row.addView(Calm.text(act, code.split("-").chunked(4).joinToString("\n") { it.joinToString("-") }, 34f, 600).apply { letterSpacing = .06f; setPadding(Calm.px(act, 40), 0, 0, 0); setTextIsSelectable(true) })
             box.addView(row)
-            CalmDialog(act).setTitle("Your family's recovery code").setView(box).setCancelable(!first)
+            CalmDialog(act).setTitle("Your recovery code").setView(box).setCancelable(!first)
+                .setMore("Backups are locked with it before they leave the tablet. Take a photo, print it, keep it in a password manager, or send it to your phone. A backup on another tablet needs it.")
                 .setPositiveButton(if (first) "I've saved it" else "Done") { _, _ -> if (first) thread { post("/backup/recovery-code/confirmed"); ui(then) } }
                 .setNeutralButton("Send to my phone") { _, _ -> sendToPhone(code) { showCode(first, code, then) } }
                 .open()
@@ -130,23 +129,25 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         val h = Handoff(act, info, minutes = 5, page = "recovery.html", onEnd = { if (d.isShowing) d.dismiss() })
         if (!h.start()) return say("Send to my phone", "The tablet isn't on Wi-Fi, so it can't reach your phone.") { back() }
         val box = pad(LinearLayout(act))
-        box.addView(Calm.text(act, "Scan this with your phone's camera. The phone must be on the same Wi-Fi. The code goes straight to the phone, sealed; nothing is sent over the internet.", 19f, 400, Calm.SOFT))
+        box.addView(Calm.text(act, "Scan with a phone on this Wi-Fi.", 19f, 400, Calm.SOFT))
         runCatching { Handoff.qr(h.url!!, 360) }.getOrNull()?.let { bmp -> box.addView(ImageView(act).apply { setImageBitmap(bmp); setPadding(0, 24, 0, 0) }, LinearLayout.LayoutParams(-1, 384)) }
-        d = CalmDialog(act).setTitle("Send to my phone").setView(box).setPositiveButton("Done") { _, _ -> h.stop(); back() }.setCancelable(false).open()
+        d = CalmDialog(act).setTitle("Send to my phone").setView(box).setMore("It goes straight to the phone, sealed. Nothing is sent over the internet.").setPositiveButton("Done") { _, _ -> h.stop(); back() }.setCancelable(false).open()
     }
 
     /** Keep a copy of the code with OpenHouse: off unless someone says yes here, and it says plainly what that means. */
     private fun escrowAsk(on: Boolean, setup: Boolean = false) {
         if (!on) {
-            CalmDialog(act).setTitle("Stop OpenHouse keeping a copy?").setMessage("OpenHouse deletes its copy of your recovery code. After that, only you can open your backups, and without the code they can't be opened at all.")
-                .setPositiveButton("Delete OpenHouse's copy") { _, _ -> escrowSet(false) }.setNegativeButton("Cancel", null).open()
+            CalmDialog(act).setTitle("Delete OpenHouse's copy of the code?").setMessage("Then only you can open your backups.").setDanger()
+                .setPositiveButton("Delete") { _, _ -> escrowSet(false) }.setNegativeButton("Cancel", null).open()
             return
         }
-        CalmDialog(act).setTitle("Keep a copy of the code with OpenHouse?")
-            .setMessage("If you lose the code and the tablet, OpenHouse could still give your backups back to you. But with a copy kept, OpenHouse could open your backups too: your apps, chats, household and photos.\n\nMost families keep the code themselves. You can change this later in Backups.")
-            .setPositiveButton(if (setup) "No, just us" else "Cancel") { _, _ -> if (setup) show() }
-            .setNeutralButton("Keep a copy with OpenHouse") { _, _ -> escrowSet(true) }
-            .setCancelable(false).open()
+        // At setup the private choice is the main button; asked from Backups, the one they tapped is.
+        val d = CalmDialog(act).setTitle("Let OpenHouse keep a copy of the code?")
+            .setMessage("Then OpenHouse could open your backups too.")
+            .setMore("If you lose the code and the tablet, OpenHouse could still give your backups back: your apps, chats, household and photos. Most households keep the code themselves. This can change later in Backups.")
+        if (setup) d.setPositiveButton("Just us") { _, _ -> show() }.setNegativeButton("Keep a copy") { _, _ -> escrowSet(true) }
+        else d.setPositiveButton("Keep a copy") { _, _ -> escrowSet(true) }.setNegativeButton("Cancel", null)
+        d.setCancelable(false).open()
     }
     private fun escrowSet(on: Boolean): Thread = thread {
         val r = post("/backup/escrow", JSONObject().put("on", on))
@@ -191,8 +192,8 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
     }
 
     private fun confirmRestore(b: JSONObject, date: String) {
-        CalmDialog(act).setTitle("Restore?").setMessage("The family's apps, chats, household and photos on this tablet are replaced with the backup from $date. " +
-            "What is here now is kept aside on the tablet until the next restore.")
+        CalmDialog(act).setTitle("Restore the backup from $date?").setMessage("The apps, chats, household and photos here are replaced.").setDanger()
+            .setMore("What is here now is kept aside on the tablet until the next restore.")
             .setPositiveButton("Restore") { _, _ -> restore(b, null) }
             .setNegativeButton("Cancel", null).open()
     }
@@ -200,7 +201,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
     private fun askCode(b: JSONObject, again: Boolean = false) {
         val box = Calm.field(act, "XXXX-XXXX-…").apply { inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS; letterSpacing = .06f }
         CalmDialog(act).setTitle(if (again) "That code doesn't fit" else "Recovery code")
-            .setMessage("This backup was made with another recovery code. Type the code that was shown when its backups were turned on.").setView(box)
+            .setMessage("This backup has another recovery code. Type that one.").setView(box)
             .setPositiveButton("Restore") { _, _ -> restore(b, box.text.toString()) }.setNegativeButton("Cancel", null).open()
     }
 
@@ -220,7 +221,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
                     r.optString("code") == "wrongcode" || r.optString("code") == "needcode" -> askCode(b, again = r.optString("code") == "wrongcode")
                     r.has("error") -> say("Restore", "It didn't work: ${r.optString("error")}")
                     // The bridge starts again on what came back; then the screen reloads.
-                    else -> { say("Restored", "The backup is back. The screen reloads in a moment."); act.window.decorView.postDelayed({ act.reloadHome() }, 8000) }
+                    else -> { act.toast("Restored. The screen reloads in a moment."); act.window.decorView.postDelayed({ act.reloadHome() }, 8000) }
                 }
             }
         }

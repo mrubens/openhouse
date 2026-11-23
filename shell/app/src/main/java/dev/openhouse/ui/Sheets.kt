@@ -184,7 +184,11 @@ internal fun DeleteAppSheet(a: AppInfo) {
                 Text("Delete ${a.name}?", style = quietText(30, FontWeight.SemiBold))
                 Text("It comes off the home screen and the tablet.", style = quietText(18, color = Door.inkSoft))
                 Spacer(Modifier.height(22.u))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.u)) { Spacer(Modifier.weight(1f)); Chip("Keep it") { o.confirmDelete = null }; Pill("Delete") { o.deleteApp(a) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.u)) { Spacer(Modifier.weight(1f)); Chip("Cancel") { o.confirmDelete = null }
+                    // Deleting can't simply be taken back: the red button (docs/ux.md).
+                    Box(Modifier.height(62.u).clip(RoundedCornerShape(31.u)).background(Color(Calm.DANGER)).clickable { o.deleteApp(a) }.padding(horizontal = 34.u), contentAlignment = Alignment.Center) {
+                        Text("Delete", style = quietText(20, FontWeight.SemiBold, Calm.sheet))
+                    } }
             }
         }
     }

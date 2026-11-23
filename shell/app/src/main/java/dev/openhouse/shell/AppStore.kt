@@ -188,8 +188,8 @@ object AppStore {
 
     /** Where an install came from, as the card says it. */
     private fun from(source: String?): String = when (source) {
-        AURORA -> "From Google Play, through Aurora Store"
-        null -> "From an unknown app, not Google Play"
+        AURORA -> "From Google Play"
+        null -> "Not from Google Play"
         else -> "From ${label(source)} ($source), not Google Play"
     }
 
@@ -203,7 +203,7 @@ object AppStore {
         val acc = DeviceAccess.instance
         // A yes to install_app covers what Aurora then hands over for that package; anything else asks again.
         val ok = pkg != null && ((isApproved(pkg) && source == AURORA) ||
-            (acc != null && acc.approve("Add $name to this display?", "$pkg\n${from(source)}", parent = ParentPin.isSet(ctx))))
+            (acc != null && acc.approve("Add $name?", "", parent = ParentPin.isSet(ctx), yes = "Add", rights = listOf("from" to from(source)), more = pkg)))
         if (!ok) {
             files.forEach { it.delete() }
             finish(pkg, false, if (pkg == null) "Those files weren't an app." else "Nobody said yes, so $name wasn't added.")

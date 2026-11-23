@@ -238,11 +238,12 @@ fun DevicesSheet() {
                     Text("Linked devices", style = calmText(Calm.TITLE, FontWeight.SemiBold), modifier = Modifier.weight(1f))
                     DoorButton("Add") { Openhouse.host.setting("addLinked") }
                     Spacer(Modifier.width(12.u))
-                    DoorButton(if (Devices.scanning) "Looking…" else "Look again") { Devices.scan() }
-                    Spacer(Modifier.width(12.u))
                     DoorButton("Done", primary = true) { Devices.open = false }
                 }
-                (Devices.error ?: if (Devices.scanning) "Looking on the Wi-Fi and Bluetooth…" else null)?.let { Text(it, style = calmText(18, FontWeight.Normal, Calm.soft)) }
+                // Looking again is a quiet line under the title, not a third button (docs/ux.md).
+                Text(Devices.error ?: if (Devices.scanning) "Looking on the Wi-Fi and Bluetooth…" else "Look again",
+                    style = calmText(18, FontWeight.Medium, Calm.soft),
+                    modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable(enabled = !Devices.scanning) { Devices.scan() }.padding(vertical = 4.u))
                 Spacer(Modifier.height(18.u))
                 val ds = Devices.list.filter { it.present }
                 val (useful, rest) = ds.partition { it in Devices.controllable }

@@ -567,15 +567,15 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
         {/* OpenHouse's list of plugins (the shell's gallery, as in Settings, Plugins): adding one asks for the PIN */}
         {shell?.plugins && <button className="h-app-tile" onClick={() => shell.plugins()}>
           <span className="h-app-icon letter add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M12 6v12M6 12h12" /></svg></span>
-          <span className="h-app-name">Add apps</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : 'No other apps yet. Ask the assistant to make one.'}</div>}
+          <span className="h-app-name">Add apps</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : 'No other apps yet. Ask Opie to make one.'}</div>}
       {menu && <div className="h-veil" onClick={() => setMenu(null)}>
         <div className="h-menu" onClick={(e) => e.stopPropagation()}>
           <div className="h-menu-head"><Icon a={menu} /><span>{menu.name}</span></div>
-          {menu.old ? <div className="h-soft">This one was made before apps were web pages, so it can't open yet. Ask the assistant to remake it.</div> : <>
+          {menu.old ? <div className="h-soft">This one can't open yet. Ask Opie to remake it.</div> : <>
             {menu.web && <button className="h-menu-row" onClick={() => toTab(menu)}>Make it a tab</button>}
             {menu.today && <button className="h-menu-row" onClick={() => toToday(menu, !isOn(menu))}>{isOn(menu) ? 'Take it off Today' : 'Add to Today'}</button>}
             <button className="h-menu-row" onClick={() => hide(menu, true)}>Take it off Apps</button></>}
-          <button className="h-menu-row soft" onClick={() => setMenu(null)}>{menu.old ? 'OK' : 'Cancel'}</button>
+          <button className="h-menu-row soft" onClick={() => setMenu(null)}>{menu.old ? 'Close' : 'Cancel'}</button>
         </div>
       </div>}
     </div>

@@ -135,7 +135,7 @@ const unreachable = (e) => e instanceof Removed
   ? 'The tablet removed this computer. Ask for a new code and pair again. ' + WHERE + ''
   : /brain said 503/.test(e.message) && link?.c.where() === 'away'
     ? 'The OpenHouse isn\'t connected to the internet right now (this computer is away from its Wi-Fi, so it goes through OpenHouse\'s relay). Is the tablet on?'
-    : `Can't reach the OpenHouse at ${link?.pairing.base} right now (${e.cause?.code || (e.name === 'TimeoutError' ? 'no answer' : e.message)}). Is it on, and this computer on the same Wi-Fi? ${link?.pairing.relay ? '' : 'To reach it from anywhere, turn on "Reach from away from home" on the tablet (its Cloud settings), then use this once on the Wi-Fi. '}If its address changed, pair again.`;
+    : `Can't reach the OpenHouse at ${link?.pairing.base} right now (${e.cause?.code || (e.name === 'TimeoutError' ? 'no answer' : e.message)}). Is it on, and this computer on the same Wi-Fi? ${link?.pairing.relay ? '' : 'To reach it from anywhere, turn on "Use it away from home" on the tablet (its Cloud settings), then use this once on the Wi-Fi. '}If its address changed, pair again.`;
 function lost(e) { if (e instanceof Removed) { forget(); link = null; out({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' }); } }
 
 async function handle(msg) {

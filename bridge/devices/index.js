@@ -110,7 +110,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     if (!s) return null;
     try { const r = await fetch(s.base + p, { method: 'POST', headers: { authorization: s.auth, 'content-type': 'application/json' }, body: JSON.stringify(b), signal: AbortSignal.timeout(ms) }); return r.ok ? await r.json() : null; } catch { return null; }
   }
-  const approve = async (title, detail) => (await shell('/approve', { title, detail }, 100_000))?.yes === true;
+  const approve = async (title, detail, extra = {}) => (await shell('/approve', { ...extra, title, detail }, 100_000))?.yes === true;
   const say = (text) => { log(text); shell('/say', { text }); };
   const bt = btClient(shell);
   // Every device action, and what came of it, in the speech log (voice.js), like Opie's taps in other apps.
@@ -287,17 +287,17 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     const reads = /^(status|apps|info|state|now_playing|volume)$/.test(action);
     const pairing = db.pairing[d.id] ||= {};
     const allowedHere = app ? !!pairing.apps?.[app.id] : pairing.allowed === true;
-    const ask = async (title, detail) => {
-      if (!app) return approve(title, detail);
+    const ask = async (title, detail, extra) => {
+      if (!app) return approve(title, detail, extra);
       if (asking.has(app.id)) return false; // one card at a time from an app
       asking.add(app.id);
-      try { return await approve(title, detail); } finally { asking.delete(app.id); }
+      try { return await approve(title, detail, extra); } finally { asking.delete(app.id); }
     };
     if (!reads && !a.risky && !allowedHere && who !== 'board') { // a person's own tap on the tablet is their yes
       say(`Waiting for a yes: ${label}`);
-      const detail = app ? `From now on ${app.name} can use its controls (play, pause, the volume). It still asks before turning anything on or opening an app.`
-        : d.transport === 'bluetooth' ? 'A Bluetooth device. From now on it can use it when someone asks (sound, volume, its own controls). It still asks before turning anything on.'
-        : `From now on it can turn it off, pause it and change the volume when someone asks. It still asks before turning it on or opening an app. ${d.model || ''}`.trim();
+      const detail = app ? 'Play, pause and the volume. It asks before turning anything on.'
+        : d.transport === 'bluetooth' ? 'Sound, volume and its own buttons. It asks before turning anything on.'
+        : 'Off, pause and the volume. It asks before turning it on.';
       if (!(await ask(app ? `Let ${app.name} control ${label}?` : `Let the assistant control ${label}?`, detail))) {
         log(`${who}: ${label} ${action} — not allowed`); speechLog({ who, device: label, action, ok: false, text: 'not allowed' });
         return { ok: false, text: `The people here didn't allow controlling ${label} (or didn't answer). Don't try again; tell them it wasn't done.` };
@@ -309,9 +309,9 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     if (a.risky && !(a.boardOk && who === 'board')) { // (a person's own tap on Pair is their yes)
       const what = `${a.says.replace(/\.$/, '')}${Object.keys(p.values).length ? ` (${Object.entries(p.values).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''}`;
       say(`Waiting for a yes: ${label}`);
-      const [title, detail] = d.transport === 'bluetooth' && action === 'pair' ? [`Pair ${label} with the tablet?`, 'Opie can then play sound on it and use it when someone asks. The tablet may show a code to check.']
+      const [title, detail] = d.transport === 'bluetooth' && action === 'pair' ? [`Pair ${label} with the tablet?`, 'The tablet may show a code to check.']
         : [`${label}: ${what}?`, [app ? `${app.name} asks.` : '', d.room ? `${d.model || ''} in ${d.room}`.trim() : d.model || ''].filter(Boolean).join(' ')];
-      if (!(await ask(title, detail))) {
+      if (!(await ask(title, detail, d.transport === 'bluetooth' && action === 'pair' ? { yes: 'Pair' } : {}))) {
         log(`${who}: ${label} ${action} — not approved`); speechLog({ who, device: label, action, ok: false, text: 'not approved' });
         return { ok: false, text: `The people here said no (or didn't answer) to "${a.says}" on ${label}. Don't try again; tell them it wasn't done.` };
       }

@@ -453,7 +453,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
   }
   async function askGrownUp(ask) {
     // The shell's "Is this OK?" card, with the PIN when there is one. Nothing the assistant says answers it.
-    const r = await shell('/approve', { title: `${ask.who}: ${ask.title}?`, detail: `For ${ask.stars} stars`, pin: true }, 100_000);
+    const r = await shell('/approve', { title: `${ask.who}: ${ask.title}?`, detail: `For ${ask.stars} stars.`, pin: true, yes: 'Give it' }, 100_000);
     if (!data.asks.some((x) => x.id === ask.id)) return;
     // No card on this display (device access off): the Chores app shows the ask, but only a no counts from there. No answer
     // in time (nobody came): it's dropped, and the kid asks again; it never falls to a button anyone can tap.
@@ -472,7 +472,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     if (!adds.length && !removes.length) return [];
     if (!shellCfg()) return setUpRewards(adds, removes);
     const what = [...adds.map((x) => `${str(x.title, 60)} for ${Math.max(1, Math.min(500, Math.round(Number(x.stars) || 10)))} stars`), ...removes.map((x) => `take off ${data.rewards.find((y) => y.id === x || same(y.title, x))?.title || x}`)].join('; ');
-    shell('/approve', { title: 'Change the rewards?', detail: what, pin: true }, 100_000).then((r) => {
+    shell('/approve', { title: 'Change the rewards?', detail: what, pin: true, yes: 'Change' }, 100_000).then((r) => {
       if (r?.why || r?.yes) { setUpRewards(adds, removes); save(); }
     });
     return [`asked someone to OK it on the display (${what})`];

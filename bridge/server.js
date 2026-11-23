@@ -109,10 +109,10 @@ process.env.OPENHOUSE_APP_DIR = APP_DIR;
 const apps = appsRoutes({ HERE, APP_DIR, json });
 // Plugins (plugins.js, docs/plugins.md): apps and a look another family made, added as one change after someone's
 // yes on the tablet's card. An app from a plugin gets only what its plugin was granted (rightsOf, below).
-const shellApprove = async (title, detail, pin) => { // true, false, or null when there's no shell to ask (a laptop)
+const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger } (docs/ux.md) // true, false, or null when there's no shell to ask (a laptop)
   let d; try { d = JSON.parse(fs.readFileSync(process.env.DEVICE_MCP_CONFIG, 'utf8')).mcpServers.device; } catch { return null; }
   try {
-    const r = await fetch(d.url.replace(/\/mcp$/, '') + '/approve', { method: 'POST', headers: { authorization: d.headers.Authorization, 'content-type': 'application/json' }, body: JSON.stringify({ title, detail, pin }), signal: AbortSignal.timeout(100e3) });
+    const r = await fetch(d.url.replace(/\/mcp$/, '') + '/approve', { method: 'POST', headers: { authorization: d.headers.Authorization, 'content-type': 'application/json' }, body: JSON.stringify({ ...extra, title, detail, pin }), signal: AbortSignal.timeout(100e3) });
     return r.ok && (await r.json())?.yes === true;
   } catch { return false; }
 };

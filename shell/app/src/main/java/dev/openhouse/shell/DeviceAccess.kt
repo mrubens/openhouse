@@ -284,40 +284,43 @@ class DeviceAccess : AccessibilityService() {
      * digit goes in. Within the grace after an unlock (ParentGrace) the
      * card just asks.
      */
-    fun approve(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false): Boolean {
+    fun approve(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false, yes: String = "Allow",
+                rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false): Boolean {
         val done = CountDownLatch(1)
-        var yes = false
+        var said = false
         main.post {
             card?.let { runCatching { wm.removeView(it) } }
-            // The shared look (Calm), as the shell's own dialogs.
+            // The shared look (Calm), as the shell's own dialogs; the house rules in docs/ux.md: the title is the
+            // question, one short line, the rights as a list (never behind More), then the verb.
             val K = dev.openhouse.ui.Calm
             val col = K.column(this).apply {
                 setPadding(K.px(this@DeviceAccess, 44), K.px(this@DeviceAccess, 40), K.px(this@DeviceAccess, 44), K.px(this@DeviceAccess, 32))
                 background = K.rounded(K.SHEET, K.R_SHEET * K.u(this@DeviceAccess)); elevation = 24f
             }
-            col.addView(K.eyebrow(this, "Is this OK?"))
-            col.addView(K.title(this, title).apply { setPadding(0, K.px(this@DeviceAccess, 10), 0, 0) })
-            // All of it, scrolling when it's long (a plugin's card lists everything it may do): never cut. At most
-            // 300 dp tall, so the PIN and the buttons always fit under it.
+            col.addView(K.title(this, title))
             if (detail.isNotBlank()) col.addView(K.text(this, detail, K.BODY, 400, K.SOFT).apply {
                 setPadding(0, K.px(this@DeviceAccess, 12), 0, 0)
                 maxHeight = K.px(this@DeviceAccess, 300)
                 movementMethod = android.text.method.ScrollingMovementMethod() // (no scrollbar: a TextView made in code has no drawable for one, and asking for it crashes)
             })
+            // All of them, scrolling when there are many: never cut. At most 300 dp tall, so the PIN and buttons fit.
+            if (rights.isNotEmpty()) col.addView(dev.openhouse.ui.Calm.Capped(this, K.px(this@DeviceAccess, 330)).apply { addView(K.rights(this@DeviceAccess, rights)); isVerticalScrollBarEnabled = false },
+                android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(this@DeviceAccess, 22) })
+            more?.takeIf { it.isNotBlank() }?.let { col.addView(K.more(this, it), android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(this@DeviceAccess, 8) }) }
             val row = K.row(this, 8).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; setPadding(0, K.px(this@DeviceAccess, 28), 0, 0) }
-            fun answer(a: Boolean) { if (done.count == 0L) return; yes = a; done.countDown() }
+            fun answer(a: Boolean) { if (done.count == 0L) return; said = a; done.countDown() }
             val needPin = parent && ParentPin.isSet(this) && !ParentGrace.isOpen()
             if (needPin) { // a yes: the PIN is the yes
-                col.addView(K.text(this, "The PIN says yes.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(this@DeviceAccess, 20), 0, 0) })
+                col.addView(K.text(this, "Type the PIN to ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(this@DeviceAccess, 20), 0, 0) })
                 val pad = dev.openhouse.ui.PinPad(this, ParentPin.length(this)) { p, entry ->
                     if (ParentPin.check(this, entry)) answer(true) else PinPrompt.showLock(p, this, "Wrong PIN")
                 }
                 PinPrompt.showLock(pad, this, null)
                 col.addView(pad, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(this@DeviceAccess, 8) })
-                row.addView(K.quiet(this, "No") { answer(false) })
+                row.addView(K.quiet(this, "Not now") { answer(false) })
             } else {
-                row.addView(K.quiet(this, "No") { answer(false) })
-                row.addView(K.primary(this, "Yes, do it") { answer(true) })
+                row.addView(K.quiet(this, "Not now") { answer(false) })
+                row.addView((if (danger) K::danger else K::primary)(this, yes) { answer(true) })
             }
             col.addView(row)
             val dim = android.widget.FrameLayout(this).apply {
@@ -330,8 +333,8 @@ class DeviceAccess : AccessibilityService() {
         }
         val answered = done.await(timeoutMs, TimeUnit.MILLISECONDS)
         main.post { card?.let { runCatching { wm.removeView(it) } }; card = null }
-        Log.i(TAG, "approval \"$title\": ${if (!answered) "timed out" else if (yes) "yes" else "no"}")
-        return answered && yes
+        Log.i(TAG, "approval \"$title\": ${if (!answered) "timed out" else if (said) "yes" else "no"}")
+        return answered && said
     }
 
     companion object {

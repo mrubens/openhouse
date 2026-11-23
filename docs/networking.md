@@ -81,7 +81,7 @@ tablet bridge ◀──wss (dialed out, authenticated with the tablet's cloud de
 ```
 
 - **Setup for a household:** none beyond what they do now. A linked tablet (Settings → Account) gets a switch,
-  **Reach from away from home**, off until someone turns it on. Computers and phone pages paired on the Wi-Fi then
+  **Use it away from home**, off until someone turns it on. Computers and phone pages paired on the Wi-Fi then
   also work from anywhere: the computer's MCP and the list page try the Wi-Fi first and fall back to the relay.
 - **How a device is allowed:** each paired device derives a relay token from its own key (HKDF, label `relay`); the tablet
   sends the relay only the tokens' hashes. The relay forwards only from a token on that tablet's list, so a stranger
@@ -144,7 +144,7 @@ browsable `https://<household>.openhouse.computer`, push notifications, the clau
 | Device tokens | `screens.relayToken(key)`: HKDF of the device's own key, so there's nothing new to keep. Devices get theirs sealed, from `GET /relay/me` on the Wi-Fi |
 | Computers and screens | `chat/src/relay-client.js` (one WebSocket, a `Response` per request), used by `screen-client.js` when the home network doesn't answer a quick check; the MCP and the screen page keep `relay` with their pairing |
 | Phone list pages | `ui/Phone.kt` registers each list's page (`POST /relay/handoff`), its sealed info carries `relay`, and `assets/list.html` goes through it when the Wi-Fi misses; `Handoff.relayOrigin` widens the page's `connect-src` |
-| The switch | `shell/.../CloudMenu.kt` (Reach from away from home), and "from away, 3 h ago" in Screens |
+| The switch | `shell/.../CloudMenu.kt` (Use it away from home), and "from away, 3 h ago" in Screens |
 | Tests | `openhouse-cloud/test/relay.test.ts`, `openhouse-cloud/test/stack.test.ts`, `bridge/test/relay.test.mjs` (the bridge, the local service and a device, end to end) |
 
 To try it on an emulator with the local service (so the emulator and this Mac use the same relay address):
@@ -157,7 +157,7 @@ scripts/cloud.sh node lambda/local.ts --port 8797 --base http://localhost:8797
 adb reverse tcp:8797 tcp:8797
 ```
 
-Then Settings → Account → Address → `http://localhost:8797`, link, and Account → Reach from away from home → Turn on.
+Then Settings → Advanced → Cloud address → `http://localhost:8797`, link, and Account → Use it away from home → Turn on.
 (Any port free on both sides; some emulator images already have something on 8790.) Tried this way on 2026-11-19: the
 tablet connected and reconnected by itself after a restart; a paired computer's MCP, with its Wi-Fi path cut, ran
 `about_household` and `look_at_tablet` (a screenshot, many relay messages, 0.4 s) through the relay, and Screens

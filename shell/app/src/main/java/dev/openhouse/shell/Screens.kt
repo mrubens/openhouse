@@ -24,8 +24,8 @@ internal object Screens {
 
     /** Linked devices' Add (ui/Devices.kt): which kind, then its own way of joining. */
     fun addMenu(a: MainActivity) {
-        CalmDialog(a).setTitle("Add").setItems(arrayOf("A tablet, iPad or frame", "A TV", "Someone's phone", "A computer, to change the apps")) { _, i -> when (i) { 0 -> add(a); 1 -> tv(a); 2 -> phone(a); else -> computer(a) } }
-            .setNegativeButton("Back", null).show().also { a.immersive() }
+        CalmDialog(a).setTitle("Add a device").setItems(arrayOf("A tablet, iPad or frame", "A TV", "Someone's phone", "A computer, to change the apps")) { _, i -> when (i) { 0 -> add(a); 1 -> tv(a); 2 -> phone(a); else -> computer(a) } }
+            .setNegativeButton("Cancel", null).show().also { a.immersive() }
     }
 
     /** Linked devices' Remove for one (its id): asks first. */
@@ -38,50 +38,13 @@ internal object Screens {
         }
     }
 
-    fun manage(a: MainActivity) = thread {
-        val s = get(a)
-        main.post {
-            if (s == null) { a.toast("The assistant is starting"); return@post }
-            val list = s.optJSONArray("screens")
-            val screens = (0 until (list?.length() ?: 0)).mapNotNull { list!!.optJSONObject(it) }
-            val lan = s.optBoolean("lan")
-            val b = CalmDialog(a).setTitle("Screens and computers")
-            if (screens.isEmpty()) b.setMessage("None yet.")
-            else b.setItems(screens.map { it.optString("name") + (when (it.optString("kind")) { "computer" -> "  ·  computer"; "tv" -> "  ·  TV"; "phone" -> "  ·  phone"; else -> "" }) + seen(it.optLong("seen")) + fromAway(it.optLong("away")) }.toTypedArray()) { _, i ->
-                    val x = screens[i]
-                    CalmDialog(a).setTitle("Remove ${x.optString("name")}?").setMessage(when (x.optString("kind")) { "computer" -> "It can't change the apps any more. It can be connected again."; "tv" -> "It stops showing the photos and calendar now. It can be added again."; "phone" -> "It stops getting the lists, calendar and notes now. It can be added again."; else -> "It stops showing the home screen now. It can be added again." })
-                        .setPositiveButton("Remove") { _, _ -> thread { post("/screens/revoke", JSONObject().put("id", x.optString("id"))) } }
-                        .setNegativeButton("Cancel", null).show().also { a.immersive() }
-                }
-            b.setPositiveButton("Add a screen") { _, _ ->
-                CalmDialog(a).setTitle("Add a screen").setItems(arrayOf("A tablet, iPad or frame", "A TV", "Someone's phone", "A computer, to change the apps")) { _, i -> when (i) { 0 -> add(a); 1 -> tv(a); 2 -> phone(a); else -> computer(a) } }
-                    .setNegativeButton("Cancel", null).show().also { a.immersive() }
-            }
-                .setNegativeButton("Back", null)
-            if (lan) b.setNeutralButton("Home network off") { _, _ -> thread { post("/screens/lan", JSONObject().put("on", false)) } }
-            else if (screens.isNotEmpty()) b.setNeutralButton("Home network on") { _, _ -> thread { post("/screens/lan", JSONObject().put("on", true)) } }
-            b.show().also { a.immersive() }
-        }
-    }
-
-    private fun seen(t: Long): String {
-        if (t <= 0) return ""
-        val m = (System.currentTimeMillis() - t) / 60_000
-        return "  ·  " + when { m < 2 -> "now"; m < 60 -> "$m min"; m < 1440 -> "${m / 60} h"; else -> "${m / 1440} d" }
-    }
-
-    /** When it last came in from away from home, through the relay (Cloud → Reach from away from home), within a week. */
-    private fun fromAway(t: Long): String {
-        if (t <= 0 || System.currentTimeMillis() - t > 7 * 86_400_000L) return ""
-        return "  ·  from away" + seen(t).removePrefix("  ·  ").let { if (it == "now") " now" else ", $it ago" }
-    }
 
     /** A QR code for one screen to join; when it asks, someone says yes or no here. */
     private fun add(a: MainActivity) = thread {
         val ip = Handoff.lanAddress(a)
         val p = if (ip == null) null else runCatching { JSONObject(post("/screens/pair") ?: "") }.getOrNull()
         main.post {
-            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("OK", null).show().also { a.immersive() }; return@post }
+            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair")
             val url = "http://${ip.hostAddress}:${p.optInt("port")}/screen/#$pair.${p.optString("key")}"
             val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with the other screen, on this Wi-Fi."), 360) { Handoff.share(a, url) }
@@ -108,12 +71,12 @@ internal object Screens {
         val family = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/household")).optJSONArray("family") }.getOrNull()
         val names = (0 until (family?.length() ?: 0)).mapNotNull { family!!.optJSONObject(it)?.optString("name")?.takeIf { n -> n.isNotBlank() } }
         main.post {
-            if (names.isEmpty()) { CalmDialog(a).setTitle("Add the family first").setMessage("Settings, Family: then each person can have their phone here.").setPositiveButton("OK", null).show().also { a.immersive() }; return@post }
+            if (names.isEmpty()) { CalmDialog(a).setTitle("Add the family first").setMessage("In Settings, Family.").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             CalmDialog(a).setTitle("Whose phone?").setItems(names.toTypedArray()) { _, i ->
                 val who = names[i]
-                CalmDialog(a).setTitle("Can $who's phone ask Opie?")
-                    .setPositiveButton("Yes") { _, _ -> phoneQr(a, who, true) }
-                    .setNegativeButton("No") { _, _ -> phoneQr(a, who, false) }
+                CalmDialog(a).setTitle("Let $who's phone ask Opie?")
+                    .setPositiveButton("Allow") { _, _ -> phoneQr(a, who, true) }
+                    .setNegativeButton("Don't allow") { _, _ -> phoneQr(a, who, false) }
                     .show().also { a.immersive() }
             }.setNegativeButton("Cancel", null).show().also { a.immersive() }
         }
@@ -123,7 +86,7 @@ internal object Screens {
         val ip = Handoff.lanAddress(a)
         val p = if (ip == null) null else runCatching { JSONObject(post("/screens/pair", JSONObject().put("kind", "phone").put("person", who).put("grownup", grownup)) ?: "") }.getOrNull()
         main.post {
-            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("OK", null).show().also { a.immersive() }; return@post }
+            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair")
             val url = "http://${ip.hostAddress}:${p.optInt("port")}/phone/?for=${android.net.Uri.encode(who)}#$pair.${p.optString("key")}"
             val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with $who's phone, on this Wi-Fi."), 360) { Handoff.share(a, url) }
@@ -149,7 +112,7 @@ internal object Screens {
      */
     fun tv(a: MainActivity) {
         val ip = Handoff.lanAddress(a)
-        if (ip == null) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("OK", null).show().also { a.immersive() }; return }
+        if (ip == null) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { a.immersive() }; return }
         thread { post("/screens/lan", JSONObject().put("on", true)) } // so the TV can open the page
         val code = Calm.field(a, "XXXX-XXXX-XXXX", 30f).apply { inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS }
         val name = Calm.field(a, "Which TV? (Living room)", 22f)
@@ -165,7 +128,7 @@ internal object Screens {
                     val r = runCatching { JSONObject(post("/screens/pair", JSONObject().put("kind", "tv").put("code", code.text.toString()).put("name", name.text.toString())) ?: "") }.getOrNull()
                     main.post {
                         val err = r?.optString("error")?.takeIf { it.isNotEmpty() }
-                        if (r == null || err != null) CalmDialog(a).setTitle(err ?: "The assistant is starting").setPositiveButton("OK", null).show().also { a.immersive() }
+                        if (r == null || err != null) CalmDialog(a).setTitle(err ?: "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }
                         else a.toast("The TV joins in a few seconds")
                     }
                 }
@@ -187,7 +150,7 @@ internal object Screens {
         val ownConnector = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/webmcp")).optString("connector").takeIf { it.startsWith("http") } }.getOrNull()
         val connector = ownConnector ?: cloudConnector
         main.post {
-            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("OK", null).show().also { a.immersive() }; return@post }
+            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair"); val code = p.optString("code"); val port = p.optInt("port")
             val address = "${ip.hostAddress}:$port"
             // The page to add OpenHouse to Claude (bridge/connect-page.js), at the bridge's own name when it has one.
@@ -253,38 +216,42 @@ internal object Screens {
      * <address>/mcp as a connector, and signs in with the code, as with the cloud's.
      */
     private fun ownAddress(a: MainActivity, now: String?) = main.post {
-        val field = Calm.field(a, "https://kitchen.tail1234.ts.net", 22f).apply { setText(now?.removeSuffix("/mcp") ?: "") }
+        val field = Calm.field(a, "https://home.tail1234.ts.net", 22f).apply { setText(now?.removeSuffix("/mcp") ?: "") }
+        var d: android.app.Dialog? = null
         val col = Calm.column(a, 16).apply {
-            addView(Calm.text(a, "If your network gives this tablet an https address of its own (Tailscale Funnel, a Cloudflare tunnel, your own proxy), pointing at port 8789, Claude or ChatGPT can reach it there, with no OpenHouse cloud. Type that address.", 18f, 400, Calm.SOFT))
             addView(field)
+            // Turning it off is rare: a quiet link here, not a third button (docs/ux.md).
+            if (now != null) addView(Calm.quiet(a, "Turn it off") { d?.dismiss(); thread { post("/webmcp", JSONObject().put("on", false)) } }.apply { setPadding(0, 0, 0, 0) }, android.widget.LinearLayout.LayoutParams(-2, -2))
+            addView(Calm.more(a, "If your network gives this tablet an https address of its own (Tailscale Funnel, a Cloudflare tunnel, your own proxy), pointing at port 8789, Claude or ChatGPT can reach it there, with no OpenHouse cloud."))
         }
-        CalmDialog(a).setTitle("Your own address").setView(col)
+        d = CalmDialog(a).setTitle("Your own address").setMessage("An https address that reaches this tablet's port 8789.").setView(col)
             .setPositiveButton("Turn on") { _, _ -> thread {
                 val r = runCatching { JSONObject(post("/webmcp", JSONObject().put("on", true).put("url", field.text.toString().trim())) ?: "") }.getOrNull()
-                main.post { CalmDialog(a).setTitle(if (r?.optString("connector")?.startsWith("http") == true) "On" else "That didn't work").setMessage(r?.optString("connector")?.takeIf { it.startsWith("http") }?.let { "In Claude or ChatGPT, add a connector at $it, then give it the code from \"A computer, to change the apps\"." } ?: (r?.optString("error") ?: "The tablet didn't answer.")).setPositiveButton("OK", null).show().also { a.immersive() } }
+                main.post { CalmDialog(a).setTitle(if (r?.optString("connector")?.startsWith("http") == true) "On" else "That didn't work").setMessage(r?.optString("connector")?.takeIf { it.startsWith("http") }?.let { "In Claude or ChatGPT, add a connector at $it, then give it the code from \"A computer, to change the apps\"." } ?: (r?.optString("error") ?: "The tablet didn't answer.")).setPositiveButton("Close", null).show().also { a.immersive() } }
             } }
-            .setNeutralButton("Turn off") { _, _ -> thread { post("/webmcp", JSONObject().put("on", false)) } }
             .setNegativeButton("Cancel", null).show().also { a.immersive() }
     }
 
     private fun confirm(a: MainActivity, pair: String, name: String, computer: Boolean = false, tv: Boolean = false) {
         if (tv) {
-            CalmDialog(a).setTitle("Let “$name” show the photos and calendar?").setMessage("A TV only shows: the photos, the calendar, today's chores, dinner and the grocery list. It can't change anything. Remove it any time in Screens.")
+            CalmDialog(a).setTitle("Let “$name” show photos and the calendar?").setMessage("It can't change anything.")
+                .setMore("A TV shows the photos, the calendar, today's chores, dinner and the grocery list. Linked devices, in Settings, removes it.")
                 .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
-                .setNegativeButton("No") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
+                .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
                 .setCancelable(false).show().also { a.immersive() }
             return
         }
         if (computer) {
-            CalmDialog(a).setTitle("Let “$name” use this OpenHouse?").setMessage("It can use the lists, calendar, chores, notes, timers and devices, and make and change apps and tabs. Every change can be undone. Remove it any time in Screens.")
+            CalmDialog(a).setTitle("Let “$name” change this OpenHouse?")
+                .setRights(listOf("data" to "The lists, calendar, chores, notes and timers", "devices" to "The speakers and TVs", "apps" to "Makes and changes apps and tabs"))
                 .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
-                .setNegativeButton("No") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
+                .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
                 .setCancelable(false).show().also { a.immersive() }
             return
         }
-        CalmDialog(a).setTitle("Let “$name” show the home screen?").setMessage("It can see the home screen, tick lists and ask the assistant. Not Settings or apps.")
+        CalmDialog(a).setTitle("Let “$name” show the home screen?").setMessage("It can tick lists and ask Opie. Not Settings or apps.")
             .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
-            .setNegativeButton("No") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
+            .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
             .setCancelable(false).show().also { a.immersive() }
     }
 }

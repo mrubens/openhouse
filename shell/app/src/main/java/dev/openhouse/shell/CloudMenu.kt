@@ -30,7 +30,7 @@ internal class CloudMenu(private val act: MainActivity) {
     private fun ui(f: () -> Unit) = act.runOnUiThread(f)
     private fun CalmDialog.open(): android.app.Dialog = show() // the shared look (ui/Calm.kt)
     private fun say(title: String, text: String, then: (() -> Unit)? = null) {
-        CalmDialog(act).setTitle(title).setMessage(text).setPositiveButton("OK") { _, _ -> then?.invoke() }.open()
+        CalmDialog(act).setTitle(title).setMessage(text).setPositiveButton("Close") { _, _ -> then?.invoke() }.open()
     }
     private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
 
@@ -40,19 +40,20 @@ internal class CloudMenu(private val act: MainActivity) {
     }
 
     private fun unlinked(s: JSONObject) {
-        val was = s.optJSONObject("unlinked")
-        val text = (if (was != null) "Unlinked. " else "") + "Link this tablet to see it from the web and back it up to the cloud."
-        CalmDialog(act).setTitle("Account").setMessage(text)
+        // (Your own cloud's address is in Advanced, For developers: rare, so not a third button here.)
+        CalmDialog(act).setTitle("Account").setMessage("See this tablet from the web, and back it up.")
             .setItems(arrayOf("Backups")) { _, _ -> BackupMenu(act) { show() }.show() } // a USB drive works unlinked too
             .setPositiveButton("Link") { _, _ -> startLink() }
-            .setNeutralButton("Address") { _, _ -> address(s.optString("api")) }
             .setNegativeButton("Back", null).open()
     }
+
+    /** The cloud's address, for people who run their own (Advanced). */
+    fun address() = thread { val s = get("/cloud/status", 5000); ui { if (s == null) say("Cloud address", noBridge) else address(s.optString("api")) } }
 
     private fun address(now: String) {
         val box = Calm.field(act, "https://…").apply { setText(now); inputType = InputType.TYPE_TEXT_VARIATION_URI }
         CalmDialog(act).setTitle("Cloud address").setMessage("Only if you run your own.").setView(box)
-            .setPositiveButton("Save") { _, _ -> thread { val r = post("/cloud/config", JSONObject().put("api", box.text.toString().trim())); ui { if (r?.has("error") != false) say("Cloud address", r?.optString("error") ?: noBridge) else show() } } }
+            .setPositiveButton("Save") { _, _ -> thread { val r = post("/cloud/config", JSONObject().put("api", box.text.toString().trim())); ui { if (r?.has("error") != false) say("Cloud address", r?.optString("error") ?: noBridge) else act.toast("Saved") } } }
             .setNegativeButton("Cancel", null).open()
     }
 
@@ -85,7 +86,7 @@ internal class CloudMenu(private val act: MainActivity) {
     }
 
     private fun linked(s: JSONObject) {
-        val items = listOf<Pair<String, () -> Unit>>("Backups" to { BackupMenu(act) { show() }.show() }, "Reach from away from home" to { away() }, "Unlink this tablet" to { unlink() })
+        val items = listOf<Pair<String, () -> Unit>>("Backups" to { BackupMenu(act) { show() }.show() }, "Use it away from home" to { away() }, "Unlink this tablet" to { unlink() })
         CalmDialog(act).setTitle("Account").setMessage("Linked to ${s.optString("family").ifEmpty { "your family" }}.")
             .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }.setNegativeButton("Back", null).open()
     }
@@ -95,7 +96,7 @@ internal class CloudMenu(private val act: MainActivity) {
     private fun away() = thread {
         val r = get("/relay", 5000)
         ui {
-            if (r == null) return@ui say("Reach from away from home", noBridge)
+            if (r == null) return@ui say("Use it away from home", noBridge)
             val on = r.optBoolean("on")
             val now = when {
                 !on -> "Off."
@@ -103,9 +104,9 @@ internal class CloudMenu(private val act: MainActivity) {
                 r.optString("error").isNotEmpty() && !r.isNull("error") -> "On, but not connected: ${r.optString("error")}."
                 else -> "On. Connecting to the relay…"
             }
-            val text = "$now\n\nPaired computers, screens and phones reach this tablet from anywhere, sealed so the relay can't read it."
-            CalmDialog(act).setTitle("Reach from away from home").setMessage(text)
-                .setPositiveButton(if (on) "Turn off" else "Turn on") { _, _ -> thread { val x = post("/relay", JSONObject().put("on", !on)); ui { if (x == null || x.has("error")) say("Reach from away from home", x?.optString("error") ?: noBridge) else act.toast(if (on) "Off" else "On") } } }
+            CalmDialog(act).setTitle("Use it away from home").setMessage(now)
+                .setMore("Linked computers, screens and phones reach this tablet from anywhere, sealed so the relay can't read it.")
+                .setPositiveButton(if (on) "Turn off" else "Turn on") { _, _ -> thread { val x = post("/relay", JSONObject().put("on", !on)); ui { if (x == null || x.has("error")) say("Use it away from home", x?.optString("error") ?: noBridge) else act.toast(if (on) "Off" else "On") } } }
                 .setNegativeButton("Back") { _, _ -> show() }.open()
         }
     }

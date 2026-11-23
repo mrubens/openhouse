@@ -55,7 +55,7 @@ object GooglePhotos {
                 if (run == me) { token = t; at(2, "Signed in. Pick the photos on the phone."); thread(name = "google-photos") { pickAndCopy(me) { n, s -> at(n, s) } } }
             },
             onEnd = { dialog?.dismiss() })
-        if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("OK", null).show().also { immersive() }; return }
+        if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
         if (cloud == null) status.text = "Google Photos isn't available right now."
         val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
         val steps = Calm.column(a, 22).apply { stepViews.forEach { addView(it) }; addView(Calm.gap(a, 0, 6)); addView(status) }

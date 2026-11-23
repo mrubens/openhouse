@@ -423,7 +423,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     private fun openAndroidApp(pkg: String) {
         if (!KioskApps.needsParent(pkg)) { KioskApps.openApp(pkg); return }
         val acc = DeviceAccess.instance ?: return lock.withPin { KioskApps.openApp(pkg, parentOk = true) }
-        thread { if (acc.approve("Open ${AppStore.label(pkg)}?", "", parent = ParentPin.isSet(this))) main.post { KioskApps.openApp(pkg, parentOk = true) } }
+        thread { if (acc.approve("Open ${AppStore.label(pkg)}?", "", parent = ParentPin.isSet(this), yes = "Open")) main.post { KioskApps.openApp(pkg, parentOk = true) } }
     }
 
     // --- video: YouTube full screen over everything, with a close button (a note's Video, from the door) ---------

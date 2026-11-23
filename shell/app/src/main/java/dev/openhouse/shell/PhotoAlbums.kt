@@ -49,9 +49,9 @@ object PhotoAlbums {
     class Link(val id: String, val url: String)
     private class Said(m: String) : Exception(m) // safe to show: never has the link in it
 
-    const val HELP = "In Photos on an iPhone or Mac, make a shared album just for this screen (one called Kitchen works well) " +
-        "and add photos to it. Then in the album's sharing settings, turn on its public link (Public Website) and copy it. " +
-        "Anyone with the link can see the album, so the tablet keeps it sealed. New photos show up here within half an hour."
+    const val HELP = "In Photos on an iPhone or Mac, make a shared album for this screen and add photos to it. In the album's " +
+        "sharing settings, turn on Public Website and copy the link. Anyone with the link can see the album, so the tablet keeps it sealed. " +
+        "New photos show up here within half an hour."
 
     fun init(c: Context) { if (!::ctx.isInitialized) ctx = c.applicationContext }
     fun stop() { stopped = true; main.removeCallbacksAndMessages(null) }
@@ -242,49 +242,34 @@ object PhotoAlbums {
     }.getOrDefault(emptyMap())
 
     // --- Settings' screens ------------------------------------------------------------------
-    /** The linked albums (tap one to take it off) and adding one. Only reached through the PIN. */
-    fun manage(a: Activity, immersive: () -> Unit) {
-        thread {
-            val links = list(); val known = albums()
-            main.post {
-                val rows = links.map { l -> known[l.id]?.let { "${it.first} · ${it.second}" } ?: "A shared album · not read yet" }
-                CalmDialog(a).setTitle("Photo albums")
-                    .apply { if (links.isEmpty()) setMessage("None yet.") }
-                    .setItems(rows.toTypedArray()) { _, i ->
-                        val l = links[i]
-                        CalmDialog(a).setTitle("Take ${known[l.id]?.first ?: "this album"} off?").setMessage("Its photos come off the tablet too. They stay in iCloud.")
-                            .setPositiveButton("Take it off") { _, _ -> thread { remove(l.id) } }.setNegativeButton("Keep it", null).show().also { immersive() }
-                    }
-                    .setPositiveButton("Add an iCloud album") { _, _ -> add(a, immersive) }
-                    .setNeutralButton("Phones") { _, _ -> PhotoShare.show(a, immersive) }
-                    .setNegativeButton("Back", null).show().also { immersive() }
-            }
-        }
-    }
-
     /** Paste the album's link here (or send it from a phone). Behind the PIN. */
     fun add(a: Activity, immersive: () -> Unit) {
         val link = Calm.field(a, "https://photos.icloud.com/shared/album/…").apply {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             runCatching { (a.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(a)?.toString())?.let { AlbumLink.clean(it) }?.let { setText(it) } }
         }
-        val col = Calm.column(a, 12).apply { addView(link); addView(Calm.caption(a, HELP)) }
-        CalmDialog(a).setTitle("Add an iCloud album").setView(col).setWidth(760f)
+        // Sending it from a phone is a quiet link, where to find the link is behind More (docs/ux.md).
+        var d: android.app.Dialog? = null
+        val col = Calm.column(a, 12).apply {
+            addView(link)
+            addView(Calm.row(a, 0).apply { addView(Calm.quiet(a, "Send it from a phone") { d?.dismiss(); addFromPhone(a, immersive) }.apply { setPadding(0, 0, Calm.px(a, 28), 0) }) })
+            addView(Calm.more(a, HELP))
+        }
+        d = CalmDialog(a).setTitle("Add an iCloud album").setView(col).setWidth(760f)
             .setPositiveButton("Add") { _, _ ->
                 val u = AlbumLink.clean(link.text.toString())
                 if (u == null) { notAlbum(a, immersive); return@setPositiveButton }
                 keep(a, u, immersive)
             }
-            .setNeutralButton("From a phone") { _, _ -> addFromPhone(a, immersive) }
             .setNegativeButton("Cancel", null).show().also { immersive() }
     }
 
     private fun notAlbum(a: Activity, immersive: () -> Unit) =
-        CalmDialog(a).setTitle("That isn't a shared album link.").setMessage("It starts https://photos.icloud.com/shared/album/ or https://www.icloud.com/sharedalbum/#\n\n$HELP").setPositiveButton("OK", null).show().also { immersive() }
+        CalmDialog(a).setTitle("That isn't a shared album link").setMessage("It starts https://www.icloud.com/sharedalbum/ or https://photos.icloud.com/shared/album/.").setMore(HELP).setPositiveButton("Close", null).show().also { immersive() }
 
     private fun keep(a: Activity, url: String, immersive: () -> Unit) {
         thread { add(url); sync() }
-        CalmDialog(a).setTitle("Added the album").setMessage("Its photos come in over the next few minutes, into Photos.").setPositiveButton("OK", null).show().also { immersive() }
+        (a as? MainActivity)?.toast("Added. The photos come in over a few minutes.")
     }
 
     /** A link from the computer (the workshop) or the assistant: kept only after a yes and PIN here. */
@@ -292,7 +277,7 @@ object PhotoAlbums {
         var answered = false
         val finish = { yes: Boolean -> if (!answered) { answered = true; done(yes) } }
         CalmDialog(a).setTitle("Add an iCloud shared album?")
-            .setMessage(listOfNotNull("Its photos show in Photos and when the screen is idle.", from.takeIf { it.isNotBlank() }?.let { "Sent by $it." }).joinToString("\n"))
+            .setMessage(listOfNotNull(runCatching { java.net.URL(url).host }.getOrNull(), from.takeIf { it.isNotBlank() }?.let { "Sent by $it." }).joinToString("\n"))
             .setPositiveButton("Add") { _, _ -> if (DeviceServer.personOnly("Adding an album someone sent")) { finish(false); return@setPositiveButton }; withPin { thread { add(url); sync() }; finish(true) } }
             .setNegativeButton("Not now") { _, _ -> finish(false) }
             .setOnDismissListener { main.postDelayed({ if (!answered) finish(false) }, 95_000) }
@@ -305,7 +290,7 @@ object PhotoAlbums {
         val info = JSONObject().put("title", "Add an iCloud album").put("field", "Shared album link").put("hint", "https://photos.icloud.com/shared/album/…")
             .put("help", HELP).put("done", "Sent. Check the tablet.")
         val h = Handoff(a, info, onSecret = { got = it; dialog?.dismiss() }, onEnd = { if (got == null) dialog?.dismiss() })
-        if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("OK", null).show().also { immersive() }; return }
+        if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
         val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
         val col = Calm.qr(a, qr, Calm.caption(a, "Scan with a phone on this Wi-Fi, and paste the album's link there."), 360) { Handoff.share(a, h.url!!) }
         dialog = CalmDialog(a).setTitle("Add an iCloud album").setView(col).setNegativeButton("Cancel", null)
@@ -314,7 +299,7 @@ object PhotoAlbums {
                 got?.let { msg ->
                     val u = AlbumLink.clean(msg.optString("value"))
                     if (u == null) notAlbum(a, immersive)
-                    else CalmDialog(a).setTitle("Add this album?").setMessage("A shared album from iCloud. Its photos show in Photos.")
+                    else CalmDialog(a).setTitle("Add this iCloud album?")
                         .setPositiveButton("Add") { _, _ -> keep(a, u, immersive) }.setNegativeButton("Cancel", null).show().also { immersive() }
                 }
             }.show().also { immersive() }

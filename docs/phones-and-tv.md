@@ -125,7 +125,7 @@ What doesn't belong on the phone: settings, Settings, making apps (that's the wo
 | Push notifications | No | Yes: Web Push (iOS 16.4+, once it's on the home screen) | Yes |
 | Offline lists | While the tab stays open | Yes (a service worker, and the last data kept on the phone) | Yes |
 | Works away from home | Only if opened at home first | Yes | Yes (needs the relay too) |
-| Needs the cloud | No | Linked tablet and Reach from away from home on | The relay, plus app-store accounts |
+| Needs the cloud | No | Linked tablet and Use it away from home on | The relay, plus app-store accounts |
 | Microphone (voice to Opie) | No | Yes | Yes |
 | What we ship | Nothing new | One page on the cloud, as with `/l` | Two apps, store reviews, updates |
 | Effort | Small | Medium (about 1–2 weeks) | Large (months), plus app-store accounts |

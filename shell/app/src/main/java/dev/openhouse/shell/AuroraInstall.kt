@@ -32,7 +32,7 @@ internal object AuroraInstall {
         if (AppStore.installed(pkg)) { AppStore.addToHome(pkg); return DeviceServer.text("${AppStore.label(pkg)} is already installed, and on the home screen. open_app opens it.") }
         val name = given.ifBlank { pkg }
         acc.status("Waiting for a yes: add $name?")
-        if (!acc.approve("Add $name to this display?", "$pkg\nFrom Google Play, through Aurora Store", parent = ParentPin.isSet(ctx)))
+        if (!acc.approve("Add $name?", "", parent = ParentPin.isSet(ctx), yes = "Add", rights = listOf("from" to "From Google Play"), more = pkg))
             return DeviceServer.text("Nobody said yes, so $name wasn't added. Say so; don't try again.", true)
         AppStore.approve(pkg)
         AppStore.ensureAurora { acc.status(it) }?.let { return DeviceServer.text(it, true) }

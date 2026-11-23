@@ -99,7 +99,7 @@ The page is `assets/share.html`, the same code served two ways:
   (kept sealed with a Keystore key, alias `photo-share`). The phone adds it to its home screen. It keeps working
   while the tablet keeps its address; the shell checks every 5 minutes and moves with it (the phone then needs the
   code again). Works on any phone, no cloud.
-- **With Reach from away from home on** (Cloud), the QR code is the cloud's copy instead:
+- **With Use it away from home on** (Cloud), the QR code is the cloud's copy instead:
   `https://cloud.openhouse.computer/p/#<key>.<relay>.<token>`. It goes through the relay (with a lasting token the
   shell sends again every 6 hours, `/relay/handoff {token, page: 'p'}`; New link and Turn off take the old one off at once,
   `/relay/handoff/end`), so it works anywhere. It can be installed,

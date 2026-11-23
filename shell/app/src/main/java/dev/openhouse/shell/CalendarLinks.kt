@@ -169,7 +169,7 @@ object CalendarLinks {
         CalmDialog(a).setTitle("Calendars").apply { if (links.isEmpty()) setMessage("None yet.") }
             .setItems(links.map { label(it.who) }.toTypedArray()) { _, i ->
                 val l = links[i]
-                CalmDialog(a).setTitle("Remove ${label(l.who)}?")
+                CalmDialog(a).setTitle("Remove ${label(l.who)}?").setDanger()
                     .setPositiveButton("Remove") { _, _ -> thread { remove(l.id); sync() } }.setNegativeButton("Cancel", null).show().also { immersive() }
             }
             .setPositiveButton("Add a calendar") { _, _ -> add(a, immersive) }
@@ -192,16 +192,23 @@ object CalendarLinks {
                     runCatching { (a.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(a)?.toString())?.let { clean(it) }?.let { setText(it) } }
                 }
                 val who = Calm.field(a, if (names.isEmpty()) "Whose is it? (optional)" else "Whose? " + names.take(4).joinToString(", "))
-                val col = Calm.column(a, 12).apply { addView(link); addView(who); addView(Calm.caption(a, HELP)) }
-                CalmDialog(a).setTitle("Add a calendar").setView(col).setWidth(760f)
+                // Where to find the link is behind More; sending it from a phone is a quiet link, not a third button (docs/ux.md).
+                var d: android.app.Dialog? = null
+                val col = Calm.column(a, 12).apply {
+                    addView(link); addView(who)
+                    addView(Calm.row(a, 0).apply {
+                        addView(Calm.quiet(a, "Send it from a phone") { d?.dismiss(); addFromPhone(a, immersive) }.apply { setPadding(0, 0, Calm.px(a, 28), 0) })
+                    })
+                    addView(Calm.more(a, HELP))
+                }
+                d = CalmDialog(a).setTitle("Add a calendar").setView(col).setWidth(760f)
                     .setPositiveButton("Add") { _, _ ->
                         val u = clean(link.text.toString())
-                        if (u == null) { CalmDialog(a).setTitle("That isn't a calendar link.").setMessage(HELP).setPositiveButton("OK", null).show().also { immersive() }; return@setPositiveButton }
+                        if (u == null) { CalmDialog(a).setTitle("That isn't a calendar link").setMessage(HELP).setPositiveButton("Close", null).show().also { immersive() }; return@setPositiveButton }
                         val w = who.text.toString().trim().let { t -> names.firstOrNull { it.equals(t, true) } ?: t }
                         thread { add(w, u); sync() }
-                        CalmDialog(a).setTitle("Added ${label(w)}").setMessage("Its events show in the Calendar in a minute.").setPositiveButton("OK", null).show().also { immersive() }
+                        (a as? MainActivity)?.toast("Added ${label(w)}")
                     }
-                    .setNeutralButton("From a phone") { _, _ -> addFromPhone(a, immersive) }
                     .setNegativeButton("Cancel", null).show().also { immersive() }
             }
         }
@@ -233,7 +240,7 @@ object CalendarLinks {
                     .put("help", "Google Calendar: Settings, your calendar, “Secret address in iCal format”. iCloud: share as a public calendar. Outlook: publish a calendar, ICS link.")
                     .put("who", true).put("names", JSONArray(names)).put("done", "Sent. Check the display.")
                 val h = Handoff(a, info, onSecret = { got = it; dialog?.dismiss() }, onEnd = { if (got == null) dialog?.dismiss() })
-                if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("OK", null).show().also { immersive() }; return@post }
+                if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return@post }
                 val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
                 val col = Calm.qr(a, qr, Calm.caption(a, "Scan with a phone on this Wi-Fi, and paste the calendar's link there."), 360) { Handoff.share(a, h.url!!) }
                 dialog = CalmDialog(a).setTitle("Add a calendar").setView(col).setNegativeButton("Cancel", null)
@@ -246,7 +253,7 @@ object CalendarLinks {
     private fun confirm(a: Activity, msg: JSONObject, immersive: () -> Unit) {
         val url = clean(msg.optString("value"))
         val who = msg.optString("who").trim().take(40)
-        if (url == null) { CalmDialog(a).setTitle("That isn't a calendar link.").setPositiveButton("OK", null).show().also { immersive() }; return }
+        if (url == null) { CalmDialog(a).setTitle("That isn't a calendar link").setPositiveButton("Close", null).show().also { immersive() }; return }
         CalmDialog(a).setTitle("Add ${label(who)}?").setMessage(runCatching { URL(url).host }.getOrDefault(""))
             .setPositiveButton("Add") { _, _ -> thread { add(who, url); sync() } }
             .setNegativeButton("Cancel", null).show().also { immersive() }

@@ -139,7 +139,7 @@ object ListShares {
             infoNow = { info(listId) })
         if (!runCatching { h.start() }.getOrDefault(false)) return null
         running[listId] = h
-        // Away from home too, when the family turned that on (Cloud → Reach from away from home): the page learns
+        // Away from home too, when the family turned that on (Cloud → Use it away from home): the page learns
         // the relay from its sealed info and goes through it when the Wi-Fi doesn't answer (docs/networking.md).
         viaRelay(listId, h)
         return h

@@ -110,12 +110,12 @@ object CameraLook {
                 a.currentFocus?.clearFocus()
             }
             val c = card()
-            c.addView(K.eyebrow(a, "Camera"))
-            c.addView(K.title(a, "Opie wants to use the camera").apply { setPadding(0, K.px(a, 10), 0, 0) })
+            // docs/ux.md: the title is the question; Opie's reason, then one line that changes the decision.
+            c.addView(K.title(a, "Let Opie take a picture?"))
             if (why.isNotBlank()) c.addView(K.text(a, why, K.BODY, 400, K.INK).apply { setPadding(0, K.px(a, 12), 0, 0) })
-            c.addView(K.text(a, "It stays off unless you tap Allow. One picture goes to your assistant, and none is kept.", 18f, 400, K.SOFT).apply { setPadding(0, K.px(a, 12), 0, 0) })
+            c.addView(K.text(a, "One picture, and none is kept.", 18f, 400, K.SOFT).apply { setPadding(0, K.px(a, 12), 0, 0) })
             val row = K.row(a, 8).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; setPadding(0, K.px(a, 28), 0, 0) }
-            row.addView(K.quiet(a, "Cancel") { finish(Result.No("They tapped Cancel.")) })
+            row.addView(K.quiet(a, "Not now") { finish(Result.No("They tapped Not now.")) })
             row.addView(K.primary(a, "Allow") { allow() })
             c.addView(row)
             put(c, 760)

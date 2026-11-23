@@ -242,21 +242,29 @@ export function actionArgs(action, args) {
  * Everything a plugin's apps may do, merged into one list (one line per kind of right, the apps named when there are
  * several): what the install and update cards show first, in full.
  */
-export function rightsMerged(apps) {
+export function rightsMerged(apps) { return rightsList(apps).map((r) => r.text); }
+
+/** The same, each line with its kind, for the card's icons (docs/ux.md): data, devices, cloud, web, offline, voice,
+ *  watch, background, tv. */
+export function rightsList(apps) {
   const words = rightWords, many = apps.length > 1, out = [];
   const of = (pick) => { const m = new Map(); for (const a of apps) for (const x of pick(a)) m.set(x, [...(m.get(x) || []), a.name]); return m; };
   const line = (m, show) => [...m].map(([x, who]) => show(x) + (many ? ` (${who.join(', ')})` : '')).join('; ');
-  const uses = of((a) => a.uses), reaches = of((a) => [...a.reaches, ...(a.setupReaches || []).map((s) => `a website you choose when you set it up (${s.why.replace(/\.$/, '')})`), ...(a.chosen || []).map((c) => c.host)]), acts = of((a) => (a.actions || []).map((x) => x.description.replace(/\.$/, ''))), checks = of((a) => (a.checks || []).map((x) => x.text.replace(/\.$/, '')));
-  out.push(uses.size ? `Uses ${line(uses, (u) => words[u] || u)}.` : "Uses none of the family's things.");
-  out.push(reaches.size ? `Reaches ${line(reaches, (h) => h)}.` : "Can't reach the internet.");
-  if (acts.size) out.push(`The voice can ask it to: ${line(acts, (x) => x)}.`);
-  if (checks.size) out.push(`It looks out for: ${line(checks, (x) => x)}.`);
+  const own = new Set(['devices', 'decide']);
+  const uses = of((a) => a.uses.filter((u) => !own.has(u))), dev = of((a) => a.uses.filter((u) => u === 'devices')), dec = of((a) => a.uses.filter((u) => u === 'decide'));
+  const reaches = of((a) => [...a.reaches, ...(a.setupReaches || []).map((s) => `a website you choose when you set it up (${s.why.replace(/\.$/, '')})`), ...(a.chosen || []).map((c) => c.host)]), acts = of((a) => (a.actions || []).map((x) => x.description.replace(/\.$/, ''))), checks = of((a) => (a.checks || []).map((x) => x.text.replace(/\.$/, '')));
+  out.push({ kind: 'data', text: uses.size ? `Uses ${line(uses, (u) => words[u] || u)}.` : "Uses none of the family's things." });
+  if (dev.size) out.push({ kind: 'devices', text: `Uses ${line(dev, (u) => words[u])}.` });
+  if (dec.size) out.push({ kind: 'cloud', text: `Uses ${line(dec, (u) => words[u])}.` });
+  out.push(reaches.size ? { kind: 'web', text: `Reaches ${line(reaches, (h) => h)}.` } : { kind: 'offline', text: "Can't reach the internet." });
+  if (acts.size) out.push({ kind: 'voice', text: `The voice can ask it to: ${line(acts, (x) => x)}.` });
+  if (checks.size) out.push({ kind: 'watch', text: `It looks out for: ${line(checks, (x) => x)}.` });
   const bg = apps.filter((a) => a.background), tv = apps.filter((a) => a.screens?.includes('tv'));
-  if (bg.length) out.push(`Keeps running in the background${many ? ` (${bg.map((a) => a.name).join(', ')})` : ''}.`);
-  if (tv.length) out.push(`Shows on the TV${many ? ` (${tv.map((a) => a.name).join(', ')})` : ''}.`);
+  if (bg.length) out.push({ kind: 'background', text: `Keeps running in the background${many ? ` (${bg.map((a) => a.name).join(', ')})` : ''}.` });
+  if (tv.length) out.push({ kind: 'tv', text: `Shows on the TV${many ? ` (${tv.map((a) => a.name).join(', ')})` : ''}.` });
   return out;
 }
-const rightWords = { lists: 'lists', chores: 'chores', rewards: 'rewards', meals: 'meals', events: 'the calendar', photos: 'photos', family: "the family's names", weather: 'the weather', home: 'the notes on Today', today: 'a line of its own on Today', days: 'notes of its own on the calendar\'s days (lunch, trash day)', 'calendar-events': 'events of its own on the calendar (it can\'t change the family\'s)', 'today-card': 'a card of its own on Today (once you turn it on)', timer: 'timers', say: 'speaking', devices: "the home's speakers and TVs (it asks here before turning anything on)", decide: "small questions to OpenHouse's cloud (OpenAI; from the family's monthly allowance)" };
+const rightWords = { lists: 'lists', chores: 'chores', rewards: 'rewards', meals: 'meals', events: 'the calendar', photos: 'photos', family: "the family's names", weather: 'the weather', home: 'the notes on Today', today: 'a line of its own on Today', days: 'notes of its own on the calendar\'s days (lunch, trash day)', 'calendar-events': 'events of its own on the calendar (it can\'t change the family\'s)', 'today-card': 'a card of its own on Today (once you turn it on)', timer: 'timers', say: 'speaking', devices: "the speakers and TVs (it asks before turning one on)", decide: "OpenHouse's cloud for small questions (OpenAI)" };
 
 /** One line per app of what it may do, in the card's words. */
 export function rightsText(apps) {
@@ -588,7 +596,7 @@ export function pluginsRoutes({ APP_DIR, edits, door, json, body, approve = null
     if (!approve) return { ok: false, error: 'Nobody here to ask.' };
     asking.add(app);
     let yes = false;
-    try { yes = await approve(`Let ${a.name || app} reach ${h}?`, `${setup.why.replace(/\.$/, '')}.\n${a.name || app}${o.e.title && o.e.title !== a.name ? ` (the ${o.e.title} plugin)` : ''} will be able to read from ${h}, through the tablet. Take it back in Settings, Plugins, or by taking the plugin off.`, true); }
+    try { yes = await approve(`Let ${a.name || app} reach ${h}?`, '', true, { rights: [{ kind: 'web', text: `${setup.why.replace(/\.$/, '')}.` }], more: `${a.name || app}${o.e.title && o.e.title !== a.name ? ` (the ${o.e.title} plugin)` : ''} reads from ${h} through the tablet. Settings, Plugins takes it away again.` }); }
     finally { asking.delete(app); }
     if (yes !== true) return { ok: false, error: 'Not this time.' };
     const r = inChange(`Let ${a.name || app} reach ${h}`, null, null, () => {
@@ -659,12 +667,25 @@ export function pluginsRoutes({ APP_DIR, edits, door, json, body, approve = null
     const lines = [p.src.catalog ? `"${p.title}"${p.version ? ' ' + p.version : ''}, from OpenHouse's list of plugins${p.commit ? ' (' + p.commit.slice(0, 7) + ')' : ''}. Reviewed by OpenHouse.`
       : `"${p.title}"${p.version ? ' ' + p.version : ''}, from ${p.src.label}${p.commit ? ' (' + p.commit.slice(0, 7) + ')' : ''}. Not reviewed by OpenHouse yet.`];
     if (p.apps.length) lines.push(`${p.apps.length === 1 ? 'One app' : p.apps.length + ' apps'}${p.apps.length > 1 ? ` (${p.apps.map((a) => a.name).join(', ')})` : ''}. It:`, ...rightsMerged(p.apps).map((l) => '- ' + l));
-    if (p.look) lines.push(`- Changes the look: ${Object.entries(p.look).map(([k, v]) => (k === 'colors' ? 'its own colors' : `${k} ${v}`)).join(', ')}.`);
+    if (p.look) lines.push(`- Changes the look: ${lookWords(p.look)}.`);
     if (p.tabs.length) lines.push(`- Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}: ${p.tabs.map((t) => t.name || t.app).join(', ')}.`);
     if (already && readAll()[p.name]?.kind === 'shared') lines.push('It is already on this tablet.');
     lines.push(...p.notes);
     if (p.description) lines.push(`In its own words: "${p.description.replace(/\s+/g, ' ').trim()}"`);
     return lines.join('\n');
+  };
+  const lookWords = (look) => Object.entries(look).map(([k, v]) => (k === 'colors' ? 'its own colors' : `${k} ${v}`)).join(', ');
+  /** The tablet's card for a plugin (docs/ux.md): where it's from and everything it may do, each as a short line with
+   *  its kind (shown in full, never behind More); the version, our notes and its own words behind More. */
+  const card = (p, { already = true } = {}) => {
+    const rights = [{ kind: 'from', text: p.src.catalog ? "From OpenHouse's list, reviewed." : `From ${p.src.label}. Not reviewed by OpenHouse.` }];
+    if (p.apps.length > 1) rights.push({ kind: 'apps', text: `${p.apps.length} apps: ${p.apps.map((a) => a.name).join(', ')}.` });
+    if (p.apps.length) rights.push(...rightsList(p.apps));
+    if (p.look) rights.push({ kind: 'look', text: `Changes the look: ${lookWords(p.look)}.` });
+    if (p.tabs.length) rights.push({ kind: 'tabs', text: `Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}: ${p.tabs.map((t) => t.name || t.app).join(', ')}.` });
+    const more = [[p.version, p.commit?.slice(0, 7)].filter(Boolean).join(', '), already && readAll()[p.name]?.kind === 'shared' ? 'Already on this tablet.' : '', ...p.notes,
+      p.description ? `In its own words: "${p.description.replace(/\s+/g, ' ').trim()}"` : ''].filter(Boolean).join('\n');
+    return { rights, more };
   };
 
   const freeId = (id, taken) => { let n = id, i = 2; while (taken(n)) n = `${id.slice(0, 56)}-${i++}`; return n; };
@@ -965,7 +986,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       const basedOn = e.kind === 'shared' && (apps.some((a) => a.changed) || e.merged) ? `${e.title || name}${e.version ? ' ' + e.version : ''}`
         : ob ? `${ob.title || e.title}${/^\d+\.\d/.test(e.forkedFrom || ob.version || '') ? ' ' + (e.forkedFrom || ob.version) : ''}` : undefined; // ours without a version number: a content hash, not worth saying
       return { name, kind: e.kind, title: e.title || name, source: e.source || (e.kind === 'builtin' ? 'OpenHouse' : 'made here'), commit: e.commit, version: e.kind === 'local' ? localVersion(e) : e.version,
-        reviewed: !!e.reviewed, basedOn, skip: e.skip, ...(e.kind === 'shared' ? { rights: rightsMerged(Object.entries(e.apps || {}).map(([id, a]) => ({ name: a.name || id, uses: a.uses || [], reaches: a.reaches || [], actions: a.actions, checks: a.checks, background: a.background, screens: a.screens }))) } : {}),
+        reviewed: !!e.reviewed, basedOn, skip: e.skip, ...(e.kind === 'shared' ? (() => { const r = rightsList(Object.entries(e.apps || {}).map(([id, a]) => ({ name: a.name || id, uses: a.uses || [], reaches: a.reaches || [], actions: a.actions, checks: a.checks, background: a.background, screens: a.screens }))); return { rights: r.map((x) => x.text), rightsCard: r }; })() : {}),
         latest: e.kind === 'builtin' && ship.get(name) && ship.get(name) !== e.version ? ship.get(name) : undefined, installed: e.installed || e.created, tabs: e.tabs || [], look: !!e.look, state, overrides: e.overrides, overriddenBy: e.overriddenBy, removed: !!e.removed, apps };
     });
   }
@@ -989,7 +1010,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     const newer = !(p.sha256 && p.sha256 === f.e.sha256) && !(p.commit && p.commit === f.e.commit && !p.sha256);
     const d = updateDiff(f.name, p);
     const text = [`From ${f.e.version || f.e.commit?.slice(0, 7)} to ${p.version || p.commit?.slice(0, 7)}.`, ...(d.newRights.length ? ['It now also asks for:', ...d.newRights.map((l) => '- ' + l)] : []), 'Everything it may do then:', ...rightsMerged(p.apps).map((l) => '- ' + l)].join('\n');
-    return { p, f, newer, changedHere: d.changedHere, newRights: d.newRights, text };
+    return { p, f, newer, changedHere: d.changedHere, newRights: d.newRights, text, rightsCard: [...d.newRights.map((t) => ({ kind: 'new', text: `New: ${t}` })), ...rightsList(p.apps)] };
   }
   /** One of the household's choices for an update: 'theirs' (replaces their changes), 'both' (merge), 'keep' (skip it). */
   async function choose(name, p, choice, ctx) {
@@ -1120,7 +1141,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
         const p = await inspect(a.source);
         if (readAll()[p.name]?.kind === 'shared') return err(`The ${p.title} plugin is already on this tablet: update_plugin brings a newer version.`);
         if (!approve) return err(cantAsk);
-        const yes = await approve(`Add the ${p.title} plugin?`, summary(p, { already: false }), true);
+        const yes = await approve(`Add ${p.title}?`, '', true, { yes: 'Add', ...card(p, { already: false }) });
         if (yes === null) return err(cantAsk);
         if (!yes) return err('Not added: someone said no, or nobody answered.');
         const r = put(p, { tabs: a.tabs !== false, who, by });
@@ -1139,7 +1160,9 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
         if (!choice) return err(`${d.changedHere.join(', ')} changed here since it was added, so it's the household's version (based on ${f.e.title} ${f.e.version || ''}). Ask which they want: keep theirs and skip this update, take the new version instead of their changes, or both (the new version's changes put onto theirs). Then update_plugin with choice keep, theirs or both.`);
         if (choice === 'keep') { const r = keepOurs(f.name, p); return r.error ? err(r.error) : ok(`Kept the household's ${f.e.title}; ${p.version || 'this version'} is skipped.`); }
         if (!approve) return err(cantAsk);
-        const yes = await approve(`Update the ${f.e.title} plugin?`, [choice === 'both' ? `Their changes in ${p.version || p.commit?.slice(0, 7)} put onto the household's version (from ${f.e.version || f.e.commit?.slice(0, 7)}).` : `From ${f.e.version || f.e.commit?.slice(0, 7)} to ${p.version || p.commit?.slice(0, 7)}.`, ...(d.newRights.length ? ['It now also asks for:', ...d.newRights.map((l) => '- ' + l)] : []), 'Everything it may do then:', ...rightsMerged(p.apps).map((l) => '- ' + l)].join('\n'), d.newRights.length > 0);
+        const from = f.e.version || f.e.commit?.slice(0, 7), to = p.version || p.commit?.slice(0, 7);
+                const yes = await approve(`Update ${f.e.title}?`, choice === 'both' ? 'Their new version, with the household\'s changes kept.' : '', d.newRights.length > 0, { yes: 'Update',
+          rights: [...d.newRights.map((t) => ({ kind: 'new', text: `New: ${t}` })), ...rightsList(p.apps)], more: [from, to].filter(Boolean).join(' to ') });
         if (yes === null) return err(cantAsk);
         if (!yes) return err('Not updated: someone said no, or nobody answered.');
         const r = await choose(f.name, p, choice, { who, by });
@@ -1150,7 +1173,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
         const e = installed().find((p) => !p.removed && (p.name === a.name || p.title.toLowerCase() === String(a.name || '').toLowerCase() || p.apps.some((x) => x.id === a.name)));
         if (!e) return err(`No plugin called ${a.name} is on this tablet.`);
         if (!approve) return err(cantAsk);
-        const yes = await approve(`Take off ${e.kind === 'shared' ? 'the ' + e.title + ' plugin' : e.title}?`, `Its apps (${e.apps.map((x) => x.name).join(', ')}) and their tabs go.`, false);
+        const yes = await approve(`Remove ${e.title}?`, e.apps.length > 1 || e.apps[0]?.name !== e.title ? `With ${e.apps.map((x) => x.name).join(', ')}.` : '', false, { yes: 'Remove', danger: true });
         if (yes === null) return err(cantAsk);
         if (!yes) return err('Left as it is: someone said no, or nobody answered.');
         const r = remove(e.name, { who, by });
@@ -1208,12 +1231,12 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     const b = await body(req);
     try {
       // Settings: someone is already there (its PIN opened it), so no second card.
-      if (url.pathname === '/plugins/inspect') { const p = await inspect(b.source); json(res, 200, { name: p.name, title: p.title, text: summary(p), already: readAll()[p.name]?.kind === 'shared' }); return true; }
+      if (url.pathname === '/plugins/inspect') { const p = await inspect(b.source); json(res, 200, { name: p.name, title: p.title, text: summary(p), ...card(p), already: readAll()[p.name]?.kind === 'shared' }); return true; }
       if (url.pathname === '/plugins/install') { const r = put(await inspect(b.source), { tabs: b.tabs !== false, who: 'someone' }); json(res, r.error ? 409 : 200, r); return true; }
       // An update from Settings: what it is first (check), then the household's choice (update).
       if (url.pathname === '/plugins/check') {
         const c = await check(String(b.name || ''));
-        json(res, c.error ? 409 : 200, c.error ? c : { name: c.f.name, title: c.f.e.title, from: c.f.e.version, version: c.p.version, newer: c.newer, changedHere: c.changedHere, newRights: c.newRights, text: c.text, basedOn: `${c.f.e.title} ${c.f.e.version || ''}`.trim() });
+        json(res, c.error ? 409 : 200, c.error ? c : { name: c.f.name, title: c.f.e.title, from: c.f.e.version, version: c.p.version, newer: c.newer, changedHere: c.changedHere, newRights: c.newRights, text: c.text, rights: c.rightsCard, basedOn: `${c.f.e.title} ${c.f.e.version || ''}`.trim() });
         return true;
       }
       if (url.pathname === '/plugins/update') {
@@ -1231,5 +1254,5 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     return false;
   }
 
-  return { handle, tools, call, rightsOf, frozenOf, askReach, forgetReach, inspect, put, update, merge, keepOurs, gallery, check, remove, reset, undoPlugin, installed, describe, exportFiles, summary, reconcile, migrate, unmigrate, syncBuiltins, start, readAll, ownerOf: (id) => ownerOf(id), checksOf, reachesOf, voiceTools, callVoice, DIR, MARK };
+  return { handle, tools, call, card, rightsOf, frozenOf, askReach, forgetReach, inspect, put, update, merge, keepOurs, gallery, check, remove, reset, undoPlugin, installed, describe, exportFiles, summary, reconcile, migrate, unmigrate, syncBuiltins, start, readAll, ownerOf: (id) => ownerOf(id), checksOf, reachesOf, voiceTools, callVoice, DIR, MARK };
 }

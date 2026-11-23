@@ -1,6 +1,6 @@
 // Reaching the tablet from away from home (docs/networking.md): one WebSocket the bridge dials out to the cloud's
 // relay (openhouse-cloud/lambda/relay.ts), so paired computers, screens and phone list pages reach the tablet when they aren't
-// on the home Wi-Fi. Off until someone turns it on (Settings → Account → Reach from away from home), and only
+// on the home Wi-Fi. Off until someone turns it on (Settings → Account → Use it away from home), and only
 // while the tablet is linked to a family account. Nothing is opened on the way: what arrives is the same sealed
 // request a device sends on the Wi-Fi, handed to the same code (screens.js for screens and computers, the shell's
 // phone page for a list), and the sealed reply goes back.

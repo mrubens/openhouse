@@ -50,6 +50,8 @@ object Calm {
     /** The one accent: today, what's chosen, a focus ring. Never a button's fill. */
     const val ACCENT = 0xFFB5562F.toInt()
     const val SCRIM = 0x4D2A2826
+    /** A button that deletes or replaces something that can't simply be put back (docs/ux.md). */
+    const val DANGER = 0xFFA8321E.toInt()
 
     // --- the type scale (u) ----------------------------------------------------------------------------------
     const val DISPLAY = 44f   // a first-run screen's question
@@ -115,6 +117,8 @@ object Calm {
     }
     /** The main action: ink, one per screen. */
     fun primary(c: Context, label: CharSequence, onClick: () -> Unit) = button(c, label, INK, SHEET, 600, onClick)
+    /** The main action when it deletes or replaces something for good: red, one per screen. */
+    fun danger(c: Context, label: CharSequence, onClick: () -> Unit) = button(c, label, DANGER, SHEET, 600, onClick)
     /** A second action that still wants a shape (Continue beside a field). */
     fun soft(c: Context, label: CharSequence, onClick: () -> Unit) = button(c, label, TINT2, INK, 600, onClick)
     /** Everything else: words that can be tapped (Not now, Cancel). */
@@ -168,6 +172,55 @@ object Calm {
         onShare?.let { addView(quiet(c, "Share") { it() }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(c, 4) }) }
     }
     fun caption(c: Context, s: CharSequence?) = text(c, s, 17f, 400, SOFT)
+
+    /** "More": details that don't change the decision, shown only when tapped (docs/ux.md). Never a right or a host. */
+    fun more(c: Context, details: CharSequence) = column(c).apply {
+        val link = text(c, "More", 18f, 500, SOFT).apply {
+            setPadding(0, px(c, 10), px(c, 24), px(c, 10)); isClickable = true
+        }
+        val body = text(c, details, 17f, 400, SOFT).apply { visibility = View.GONE; setPadding(0, px(c, 4), 0, 0) }
+        link.setOnClickListener { link.visibility = View.GONE; body.visibility = View.VISIBLE }
+        addView(link, LinearLayout.LayoutParams(-2, -2)); addView(body, LinearLayout.LayoutParams(-1, -2))
+    }
+
+    /**
+     * What something may do, as a list a parent can scan: a small icon for each kind and a few words. [items] are
+     * (kind, words); the kinds are [ICONS]' keys, anything else gets a plain dot. Always shown in full, never behind More.
+     */
+    fun rights(c: Context, items: List<Pair<String, String>>) = column(c, 12).apply {
+        for ((kind, words) in items) addView(row(c, 16).apply {
+            gravity = Gravity.TOP
+            addView(icon(c, kind, 26), LinearLayout.LayoutParams(px(c, 26), px(c, 26)).apply { topMargin = px(c, 1) })
+            addView(text(c, words, BODY, 400, INK), LinearLayout.LayoutParams(0, -2, 1f))
+        })
+    }
+
+    /** Line icons (24 u, stroked in the ink) for the kinds of right a card lists. */
+    val ICONS = mapOf(
+        "data" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><rect x='4' y='4' width='16' height='16' rx='3'/><path d='M8 9h8M8 13h8M8 17h5'/></svg>",
+        "web" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><circle cx='12' cy='12' r='8.5'/><path d='M3.5 12h17M12 3.5c2.6 2.6 3.6 5.4 3.6 8.5s-1 5.9-3.6 8.5M12 3.5C9.4 6.1 8.4 8.9 8.4 12s1 5.9 3.6 8.5'/></svg>",
+        "offline" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><circle cx='12' cy='12' r='8.5'/><path d='M6 18L18 6'/></svg>",
+        "voice" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><rect x='9' y='3.5' width='6' height='11' rx='3'/><path d='M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v2.5'/></svg>",
+        "watch" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><path d='M2.5 12s3.5-6.5 9.5-6.5 9.5 6.5 9.5 6.5-3.5 6.5-9.5 6.5S2.5 12 2.5 12z'/><circle cx='12' cy='12' r='2.8'/></svg>",
+        "background" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><circle cx='12' cy='12' r='8.5'/><path d='M12 7.5V12l3 2'/></svg>",
+        "tv" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><rect x='3' y='5' width='18' height='12' rx='2'/><path d='M8.5 20.5h7'/></svg>",
+        "look" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><path d='M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.3-1.2-1.6-1.2-2.8 0-1 .8-1.6 1.8-1.6h2.2a3.9 3.9 0 0 0 3.9-3.9C20.5 6.8 16.7 3.5 12 3.5z'/><circle cx='7.8' cy='11' r='1'/><circle cx='11' cy='7.5' r='1'/><circle cx='15.3' cy='8.4' r='1'/></svg>",
+        "tabs" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><rect x='3.5' y='4.5' width='17' height='15' rx='2.5'/><path d='M9 4.5v15'/></svg>",
+        "devices" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><rect x='6' y='3' width='12' height='18' rx='2.5'/><circle cx='12' cy='14' r='3'/><path d='M12 6.8v.4'/></svg>",
+        "cloud" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><path d='M7 18.5h10a4 4 0 0 0 .6-8 6 6 0 0 0-11.5 1.6A3.3 3.3 0 0 0 7 18.5z'/></svg>",
+        "apps" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><rect x='4' y='4' width='6.5' height='6.5' rx='1.6'/><rect x='13.5' y='4' width='6.5' height='6.5' rx='1.6'/><rect x='4' y='13.5' width='6.5' height='6.5' rx='1.6'/><rect x='13.5' y='13.5' width='6.5' height='6.5' rx='1.6'/></svg>",
+        "from" to "<svg viewBox='0 0 24 24' fill='none' stroke='#2A2826' stroke-width='1.8'><path d='M12 3.5l7 3v5.2c0 4.3-3 7.5-7 8.8-4-1.3-7-4.5-7-8.8V6.5z'/></svg>",
+        "new" to "<svg viewBox='0 0 24 24' fill='none' stroke='#A8321E' stroke-width='2'><path d='M12 5v14M5 12h14'/></svg>",
+    )
+    private const val DOT = "<svg viewBox='0 0 24 24'><circle cx='12' cy='12' r='3' fill='#6E6A65'/></svg>"
+
+    /** One of [ICONS] as a view, [size] u square. */
+    fun icon(c: Context, kind: String, size: Number = 26): View {
+        val svg = SvgIcon.parse(ICONS[kind] ?: DOT)
+        return object : View(c) {
+            override fun onDraw(canvas: android.graphics.Canvas) { svg?.draw(canvas, 0f, 0f, minOf(width, height).toFloat()) }
+        }.apply { minimumWidth = px(c, size); minimumHeight = px(c, size) }
+    }
     /** The name, as the first screens show it in their corner (until there's a logo). */
     fun wordmark(c: Context) = text(c, "OpenHouse", 22f, 600)
 
@@ -191,7 +244,7 @@ object Calm {
  */
 class CalmDialog(private val c: Context) {
     /** A row in a list: a [title], an optional [detail] line; a [header] is a section label, not a choice. */
-    data class Row(val title: CharSequence, val detail: CharSequence? = null, val header: Boolean = false, val image: android.graphics.Bitmap? = null)
+    data class Row(val title: CharSequence, val detail: CharSequence? = null, val header: Boolean = false, val image: android.graphics.Bitmap? = null, val value: CharSequence? = null)
 
     private var title: CharSequence? = null
     private var message: CharSequence? = null
@@ -206,11 +259,20 @@ class CalmDialog(private val c: Context) {
     private var onDismiss: ((DialogInterface) -> Unit)? = null
     private var widthU = 760f
     private var messageView: TextView? = null
+    private var more: CharSequence? = null
+    private var rights: List<Pair<String, String>>? = null
+    private var danger = false
 
     fun setTitle(t: CharSequence?) = apply { title = t }
     fun setMessage(t: CharSequence?) = apply { message = t }
     fun setView(v: View) = apply { view = v }
     fun setWidth(u: Float) = apply { widthU = u }
+    /** Details that don't change the decision, behind a "More" (docs/ux.md). */
+    fun setMore(t: CharSequence?) = apply { more = t?.takeIf { it.isNotBlank() } }
+    /** What it may do, as a scannable list of (kind, words) ([Calm.rights]). Always shown. */
+    fun setRights(r: List<Pair<String, String>>) = apply { rights = r.takeIf { it.isNotEmpty() } }
+    /** The main button deletes or replaces something for good: it's red. */
+    fun setDanger() = apply { danger = true }
     fun setPositiveButton(t: CharSequence, l: ((DialogInterface, Int) -> Unit)?) = apply { positive = t to l }
     fun setNegativeButton(t: CharSequence, l: ((DialogInterface, Int) -> Unit)?) = apply { negative = t to l }
     fun setNeutralButton(t: CharSequence, l: ((DialogInterface, Int) -> Unit)?) = apply { neutral = t to l }
@@ -238,6 +300,8 @@ class CalmDialog(private val c: Context) {
         }
         title?.let { card.addView(Calm.title(c, it)) }
         message?.let { card.addView(Calm.text(c, it, Calm.BODY, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, if (title != null) 12 else 0), 0, 0) }.also { v -> messageView = v }) }
+        rights?.let { r -> card.addView(Calm.Capped(c, (screenH * .42f).toInt()).apply { addView(Calm.rights(c, r)); isVerticalScrollBarEnabled = false },
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 22) }) }
         view?.let { v ->
             (v.parent as? ViewGroup)?.removeView(v)
             card.addView(v, LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 24) })
@@ -263,6 +327,7 @@ class CalmDialog(private val c: Context) {
                         addView(Calm.text(c, r.title, 22f, 500))
                         r.detail?.let { addView(Calm.text(c, it, 17f, 400, Calm.SOFT)) }
                     }, LinearLayout.LayoutParams(0, -2, 1f))
+                    r.value?.let { addView(Calm.text(c, it, 19f, 400, Calm.SOFT), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = Calm.px(c, 16) }) }
                     if (checked >= 0) addView(View(c).apply {
                         background = if (i == checked) GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Calm.INK) }
                             else GradientDrawable().apply { shape = GradientDrawable.OVAL; setStroke(Calm.px(c, 2), Calm.TINT2) }
@@ -274,13 +339,14 @@ class CalmDialog(private val c: Context) {
             card.addView(Calm.Capped(c, (screenH * .62f).toInt()).apply { addView(col); isVerticalScrollBarEnabled = false },
                 LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 18); leftMargin = -Calm.px(c, 16); rightMargin = -Calm.px(c, 16) })
         }
+        more?.let { card.addView(Calm.more(c, it), LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 8) }) }
         if (positive != null || negative != null || neutral != null) {
             val bar = Calm.row(c, 8).apply { setPadding(0, Calm.px(c, 28), 0, 0) }
             fun act(p: Pair<CharSequence, ((DialogInterface, Int) -> Unit)?>, which: Int) { d.dismiss(); p.second?.invoke(d, which) }
             neutral?.let { n -> bar.addView(Calm.quiet(c, n.first) { act(n, DialogInterface.BUTTON_NEUTRAL) }.apply { setPadding(Calm.px(c, 4), 0, Calm.px(c, 20), 0) }) }
             bar.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
             negative?.let { n -> bar.addView(Calm.quiet(c, n.first) { act(n, DialogInterface.BUTTON_NEGATIVE) }) }
-            positive?.let { p -> bar.addView(Calm.primary(c, p.first) { act(p, DialogInterface.BUTTON_POSITIVE) }) }
+            positive?.let { p -> bar.addView((if (danger) Calm::danger else Calm::primary)(c, p.first) { act(p, DialogInterface.BUTTON_POSITIVE) }) }
             card.addView(bar, LinearLayout.LayoutParams(-1, -2))
         } else card.setPadding(card.paddingLeft, card.paddingTop, card.paddingRight, Calm.px(c, 40))
 

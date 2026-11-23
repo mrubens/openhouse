@@ -58,14 +58,14 @@ object BackupDrive {
         val sm = act.getSystemService(StorageManager::class.java)
         val vols = sm.storageVolumes.filter { it.isRemovable && it.state == Environment.MEDIA_MOUNTED }
         if (vols.isEmpty()) {
-            CalmDialog(act).setTitle("USB drive").setMessage("Plug a USB drive into the tablet, then try again.").setPositiveButton("OK") { _, _ -> done(null) }.show().also { act.immersive() }
+            CalmDialog(act).setTitle("Plug in a USB drive first").setPositiveButton("Close") { _, _ -> done(null) }.show().also { act.immersive() }
             return
         }
         val vol = vols.first()
         prefs().edit().putString("pending_name", vol.getDescription(act)).apply()
-        CalmDialog(act).setTitle("Choose the USB drive")
-            .setMessage("Next, Android asks which folder backups go in. Tap \u201cCreate new folder\u201d, call it Display backups, then tap \u201cUse this folder\u201d and \u201cAllow\u201d.")
-            .setPositiveButton("OK") { _, _ ->
+        CalmDialog(act).setTitle("Pick a folder on the drive")
+            .setMessage("Make a folder called Display backups, then tap \u201cUse this folder\u201d and \u201cAllow\u201d.")
+            .setPositiveButton("Next") { _, _ ->
                 val intent = vol.createOpenDocumentTreeIntent()
                 // The picker is another app: let it through kiosk mode while it's open.
                 runCatching { act.packageManager.resolveActivity(intent, 0)?.activityInfo?.packageName }.getOrNull()?.let { runCatching { KioskApps.allowInKiosk(it, temporary = true) } }

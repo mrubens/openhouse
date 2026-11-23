@@ -101,9 +101,12 @@ internal fun FamilySheet() {
                     SettingsBack()
                     Column(Modifier.weight(1f)) {
                         Text(if (o.householdSetUp) "Your family" else "Welcome! Who lives here?", style = quietText(30, FontWeight.SemiBold))
+                        // Telling Opie instead is a quiet line, not a third button (docs/ux.md).
+                        Text("Or just tell Opie", style = quietText(17, FontWeight.Medium, Door.inkSoft),
+                            modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { o.startOnboarding() }.padding(vertical = 4.u))
                     }
-                    Chip("Just tell me") { o.startOnboarding() }
-                    Chip(if (o.householdSetUp) "Cancel" else "Later") { o.showFamily = false }
+                    // The ‹ (opened from Settings) or the edge swipe goes back without saving; otherwise a word for it.
+                    if (!Openhouse.showSettings) Chip(if (o.householdSetUp) "Cancel" else "Later") { o.showFamily = false }
                     Pill("Save") { save() }
                 }
                 Spacer(Modifier.height(16.u))
