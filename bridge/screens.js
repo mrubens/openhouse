@@ -402,7 +402,9 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
         const root = path.join(PUBLIC, file[1]);
         const f = path.join(root, path.normalize(file[2] || 'index.html').replace(/^(\.\.[/\\])+/, ''));
         if (!f.startsWith(root + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return plain(res, 404, { error: 'not found' });
-        res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', ...PAGE_HEADERS });
+        // A phone's page frames only its apps' starting page (here): an app can't send its frame anywhere else.
+        const csp = file[1] === 'phone' ? { 'content-security-policy': PAGE_HEADERS['content-security-policy'].replace(/frame-src [^;]*/, "frame-src 'self'") } : {};
+        res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', ...PAGE_HEADERS, ...csp });
         return res.end(fs.readFileSync(f));
       }
       if (blocked(ip)) return plain(res, 429, { error: 'wait' });

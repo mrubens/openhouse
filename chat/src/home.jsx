@@ -340,7 +340,8 @@ function WeatherCard({ w, now, dim, className, ...rest }) {
   return <div ref={ref} {...rest} className={className + ' ' + look.cls + (dim ? ' dim' : '')} dangerouslySetInnerHTML={{ __html: look.html }} />;
 }
 
-function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp, shell, usePhoto, look, appsV }) {
+/** Today (also on someone's phone, phone.jsx, in one column). */
+export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp, shell, usePhoto, look, appsV }) {
   const h = house || {};
   const kinds = new Map(); for (const t of tabs) { const k = kindOf(t, appBy.get(t.id)); if (k && !kinds.has(k)) kinds.set(k, t.id); }
   const t = new Date(now); t.setHours(0, 0, 0, 0);

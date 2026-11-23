@@ -11,6 +11,7 @@ import { Talk, canTalk } from './talk.jsx';
 import { pairingFromCode } from './scrypt.js';
 import { AppFrame, AppIcon, usePhoneApps, phoneTabs } from './phone-apps.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
+import { Today as TabletToday, lookVars } from './home.jsx';
 
 // Served by OpenHouse's cloud (https, installable, notes by push): everything goes through the relay, and the
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
@@ -19,12 +20,6 @@ const CLOUD_RELAY = document.querySelector('meta[name="openhouse-relay"]')?.cont
 const STORE = 'openhouse.phone', CACHE = 'openhouse.phone.house', QUEUE = 'openhouse.phone.queue';
 const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const put = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
-const PEOPLE = ['#d9a441', '#6fae8f', '#d97a5e', '#7d9ad6', '#b689cf', '#d6a86a'];
-const pad = (n) => String(n).padStart(2, '0');
-const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-const time = (iso) => new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-const colorOf = (house, who) => { const f = house?.family || []; const i = f.findIndex((p) => p.name.toLowerCase() === String(who || '').toLowerCase()); return i < 0 ? null : f[i].color || PEOPLE[i % PEOPLE.length]; };
-const whoOf = (e) => [e.who, ...(e.also || [])].filter(Boolean);
 const mine = (me, who) => String(who || '').toLowerCase() === String(me?.person || '').toLowerCase();
 
 // ---- joining ----------------------------------------------------------------------------------------------
@@ -119,54 +114,51 @@ const openedConvo = (() => { const o = new URLSearchParams(location.search).get(
  *  link it was installed with, which may be from before that. */
 const talkScopes = (me) => (canAsk(me) && !me.scopes.includes('voice') ? [...me.scopes, 'voice'] : me.scopes || []);
 
-/** The things on Today, as the tablet shows them (things.js): a reminder due, a suggestion, a countdown, a broken
- *  app. At most three, most urgent first. A tap offers Got it, which takes it down everywhere. */
-function Things({ h }) {
-  const [open, setOpen] = useState(null);
-  const things = (h.house?.things || []).slice(0, 3);
-  if (!things.length) return null;
-  const down = (x) => { setOpen(null); h.change('/house/thing', { take: x.id }, (hh) => { hh.things = (hh.things || []).filter((y) => y.id !== x.id); return hh; }); };
+
+/** Today: the tablet's own Today (home.jsx), phone-sized, then what's only for this phone's person: what Opie was asked to
+ *  tell them, and turning on notes. */
+function Today({ me, h, c, onOpen, tabs, apps, go, style }) {
+  const { house, door } = h;
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30e3); return () => clearInterval(t); }, []);
+  const [weather, setWeather] = useState(() => get('openhouse.phone.weather'));
+  useEffect(() => { let stop = false; (async () => { while (!stop) { try { const r = await c.json('GET', '/weather'); if (r.status === 200) { setWeather(r.json); put('openhouse.phone.weather', r.json); } } catch {} await new Promise((ok) => setTimeout(ok, 10 * 60e3)); } })(); return () => { stop = true; }; }, [c]);
+  const appBy = useMemo(() => new Map((apps || []).map((a) => [a.id, { ...a, meta: { name: a.name } }])), [apps]);
+  if (!house) return null;
   return (
-    <div className="things">
-      {things.map((x) => (
-        <div key={x.id} className={'thing' + (open === x.id ? ' open' : '')} onClick={() => setOpen(open === x.id ? null : x.id)}>
-          <span>{x.text}</span>
-          {open === x.id && <button onClick={(e) => { e.stopPropagation(); down(x); }}>Got it</button>}
+    <>
+      <div className="date page">{new Date(now).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+      <div className="ptoday" style={lookVars(style)}>
+        <TabletToday c={c} house={house} now={now} notes={door?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} openApp={go} shell={null} usePhoto={usePhoto} look={style || {}} appsV={{}} />
+      </div>
+      <div className="page">
+        {(h.messages || []).filter((m) => now - m.at < 12 * 3600e3).slice(-2).reverse().map((m) => <div key={m.id} className="card note" {...(m.open && onOpen ? { role: 'button', onClick: () => onOpen(m.open.slice(5)) } : {})}><div className="t">{m.text}</div><div className="soft">{m.title}, {new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>)}
+        <div className="later">
+          {(CLOUD_RELAY || !cloudLink(me)) && <PushRow c={c} me={me} />}
+          <SendToOpie me={me} c={c} />
         </div>
-      ))}
-    </div>
+      </div>
+    </>
   );
 }
-
-function Today({ me, h, c, onOpen }) {
-  const { house, door } = h, now = Date.now();
-  if (!house) return null;
-  const today = dayKey(new Date());
-  const next = (house.events || []).filter((e) => Date.parse(e.end || e.start) > now && Date.parse(e.start) < now + 36 * 3600e3 && (!e.allDay || dayKey(new Date(e.start)) === today))
-    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start)).slice(0, 3);
-  const notes = (door?.notes || []).filter((n) => !n.for || mine(me, n.for)).slice(-3).reverse();
-  const myChores = (house.chores || []).filter((x) => x.today && !x.done && !x.skipped && mine(me, x.who));
-  const dinner = house.meals?.[today]?.dinner;
-  const yours = myChores.length > 0 && <div className="line"><span className="k">Yours</span><span>{myChores.map((x) => x.task).join(', ')}</span></div>;
-  return (
-    <div className="page">
-      <div className="date">{new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-      <Things h={h} />
-      {!canAsk(me) && yours && <div className="lines">{yours}</div>}
-      {(h.messages || []).filter((m) => now - m.at < 12 * 3600e3).slice(-2).reverse().map((m) => <div key={m.id} className="card note" {...(m.open && onOpen ? { role: 'button', onClick: () => onOpen(m.open.slice(5)) } : {})}><div className="t">{m.text}</div><div className="soft">{m.title}, {new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>)}
-      {notes.map((n) => <div key={n.id} className="card note"><div className="t">{n.title}</div><div className="soft">{String(n.content || '').replace(/```[\s\S]*?```/g, '').replace(/[#*_>`]/g, '').trim().split('\n')[0]}</div></div>)}
-      <h2>Next</h2>
-      {next.length ? next.map((e, i) => <Event key={i} house={house} e={e} />) : <p className="soft">Nothing on the calendar.</p>}
-      {(dinner || (canAsk(me) && yours)) && <div className="lines">
-        {dinner && <div className="line"><span className="k">Dinner</span><span>{dinner}</span></div>}
-        {canAsk(me) && yours}
-      </div>}
-      <div className="later">
-        {(CLOUD_RELAY || !cloudLink(me)) && <PushRow c={c} me={me} />}
-        <SendToOpie me={me} c={c} />
-      </div>
-    </div>
-  );
+/** One of the family's photos, as a blob: URL (sealed, like everything else). */
+const photoCache = new Map();
+function usePhoto(c, name) {
+  const [src, setSrc] = useState(() => photoCache.get(name) || null);
+  useEffect(() => {
+    if (!name) return;
+    if (photoCache.has(name)) return setSrc(photoCache.get(name));
+    let stop = false;
+    c.request('GET', '/house/photo/' + encodeURIComponent(name)).then((r) => {
+      if (r.status !== 200) return;
+      const url = URL.createObjectURL(new Blob([r.body], { type: r.type }));
+      photoCache.set(name, url);
+      if (photoCache.size > 20) { const [k, u] = photoCache.entries().next().value; URL.revokeObjectURL(u); photoCache.delete(k); }
+      if (!stop) setSrc(url);
+    }).catch(() => {});
+    return () => { stop = true; };
+  }, [name]);
+  return src;
 }
 
 // ---- Opie: the pill at the bottom, and the sheet it opens ------------------------------------------------------
@@ -246,16 +238,6 @@ function Ask({ me, c, onClose, convoId = null }) {
   );
 }
 
-function Event({ house, e }) {
-  const now = Date.now(), d = new Date(e.start), today = dayKey(d) === dayKey(new Date()), tomorrow = dayKey(d) === dayKey(new Date(now + 864e5));
-  const when = e.allDay ? 'All day' : Date.parse(e.start) <= now ? 'Now' : `${today ? '' : tomorrow ? 'Tomorrow ' : d.toLocaleDateString([], { weekday: 'short' }) + ' '}${time(e.start)}`;
-  return (
-    <div className="row ev">
-      <span className="when">{when}</span>
-      <span className="what">{e.title}{whoOf(e).length > 0 && <span className="who">{whoOf(e).map((w) => <i key={w} style={{ background: colorOf(house, w) || '#8a8580' }} />)}{whoOf(e).join(', ')}</span>}</span>
-    </div>
-  );
-}
 
 // ---- notes by push -------------------------------------------------------------------------------------
 const pushable = () => 'serviceWorker' in navigator && 'PushManager' in window && window.isSecureContext;
@@ -466,7 +448,7 @@ function Phone({ me, c, onRemoved }) {
       {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
       {opened ? <><div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>{frame(opened)}</>
         : !h.house && tab === 'today' ? <div className="page"><p className="soft">Loading…</p></div>
-        : tab === 'today' ? <><header><span className="brand">OpenHouse</span><span className="soft">{me.person}</span></header><Today me={me} h={h} c={c} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} /></>
+        : tab === 'today' ? <><header><span className="brand">OpenHouse</span><span className="soft">{me.person}</span></header><Today me={me} h={h} c={c} tabs={tabs} apps={apps} go={open} style={style} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} /></>
         : tab === 'apps' ? <AppsList apps={apps} tabs={tabs} onOpen={open} />
         : cur?.app ? frame(cur.app) : <div className="page"><p className="soft">Loading…</p></div>}
       {canAsk(me) && !asking && !more && (canTalk(talkScopes(me))
