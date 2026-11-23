@@ -1,56 +1,132 @@
-/* Cooking: the whole recipe on one page, quiet like the home screen: plain type, room around it, nothing boxed. The
-   steps are listed down the side to jump to one; the step they're on is the only one with its extras (what it uses,
-   its timer) and is kept in view. After quiet.css, so these win. */
-.cook { position: fixed; inset: 0; display: grid; grid-template-columns: calc(340 * var(--u)) minmax(0, 1fr); background: var(--bg); color: var(--ink); z-index: 5; }
+/* Cooking: the whole recipe on one page, in the light system (after quiet.css, so these win). At the left the dish on
+   its picture and a white panel of what it needs; at the right every step: the ones behind them small and faint, the
+   one they're on a big warm card (what it uses, its timer as a ring), the rest white cards to tap. The warm card and
+   its ink are the same in every palette; everything else follows the household's. */
+.cook { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-columns: calc(440 * var(--u)) minmax(0, 1fr); gap: calc(20 * var(--u)); background: var(--bg); color: var(--ink);
+  --warm: color-mix(in srgb, #d0700c 72%, var(--ink)); }
+:root:not(.in-tab) .cook { padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u)); }
 
-.cook .toc { display: flex; flex-direction: column; min-height: 0; padding: calc(40 * var(--u)) calc(16 * var(--u)) calc(30 * var(--u)) calc(36 * var(--u)); gap: calc(18 * var(--u)); }
-.cook .toc-top { display: flex; align-items: center; gap: calc(12 * var(--u)); flex: none; padding-left: calc(12 * var(--u)); }
-.cook .dish { flex: 1; min-width: 0; font-size: calc(20 * var(--u)); font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cook .stop, .cook .vid { flex: none; height: calc(52 * var(--u)); padding: 0 calc(22 * var(--u)); border-radius: calc(26 * var(--u)); background: var(--tint-2); font-size: calc(18 * var(--u)); font-weight: 500; }
-.cook .vid { align-self: flex-start; margin-left: calc(12 * var(--u)); }
-.cook .toc-list { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.cook .tpart { font-size: calc(14 * var(--u)); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); padding: calc(20 * var(--u)) calc(12 * var(--u)) calc(6 * var(--u)); }
-.cook .ti { display: grid; grid-template-columns: calc(34 * var(--u)) minmax(0, 1fr); align-items: baseline; text-align: left; padding: calc(9 * var(--u)) calc(12 * var(--u)); border-radius: calc(12 * var(--u)); font-size: calc(19 * var(--u)); line-height: 1.3; color: var(--ink-soft); }
-.cook .ti .n { font-variant-numeric: tabular-nums; }
-.cook .ti .t { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.cook .ti.need { grid-template-columns: 1fr; }
-.cook .ti.on { color: var(--ink); background: var(--tint-2); }
+.c-left { display: flex; flex-direction: column; gap: calc(16 * var(--u)); min-height: 0; padding-bottom: calc(8 * var(--u)); }
+.c-hero { flex: none; height: calc(318 * var(--u)); border-radius: calc(30 * var(--u)); position: relative; overflow: hidden; box-shadow: 0 30px 50px -30px rgba(40, 20, 0, .55); }
+.c-hero > .q-letter { font-size: calc(150 * var(--u)); padding-bottom: 18%; }
+.c-back { position: absolute; left: calc(16 * var(--u)); top: calc(16 * var(--u)); z-index: 2; height: calc(46 * var(--u)); padding: 0 calc(20 * var(--u)) 0 calc(14 * var(--u)); border-radius: calc(23 * var(--u));
+  display: inline-flex; align-items: center; gap: calc(6 * var(--u)); font-size: calc(17 * var(--u)); font-weight: 600; background: color-mix(in srgb, var(--card) 78%, transparent); color: var(--ink); }
+.q-scrim > .c-back { position: absolute; background: rgba(20, 10, 6, .5); color: #fff; }
+.c-back.c-vid { left: auto; right: calc(16 * var(--u)); padding: 0 calc(20 * var(--u)); }
+.c-hero > .t { position: absolute; left: calc(26 * var(--u)); right: calc(20 * var(--u)); bottom: calc(22 * var(--u)); }
+.c-hero h1 { margin: 0; font-size: calc(46 * var(--u)); font-weight: 700; letter-spacing: -.035em; line-height: 1; overflow-wrap: break-word; }
+.c-hero h1.long { font-size: calc(34 * var(--u)); line-height: 1.05; }
+.c-hero .m { margin-top: calc(10 * var(--u)); font-size: calc(18 * var(--u)); font-weight: 600; color: var(--fg2); }
+.c-ing { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: calc(24 * var(--u)) calc(26 * var(--u)) calc(12 * var(--u)); }
+.c-ing ul { list-style: none; margin: calc(8 * var(--u)) 0 0; padding: 0; flex: 1; display: flex; flex-direction: column; }
+.c-ing li { flex: 1 0 auto; min-height: calc(50 * var(--u)); max-height: calc(76 * var(--u)); display: flex; align-items: center; gap: calc(14 * var(--u)); padding: calc(8 * var(--u)) 0; border-top: 1px solid var(--hair);
+  font-size: calc(21 * var(--u)); font-weight: 550; letter-spacing: -.01em; line-height: 1.2; }
+.c-ing li:first-child { border-top: 0; }
+.c-ing li b { flex: none; width: calc(104 * var(--u)); font-weight: 700; color: var(--warm); }
+.c-ing li span { min-width: 0; }
+.c-ing li span::first-letter { text-transform: uppercase; }
+.c-ing li.used, .c-ing li.used b { color: var(--fg3); }
+.c-ing .none { margin: calc(12 * var(--u)) 0; font-size: calc(18 * var(--u)); font-weight: 500; color: var(--fg2); }
 
-.cook .page { min-height: 0; padding: calc(56 * var(--u)) calc(72 * var(--u)) 45vh calc(40 * var(--u)); }
-.cook .page > * { max-width: calc(900 * var(--u)); }
-.cook .need { padding: 0 0 calc(20 * var(--u)); }
-.cook .need-head { display: flex; gap: calc(36 * var(--u)); align-items: flex-start; }
-.cook .need-head > div { flex: 1; min-width: 0; }
-.cook h1 { margin: 0; font-size: calc(40 * var(--u)); font-weight: 500; letter-spacing: -.01em; line-height: 1.15; }
-.cook .makes { margin-top: calc(8 * var(--u)); font-size: calc(20 * var(--u)); color: var(--ink-soft); }
-.cook .need h2 { margin: calc(34 * var(--u)) 0 calc(14 * var(--u)); }
-.cook h2 { font-size: calc(14 * var(--u)); font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
-.cook h2.part { margin: calc(48 * var(--u)) 0 calc(6 * var(--u)) calc(70 * var(--u)); }
-.cook .dishpic { width: calc(260 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(16 * var(--u)); flex: none; }
-.cook ul.all { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: calc(48 * var(--u)); }
-.cook ul.all li { break-inside: avoid; font-size: calc(21 * var(--u)); line-height: 1.4; padding: calc(4 * var(--u)) 0; }
-.cook ul.all b { font-weight: 500; }
-.cook .none { font-size: calc(20 * var(--u)); color: var(--ink-soft); }
-
-.cook .rstep { display: grid; grid-template-columns: calc(52 * var(--u)) minmax(0, 1fr) auto; column-gap: calc(18 * var(--u)); padding: calc(22 * var(--u)) calc(18 * var(--u)); border-radius: calc(22 * var(--u)); }
-.cook .rstep .num { font-size: calc(22 * var(--u)); color: var(--ink-soft); font-variant-numeric: tabular-nums; text-align: right; padding-top: calc(3 * var(--u)); }
-.cook .rstep .body { min-width: 0; display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
-.cook .rstep p { margin: 0; font-size: calc(26 * var(--u)); line-height: 1.45; color: var(--ink-soft); }
-.cook .rstep .snote { font-size: calc(18 * var(--u)); color: var(--ink-soft); }
-.cook .rstep .suses { display: flex; flex-wrap: wrap; gap: calc(6 * var(--u)) calc(22 * var(--u)); font-size: calc(19 * var(--u)); color: var(--ink-soft); }
-.cook .rstep .suses b { color: var(--ink); font-weight: 500; }
-.cook .rstep .spic { width: calc(220 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(14 * var(--u)); }
-.cook .rstep.on { background: var(--tint-2); }
-.cook .rstep.on .num { color: var(--accent); }
-.cook .rstep.on p { color: var(--ink); font-size: calc(32 * var(--u)); }
-.cook .timer { align-self: flex-start; height: calc(64 * var(--u)); padding: 0 calc(30 * var(--u)); border-radius: calc(32 * var(--u)); background: var(--ink); color: var(--bg); font-size: calc(20 * var(--u)); font-weight: 500; white-space: nowrap; }
-.cook .timer.on { background: var(--bg); color: var(--ink); }
-.cook .end { display: flex; align-items: center; gap: calc(30 * var(--u)); padding: calc(48 * var(--u)) calc(18 * var(--u)) 0 calc(88 * var(--u)); }
-.cook .end .big { font-size: calc(24 * var(--u)); color: var(--ink-soft); }
-.cook .end .btn { height: calc(64 * var(--u)); padding: 0 calc(36 * var(--u)); border-radius: calc(32 * var(--u)); font-size: calc(20 * var(--u)); }
+.c-steps { display: flex; flex-direction: column; gap: calc(12 * var(--u)); min-height: 0; padding-bottom: calc(8 * var(--u)); }
+.c-part { flex: none; padding: calc(10 * var(--u)) calc(26 * var(--u)) 0; }
+.c-st { flex: 1 0 auto; min-height: calc(104 * var(--u)); max-height: calc(240 * var(--u)); border-radius: var(--r-panel); padding: calc(18 * var(--u)) calc(26 * var(--u)); display: flex; align-items: center; gap: calc(22 * var(--u)); }
+.c-st .no { flex: none; width: calc(54 * var(--u)); height: calc(54 * var(--u)); border-radius: 50%; background: var(--tint); display: grid; place-items: center; font-size: calc(24 * var(--u)); font-weight: 700; }
+.c-st .no .icon { width: calc(28 * var(--u)); height: calc(28 * var(--u)); display: inline-flex; }
+.c-st .tx { flex: 1; min-width: 0; }
+.c-st h3 { margin: 0 0 calc(4 * var(--u)); font-size: calc(15 * var(--u)); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--warm); }
+.c-st p { margin: 0; font-size: calc(24 * var(--u)); font-weight: 550; line-height: 1.25; letter-spacing: -.015em; text-wrap: pretty; }
+.c-st p.l { font-size: calc(21 * var(--u)); }
+.c-st p.xl { font-size: calc(18 * var(--u)); letter-spacing: 0; }
+.c-pill { flex: none; height: calc(46 * var(--u)); padding: 0 calc(20 * var(--u)); border-radius: calc(23 * var(--u)); background: var(--tint); display: inline-flex; align-items: center; gap: calc(8 * var(--u)); font-size: calc(17 * var(--u)); font-weight: 600; white-space: nowrap; }
+.c-st.done { flex: none; min-height: calc(84 * var(--u)); max-height: none; padding: calc(14 * var(--u)) calc(26 * var(--u)); opacity: .6; background: color-mix(in srgb, var(--card) 60%, transparent); }
+.c-st.done .no { background: #ffc98a; color: #15132b; }
+.c-st.done p { font-size: calc(21 * var(--u)); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.c-st.now { flex: none; min-height: calc(372 * var(--u)); max-height: none; padding: calc(30 * var(--u)) calc(34 * var(--u)); align-items: stretch; color: #15132b;
+  background: linear-gradient(140deg, #ffc55c 0%, #ff9442 55%, #f2603c 100%); box-shadow: 0 30px 50px -30px rgba(255, 120, 40, .7), inset 0 1px 0 rgba(255, 255, 255, .4); }
+.c-st.now.start { min-height: calc(230 * var(--u)); }
+.c-st.now .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.c-st.now h3 { font-size: calc(16 * var(--u)); color: rgba(21, 19, 43, .66); margin: 0; }
+.c-st.now p { margin-top: calc(10 * var(--u)); font-size: calc(38 * var(--u)); font-weight: 700; line-height: 1.12; letter-spacing: -.03em; }
+.c-st.now p.l { font-size: calc(30 * var(--u)); line-height: 1.18; letter-spacing: -.025em; }
+.c-st.now p.xl { font-size: calc(24 * var(--u)); line-height: 1.25; letter-spacing: -.015em; font-weight: 650; }
+.c-st.now .snote { margin-top: calc(12 * var(--u)); font-size: calc(17 * var(--u)); font-weight: 650; color: rgba(21, 19, 43, .66); }
+.c-st.now .suses { margin-top: calc(14 * var(--u)); display: flex; flex-wrap: wrap; gap: calc(8 * var(--u)); }
+.c-st.now .suses span { padding: calc(6 * var(--u)) calc(12 * var(--u)); border-radius: calc(16 * var(--u)); background: rgba(255, 255, 255, .34); font-size: calc(16 * var(--u)); font-weight: 600; }
+.c-st.now .suses b { font-weight: 750; }
+.c-st.now .btns { margin-top: auto; padding-top: calc(22 * var(--u)); display: flex; flex-wrap: wrap; gap: calc(12 * var(--u)); }
+.c-btn { flex: none; height: calc(58 * var(--u)); padding: 0 calc(26 * var(--u)); border-radius: calc(29 * var(--u)); background: rgba(21, 19, 43, .9); color: #fff; display: inline-flex; align-items: center; gap: calc(10 * var(--u));
+  font-size: calc(20 * var(--u)); font-weight: 600; white-space: nowrap; }
+.c-btn.lt { background: rgba(255, 255, 255, .4); color: #15132b; }
+.c-btn .icon { width: calc(22 * var(--u)); height: calc(22 * var(--u)); display: inline-flex; flex: none; }
+.c-st.now .spic { flex: none; align-self: center; width: calc(300 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--r-card); }
+.c-ring { flex: none; align-self: center; width: calc(300 * var(--u)); height: calc(300 * var(--u)); position: relative; display: grid; place-items: center; }
+.c-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.c-ring .bed { fill: rgba(255, 255, 255, .26); stroke: rgba(21, 19, 43, .14); stroke-width: 16; }
+.c-ring .arc { fill: none; stroke: #15132b; stroke-width: 16; stroke-linecap: round; transition: stroke-dasharray 1s linear; }
+.c-ring .v { position: relative; text-align: center; }
+.c-ring b { display: block; font-size: calc(86 * var(--u)); font-weight: 300; letter-spacing: -.05em; line-height: 1; }
+.c-ring.long b { font-size: calc(60 * var(--u)); }
+.c-ring span { font-size: calc(18 * var(--u)); font-weight: 650; opacity: .7; }
 
 .cook .video.spot { display: none; }
-.video.over { position: fixed; z-index: 6; top: calc(30 * var(--u)); right: calc(30 * var(--u)); width: calc(460 * var(--u)); height: auto; aspect-ratio: 16 / 9; border-radius: calc(14 * var(--u)); overflow: hidden; background: #000; }
+.video.over { position: fixed; z-index: 6; top: calc(30 * var(--u)); right: calc(30 * var(--u)); width: calc(460 * var(--u)); height: auto; aspect-ratio: 16 / 9; border-radius: var(--r-card); overflow: hidden; background: #000; box-shadow: var(--shadow-lift); }
 .video.over[hidden] { display: none; }
 .video.over iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
-.cook .wait { flex: 1; display: flex; align-items: center; font-size: calc(40 * var(--u)); color: var(--ink-soft); }
+
+/* A phone: the box in two columns under the search, the soonest planned across both; cooking is one column that scrolls. */
+@media (max-width: 700px) {
+  html:root .top > .title { flex: 1 1 0; }
+  html:root .top > .r-find { flex: 1 0 100%; order: 1; width: auto; height: calc(66 * var(--u)); border-radius: calc(33 * var(--u)); padding: 0 calc(24 * var(--u)); gap: calc(14 * var(--u)); }
+  html:root .r-find .field.search { font-size: calc(24 * var(--u)); }
+  .r-find .icon { width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
+  html:root .top > .btn.add { min-width: 0; width: calc(60 * var(--u)); height: calc(60 * var(--u)); padding: 0; border-radius: 50%; justify-content: center; }
+  .btn.add .lbl { display: none; }
+  .btn.add .icon { width: calc(30 * var(--u)); height: calc(30 * var(--u)); }
+  html:root .top > .btn:not(.add) { order: 2; }
+  .r-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: calc(272 * var(--u)); gap: calc(14 * var(--u)); padding-bottom: calc(150 * var(--u)); }
+  .r-card { border-radius: calc(32 * var(--u)); box-shadow: none; }
+  .r-card:first-child { grid-column: 1 / 3; height: calc(316 * var(--u)); }
+  .r-grid:has(> .r-card:first-child) { grid-template-rows: calc(316 * var(--u)); }
+  .r-card .t { left: calc(20 * var(--u)); right: calc(14 * var(--u)); bottom: calc(17 * var(--u)); }
+  .r-card h2 { font-size: calc(29 * var(--u)); letter-spacing: -.025em; line-height: 1.08; }
+  .r-card:first-child h2 { font-size: calc(43 * var(--u)); }
+  .r-card:first-child .t { left: calc(26 * var(--u)); bottom: calc(23 * var(--u)); }
+  .r-card > .q-letter { font-size: calc(84 * var(--u)); padding-bottom: 44%; }
+  .r-card:first-child > .q-letter { font-size: calc(120 * var(--u)); padding-bottom: 20%; }
+  .r-card:not(:first-child) > .r-on { display: none; }
+  .r-card .m { gap: calc(6 * var(--u)); margin-top: calc(8 * var(--u)); }
+  .r-chip { height: calc(34 * var(--u)); font-size: calc(18 * var(--u)); border-radius: calc(17 * var(--u)); }
+  .r-card:not(:first-child) .r-chip:nth-child(n + 2) { display: none; }
+  .r-on { left: calc(17 * var(--u)); top: calc(17 * var(--u)); height: calc(43 * var(--u)); border-radius: calc(22 * var(--u)); font-size: calc(20 * var(--u)); padding: 0 calc(17 * var(--u)); }
+  .r-cook { height: calc(52 * var(--u)); border-radius: calc(26 * var(--u)); font-size: calc(21 * var(--u)); }
+  .options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .cook, :root:not(.in-tab) .cook { display: block; overflow-y: auto; scrollbar-width: none; padding: calc(22 * var(--u)) calc(22 * var(--u)) calc(160 * var(--u)); }
+  .cook::-webkit-scrollbar { display: none; }
+  .c-left { padding: 0; margin-bottom: calc(16 * var(--u)); }
+  .c-hero { height: calc(300 * var(--u)); border-radius: calc(36 * var(--u)); }
+  .c-back { height: calc(58 * var(--u)); border-radius: calc(29 * var(--u)); font-size: calc(21.5 * var(--u)); }
+  .c-hero .m { font-size: calc(22 * var(--u)); }
+  .c-ing { padding: calc(26 * var(--u)) calc(28 * var(--u)) calc(10 * var(--u)); }
+  .c-ing ul { overflow: visible; }
+  .c-ing li { font-size: calc(25 * var(--u)); min-height: calc(62 * var(--u)); }
+  .c-ing li b { width: calc(130 * var(--u)); }
+  .c-steps { overflow: visible; padding: 0; gap: calc(14 * var(--u)); }
+  .c-st { max-height: none; border-radius: calc(34 * var(--u)); padding: calc(22 * var(--u)) calc(24 * var(--u)); gap: calc(18 * var(--u)); }
+  .c-st h3, .c-st.now h3 { font-size: calc(17 * var(--u)); }
+  .c-st p, .c-st p.l, .c-st.done p { font-size: calc(25 * var(--u)); }
+  .c-st p.xl { font-size: calc(22 * var(--u)); }
+  .c-pill { display: none; }
+  .c-st.now { flex-direction: column; min-height: 0; padding: calc(30 * var(--u)) calc(28 * var(--u)); }
+  .c-st.now p { font-size: calc(40 * var(--u)); }
+  .c-st.now p.l { font-size: calc(32 * var(--u)); }
+  .c-st.now p.xl { font-size: calc(26 * var(--u)); }
+  .c-st.now .suses span { font-size: calc(20 * var(--u)); }
+  .c-st.now .snote { font-size: calc(20 * var(--u)); }
+  .c-st.now .btns { order: 3; margin-top: calc(22 * var(--u)); padding: 0; }
+  .c-btn { height: calc(66 * var(--u)); border-radius: calc(33 * var(--u)); font-size: calc(23 * var(--u)); }
+  .c-ring { width: calc(280 * var(--u)); height: calc(280 * var(--u)); margin-top: calc(22 * var(--u)); }
+  .c-st.now .spic { width: 100%; margin-top: calc(22 * var(--u)); }
+  .video.over { top: calc(12 * var(--u)); right: calc(12 * var(--u)); width: calc(100vw - 24 * var(--u)); }
+}

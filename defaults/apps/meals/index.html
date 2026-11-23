@@ -46,16 +46,6 @@
     .actions { display: flex; gap: calc(16 * var(--u)); justify-content: flex-end; flex-wrap: wrap; }
     .soft-text { color: var(--ink-soft); }
     .screen { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-    .days { height: 90%; display: flex; gap: calc(12 * var(--u)); }
-    .day { flex: 1; min-width: 0; border-radius: calc(24 * var(--u)); background: rgba(255, 255, 255, .6); padding: calc(16 * var(--u)); display: flex; flex-direction: column; gap: calc(12 * var(--u)); }
-    .day.today { background: #fff; }
-    .dow { font-size: calc(24 * var(--u)); font-weight: 800; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .day.today .dow { color: var(--red); }
-    .date { font-size: calc(18 * var(--u)); font-weight: 700; color: var(--ink-soft); margin-top: calc(-8 * var(--u)); }
-    .meal { flex: 1; min-height: 0; border-radius: calc(18 * var(--u)); background: rgba(36, 40, 42, .05); padding: calc(14 * var(--u)); display: flex; flex-direction: column;
-      align-items: center; justify-content: center; text-align: center; overflow: hidden; }
-    .meal.set { background: var(--sticky); }
-    .has-recipe { margin-top: calc(6 * var(--u)); font-size: calc(14 * var(--u)); font-weight: 700; color: var(--ink-soft); }
     .grow { flex: 1; }
     .chips.wrap { flex-wrap: wrap; overflow: visible; margin-top: calc(16 * var(--u)); }
     .field.small { font-size: calc(22 * var(--u)); font-weight: 500; margin-top: calc(14 * var(--u)); }
@@ -63,13 +53,92 @@
     .link { font-size: calc(22 * var(--u)); color: var(--ink-soft); overflow-wrap: anywhere; margin-top: calc(8 * var(--u)); user-select: text; -webkit-user-select: text; }
     .recipe { white-space: pre-wrap; font-size: calc(21 * var(--u)); line-height: 1.45; max-height: calc(520 * var(--u)); overflow: auto; margin: calc(16 * var(--u)) 0; user-select: text; -webkit-user-select: text; }
     .note { color: var(--ink-soft); font-size: calc(20 * var(--u)); }
-    .which { font-size: calc(17 * var(--u)); font-weight: 700; color: var(--ink-soft); }
-    .what { font-size: calc(44 * var(--u)); font-weight: 700; line-height: 1.15; overflow-wrap: anywhere; }
-    .meal .add { width: calc(48 * var(--u)); height: calc(48 * var(--u)); color: rgba(94, 100, 102, .5); }
     .work { font-size: calc(17 * var(--u)); font-weight: 700; color: var(--ink-soft); padding-top: calc(8 * var(--u)); }
   </style>
   <link rel="stylesheet" href="/kit/quiet.css">
   <link rel="stylesheet" href="/kit/narrow.css">
+  <style>
+    /* The week (after the kit, on its tokens). Tonight is a wide white panel: what's for dinner at the left, and at the
+       right either its picture or three of the household's own to tap. Under it, a card for each of the next six days.
+       A dish's picture is its recipe's own; with none, its initial on a warm tile (the kit's .q-letter). */
+    .m-head { flex: 1; min-width: 0; }
+    .m-range { display: none; }
+    .m-when { pointer-events: none; }
+    .btn .icon { width: calc(20 * var(--u)); height: calc(20 * var(--u)); flex: none; }
+    .m-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: calc(22 * var(--u)); padding-bottom: calc(8 * var(--u)); }
+    .m-hero { flex: 388 1 0; display: grid; grid-template-columns: calc(336 * var(--u)) minmax(0, 1fr); gap: calc(6 * var(--u)); padding: calc(16 * var(--u)); }
+    .m-txt { padding: calc(14 * var(--u)) calc(16 * var(--u)); display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .m-txt h2 { margin: calc(12 * var(--u)) 0 calc(10 * var(--u)); font-size: calc(50 * var(--u)); font-weight: 700; letter-spacing: -.035em; line-height: 1; overflow-wrap: break-word; }
+    .m-txt h2.long { font-size: calc(38 * var(--u)); line-height: 1.04; }
+    .m-txt p { margin: 0; font-size: calc(20 * var(--u)); font-weight: 500; line-height: 1.3; color: var(--fg2); }
+    .m-others { margin-top: calc(12 * var(--u)); min-height: 0; overflow: hidden; }
+    .m-acts { margin-top: auto; padding-top: calc(12 * var(--u)); display: flex; gap: calc(10 * var(--u)); flex-wrap: wrap; }
+    .m-acts .btn { display: inline-flex; align-items: center; gap: calc(9 * var(--u)); }
+    .m-picks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(14 * var(--u)); min-height: 0; }
+    .m-picks.one { grid-template-columns: minmax(0, 1fr); }
+    .m-pick { border-radius: calc(22 * var(--u)); position: relative; overflow: hidden; min-height: 0; box-shadow: 0 20px 30px -18px rgba(40, 20, 0, .5); }
+    .m-pick > .q-photo, .m-pick > .q-letter, .m-day .im > .q-photo, .m-day .im > .q-letter { position: absolute; inset: 0; width: 100%; height: 100%; }
+    .m-pick > .q-letter { font-size: calc(96 * var(--u)); padding-bottom: 14%; }
+    .m-pick .t { position: absolute; left: calc(18 * var(--u)); right: calc(14 * var(--u)); bottom: calc(16 * var(--u)); font-size: calc(26 * var(--u)); font-weight: 700; letter-spacing: -.025em; line-height: 1.08; overflow-wrap: break-word; }
+    .m-pick.big .t { left: calc(26 * var(--u)); bottom: calc(24 * var(--u)); font-size: calc(40 * var(--u)); letter-spacing: -.03em; }
+    .m-pick.big > .q-letter { font-size: calc(150 * var(--u)); }
+    .m-pick.none { border: calc(2 * var(--u)) dashed color-mix(in srgb, var(--ink) 24%, transparent); box-shadow: none; display: grid; place-items: center; }
+    .m-pick > .m-plus { position: absolute; right: calc(12 * var(--u)); top: calc(12 * var(--u)); width: calc(46 * var(--u)); height: calc(46 * var(--u)); border-radius: 50%; background: #fff; color: #15132b;
+      display: grid; place-items: center; box-shadow: 0 8px 16px -8px rgba(20, 10, 0, .5); }
+    .m-plus .icon { width: calc(22 * var(--u)); height: calc(22 * var(--u)); }
+    .m-o { width: calc(76 * var(--u)); height: calc(76 * var(--u)); border-radius: 50%; background: var(--tint); display: grid; place-items: center; }
+    .m-o .icon { width: calc(32 * var(--u)); height: calc(32 * var(--u)); }
+    .m-week { flex: 426 1 0; min-height: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: calc(14 * var(--u)); }
+    .m-week.n7 { grid-template-columns: repeat(7, minmax(0, 1fr)); }
+    .m-day { border-radius: var(--r-panel); overflow: hidden; display: flex; flex-direction: column; }
+    .m-day .im { flex: 1; min-height: 0; position: relative; }
+    .m-day .im > .q-letter { font-size: calc(80 * var(--u)); }
+    .m-day .b { flex: none; min-height: calc(132 * var(--u)); padding: calc(14 * var(--u)) calc(16 * var(--u)) calc(18 * var(--u)); }
+    .m-day b, .m-slot b { display: block; font-size: calc(23 * var(--u)); font-weight: 700; letter-spacing: -.025em; line-height: 1.1; margin-top: calc(7 * var(--u)); overflow-wrap: break-word; }
+    .m-day small, .m-slot small { display: block; font-size: calc(15 * var(--u)); font-weight: 600; color: var(--fg2); margin-top: calc(5 * var(--u)); }
+    .b > .q-rows { margin-top: calc(12 * var(--u)); padding-top: calc(10 * var(--u)); border-top: 1px solid var(--hair); }
+    .m-slot { padding: calc(10 * var(--u)) 0; }
+    .m-slot:first-child { padding-top: 0; }
+    .m-slot b { font-size: calc(19 * var(--u)); margin-top: calc(4 * var(--u)); }
+    .m-slot.open b, .m-day.empty .b b { color: var(--fg2); font-weight: 600; }
+    .m-day.empty { background: none; box-shadow: none; border: calc(2 * var(--u)) dashed color-mix(in srgb, var(--ink) 24%, transparent); }
+    .m-day.empty .im { display: grid; place-items: center; }
+
+    /* A phone: the dates over the title, tonight's picks in a row that slides, then a row for each day. */
+    @media (max-width: 700px) {
+      html:root .top { flex-wrap: nowrap; align-items: flex-end; }
+      html:root .top > .m-head { flex: 1 1 0; }
+      html:root .m-range { display: block; margin-bottom: calc(8 * var(--u)); }
+      html:root .title span, html:root .m-when { display: none; }
+      .m-body { display: block; overflow-y: auto; scrollbar-width: none; padding-bottom: calc(150 * var(--u)); }
+      .m-body::-webkit-scrollbar { display: none; }
+      .m-hero { display: flex; flex-direction: column; padding: calc(26 * var(--u)) 0 calc(24 * var(--u)) calc(26 * var(--u)); margin-bottom: calc(20 * var(--u)); overflow: hidden; }
+      .m-txt { display: contents; }
+      .m-picks { order: 1; }
+      .m-others { margin: 0 calc(26 * var(--u)) calc(16 * var(--u)) 0; }
+      .m-txt h2, .m-txt h2.long { font-size: calc(46 * var(--u)); margin: calc(10 * var(--u)) 0 calc(18 * var(--u)); }
+      .m-txt p { display: none; }
+      .m-acts { order: 2; margin: calc(18 * var(--u)) 0 0; padding: 0; }
+      .m-picks { display: flex; gap: calc(14 * var(--u)); overflow-x: auto; scrollbar-width: none; padding: 0 calc(26 * var(--u)) calc(4 * var(--u)) 0; }
+      .m-picks::-webkit-scrollbar { display: none; }
+      .m-pick { flex: none; width: calc(215 * var(--u)); height: calc(241 * var(--u)); border-radius: calc(29 * var(--u)); box-shadow: none; }
+      .m-picks.one .m-pick { width: 100%; }
+      .m-pick .t, .m-pick.big .t { left: calc(17 * var(--u)); right: calc(12 * var(--u)); bottom: calc(16 * var(--u)); font-size: calc(26 * var(--u)); }
+      .m-pick > .q-letter, .m-pick.big > .q-letter { font-size: calc(96 * var(--u)); }
+      .m-plus { width: calc(52 * var(--u)); height: calc(52 * var(--u)); }
+      .m-week, .m-week.n7 { display: flex; flex-direction: column; gap: calc(20 * var(--u)); }
+      .m-day { flex-direction: row; align-items: center; padding: calc(11 * var(--u)); gap: calc(20 * var(--u)); border-radius: calc(32 * var(--u)); }
+      .m-day .im { flex: none; width: calc(109 * var(--u)); height: calc(109 * var(--u)); border-radius: calc(23 * var(--u)); overflow: hidden; }
+      .m-day.empty { background: var(--card); border: 0; box-shadow: var(--shadow); }
+      .m-day.empty .im { background: var(--tint); }
+      .m-day.empty .m-o { background: none; }
+      .m-day .im > .q-letter { font-size: calc(50 * var(--u)); }
+      .m-day .b { flex: 1; min-width: 0; min-height: 0; padding: 0 calc(8 * var(--u)) 0 0; }
+      .m-day b { font-size: calc(29 * var(--u)); margin-top: calc(5 * var(--u)); }
+      .m-day small { font-size: calc(19 * var(--u)); }
+      .m-slot b { font-size: calc(24 * var(--u)); }
+    }
+  </style>
 </head>
 <body><div id="app"></div><script type="module" src="./main.js"></script></body>
 </html>

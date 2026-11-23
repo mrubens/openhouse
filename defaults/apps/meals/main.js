@@ -1,4 +1,6 @@
-// Meals: the week's meals, a card per day starting today (dinner, and breakfast and lunch if they want). Tap a meal to plan it:
+// Meals: the week's meals: tonight in a wide panel (its picture, or three of the household's own to tap for dinner),
+// then a card per day (dinner, and breakfast and lunch if they want). A dish's picture is its recipe's own, from its
+// page; with none, its initial on a warm tile. Tap a meal to plan it:
 // write it, or tap one the family has often (favorites first, with a dot). Each meal can keep a recipe (a link, notes, or one the
 // assistant writes), shown on every day it's planned. With the assistant set up, "Add to Groceries" puts what it needs on the list.
 // Cook opens the Recipes app on that meal's recipe (kit askApp: its "cook" voice action), one step at a time.
@@ -43,7 +45,8 @@ function press(el, tap, hold) {
   if (tap) el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el && !el.disabled) { e.preventDefault(); tap(e); } });
 }
 
-const ICONS = { plus: '<path d="M12 4.5v15M4.5 12h15"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>' };
+const ICONS = { search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', meals: '<path d="M4 7h10M18 7h2M4 12h2M10 12h10M4 17h8M16 17h4"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="17" r="2"/>',
+  plus: '<path d="M12 4.5v15M4.5 12h15"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>' };
 const icon = (name, cls = '') => h('span', { class: 'icon ' + cls, 'aria-hidden': 'true',
   html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>` });
 const STAR = [...Array(10)].map((_, i) => { const a = Math.PI / 5 * i - Math.PI / 2, r = i % 2 ? 22.5 : 50; return `${(50 + r * Math.cos(a)).toFixed(1)},${(50 + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
@@ -141,32 +144,78 @@ function favorite(text, pinned) {
   draw(); house.favorite(text, pinned);
 }
 
+/** A dish's picture: its recipe's own (kept from its page); with none, or one that won't load, its initial on a warm tile. */
+const WARM = ['#d9662f', '#c98a1e', '#b8503a', '#7f9a45', '#c46f8a', '#a8763a'];
+function dishPic(name) {
+  const t = String(name || '').trim(), src = recipeOf(t)?.image;
+  const letter = h('div', { class: 'q-letter', style: `--c:${WARM[[...t.toLowerCase()].reduce((n, ch, i) => n + ch.charCodeAt(0) * (i + 1), 0) % WARM.length]}`, 'aria-hidden': 'true' }, t[0]?.toUpperCase() || '');
+  if (!src) return letter;
+  const img = h('img', { class: 'q-photo', src, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', draggable: 'false' });
+  img.addEventListener('error', () => { img.parentElement?.classList.remove('q-scrim'); img.replaceWith(letter); });
+  return img;
+}
+const hasPic = (name) => !!recipeOf(String(name || '').trim())?.image;
+/** A few of their own to tap for a meal: favorites first, then saved recipes (nothing made up). */
+function picks() {
+  const out = [];
+  for (const x of [...(H.favorites || []).map((f) => f?.text ?? f), ...Object.values(H.recipes || {}).map((r) => r?.text)]) {
+    const v = String(x || '').trim(); if (v && !out.some((p) => same(p, v))) out.push(v);
+  }
+  return out.slice(0, 3);
+}
+
 function view() {
   if (!H) return h('div');
   const days = [...Array(7)].map((_, i) => day(week * 7 + i)), meals = mealsFor(days.map((d) => house.dayKey(d)));
+  const main = meals.includes('dinner') ? 'dinner' : meals.at(-1); // the meal a day's card is about
+  const a = days[0], z = days[6], range = `${fmt(a, { month: 'short', day: 'numeric' })} – ${a.getMonth() === z.getMonth() ? z.getDate() : fmt(z, { month: 'short', day: 'numeric' })}`;
   return h('div', { class: 'screen' },
     h('div', { class: 'top' },
-      h('h1', { class: 'title' }, week === 0 ? 'This week' : 'Next week'),
+      h('div', { class: 'm-head' }, h('div', { class: 'q-label m-range' }, range), h('h1', { class: 'title' }, 'Meals ', h('span', null, week === 0 ? 'this week' : 'next week'))),
       round('left', () => { week--; draw(); }, { disabled: week <= 0, label: 'This week' }),
+      h('div', { class: 'chip m-when' }, range),
       round('right', () => { week++; draw(); }, { disabled: week >= 1, label: 'Next week' }),
-      h('span', { class: 'grow' }),
-      chip('Meals', false, slotsCard)),
-    h('div', { class: 'days n' + meals.length }, days.map((d, i) => dayCard(d, week === 0 && i === 0, meals))));
+      round('meals', slotsCard, { label: 'Which meals to plan' })),
+    h('div', { class: 'm-body', 'data-keep': 'week' },
+      week === 0 ? tonight(days[0], meals, main) : null,
+      h('div', { class: 'm-week' + (week === 0 ? '' : ' n7') }, (week === 0 ? days.slice(1) : days).map((d) => dayCard(d, meals, main)))));
 }
 
-function dayCard(d, isToday, meals) {
-  const k = house.dayKey(d);
-  return h('div', { class: 'day' + (isToday ? ' today' : '') },
-    h('div', { class: 'dow' }, isToday ? 'Today' : fmt(d, { weekday: 'long' })),
-    h('div', { class: 'date' }, fmt(d, { month: 'short', day: 'numeric' })),
-    meals.map((m) => {
-      const text = planned(k, m), w = H.mealWork?.[`${k}|${m}`];
-      return h('div', { class: 'meal' + (text ? ' set' : ''), tap: () => edit(k, m) },
-        meals.length > 1 ? h('div', { class: 'which' }, cap(m)) : null,
-        text ? h('div', { class: 'what' }, text) : icon('plus', 'add'),
-        text && recipeOf(text) ? h('div', { class: 'has-recipe' }, 'Recipe') : null,
-        w ? h('div', { class: 'work' }, work(w)) : null);
-    }));
+/** Today: what's planned, on its picture; unplanned, three of theirs to tap. */
+function tonight(d, meals, main) {
+  const k = house.dayKey(d), text = planned(k, main), w = H.mealWork?.[`${k}|${main}`], some = text ? [] : picks();
+  const others = meals.filter((m) => m !== main);
+  return h('div', { class: 'q-panel m-hero' },
+    h('div', { class: 'm-txt' },
+      h('div', { class: 'q-label' }, `${main === 'dinner' ? 'Tonight' : `Today’s ${main}`} · ${fmt(d, { weekday: 'long' })}`),
+      h('h2', { class: text && text.length > 18 ? 'long' : null }, text || 'Not planned yet'),
+      w ? h('p', null, work(w)) : !text && some.length ? h('p', null, `Tap one and it’s ${main}.`) : null,
+      others.length ? h('div', { class: 'm-others q-rows' }, others.map((m) => slotRow(k, m))) : null,
+      h('div', { class: 'm-acts' },
+        text && recipeOf(text) ? btn([icon('right'), 'Cook'], () => askApp('recipes', 'cook', { recipe: text })) : null,
+        btn(text ? 'Change' : [icon('search'), 'Something else'], () => edit(k, main), { soft: true }))),
+    text ? h('div', { class: 'm-picks one' }, h('div', { class: 'm-pick big' + (hasPic(text) ? ' q-scrim' : ''), tap: () => edit(k, main) }, dishPic(text)))
+      : some.length ? h('div', { class: 'm-picks' }, some.map((p) => h('div', { class: 'm-pick' + (hasPic(p) ? ' q-scrim' : ''), 'aria-label': `Have ${p}`, tap: () => setMeal(k, main, p) },
+        dishPic(p), h('span', { class: 'm-plus' }, icon('plus')), h('div', { class: 't' }, p))))
+        : h('div', { class: 'm-picks one' }, h('div', { class: 'm-pick none', 'aria-label': 'Plan it', tap: () => edit(k, main) }, h('span', { class: 'm-o' }, icon('plus')))));
+}
+
+/** One of a day's other meals (breakfast, lunch), when they plan more than dinner. */
+function slotRow(k, m) {
+  const text = planned(k, m), w = H.mealWork?.[`${k}|${m}`];
+  return h('div', { class: 'm-slot' + (text ? '' : ' open'), tap: () => edit(k, m) }, h('div', { class: 'q-label' }, cap(m)), h('b', null, text || 'Nothing yet'), w ? h('small', null, work(w)) : null);
+}
+
+function dayCard(d, meals, main) {
+  const k = house.dayKey(d), text = planned(k, main), w = H.mealWork?.[`${k}|${main}`], others = meals.filter((m) => m !== main);
+  const label = h('div', { class: 'q-label' }, fmt(d, { weekday: 'long' }) + (others.length ? ` · ${main}` : ''));
+  const rest = others.length ? h('div', { class: 'q-rows' }, others.map((m) => slotRow(k, m))) : null;
+  if (!text) return h('div', { class: 'm-day empty', tap: () => edit(k, main) },
+    h('div', { class: 'im' }, h('span', { class: 'm-o' }, icon('plus'))),
+    h('div', { class: 'b' }, label, h('b', null, 'Nothing yet'), rest));
+  return h('div', { class: 'q-panel m-day', tap: () => edit(k, main) },
+    h('div', { class: 'im' }, dishPic(text)),
+    h('div', { class: 'b' }, label, h('b', null, text), w ? h('small', null, work(w)) : recipeOf(text) ? h('small', null, 'Recipe') : null, rest));
 }
 
 /** Which meals to plan each day. */
