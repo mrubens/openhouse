@@ -769,8 +769,10 @@ def r3(stage: str, hours: float = 20, names: str = '', thr: float = 0.3, only: s
         cfgs = []
         for spec in names.split(','):
             n, nw, hw, st, wd, *more = spec.split(':')
+            kv = dict(m.split('=', 1) for m in more if '=' in m); more = [m for m in more if '=' not in m]  # (round 4: smooth=0, bank_n=…, seed=…)
             cfgs.append({'name': n, 'neg_weight': int(nw), 'hard_weight': int(hw), 'steps': int(st), 'width': int(wd), 'smooth': 0.05,
-                         'hard': ['nw300', 'h1000', 'v2a'], 'hard3': [h for h in (more[0].split('+') if more else []) if h], 'feat_noise': float(more[1]) if len(more) > 1 else 0.0})
+                         'hard': ['nw300', 'h1000', 'v2a'], 'hard3': [h for h in (more[0].split('+') if more else []) if h], 'feat_noise': float(more[1]) if len(more) > 1 else 0.0,
+                         **{k: (int(v) if v.isdigit() else float(v)) for k, v in kv.items()}})
         for r in train3.map(cfgs, order_outputs=False, return_exceptions=True):
             if not isinstance(r, dict): print('train error', str(r)[:300], flush=True); continue
             json.dump(r, open(f'{R}/r3-{r["name"]}-train.json', 'w')); print(r['name'], r['counts'], flush=True)

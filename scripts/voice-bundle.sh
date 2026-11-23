@@ -14,7 +14,7 @@ MODELS=${1:?usage: voice-bundle.sh <models dir> <out dir> <version>}; OUT=${2:?u
 D="$OUT/$VERSION"
 [ -e "$D" ] && { echo "$D already exists: a version is made once (pick another)"; exit 1; }
 mkdir -p "$D/models/wake"
-for f in melspectrogram.onnx embedding_model.onnx; do cp "$MODELS/wake/$f" "$D/models/wake/"; done; cp models/wake/opie.onnx "$D/models/wake/"
+for f in melspectrogram.onnx embedding_model.onnx; do cp "$MODELS/wake/$f" "$D/models/wake/"; done; cp models/wake/opie.onnx models/wake/opie.json "$D/models/wake/"
 # onnxruntime-node (its package carries every platform's library: linux-arm64 kept).
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 ORT=${ORT_VERSION:-1.20.1}

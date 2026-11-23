@@ -16,7 +16,7 @@ const argv = process.argv.slice(2), arg = (k, d) => { const i = argv.indexOf('--
 const VOICE = path.resolve(process.env.VOICE_DIR || path.join(ROOT, 'voice'));
 const SET = path.resolve(arg('set', path.join(process.env.HOME, '.cache/openhouse-wake/testset')));
 const man = JSON.parse(fs.readFileSync(path.join(SET, 'manifest.json'), 'utf8'));
-const T = Number(process.env.VOICE_WAKE_THRESHOLD) || 0.9;
+const T = Number(process.env.VOICE_WAKE_THRESHOLD) || 0.98;
 
 const w = fork(path.join(ROOT, 'bridge/voice-worker.js'), [], { serialization: 'advanced', stdio: ['ignore', 'inherit', 'inherit', 'ipc'], env: { ...process.env, VOICE_WORKER_DIR: VOICE, VOICE_DEBUG_WAKE: '1' } });
 let onMsg = null;

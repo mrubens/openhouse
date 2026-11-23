@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 MODELS=${1:?usage: voice-install.sh <models dir from scripts/voice-models.sh>}
 ADB=${ADB:-adb}; PKG=$DISPLAY_PKG; F=/data/user/0/$PKG/files
 $ADB shell rm -rf /data/local/tmp/voice-models; $ADB shell mkdir -p /data/local/tmp/voice-models/wake
-for f in melspectrogram.onnx embedding_model.onnx opie.onnx; do $ADB push -q "$MODELS/wake/$f" /data/local/tmp/voice-models/wake/; done
+for f in melspectrogram.onnx embedding_model.onnx opie.onnx opie.json; do $ADB push -q "$MODELS/wake/$f" /data/local/tmp/voice-models/wake/; done
 $ADB shell chmod -R a+rX /data/local/tmp/voice-models
 $ADB shell "run-as $PKG sh -c 'rm -rf $F/display/voice/models && mkdir -p $F/display/voice && cp -r /data/local/tmp/voice-models $F/display/voice/models'"
 # The package carries every platform's library (185 MB); only this one's is kept. The old listening's sherpa-onnx goes.

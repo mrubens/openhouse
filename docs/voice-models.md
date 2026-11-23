@@ -96,6 +96,10 @@ Set 3 (made 2026-11-20, `scripts/voice-bundle.sh … 3`): the wake model and onn
 pointer goes on a tablet (`node scripts/release.ts --voice ~/.openhouse/voice/3`). Not yet tried on a device:
 onnxruntime-node 1.20.1 in the runtime's Node on linux-arm64 (it runs on the Mac, and its library is the arm64 build).
 
+Set 5 (made 2026-11-23, `scripts/voice-bundle.sh … 5`): set 4 with round 4's wake model (`opie.onnx`, 4.3 MB) and
+`models/wake/opie.json` (its threshold, 0.98, which the listener reads; without it, 0.9). `openhouse.voiceUrl` points
+at it from 1.0.23. A 1.0.22 tablet keeps set 4 until it updates.
+
 Set 4 (made 2026-11-20, `scripts/voice-bundle.sh ~/.cache/openhouse-wake/voice-models-3 ~/.openhouse/voice 4`): set 3
 with round 3's wake model (`models/wake/opie.onnx`, 2.4 MB); every other file is the same. `openhouse.voiceUrl` points
 at it (`releases/voice/4/voice.json`); upload it before a build with that pointer goes on a tablet

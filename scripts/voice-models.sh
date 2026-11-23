@@ -14,5 +14,5 @@ get() { [ -e "$2" ] || { echo "↓ $2"; curl -sSLf "$1" -o "$2.part" && mv "$2.p
 O=https://github.com/dscripka/openWakeWord/releases/download/v0.5.1
 get $O/melspectrogram.onnx wake/melspectrogram.onnx
 get $O/embedding_model.onnx wake/embedding_model.onnx
-cp "$ROOT/models/wake/opie.onnx" wake/opie.onnx
+cp "$ROOT/models/wake/opie.onnx" wake/opie.onnx; cp "$ROOT/models/wake/opie.json" wake/opie.json
 du -sh .

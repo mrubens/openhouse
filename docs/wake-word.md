@@ -16,9 +16,32 @@ nothing listens, and Settings shows Live voice: Off (Hey Opie only shows while i
 (1.0, 1.6 and 2.2 s in, then at the end) and looked for the ways it writes "Opie". It was slow, it ran Parakeet on
 all the talk in the room, and it missed half the time.
 
+## Results (2026-11-23, round 4: scores that spread)
+
+Round 4 is on the tablet from voice set 5 (`models/wake/opie.onnx`, s0w, 4.3 MB, width 256), at 0.98. The threshold
+now comes with the model (`models/wake/opie.json`), so a tablet never runs one round's model at another's threshold.
+
+Round 3's labels were smoothed (the name's target was 0.95), so every score piled up between 0.90 and 0.98 and no
+threshold could separate real wakes from false ones: at 0.95 it already missed a fifth of names said up close.
+Round 4 trains without smoothing, adds 278 more cloned voices and round 3's mined mistakes (2,113 windows), and
+spreads its scores up to 1. Out of 10 on the same test set; false wakes counted without the 1.5 s gap, so compare
+the rows with each other, not with the tables below:
+
+| | up close | kitchen noise | across the room | TV or talk behind | false wakes per hour |
+|---|---|---|---|---|---|
+| round 3 (r2), 0.9 | 9.5 | 9.0 | 8.0 | 6.1 | 1.7 |
+| round 3 (r2), 0.95 | 8.0 | 7.4 | 6.1 | 4.3 | 0.7 |
+| **round 4 (s0w), 0.98** | **9.7** | **8.9** | **8.2** | **6.1** | **1.1** |
+| round 4 (s0w), 0.99 | 9.7 | 8.8 | 7.8 | 5.7 | 1.0 |
+| round 4, width 192 (s0), 0.99 | 9.7 | 9.0 | 7.7 | 5.6 | 0.75 |
+
+- **At home** round 3 at 0.9 woke 15–24 times a day, about three quarters of them false (each now silent, but it
+  chimes). Round 4 at 0.98 should cut false wakes by about a third at the same hearing; at home that's untested.
+- **Train:** `r3 --stage train --names s0w:300:1000:45000:256:b0w+r2:0:smooth=0` (key=value options after the spec).
+
 ## Results (2026-11-20, round 3: 1,550 hours of ordinary speech)
 
-Round 3 is on the tablet from voice set 4 (`models/wake/opie.onnx`, r2), at 0.9. Out of 10, the same test set as below:
+Round 3 was on the tablet from voice set 4 (`models/wake/opie.onnx`, r2), at 0.9. Out of 10, the same test set as below:
 
 | | up close | kitchen noise | across the room | TV or talk behind | false wakes per hour |
 |---|---|---|---|---|---|

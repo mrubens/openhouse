@@ -1,6 +1,6 @@
 // The wake word's listener, in a child process so the models never stall the bridge. Audio in (16 kHz mono float),
 // per source; the wake model (bridge/wake.js, models/wake/) scores every 80 ms, and a score of at least
-// VOICE_WAKE_THRESHOLD (0.9) is "Opie". That's all it does: nothing is transcribed, kept or sent anywhere. What comes
+// the model's own threshold (models/wake/opie.json, 0.9 without one) is "Opie". That's all it does: nothing is transcribed, kept or sent anywhere. What comes
 // after the name is OpenAI's live voice's to hear (shell LiveVoice). docs/wake-word.md
 //
 // In:  {type: 'audio', src, samples?, flush?, ack?, at?}, {type: 'wake-on', on}, {type: 'mic-level', level}
@@ -18,10 +18,12 @@ process.on('disconnect', () => process.exit(0));
 const need = createRequire(path.join(dir, 'package.json'));
 const RATE = 16000;
 const WAKE_PHRASES = ['opie', 'hey opie', 'hi opie', 'hello opie', 'ok opie', 'okay opie']; // the same in every home (voice.js WAKE_PHRASES)
-// (0.9, round 3's model: on the bench, it hears 9 or 10 in 10 near, 8 across a room, 6 over a TV, and wakes about
-// once an hour on talk without its name. 0.85 looked a little better on the bench, but at home it woke 19 times in an
-// evening with nobody talking to it, 8 of them between 0.85 and 0.9. docs/wake-word.md)
-const WAKE_T = Number(process.env.VOICE_WAKE_THRESHOLD) || 0.9;
+// The threshold comes with the model (models/wake/opie.json, from the same voice set), so a tablet never runs one
+// model at another's threshold while a new set downloads: round 4's scores spread up to 1 and it wakes at 0.98, where
+// round 3's would hardly ever. Without the file (voice sets up to 4): 0.9, round 3's. VOICE_WAKE_THRESHOLD overrides
+// both (the bench). docs/wake-word.md
+const modelThreshold = () => { try { return Number(JSON.parse(fs.readFileSync(path.join(dir, 'models', WAKE_DIR, 'opie.json'), 'utf8')).threshold) || 0; } catch { return 0; } };
+const WAKE_T = Number(process.env.VOICE_WAKE_THRESHOLD) || modelThreshold() || 0.9;
 const AGAIN = 1.5 * RATE; // the same name, a frame later, isn't a second wake
 
 let wakeOn = true;
