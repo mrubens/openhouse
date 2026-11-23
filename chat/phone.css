@@ -80,12 +80,12 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .openbar { display: flex; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid var(--line); }
 .openbar .quiet { color: var(--soft); padding: 8px 6px; }
 .openbar span { font-weight: 600; }
-/* Apps: a white panel each, two across: its icon, its name under */
+/* Apps: a white tile each, three across like a home screen: its icon, its name under */
 .title { font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; margin: calc(22px + env(safe-area-inset-top)) 0 16px; }
-.app-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 -4px; }
-.app-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; padding: 16px; border-radius: 24px; background: var(--card); box-shadow: var(--shadow); font-size: 18px; font-weight: 700; letter-spacing: -.02em; text-align: left; min-width: 0; }
+.app-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 -4px; align-content: start; }
+.app-tile { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px 8px 14px; border-radius: 22px; background: var(--card); box-shadow: var(--shadow); font-size: 15px; font-weight: 700; letter-spacing: -.01em; text-align: center; min-width: 0; }
 .app-tile span { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.app-icon { width: 68px; height: 68px; border-radius: 19px; display: grid; place-items: center; object-fit: cover; box-shadow: 0 14px 22px -12px color-mix(in srgb, var(--ink) 45%, transparent); }
+.app-icon { width: 60px; height: 60px; border-radius: 16px; display: grid; place-items: center; object-fit: cover; box-shadow: 0 14px 22px -12px color-mix(in srgb, var(--ink) 45%, transparent); }
 .app-icon.letter { font-size: 28px; font-weight: 700; background: var(--tint); color: var(--ink); box-shadow: none; }
 .card.recipe input { width: 100%; font: inherit; padding: 13px 16px; border: 0; border-radius: 14px; background: var(--tint); color: inherit; margin: 10px 0; outline-color: var(--ink); }
 .card.recipe .go:disabled { opacity: .35; }
