@@ -1,6 +1,6 @@
 {
   "name": "babysitter",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "One page for the babysitter, written by the parents: who to call, bedtimes, allergies, the Wi-Fi and the rest. The voice brings it up.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",

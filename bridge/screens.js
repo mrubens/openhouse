@@ -167,6 +167,12 @@ export function appFileList(APP_DIR, id, kitDir) {
   for (const k of [...kit].sort()) { const f = path.join(kitDir, k); if (kitDir && fs.existsSync(f) && fs.statSync(f).isFile()) out.push({ rel: 'kit/' + k, f }); }
   return out;
 }
+/** Does it import an installed library (three, phaser: what the tablet's dev server finds by name)? A phone's frame
+ *  runs only the app's own files and the kit, so such an app stays on the tablet for now. */
+export function usesPackages(list) {
+  const BARE = /\b(?:import\s*(?:[\w$*{}\s,]+?\s*from\s*)?|export\s*(?:\*|\{[^}]*\})\s*from\s*|import\s*\(\s*)['"](?![./]|https?:)[^'"\n]+['"]/;
+  return list.some((x) => /\.m?js$/.test(x.rel) && !x.rel.startsWith('kit/') && (() => { try { return BARE.test(fs.readFileSync(x.f, 'utf8')); } catch { return false; } })());
+}
 /** When an app's files (or the kit's it uses) last changed, as a short hash: the phone keeps its copy by this. */
 export function appVersion(list) {
   const h = crypto.createHash('sha256');
@@ -670,11 +676,15 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     if (!s) { json(res, 403, { error: 'only a paired screen' }); return true; }
     if (url.pathname === '/screens/app-files') {
       const id = String(url.searchParams.get('app') || '');
-      if (s.kind !== 'phone' || !APP_ID.test(id) || !appsFor(s).some((a) => a.id === id)) { json(res, 404, { error: 'not on this phone' }); return true; }
+      if (s.kind !== 'phone' || !APP_ID.test(id) || !appsFor(s).some((a) => a.id === id) || usesPackages(appFileList(APP_DIR, id, KIT))) { json(res, 404, { error: 'not on this phone' }); return true; }
       json(res, 200, appFiles(APP_DIR, id, KIT));
       return true;
     }
-    if (s.kind === 'phone') { json(res, 200, appsFor(s).map((a) => ({ id: a.id, name: a.name, icon: a.icon || null, tabIcon: a.tabIcon || null, shared: !!a.shared, v: appVersion(appFileList(APP_DIR, a.id, KIT)) }))); return true; }
+    if (s.kind === 'phone') {
+      const out = [];
+      for (const a of appsFor(s)) { const files = appFileList(APP_DIR, a.id, KIT); if (!usesPackages(files)) out.push({ id: a.id, name: a.name, icon: a.icon || null, tabIcon: a.tabIcon || null, shared: !!a.shared, v: appVersion(files) }); }
+      json(res, 200, out); return true;
+    }
     // v: when its files last changed, so a TV showing it loads it again after an edit.
     const v = (id) => { let t = 0; const walk = (d, depth) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) { if (depth < 3) walk(f, depth + 1); } else t = Math.max(t, fs.statSync(f).mtimeMs); } };
       try { walk(path.join(APP_DIR, 'apps', id), 0); } catch {} return Math.round(t); };

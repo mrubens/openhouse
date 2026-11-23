@@ -1,6 +1,6 @@
 {
   "name": "word-puzzle",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A word a day for kids, its letters mixed up, with a clue: on a card on Today, and Opie gives hints and checks guesses.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",

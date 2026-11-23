@@ -818,3 +818,18 @@ model's rights; a merge that can't be done changes nothing).
 
 **Later:** the same list as a page on openhouse.computer, with a QR code per plugin that hands its name to the tablet
 (the phone hand-off), in the cloud repo's landing page. Not built yet.
+
+## 20. On the household's phones (2026-11-23)
+
+Every app runs on the household's phones too (docs/phones.md, "Every app on the phone"), with the same rights as on the
+tablet: in a sandboxed frame of its own on the phone, its files and every kit call sealed through the phone's page,
+which marks each call with the app. Nothing new is asked on the install card: a phone is the same household.
+
+**For plugin makers: make it work at 390 px wide.**
+- Link `/kit/quiet.css` (it makes `--u` a phone's size under 700 px), or size things in `rem` or `px` yourself.
+- Under 700 px, one column: rows instead of side-by-side columns, a top row that wraps under the title. Test it at a
+  phone's width (a desktop browser's device mode is enough).
+- Things only the tablet can do (`phone.*` cards, `say`, timers) return false or do nothing on a phone; `screen?.kind
+  === 'phone'` (from the kit) says where it is, to leave such a button out.
+- No `localStorage` surprises: it works, kept per app on that phone. No `indexedDB` or `caches` there.
+- An app that can't work on a phone says so: `"screens": ["tablet"]` in its app.json (add `"tv"` if it's for a TV too).

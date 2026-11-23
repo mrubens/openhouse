@@ -1,7 +1,7 @@
 // Calendar: the week in columns, the whole month, or everything coming up as a list, each person in their color. Tap a day
 // to see all of it and add to it. Events come from the family's synced calendars (added in Settings) plus ones added here,
 // which can repeat and stay on this display (synced calendars are read-only here). The events live in the bridge, not here.
-import { house, timer, say, phone, shell, weather } from '/kit/openhouse.js';
+import { house, timer, say, phone, shell, weather, screen as onScreen } from '/kit/openhouse.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
@@ -124,7 +124,7 @@ const DAYS = 7;
 /** How far ahead the list goes. */
 const AGENDA_DAYS = 21;
 /** The view it opens on: "day", "week", "month" or "list". */
-const START_VIEW = 'week';
+const START_VIEW = matchMedia('(max-width: 700px)').matches ? 'list' : 'week'; // (a phone: the list, docs/phones.md)
 const REPEATS = [[null, 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month'], ['yearly', 'Every year']];
 
 let H = null, events = [], view = START_VIEW, weeks = 0, months = 0, days = 0;
@@ -247,8 +247,8 @@ function screen() {
       round('plus', () => guard(() => eventForm(null, view === 'day' ? oneDay : today)), { dark: true, label: 'Add' })),
     view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? agenda(today) : view === 'day' ? dayView(oneDay, today) : weekView(from, today),
     h('div', { class: 'note' },
-      H.calendars === 0 ? h('p', null, 'Add the family’s Google, iCloud or Outlook calendars, and their events show here. Events you add here stay on this display.') : null,
-      btn('Add a calendar', addCalendar, { soft: H.calendars !== 0 }),
+      H.calendars === 0 && onScreen?.kind !== 'phone' ? h('p', null, 'Add the family’s Google, iCloud or Outlook calendars, and their events show here. Events you add here stay on this display.') : null,
+      onScreen?.kind === 'phone' ? null : btn('Add a calendar', addCalendar, { soft: H.calendars !== 0 }), // (on the display, behind the PIN)
       H.fromApps?.length ? btn('From apps', fromAppsCard, { soft: true }) : null));
 }
 

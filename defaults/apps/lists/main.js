@@ -1,7 +1,7 @@
 // Lists: the family's shared lists (Groceries, To do, any they add), side by side like papers. Type on a list (or tap +) to add,
 // tap an item to check it off; its … (or a hold) changes its words or whose it is, or takes it off; a list's name renames or deletes it. "Send to phone" puts a list on a phone on the home Wi-Fi. The lists live in
 // the bridge, so the assistant adds to them too ("add milk") and changing this app never loses them.
-import { house, timer, say, phone, shell } from '/kit/openhouse.js';
+import { house, timer, say, phone, shell, screen as onScreen } from '/kit/openhouse.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
@@ -152,8 +152,17 @@ function paper(l, color, width) {
     h('div', { class: 'items vscroll', 'data-keep': 'items-' + l.id },
       l.byAisle ? byAisle(l, open) : open.map((it) => item(l, it)), l.byAisle && done.length && open.length ? h('div', { class: 'aisle' }, 'Checked') : null, done.map((it) => item(l, it))),
     h('div', { class: 'paper-foot' },
-      open.length ? h('button', { class: 'quiet', tap: () => phone.list(l.name) }, 'Send to phone') : h('span'),
+      // On someone's phone: Copy, what's still to get one per line, to paste anywhere; on the display, a QR card for a phone.
+      open.length ? onScreen?.kind === 'phone' ? h('button', { class: 'quiet', tap: (e) => copy(open, e) }, 'Copy') : h('button', { class: 'quiet', tap: () => phone.list(l.name) }, 'Send to phone') : h('span'),
       done.length ? h('button', { class: 'quiet', tap: () => { l.items = l.items.filter((it) => !it.done); draw(); house.clearChecked(l.name); } }, 'Clear checked') : null));
+}
+
+/** What's still to get, one per line, onto the phone's clipboard; the button says Copied for a moment. */
+async function copy(open, e) {
+  const words = open.map((it) => it.text).join('\n'), b = e?.currentTarget || e?.target;
+  try { await navigator.clipboard.writeText(words); }
+  catch { const t = document.createElement('textarea'); t.value = words; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0'; document.body.append(t); t.select(); try { document.execCommand('copy'); } catch {} t.remove(); }
+  if (b) { const was = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = was; }, 1800); }
 }
 
 /** What's left on a list in store sections (produce first, as a shop is walked), each under its name. */

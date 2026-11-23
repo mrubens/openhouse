@@ -38,3 +38,10 @@ textarea.field { min-height: calc(110 * var(--u)); resize: none; line-height: 1.
 .hint { font-size: calc(15 * var(--u)); color: var(--ink-soft); line-height: 1.4; }
 .bad { color: var(--warn); }
 .actions { display: flex; gap: calc(12 * var(--u)); align-items: center; margin-top: calc(8 * var(--u)); flex-wrap: wrap; }
+
+/* On a phone (under 700 px; quiet.css makes --u a phone's size): one column, and the title keeps its room. */
+@media (max-width: 700px) {
+  .cols { grid-template-columns: minmax(0, 1fr); }
+  .top { flex-wrap: wrap; row-gap: calc(12 * var(--u)); }
+  .top > .title { min-width: 50%; }
+}

@@ -137,6 +137,10 @@ save. `check_build` reports errors the page throws while it's open.
   accent, one plain type, lighter weights. Read one starting app (`apps/chores/`) before making one. It fills whatever
   box it's in (a tab is smaller than the screen): nothing cut off or scrolling out of view, circles stay circles
   (equal width and height). Games and toys can be as bold as they like.
+- Every app also runs on the household's phones (390 px wide, in a frame of its own): `quiet.css` makes `--u` a phone's
+  size under 700 px; there, lay it out in one column (rows, not columns side by side; a top row that wraps). Leave out
+  what only the tablet does when `screen?.kind === 'phone'` (from the kit). One that can't work on a phone says
+  `"screens": ["tablet"]` in its app.json. Installed libraries (below) don't load on phones yet.
 - Plain ES modules; the family's data only through the kit (above). Installed libraries (use only these, no CDNs, no
   npm installs):
   - 3D: `three`. Use the WebGPU renderer; it falls back to WebGL2 on its own:

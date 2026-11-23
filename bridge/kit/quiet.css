@@ -3,6 +3,8 @@
    <link rel="stylesheet" href="/kit/quiet.css">. Selectors start with :root so they win over an app's own rules.
    In a tab the home screen hands the app its paper, ink, accent and type (openhouse.js), and these follow them. */
 @font-face { font-family: 'Inter'; src: url('fonts/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
+/* A phone (docs/phones.md, "Narrow screens"): under 700 px wide the unit grows so type and taps are a phone's size. */
+@media (max-width: 700px) { :root { --u: calc(100vw / 560); } }
 :root { --quiet: 'Inter', Roboto, system-ui, sans-serif; --tint: color-mix(in srgb, var(--ink) 5%, var(--bg)); --tint-2: color-mix(in srgb, var(--ink) 9%, var(--bg));
   --card: color-mix(in srgb, #fff 70%, var(--bg)); --accent: #b5562f; --accent-ink: #fff; }
 :root body { background: var(--bg); font-family: var(--quiet); color: var(--ink); -webkit-font-smoothing: antialiased; }

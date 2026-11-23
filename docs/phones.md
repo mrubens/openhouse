@@ -178,6 +178,48 @@ Code: `openhouse-cloud/lambda/send.ts`, `bridge/phone-share.js`, `screens.js` (`
 `chat/src/phone.jsx`. Tests: `bridge/test/phone-share.test.mjs` (what the key opens), `send-to-opie.test.mjs` (the
 whole way, with the real bridge and the service).
 
+## Every app on the phone (2026-11-23)
+
+The phone shows the household's own tabs, in the tablet's order (its home style), and each tab is the app itself, not
+a phone-only copy of it. Adding a plugin on the tablet adds it to the phone.
+
+- **Navigation.** The first four tabs along the bottom, then More: every tab, in a list that slides in from the side.
+  Apps holds every app that isn't a tab; one opens over the tabs with Back. Today is the tablet's own Today (home.jsx)
+  in one column, with what's only for this phone's person under it (what Opie was asked to tell them, notes by push,
+  Send to Opie). The look is plain on purpose, for the redesign to restyle: `nav`, `.more`, `.more-row`, `.tab-icon`,
+  `.appframe`, `.ptoday` in `chat/phone.css` and `phone-today.css`.
+- **Each app in a frame of its own** (`chat/src/phone-apps.jsx`, `phone-frame.js`). `<iframe sandbox="allow-scripts
+  allow-forms allow-modals">`, with no `allow-same-origin`: the frame has an opaque origin, so it can't read the phone
+  page's key or storage, another app's frame, or cookies. Its starting page (`/phone/frame.html` from the tablet,
+  `/h/frame.html` from the cloud) is served with `connect-src 'none'` and may be framed only by the phone page, whose
+  own `frame-src` is only itself, so an app can't send itself anywhere either.
+- **Its files** come in one sealed request, `GET /screens/app-files?app=` (`screens.js` `appFiles`: the app's folder,
+  never `app.json` or a dot name, and the kit files it names), and are kept on the phone in IndexedDB by the app's
+  version (a hash of its files' names, sizes and times): the first open takes a moment, later ones are instant, with
+  no signal too. The frame makes each file a `blob:` URL inside itself, points imports and `url()`s at them, and writes
+  the app's page in place of its own. `localStorage` there is kept per app by the phone page. An app that imports an
+  installed library (`three`, `phaser`) isn't on phones yet (the tablet's dev server finds those).
+- **Every kit call** goes by message to the phone page (`/kit/openhouse.js`, `screen.kind === 'phone'`), which marks
+  it with the app of the frame it came from (`event.source`, never what the frame says) and seals it like any of its
+  requests (`{a: app}`). The tablet answers it as that app's own call on the tablet (`server.js` `appCall`): its rights
+  (`apps.js` `appAllowed`, `/house` cut to its groups by `houseFor`), its own saved things, its `reaches` for the web.
+  A phone adds its own limits: a change needs the phone's `arrange` scope, and a phone never makes the tablet speak or
+  run a timer for an app. A frame that tries to go somewhere else is replaced with a fresh one.
+- **At home and away the same.** On the Wi-Fi the sealed requests go to the tablet's listener; away, through the
+  relay. With no signal an app sees what it last saw of the house (as cut for it), and a tick or an add waits and goes
+  when the phone is back, still marked with its app.
+- **Where an app runs** is its `app.json` `"screens"`: none means the tablet and the phones; a list means only those
+  (`"tablet"`, `"phone"`, `"tv"`). An app that can't do a phone says `"screens": ["tablet"]` and is left off phones.
+- **Narrow screens.** `/kit/quiet.css` makes `--u` a phone's size under 700 px wide, so every app that uses it scales;
+  `/kit/narrow.css` lays our starting apps out in one column there (a list or a person a screen wide, the next a swipe
+  away; Meals' days one under another; Calendar starts on its list). The example plugins' `base.css` does the same.
+
+Tests: `bridge/test/screens.test.mjs` ("a phone runs the household's apps"): only apps on phones, their files, each
+call only what that app may do, one app never reading another's saved things.
+
+Not yet: apps that use installed libraries; the kit's fonts from the cloud's copy (the faces fall back to the
+phone's own); photos into Photos from inside an app (`addPhoto` with a file); `say` on the phone itself.
+
 ## The first slice (built 2026-11-20)
 
 ![Today on Sam's phone](phone-home.jpg) ![Ask Opie](phone-ask.jpg) ![Talk, where voice works](phone-talk.jpg)

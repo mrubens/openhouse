@@ -1,6 +1,6 @@
 {
   "name": "trash-day",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "When the trash, recycling and yard waste go out, by your own pickup schedule or your city's pickup calendar: on the calendar, on Today the evening before, and from the voice.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",

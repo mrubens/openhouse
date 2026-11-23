@@ -1,6 +1,6 @@
 {
   "name": "trivia-night",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A family quiz with Opie as the host: the questions and four choices big on the screen, everyone calls out a letter, and Opie keeps score.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",
