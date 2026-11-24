@@ -17,6 +17,23 @@ nothing listens, and Settings shows Live voice: Off (Hey Opie only shows while i
 (1.0, 1.6 and 2.2 s in, then at the end) and looked for the ways it writes "Opie". It was slow, it ran Parakeet on
 all the talk in the room, and it missed half the time.
 
+## Round 7 (2026-11-24): no better than round 6, not shipped
+
+35,690 more "Hey Opie" clips said every way (`HEY` in `synth.py`), half child-like (said slower, then played faster:
+higher pitch and resonances at the same pace), 1,279 from 120 cloned voices, and "hey" with other names as near-misses
+(`HEY_NEAR`); y2's own mistakes on the bank (only 158 windows at 0.5 or more in 1,600 hours). Stages `r3 --stage hey7`,
+`features7`, then `train` with `hey=1`. At 0.98, "Hey Opie" out of 10 (the test set's child-like voices apart):
+
+| | adult up close | adult noisy | child up close | child noisy | false wakes in 12 h |
+|---|---|---|---|---|---|
+| **round 6 (y2, set 9)** | **9.7** | **8.4** | **8.8** | **8.3** | **1** |
+| z3 (60k steps, 256) | 9.7 | 8.9 | 8.8 | 8.5 | 3 |
+| z1 (45k steps, 256) | 8.9 | 8.2 | 8.3 | 8.3 | 1 |
+| z2 (45k steps, 192) | 9.1 | 7.5 | 8.5 | 8.1 | 2 |
+
+The child-like clips didn't lift the child-like test voices, and "hey" plus other names made it stricter on the name
+itself. The next step is the household's own "Hey Opie" wakes (kept on the tablet, opt-in), not more synthetic voices.
+
 ## Results (2026-11-24, round 6: "Hey Opie" only)
 
 Round 6 is on the tablet from voice set 9 (`models/wake/opie.onnx`, y2, 4.3 MB, width 256), at 0.98 with set 6's gain
