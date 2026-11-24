@@ -734,13 +734,15 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
   const eve = d.getHours() >= 18;
   // Notes apps put under a day on the calendar ("Lunch: Popcorn Chicken"): today's, or tomorrow's from the evening, as the weather.
   const noteDay = (() => { const x = new Date(d); if (eve) x.setDate(x.getDate() + 1); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; })();
-  const dayNotes = (house?.dayNotes?.[noteDay] || []).filter((n) => n && (n.short || n.text)).slice(0, 3);
   const w = weather && !weather.error && Number.isFinite(weather.temp) ? weather : null, wd = w?.days?.[eve ? 1 : 0];
   const lc = (x) => String(x || '').toLowerCase();
   const sky = w && [`${w.temp}° ${lc(w.condition)}`.trim(),
     wd && (eve ? `tomorrow ${lc(wd.condition)}, ${wd.high}°/${wd.low}°` : Number.isFinite(wd.high) && `high ${wd.high}°`),
     wd?.rain >= 30 && `rain ${wd.rain}%`].filter(Boolean).join(' · ');
   const counting = (house?.things || []).filter((x) => !x.sleepOff && !(x.start && coming.some((e) => x.title === e.title && Date.parse(x.start) === Date.parse(e.start)))); // (not an event shown already)
+  // An app with its own line here says it there ("Bins out tonight"), so not its day note as well ("Trash: Bins").
+  const saying = new Set(counting.filter((x) => x.kind === 'app').map((x) => x.app));
+  const dayNotes = (house?.dayNotes?.[noteDay] || []).filter((n) => n && (n.short || n.text) && !saying.has(n.app)).slice(0, 3);
   // What's next on its own card (its day above it when that's tomorrow), then a line each: the events after it, the
   // day's notes from the apps, what they're counting down to, timers. A line is its time or label, a round mark, the words.
   const rest = coming.slice(1), initial = (e) => (isPerson(e.who) ? e.who.trim()[0].toUpperCase() : '');
