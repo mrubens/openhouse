@@ -53,6 +53,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   let st = (() => { try { return { ...blank, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch { return structuredClone(blank); } })();
   let accounts = []; // from the shell: [{ id, provider: 'google'|'caldav', name, who, server? }] (no secrets)
   let changed = () => {}, timer = null, pulling = null, flushing = null;
+  let trail = []; // the methods and answers of the change being sent (no contents), for status()
   let read = null; // the last list's counts (no contents), kept per calendar in st.reads for Settings and debugging
   function save() {
     const tmp = FILE + '.tmp';
@@ -65,6 +66,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   async function req(account, method, url, { body, headers = {} } = {}) {
     for (let hop = 0; hop < 4; hop++) {
       const r = await shell('/calendar/request', { account, method, url, headers, body: body == null ? null : typeof body === 'string' ? body : JSON.stringify(body) });
+      trail.push(`${method} ${r?.status || 'x'}`);
       if (r?.error && !r.status) throw Object.assign(new Error(str(r.error)), { offline: true });
       if (r.status >= 300 && r.status < 400 && r.headers?.location) { url = new URL(r.headers.location, url).toString(); continue; }
       return { status: r.status, etag: r.headers?.etag || null, text: r.body || '', json: () => { try { return JSON.parse(r.body || '{}'); } catch { return {}; } } };
@@ -246,7 +248,14 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     async add(a, c, id, f) {
       const url = new URL(`${id}.ics`, c.remote.endsWith('/') ? c.remote : c.remote + '/').toString();
       const r = await req(a.id, 'PUT', url, { body: vcal(veventLines(f, `${id}@openhouse`)), headers: { 'content-type': 'text/calendar; charset=utf-8', 'if-none-match': '*' } });
-      if (r.status === 412) return { ok: true, already: true }; // already there: the first try went in
+      if (r.status === 412) { // already there (the first try went in)? iCloud also says 412 when it isn't, so look
+        const g = await req(a.id, 'GET', url);
+        if (g.status === 200) return { ok: true, already: true, etag: g.etag };
+        if (g.status !== 404) throw httpError(g);
+        const again = await req(a.id, 'PUT', url, { body: vcal(veventLines(f, `${id}@openhouse`)), headers: { 'content-type': 'text/calendar; charset=utf-8' } });
+        if (again.status >= 300) throw httpError(again);
+        return { ok: true, etag: again.etag };
+      }
       if (r.status >= 300) throw httpError(r);
       return { ok: true, etag: r.etag };
     },
@@ -449,18 +458,21 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           if (!a) { if (!c) { st.outbox = st.outbox.filter((x) => x !== o); did = true; } continue; } // its account isn't here now: wait
           const item = o.op === 'add' ? null : (o.date && Object.values(st.cache[o.calendar] || {}).find((i) => i.remote === o.remote && i.ev.date === o.date)) || Object.values(st.cache[o.calendar] || {}).find((i) => i.remote === o.remote && (!o.from || i.ev.start === o.from)) || Object.values(st.cache[o.calendar] || {}).find((i) => i.remote === o.remote);
           let r;
+          trail = [];
           try {
             r = o.op === 'add' ? await prov(a).add(a, c, o.remote, o.fields)
               : !item ? { gone: true }
               : o.op === 'update' ? await prov(a).update(a, c, item, { ...item.ev, ...o.fields })
               : await prov(a).remove(a, c, item, o.date);
           } catch (e) {
+            st.sent = [{ op: o.op, at: now(), trail: [...trail], error: str(e.message, 60) }, ...(st.sent || [])].slice(0, 8);
             o.tries++; o.next = now() + Math.min(30 * MIN, 15e3 * 2 ** Math.min(o.tries, 7)); did = true;
             if (e.signin) st.errors[a.id] = 'signin';
             if (!e.offline && !e.signin && o.tries >= 6) { st.outbox = st.outbox.filter((x) => x !== o); log(`[calendar-sync] gave up on a change (${str(e.message, 60)})`); }
             continue;
           }
           st.outbox = st.outbox.filter((x) => x !== o); did = true;
+          st.sent = [{ op: o.op, at: now(), trail: [...trail], ...(r.already ? { already: true } : {}) }, ...(st.sent || [])].slice(0, 8);
           if (r.conflict || r.gone) { // changed (or deleted) elsewhere first: theirs stays
             st.notes[`c-${o.calendar}-${o.remote}`] = { text: r.gone ? 'Removed on its calendar before this change went in.' : `Changed on ${calName(c)} first, so that change is kept.`, until: now() + 3 * DAY };
           }
@@ -475,7 +487,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   }
 
   function status() {
-    return { at: st.at, waiting: st.outbox.length, accounts: accounts.map((a) => ({ ...a, error: st.errors[a.id] || null })) };
+    return { at: st.at, waiting: st.outbox.length, sent: st.sent || [], accounts: accounts.map((a) => ({ ...a, error: st.errors[a.id] || null })) };
   }
   function start(onChange) {
     changed = onChange || changed;
