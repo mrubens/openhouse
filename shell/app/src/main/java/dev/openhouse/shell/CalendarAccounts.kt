@@ -232,7 +232,7 @@ object CalendarAccounts {
             onEnd = { if (got == null) main.post { dialog?.dismiss() } })
         if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
         val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
-        val col = Calm.qr(a, qr, Calm.caption(a, "Scan with a phone on this Wi-Fi and sign in to Google there. The calendars are chosen here after."), 360) { Handoff.share(a, h.url!!) }
+        val col = Calm.qr(a, qr, Calm.caption(a, "Scan with a phone on this Wi-Fi to sign in to Google. Then choose the calendars here."), 360) { Handoff.share(a, h.url!!) }
         dialog = CalmDialog(a).setTitle("Google Calendar").setWidth(560f).setView(col).setNegativeButton("Cancel", null)
             .setOnDismissListener {
                 val t = got
