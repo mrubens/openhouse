@@ -508,6 +508,9 @@ export const phone = {
   /** A photo of a recipe (a card, a cookbook page) for a meal: the assistant types it into the recipe box (watch
    *  data.mealWork["recipe|meal"], as for house.writeRecipe). */
   recipe: (meal) => toPhone('recipe', String(meal)),
+  /** A web page (https) shown over the screen, on its own site only, with Done (a recipe's page, from its credit): the
+   *  display never leaves for another site otherwise. False when not on the display. */
+  link: (url) => toPhone('link', String(url)),
   /** The calendar is locked (data.calendarLock): the display asks for the PIN, and then the calendar can be
    *  changed for a couple of minutes (data.unlockedUntil). False when not on the display. */
   unlock: () => toPhone('pin', ''),

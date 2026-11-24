@@ -19,6 +19,7 @@
 :root .c-photo > .q-letter { font-size: calc(110 * var(--u)); }
 .c-left h1 { flex: none; margin: calc(22 * var(--u)) 0 0; font-size: calc(38 * var(--u)); font-weight: 650; letter-spacing: -.025em; line-height: 1.08;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.c-from span:has(+ *), .c-from span { cursor: pointer; }
 .c-from { flex: none; margin-top: calc(4 * var(--u)); font-size: calc(16 * var(--u)); font-weight: 500; color: var(--fg3); }
 .c-meta { flex: none; margin-top: calc(8 * var(--u)); font-size: calc(18 * var(--u)); font-weight: 500; color: var(--fg2); }
 .c-ing { flex: 1; min-height: 0; margin: calc(6 * var(--u)) 0 0; padding: 0 0 calc(40 * var(--u)); list-style: none; overflow-y: auto; scrollbar-width: none;
@@ -121,3 +122,10 @@ html:root .r-card > .r-on { left: calc(22 * var(--u)); top: calc(20 * var(--u));
 html:root .r-card > .r-cook { top: auto; bottom: calc(22 * var(--u)); right: calc(22 * var(--u)); height: calc(56 * var(--u)); padding: 0 calc(30 * var(--u)); border-radius: calc(28 * var(--u)); background: #fff; color: #15110e; font-size: calc(20 * var(--u)); font-weight: 650; box-shadow: none; }
 html:root .r-card.tonight > .t { right: calc(160 * var(--u)); }
 html:root #app:has(.r-cook) .btn.add { background: var(--tint); color: var(--ink); box-shadow: none; }
+
+/* a recipe being added, or its steps being made: a soft ring turning */
+html:root .r-card.r-skel { background: var(--tint); color: var(--ink); }
+html:root .r-card.r-skel .m { color: var(--fg2); }
+.r-spin { position: absolute; z-index: 2; left: 50%; top: 42%; width: calc(54 * var(--u)); height: calc(54 * var(--u)); margin: calc(-27 * var(--u)) 0 0 calc(-27 * var(--u)); border-radius: 50%;
+  border: calc(5 * var(--u)) solid color-mix(in srgb, currentColor 22%, transparent); border-top-color: currentColor; animation: r-spin 1s linear infinite; }
+@keyframes r-spin { to { transform: rotate(360deg); } }

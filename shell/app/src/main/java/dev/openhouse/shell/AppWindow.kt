@@ -138,6 +138,7 @@ class AppWindow private constructor(private val act: Activity, private val shell
                             "photos" -> dev.openhouse.ui.PhonePhotos(onClose = close)
                             "flyer" -> dev.openhouse.ui.PhoneFlyer(onClose = close)
                             "recipe" -> dev.openhouse.ui.PhoneRecipe(arg, onClose = close)
+                            "link" -> dev.openhouse.ui.WebPage(arg, onClose = close)
                             "list" -> dev.openhouse.ui.House.list(arg)?.let { dev.openhouse.ui.PhoneList(it, onClose = close) } // shown once the house has loaded
                             else -> close()
                         }

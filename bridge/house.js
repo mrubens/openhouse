@@ -618,7 +618,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     const text = str(meal, 80).trim(), k = text.toLowerCase(), key = `cook|${k}`, r = data.recipes[k];
     if (!r) return { error: `There's no recipe for ${text || 'that'} yet.` };
     // (steps made before they had titles, parts and their full detail are made again, once: COOK_V)
-    if (!force && r.cook && r.cook.for === cookSource(r) && r.cook.v === COOK_V) { if (r.link && !r.picsAt) pictures(k); if (!r.cook.minutes && !r.timeAt) howLong(k); if (!r.link && !r.photoFrom) photoFor(k); return { ok: true, ready: true }; }
+    if (!force && r.cook && r.cook.for === cookSource(r) && r.cook.v === COOK_V) { if (r.link && !r.picsAt) pictures(k); if (!r.cook.minutes && !r.timeAt) howLong(k); if (!r.photoFrom && (r.link ? r.picsAt && !r.image : !r.image || r.by === 'assistant')) photoFor(k); else if (r.link && r.image && !r.photoFrom && !r.checkedAt) checkPhoto(k); return { ok: true, ready: true }; }
     { const no = noAssistant('Getting a recipe ready to cook'); if (no) return { error: no }; }
     if (mealWork[key]?.state === 'working') return { ok: true };
     mealWork[key] = { state: 'working' }; changed();
@@ -646,6 +646,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
         if (!now.notes || ownNotes) now.notes = cookAsNotes(cook).slice(0, 4000); // a link only: the Meals app shows it too
         if (video && !now.video) now.video = video;
         if (page?.image) now.image = page.image;
+        else if (!now.image) setTimeout(() => photoFor(k), 0); // (a page without a photo of the dish)
         if (r.link) now.picsAt = Date.now();
         now.cook = { ...cook, v: COOK_V, for: cookSource(now), at: Date.now() };
         save();
@@ -656,10 +657,20 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     })();
     return { ok: true };
   }
-  /** A recipe with no page of its own (typed, pasted, or written by the assistant): a photo of the dish from a recipe for
-   *  it on the web (the household's text model searches, as findRecipes does; the first page with a picture), once. */
+  /** A recipe saved before stand-in pictures were caught (a site's logo for a recipe with no photo): its page read again;
+   *  when its picture is the stand-in, it goes, and one of the dish is found (photoFor). */
+  function checkPhoto(k) {
+    const r = data.recipes[k]; if (!r?.link || r.checkedAt) return;
+    r.checkedAt = Date.now(); save();
+    readRecipeLink(r.link).then((page) => {
+      const now = data.recipes[k]; if (!now || page.image) return;
+      delete now.image; save(); changed(); photoFor(k);
+    }, () => {});
+  }
+  /** A recipe with no photo of its own (typed, pasted, written by the assistant, or a page without one): a photo of the
+   *  dish from a recipe for it on the web (the household's text model searches, as findRecipes does; the first page with a picture), once. */
   function photoFor(k) {
-    const r = data.recipes[k]; if (!r || r.link || r.photoFrom || (r.image ? !r.photoAt : r.photoAt) || noAssistant('')) return; // (once; a photo of their own stays; one found before credits were kept is found again)
+    const r = data.recipes[k]; if (!r || r.photoFrom || (r.image ? !(r.photoAt || r.by === 'assistant') : r.photoAt) || noAssistant('')) return; // (once; a photo of its own stays; one found before credits were kept is found again)
     r.photoAt = Date.now(); save();
     (async () => {
       const name = r.cook?.name || r.text;

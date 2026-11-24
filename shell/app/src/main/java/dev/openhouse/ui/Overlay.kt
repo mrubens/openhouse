@@ -137,6 +137,7 @@ fun ShellOverlay() {
                     "photos" -> PhonePhotos(onClose = close)
                     "flyer" -> PhoneFlyer(onClose = close)
                     "recipe" -> PhoneRecipe(arg, onClose = close)
+                    "link" -> WebPage(arg, onClose = close)
                     "list" -> House.list(arg)?.let { PhoneList(it, onClose = close) }
                 }
             }

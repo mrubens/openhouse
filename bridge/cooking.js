@@ -90,6 +90,18 @@ export function linksFromHtml(html, base, n = 60, recipe = '') {
   return out;
 }
 
+/** A page's picture, unless it's the site's own stand-in (a logo, a banner: the same picture its home page shows), as some
+ *  sites give for a recipe with no photo of its own. */
+const fileOf = (u) => { try { return new URL(u).pathname.match(/[^/]+?\.(?:jpe?g|png|webp|avif|gif)/i)?.[0]?.toLowerCase() || u; } catch { return u; } };
+async function notPlaceholder(image, url, fetch) {
+  if (!image) return null;
+  try {
+    const r = await fetch(url.origin + '/', { signal: AbortSignal.timeout(5000), headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 14) OpenHouse', accept: 'text/html,*/*' } });
+    const home = ogImage((await r.text()).slice(0, 1e6));
+    return home && fileOf(home) === fileOf(image) ? null : image;
+  } catch { return image; }
+}
+
 /** Read a shared link: {name, text, video} (the Recipe when the page has one), or throws with words. */
 export async function readRecipeLink(link, { fetch = globalThis.fetch, timeoutMs = 12000 } = {}) {
   const url = new URL(link);
@@ -103,7 +115,7 @@ export async function readRecipeLink(link, { fetch = globalThis.fetch, timeoutMs
   } catch (e) { throw new Error(e.name === 'AbortError' ? 'That page took too long to open.' : e.message.startsWith('That page') ? e.message : 'That page didn’t open.'); }
   finally { clearTimeout(t); }
   const rec = recipeFromHtml(html), links = linksFromHtml(html, url.href, 60, rec?.text || '');
-  if (rec) return { ...rec, image: rec.image || ogImage(html), recipe: true, links };
+  if (rec) return { ...rec, image: await notPlaceholder(rec.image || ogImage(html), url, fetch), recipe: true, links };
   const { title, text } = textFromHtml(html);
   return { name: title.replace(/\s*[|–—-]\s*[^|–—-]{2,40}$/, '').slice(0, 80), text, video: youtube(link) || youtube(html), image: ogImage(html), stepPics: [], minutes: null, recipe: false, links };
 }

@@ -81,7 +81,7 @@ class DoorView(private val act: ComponentActivity, private val ui: () -> String,
             org.json.JSONObject().put("id", it.id).put("name", it.name).put("icon", androidIcon(it.id.removePrefix("android:")))
         }).toString()
         /** A phone card over the home, for an app in one of its tabs: "photos", "flyer", or "list" (arg: its name). */
-        @JavascriptInterface fun phone(g: String?, kind: String, arg: String) { if (ok(g) && kind in setOf("photos", "flyer", "list", "recipe", "pin", "calendar", "album", "share", "google", "unlink")) main.post { when (kind) { "unlink" -> (act as? MainActivity)?.stopAlbum(arg); "share" -> (act as? MainActivity)?.sharePhotos(); "google" -> (act as? MainActivity)?.googlePhotos(); "pin" -> o.unlockCalendar(); "calendar" -> (act as? MainActivity)?.addCalendar(); "album" -> (act as? MainActivity)?.addAlbum(); else -> o.phoneCard = kind to arg.take(80) } } }
+        @JavascriptInterface fun phone(g: String?, kind: String, arg: String) { if (ok(g) && kind in setOf("photos", "flyer", "list", "recipe", "pin", "calendar", "album", "share", "google", "unlink", "link")) main.post { when (kind) { "unlink" -> (act as? MainActivity)?.stopAlbum(arg); "share" -> (act as? MainActivity)?.sharePhotos(); "google" -> (act as? MainActivity)?.googlePhotos(); "pin" -> o.unlockCalendar(); "calendar" -> (act as? MainActivity)?.addCalendar(); "album" -> (act as? MainActivity)?.addAlbum(); else -> o.phoneCard = kind to arg.take(if (kind == "link") 600 else 80) } } }
         @JavascriptInterface fun video(g: String?, url: String) { if (ok(g)) main.post { (act as? MainActivity)?.playVideo(url) } }
     }
     /** An Android app's own icon as a PNG data URL, for the door's page (drawn once per app). */

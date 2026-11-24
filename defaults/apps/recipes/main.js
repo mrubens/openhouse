@@ -267,7 +267,7 @@ function cookView() {
     h('div', { class: 'c-photo' }, dishPic(r, name)),
     h('h1', null, name),
     h('div', { class: 'c-meta' }, [c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')),
-    credit(r) ? h('div', { class: 'c-from' }, credit(r)) : null,
+    credits(r).length ? h('div', { class: 'c-from' }, credits(r).map(([t, url], i) => [i ? ' · ' : '', h('span', { tap: () => openLink(url) }, t)])) : null,
     ing);
 
   // now: the step they're on, the only panel; its words at one of two sizes, what it uses, Next step (and its timer)
@@ -362,9 +362,12 @@ function boxView() {
       h('div', { class: 'name' }, w?.state === 'error' ? w.text : `${recipeOf(waiting.key)?.text || ''}: making the steps…`)),
       w?.state === 'error' ? btn('Try again', () => { house.prepareCook(recipeOf(waiting.key).text, true); }, { soft: true }) : null,
       btn('Cancel', () => { waiting = null; watch(); draw(); }, { soft: true })) : null,
-    link ? h('p', { class: 'note' }, link.state === 'working' ? (link.link ? 'Reading the recipe from that link…' : 'Adding the recipe…') : link.state === 'error' ? link.text : `Added ${link.meal}.`) : null,
+    link?.state === 'error' ? h('p', { class: 'note' }, link.text) : null,
     q ? h('h3', { class: 'section' }, all.length ? 'In the recipe box' : `Nothing in the recipe box for ${q}`) : null,
-    all.length ? h('div', { class: 'r-grid vscroll' }, all.map(([key, r]) => recipeTile(key, r, when.get(key), !waiting && tonight?.key === key)))
+    // one being added: a tile of its own, first, turning while it's found and read
+    all.length || (link?.state === 'working' && !q) ? h('div', { class: 'r-grid vscroll' },
+      link?.state === 'working' && !q ? h('div', { class: 'r-card r-skel' }, h('div', { class: 'r-spin' }), h('div', { class: 't' }, h('h2', null, 'Adding a recipe'), h('div', { class: 'm' }, link.link ? siteOf(link.link) : 'Finding it'))) : null,
+      all.map(([key, r]) => recipeTile(key, r, when.get(key), !waiting && tonight?.key === key)))
       : q ? (f?.query === q ? null : btn(`Search the web for ${q}`, () => webFind(q), { soft: true, cls: 'webq' }))
       : h('p', { class: 'r-none' }, 'No recipes yet. Find one, or add one by its link, a photo of the page, or by typing it. Each one is made into steps you can cook from, hands-free.'),
     hits?.some((x) => !x.key) ? h('p', { class: 'note' }, `Favorite meals: ${hits.filter((x) => !x.key).map((x) => x.name).join(', ')} (no recipe yet).`) : null);
@@ -374,6 +377,7 @@ function recipeTile(key, r, when, now) {
   const name = r.cook?.name || r.text;
   return h('div', { class: 'r-card' + (when ? ' on' : '') + (now ? ' tonight' : ''), role: 'button', tabindex: '0', tap: () => openRecipe(key), hold: () => takeOut(key) },
     dishPic(r, name),
+    workOf(key)?.state === 'working' ? h('div', { class: 'r-spin' }) : null,
     when ? h('span', { class: 'r-on' }, when.days === 0 ? 'Tonight' : when.text.split('’')[0]) : null,
     now ? h('span', { class: 'r-cook', role: 'button', tabindex: '0', tap: () => cook(r.text) }, 'Cook') : null,
     h('div', { class: 't' }, h('h2', null, name), h('div', { class: 'm' }, facts(key, r).join(' · '))));
@@ -410,11 +414,16 @@ function ingGroups(c) {
   const ownPart = c.steps.map((s) => s.part).filter((p) => p && !parts.includes(p)).pop() || c.name || '';
   return [...parts.map((p) => [p, c.ingredients.filter((x) => x.part === p)]), ...(own.length ? [[ownPart, own]] : [])];
 }
-/** Where a recipe and its photo are from: "From bonappetit.com", "Written by Opie · photo from kingarthurbaking.com". */
-function credit(r) {
-  const t = [r?.link ? `From ${siteOf(r.link)}` : r?.by === 'assistant' ? 'Written by Opie' : '', !r?.link && r?.photoFrom && r.image ? `photo from ${siteOf(r.photoFrom)}` : ''].filter(Boolean).join(' · ');
-  return t && t[0].toUpperCase() + t.slice(1);
+/** Where a recipe and its photo are from, each with its page: "From bonappetit.com", "Written by Opie · photo from
+ *  kingarthurbaking.com". A tap opens the page (on the display: on a phone, by its QR code). */
+function credits(r) {
+  const out = [];
+  if (r?.link) out.push([`From ${siteOf(r.link)}`, r.link]);
+  else if (r?.by === 'assistant') out.push(['Written by Opie', null]);
+  if (r?.photoFrom && r.image) out.push([`${out.length ? 'photo' : 'Photo'} from ${siteOf(r.photoFrom)}`, r.photoFrom]);
+  return out;
 }
+function openLink(url) { if (url && !phone.link(url)) window.open(url, '_blank', 'noopener'); }
 /** Where a recipe is from, for its credit: "bonappetit.com". */
 const siteOf = (link) => { try { return new URL(link).hostname.replace(/^www\./, ''); } catch { return ''; } };
 /** How long a recipe takes: "45 min", "1 hr 15 min". */
