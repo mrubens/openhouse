@@ -588,3 +588,6 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .t-photo:not(.t-photos) > .t-tile { position: absolute; inset: 0; }
 .t-tile .t-vid { position: absolute; right: 10px; bottom: 10px; width: 28px; height: 28px; border-radius: 50%; background: rgba(10, 12, 24, .42); color: #fff; display: grid; place-items: center; pointer-events: none; }
 .t-tile .t-vid svg { width: 12px; height: 12px; margin-left: 2px; }
+/* Today's weather card is a still picture of the sky: its sun breathing and clouds drifting redrew the whole screen
+   about 90 times a second, all day, and that was most of the tablet's battery. The Weather tab keeps them. */
+.h-today .wx .sky *, .h-today .wx .sky { animation: none !important; }
