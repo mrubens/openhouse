@@ -47,7 +47,22 @@ internal object DeviceOwner {
             showHiddenHomes(a)
             homeWallpaper(a)
         }.onFailure { Log.w(TAG, "kiosk setup failed: $it") }
+        nightOsUpdates(a)
     }
+
+    /**
+     * Android's own updates install (and restart the tablet) only at night, 3:00 to 5:00, instead of whenever the
+     * tablet's maker pushes one. Our own updates go in from 2:00 when the tablet is quiet (Updater); a restart in the
+     * middle of one is covered by UpdateGuard. Makers may hold an update back up to 30 days in this window, then
+     * install it anyway, so security fixes still land.
+     */
+    private fun nightOsUpdates(a: Activity) = runCatching {
+        val dpm = dpm(a)
+        val cur = dpm.systemUpdatePolicy
+        if (cur?.policyType == android.app.admin.SystemUpdatePolicy.TYPE_INSTALL_WINDOWED && cur.installWindowStart == 180 && cur.installWindowEnd == 300) return@runCatching
+        dpm.setSystemUpdatePolicy(admin(a), android.app.admin.SystemUpdatePolicy.createWindowedInstallPolicy(180, 300))
+        Log.i(TAG, "Android's updates: 3:00-5:00")
+    }.onFailure { Log.w(TAG, "system update policy: $it") }
 
     /** Lock task mode on, unless someone left kiosk mode for now. */
     fun enterKiosk(a: Activity, paused: Boolean) {

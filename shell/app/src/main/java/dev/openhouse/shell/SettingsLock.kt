@@ -42,6 +42,12 @@ internal class SettingsLock(private val act: MainActivity) {
         }
     }
 
+    private fun erase() {
+        CalmDialog(act).setTitle("Erase this tablet?")
+            .setMessage("Everything on it goes: the family, calendars, lists, photos and apps. It's unlinked from the account, whose backups stay there. This can't be undone.")
+            .setPositiveButton("Erase") { _, _ -> eraseNow(act) }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
+    }
+
     // --- the lock ------------------------------------------------------------------------------------------------
 
     private fun turnOn() = PinPrompt.choose(act, act, then = { changed(); tablet() })
@@ -233,9 +239,24 @@ internal class SettingsLock(private val act: MainActivity) {
                 CalmDialog(act).setTitle("Leave kiosk mode?").setMessage("Open OpenHouse from its icon to come back.")
                     .setPositiveButton("Leave") { _, _ -> act.leaveKioskForGood() }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
             },
+            // Kiosk mode blocks Android's own factory reset, so this is the way to hand a tablet on (docs/beta.md).
+            CalmDialog.Row("Erase this tablet") to person("Erase this tablet") { erase() },
         )
         CalmDialog(act).setTitle("Advanced").setWidth(760f).setRows(items.map { it.first }) { _, i -> items[i].second() }
             .setNegativeButton("Back", null).show()
+    }
+}
+
+/** Unlink from the account, then a factory reset: everything on the tablet goes, and it starts again at Android's
+ *  welcome screen, ready for the setup code. Backups stay in the account (deleting the account deletes them). */
+private fun SettingsLock.eraseNow(act: MainActivity) {
+    thread {
+        runCatching { CloudSetup.post("${act.bridge}/cloud/unlink", JSONObject()) } // not linked, or offline: erase anyway
+        act.runOnUiThread {
+            val dpm = act.getSystemService(android.app.admin.DevicePolicyManager::class.java)
+            runCatching { if (android.os.Build.VERSION.SDK_INT >= 34) dpm.wipeDevice(0) else @Suppress("DEPRECATION") dpm.wipeData(0) }
+                .onFailure { CalmDialog(act).setTitle("Couldn't erase it").setMessage(it.message ?: "Android said no.").setPositiveButton("OK", null).show() }
+        }
     }
 }
 

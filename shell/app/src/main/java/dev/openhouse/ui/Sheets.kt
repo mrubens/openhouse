@@ -161,7 +161,14 @@ internal fun WelcomeSheet() {
                 Spacer(Modifier.height(16.u))
                 Text("Say “Hey Opie” or just type, and Opie answers. What you say after “Hey Opie” goes to OpenAI.", style = calmText(Calm.LEAD, color = Calm.soft))
                 Spacer(Modifier.height(40.u))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
+                // A tablet set up somewhere else (a beta tablet we set up and sent) arrives knowing a Wi-Fi that isn't
+                // here: joining this one comes first, then the same choice. Android's Wi-Fi settings; Home comes back.
+                if (o.net == Net.NoNetwork) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
+                    Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { o.joinWifi() }.padding(horizontal = 36.u, vertical = 20.u)) {
+                        Text("Join Wi-Fi", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
+                    }
+                    Text("First, connect to your Wi-Fi.", style = calmText(21, color = Calm.soft))
+                } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
                     Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { o.welcomeAssistant() }.padding(horizontal = 36.u, vertical = 20.u)) {
                         Text("Turn on Opie", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
                     }
