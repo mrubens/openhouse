@@ -19,6 +19,7 @@
 :root .c-photo > .q-letter { font-size: calc(110 * var(--u)); }
 .c-left h1 { flex: none; margin: calc(22 * var(--u)) 0 0; font-size: calc(38 * var(--u)); font-weight: 650; letter-spacing: -.025em; line-height: 1.08;
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.c-from { flex: none; margin-top: calc(4 * var(--u)); font-size: calc(16 * var(--u)); font-weight: 500; color: var(--fg3); }
 .c-meta { flex: none; margin-top: calc(8 * var(--u)); font-size: calc(18 * var(--u)); font-weight: 500; color: var(--fg2); }
 .c-ing { flex: 1; min-height: 0; margin: calc(6 * var(--u)) 0 0; padding: 0 0 calc(40 * var(--u)); list-style: none; overflow-y: auto; scrollbar-width: none;
   -webkit-mask-image: linear-gradient(180deg, #000 calc(100% - 40 * var(--u)), transparent); mask-image: linear-gradient(180deg, #000 calc(100% - 40 * var(--u)), transparent); }

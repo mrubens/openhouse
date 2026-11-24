@@ -15,26 +15,28 @@ import { findRecipe, mealsNow, move, sayAt, howMuch, needs, noteAt, timerWords, 
 const $app = document.getElementById('app');
 const $over = document.body.appendChild(document.createElement('div'));
 
-/** An element: h('div', { class, tap, ...attributes }, ...children). */
+/** An element: h('div', { class, tap, hold, ...attributes }, ...children) (hold: a long press). */
 function h(tag, props, ...kids) {
   const el = document.createElement(tag);
   for (const [k, v] of Object.entries(props || {})) {
-    if (v == null || v === false || k === 'tap') continue;
+    if (v == null || v === false || k === 'tap' || k === 'hold') continue;
     if (k === 'class') el.className = v;
     else if (k === 'html') el.innerHTML = v;
     else el.setAttribute(k, v === true ? '' : v);
   }
-  if (props?.tap) press(el, props.tap);
+  if (props?.tap) press(el, props.tap, props.hold);
   for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
   return el;
 }
 /** A tap: finger up without moving far (a wet wrist slides a little, so it's forgiving). */
-function press(el, tap) {
-  let x = 0, y = 0, down = false;
-  el.addEventListener('pointerdown', (e) => { e.stopPropagation(); down = true; x = e.clientX; y = e.clientY; });
-  el.addEventListener('pointermove', (e) => { if (down && Math.hypot(e.clientX - x, e.clientY - y) > 40) down = false; });
-  el.addEventListener('pointercancel', () => { down = false; });
-  el.addEventListener('pointerup', (e) => { const was = down; down = false; if (was) { e.stopPropagation(); tap(e); } });
+function press(el, tap, hold = null) {
+  let x = 0, y = 0, down = false, timer = 0;
+  const off = () => { down = false; clearTimeout(timer); };
+  el.addEventListener('pointerdown', (e) => { e.stopPropagation(); down = true; x = e.clientX; y = e.clientY;
+    if (hold) { clearTimeout(timer); timer = setTimeout(() => { if (down) { down = false; hold(e); } }, 650); } });
+  el.addEventListener('pointermove', (e) => { if (down && Math.hypot(e.clientX - x, e.clientY - y) > 40) off(); });
+  el.addEventListener('pointercancel', off);
+  el.addEventListener('pointerup', (e) => { const was = down; off(); if (was) { e.stopPropagation(); tap(e); } });
   el.addEventListener('contextmenu', (e) => e.preventDefault());
   el.addEventListener('mousedown', (e) => { if (!e.target.closest?.('input, textarea')) e.preventDefault(); });
   el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el && !el.disabled) { e.preventDefault(); tap(e); } });
@@ -265,6 +267,7 @@ function cookView() {
     h('div', { class: 'c-photo' }, dishPic(r, name)),
     h('h1', null, name),
     h('div', { class: 'c-meta' }, [c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')),
+    r?.link ? h('div', { class: 'c-from' }, `From ${siteOf(r.link)}`) : null,
     ing);
 
   // now: the step they're on, the only panel; its words at one of two sizes, what it uses, Next step (and its timer)
@@ -291,9 +294,6 @@ function cookView() {
       h('div', { class: 'tx' }, s.title ? h('b', null, s.title) : null, h('span', { class: s.title ? null : 'two' }, s.text)),
       s.timer ? h('span', { class: 'tm' }, icon('timer', 2), shortTime(s.timer.minutes)) : null));
   });
-  rows.push(h('div', { class: 'c-more' },
-    H.ai ? (workOf(key)?.state === 'working' ? h('button', { class: 'c-glass', disabled: true }, 'Making the steps…') : h('button', { class: 'c-glass', tap: () => { house.prepareCook(r.text, true); draw(); } }, 'Make the steps again')) : null,
-    h('button', { class: 'c-glass', tap: () => takeOut(key) }, 'Take it out')));
   const rest = h('div', { class: 'c-rest' }, vid ? h('div', { class: 'video spot' }) : null, rows);
   const view = h('div', { class: 'cook' },
     left, h('div', { class: 'c-right' }, now, rest));
@@ -372,7 +372,7 @@ function boxView() {
 /** One recipe in the box: its picture, its name, a few facts; when it's planned, and Cook on the one planned for now. */
 function recipeTile(key, r, when, now) {
   const name = r.cook?.name || r.text;
-  return h('div', { class: 'r-card' + (when ? ' on' : '') + (now ? ' tonight' : ''), role: 'button', tabindex: '0', tap: () => openRecipe(key) },
+  return h('div', { class: 'r-card' + (when ? ' on' : '') + (now ? ' tonight' : ''), role: 'button', tabindex: '0', tap: () => openRecipe(key), hold: () => takeOut(key) },
     dishPic(r, name),
     when ? h('span', { class: 'r-on' }, when.days === 0 ? 'Tonight' : when.text.split('’')[0]) : null,
     now ? h('span', { class: 'r-cook', role: 'button', tabindex: '0', tap: () => cook(r.text) }, 'Cook') : null,
@@ -410,6 +410,8 @@ function ingGroups(c) {
   const ownPart = c.steps.map((s) => s.part).filter((p) => p && !parts.includes(p)).pop() || c.name || '';
   return [...parts.map((p) => [p, c.ingredients.filter((x) => x.part === p)]), ...(own.length ? [[ownPart, own]] : [])];
 }
+/** Where a recipe is from, for its credit: "bonappetit.com". */
+const siteOf = (link) => { try { return new URL(link).hostname.replace(/^www\./, ''); } catch { return ''; } };
 /** How long a recipe takes: "45 min", "1 hr 15 min". */
 const howLong = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ''}`);
 /** "Serves 4", or the recipe's own words for what it makes ("Makes 12 muffins"). */

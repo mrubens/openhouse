@@ -740,19 +740,22 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     if (mealWork.link?.state === 'working') return { error: 'Still reading the last link.' };
     mealWork.link = { state: 'working', link: l }; changed();
     (async () => {
-      try {
-        const page = await readRecipeLink(l);
-        const name = str(page.name, 60) || new URL(l).hostname.replace(/^www\./, '');
-        setRecipe({ meal: name, link: l, notes: page.text.length < 4000 && /\bIngredients\b/.test(page.text) ? page.text : '', video: page.video || '', quiet: true });
-        mealWork.link = { state: 'done', meal: name };
-        changed(); prepareCook(name);
-      } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
+      try { await saveLink(l); } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
       setTimeout(() => { if (mealWork.link?.state !== 'working') { delete mealWork.link; changed(); } }, 60e3).unref?.();
     })();
     return { ok: true };
   }
+  /** A recipe's page read and saved under its own name (its link kept, for its credit), and its steps made. */
+  async function saveLink(l, page = null) {
+    page ||= await readRecipeLink(l);
+    const name = str(page.name, 60) || new URL(l).hostname.replace(/^www\./, '');
+    setRecipe({ meal: name, link: l, notes: page.text.length < 4000 && /\bIngredients\b/.test(page.text) ? page.text : '', video: page.video || '', quiet: true });
+    mealWork.link = { state: 'done', meal: name };
+    changed(); prepareCook(name);
+  }
   /** What someone typed in Add a recipe: a link (read as one), a recipe pasted in (kept as written, named by the model), or an
-   *  idea ("something with leftover chicken") the model writes a recipe for. Then its steps are made, as for a link. */
+   *  idea ("something with leftover chicken"): a real recipe for it found on the web and saved as its link (its page, its
+   *  photo, its credit); the model writes one only when none is found. Then its steps are made, as for a link. */
   function addRecipeText(input) {
     const text = String(input || '').trim().slice(0, 20000);
     if (!text) return { error: 'Nothing to add.' };
@@ -764,16 +767,24 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
       try {
         const said = await answer(`Someone typed this to add a recipe to their family's recipe box:\n\n${text}\n\n` +
           'If it is a recipe (its ingredients or steps), reply {"name": "the dish\'s name", "pasted": true}. If it is an idea or a dish\'s name, ' +
-          'write a simple, reliable family recipe for it and reply {"name": "the dish\'s name", "recipe": "Ingredients\n- ...\nSteps\n1. ..."} (plain text, under 2000 characters). Reply with only the JSON.',
+          'reply {"name": "the dish\'s name", "find": "what to search the web for to find one good recipe for it"}. Reply with only the JSON.',
           'You add recipes to a family\'s recipe box. Reply with only JSON. Use no tools.');
         const v = JSON.parse(String(said).match(/\{[\s\S]*\}/)?.[0] || '{}');
-        const name = str(v.name, 60).trim(), notes = v.pasted ? text.slice(0, 4000) : str(v.recipe, 4000).trim();
+        if (!v.pasted) { // an idea: the first recipe page found for it that has a recipe in it
+          for (const f of parseFound(await answer(findPrompt(str(v.find, 200) || str(v.name, 60) || text.slice(0, 200)), FIND_SYSTEM, [], { webSearch: true }))) {
+            const page = await readRecipeLink(f.url, { timeoutMs: 8000 }).catch(() => null);
+            if (page?.recipe) { await saveLink(f.url, page); return; }
+          }
+        }
+        const name = str(v.name, 60).trim();
+        const notes = v.pasted ? text.slice(0, 4000) : (await answer(`Write a simple family recipe for "${name || text.slice(0, 200)}". First a line "Ingredients", then one ingredient per line starting with "- ", then a line "Steps", then numbered steps. Plain text, under 1500 characters.`,
+          'You write short, reliable home recipes for a family. Reply with only the recipe. Use no tools.')).trim();
         if (!name || !notes) throw new Error('Couldn’t make a recipe from that.');
         setRecipe({ meal: name, notes, quiet: true });
         mealWork.link = { state: 'done', meal: name };
         changed(); prepareCook(name); photoFor(name.toLowerCase());
       } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
-      setTimeout(() => { if (mealWork.link?.state !== 'working') { delete mealWork.link; changed(); } }, 60e3).unref?.();
+      finally { setTimeout(() => { if (mealWork.link?.state !== 'working') { delete mealWork.link; changed(); } }, 60e3).unref?.(); }
     })();
     return { ok: true };
   }
