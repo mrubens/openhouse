@@ -732,26 +732,22 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
   // The weather under the date: now, and the rest of today, or tomorrow's from the evening on (by the clock, not the events:
   // a morning with nothing left on the calendar still wants today's).
   const eve = d.getHours() >= 18;
-  // Notes apps put under a day on the calendar ("Lunch: Popcorn Chicken"): today's, or tomorrow's from the evening, as the weather.
-  const noteDay = (() => { const x = new Date(d); if (eve) x.setDate(x.getDate() + 1); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; })();
   const w = weather && !weather.error && Number.isFinite(weather.temp) ? weather : null, wd = w?.days?.[eve ? 1 : 0];
   const lc = (x) => String(x || '').toLowerCase();
   const sky = w && [`${w.temp}° ${lc(w.condition)}`.trim(),
     wd && (eve ? `tomorrow ${lc(wd.condition)}, ${wd.high}°/${wd.low}°` : Number.isFinite(wd.high) && `high ${wd.high}°`),
     wd?.rain >= 30 && `rain ${wd.rain}%`].filter(Boolean).join(' · ');
   const counting = (house?.things || []).filter((x) => !x.sleepOff && !(x.start && coming.some((e) => x.title === e.title && Date.parse(x.start) === Date.parse(e.start)))); // (not an event shown already)
-  // An app with its own line here says it there ("Bins out tonight"), so not its day note as well ("Trash: Bins").
-  const saying = new Set(counting.filter((x) => x.kind === 'app').map((x) => x.app));
-  const dayNotes = (house?.dayNotes?.[noteDay] || []).filter((n) => n && (n.short || n.text) && !saying.has(n.app)).slice(0, 3);
-  // What's next on its own card (its day above it when that's tomorrow), then a line each: the events after it, the
-  // day's notes from the apps, what they're counting down to, timers. A line is its time or label, a round mark, the words.
+  // The apps' day notes ("School lunch → Beef Taco Meat") aren't here (the user: they don't belong, and under a
+  // Tomorrow card today's read as tomorrow's); they're on Today and the Calendar.
+  // What's next on its own card (its day above it when that's tomorrow), then a line each: the events after it, what
+  // they're counting down to, timers. A line is its time or label, a round mark, the words.
   const rest = coming.slice(1), initial = (e) => (isPerson(e.who) ? e.who.trim()[0].toUpperCase() : '');
   const Mark = ({ e }) => { const bg = e && eventPaint(house, e); return bg ? <i className="ambient-av" style={{ background: bg }}>{initial(e)}</i> : <i className="ambient-av none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></i>; };
   const mins = next && !tmr ? Math.round((Date.parse(next.start) - now) / 60e3) : null;
   const lines = [
     ...allDay.map((x) => ({ k: 'a' + x, one: x })),
     ...rest.map((e) => ({ k: (e.id || e.uid || e.start) + e.title, when: nextWhen(e).split(' · ')[0], e, text: e.title })),
-    ...dayNotes.map((n, i) => ({ k: 'n' + i, when: n.label, text: n.short || n.text })),
     ...counting.map((x) => ({ k: x.id, one: x.text })),
     ...(!next && board?.headline ? [{ k: 'head', one: board.headline }] : []),
     ...timers.map((t) => ({ k: 't' + t.endAt, when: t.endAt <= now ? '0:00' : fmt(Math.ceil((t.endAt - now) / 1000)), text: t.label })),
