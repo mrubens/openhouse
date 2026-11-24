@@ -343,7 +343,17 @@ function WeatherCard({ w, now, dim, className, ...rest }) {
   const ref = useRef(null), [size, setSize] = useState('cell');
   useEffect(() => {
     const el = ref.current; if (!el) return;
-    const o = new ResizeObserver(() => { const r = el.getBoundingClientRect(); if (r.width && r.height) setSize(r.width > r.height * 1.45 ? 'wide' : r.height > r.width * 1.45 ? 'tall' : 'cell'); });
+    // Where its height comes from its own content (a phone's Today, one card under another), a layout changes the
+    // height that chose it, and it flipped back and forth many times a second (the user: the screen shook). So a size
+    // that would undo the last change within two seconds isn't taken: it stays put.
+    let last = 'cell', prev = null, at = 0;
+    const o = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect(); if (!r.width || !r.height) return;
+      const next = r.width > r.height * 1.45 ? 'wide' : r.height > r.width * 1.45 ? 'tall' : 'cell';
+      if (next === last) return;
+      if (next === prev && Date.now() - at < 2000) return;
+      prev = last; last = next; at = Date.now(); setSize(next);
+    });
     o.observe(el); return () => o.disconnect();
   }, []);
   const slot = Math.floor(now / 300e3);
