@@ -51,7 +51,9 @@ const ruleOf = (repeat, until) => `RRULE:${RRULES[repeat]}${until ? `;UNTIL=${un
 export function calendarSync({ FILE, shell, family = () => [], now = Date.now, every = 2 * MIN, log = console.log }) {
   const blank = { calendars: {}, outbox: [], cache: {}, notes: {}, errors: {}, at: 0 };
   let st = (() => { try { return { ...blank, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch { return structuredClone(blank); } })();
-  let accounts = []; // from the shell: [{ id, provider: 'google'|'caldav', name, who, server? }] (no secrets)
+  // from the shell: [{ id, provider: 'google'|'caldav', name, who, server? }] (no secrets). The last list is kept (st.accounts),
+  // so right after a restart the kept events show at once, not only once the shell has answered (Today's calendar was empty for seconds).
+  let accounts = Array.isArray(st.accounts) ? st.accounts : [];
   let changed = () => {}, timer = null, pulling = null, flushing = null;
   let trail = []; // the methods and answers of the change being sent (no contents), for status()
   let read = null; // the last list's counts (no contents), kept per calendar in st.reads for Settings and debugging
@@ -338,7 +340,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   // ---- accounts and their calendars ---------------------------------------------------------------------------
   async function loadAccounts() {
     const r = await shell('/calendar/accounts', {});
-    if (Array.isArray(r?.accounts)) accounts = r.accounts.map((a) => ({ id: str(a.id, 40), provider: a.provider === 'google' ? 'google' : 'caldav', name: str(a.name, 80), who: str(a.who, 40) || null, server: a.server || null }));
+    if (Array.isArray(r?.accounts)) { st.accounts = accounts = r.accounts.map((a) => ({ id: str(a.id, 40), provider: a.provider === 'google' ? 'google' : 'caldav', name: str(a.name, 80), who: str(a.who, 40) || null, server: a.server || null })); save(); }
     return accounts;
   }
   /** An account's calendars, found again; new ones start as the shell asked (shown, two-way when writable). */
