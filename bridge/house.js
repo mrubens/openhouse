@@ -280,19 +280,6 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       .map((e) => ({ key: remindKey(e), title: e.title, start: e.start, who: [e.who, ...(e.also || [])].filter(Boolean).join(' & ') || null, ...(e.place ? { place: e.place } : {}) }));
   }
   const albums = albumSync({ photosDir: PHOTOS, data, save: () => save(), log: (m) => console.log(m) });
-  // Pictures an app saved before they went into its own album (by the names Whiteboard and Drawing give them), and an
-  // album chosen as the whole sleep screen before each album had its own say: once.
-  if (!data.settings.albumsV2) {
-    const all = photos();
-    for (const [app, re] of [['whiteboard', /^\d+-whiteboard-\d{4}-\d\d-\d\d-\d{4}\.png$/], ['drawing', /^\d+-Drawing-\d+\.png$/]]) {
-      const mine = all.filter((n) => re.test(n));
-      if (mine.length) for (const n of mine) intoAppAlbum(app, n);
-    }
-    const only = data.albums.find((a) => a.id === data.settings.slideshow);
-    if (only) for (const a of data.albums) if (a !== only) a.sleep = false;
-    delete data.settings.slideshow;
-    data.settings.albumsV2 = true; // (kept with the next save: running this again changes nothing)
-  }
   let photoCache = null; // the folder's listing, kept while the folder hasn't changed
   function photos() {
     try {
@@ -303,6 +290,19 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       photoCache = { at, list };
       return list;
     } catch { return []; }
+  }
+  // Pictures an app saved before they went into its own album (by the names Whiteboard and Drawing give them), and an
+  // album chosen as the whole sleep screen before each album had its own say: once.
+  if (!data.settings.appAlbums) { // (after photos() can list them)
+    const all = photos();
+    for (const [app, re] of [['whiteboard', /^\d+-whiteboard-\d{4}-\d\d-\d\d-\d{4}\.png$/], ['drawing', /^\d+-Drawing-\d+\.png$/]]) {
+      const mine = all.filter((n) => re.test(n));
+      if (mine.length) for (const n of mine) intoAppAlbum(app, n);
+    }
+    const only = data.albums.find((a) => a.id === data.settings.slideshow);
+    if (only) for (const a of data.albums) if (a !== only) a.sleep = false;
+    delete data.settings.slideshow;
+    delete data.settings.albumsV2; data.settings.appAlbums = true; // (kept with the next save: running this again changes nothing)
   }
   const activeNow = (c, d = new Date()) => {
     if (c.days?.length && !c.days.includes(WEEKDAYS[d.getDay()])) return false;
