@@ -57,10 +57,9 @@ internal class SettingsLock(private val act: MainActivity) {
     fun syncCalendar() {
         val prefs = act.getSharedPreferences("settings_lock", android.content.Context.MODE_PRIVATE)
         val fresh = !prefs.getBoolean("calendar_own_choice", false)
-        if (fresh) prefs.edit().putBoolean("calendar_own_choice", true).apply()
-        if (fresh || (House.calendarLock && !on)) setCalendarLock(false)
+        if (fresh || (House.calendarLock && !on)) setCalendarLock(false) { if (fresh) prefs.edit().putBoolean("calendar_own_choice", true).apply() }
     }
-    private fun setCalendarLock(want: Boolean) { thread { Openhouse.post("/house/lock", JSONObject().put("calendar", want)); Openhouse.settingsChanged() } }
+    private fun setCalendarLock(want: Boolean, then: () -> Unit = {}) { thread { if (Openhouse.post("/house/lock", JSONObject().put("calendar", want)) != null) then(); Openhouse.settingsChanged() } }
 
     // --- what the rows show ----------------------------------------------------------------------------------------
 

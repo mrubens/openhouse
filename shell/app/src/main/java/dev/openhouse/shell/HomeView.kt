@@ -175,7 +175,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
             }
             private fun v() = web!!
             override fun onPageStarted(v: WebView, url: String?, b: android.graphics.Bitmap?) { calls.ours = ours(url); calls.fresh(); failed = false; banner.visibility = View.GONE }
-            override fun onPageFinished(v: WebView, url: String?) { if (!failed && ours(url)) { v.visibility = View.VISIBLE; loading(false); Updater.homeLoaded = true } }
+            override fun onPageFinished(v: WebView, url: String?) { if (!failed && ours(url)) { v.visibility = View.VISIBLE; loading(false); Updater.homeLoaded = true; (act as? MainActivity)?.lock?.syncCalendar() } } // (syncCalendar: the bridge answers now)
             override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) { if (r.isForMainFrame) retry(e.description.toString()) }
             override fun onReceivedHttpError(v: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) { if (r.isForMainFrame) retry("HTTP ${e.statusCode}") }
         }
