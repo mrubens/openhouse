@@ -64,6 +64,16 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         @JavascriptInterface fun idle(g: String?): Boolean = ok(g) && o.idle
         /** Settings → Time: whether the clock is 24-hour (shell/Clock.kt). */
         @JavascriptInterface fun clock24(g: String?): Boolean = ok(g) && Clock.is24(act)
+        /** The battery for the rail's quiet line: {level, plugged, charging} ("charging" false while plugged in and not
+         *  taking charge, as on a weak USB port). Android's last battery broadcast, so it costs nothing to ask. */
+        @JavascriptInterface fun battery(g: String?): String {
+            if (!ok(g)) return ""
+            val b = act.registerReceiver(null, android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)) ?: return ""
+            val level = b.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) * 100 / b.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, 100).coerceAtLeast(1)
+            val status = b.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, 0)
+            return org.json.JSONObject().put("level", level).put("plugged", b.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0)
+                .put("charging", status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL).toString()
+        }
         /** Put to sleep with "Sleep now": dark like night until touched or morning. */
         @JavascriptInterface fun sleeping(g: String?): Boolean = ok(g) && o.sleeping
         /** A text field in the page (or an app in one of its tabs, which tells the page) has the keyboard: keys go to

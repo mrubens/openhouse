@@ -43,6 +43,22 @@ const Av = ({ paint, name, className = '' }) => (paint
   ? <span className={'h-av ' + className} style={{ background: paint }}>{String(name || '').trim()[0]?.toUpperCase() || ''}</span>
   : <span className={'h-av none ' + className}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M15.5 6.2a3.2 3.2 0 0 1 0 5.6M17.5 14.2a5.5 5.5 0 0 1 3 4.8" /></svg></span>);
 
+/** The battery, a quiet line in the rail, only when it matters: unplugged, low, or plugged in and not charging (a weak
+ *  port). A plugged-in tablet that's charging and not low shows nothing. Asked of the shell every 30 seconds. */
+function BatteryLine({ shell, now }) {
+  const [b, setB] = useState(null);
+  const tick = Math.floor(now / 30000);
+  useEffect(() => { if (shell?.battery) setB(shell.battery()); }, [tick, shell]);
+  if (!b || b.level < 0) return null;
+  const stuck = b.plugged && !b.charging && b.level < 100;
+  if (b.plugged && !stuck && b.level >= 30) return null;
+  const fill = Math.max(1, Math.round(b.level / 100 * 14));
+  return <div className={'h-wx h-batt' + (b.level < 15 && !b.charging ? ' low' : '')}>
+    <svg className="h-wx-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" /><rect x="20.5" y="10" width="1.8" height="4" rx=".9" fill="currentColor" />{b.charging ? <path d="M12.4 8.4 8.6 12.6h3l-1 3 3.8-4.2h-3z" fill="currentColor" /> : <rect x="4.5" y="9" width={fill} height="6" rx="1" fill="currentColor" />}</svg>
+    {stuck ? `${b.level}% · not charging` : `${b.level}%`}
+  </div>;
+}
+
 export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, PhotoShow, Gear }) {
   const { homeScreen, house, weather, apps, appsLoaded } = brain;
   const st = homeScreen?.style || {};
@@ -109,6 +125,7 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
         <div className="h-day">{d.toLocaleDateString([], { weekday: 'long' })}</div>
         <div className="h-day h-date">{d.toLocaleDateString([], { day: 'numeric', month: 'long' })}</div>
         {weather && !weather.error && <div className="h-wx"><span className="h-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(weather.code, weather.isDay !== false) }} />{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}
+        <BatteryLine shell={shell} now={now} />
         {/* Tap a timer to change or clear it (a small sheet over the screen). */}
         {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b>{t.endAt <= now ? '0:00' : clock(Math.ceil((t.endAt - now) / 1000))}</b></button>)}
         <nav className="h-tabs">
