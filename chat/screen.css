@@ -225,7 +225,7 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
 .h-tools:has(> :nth-child(4)) .h-tool { width: calc(var(--u) * 40); height: calc(var(--u) * 40); padding: calc(var(--u) * 10); }
 .h-tool:active { background: var(--h-line); }
 /* the stage: the tab itself, on the world; its panels carry the white */
-.h-sheet { position: relative; flex: 1; min-width: 0; margin: calc(var(--u) * 20) calc(var(--u) * 20) calc(var(--u) * 20) 0; }
+.h-sheet { position: relative; flex: 1; min-width: 0; margin: calc(var(--u) * 20) calc(var(--u) * 20) calc(var(--u) * 20) calc(var(--u) * 28); } /* room between the column and the tab */
 .h-page { position: absolute; inset: 0; }
 .h-page[hidden] { display: none; }
 .h-app { width: 100%; height: 100%; border: 0; display: block; background: var(--h-bg); border-radius: calc(var(--u) * 28); }
