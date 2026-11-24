@@ -262,7 +262,7 @@ function screen() {
       h('div', { class: 'q-seg' }, VIEWS.map(([k, l]) => h('button', { class: view === k ? 'on' : null, 'aria-pressed': String(view === k), tap: set(() => { view = k; }) }, l))),
       step ? [round('left', set(step.back), { disabled: step.noBack, label: 'Earlier' }), small ? null : chip('Today', false, set(step.home)), round('right', set(step.on), { disabled: step.noOn, label: 'Later' })] : null,
       small ? null : tools,
-      round('plus', () => guard(() => eventForm(null, view === 'day' ? oneDay : today)), { dark: true, label: 'Add' })),
+      round('plus', () => guard(() => { const d = view === 'day' ? oneDay : today; eventForm(null, d, startFor(d)); }), { dark: true, label: 'Add' })),
     view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? schedule(today, AGENDA_DAYS, today)
       : view === 'day' ? dayView(oneDay, today) : small ? [strip(from, today, today, openDay), dayList(from, DAYS, today, true)] : weekView(from, today),
     // (a phone has less of a top row: its tools are down here, and Today only once they've stepped away)
@@ -326,7 +326,7 @@ function weekView(from, today) {
           if (isToday && k === nowPart) { const next = mine.findIndex((e) => e.t0 > now); kids.splice(next < 0 ? kids.length : next, 0, h('div', { class: 'now' })); }
           // (under a card that crosses this day; else from the top of the part, level with the days beside it)
           const under = across[k].list.some((x) => x.a <= i && x.b >= i);
-          return h('div', { class: 'wcell', style: `${c};grid-row:${under ? at[k].cell : at[k].start} / ${at[k].cell + 1}`, tap: () => openDay(day) }, kids);
+          return h('div', { class: 'wcell', style: `${c};grid-row:${under ? at[k].cell : at[k].start} / ${at[k].cell + 1}`, tap: (ev) => openDay(day, minuteAt(ev, k)) }, kids);
         }),
       ];
     }),
@@ -491,7 +491,25 @@ function schedule(first, n, today) {
 }
 
 /** One day up close: everything on it, and adding to it. */
-function openDay(day) {
+/** A new event's start when nothing was tapped at a time: today, the next half hour (if the day isn't nearly over);
+ *  another day, 9 AM. It lasts an hour (eventForm). All day is still one tap away. */
+function startFor(day) {
+  const now = new Date(), today = dayStart(Date.now());
+  if (day !== today) return 9 * 60;
+  const m = now.getHours() * 60 + now.getMinutes(), next = Math.ceil((m + 1) / 30) * 30;
+  return next <= 22 * 60 ? next : 9 * 60;
+}
+/** Where a tap in one of the week's parts (morning, afternoon, evening) fell, as a start: its share of the part's hours
+ *  (6 to 12, 12 to 5, 5 to 10), to the half hour. */
+const PART_HOURS = [[6, 12], [12, 17], [17, 22]];
+function minuteAt(ev, k) {
+  const r = ev?.currentTarget?.getBoundingClientRect?.() || ev?.target?.closest?.('.wcell')?.getBoundingClientRect?.();
+  const [a, b] = PART_HOURS[k] || [9, 10];
+  if (!r || !r.height || ev?.clientY == null) return a * 60;
+  const f = Math.min(0.999, Math.max(0, (ev.clientY - r.top) / r.height));
+  return Math.floor((a + f * (b - a)) * 2) * 30;
+}
+function openDay(day, min = null) {
   openCard((close) => {
     const today = dayStart(Date.now()), list = eventsOn(day);
     return [
@@ -500,7 +518,7 @@ function openDay(day) {
           // The hour-by-hour view is a quiet link here, not a third button (docs/ux.md).
           h('button', { class: 'by-hour', onclick: () => { close(); view = 'day'; days = Math.round((day - today) / 86400000); draw(); } }, `${fmt(day, { month: 'long', day: 'numeric' })} · by the hour`))),
       h('div', { class: 'vscroll day-rows', 'data-keep': 'day' }, list.length ? list.map((e) => eventRow(e)) : h('p', { class: 'nothing small' }, 'Nothing yet')),
-      h('div', { class: 'actions' }, btn('Close', close, { soft: true }), btn('Add', () => { close(); eventForm(null, day); })),
+      h('div', { class: 'actions' }, btn('Close', close, { soft: true }), btn('Add', () => { close(); eventForm(null, day, min ?? startFor(day)); })),
     ];
   }, { width: 860 });
 }
@@ -708,7 +726,7 @@ function eventForm(e = null, startDay = null, startMin = null) {
 let addAsked = Number(new URLSearchParams(location.hash.slice(1)).get('add')) || 0;
 house.subscribe((d) => {
   H = d;
-  if (addAsked) { const fresh = Date.now() - addAsked < 15e3; addAsked = 0; if (fresh) setTimeout(() => eventForm(null, dayStart(Date.now())), 0); }
+  if (addAsked) { const fresh = Date.now() - addAsked < 15e3; addAsked = 0; if (fresh) setTimeout(() => { const d = dayStart(Date.now()); eventForm(null, d, startFor(d)); }, 0); }
   events = (d.events || []).map((e) => ({ ...e, t0: Date.parse(e.start), t1: e.end ? Date.parse(e.end) : null })).filter((e) => !isNaN(e.t0));
   draw(); showFlyer();
   if (afterPin && H.unlockedUntil > Date.now()) { const fn = afterPin; afterPin = null; if (Date.now() - afterPinAt < 120e3) fn(); } // the PIN was just given (not long after asking)
