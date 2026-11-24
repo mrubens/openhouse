@@ -296,7 +296,6 @@ function cookView() {
     h('button', { class: 'c-glass', tap: () => takeOut(key) }, 'Take it out')));
   const rest = h('div', { class: 'c-rest' }, vid ? h('div', { class: 'video spot' }) : null, rows);
   const view = h('div', { class: 'cook' },
-    h('div', { class: 'c-bg' + (r?.image ? '' : ' plain') }, r?.image ? h('img', { src: r.image, alt: '', referrerpolicy: 'no-referrer', onerror: 'this.remove()' }) : null),
     left, h('div', { class: 'c-right' }, now, rest));
 
   // keep their place on a redraw; when the step changes, the next one rests at the top of the list and its part of
