@@ -13,7 +13,7 @@ app = modal.App('opie-wake')
 vol = modal.Volume.from_name('opie-wake', create_if_missing=True)
 V = '/vol'
 image = (modal.Image.debian_slim(python_version='3.12')
-         .apt_install('ffmpeg', 'curl', 'unzip', 'bzip2', 'libsndfile1')
+         .apt_install('ffmpeg', 'curl', 'unzip', 'zip', 'bzip2', 'libsndfile1')
          .pip_install('numpy<2.3', 'scipy', 'soundfile', 'pyarrow', 'sherpa-onnx==2.0.1', 'torch==2.5.1', 'onnx', 'onnxscript')
          .pip_install('piper-tts', extra_options='--no-deps')
          .pip_install('onnxruntime-gpu[cuda,cudnn]==1.22.0')
@@ -138,14 +138,15 @@ def features(task):
     def embed(xs): return np.concatenate([front.embeddings_batch(xs[i:i + 256])[:, -16:] for i in range(0, len(xs), 256)]).astype(np.float16)
     if kind in ('synth', 'test'):
         z = np.load(arg); hard = kind == 'synth' and seed >= 100  # (seed 100 and up: the name clips again, in the hard rooms only)
-        if hard: out['neg'] = np.zeros((0, 16, 96), np.float16)
+        near = kind == 'synth' and seed >= 200; hard = hard and not near  # (seed 200 and up: again, near and clear only: round 5)
+        if hard or near: out['neg'] = np.zeros((0, 16, 96), np.float16)
         for k in (('pos',) if hard else ('pos', 'neg')):
             a, off, ends = z[f'{k}_audio'], z[f'{k}_offsets'], z[f'{k}_ends']
             xs = []
             for i in range(len(off) - 1):
                 clip = a[off[i]:off[i + 1]].astype(np.float32) / 32768
                 for _ in range((8 if 'clone-' in str(arg) else 3) if k == 'pos' else 2):  # (cloned voices: fewer clips, more rooms each)
-                    if k == 'pos': xs.append(F.place(clip, room, rng, end=int(ends[i]), at=N - 1 - int(rng.uniform(0, 0.24) * F.RATE), hard=hard))
+                    if k == 'pos': xs.append(F.place(clip, room, rng, end=int(ends[i]), at=N - 1 - int(rng.uniform(0, 0.24) * F.RATE), hard=hard, near=near))
                     else: xs.append(F.place(clip, room, rng, end=len(clip), at=int(rng.uniform(0.55, 1.0) * (N - 1))))
             out[k] = embed(xs) if xs else np.zeros((0, 16, 96), np.float16)
     elif kind == 'speech':
@@ -555,6 +556,9 @@ SOURCES = {
            + [f'{HF}/facebook/voxpopuli/resolve/main/en/train-{i:05d}-of-00030.parquet' for i in range(30) if i % 3],
     'earnings': [f'{HF}/distil-whisper/earnings22/resolve/main/full/' + n for n in ('test-00000-of-00004-4541e1972fe3ed48.parquet', 'test-00001-of-00004-e6d772bca8e23981.parquet', 'test-00002-of-00004-25462b81a4cd9f09.parquet', 'test-00003-of-00004-514196049d554a43.parquet')],
     'ls500': [f'https://openslr.elda.org/resources/12/train-other-500.tar.gz#{k}' for k in range(6)],  # (#k: the speakers whose number % 6 is k)
+    # Round 5: FSD50K's everyday sounds (coughs, sneezes, typing, children, laughter, TV, kitchens...), only its clips
+    # licensed CC0 or CC-BY (data5 picks them). Shard 0 is its eval split (held out); 1-8 split the dev clips.
+    'fsd': ['fsd://eval'] + [f'fsd://dev#{k}' for k in range(8)],
 }
 
 def _decode(b, name=''):
@@ -574,6 +578,16 @@ def _utterances(src, url, rng, hours):
     import numpy as np, tarfile, pyarrow.parquet as pq, subprocess
     path = '/tmp/shard'; url, _, part = url.partition('#')
     total = 0
+    if url.startswith('fsd://'):  # (data5's lists of FSD50K clips licensed for commercial use)
+        files = open(f'{V}/dl/fsd/{url[6:]}.txt').read().split()
+        if part: files = files[int(part)::8]
+        rng.shuffle(files)
+        for f in files:
+            x = _decode(open(f, 'rb').read(), f)
+            if len(x) < 4000: continue
+            yield x[:30 * 16000]; total += min(len(x), 30 * 16000)
+            if total > hours * 3600 * 16000: return
+        return
     if url.endswith('.parquet'):
         subprocess.run(f'curl -sSLf --retry 5 "{url}" -o {path}', shell=True, check=True)
         f = pq.ParquetFile(path); col = 'audio'
@@ -595,6 +609,29 @@ def _utterances(src, url, rng, hours):
                 if len(x) > 600 * 16000: i = rng.randrange(0, len(x) - 600 * 16000); x = x[i:i + 600 * 16000]  # (a long video: ten minutes of it)
                 yield x; total += len(x)
                 if total > hours * 3600 * 16000: cur.kill(); return
+
+@app.function(image=image, volumes={V: vol}, cpu=8, memory=16384, timeout=6 * 3600)
+def data5():
+    """FSD50K (Zenodo 4060432) onto the volume, and the lists of its clips whose own licence allows commercial use
+    (CC0 or CC-BY; CC-BY-NC and Sampling+ clips are left out): /vol/dl/fsd/dev.txt, eval.txt."""
+    import json, glob
+    d = f'{V}/dl/fsd'; os.makedirs(d, exist_ok=True); Z = 'https://zenodo.org/records/4060432/files'
+    parts = {'dev': ['FSD50K.dev_audio.z0' + str(i) for i in range(1, 6)] + ['FSD50K.dev_audio.zip'], 'eval': ['FSD50K.eval_audio.z01', 'FSD50K.eval_audio.zip']}
+    if not os.path.exists(f'{d}/FSD50K.metadata'):
+        _sh(f'cd {d} && curl -sSLf --retry 5 "{Z}/FSD50K.metadata.zip?download=1" -o m.zip && unzip -q -o m.zip && rm m.zip')
+    for split, names in parts.items():
+        if glob.glob(f'{d}/FSD50K.{split}_audio/*.wav'): continue
+        for n in names:
+            if not os.path.exists(f'{d}/{n}'): _sh(f'cd {d} && curl -sSLf --retry 5 "{Z}/{n}?download=1" -o {n}.part && mv {n}.part {n}')
+        vol.commit()
+        _sh(f'cd {d} && zip -q -s 0 {names[-1]} --out {split}-whole.zip && rm -f ' + ' '.join(names) + f' && unzip -q -o {split}-whole.zip && rm -f {split}-whole.zip')  # (FSD50K's documented way to join its parts)
+        vol.commit()
+    keep = lambda lic: 'publicdomain/zero' in lic or '/licenses/by/' in lic
+    for split in ('dev', 'eval'):
+        info = json.load(open(f'{d}/FSD50K.metadata/{split}_clips_info_FSD50K.json'))
+        ok = sorted(f'{d}/FSD50K.{split}_audio/{k}.wav' for k, v in info.items() if keep(str(v.get('license', ''))) and os.path.exists(f'{d}/FSD50K.{split}_audio/{k}.wav'))
+        open(f'{d}/{split}.txt', 'w').write('\n'.join(ok)); print(split, len(ok), 'of', len(info), 'clips licensed CC0 or CC-BY', flush=True)
+    vol.commit()
 
 @app.function(image=image, volumes={V: vol}, gpu='L4', cpu=8, memory=32768, timeout=3 * 3600, max_containers=20)
 def bank(job):
@@ -682,10 +719,13 @@ def train3(cfg):
     dev = 'cuda'; vol.reload()
     rng = np.random.default_rng(cfg.get('seed', 0)); torch.manual_seed(cfg.get('seed', 0))
     tr = {'pos': [], 'neg': []}; held = {'pos': [], 'neg': []}
+    pos_seeds = cfg.get('pos_seeds')  # (round 5: [200], only the near and clear name clips; None: every pass)
+    if isinstance(pos_seeds, (int, float)): pos_seeds = [int(pos_seeds)]
     for f in sorted(glob.glob(f'{V}/feats/synth-*.npz')):
-        z = np.load(f); key = os.path.basename(f)[6:].rsplit('-', 1)[0]
+        z = np.load(f); key, seed = os.path.basename(f)[6:-4].rsplit('-', 1)
         h = bool(np.load(f'{V}/synth/{key}.npz')['held'][0])
-        for k in ('pos', 'neg'): (held if h else tr)[k].append(z[k])
+        if pos_seeds is None or int(seed) in pos_seeds: (held if h else tr)['pos'].append(z['pos'])
+        (held if h else tr)['neg'].append(z['neg'])
     gen = [np.load(f)['neg'] for f in sorted(glob.glob(f'{V}/feats/speech-*.npz')) + sorted(glob.glob(f'{V}/feats/speech2-*.npz')) + sorted(glob.glob(f'{V}/feats/room-*.npz'))]
     banks = sorted(glob.glob(f'{V}/bank3/*.npz')); btr, bheld = [], {}
     per = cfg.get('bank_n', 6_000_000) // max(1, sum(1 for f in banks if not bool(np.load(f)['held'][0])))
@@ -754,6 +794,11 @@ def r3(stage: str, hours: float = 20, names: str = '', thr: float = 0.3, only: s
             if isinstance(r, tuple): n += r[1]; d += r[2]
             else: print('clone error', str(r)[:200], flush=True)
         print('cloned name clips', n, 'dropped', d, f'{(time.time() - t0) / 60:.0f} min', flush=True)
+    if stage == 'data5': data5.remote()
+    if stage == 'featuresnear':  # round 5: every voice's name clips again, near and clear only (seed 200: train with pos_seeds=200)
+        files = synth_files.remote(); tasks = [('synth', f, 200) for f in files]
+        for _ in features.map(tasks, order_outputs=False, return_exceptions=True): pass
+        print('featuresnear done', flush=True)
     if stage == 'featureshard':  # every voice's name clips again, far and over music or talk (seed 100: train3 takes them as more name clips)
         files = synth_files.remote(); tasks = [('synth', f, 100) for f in files]
         for _ in features.map(tasks, order_outputs=False, return_exceptions=True): pass

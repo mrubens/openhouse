@@ -114,9 +114,12 @@ def call(x, rng):
     y = np.sign(y) * (np.expm1(np.abs(y) * np.log1p(mu)) / mu) * pk
     return (y + np.random.default_rng(rng.randrange(1 << 30)).standard_normal(len(y)) * pk * 10 ** (-45 / 20)).astype(np.float32)
 
-def place(speech, room, rng, end=None, at=None, n=int(WIN * RATE), far=None, hard=False):
+def place(speech, room, rng, end=None, at=None, n=int(WIN * RATE), far=None, hard=False, near=False):
     """Put a clip in a room: a window of n samples whose speech mark (end, in the clip) lands at sample `at`. hard: the
-    hard rooms (round 3): across the room half the time, always over something, often music or talk as loud as a TV."""
+    hard rooms (round 3): across the room half the time, always over something, often music or talk as loud as a TV.
+    near (round 5): someone close and clear, at the levels the tablet's microphone gives a real wake (raw speech RMS
+    -44 to -24 dBFS) and the listener's fixed gain since voice set 6 (2x), never across the room."""
+    if near: far = False
     f = rng.uniform(1.12, 1.38) if rng.random() < 0.3 else rng.uniform(0.88, 1.12)  # (0.3: children, higher and quicker)
     s = speed(speech, f); end = int((len(speech) if end is None else end) / f)
     far = rng.random() < (0.5 if hard else 0.4) if far is None else far
@@ -128,7 +131,7 @@ def place(speech, room, rng, end=None, at=None, n=int(WIN * RATE), far=None, har
     lo = at - end  # where the clip starts in the window
     a, b = max(0, lo), min(n, lo + len(s))
     if b > a: out[a:b] = s[a - lo:b - lo]
-    level = rng.uniform(-48, -38) if far else rng.uniform(-38, -18)  # speech RMS, dBFS (the tablet's microphone is quiet)
+    level = rng.uniform(-44, -24) if near else rng.uniform(-48, -38) if far else rng.uniform(-38, -18)  # speech RMS, dBFS (the tablet's microphone is quiet)
     out *= 10 ** ((level - db(s[:max(1, end)])) / 20)
     if hard or rng.random() < 0.85:
         bg = room.background(n, rng, kinds=('music', 'babble')) if hard and rng.random() < 0.6 else room.background(n, rng)
@@ -136,6 +139,6 @@ def place(speech, room, rng, end=None, at=None, n=int(WIN * RATE), far=None, har
         if np.any(bg): out += bg * 10 ** ((level - snr - db(bg)) / 20)
     out += np.random.default_rng(rng.randrange(1 << 30)).standard_normal(n).astype(np.float32) * 10 ** (rng.uniform(-75, -60) / 20)
     # The listener's auto-gain brings a quiet room up (bridge/voice-worker.js): a level between what the mic gave and ~-20 dBFS.
-    g = rng.uniform(0, max(0, -22 - level))
+    g = 6.02 if near else rng.uniform(0, max(0, -22 - level))  # (near: voice set 6's fixed 2x)
     out *= 10 ** (g / 20)
     return np.clip(out, -1, 1)
