@@ -93,6 +93,7 @@ internal fun SettingsSheet() {
                     SettingsRow("Family", o.board?.family?.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }) { o.showFamily = true }
                     SettingsRow("What Opie remembers", vals["memory"], onClick = shell("memory"))
                     SettingsRow("Linked devices", ((vals["screens"]?.toIntOrNull() ?: 0) + Devices.controllable.size).takeIf { it > 0 }?.toString()) { Devices.open = true; if (Devices.scannedAt == null) Devices.scan() else Devices.refreshStatus() }
+                    SettingsRow("Email", vals["email"], locked, shell("email"))
                     SettingsRow("Account", vals["account"], locked, shell("account"))
                     SettingsRow("Advanced", null, locked, shell("tablet"))
                 }

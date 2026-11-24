@@ -160,13 +160,15 @@ object DeviceServer {
             // Who's asking first, before reading (or making room for) a body.
             val authed = java.security.MessageDigest.isEqual((headers["authorization"] ?: "").toByteArray(), "Bearer $token".toByteArray())
             val len = headers["content-length"]?.toIntOrNull() ?: 0
-            if (!authed || len !in 0..MAX_BODY) {
+            if (!authed || len !in 0..(if (path in MailConvert.PATHS) MailConvert.MAX_BODY else MAX_BODY)) {
                 respond(s, if (!authed) 401 else 413, if (!authed) """{"error":"unauthorized"}""" else """{"error":"too large"}""")
                 return
             }
             val body = ByteArray(len).also { var o = 0; while (o < len) { val r = inp.read(it, o, len - o); if (r < 0) break; o += r } }
             val (code, out) = when {
                 method == "POST" && path.startsWith("/mcp") -> rpc(String(body))
+                // An email's PDF or HEIC (bridge/mail.js), up to 25 MB as base64: read straight from the body, not parsed as JSON.
+                method == "POST" && path in MailConvert.PATHS -> MailConvert.handle(ctx, path, body)
                 method == "POST" && path in HOME_PATHS -> home(path, runCatching { JSONObject(String(body)) }.getOrNull() ?: JSONObject())
                 else -> 405 to ""
             }

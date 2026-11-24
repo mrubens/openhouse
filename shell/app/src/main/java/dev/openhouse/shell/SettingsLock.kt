@@ -30,6 +30,7 @@ internal class SettingsLock(private val act: MainActivity) {
             "calendars" -> withPin { CalendarLinks.manage(act, act::immersive) }
             "addLinked" -> withPin { Screens.addMenu(act) }
             "account" -> withPin { CloudMenu(act).show() }
+            "email" -> withPin { EmailMenu(act).show() }
             "lock" -> if (on) turnOff() else turnOn()
             "tablet" -> withPin { tablet() }
             "memory" -> memory()
@@ -104,6 +105,10 @@ internal class SettingsLock(private val act: MainActivity) {
             "Getting", "Putting" -> "Getting ready"; "The" -> "Waits for Wi-Fi"; "Couldn't" -> "Not ready yet"; else -> name }
         get("/screens")?.optJSONArray("screens")?.let { m["screens"] = count(it.length()) }
         get("/cloud/status")?.let { m["account"] = if (it.optBoolean("linked")) it.optString("family").ifEmpty { "Linked" } else "Off" }
+        get("/mail")?.let { e -> // Email: how many wait for an Allow, else whether mail comes in at all
+            val held = e.optJSONArray("held")?.length() ?: 0
+            m["email"] = if (held > 0) "$held waiting" else if (e.optJSONObject("cloud")?.optBoolean("on") == true || e.optBoolean("own")) "On" else "Off"
+        }
         get("/memory")?.let { m["memory"] = count(it.optJSONArray("remembered")?.length() ?: 0) }
         return m
     }

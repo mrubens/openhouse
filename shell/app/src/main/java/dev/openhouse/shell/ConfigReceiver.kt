@@ -28,6 +28,9 @@ import android.content.Intent
  * `--ez cloud_checkin true` sends a health check-in now (CloudHealth; only if the tablet is linked).
  * `--ez settings true` opens Settings.
  * `--es pin` with digits turns the lock on with that PIN; `--es pin ""` turns it off.
+ * `--es mail_host imap.example.com --es mail_user tablet@example.com --es mail_password <app password> [--ei mail_port 993]`:
+ * the household's own mailbox (MailAccount, docs/tablet-email.md), as Settings → Email's form adds it (signed in first,
+ * sealed, from the mail after now); the result data says "ok" or what went wrong. `--ez mail_remove true` removes it.
  */
 class ConfigReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
@@ -51,6 +54,7 @@ class ConfigReceiver : BroadcastReceiver() {
         else if (intent.getBooleanExtra("update_install", false)) Updater.installNow(ctx)
         if (intent.getBooleanExtra("cloud_checkin", false)) kotlin.concurrent.thread { runCatching { CloudHealth.checkIn(ctx, MainActivity.live?.bridge ?: "http://127.0.0.1:8787") } }
         if (intent.getBooleanExtra("voice_get", false)) VoiceModels.ensure(ctx, MainActivity.live?.bridge ?: "http://127.0.0.1:8787", now = true)
+        if (intent.getBooleanExtra("mail_remove", false) || intent.hasExtra("mail_host")) return mailbox(ctx, intent)
         if (intent.getBooleanExtra("token", false)) resultData = BridgeToken.get(ctx)
         if (intent.getBooleanExtra("settings", false)) dev.openhouse.ui.Openhouse.ui { dev.openhouse.ui.Openhouse.showSettings = true }
         if (intent.hasExtra("listen")) MainActivity.live?.setListening(intent.getBooleanExtra("listen", true))
@@ -58,5 +62,26 @@ class ConfigReceiver : BroadcastReceiver() {
         // As if someone were saying this right now (for checking how it looks; it goes nowhere).
         intent.getStringExtra("partial")?.let { t -> dev.openhouse.ui.Openhouse.ui { val o = dev.openhouse.ui.Openhouse; o.partial = t; o.hearingAt = System.currentTimeMillis() }; return }
         MainActivity.live?.configChanged()
+    }
+
+    /** The own mailbox from adb: signing in takes a few seconds, so off the main thread. Never logs the password. */
+    private fun mailbox(ctx: Context, intent: Intent) {
+        val done = goAsync()
+        val bridge = MainActivity.live?.bridge ?: "http://127.0.0.1:8787"
+        MailAccount.init(ctx)
+        kotlin.concurrent.thread {
+            try {
+                val tell = { own: Boolean -> runCatching { CloudSetup.post("$bridge/mail/set", org.json.JSONObject().put("own", own)) } }
+                if (intent.getBooleanExtra("mail_remove", false)) { MailAccount.remove(); tell(false); done.resultData = "ok"; return@thread }
+                val host = intent.getStringExtra("mail_host")?.trim()?.lowercase().orEmpty()
+                val user = intent.getStringExtra("mail_user")?.trim().orEmpty(); val pass = intent.getStringExtra("mail_password").orEmpty()
+                val port = intent.getIntExtra("mail_port", 993)
+                done.resultData = when {
+                    !Regex("^[a-z0-9.-]+\\.[a-z]{2,}$").matches(host) || port !in 1..65535 -> "bad mail_host or mail_port"
+                    user.isEmpty() || pass.isEmpty() -> "mail_user and mail_password are both needed"
+                    else -> MailAccount.add(host, port, user, pass) ?: "ok".also { tell(true) }
+                }
+            } finally { done.finish() }
+        }
     }
 }

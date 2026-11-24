@@ -114,6 +114,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         CalendarAccounts.init(this) // two-way calendars: the sign-ins (the bridge syncs, through DeviceServer)
         CalendarLinks.start(this) { bridge } // the family's calendar links: kept by the shell, read every 15 minutes
         PhotoAlbums.start(this) { bridge }
+        MailAccount.start(this) { bridge } // the household's own mailbox (Settings → Email), looked at every 2 minutes once set
         PhotoShare.start(this) // the household's lasting photo page for phones, when someone turned it on // shared albums (iCloud): kept by the shell like the calendars, read every 30 minutes
         BackupDrive.start(this) // the USB drive for backups, for the bridge (only once someone picks one)
         CloudHealth.start(this) { bridge } // health check-ins, only once the tablet is linked (Settings → Account)
