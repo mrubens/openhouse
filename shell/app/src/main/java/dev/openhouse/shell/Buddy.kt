@@ -111,7 +111,7 @@ object Buddy {
     /** Device control is doing [text] (null: done), optionally at a point on the screen. */
     fun act(text: String?, app: String? = null, at: PointF? = null) = main.post {
         step = text; this.app = app; stepAt = System.currentTimeMillis()
-        window?.moveTo(at)
+        window?.moveTo(null) // it stays in its place at the bottom centre: gliding beside each button it taps read as it jumping around
     }
 
     /** Hidden while a screenshot for the agent is taken (so it doesn't cover what it's looking at). */
@@ -245,12 +245,10 @@ private const val BUBBLE_U = 620
 /** Over other apps: what they're saying or typing, in a bubble at the left edge, the mirror of the note's. */
 @Composable
 private fun WordsCaption() {
+    // Nothing of what they said: the face shows it heard them, as on the home screen. Only a typed draft shows here.
     val o = Openhouse
-    val now = o.now
     val text = o.draft.takeIf { o.typing != null }?.let { it + "▏" }
-        ?: o.partial?.takeIf { it.isNotBlank() }
-        ?: o.heard?.takeIf { now - it.at < 2500 && !it.text.startsWith("Got it") && it.text != "…" }?.text
-    if (text != null) Box(Modifier.padding(14.u)) { dev.openhouse.ui.TheirWords(text) } // along the bottom, centred: apart from the assistant's words
+    if (text != null) Box(Modifier.padding(14.u)) { dev.openhouse.ui.TheirWords(text) }
 }
 
 private enum class Mood { Asleep, Typing, Listening, Hearing, Talking, Thinking, Working, Replied }
@@ -284,8 +282,8 @@ private fun BuddyView() {
         else if (LiveVoice.problemNow(now) != null) { // the live voice couldn't say it: the answer, and why it wasn't heard
             main = listOfNotNull(LiveVoice.problemNow(now), reply?.text?.let { prose(it) }?.takeIf { it.isNotBlank() }).joinToString("\n\n")
         }
-        else if (LiveVoice.mood != null) { // a live session: what it says, as it says it (its own transcript)
-            if (mood == Mood.Talking || mood == Mood.Listening) main = LiveVoice.caption.takeIf { it.isNotBlank() }?.let { prose(it) }
+        else if (LiveVoice.mood != null) { // a live session: its voice is enough, no caption (only what it's doing in an app, with Stop)
+            if (step != null) { main = step; stop = true }
         }
         else when (mood) {
             Mood.Hearing -> {} // what they're saying shows centered at the bottom (WordsWindow), not out of the note
