@@ -141,7 +141,8 @@ export function cookPrompt(meal, source, links = []) {
     '- One step per thing to do, in order; a long one may be split where the recipe moves on to something else.\n' +
     '- title: 2 to 5 words naming the step, for a list of steps. part: when the recipe has parts (a dough, a sauce, the pizza), the part it belongs to; leave it out otherwise.\n' +
     '- hands: "busy" when someone has to work through it, "wait" when it mostly waits (rising, resting, chilling, an oven heating, baking). ahead: when it has to be done well before (the day before, 2 hours ahead), say so; leave it out otherwise.\n' +
-    (links.length ? '- needs: the linked recipes this one says to make or use (a dough, a sauce) whose steps are not written out here; leave it out when there are none. Don\'t list related or suggested recipes.\n' : '') +
+    (links.length ? '- needs: the linked recipes this one says to make or use (a dough, a sauce) whose steps are not written out here; leave it out when there are none. Don\'t list related or suggested recipes.\n' +
+      '- makes: on a step that only says to make one of the needs ("prepare the pizza sauce"), that need\'s name exactly as in needs; its own steps go there. Leave it out otherwise.\n' : '') +
     '- uses: the ingredients that step adds, each with the amount for that step (split an amount used in two steps).\n' +
     '- minutes: how long the whole recipe takes, start to finish: the recipe\'s own total time when it gives one, else your best estimate from its steps.\n' +
     '- timer: only when the step says to wait, cook, bake, rest or simmer for a time; minutes is the shortest time it gives. Leave it out otherwise.\n' +
@@ -161,7 +162,8 @@ export function parseCook(said) {
     const min = Number(s?.timer?.minutes);
     const timer = Number.isFinite(min) && min > 0 && min <= 24 * 60 ? { minutes: Math.round(min * 10) / 10, label: clean(s.timer.label, 40) || text.split(/[,.;]/)[0].slice(0, 40) } : null;
     const title = clean(s?.title, 50), part = clean(s?.part, 40), ahead = clean(s?.ahead, 40);
-    return { text, ...(title ? { title } : {}), ...(part ? { part } : {}), ...(s?.hands === 'wait' ? { wait: true } : {}), ...(ahead ? { ahead } : {}),
+    const makes = clean(s?.makes, 80);
+    return { text, ...(makes ? { makes } : {}), ...(title ? { title } : {}), ...(part ? { part } : {}), ...(s?.hands === 'wait' ? { wait: true } : {}), ...(ahead ? { ahead } : {}),
       ...(uses.length ? { uses } : {}), ...(timer ? { timer } : {}) };
   }).filter(Boolean).slice(0, 80);
   if (!steps.length) throw new Error('Couldn’t make steps from that recipe.');

@@ -630,12 +630,13 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
         video ||= page?.video || null;
         if (!source.trim()) throw new Error('That recipe has nothing in it to cook from.');
         let cook = parseCook(await answer(cookPrompt(r.text, source, page?.links || []), COOK_SYSTEM));
-        // What it builds on ("make the Classic Pizza Sauce", linked on its page): those recipes are read, and the steps
-        // written again with them in, as parts, so nothing is left as "prepare the sauce" with no way to.
-        if (cook.needs?.length) {
-          const more = (await Promise.all(cook.needs.map((x) => readRecipeLink(x.url, { timeoutMs: 8000 }).then((p) => `\n\nA recipe it uses, ${x.name} (${x.url}):\n${p.text.slice(0, 8000)}`).catch(() => '')))).join('');
-          if (more.trim()) cook = parseCook(await answer(cookPrompt(r.text, `${source}${more}\n\nWrite the recipes it uses in as parts, before the steps that need them.`), COOK_SYSTEM));
-        }
+        // What it builds on ("make the Classic Pizza Sauce", linked on its page): each of those recipes read and made into
+        // steps on its own (one answer for all of them takes longer than the cloud waits), as a part, in place of the step
+        // that only says to make it (makes), so nothing is left as "prepare the sauce" with no way to.
+        if (cook.needs?.length) cook = withNeeds(cook, (await Promise.all(cook.needs.slice(0, 3).map(async (x) => {
+          try { const p = await readRecipeLink(x.url, { timeoutMs: 8000 }); return { name: x.name, cook: parseCook(await answer(cookPrompt(x.name, p.text.slice(0, 12000)), COOK_SYSTEM)) }; } catch { return null; }
+        }))).filter(Boolean));
+        cook.steps = cook.steps.map(({ makes, ...st }) => st);
         cook = withPictures(cook, page?.stepPics); delete cook.needs;
         if (page?.minutes) cook.minutes = page.minutes; // the page's own total time over the model's estimate
         const now = data.recipes[k]; if (!now) throw new Error('That recipe was taken out.');
@@ -662,6 +663,22 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
       const now = data.recipes[k];
       if (now?.cook && m > 0 && m < 10000) { now.cook.minutes = m; save(); changed(); }
     })().catch(() => {});
+  }
+  /** The recipes it builds on put in: each one's steps (as its part) where a step says only to make it, else before the
+   *  rest; their ingredients after its own. */
+  function withNeeds(cook, subs) {
+    if (!subs.length) return cook;
+    const same = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
+    const steps = (sub) => sub.cook.steps.map(({ makes, ...st }) => ({ ...st, part: sub.name }));
+    const placed = new Set(), out = [];
+    for (const st of cook.steps) {
+      const sub = st.makes && subs.find((x) => same(x.name, st.makes) && !placed.has(x));
+      if (sub) { placed.add(sub); out.push(...steps(sub)); } else out.push(st);
+    }
+    const rest = subs.filter((x) => !placed.has(x)).flatMap(steps);
+    const have = new Set(cook.ingredients.map((i) => i.item.toLowerCase()));
+    const more = subs.flatMap((x) => x.cook.ingredients).filter((i) => !have.has(i.item.toLowerCase()) && have.add(i.item.toLowerCase()));
+    return { ...cook, steps: [...rest, ...out].slice(0, 80), ingredients: [...cook.ingredients, ...more].slice(0, 60) };
   }
   /** A recipe made into steps before pictures were kept: its page read once more for the dish and step photos (no model). */
   function pictures(k) {
