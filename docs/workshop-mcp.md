@@ -149,7 +149,42 @@ Who can use them: Claude Code v2.1.331 or later, signed in with a claude.ai plan
 custom base URL), in a terminal or a local Code session; Claude Desktop's connectors and extensions don't load MCP
 skills yet, and ChatGPT only partly. They show as `openhouse:working-here`, `openhouse:apps` and so on. Claude Code
 remembers for 7 days that a stdio server didn't speak 2026-07-28; `MCP_PROTOCOL_NEGOTIATION=auto` asks again sooner
-(after updating `~/.openhouse/openhouse-mcp.mjs`). Everyone else keeps using `get_guide`.
+(after updating `~/.openhouse/openhouse-mcp.mjs`). Everyone else uses the plugin below, or `get_guide`.
+
+### The OpenHouse plugin (ChatGPT, the Claude apps)
+
+ChatGPT has skills but doesn't load them over MCP, and the Claude apps' connectors don't either, so the same skills
+also ship as a plugin that bundles them with the connector. The split:
+
+- **How to work** (the guide: working here, apps, the kit, notes, plugins, design) is skills: over MCP for Claude Code,
+  in the plugin for ChatGPT and the Claude apps.
+- **The household as it is now** (tabs, apps, people, notes) is tools: `get_guide {topic: "home"}`, `about_household`,
+  `look_at_notes`.
+- **`get_guide`** with the other topics is the fallback for a client that has the connector alone.
+
+`scripts/build-plugin.mjs` writes it from `bridge/workshop-guide.js` (`--check` says whether what's committed is
+current): `connect/plugin/` holds `skills/<name>/` (the same files as `skill://<name>/`), Claude's
+`.claude-plugin/plugin.json` and `.mcp.json`, and OpenAI's portable `plugin.json` and `mcp.json`. Both connectors are
+the cloud's `https://cloud.openhouse.computer/mcp`, the same address for every household, with OAuth (OpenAI's with
+dynamic client registration), so nothing in the plugin is a household's. The repo is the marketplace for both:
+`.claude-plugin/marketplace.json` (Claude, and OpenAI's Claude-compatible reading) and `.agents/plugins/marketplace.json`
+(ChatGPT and Codex), each listing `./connect/plugin`. Formats from code.claude.com/docs/en/plugins-reference and
+/plugin-marketplaces, and developers.openai.com/plugins/build/plugins.
+
+The version. The guide's version is a hash of every skill file (`version()` in `workshop-guide.js`). The plugin's
+manifests are `1.0.0+<it>` (Claude pins to that string, so a changed guide is an update), and each `SKILL.md` in it
+ends with the version it was made from. The connector says its own in its instructions and in `get_guide {topic:
+"home"}`, and tells the model that a copy with another version is old: use `get_guide` for that topic and say once
+that the plugin needs updating. (The tablet's guide is the one that's right for it, whichever is newer.)
+
+Installing (from the repo; nothing is published to a directory):
+- Claude Code: `/plugin install openhouse --marketplace mrubens/openhouse` (only for the connector: Claude Code
+  gets the skills from the connector itself). Tried 2026-11-24 with 2.1.331: `claude plugin validate` passes for the
+  plugin and the marketplace, and it installs with its five skills.
+- The Claude apps: Customize > Plugins > Add marketplace, `mrubens/openhouse`, with Sync automatically.
+- ChatGPT: a workspace admin imports the marketplace (Plugins > Add > Import marketplace, the repository, path
+  empty, branch `main` to get updates; ChatGPT checks daily). Not tried yet.
+- Codex: `codex plugin marketplace add mrubens/openhouse`. Not tried yet.
 
 ### What the family sees
 

@@ -1,0 +1,20 @@
+{
+  "name": "openhouse",
+  "interface": {
+    "displayName": "OpenHouse"
+  },
+  "plugins": [
+    {
+      "name": "openhouse",
+      "source": {
+        "source": "local",
+        "path": "./connect/plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

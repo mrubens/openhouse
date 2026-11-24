@@ -64,9 +64,22 @@ export function workshopGuide({ read, homeNow }) {
   };
   const TOPIC_NAMES = [...Object.keys(TOPICS), 'home'];
 
+  /**
+   * The guide's version: a hash of every skill's files, so it changes exactly when the guide does. The OpenHouse plugin
+   * (scripts/build-plugin.mjs, connect/plugin) carries the version it was made from; the connector says its own, so a
+   * model reading an old copy can tell (stale()).
+   */
+  function version() {
+    const h = crypto.createHash('sha256');
+    for (const [uri, f] of [...files()].sort(([a], [b]) => (a < b ? -1 : 1))) h.update(`${uri}\0${f.text}\0`);
+    return h.digest('hex').slice(0, 12);
+  }
+  /** What the connector says of its guide: the version, and what to do when a copy of the skills is another one. */
+  const versionLine = () => `This OpenHouse's guide is version ${version()}. OpenHouse skills from the OpenHouse plugin say the version they were made from at their end: if it isn't this one, that copy is out of date, so use get_guide (with the skill's topic) instead and tell the person once that the OpenHouse plugin needs updating.`;
+
   /** get_guide's answer for a topic ("start" when unknown). */
   function guide(topic) {
-    if (topic === 'home') return '# The home screen right now\n\n' + homeNow();
+    if (topic === 'home') return '# The home screen right now\n\n' + homeNow() + '\n\n' + versionLine();
     const t = TOPICS[topic] || TOPICS.start;
     return (t.guide || t.body)();
   }
@@ -95,5 +108,17 @@ export function workshopGuide({ read, homeNow }) {
     /** The topic a skill's file belongs to (to know a computer read how apps are made). */
     topicOf: (uri) => Object.entries(TOPICS).find(([, t]) => String(uri).startsWith(`skill://${t.skill}/`))?.[0] || null,
   };
-  return { guide, topics: TOPIC_NAMES, skills, agentSections };
+  /**
+   * The skills as a plugin's files, for someone to install by hand (ChatGPT, the Claude apps): each SKILL.md with the
+   * guide's version at its end. Only the bridge's own text, like the skills served here.
+   */
+  function pluginSkills() {
+    const v = version(), out = {};
+    for (const [uri, f] of files()) {
+      const rel = uri.replace(/^skill:\/\//, '');
+      out[rel] = rel.endsWith('/SKILL.md') ? `${f.text}\n---\n\nThis copy of the OpenHouse guide is version ${v}. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.\n` : f.text;
+    }
+    return out;
+  }
+  return { guide, topics: TOPIC_NAMES, skills, agentSections, version, versionLine, pluginSkills };
 }

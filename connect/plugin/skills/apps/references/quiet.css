@@ -1,0 +1,197 @@
+/* The look of the starting apps (calendar, chores, lists, meals, photos...), the same as the home screen's: link it
+   after the kit: <link rel="stylesheet" href="/kit/quiet.css">. Selectors start with :root so they win over an app's
+   own rules. In a tab the home screen hands the app its colors and type in its address (openhouse.js), and these
+   follow them, so every palette the household can pick works: never a fixed color here or in an app, except a
+   person's own color and what's a picture (a photo, a sky).
+
+   THE LIGHT SYSTEM
+   A tab is a world: one flat, warm off-white (--bg, with a faint hue of its own per tab) edge to edge. On it sit white
+   panels (--card) with a soft shadow and no outline. Type is ink (--ink), one face, heavy for names and light for
+   what's beside them. The one primary action is an ink pill; everything else is a soft pill (ink at 6%). Color comes
+   from the content: people, photos, the weather.
+
+   In a tab (html.in-tab, set by openhouse.js) the page is the stage itself: #app has no padding of its own, the home
+   screen leaves the margin around it and rounds its corners (calc(28 * var(--u))). Opened on its own, the app keeps its padding.
+
+   TOKENS (all follow the household's palette)
+     --bg        the world behind everything            --card      a panel's white
+     --ink       text, the primary pill                 --on-ink    text on ink
+     --fg2       soft text (ink 62%)                    --fg3       faint text (ink 40%)
+     --tint      a soft fill: secondary pills, fields   --tint-2    the same, pressed or a step stronger
+     --hair      a hairline between rows (ink 10%)      --accent    now, a count, what's overdue
+     --ok        done                                   --shadow    a panel's shadow
+     --shadow-pill  under an ink pill                   --shadow-lift  under a sheet over the screen
+     --r-panel calc(26 * var(--u)), --r-card calc(20 * var(--u)), --r-tile calc(16 * var(--u))          corner radii: a panel, a card inside one, a small tile
+   Type, at --u (one pixel of a 1536-wide screen): title 40/650, a panel's name 26/700, a row 21/600, soft text
+   17-19/500, a label 12.5/650 in capitals.
+
+   SHARED PIECES
+     .top        a tab's head: the title at the left, its pills and round buttons at the right
+     .title      the tab's name; a <span> inside is the soft second part ("Meals <span>this week</span>")
+     .btn        the primary pill (ink); .btn.soft the secondary one
+     .chip       a soft pill to choose with; .chip.on the chosen one (ink)
+     .round      a round icon button (soft); .round.dark the primary one (ink)
+     .quiet      a plain text button
+     .field      a text field (soft fill, no outline)
+     .scrim, .sheet   the dimmed screen and the white sheet over it
+     .nothing, .none, .hint, .note, .last   empty states and small print
+   New with the light system (prefixed q-, so they never meet an app's own names):
+     .q-panel    a white panel on the world (.q-panel.flat: no shadow, for one inside another)
+     .q-label    a section label: small capitals, soft
+     .q-seg      a segmented switch: <div class="q-seg"><button class="on">Day</button><button>Week</button></div>
+     .q-av       a person's round mark, their initial on their color: <span class="q-av" style="background:...">M</span>
+                 (.q-av.sm smaller, .q-av.lg larger, .q-av.none for nobody's)
+     .q-who      a person chip: a .q-av and their name on a soft pill; .q-who.on the chosen one
+     .q-check    a round tick box: empty a ring, .on filled with a tick (put the check icon inside)
+     .q-count    a small count on a pill ("8 to get")
+     .q-rows > * rows with a hairline between them
+     .q-photo    a picture that fills its box (on a div: background-size cover; on an img: object-fit cover)
+     .q-scrim    over a .q-photo's box: a dark fade at the foot so white words read on it
+     .q-letter   where there's no picture: the name's initial on a warm tint (give it --c for a color of its own) */
+@font-face { font-family: 'Inter'; src: url('fonts/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
+/* A phone (docs/phones.md, "Narrow screens"): under 700 px wide the unit grows so type and taps are a phone's size. */
+@media (max-width: 700px) { :root { --u: calc(100vw / 560); } }
+:root { --quiet: 'Inter', Roboto, system-ui, sans-serif; --card: #fff; --on-ink: var(--card);
+  --fg2: color-mix(in srgb, var(--ink) 62%, transparent); --fg3: color-mix(in srgb, var(--ink) 40%, transparent);
+  --tint: color-mix(in srgb, var(--ink) 6%, transparent); --tint-2: color-mix(in srgb, var(--ink) 10%, transparent);
+  --hair: color-mix(in srgb, var(--ink) 10%, transparent); --accent: #e2452f; --accent-ink: #fff; --ok: #1c8a66; --scrim: rgba(40, 34, 24, .5);
+  --shadow: 0 24px 44px -30px rgba(40, 30, 10, .4), 0 0 0 1px color-mix(in srgb, var(--ink) 4.5%, transparent);
+  --shadow-pill: 0 8px 18px -8px color-mix(in srgb, var(--ink) 50%, transparent); --shadow-lift: 0 60px 120px -30px rgba(30, 20, 0, .6);
+  --r-panel: calc(26 * var(--u)); --r-card: calc(20 * var(--u)); --r-tile: calc(16 * var(--u)); }
+:root.dark { --ok: #56d6a0; --shadow: 0 24px 44px -28px rgba(0, 0, 0, .7), inset 0 0 0 1px color-mix(in srgb, var(--ink) 7%, transparent); --shadow-lift: 0 60px 120px -30px rgba(0, 0, 0, .8); }
+:root body { background: var(--bg); font-family: var(--quiet); color: var(--ink); -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+:root body * { font-family: inherit; }
+:root.in-tab #app { padding: 0; }
+/* In a tab the page is the stage (1302 of the screen's 1536 wide), so its unit is a 1302-wide layout's: an app reads the size
+   the designs drew it at. Not on a phone (under 700 px), which has its own unit above. */
+@media (min-width: 701px) { :root.in-tab { --u: calc(100vw / 1302); } }
+
+/* the shared pieces */
+:root .top { min-height: calc(58 * var(--u)); gap: calc(12 * var(--u)); padding: 0 calc(6 * var(--u)) 0 calc(10 * var(--u)); margin-bottom: calc(16 * var(--u)); }
+:root .title { font-size: calc(40 * var(--u)); font-weight: 650; letter-spacing: -.025em; }
+:root .title span { font-weight: 350; color: var(--fg2); }
+:root .chip { height: calc(46 * var(--u)); border-radius: calc(23 * var(--u)); padding: 0 calc(20 * var(--u)); font-size: calc(17 * var(--u)); font-weight: 600; background: var(--tint); color: var(--ink); box-shadow: none; }
+:root .chip.on { background: var(--ink); color: var(--on-ink); box-shadow: var(--shadow-pill); }
+:root .chip .dot { width: calc(14 * var(--u)); height: calc(14 * var(--u)); }
+:root .btn { height: calc(46 * var(--u)); border-radius: calc(23 * var(--u)); padding: 0 calc(20 * var(--u)); font-size: calc(17 * var(--u)); font-weight: 600; background: var(--ink); color: var(--on-ink); box-shadow: var(--shadow-pill); }
+:root .btn.soft { background: var(--tint); color: var(--ink); box-shadow: none; }
+:root .btn:disabled { opacity: .35; box-shadow: none; }
+:root .round { width: calc(46 * var(--u)); height: calc(46 * var(--u)); background: var(--tint); color: var(--ink); box-shadow: none; }
+:root .round .icon { width: calc(22 * var(--u)); height: calc(22 * var(--u)); }
+:root .round.dark { background: var(--ink); color: var(--on-ink); box-shadow: var(--shadow-pill); }
+:root .round:disabled { background: transparent; color: color-mix(in srgb, var(--ink) 25%, transparent); box-shadow: none; }
+:root .scrim { background: var(--scrim); }
+:root .sheet { background: var(--card); color: var(--ink); border-radius: calc(30 * var(--u)); box-shadow: var(--shadow-lift); }
+:root .sheet h2, :root .sheet h2.big { font-size: calc(30 * var(--u)); font-weight: 700; letter-spacing: -.025em; }
+:root .field { font-size: calc(19 * var(--u)); font-weight: 500; background: var(--tint); color: var(--ink); border-color: transparent; border-radius: calc(16 * var(--u)); }
+:root .field::placeholder { color: var(--fg3); }
+:root .nothing, :root .none h2 { font-size: calc(24 * var(--u)); font-weight: 600; letter-spacing: -.015em; color: var(--fg2); }
+:root .none p, :root .hint, :root .note, :root .last { font-size: calc(16 * var(--u)); font-weight: 500; }
+:root .quiet { font-size: calc(16 * var(--u)); font-weight: 600; color: var(--fg2); min-height: calc(46 * var(--u)); padding: 0 calc(18 * var(--u)); border-radius: calc(23 * var(--u)); }
+:root .quiet:active { background: var(--tint-2); }
+
+/* new with the light system */
+:root .q-panel { background: var(--card); border-radius: var(--r-panel); box-shadow: var(--shadow); position: relative; min-width: 0; min-height: 0; }
+:root .q-panel.flat { box-shadow: none; }
+:root .q-label { font-size: calc(12.5 * var(--u)); font-weight: 650; letter-spacing: .13em; text-transform: uppercase; color: var(--fg2); }
+:root .q-seg { display: inline-flex; flex: none; background: var(--tint); border-radius: calc(26 * var(--u)); padding: calc(4 * var(--u)); }
+:root .q-seg > * { height: calc(42 * var(--u)); padding: 0 calc(20 * var(--u)); border-radius: calc(22 * var(--u)); display: grid; place-items: center; font-size: calc(17 * var(--u)); font-weight: 600; color: var(--fg2); white-space: nowrap; }
+:root .q-seg > .on { background: var(--card); color: var(--ink); box-shadow: 0 4px 12px -5px rgba(40, 30, 10, .35); }
+:root.dark .q-seg > .on { background: color-mix(in srgb, var(--ink) 16%, var(--card)); }
+:root .q-av { width: calc(34 * var(--u)); height: calc(34 * var(--u)); border-radius: 50%; flex: none; display: grid; place-items: center; font-size: calc(16 * var(--u)); font-weight: 750; line-height: 1; color: #15132b; background: var(--tint-2); }
+:root .q-av.sm { width: calc(28 * var(--u)); height: calc(28 * var(--u)); font-size: calc(13 * var(--u)); }
+:root .q-av.lg { width: calc(44 * var(--u)); height: calc(44 * var(--u)); font-size: calc(20 * var(--u)); }
+:root .q-av.none { color: var(--ink); }
+:root .q-who { display: inline-flex; align-items: center; gap: calc(9 * var(--u)); flex: none; height: calc(46 * var(--u)); padding: 0 calc(18 * var(--u)) 0 calc(6 * var(--u)); border-radius: calc(23 * var(--u)); background: var(--tint); color: var(--ink); font-size: calc(17 * var(--u)); font-weight: 600; white-space: nowrap; }
+:root .q-who.on { background: var(--ink); color: var(--on-ink); box-shadow: var(--shadow-pill); }
+:root .q-check { width: calc(28 * var(--u)); height: calc(28 * var(--u)); border-radius: 50%; flex: none; box-sizing: border-box; display: grid; place-items: center; border: calc(2.5 * var(--u)) solid color-mix(in srgb, var(--ink) 60%, transparent); color: transparent; background: transparent; }
+:root .q-check.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+:root .q-check .icon { width: 68%; height: 68%; }
+:root .q-count { display: inline-grid; place-items: center; flex: none; height: calc(28 * var(--u)); padding: 0 calc(12 * var(--u)); border-radius: calc(14 * var(--u)); background: var(--tint); font-size: calc(15 * var(--u)); font-weight: 700; white-space: nowrap; }
+:root .q-rows > * + * { border-top: 1px solid var(--hair); }
+:root .q-photo { background-size: cover; background-position: center; object-fit: cover; }
+:root .q-scrim { position: relative; color: #fff; --fg2: rgba(255, 255, 255, .8); --hair: rgba(255, 255, 255, .22); }
+:root .q-scrim::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: linear-gradient(180deg, rgba(10, 8, 20, 0) 35%, rgba(10, 8, 20, .72)); pointer-events: none; }
+:root .q-scrim > * { position: relative; z-index: 1; }
+:root .q-scrim > .q-photo { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; border-radius: inherit; }
+:root .q-letter { display: grid; place-items: center; font-weight: 700; letter-spacing: -.02em; color: color-mix(in srgb, var(--c, #d9662f) 70%, var(--ink));
+  background: linear-gradient(155deg, color-mix(in srgb, var(--c, #d9662f) 20%, var(--card)), color-mix(in srgb, var(--c, #d9662f) 38%, var(--card))); }
+
+/* calendar: a day is a soft panel on the world (today's the white one, ringed in ink); an event is its person's
+   color with ink on it, in the week a card, in the month a chip, in a list a row */
+:root .col, :root .month .cell { background: color-mix(in srgb, var(--card) 70%, transparent); border-radius: calc(24 * var(--u)); border: 0; }
+:root .month .cell { background: color-mix(in srgb, var(--card) 75%, transparent); border-radius: calc(20 * var(--u)); }
+:root .col.today, :root .month .cell.today { background: var(--card); box-shadow: inset 0 0 0 calc(2 * var(--u)) var(--ink), 0 calc(24 * var(--u)) calc(40 * var(--u)) calc(-24 * var(--u)) rgba(40, 30, 10, .5); }
+:root .month .cell.out { background: color-mix(in srgb, var(--card) 30%, transparent); opacity: 1; }
+:root .col-top .dow, :root .mdow { font-size: calc(12.5 * var(--u)); font-weight: 650; letter-spacing: .13em; text-transform: uppercase; color: var(--fg2); }
+:root .col.today .dow, :root .col-top.today .dow { color: var(--ink); }
+:root .num { font-size: calc(24 * var(--u)); font-weight: 600; width: calc(42 * var(--u)); height: calc(42 * var(--u)); }
+:root .col-top.today .num, :root .num.now { background: var(--ink); color: var(--on-ink); }
+:root .chipv { border-radius: calc(16 * var(--u)); padding: calc(10 * var(--u)) calc(13 * var(--u)) calc(11 * var(--u)); }
+:root .chipv .when, :root .chipv .whose { font-size: calc(14 * var(--u)); font-weight: 700; }
+:root .chipv .whose { font-weight: 600; }
+:root .chipv .what { font-size: calc(18.5 * var(--u)); font-weight: 700; line-height: 1.15; letter-spacing: -.015em; hyphens: manual; }
+:root .month .mev { font-size: calc(14.5 * var(--u)); font-weight: 700; padding: 0 calc(9 * var(--u)); border-radius: calc(9 * var(--u)); }
+:root .aday { font-size: calc(24 * var(--u)); font-weight: 700; letter-spacing: -.02em; }
+:root .aday.today { color: var(--ink); }
+:root .rows { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); }
+:root .erow .when, :root .erow .whose { font-size: calc(17 * var(--u)); font-weight: 700; }
+:root .erow .what { font-size: calc(21 * var(--u)); font-weight: 700; line-height: 1.2; letter-spacing: -.015em; hyphens: manual; }
+:root .dot { width: calc(12 * var(--u)); height: calc(12 * var(--u)); }
+:root .dot.big { width: calc(16 * var(--u)); height: calc(16 * var(--u)); }
+:root .day-name { font-size: calc(30 * var(--u)); font-weight: 700; letter-spacing: -.025em; color: var(--ink); }
+:root .day-date, :root .line { font-size: calc(19 * var(--u)); font-weight: 500; }
+:root .hours, :root .dside { border-color: var(--hair); }
+
+/* meals and recipes: the starting apps carry their own layout (defaults/apps/meals, recipes), built from the pieces
+   above: a dish is a .q-photo of its recipe's own picture under a .q-scrim, or a .q-letter where it has none. These
+   keep a household's older copy of Meals (a column per day) in the light look. */
+:root .days > .day:not(.wx .day) { background: var(--card); border-radius: var(--r-card); box-shadow: var(--shadow); padding: calc(14 * var(--u)); }
+:root .days > .day:not(.wx .day) .dow { font-size: calc(12.5 * var(--u)); font-weight: 650; letter-spacing: .13em; text-transform: uppercase; color: var(--fg2); }
+:root .days > .day:not(.wx .day).today .dow { color: var(--accent); }
+:root .days > .day:not(.wx .day) .date { font-size: calc(15 * var(--u)); font-weight: 500; margin-top: 0; color: var(--fg2); }
+:root .day > .meal { background: transparent; border: calc(2 * var(--u)) dashed color-mix(in srgb, var(--ink) 24%, transparent); border-radius: var(--r-tile); align-items: flex-start; justify-content: flex-start; text-align: left; padding: calc(14 * var(--u)); }
+:root .day > .meal.set { background: var(--tint); border-color: transparent; }
+:root .meal .add { align-self: center; margin: auto; width: calc(32 * var(--u)); height: calc(32 * var(--u)); color: var(--fg3); }
+:root .meal .what { font-size: calc(23 * var(--u)); font-weight: 700; letter-spacing: -.025em; line-height: 1.1; overflow-wrap: break-word; hyphens: auto; }
+:root .meal .which, :root .meal .work { font-size: calc(15 * var(--u)); font-weight: 600; color: var(--fg2); }
+
+/* lists: a household's own copy from before the light look (the starting app's styles are its own now) */
+:root .paper { border-radius: calc(20 * var(--u)); padding: calc(22 * var(--u)) calc(24 * var(--u)); }
+:root .paper .name { font-size: calc(26 * var(--u)); font-weight: 600; }
+:root .item { padding: calc(12 * var(--u)) 0; border-bottom: 1px solid var(--line); gap: calc(16 * var(--u)); }
+:root .item .box { width: calc(30 * var(--u)); height: calc(30 * var(--u)); background: transparent; border: calc(2 * var(--u)) solid color-mix(in srgb, var(--ink) 40%, transparent); color: var(--bg); }
+:root .item .box .icon { width: calc(20 * var(--u)); height: calc(20 * var(--u)); }
+:root .item.done .box { background: color-mix(in srgb, var(--ink) 45%, transparent); border-color: transparent; }
+:root .item .text { font-size: calc(22 * var(--u)); font-weight: 400; }
+:root .item .who { width: calc(10 * var(--u)); height: calc(10 * var(--u)); }
+
+/* chores: the same, for a household's older copy */
+:root .person { border-radius: calc(22 * var(--u)); }
+:root .initial { width: calc(44 * var(--u)); height: calc(44 * var(--u)); font-size: calc(20 * var(--u)); font-weight: 600; }
+:root .person .name { font-size: calc(24 * var(--u)); font-weight: 600; }
+:root .stars, :root .reward-stars { font-size: calc(20 * var(--u)); font-weight: 600; }
+:root .stars .star { width: calc(20 * var(--u)) !important; height: calc(20 * var(--u)) !important; }
+:root .chore { background: var(--card); border-radius: calc(16 * var(--u)); padding: calc(12 * var(--u)) calc(14 * var(--u)); gap: calc(14 * var(--u)); }
+:root .chore .check { width: calc(40 * var(--u)); height: calc(40 * var(--u)); background: var(--tint-2); }
+:root .chore .check .icon { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
+:root .chore .task { font-size: calc(20 * var(--u)); font-weight: 500; }
+:root .all-done { font-size: calc(22 * var(--u)); font-weight: 600; }
+:root .routine-name, :root .step-text { font-size: calc(16 * var(--u)); font-weight: 500; }
+:root .step, :root .reward, :root .routine-card { background: var(--card); }
+:root .kid { height: calc(60 * var(--u)); font-size: calc(20 * var(--u)); font-weight: 600; background: var(--tint); }
+:root .reward-title { font-size: calc(26 * var(--u)); font-weight: 600; }
+:root .reward-note { font-size: calc(18 * var(--u)); font-weight: 500; min-height: calc(62 * var(--u)); }
+:root .routine-card h2 { font-size: calc(26 * var(--u)); font-weight: 600; }
+:root .bar { height: calc(10 * var(--u)); }
+
+/* photos */
+:root .empty h1 { font-size: calc(32 * var(--u)); font-weight: 600; }
+:root .empty p { font-size: calc(18 * var(--u)); font-weight: 400; }
+
+/* Big enough to hit from a step away (at least about 48 px on the tablet), and a clear mark for the keyboard's focus. */
+:root .btn { min-width: calc(96 * var(--u)); }
+:root .item, :root .chore, :root .erow { min-height: calc(60 * var(--u)); }
+:root [role="button"]:focus-visible, :root button:focus-visible, :root .field:focus-visible { outline: calc(3 * var(--u)) solid var(--accent); outline-offset: calc(2 * var(--u)); }
+:root .field:focus-visible { outline-color: color-mix(in srgb, var(--ink) 22%, transparent); } /* (a field being typed in isn't an alarm: a soft ring, not the red) */
+:root .mev { padding: calc(4 * var(--u)) calc(8 * var(--u)); }

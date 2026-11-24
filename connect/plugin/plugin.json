@@ -1,0 +1,34 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "openhouse",
+  "version": "1.0.0+1551e9f41ca6",
+  "description": "Change your household's OpenHouse from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.",
+  "author": {
+    "name": "OpenHouse",
+    "url": "https://openhouse.computer"
+  },
+  "homepage": "https://openhouse.computer",
+  "repository": "https://github.com/mrubens/openhouse",
+  "license": "MIT",
+  "keywords": [
+    "openhouse",
+    "household",
+    "tablet"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "OpenHouse",
+        "shortDescription": "Change your OpenHouse tablet",
+        "longDescription": "Change your household's OpenHouse from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.",
+        "developerName": "OpenHouse",
+        "category": "Productivity",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://openhouse.computer"
+      }
+    }
+  }
+}

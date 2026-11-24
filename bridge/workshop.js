@@ -25,10 +25,11 @@ const MAX_READ = 400e3;
 const INSTRUCTIONS = `OpenHouse is a family's kitchen tablet: a home screen of tabs (Today, Calendar, Chores, Lists, Meals, Photos, Apps), each tab past Today one of the family's small web apps, and Apps the rest of their apps and games. These tools change it, from the person's computer, while the family may be watching.
 Before changing anything, call get_guide: the home screen as it is now, how to work and how notes should read. Before making or changing an app, also get_guide with topic "apps": how apps are made here (calm, quiet ones that fit a tab), the kit and its CSS.
 Tabs and the look: one set_home call. An app: start_editing, read_file/write_file, check_build, look_at_tablet, then done_editing (always). A new app goes in Apps: when it's done, ask in one short line whether to put it in the sidebar, and call set_home only on a yes. Every app is a plugin: one you make or change here becomes the household's own plugin by itself (no manifest to write; changing one of OpenHouse's own, like Calendar, makes the household's version of it, and reset_plugin puts ours back). When they ask to take a change back: undo_latest (undo_plugin for one app's latest); don't mention or offer undo otherwise. A family calendar (Google, iCloud, Outlook): add_calendar with its link; the tablet keeps it sealed and someone says yes there. An iCloud shared album for Photos: add_photo_album with its public link, the same way.
-Apps the tablet noticed are broken wait in pending_fixes: fix one with start_editing {fix}; someone says yes on the tablet before it goes in.`;
+Apps the tablet noticed are broken wait in pending_fixes: fix one with start_editing {fix}; someone says yes on the tablet before it goes in.
+If you have the OpenHouse skills (working-here, apps, notes, plugins, design: from the OpenHouse plugin), use them instead of get_guide, and get_guide with topic "home" for the home screen as it is now.`;
 // For a client on MCP 2026-07-28 that can load this server's skills (server/discover): the guide is in them, and
 // get_guide is for the home screen as it is now.
-const SKILL_INSTRUCTIONS = INSTRUCTIONS.split('\n').map((l, i) => i !== 1 ? l : 'Before changing anything, load this server\'s working-here skill (how to work here) and call get_guide with topic "home" (the home screen as it is now). Before making or changing an app, also load the apps skill: how apps are made here, the kit and its CSS. The notes, plugins and design skills are for those. (No skills here? get_guide, and get_guide with topic "apps", give the same.)').join('\n');
+const SKILL_INSTRUCTIONS = INSTRUCTIONS.split('\n').filter((l) => !l.startsWith('If you have the OpenHouse skills')).map((l, i) => i !== 1 ? l : 'Before changing anything, load this server\'s working-here skill (how to work here) and call get_guide with topic "home" (the home screen as it is now). Before making or changing an app, also load the apps skill: how apps are made here, the kit and its CSS. The notes, plugins and design skills are for those. (No skills here? get_guide, and get_guide with topic "apps", give the same.)').join('\n');
 // MCP revisions: the ones that start with initialize, and the stateless one with per-request _meta (skills need it).
 const MODERN = ['2026-07-28'];
 const LEGACY = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -61,7 +62,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
       `${now ? ` The tablet is showing the ${now} tab.` : ''}\nApps: ${apps.join(', ') || 'none'}.\nApps that aren't tabs are in the Apps tab.\n${homeScreen.describe()}`;
   }
 
-  const { guide, topics, skills } = workshopGuide({ read, homeNow });
+  const { guide, topics, skills, versionLine } = workshopGuide({ read, homeNow });
 
   const RESOURCES = [
     { uri: 'openhouse://guide/workshop', name: 'Working from a computer', mimeType: 'text/markdown', text: () => read('WORKSHOP.md') },
@@ -74,7 +75,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
 
   const path_ = { type: 'string', description: 'Relative to the apps folder, e.g. "apps/chores/main.js"' };
   const OWN = [
-    { name: 'get_guide', description: 'Call first: the home screen as it is now (tabs, look, apps, notes), how to work from a computer, and how notes on Today should read. With topic "apps", before making or changing an app: how apps are made here (calm everyday tools that fit a tab, games, the kit for the family\'s data, icons), how a tab should look and the quiet kit\'s CSS. "notes", "plugins" and "design": those alone; "home": only the home screen as it is now (when this server\'s skills give the rest).',
+    { name: 'get_guide', description: 'Call first (with the OpenHouse skills, only topic "home"): the home screen as it is now (tabs, look, apps, notes), how to work from a computer, and how notes on Today should read. With topic "apps", before making or changing an app: how apps are made here (calm everyday tools that fit a tab, games, the kit for the family\'s data, icons), how a tab should look and the quiet kit\'s CSS. "notes", "plugins" and "design": those alone; "home": only the home screen as it is now (when this server\'s skills give the rest).',
       inputSchema: { type: 'object', properties: { topic: { type: 'string', enum: topics, description: '"start" (the default), "apps", "notes", "plugins", "design" or "home"' } } } },
     { name: 'start_editing', description: 'Open a change before writing or deleting any file. what: what the person asked, in their words ("A whiteboard that looks like Chores"); the tablet shows it while you work and undo lists it. Waits if the family\'s assistant is changing something right now. Not needed for set_home, notes or the household tools.',
       inputSchema: { type: 'object', required: ['what'], properties: { what: { type: 'string' }, fix: { type: 'string', description: 'A waiting fix\'s id (pending_fixes), when this change fixes it: someone says yes on the tablet before it goes in.' } } } },
@@ -375,10 +376,10 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
     const cache = (ttlMs, cacheScope = 'private') => (modern ? { ttlMs, cacheScope } : {});
     const reply = (result, hints = {}) => ({ jsonrpc: '2.0', id: msg.id, result: modern ? { resultType: 'complete', ...result, ...hints } : result });
     switch (msg.method) {
-      case 'initialize': return reply({ protocolVersion: LEGACY.includes(p.protocolVersion) ? p.protocolVersion : '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'openhouse', version: '0.1' }, instructions: INSTRUCTIONS });
+      case 'initialize': return reply({ protocolVersion: LEGACY.includes(p.protocolVersion) ? p.protocolVersion : '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'openhouse', version: '0.1' }, instructions: `${INSTRUCTIONS}\n${versionLine()}` });
       case 'server/discover':
         if (!modern) return fail(-32602, 'server/discover needs params._meta (MCP 2026-07-28)');
-        return reply({ supportedVersions: MODERN, capabilities: { tools: {}, resources: {}, extensions: { [SKILLS_EXT]: {} } }, _meta: { 'io.modelcontextprotocol/serverInfo': { name: 'openhouse', version: '0.1' } }, instructions: SKILL_INSTRUCTIONS }, cache(0));
+        return reply({ supportedVersions: MODERN, capabilities: { tools: {}, resources: {}, extensions: { [SKILLS_EXT]: {} } }, _meta: { 'io.modelcontextprotocol/serverInfo': { name: 'openhouse', version: '0.1' } }, instructions: `${SKILL_INSTRUCTIONS}\n${versionLine()}` }, cache(0));
       case 'ping': return reply({});
       case 'tools/list': return reply({ tools: tools() }, cache(0));
       case 'resources/templates/list': return reply({ resourceTemplates: [] }, cache(0));

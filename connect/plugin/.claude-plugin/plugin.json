@@ -1,0 +1,17 @@
+{
+  "name": "openhouse",
+  "version": "1.0.0+1551e9f41ca6",
+  "description": "Change your household's OpenHouse from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.",
+  "author": {
+    "name": "OpenHouse",
+    "url": "https://openhouse.computer"
+  },
+  "homepage": "https://openhouse.computer",
+  "repository": "https://github.com/mrubens/openhouse",
+  "license": "MIT",
+  "keywords": [
+    "openhouse",
+    "household",
+    "tablet"
+  ]
+}
