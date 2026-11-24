@@ -507,3 +507,25 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .t-add { cursor: pointer; }
 .t-addsheet { display: flex; flex-direction: column; gap: calc(var(--u) * 16); min-width: calc(var(--u) * 520); }
 .t-addsheet input { font: inherit; font-size: calc(var(--u) * 26); padding: calc(var(--u) * 14) calc(var(--u) * 18); border-radius: calc(var(--u) * 16); border: 1px solid rgba(0,0,0,.15); background: #fff; color: #2a2826; }
+
+/* Type, after the site's picture of the home screen: lighter and quieter. Names and the next thing at a regular or
+   medium weight (not bold), times and details soft, labels small; weight goes to what matters, never to everything. */
+.h-time { font-weight: 300; letter-spacing: -.025em; }
+.h-day { font-weight: 400; }
+.h-wx, .h-timer { font-weight: 500; }
+.h-tab { font-weight: 400; }
+.h-tab.on { font-weight: 560; }
+.h-label { font-size: calc(var(--u) * 13 * var(--s)); letter-spacing: .1em; }
+.t-next { font-size: calc(var(--u) * 42 * var(--s)); font-weight: 500; letter-spacing: -.015em; line-height: 1.1; }
+.hand-type .t-next { font-size: calc(var(--u) * 48 * var(--s)); }
+.t-when-next { font-size: calc(var(--u) * 18 * var(--s)); font-weight: 400; color: var(--h-soft); }
+.t-ev { font-weight: 400; }
+.t-ev > :first-child { color: var(--h-soft); font-size: .88em; }
+.t-big, .t-lunch .t-big { font-size: calc(var(--u) * 32 * var(--s)); font-weight: 450; letter-spacing: -.01em; line-height: 1.15; }
+.t-line { font-weight: 400; }
+.t-item { font-size: calc(var(--u) * 19 * var(--s)); font-weight: 400; }
+.t-pick b { font-weight: 500; }
+.t-note { font-weight: 500; }
+.t-note.first { font-size: calc(var(--u) * 26 * var(--s)); font-weight: 500; }
+.t-ring-n { font-weight: 500; }
+.t-n, .t-undo { font-weight: 600; }
