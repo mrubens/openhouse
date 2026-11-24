@@ -1,7 +1,7 @@
 # The household's email address (plan)
 
 A plan, not yet built (2026-11-24). Each household linked to the cloud gets an address, like
-`maple-otter-42@home.openhouse.computer`. Someone forwards it a school email, an invitation or a flyer, and Opie reads
+`maple-otter-42@email.openhouse.computer`. Someone forwards it a school email, an invitation or a flyer, and Opie reads
 it and offers to add the events. Someone emails it photos and they go into Photos, the way you can email a
 picture frame. Only mail from addresses the household approved gets in.
 
@@ -18,9 +18,10 @@ and needs its own plan: what may be sent, who says yes, and replies.
 
 ## How mail gets to the tablet
 
-1. A message to `<address>@home.openhouse.computer` reaches Amazon SES (the subdomain's MX). The domain's own mail
+1. A message to `<address>@email.openhouse.computer` reaches Amazon SES (the subdomain's MX). The domain's own mail
    (Google Workspace on `openhouse.computer`) isn't affected.
-2. The cloud checks it: the address belongs to a household, the sender is on that household's list, SPF or DKIM pass
+2. The cloud checks it: the address belongs to a household, the sender is on that household's list (or it's held,
+   below), SPF or DKIM pass
    for the sender's domain (DMARC alignment, so a forged `From` doesn't get through), no virus, and it's within the
    limits below. Anything that fails is dropped with no bounce (bounces to forged senders just spread spam).
 3. The cloud seals the whole message (the raw MIME) with the tablet's mail key, a public key the tablet gave it when
@@ -42,22 +43,29 @@ throws the rest away.
   not on the cloud's short list of reserved names like `admin` or `postmaster`).
 - **Changing it** (spam, or they just want a new one): the old address stops at once and is never handed out again.
   The new one shows in Settings with a one-line note to update the forwarding rules people set up.
-- **Off by default.** Email starts when someone turns it on in Settings → Email, so no household gets an address it
-  didn't ask for. Turning it off deletes the address (and anything waiting).
+- **On by default.** Every household linked to the cloud gets an address when its tablet is linked, with the
+  account's sign-in addresses already approved, so forwarding works with no setup. Settings → Email can turn it off,
+  which deletes the address (and anything waiting).
+- **No naming step.** Signing up doesn't ask for a household name to use in the address (or anywhere else): a chosen
+  name tends to be the family's surname, which would make the household easy to identify from anything it's in.
 - Since only approved senders get in, the address isn't a secret, and spam can't get through by guessing it.
 
 ## Senders
 
-- **Each person's own addresses.** In Settings → Email, a grown-up adds the addresses mail may come from, each one
-  with the person it belongs to (Sam: `sam@example.com`, `sam.work@example.com`). These are the only way in. The
+- **Each person's own addresses.** The account's sign-in addresses are approved from the start. In Settings → Email, a
+  grown-up adds the other addresses mail may come from, each one with the person it belongs to (Sam:
+  `sam@example.com`, `sam.work@example.com`), and says whose each sign-in address is. These are the only way in. The
   household's list is kept on the tablet; the cloud keeps only a keyed hash of each address (HMAC with a key per
   household), enough to check a sender without a readable list of people's addresses.
 - **Approving is done on the tablet** (or a grown-up's phone), behind the PIN where the tablet has one. Opie can't add
   a sender, and nothing in a message can.
-- **Anyone else:** the cloud drops the message. So that forwarding from a new address isn't a mystery, it also sends
-  the tablet the sender's address on its own (not the message, and nothing is kept): Settings → Email shows
-  "Mail from `newsletter@maple-elementary.example` was turned away", with Allow. The next message from them gets in.
-  At most 5 of those notes a day.
+- **Anyone else is held.** The first message from a new address is usually one someone wanted (a school email
+  forwarded from a work account), so it isn't dropped. If it passes the same checks as approved mail (SPF/DKIM,
+  DMARC, no virus, the size limit), the cloud seals and delivers it like any other, marked held, at most 10 held
+  messages a day per household. The tablet keeps it unread: nothing reads it, no model sees it, and Settings → Email
+  shows only "Waiting: mail from `newsletter@maple-elementary.example`", with Allow and Delete. Allow approves the
+  sender and reads that message; anything not allowed is deleted after 3 days. Held mail isn't kept in the cloud any
+  longer than other mail. Past 10 a day, the rest from unknown senders are dropped.
 - **Mail sent straight from a school** (the household gave the school its OpenHouse address): the school's sending
   address gets added like a person's, under "Others". Its domain has to pass SPF or DKIM like anyone's.
 - **Forwarded mail** comes from the person who forwarded it, so it's their address that counts; what the message
@@ -115,7 +123,7 @@ in a subject line); the model makes the call, with what the message holds as con
   after a day. Kept for as long as email is on: the address, the hashed sender list, and counts (messages a day, as
   numbers, for the limits). The logs say a message came for a household and its size, never who it's from or what's
   in it.
-- **On the tablet:** messages are kept a week, photos in Photos as any others, events once someone says yes.
+- **On the tablet:** held messages 3 days unless allowed; messages are kept a week, photos in Photos as any others, events once someone says yes.
 - **Offline:** mail waits up to 7 days in the cloud, sealed. A tablet off for longer loses what came in that time and
   shows "Mail sent before (date) didn't arrive".
 - **Who can read mail on the way:** SES receives it in the clear, as any mail server does, and the cloud's Lambda
@@ -132,15 +140,15 @@ in a subject line); the model makes the call, with what the message holds as con
 - **Bridge:** a mail key made and kept with the tablet's other keys, given to the cloud when linking (and on
   "turn on email"); fetching waiting mail on connect and on the relay's nudge; a MIME parser (a small, maintained one,
   such as `postal-mime`); `addEmail` beside `addFlyer` in `bridge/house.js`, which reads it and puts photos and events
-  where they go; Settings → Email (address, senders, turned-away senders, what came in).
+  where they go; Settings → Email (address, senders, held mail, what came in).
 - **Shell:** PDF pages to images (Android's `PdfRenderer`) and HEIC to JPEG, for the bridge.
-- **Tests** (security and data safety only): a message from a sender not on the list never reaches the tablet; a
+- **Tests** (security and data safety only): a held message is never read or shown to a model until Allow; a
   forged `From` that fails DMARC is dropped; an email's events are never added without a yes; mail is deleted from the
   cloud after it's fetched.
 
-## Open questions for the household
+## Decided (2026-11-24)
 
-1. Turned-away mail: drop it (this plan), or hold it sealed for a few days so Allow lets that first message in too?
-2. Off until turned on (this plan), or an address made at linking with no senders yet?
-3. One Email album, or one per sender?
-4. Is `home.openhouse.computer` the subdomain, or something else (`mail.`, `in.`)?
+- Mail from unknown senders is held on the tablet for 3 days for Allow, not dropped.
+- On by default, with the account's sign-in addresses approved; a random address, no naming step.
+- One album, Email, for emailed photos.
+- The subdomain is `email.openhouse.computer`.
