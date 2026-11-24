@@ -335,6 +335,16 @@ function useFit() {
   return ref;
 }
 
+/** Today's own cards, in their usual order; an app's card ("app:<id>") goes before the photos. */
+export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'meals', 'lists', 'chores', 'notes', 'photos'];
+export const TODAY_NAMES = { calendar: 'Calendar', weather: 'Weather', lunch: 'Notes from apps, with a photo', meals: 'Dinner', lists: 'Groceries', chores: 'Chores', notes: 'Notes', photos: 'Photos' };
+/** The cards Today shows, in order: the look's choice (look.today), with the apps' cards that are on (look.cards). */
+export function todayOrder(look) {
+  const apps = (look?.cards || []).map((id) => 'app:' + id);
+  if (!Array.isArray(look?.today)) return [...TODAY_CARDS.slice(0, -1), ...apps, 'photos'];
+  const list = look.today.filter((k) => !k.startsWith('app:') || apps.includes(k));
+  return [...list, ...apps.filter((k) => !list.includes(k))];
+}
 const weekday = (d, long) => d.toLocaleDateString('en-US', { weekday: long ? 'long' : 'short' });
 
 /** The Weather card: its size (one cell, two rows tall, or wide) from its own box; drawn again every few minutes, not
@@ -439,7 +449,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
   const calFit = useFit(), mealFit = useFit();
   const photos = h.screensaver || h.photos || []; // the sleep screen's photos (its albums' choice), none when they're all off
 
-  const cards = [];
+  const cards = []; // (each pushed with its key; put in the household's order and choice below: TODAY_CARDS)
   // Weather: on its sky (the Weather tab's look, /kit/weather-look.js): now, the next hours, and the model's line tying
   // it to the household's plans; with no line, the next days.
   const w = weather && !weather.error ? weather : null;
@@ -492,7 +502,13 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
   if (kinds.has('photos') && photos.length) cards.push(<PhotoCard key="photos" c={c} names={photos} captions={h.captions} now={now} usePhoto={usePhoto} {...card('photos')} />);
   // Laid out in rows, three at most: two to a row beside the calendar (three without it), a wide card a row of its own;
   // the last row takes one more, so seven cards share the screen as two, two and three.
-  const per = kinds.has('calendar') ? 2 : 3, rows = [];
+  // Which of them show, in what order: the household's choice in the look panel (look.today), else all, as usual. An
+  // app's card is on when look.cards has it (Apps can add one); look.today only places it.
+  { const byKey = new Map(cards.map((x) => [String(x.key), x]));
+    const order = todayOrder(look);
+    cards.length = 0; for (const k of order) if (k !== 'calendar' && byKey.has(k)) cards.push(byKey.get(k)); }
+  const showCal = kinds.has('calendar') && todayOrder(look).includes('calendar');
+  const per = showCal ? 2 : 3, rows = [];
   { let cur = null; for (const x of cards) { if (x.props.wide) { rows.push([x]); cur = null; } else { if (!cur || cur.length >= per) rows.push(cur = []); cur.push(x); } } }
   if (rows.length > 3 && rows[2].length === per && !rows[2][0].props.wide && !rows[3][0].props.wide) rows[2].push(rows[3][0]);
   rows.length = Math.min(rows.length, 3);
@@ -501,9 +517,9 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
 
   return (
     <div className="h-today">
-      {!kinds.has('calendar') && <Things c={c} things={h.things} className="t-things t-things-head" go={go} tabs={tabs} ask={shell?.ask} />}
-      <div className={'t-grid' + (kinds.has('calendar') ? ' with-cal' : '')}>
-        {kinds.has('calendar') && <div className="t-calcol">
+      {!showCal && <Things c={c} things={h.things} className="t-things t-things-head" go={go} tabs={tabs} ask={shell?.ask} />}
+      <div className={'t-grid' + (showCal ? ' with-cal' : '')}>
+        {showCal && <div className="t-calcol">
         <div {...card('calendar')}>
           <div className="t-top t-cal-label"><div className="h-label">Calendar</div><span className="t-n t-add" role="button" onClick={(e) => { e.stopPropagation(); addTo(kinds.get('calendar')); }}>+ Add</span></div>
           {first ? <>
@@ -646,7 +662,7 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
 
 // ---- Tabs and look --------------------------------------------------------------------------------------------
 function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
-  const [mine, setMine] = useState({ tabs: tabs.map((t) => (t.name ? { id: t.id, name: t.name } : { id: t.id })), palette: st.palette, colors: st.colors || {}, type: st.type, density: st.density, backdrop: st.backdrop, cards: st.cards || [] });
+  const [mine, setMine] = useState({ tabs: tabs.map((t) => (t.name ? { id: t.id, name: t.name } : { id: t.id })), palette: st.palette, colors: st.colors || {}, type: st.type, density: st.density, backdrop: st.backdrop, cards: st.cards || [], today: Array.isArray(st.today) ? st.today : null });
   const [busy, setBusy] = useState(null);
   const save = (part) => {
     const next = { ...mine, ...part }; setMine(next);
@@ -660,6 +676,11 @@ function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
   // The apps' own cards on Today: the ones on, in order, and the others that offer one.
   const offers = apps.filter((a) => a.today), cardName = (id) => offers.find((a) => a.id === id)?.meta?.name || id;
   const onCards = mine.cards.filter((id) => offers.some((a) => a.id === id)), offCards = offers.filter((a) => !onCards.includes(a.id));
+  // Today's cards, its own and the apps': the ones showing, in order, then the rest to add back.
+  const order = todayOrder(mine).filter((k) => !k.startsWith('app:') || onCards.includes(k.slice(4)));
+  const offToday = TODAY_CARDS.filter((k) => !order.includes(k));
+  const todayName = (k) => (k.startsWith('app:') ? cardName(k.slice(4)) : TODAY_NAMES[k]);
+  const setToday = (list) => { const apps = list.filter((k) => k.startsWith('app:')).map((k) => k.slice(4)); save({ today: list, cards: apps }); };
   return (
     <div className="h-veil" onClick={onClose}>
       <div className="h-arrange" onClick={(e) => e.stopPropagation()}>
@@ -674,18 +695,19 @@ function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
             </div>
           ))}
           {more.length > 0 && <div className="h-chips">{more.map((t) => <button key={t.id} className="h-chip" onClick={() => save({ tabs: [...mine.tabs, t] })}>+ {nameOf(t)}</button>)}</div>}
-          {offers.length > 0 && <>
-            <div className="h-label h-gap">Cards on Today</div>
-            {onCards.map((id, i) => (
-              <div key={id} className="h-arr-row">
-                <span className="h-grow">{cardName(id)}</span>
-                <button className="h-mini" disabled={i === 0} onClick={() => save({ cards: moved(onCards, i, -1) })} aria-label="Up"><Chevron up /></button>
-                <button className="h-mini" disabled={i === onCards.length - 1} onClick={() => save({ cards: moved(onCards, i, 1) })} aria-label="Down"><Chevron /></button>
-                <button className="h-mini" onClick={() => save({ cards: onCards.filter((x) => x !== id) })} aria-label="Take off Today"><Cross /></button>
-              </div>
-            ))}
-            {offCards.length > 0 && <div className="h-chips">{offCards.map((a) => <button key={a.id} className="h-chip" onClick={() => save({ cards: [...onCards, a.id] })}>+ {a.meta?.name || a.id}</button>)}</div>}
-          </>}
+          <div className="h-label h-gap">On Today</div>
+          {order.map((k, i) => (
+            <div key={k} className="h-arr-row">
+              <span className="h-grow">{todayName(k)}</span>
+              <button className="h-mini" disabled={i === 0} onClick={() => setToday(moved(order, i, -1))} aria-label="Up"><Chevron up /></button>
+              <button className="h-mini" disabled={i === order.length - 1} onClick={() => setToday(moved(order, i, 1))} aria-label="Down"><Chevron /></button>
+              <button className="h-mini" onClick={() => setToday(order.filter((x) => x !== k))} aria-label="Take off Today"><Cross /></button>
+            </div>
+          ))}
+          {(offToday.length > 0 || offCards.length > 0) && <div className="h-chips">
+            {offToday.map((k) => <button key={k} className="h-chip" onClick={() => setToday([...order, k])}>+ {TODAY_NAMES[k]}</button>)}
+            {offCards.map((a) => <button key={a.id} className="h-chip" onClick={() => setToday([...order, 'app:' + a.id])}>+ {a.meta?.name || a.id}</button>)}
+          </div>}
         </div>
         <div className="h-arr-col">
           <div className="h-label">Colour</div>

@@ -62,6 +62,8 @@ export const BUILT_IN_WIDGETS = { calendar: '2x2', chores: '2x2', lists: '2x2', 
  */
 export const PALETTES = ['paper', 'linen', 'sage', 'mist', 'dusk'];
 export const TYPES = ['clean', 'serif', 'round', 'hand'];
+/** Today's own cards (chat/src/home.jsx TODAY_CARDS); an app's card is "app:<its id>". */
+export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'meals', 'lists', 'chores', 'notes', 'photos'];
 const TAB_ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 const HEX = /^#[0-9a-f]{6}$/i;
 export function cleanLook(s = {}) {
@@ -77,6 +79,8 @@ export function cleanLook(s = {}) {
     density: s.density === 'snug' ? 'snug' : 'calm',
     backdrop: s.backdrop === 'photos' ? 'photos' : 'none',
     cards: Array.isArray(s.cards) ? s.cards.filter((id, i, a) => typeof id === 'string' && TAB_ID.test(id) && id !== 'home' && a.indexOf(id) === i).slice(0, 9) : [],
+    // which of Today's cards show, in order (null: all of them, in the usual order)
+    today: Array.isArray(s.today) ? s.today.filter((id, i, a) => typeof id === 'string' && (TODAY_CARDS.includes(id) || (id.startsWith('app:') && TAB_ID.test(id.slice(4)))) && a.indexOf(id) === i).slice(0, 20) : null,
   };
 }
 // What the display is showing: the home screen's tab ("today", "apps" or an app's id), so "make this bigger" means
@@ -265,7 +269,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
    * so "undo" takes it back: its own commit, or part of the turn's when that turn is already editing.
    */
   function setLook(b, turn = null, who = null) {
-    const keys = ['tabs', 'palette', 'colors', 'type', 'density', 'backdrop', 'cards'].filter((k) => b[k] !== undefined);
+    const keys = ['tabs', 'palette', 'colors', 'type', 'density', 'backdrop', 'cards', 'today'].filter((k) => b[k] !== undefined);
     if (!keys.length) return { error: 'Nothing to change: give tabs, palette, colors, type, density, backdrop or cards.' };
     const next = { ...readStyle() };
     for (const k of keys) next[k] = b[k];
@@ -274,10 +278,11 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
       if (k === 'colors' && !Object.keys(clean.colors).length) delete next.colors;
       else if (k === 'tabs') { if (clean.tabs) next.tabs = clean.tabs.map((t) => (t.name ? t : t.id)); else delete next.tabs; }
       else if (k === 'cards' && !clean.cards.length) delete next.cards;
+      else if (k === 'today' && !clean.today) delete next.today;
       else next[k] = clean[k];
     }
     const holding = !!(turn && edits?.holder?.() === turn);
-    const owner = { id: 'look', kind: 'look', who, text: keys.includes('tabs') ? 'Change the tabs' : keys.length === 1 && keys[0] === 'cards' ? 'Change the cards on Today' : 'Change the look' };
+    const owner = { id: 'look', kind: 'look', who, text: keys.includes('tabs') ? 'Change the tabs' : keys.every((k) => k === 'cards' || k === 'today') ? 'Change the cards on Today' : 'Change the look' };
     if (edits && !holding && !edits.tryAcquire(owner, { checkpoint: true })) return { error: edits.busyText?.() || 'Busy', busy: true };
     try {
       fs.mkdirSync(path.dirname(styleFile()), { recursive: true });
