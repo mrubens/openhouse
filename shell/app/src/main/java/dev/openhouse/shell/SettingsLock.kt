@@ -110,6 +110,9 @@ internal class SettingsLock(private val act: MainActivity) {
             m["email"] = if (held > 0) "$held waiting" else if (e.optJSONObject("cloud")?.optBoolean("on") == true || e.optBoolean("own")) "On" else "Off"
         }
         get("/memory")?.let { m["memory"] = count(it.optJSONArray("remembered")?.length() ?: 0) }
+        // Calendars: how many are shown (a signed-in account's ones that aren't hidden, and links)
+        val synced = get("/calendar/sync")?.optJSONArray("calendars")?.let { a -> (0 until a.length()).count { a.optJSONObject(it)?.optString("mode") != "off" } } ?: 0
+        m["calendars"] = count(synced + runCatching { CalendarLinks.list().size }.getOrDefault(0))
         return m
     }
 

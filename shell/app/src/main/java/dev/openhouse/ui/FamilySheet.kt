@@ -66,19 +66,14 @@ internal fun FamilySheet() {
     val o = Openhouse
     var loaded by remember { mutableStateOf(false) }
     val people = remember { mutableStateListOf<Pair2>() }
-    val cals = remember { mutableStateListOf<String>() } // whose calendars are read (their links stay in the shell)
     val chores = remember { mutableStateListOf<Pair2>() }
     var place by remember { mutableStateOf("") }
-    var calStatus by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         val h = o.loadHousehold()
         if (h != null) {
             h.optJSONArray("family")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { people += Pair2(it.optString("name"), it.optString("note"), it.optString("color").ifBlank { PERSON_COLORS[i % 6] }) } }
-            h.optJSONArray("calendars")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { cals += it.optString("label") } }
             h.optJSONArray("chores")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { chores += Pair2(it.optString("who"), it.optString("task")) } }
             place = h.optString("location")
-            h.optJSONObject("calendar")?.let { c -> val n = c.optInt("count"); val err = c.optJSONObject("errors")?.takeIf { it.length() > 0 }
-                calStatus = if (err != null) "Couldn’t read a calendar: ${err.keys().asSequence().map { err.optString(it) }.first()}" else if (c.optLong("at") > 0) "$n events in the next two weeks" else null }
         }
         if (people.isEmpty()) people += Pair2("", "")
         loaded = true
@@ -125,10 +120,6 @@ internal fun FamilySheet() {
                         Field(place, { place = it }, "Zip code or town, for the weather")
                     }
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) {
-                        Section("Calendars")
-                        cals.forEach { Text(it, style = quietText(18, FontWeight.Medium)) }
-                        AddLink(if (cals.isEmpty()) "Add a calendar" else "Add or remove") { o.host.setting("calendars") }
-                        calStatus?.let { Text(it, style = quietText(15, color = PaperLook.inkSoft)) }
                         Section("Chores")
                         chores.forEach { c -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
                             Field(c.a, { c.a = it }, "Who", Modifier.width(170.u)); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }

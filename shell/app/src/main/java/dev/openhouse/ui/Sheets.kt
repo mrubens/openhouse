@@ -91,6 +91,7 @@ internal fun SettingsSheet() {
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     SettingsRow("Voice", vals["voice"], locked, shell("voice"))
                     SettingsRow("Family", o.board?.family?.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }) { o.showFamily = true }
+                    SettingsRow("Calendars", vals["calendars"], locked, shell("calendars"))
                     SettingsRow("What Opie remembers", vals["memory"], onClick = shell("memory"))
                     SettingsRow("Linked devices", ((vals["screens"]?.toIntOrNull() ?: 0) + Devices.controllable.size).takeIf { it > 0 }?.toString()) { Devices.open = true; if (Devices.scannedAt == null) Devices.scan() else Devices.refreshStatus() }
                     SettingsRow("Email", vals["email"], locked, shell("email"))

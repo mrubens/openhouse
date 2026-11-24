@@ -12,7 +12,8 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 | Row | Shows | Opens | Locked |
 | --- | --- | --- | --- |
 | Voice | Off, or the voice's name | Off, or one of OpenAI's voices: a voice turns on the live voice and Hey Opie together (linking first if need be); Off turns both off, and the microphone | yes |
-| Family | the names | Family: who, where, calendars, chores | |
+| Family | the names | Family: who, where, chores | |
+| Calendars | how many are shown | Google and iCloud accounts (each one's calendars: shown or not, two-way, whose, where new events go) and calendars' links; Add a calendar | yes |
 | What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
 | Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add and Remove |
 | Account | the family's name, or Off | link or unlink, Backups (the cloud or a USB drive), reach from away | yes |
@@ -60,7 +61,7 @@ The old Grown-ups menu (shell/ParentMenu.kt, now shell/SettingsLock.kt):
 - Cloud: renamed **Account**, locked. Its Backups item is gone (Backups is its own row). The address button stays
   for people who run their own cloud.
 - Backups: kept, locked.
-- Calendars: **moved** to Family, where the calendars are shown. Locked when the lock is on.
+- Calendars: its own row again (2026-11-24), under Family: the accounts and links, each account's calendars. Locked when the lock is on.
 - Photo albums: kept, locked.
 - Screens and computers: kept, locked.
 - Plugins: kept, locked.
@@ -90,7 +91,7 @@ One switch, PIN Lock: Off or On.
   ways out above, for adding apps, for a reward that needs a yes, and for changing the calendar.
 - Turning it off asks for the PIN, then forgets it.
 
-Locked rows: Voice, Screens and computers, Account, Backups, Plugins, Updates, This tablet, and calendars in Family. Not locked: what a household uses every day (Hey Opie, the voice, Family's names
+Locked rows: Voice, Screens and computers, Account, Backups, Plugins, Updates, This tablet, and Calendars. Not locked: what a household uses every day (Hey Opie, the voice, Family's names
 and chores, night hours, devices, looking after things, putting things back).
 
 A PIN set over adb (ConfigReceiver `--es pin`) turns the lock on the same way; an empty one turns it off.
