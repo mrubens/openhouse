@@ -310,13 +310,13 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
         const p = pending.get(`${k}|${item.remote}`);
         if (p?.op === 'remove' && (!p.date || p.date === item.ev.date)) continue;
         const ev = p?.op === 'update' ? { ...item.ev, ...p.fields, ...(item.ev.date ? { start: shiftTo(item.ev, p).start, end: shiftTo(item.ev, p).end } : {}) } : item.ev;
-        out.push({ ...ev, id, who: c.who || null, calendar: k, calendarName: calName(c), color: c.color || null, uid: `${k}:${key}`, ...(twoWay(c) ? { editable: true } : {}),
+        out.push({ ...ev, id, who: c.who || null, calendar: k, calendarName: calName(c), color: c.tone || null, uid: `${k}:${key}`, ...(twoWay(c) ? { editable: true } : {}),
           ...(st.notes[id] && st.notes[id].until > now() ? { note: st.notes[id].text } : {}) });
       }
     }
     for (const o of st.outbox) if (o.op === 'add' && isOn(st.calendars[o.calendar])) { // not sent yet: shown here meanwhile
       const c = st.calendars[o.calendar];
-      out.push({ ...o.fields, id: `c-${o.calendar}-${o.remote}`, who: o.fields.who || c.who || null, calendar: o.calendar, calendarName: calName(c), color: c.color || null, editable: true, ...(o.sent ? {} : { sending: true }) });
+      out.push({ ...o.fields, id: `c-${o.calendar}-${o.remote}`, who: o.fields.who || c.who || null, calendar: o.calendar, calendarName: calName(c), color: c.tone || null, editable: true, ...(o.sent ? {} : { sending: true }) });
     }
     return out;
   }
@@ -366,6 +366,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     const c = st.calendars[key]; if (!c) return { error: 'No such calendar.' };
     if (['off', 'read', 'two-way'].includes(b.mode)) c.mode = b.mode === 'two-way' && !c.canWrite ? 'read' : b.mode;
     if (b.who !== undefined) c.who = str(b.who, 40) || null;
+    if (b.tone !== undefined) c.tone = /^#[0-9a-f]{6}$/i.test(b.tone || '') ? b.tone.toLowerCase() : null; // the color chosen here (its events'), not the provider's
     if (b.default) st.default = twoWay(c) ? key : st.default;
     if (st.default === key && !twoWay(c)) st.default = targets().find((t) => t.key !== key)?.key || null;
     save(); changed(); if (isOn(c)) pull().catch(() => {});

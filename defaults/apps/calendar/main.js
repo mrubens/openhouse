@@ -72,7 +72,9 @@ const whoText = (e) => people(e).join(' & ');
 /** An event's color: its person's, or stripes of each one's when it's for several (null: nobody's). */
 const paint = (e) => { const cs = people(e).map((n) => house.color(n)); return cs.length > 1 ? `repeating-linear-gradient(135deg, ${cs.map((c, i) => `${c} calc(${i * 9} * var(--u)) calc(${(i + 1) * 9} * var(--u))`).join(', ')})` : cs[0] || null; };
 /** How an event is drawn anywhere (index.html .ev): on its person's color; nobody's is a soft card, or ink when all day. */
-const evLook = (e, cls, past = false, style = '') => ({ class: `${cls} ev${people(e).length ? '' : e.allDay ? ' solid' : ' plain'}${past ? ' past' : ''}`, style: [style, people(e).length ? `background:${paint(e)}` : ''].filter(Boolean).join(';') || null });
+// A person's color wins (whose it is); else the color chosen for its calendar (Settings, Calendars), else plain.
+const calTone = (e) => (people(e).length ? null : e.color || null);
+const evLook = (e, cls, past = false, style = '') => ({ class: `${cls} ev${people(e).length || calTone(e) ? '' : e.allDay ? ' solid' : ' plain'}${past ? ' past' : ''}`, style: [style, people(e).length ? `background:${paint(e)}` : calTone(e) ? `background:${calTone(e)}` : ''].filter(Boolean).join(';') || null });
 /** A person's round mark: their initial, in their color. */
 const mark = (name, cls = '') => h('span', { class: 'q-av ' + cls, style: `--c:${house.color(name)}` }, String(name).trim().charAt(0).toUpperCase());
 const marks = (e, cls = 'sm') => (people(e).length ? h('span', { class: 'avs' }, people(e).map((n) => mark(n, cls))) : null);
@@ -378,7 +380,7 @@ function dayView(day, today) {
   const row = (tile, label, value, tap = null, soft = false) => h('div', { class: 'irow', tap }, tile, h('div', null, h('div', { class: 'q-label' }, label), h('b', { class: soft ? 'soft' : null }, value)));
   const tile = (...kids) => h('div', { class: 'itile' }, kids);
   const rows = [
-    all.map((e) => row(h('div', { class: 'itile q-letter', style: people(e).length ? `--c:${house.color(people(e)[0])}` : null }, e.title.trim().charAt(0).toUpperCase()), ['All day', whoText(e)].filter(Boolean).join(' · '), e.title, () => openEvent(e))),
+    all.map((e) => row(h('div', { class: 'itile q-letter', style: people(e).length ? `--c:${house.color(people(e)[0])}` : calTone(e) ? `--c:${calTone(e)}` : null }, e.title.trim().charAt(0).toUpperCase()), ['All day', whoText(e)].filter(Boolean).join(' · '), e.title, () => openEvent(e))),
     notesOn(day).map((x) => row(x.pics?.[0]?.image ? tile(h('img', { class: 'q-photo', src: x.pics[0].image, alt: '' })) : tile(icon('note', 'thin')), noteLabel(x), choices(x.text), () => openNote(x, day))),
     slots.map((s) => row(tile(icon('fork', 'thin')), s.charAt(0).toUpperCase() + s.slice(1), meals[s], open('meals'))),
     !slots.length && day >= today && (H.mealSlots || []).includes('dinner') ? row(tile(icon('fork', 'thin')), 'Dinner', 'Not planned yet', open('meals'), true) : null,
@@ -470,7 +472,7 @@ function dayList(first, n, today, done) {
  *  tinted with its person's color, the title over its time. Today's date in the accent. */
 /** Which day of an all-day thing over several days this is: " (Day 2/3)", else ''. */
 const dayOfSpan = (e, day) => { if (!e.t1) return ''; const n = Math.round((dayStart(e.t1) - dayStart(e.t0)) / 864e5); return n > 1 ? ` (Day ${Math.round((day - dayStart(e.t0)) / 864e5) + 1}/${n})` : ''; };
-const tint = (e) => { const c = people(e).map((n) => house.color(n))[0]; return c ? `color-mix(in srgb, ${c} 24%, var(--card))` : null; };
+const tint = (e) => { const c = people(e).map((n) => house.color(n))[0] || calTone(e); return c ? `color-mix(in srgb, ${c} 24%, var(--card))` : null; };
 function schedule(first, n, today) {
   const now = Date.now(), out = [];
   for (let i = 0; i < n; i++) {

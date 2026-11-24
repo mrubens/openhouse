@@ -278,7 +278,10 @@ object CalendarAccounts {
                         val r = 16 * Calm.u(a)
                         background = Calm.pressable(a, Calm.rounded(0x00FFFFFF, r), r); isClickable = true
                         setPadding(Calm.px(a, 8), Calm.px(a, 14), Calm.px(a, 16), Calm.px(a, 14))
-                        addView(Calm.text(a, c.optString("name"), 22f, 500)); addView(sub)
+                        addView(Calm.row(a, 10).apply { gravity = android.view.Gravity.CENTER_VERTICAL
+                            c.optString("tone").takeIf { it.startsWith("#") }?.let { t -> addView(android.view.View(a).apply { background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(android.graphics.Color.parseColor(t)) } }, android.widget.LinearLayout.LayoutParams(Calm.px(a, 14), Calm.px(a, 14))) }
+                            addView(Calm.text(a, c.optString("name"), 22f, 500)) })
+                        addView(sub)
                         setOnClickListener { shown?.dismiss(); one(a, c, immersive) { calendars(a, account, immersive) } }
                     }, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
                     col.addView(line, android.widget.LinearLayout.LayoutParams(-1, -2))
@@ -305,13 +308,36 @@ object CalendarAccounts {
                 opts += "Shown here, changed only there" to JSONObject().put("mode", "read")
                 opts += "Hidden here" to JSONObject().put("mode", "off")
                 if (canWrite && c.optString("mode") == "two-way" && !c.optBoolean("default")) opts += "New events go here (unless they're someone's with their own)" to JSONObject().put("default", true)
+                opts += "Color" to JSONObject().put("color", true)
                 opts += "Everyone's" to JSONObject().put("who", "")
                 names.forEach { n -> opts += "$n's" to JSONObject().put("who", n) }
                 CalmDialog(a).setTitle(c.optString("name")).setItems(opts.map { it.first }.toTypedArray()) { _, i ->
+                    if (opts[i].second.optBoolean("color")) { color(a, c, immersive, back); return@setItems }
                     thread { bridgePost("/calendar/sync/set", opts[i].second.put("key", key)); main.post(back) }
                 }.setNegativeButton("Back") { _, _ -> back() }.show().also { immersive() }
             }
         }
+    }
+
+    /** A calendar's color, from the household's palette (its events take it unless they're someone's). */
+    private fun color(a: Activity, c: JSONObject, immersive: () -> Unit, back: () -> Unit) {
+        val now = c.optString("tone").takeIf { it.startsWith("#") }
+        var d: android.app.Dialog? = null
+        fun pick(t: String?) { d?.dismiss(); thread { bridgePost("/calendar/sync/set", JSONObject().put("key", c.optString("key")).put("tone", t ?: "")); main.post(back) } }
+        val grid = android.widget.GridLayout(a).apply { columnCount = 6 }
+        val s = Calm.px(a, 64); val m = Calm.px(a, 10)
+        (listOf<String?>(null) + dev.openhouse.ui.PERSON_COLORS).forEach { t ->
+            grid.addView(android.view.View(a).apply {
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    shape = android.graphics.drawable.GradientDrawable.OVAL
+                    if (t != null) setColor(android.graphics.Color.parseColor(t)) else setStroke(Calm.px(a, 2), Calm.SOFT)
+                    if (t == now || (t == null && now == null)) setStroke(Calm.px(a, 4), Calm.INK)
+                }
+                contentDescription = t ?: "No color"; isClickable = true; setOnClickListener { pick(t) }
+            }, android.widget.GridLayout.LayoutParams().apply { width = s; height = s; setMargins(m, m, m, m) })
+        }
+        d = CalmDialog(a).setTitle("${c.optString("name")}'s color").setWidth(640f).setView(grid)
+            .setNegativeButton("Back") { _, _ -> back() }.show().also { immersive() }
     }
 
     /** Signed-in accounts, for Settings' Calendars list: (label, detail, remove). */

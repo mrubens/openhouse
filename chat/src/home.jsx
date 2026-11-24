@@ -540,7 +540,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
               const rest = l.slice(0, Math.max(0, left)); left -= rest.length; // (the first one like the rest: no big card of its own)
               // as a schedule: the day's weekday and date in a column, its things beside them (all-day ones as slim
               // pills, the others as soft blocks tinted with their person's color, the time under the title)
-              const tintOf = (e) => { const c = eventPeople(h, e).map((n) => personColor(h, n))[0]; return c ? { background: `color-mix(in srgb, ${c} 24%, var(--h-sheet))` } : undefined; };
+              const tintOf = (e) => { const c = eventPeople(h, e).map((n) => personColor(h, n))[0] || e.color; return c ? { background: `color-mix(in srgb, ${c} 24%, var(--h-sheet))` } : undefined; };
               return rest.length > 0 && <div key={+d} className="t-daygroup t-sday">
                 <div className="t-sdate" data-fit="label"><small>{+d === +t ? 'Today' : weekday(d, true).slice(0, 3)}</small><b>{d.getDate()}</b></div>
                 <div className="t-sthings">{rest.map((e, i) => e.allDay
