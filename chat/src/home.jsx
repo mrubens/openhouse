@@ -489,12 +489,12 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
       </div>)}</div>}
     </div>}
   </div>);
-  // The list: what's left to get, in two columns, eight at most (more than that, seven and a count).
+  // The list: what's left to get, one column that scrolls (the user: not two columns at this width).
   if (kinds.has('lists') && list) cards.push(<div key="lists" {...card('lists')}>
     <div className="t-top"><div className="h-label">{list.name}</div><span className="t-n t-add" role="button" onClick={(e) => { e.stopPropagation(); setAdding(''); }}>+ Add</span></div>
-    {items.length || ticked ? <div className={'t-items' + (items.length <= 4 ? ' one' : '')}>{items.slice(0, items.length > 8 ? 7 : 8).map((i) => (
+    {items.length || ticked ? <div className="t-items one scrolls">{items.map((i) => (
       <div key={i.id} className="t-item"><span className="t-box" role="button" aria-label={'Got ' + i.text} onClick={(e) => tick(e, i)} /><span className="h-grow">{i.text}</span></div>
-    ))}{items.length > 8 && <div className="t-item t-more">and {items.length - 7} more</div>}</div>
+    ))}</div>
       : <div className="t-big">Nothing to get</div>}
     {ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Put it back</span>}
     {adding !== null && <div className="h-veil" onClick={(e) => { e.stopPropagation(); setAdding(null); }}>

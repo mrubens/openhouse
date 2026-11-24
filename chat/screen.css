@@ -352,6 +352,8 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .t-items { grid-auto-flow: column; } /* down the first column, then the second: two items read as a list, not side by side (the user) */
 .t-item:first-child { box-shadow: none; }
 .t-items.one { grid-template-columns: minmax(0, 1fr); } /* a short list: one column, full width (names weren't cut off) */
+.t-items.scrolls { grid-template-rows: none; grid-auto-rows: calc(var(--u) * 50 * var(--s)); grid-auto-flow: row; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; } /* every item, one column, scrolling */
+.t-items.scrolls::-webkit-scrollbar { display: none; }
 .t-more { color: var(--h-soft); }
 .t-box { width: calc(var(--u) * 26); height: calc(var(--u) * 26); border-radius: 50%; border: calc(var(--u) * 2.5) solid var(--h-faint); flex: none; box-sizing: border-box; }
 .t-box:active { background: var(--h-ink); }
