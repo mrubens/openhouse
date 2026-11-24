@@ -372,9 +372,10 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   const EvDot = ({ e }) => { const p = eventPaint(h, e); return <i className={'t-dot' + (p ? '' : ' none')} style={p ? { background: p } : undefined} />; };
   const card = (kind, open) => ({ role: 'button', tabIndex: 0, className: 't-card t-' + kind, onClick: open || (() => go(kinds.get(kind))) });
 
-  // Calendar: what's next, then the rest of its day, then the days after it, grouped by day, as many as fit (a quiet
-  // today and tomorrow showed "Nothing on today or tomorrow" with the week full); under it, the things on Today.
-  const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 28 * 864e5); // (four weeks: the card fills with what's coming rather than leaving gaps)
+  // Calendar: what's next, then the rest of its day, then the days after it in the coming week, grouped by day: a few
+  // (AGENDA), with room around them, not as many as fit (a card packed with two weeks read as crowded); under it, the
+  // things on Today. The Calendar tab has the rest.
+  const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 7 * 864e5), AGENDA = 6;
   const upcoming = (h.events || []).filter((e) => (e.allDay ? dayOf(e) >= t : new Date(e.end || e.start) >= now) && dayOf(e) < weekOut)
     .sort((a, b) => (dayOf(a) - dayOf(b)) || (b.allDay - a.allDay) || (new Date(a.start) - new Date(b.start)));
   const byDay = []; for (const e of upcoming) { const d = dayOf(e); if (+byDay.at(-1)?.[0] !== +d) byDay.push([d, []]); byDay.at(-1)[1].push(e); }
@@ -490,13 +491,13 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
               <div className="t-next">{plain(first.title)}</div>
               <div className="t-when-next">{eventPaint(h, first) ? <EvDot e={first} /> : null}<span className="h-grow">{[when(first), eventPeople(h, first).join(' & ') || null, first.place].filter(Boolean).join(' · ')}</span></div>
             </div>
-            <div className="t-agenda t-fit" ref={calFit}>{byDay.map(([d, l], k) => { // the rest of its day, then each day after it
-              const rest = k ? l : l.slice(1);
+            <div className="t-agenda t-fit" ref={calFit}>{(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // the rest of its day, then each day after it, AGENDA events at most
+              const rest = (k ? l : l.slice(1)).slice(0, Math.max(0, left)); left -= rest.length;
               return rest.length > 0 && <div key={+d} className="t-daygroup">
                 <div className="h-label" data-fit="label">{k ? dayName(d) : +d === +t ? 'Later today' : 'Then'}</div>
                 {rest.map((e, i) => <div key={i} className="t-ev" data-fit=""><span className="t-when">{when(e)}</span><EvDot e={e} /><span className="h-grow">{plain(e.title)}</span></div>)}
               </div>;
-            })}</div>
+            }); })()}</div>
           </> : <div className="t-empty"><div className="h-label">Calendar</div><div className="t-big t-quiet">Nothing on this week</div></div>}
           <Things c={c} things={h.things} go={go} tabs={tabs} ask={shell?.ask} />
         </div>

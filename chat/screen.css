@@ -314,7 +314,7 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .hand-type .t-next { font-size: calc(var(--u) * 54 * var(--s)); }
 .t-agenda { padding: calc(var(--u) * 8) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 18); display: flex; flex-direction: column; justify-content: flex-start; /* packed from the top, filled with the days ahead (space-between left big gaps) */ }
 .t-daygroup:has(> [data-off]:first-child) { display: none; }
-.t-daygroup > .h-label { margin: calc(var(--u) * 12) 0 calc(var(--u) * 2); }
+.t-daygroup > .h-label { margin: calc(var(--u) * 26) 0 calc(var(--u) * 6); }
 .t-ev { display: grid; grid-template-columns: calc(var(--u) * 76 * var(--s)) calc(var(--u) * 30) minmax(0, 1fr); align-items: center; column-gap: calc(var(--u) * 12); height: calc(var(--u) * 44 * var(--s)); font-size: calc(var(--u) * 21 * var(--s)); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
 .t-empty { padding: calc(var(--u) * 24 * var(--s)) calc(var(--u) * 26 * var(--s)); }
 /* a day's note with photos of its things (the school lunch): the first dish large, the others small at the corner */
@@ -540,3 +540,5 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .t-ev { grid-template-columns: calc(var(--u) * 76 * var(--s)) calc(var(--u) * 10) minmax(0, 1fr); }
 .t-dot { width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%; flex: none; }
 .t-dot.none { visibility: hidden; }
+/* Today's calendar, calmer: a few events with room between them (home.jsx AGENDA) */
+.t-agenda .t-ev { height: calc(var(--u) * 50 * var(--s)); }
