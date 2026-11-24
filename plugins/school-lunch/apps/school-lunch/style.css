@@ -17,21 +17,23 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .who { display: flex; align-items: baseline; gap: calc(14 * var(--u)); }
 .names { font-size: calc(24 * var(--u)); font-weight: 600; }
 .school { font-size: calc(17 * var(--u)); color: var(--ink-soft); text-transform: capitalize; }
-.days { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: calc(10 * var(--u)); }
-/* a day as the Meals app draws one (quiet.css .day: a rule above, no box); today's rule and name in the accent */
-.day { min-height: calc(190 * var(--u)); display: flex; flex-direction: column; gap: calc(8 * var(--u)); }
-.day.past { opacity: .55; }
-:root .day.today { border-top: calc(3 * var(--u)) solid var(--accent); }
-:root .day.asked { border-top: calc(3 * var(--u)) solid var(--ink); }
-:root .day.today.asked { border-top-color: var(--accent); }
-.dow { font-size: calc(17 * var(--u)); font-weight: 600; color: var(--ink-soft); display: flex; gap: calc(8 * var(--u)); align-items: baseline; }
-.day.today .dow { color: var(--accent); }
-.date { font-weight: 400; }
-.main { font-size: calc(22 * var(--u)); font-weight: 600; line-height: 1.25; display: flex; flex-direction: column; gap: calc(4 * var(--u)); }
-.sides, .also { font-size: calc(16 * var(--u)); color: var(--ink-soft); line-height: 1.35; }
-.also { margin-top: auto; }
-.none { font-size: calc(18 * var(--u)); color: var(--ink-soft); }
-.daily { font-size: calc(16 * var(--u)); color: var(--ink-soft); }
+.rows { display: flex; flex-direction: column; } /* (not .days/.day: quiet.css boxes those) */
+/* a day: a row with a hairline above, like the Today screen's schedule; the date in a column at the left */
+.row { display: grid; grid-template-columns: calc(84 * var(--u)) minmax(0, 1fr) auto; gap: calc(22 * var(--u)); align-items: center; padding: calc(16 * var(--u)) calc(18 * var(--u)) calc(16 * var(--u)) 0; border-top: 1px solid var(--line); min-height: calc(128 * var(--u)); }
+.row:first-child { border-top: 0; }
+.row.past { opacity: .5; }
+.row.asked { background: var(--tint); border-radius: calc(16 * var(--u)); padding-left: calc(12 * var(--u)); padding-right: calc(12 * var(--u)); }
+.when { display: grid; justify-items: center; color: var(--ink-soft); }
+.when small { font-size: calc(15 * var(--u)); font-weight: 500; }
+.when b { font-size: calc(34 * var(--u)); font-weight: 500; letter-spacing: -.03em; line-height: 1.1; color: var(--ink); }
+.row.today .when small, .row.today .when b { color: var(--accent); }
+.what { display: flex; flex-direction: column; gap: calc(4 * var(--u)); min-width: 0; }
+.main { font-size: calc(26 * var(--u)); font-weight: 600; line-height: 1.25; }
+.sides { font-size: calc(19 * var(--u)); color: var(--ink-soft); line-height: 1.35; }
+.pics { display: flex; gap: calc(8 * var(--u)); }
+.pics img { height: calc(100 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(12 * var(--u)); background: var(--tint); }
+.none { font-size: calc(20 * var(--u)); color: var(--ink-soft); }
+.daily { font-size: calc(17 * var(--u)); color: var(--ink-soft); padding-top: calc(10 * var(--u)); border-top: 1px solid var(--line); }
 .foot { flex: none; padding-top: calc(12 * var(--u)); font-size: calc(15 * var(--u)); color: var(--ink-soft); min-height: calc(30 * var(--u)); }
 
 .empty { max-width: calc(760 * var(--u)); display: flex; flex-direction: column; align-items: flex-start; gap: calc(16 * var(--u)); margin-top: calc(40 * var(--u)); }
@@ -53,10 +55,4 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .actions { display: flex; gap: calc(12 * var(--u)); align-items: center; margin-top: calc(8 * var(--u)); }
 .grow { flex: 1; }
 
-/* a dish with its photo (Nutrislice's, where it has one): small and rounded, the name under it */
-.dish { display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
-.pics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(6 * var(--u)); margin-bottom: calc(4 * var(--u)); }
-.pics.one { grid-template-columns: minmax(0, calc(150 * var(--u))); }
-.pics img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(10 * var(--u)); background: var(--tint); }
-#app .top { padding-left: 0; } /* the title in line with the menus below it */
-.dish img { width: 100%; max-width: calc(150 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(14 * var(--u)); background: var(--tint); }
+#app .top { padding-left: 0; } /* the title in line with the rows below it */

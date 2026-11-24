@@ -142,18 +142,21 @@ function draw() {
     const days = daysOf(g.key), daily = everyDay(days);
     return h('section', { class: 'group' },
       h('div', { class: 'who' }, h('span', { class: 'names' }, and(g.names) || 'Lunch'), h('span', { class: 'school' }, g.menu.school.replace(/[-_]+/g, ' '))),
-      h('div', { class: 'days', style: `--n:${shown.length}` }, shown.map((d) => {
+      h('div', { class: 'rows' }, shown.map((d) => {
+        // A day is a row (rules between, no boxes): the date as the home screen's schedule writes it, the dish heavier and
+        // its sides lighter, and every picture on the day's menu at the right.
         const m = days[d], isAsked = asked && asked.day === d && (!asked.who || g.names.includes(asked.who));
-        return h('div', { class: 'day' + (d === t ? ' today' : '') + (d < t ? ' past' : '') + (isAsked ? ' asked' : '') },
-          h('div', { class: 'dow' }, d === t ? 'Today' : weekday(d), h('span', { class: 'date' }, monthDay(d))),
-          !m ? h('div', { class: 'none' }, loading && !Object.keys(days).length ? '' : 'No menu')
-            : m.note ? h('div', { class: 'none' }, m.note)
-              : [(() => { // every picture on the day's menu, main dishes first, in a row above the words
-                  const ps = uniqPics([...m.main, ...m.sides, ...m.also.filter((x) => !daily.includes(x))].map((x) => m.pics?.[x]).filter(Boolean));
-                  return ps.length ? h('div', { class: 'pics' + (ps.length === 1 ? ' one' : '') }, ps.map((src) => h('img', { src, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() }))) : null; })(),
-                h('div', { class: 'main' }, m.main.map((x) => h('div', { class: 'dish' }, h('span', {}, x)))),
-                m.sides.length ? h('div', { class: 'sides' }, m.sides.join(', ')) : null,
-                m.also.filter((x) => !daily.includes(x)).length ? h('div', { class: 'also' }, 'Or ' + and(m.also.filter((x) => !daily.includes(x)))) : null]);
+        const also = m && !m.note ? m.also.filter((x) => !daily.includes(x)) : [];
+        const ps = m && !m.note ? uniqPics([...m.main, ...m.sides, ...also].map((x) => m.pics?.[x]).filter(Boolean)).slice(0, 4) : [];
+        return h('div', { class: 'row' + (d === t ? ' today' : '') + (d < t ? ' past' : '') + (isAsked ? ' asked' : '') },
+          h('div', { class: 'when' }, h('small', {}, d === t ? 'Today' : weekday(d)), h('b', {}, String(dateOf(d).getDate()))),
+          h('div', { class: 'what' },
+            !m ? h('div', { class: 'none' }, loading && !Object.keys(days).length ? '' : 'No menu')
+              : m.note ? h('div', { class: 'none' }, m.note)
+                : [h('div', { class: 'main' }, m.main.join(' or ')),
+                  m.sides.length ? h('div', { class: 'sides' }, m.sides.join(', ')) : null,
+                  also.length ? h('div', { class: 'sides' }, 'Or ' + and(also)) : null]),
+          ps.length ? h('div', { class: 'pics' }, ps.map((src) => h('img', { src, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() }))) : null);
       })),
       daily.length ? h('div', { class: 'daily' }, 'Every day: ' + and(daily)) : null);
   });
