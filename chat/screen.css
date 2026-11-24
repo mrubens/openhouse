@@ -554,4 +554,4 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .t-sev { display: grid; gap: calc(var(--u) * 3); box-sizing: border-box; padding: calc(var(--u) * 11) calc(var(--u) * 16) calc(var(--u) * 12); border-radius: calc(var(--u) * 16); background: var(--h-tint); min-width: 0; }
 .t-sev-t { font-size: calc(var(--u) * 20 * var(--s)); line-height: 1.2; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; } /* up to two lines */
 .t-sev .t-when { font-size: calc(var(--u) * 15.5 * var(--s)); }
-.t-snone { padding: calc(var(--u) * 12) 0; font-size: calc(var(--u) * 20 * var(--s)); color: var(--h-soft); }
+.t-snone { box-sizing: border-box; padding: calc(var(--u) * 11) calc(var(--u) * 16) calc(var(--u) * 12); border-radius: calc(var(--u) * 16); border: calc(var(--u) * 2) dashed var(--h-line); font-size: calc(var(--u) * 20 * var(--s)); line-height: 1.2; color: var(--h-soft); } /* an empty block, the shape of the events' */
