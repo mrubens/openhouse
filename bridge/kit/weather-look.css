@@ -129,7 +129,8 @@
 .wc-days .day:first-child { border-top: 0; }
 .wc-days .day .i { width: calc(26 * var(--wu)); height: calc(26 * var(--wu)); }
 .wc-days .track { height: calc(6 * var(--wu)); }
-.wcard.cell .wc-days { display: none; } /* one cell: now and the next hours, with room; the days are in the Weather tab (the user: crammed at the bottom) */
+.wcard.cell .wc-days { margin-top: calc(18 * var(--wu)); padding-top: calc(4 * var(--wu)); } /* one cell: now, the next hours, then the next two days, each with room (they were crammed at the bottom once) */
+.wcard.cell .wc-days .day { height: calc(46 * var(--wu)); }
 .wcard.cell .wc-hours { margin-top: auto; }
 .wcard.tall .wc-temp { font-size: calc(112 * var(--wu)); }
 .wcard.tall .wc-now { margin-top: calc(20 * var(--wu)); display: block; }
