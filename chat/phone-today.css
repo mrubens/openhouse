@@ -160,3 +160,19 @@
 .ptoday .t-rings { margin-bottom: 4px; }
 .ptoday .h-veil { z-index: 40; }
 .ptoday .h-note-full, .ptoday .t-nsheet.h-note-full { width: calc(100% - 32px); border-radius: 28px; }
+/* Today's calendar as a schedule (home.jsx; the tablet's in screen.css): the date in a column, the day's things beside it */
+.ptoday .t-agenda > .t-sday:first-child { margin-top: calc(var(--u) * 4); }
+.ptoday .t-sday { display: grid; grid-template-columns: calc(var(--u) * 56 * var(--s)) minmax(0, 1fr); column-gap: calc(var(--u) * 14); align-items: start; margin-top: calc(var(--u) * 18); }
+.ptoday .t-sdate { display: grid; justify-items: center; padding-top: calc(var(--u) * 4); color: var(--h-soft); }
+.ptoday .t-sdate small { font-size: calc(var(--u) * 12.5 * var(--s)); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.ptoday .t-sdate b { font-size: calc(var(--u) * 30 * var(--s)); font-weight: 500; letter-spacing: -.03em; line-height: 1.1; color: var(--h-ink); }
+.ptoday .t-sthings { display: flex; flex-direction: column; gap: calc(var(--u) * 8); min-width: 0; }
+.ptoday .t-spill { align-self: flex-start; max-width: 100%; box-sizing: border-box; padding: calc(var(--u) * 8) calc(var(--u) * 16); border-radius: calc(var(--u) * 16); background: var(--h-tint); font-size: calc(var(--u) * 20 * var(--s)); line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } /* the same type as the events' titles, up to two lines */
+.ptoday .t-sev { display: grid; gap: calc(var(--u) * 3); box-sizing: border-box; padding: calc(var(--u) * 11) calc(var(--u) * 16) calc(var(--u) * 12); border-radius: calc(var(--u) * 16); background: var(--h-tint); min-width: 0; }
+.ptoday .t-sev-t { font-size: calc(var(--u) * 20 * var(--s)); line-height: 1.2; min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; } /* up to two lines */
+.ptoday .t-sev .t-when { font-size: calc(var(--u) * 15.5 * var(--s)); }
+.ptoday .t-snone { box-sizing: border-box; padding: calc(var(--u) * 11) calc(var(--u) * 16) calc(var(--u) * 12); border-radius: calc(var(--u) * 16); border: calc(var(--u) * 2) dashed var(--h-line); font-size: calc(var(--u) * 20 * var(--s)); line-height: 1.2; color: var(--h-soft); } /* an empty block, the shape of the events' */
+.ptoday .t-cal-label { padding: 0 4px; }
+.ptoday .t-cal-label .h-label { color: var(--h-soft); }
+.ptoday .t-cal-label .t-n { background: var(--h-sheet); box-shadow: var(--h-shadow); color: var(--h-ink); }
+.ptoday .t-agenda { padding: 8px 18px 16px; }
