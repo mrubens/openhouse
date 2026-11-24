@@ -703,7 +703,7 @@ def mine3(job):
     z = np.load(f)
     if bool(z['held'][0]): return name, f, 'held'
     W = z['neg']; head = ort.InferenceSession(f'{V}/models/{name}.onnx', providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-    p = np.concatenate([head.run(None, {'x': W[i:i + 65536].astype(np.float32)})[0][:, 0] for i in range(0, len(W), 65536)])
+    p = np.concatenate([head.run(None, {'x': W[i:i + 8192].astype(np.float32)})[0][:, 0] for i in range(0, len(W), 8192)])
     os.makedirs(f'{V}/hard3', exist_ok=True); np.savez(out + '.tmp.npz', neg=W[p >= thr]); os.rename(out + '.tmp.npz', out); vol.commit()
     h = float(z['hours'][0]); return name, os.path.basename(f), int((p >= thr).sum()), round(float((p >= 0.9).sum()) / h, 1)
 
