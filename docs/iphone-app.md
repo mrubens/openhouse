@@ -72,6 +72,72 @@ both widgets with the household's events and list, Milk ticked off on the widget
    OpenHouse), with an internal TestFlight group, Household, that gets each uploaded build by itself. Upload: Archive
    in Xcode (or `xcodebuild archive`, then `-exportArchive` with method `app-store-connect` and destination `upload`).
 
+## Export compliance
+
+`ITSAppUsesNonExemptEncryption` is `false` in `ios/App/Info.plist`, so App Store Connect doesn't ask about each build.
+The app's own encryption is all Apple's: https, and CryptoKit's ChaCha20-Poly1305, HKDF and SHA-256 for sealing to the
+tablet (`ios/Shared/Seal.swift`). That is "encryption limited to that within the Apple operating system", which needs
+no documentation. If App Store Connect ever asks anyway: the algorithms are standard, used through the OS; not
+proprietary; no French declaration or CCATS. If the app ever ships its own crypto code (a library, not CryptoKit),
+this answer changes: set the key to `true` and answer "standard encryption algorithms".
+
+## The demo household
+
+Beta App Review (and anyone without a tablet) needs a household to join. The demo household is a hub
+([hub.md](hub.md)) holding the sample household (Sam, Alex, Maya and Leo in Springfield), linked to its own cloud
+account, with a phone of Sam's joined; that phone's cloud link is pasted into the app ("Or paste its link") and goes in
+the review notes. The hub needs no open ports: phones reach it through the cloud's relay, which it dials out to.
+
+1. Run a hub on a computer that stays on (`hub/install.sh` on a small Linux machine or cloud instance,
+   `hub/install-mac.sh` on a Mac that stays on). It's on only for review if that's all it's for, but it has to answer
+   for the whole review (a day or two, the first time).
+2. Its settings page: type the code it printed, then link it to the cloud with an account of its own (not the
+   household's: anything a reviewer changes lands there), and turn on the cloud assistant so Opie answers.
+3. From a checkout on that machine: `node hub/demo.mjs --data <the hub's data folder>` (`/var/lib/openhouse` on
+   Linux, `~/Library/Application Support/OpenHouse Hub` on a Mac). It fills in the household (weekly events, chores,
+   groceries, two weeks of dinners), turns on Reach from away, joins Sam's phone and prints its link (kept in
+   `demo-link.txt` there; on Linux run it as `sudo -u openhouse`, as the folder is that user's). Run it daily (cron or launchd) and the dinners stay current; the weekly events repeat on
+   their own. `--new-phone` makes a new link; remove the old phone on the settings page to end the old one.
+4. Paste the link into the app on a phone to check it, then into the review notes.
+
+Anyone with the link is Sam on the demo household, so it goes only where it has to (the review notes, never a public
+page). Tried on 2026-11-24 against the local cloud: the seed ran twice, and the link opened Sam's Today through the
+relay.
+
+## External TestFlight
+
+For people outside the Apple team. The first testers are friends whose tablets are set up for them: they join their
+own household by scanning its code. The demo household is for Beta App Review.
+
+Before the first submission:
+- The cloud deployed with `/privacy` (and the APNs relay, `POST /v1/push/apns`), and openhouse.computer/privacy
+  answering.
+- The demo household running, and its link from `hub/demo.mjs` at hand.
+- A build uploaded (Archive in Xcode, Distribute, App Store Connect) and shown under TestFlight with no "Missing
+  Compliance".
+
+In App Store Connect (an Account Holder, Admin or App Manager does these):
+1. **TestFlight, Test Information** (left side, under General Information):
+   - Beta App Description: "OpenHouse is a household's shared screen and assistant. This app is the household's
+     page on an iPhone: the day, lists, meals and apps, Opie the assistant, a share sheet entry, widgets and Siri.
+     Join with the code your OpenHouse tablet shows."
+   - Feedback Email: the address testers' feedback goes to.
+   - Marketing URL: `https://openhouse.computer`. Privacy Policy URL: `https://openhouse.computer/privacy`.
+   - Beta App Review Information: contact name, phone and email. Sign-in required: off (there's no account in the
+     app). Review notes:
+     "The app is the phone companion to a household's OpenHouse tablet, so it needs a household to join. Use our
+     demo household: open the app, tap 'Or paste its link', and paste this link: <the demo link>. You'll be Sam in a
+     sample household. Try Today and the tabs, Talk to Opie, the Today and Groceries widgets, 'Ask OpenHouse' in
+     Shortcuts, and Send to Opie from Safari's share sheet."
+   - Save.
+2. **TestFlight, External Testing, +**: a group named "Friends", Create.
+3. In that group, **Builds, +**: pick the build, fill in What to Test (for example "Joining your household, notes,
+   widgets, Send to Opie"), and Submit for Review. The first build of a version gets a full review; later builds of
+   the same version often go straight through.
+4. When it's approved (the group shows the build as Testing): **Testers**, add each friend by email, or **Create
+   Public Link** (Open to Anyone, with a tester limit such as 25) and send that link only to them.
+5. Each new build: add it to the group (step 3). One build per version can be in review at a time, six a day at most.
+
 ## Not yet
 
 - Live Activities for timers, and "leave by" notes (they come with the heartbeat's buzzes, [phones.md](phones.md)).

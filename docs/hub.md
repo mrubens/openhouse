@@ -208,6 +208,7 @@ On the hub itself: `docker exec openhouse /opt/openhouse/hub/owner-code.sh`; on 
   (Node 22 on Debian, git, the built pages and apps' packages).
 - `hub/start.sh`: the hub's start, shared by Docker, Linux and the Mac. `hub/build.sh`: building from a checkout.
 - `hub/install.sh` (Linux), `hub/install-mac.sh`, `hub/update.sh`, `hub/owner-code.sh`.
+- `hub/demo.mjs`: the demo household for the iPhone app's review ([iphone-app.md](iphone-app.md)).
 - `bridge/hub.js` (`/hub`, updates, the settings code), `bridge/folder-backup.js`, `screens.js` (the `voice` and `admin`
   scopes, https), `server.js` (live voice's start through the cloud for a device; the settings routes on a hub).
 - `chat/src/hub.jsx` (the settings page), `chat/src/talk.jsx` (Opie's pill), `chat/src/live-voice.js`,
