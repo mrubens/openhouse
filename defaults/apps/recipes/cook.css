@@ -18,13 +18,15 @@
 .c-hero h1.long { font-size: calc(34 * var(--u)); line-height: 1.05; }
 .c-hero .m { margin-top: calc(10 * var(--u)); font-size: calc(18 * var(--u)); font-weight: 600; color: var(--fg2); }
 .c-ing { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: calc(24 * var(--u)) calc(26 * var(--u)) calc(12 * var(--u)); }
-.c-ing ul { list-style: none; margin: calc(8 * var(--u)) 0 0; padding: 0; flex: 1; display: flex; flex-direction: column; }
-.c-ing li { flex: 1 0 auto; min-height: calc(50 * var(--u)); max-height: calc(76 * var(--u)); display: flex; align-items: center; gap: calc(14 * var(--u)); padding: calc(8 * var(--u)) 0; border-top: 1px solid var(--hair);
-  font-size: calc(21 * var(--u)); font-weight: 550; letter-spacing: -.01em; line-height: 1.2; }
-.c-ing li:first-child { border-top: 0; }
-.c-ing li b { flex: none; width: calc(104 * var(--u)); font-weight: 700; color: var(--warm); }
-.c-ing li span { min-width: 0; }
+.c-ing ul { list-style: none; margin: calc(8 * var(--u)) 0 0; padding: 0; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+/* one ingredient a row: what it is, and under it how much, so a long amount ("1 ½ cups plus 1 tablespoon") has room */
+.c-ing li { padding: calc(13 * var(--u)) 0; border-top: 1px solid var(--hair); font-size: calc(21 * var(--u)); font-weight: 550; letter-spacing: -.01em; line-height: 1.25; }
+.c-ing li:first-child, .c-ing li.part + li { border-top: 0; }
+.c-ing li b { display: block; margin-top: calc(3 * var(--u)); font-size: calc(17 * var(--u)); font-weight: 600; color: var(--warm); }
+.c-ing li span { display: block; }
 .c-ing li span::first-letter { text-transform: uppercase; }
+.c-ing li.part { padding: calc(22 * var(--u)) 0 calc(4 * var(--u)); border-top: 0; font-size: calc(14 * var(--u)); font-weight: 650; letter-spacing: .1em; text-transform: uppercase; color: var(--fg2); }
+.c-ing li.part:first-child { padding-top: calc(6 * var(--u)); }
 .c-ing li.used, .c-ing li.used b { color: var(--fg3); }
 .c-ing .none { margin: calc(12 * var(--u)) 0; font-size: calc(18 * var(--u)); font-weight: 500; color: var(--fg2); }
 
@@ -110,8 +112,8 @@
   .c-hero .m { font-size: calc(22 * var(--u)); }
   .c-ing { padding: calc(26 * var(--u)) calc(28 * var(--u)) calc(10 * var(--u)); }
   .c-ing ul { overflow: visible; }
-  .c-ing li { font-size: calc(25 * var(--u)); min-height: calc(62 * var(--u)); }
-  .c-ing li b { width: calc(130 * var(--u)); }
+  .c-ing li { font-size: calc(25 * var(--u)); }
+  .c-ing li b { font-size: calc(20 * var(--u)); }
   .c-steps { overflow: visible; padding: 0; gap: calc(14 * var(--u)); }
   .c-st { max-height: none; border-radius: calc(34 * var(--u)); padding: calc(22 * var(--u)) calc(24 * var(--u)); gap: calc(18 * var(--u)); }
   .c-st h3, .c-st.now h3 { font-size: calc(17 * var(--u)); }

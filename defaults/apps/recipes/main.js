@@ -253,7 +253,6 @@ function cookView() {
   const last = new Map(); // an ingredient -> the last step that uses it
   c.steps.forEach((st, i) => { for (const u of st.uses || []) last.set(String(u.item || '').toLowerCase(), i + 1); });
   const used = (x) => { const l = last.get(String(x.item || '').toLowerCase()); return !!l && l < at; };
-  const amounts = c.ingredients.some((x) => x.amount);
   const left = h('div', { class: 'c-left' },
     h('div', { class: 'c-hero' + (r?.image ? ' q-scrim' : '') },
       dishPic(r, name),
@@ -263,7 +262,9 @@ function cookView() {
         h('div', { class: 'm' }, [c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')))),
     h('div', { class: 'q-panel c-ing' },
       h('div', { class: 'q-label' }, 'Ingredients'),
-      c.ingredients.length ? h('ul', { class: 'vscroll' }, c.ingredients.map((x) => h('li', { class: used(x) ? 'used' : null }, amounts ? h('b', null, x.amount || '') : null, h('span', null, x.item))))
+      c.ingredients.length ? h('ul', { class: 'vscroll' }, ingGroups(c).flatMap(([part, xs]) => [
+        part ? h('li', { class: 'part' }, part) : null,
+        ...xs.map((x) => h('li', { class: used(x) ? 'used' : null }, h('span', null, x.item), x.amount ? h('b', null, x.amount) : null))]))
         : h('p', { class: 'none' }, 'The recipe doesn’t list them.')));
 
   // every step: the ones behind them small, the one they're on big (what it uses, its timer), the rest waiting
@@ -397,6 +398,14 @@ function facts(key, r) {
   if (w?.state === 'error') return [w.text];
   if (r.cook) return [r.cook.minutes && [icon('timer', 2), howLong(r.cook.minutes)], serves(r.cook), r.video && 'Video'].filter(Boolean);
   return [r.link && !r.notes ? 'A link' : 'Not ready to cook yet'];
+}
+/** The ingredients in the steps' order: each recipe it builds on (part) under its name, then its own, named for the part
+ *  its own steps are in ("Pizza"); no headings when it has no parts. */
+function ingGroups(c) {
+  const own = c.ingredients.filter((x) => !x.part), parts = [...new Set(c.ingredients.filter((x) => x.part).map((x) => x.part))];
+  if (!parts.length) return [['', own]];
+  const ownPart = c.steps.map((s) => s.part).filter((p) => p && !parts.includes(p)).pop() || c.name || '';
+  return [...parts.map((p) => [p, c.ingredients.filter((x) => x.part === p)]), ...(own.length ? [[ownPart, own]] : [])];
 }
 /** How long a recipe takes: "45 min", "1 hr 15 min". */
 const howLong = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ''}`);

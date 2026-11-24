@@ -676,10 +676,9 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
       if (sub) { placed.add(sub); out.push(...steps(sub)); } else out.push(st);
     }
     const rest = subs.filter((x) => !placed.has(x)).flatMap(steps);
-    const have = new Set(cook.ingredients.map((i) => i.item.toLowerCase()));
-    const more = subs.flatMap((x) => x.cook.ingredients).filter((i) => !have.has(i.item.toLowerCase()) && have.add(i.item.toLowerCase()));
+    const more = subs.flatMap((x) => x.cook.ingredients.map((i) => ({ ...i, part: x.name }))); // (listed under its name)
     const minutes = (cook.minutes || 0) + subs.reduce((n, x) => n + (x.cook.minutes || 0), 0); // (its dough's rise too)
-    return { ...cook, ...(minutes ? { minutes } : {}), steps: [...rest, ...out].slice(0, 80), ingredients: [...cook.ingredients, ...more].slice(0, 60) };
+    return { ...cook, ...(minutes ? { minutes } : {}), steps: [...rest, ...out].slice(0, 80), ingredients: [...more, ...cook.ingredients].slice(0, 80) };
   }
   /** A recipe made into steps before pictures were kept: its page read once more for the dish and step photos (no model). */
   function pictures(k) {
