@@ -61,7 +61,7 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
   // An app asking for another (the Calendar's "Open School lunch"): its tab, else full screen.
   // "+ Add" on a Today card that opens its tab's own add (Calendar's new event): the app is told in its address, once.
   const [addIn, setAddIn] = useState(null);
-  const addTo = (id) => { setAddIn({ id, at: Date.now() }); go(id); };
+  const addTo = (id, extra = '') => { setAddIn({ id, at: Date.now(), extra }); go(id); }; // extra: more for its address (Photos: photo=<name>)
   const openApp = (id) => { if (tabs.some((t) => t.id === id)) go(id); else if (appBy.has(id)) shell?.openApp(id); };
   // A tab that wasn't there a moment ago (the assistant just added it): show it, so they see what they asked for.
   const known = useRef(null);
@@ -128,7 +128,7 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
           <section key={t.id} className="h-page" hidden={t.id !== cur}>
             {t.id === 'today' ? <Today c={c} house={house} now={now} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} />
               : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} />
-              : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} add={addIn?.id === t.id ? addIn.at : 0} />
+              : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} add={addIn?.id === t.id ? addIn.at : 0} addExtra={addIn?.id === t.id ? addIn.extra : ''} />
               : <div className="h-widget"><Widget id={t.id} app={appBy.get(t.id)} w={4} h={4} house={house} c={c} now={now} Photo={(p) => <PhotoShow c={c} {...p} />}
                 content={homeScreen?.widgets?.content?.[t.id] ? (homeScreen.widgets.content[t.id].shapes?.['4x4'] || homeScreen.widgets.content[t.id].content || '') : null} /></div>}
           </section>
@@ -201,7 +201,7 @@ function useAppFrame(frame, shell, app, key, { onPhone, onOpen } = {}) {
 }
 
 /** One of the family's apps, running in the sheet (its own page and kit, given its key and the look). */
-function AppFrame({ c, shell, app, look, v, onOpen, add = 0 }) {
+function AppFrame({ c, shell, app, look, v, onOpen, add = 0, addExtra = '' }) {
   const [key, setKey] = useState(null);
   const frame = useRef(null);
   // A phone card the app asks for ("Add from phone", "Send to phone", a flyer): the shell shows it over the home.
@@ -217,7 +217,7 @@ function AppFrame({ c, shell, app, look, v, onOpen, add = 0 }) {
     return () => { off = true; };
   }, [c, app?.id]);
   if (!app) return null;
-  const hash = lookHash(look, shell, null, app) + (add ? `&add=${add}` : ''); // add: open its add (a Today card's + Add)
+  const hash = lookHash(look, shell, null, app) + (add ? `&add=${add}${addExtra ? '&' + addExtra : ''}` : ''); // add: open its add (a Today card's + Add), or what extra says (a photo)
   return key && <iframe ref={frame} key={shownV + hash} className="h-app" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/index.html#${hash}`} />;
 }
 
@@ -499,7 +499,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
   // The apps' own cards the household turned on, in their order, before the notes and the photo (wide: a row of its own).
   if (notes.length) cards.push(<NotesCard key="notes" c={c} notes={notes} reminders={[]} />); // (reminders due are things on Today)
   if (shell?.ui) for (const id of look?.cards || []) { const a = appBy.get(id); if (a?.today) cards.push(<AppCard key={'app:' + id} c={c} shell={shell} app={a} look={look} v={appsV[id] || 0} openApp={openApp} wide={a.today === 'wide'} />); }
-  if (kinds.has('photos') && photos.length) cards.push(<PhotoCard key="photos" c={c} names={photos} captions={h.captions} now={now} usePhoto={usePhoto} {...card('photos')} />);
+  if (kinds.has('photos') && photos.length) cards.push(<PhotoCard key="photos" c={c} names={photos} captions={h.captions} now={now} usePhoto={usePhoto} {...card('photos')} onOpen={(name) => addTo(kinds.get('photos'), 'photo=' + encodeURIComponent(name))} />);
   // Laid out in rows, three at most: two to a row beside the calendar (three without it), a wide card a row of its own;
   // the last row takes one more, so seven cards share the screen as two, two and three.
   // Which of them show, in what order: the household's choice in the look panel (look.today), else all, as usual. An
@@ -579,9 +579,9 @@ export function Things({ c, things, className = 't-things', go, tabs, ask }) {
 }
 
 /** A photo of theirs, a new one every minute, with its caption if it has one, opening Photos. */
-function PhotoCard({ c, names, captions, now, usePhoto, ...rest }) {
+function PhotoCard({ c, names, captions, now, usePhoto, onOpen, ...rest }) {
   const name = names[Math.floor(now / 60e3) % names.length], src = usePhoto(c, name), cap = captions?.[name];
-  return <div {...rest} className={rest.className + ' t-photo t-pic-card'}>{src && <img className="t-cover" src={src} alt="" draggable={false} />}{cap && <div className="t-cap"><div className="t-line">{cap}</div></div>}</div>;
+  return <div {...rest} onClick={onOpen ? () => onOpen(name) : rest.onClick} className={rest.className + ' t-photo t-pic-card'}>{/* a tap opens this photo in Photos */}{src && <img className="t-cover" src={src} alt="" draggable={false} />}{cap && <div className="t-cap"><div className="t-line">{cap}</div></div>}</div>;
 }
 
 // ---- Notes: what the assistant put up for them, and reminders due now ------------------------------------------------

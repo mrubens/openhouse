@@ -710,7 +710,7 @@ function Scenery({ urls, now }) {
 /** When nobody has touched the display for a while: the family's photos (if an app asks for them, not at night), the time, the day's headline and timers. */
 function Ambient({ c, house, apps, board, timers, weather, now }) {
   const wantsPhotos = apps.some((a) => a.meta?.screensaver);
-  const night = isNight(house?.night, now) || !!shell?.sleeping?.(); // night hours (or "Sleep now") hold with or without the Photos app
+  const night = isNight(house?.night, now); // night hours only: the moon's "Sleep now" is this same screen, photos and all (the user)
   // At night the backlight goes right down too (the shell), and comes back when someone touches it.
   useEffect(() => { shell?.dim?.(night); return () => shell?.dim?.(false); }, [night]);
   const names = wantsPhotos && !night ? house?.screensaver || house?.photos || [] : []; // those whose albums are on for the sleep screen (Photos)
@@ -758,7 +758,7 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
   ].slice(0, 5);
   return (
     <div className={'ambient' + (night ? ' night' : '')} onPointerDown={() => shell?.touch()}>
-      {src && <img src={src} alt="" />}
+      {src && <img className="ambient-back" src={src} alt="" />}{src && <img className="ambient-fit" src={src} alt="" />}{/* the whole photo, its own blur in the margins (as Photos shows one) */}
       {src && caption && <div className="ambient-caption">{caption}</div>}
       <div className="ambient-time"><div className="t">{hm(d)}</div><div className="d">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
         {sky && <div className="w"><span style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: weatherIcon(w.code, w.isDay !== false) }} />{sky}</div>}</div>

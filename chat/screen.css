@@ -442,7 +442,8 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 /* The sleep screen (screen.jsx Ambient): one of their photos edge to edge, the time large at the foot, and what's next
    on a glass panel at the right: the next thing on its coral card, then the day's lines. */
 .ambient { position: fixed; inset: 0; background: linear-gradient(180deg, #151a47 0%, #2a2b68 28%, #573c7a 54%, #9a5577 76%, #cc7a6a 100%); color: #fff; overflow: hidden; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
-.ambient > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ambient > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.ambient > img.ambient-back { inset: -8%; width: 116%; height: 116%; object-fit: cover; filter: blur(calc(var(--u) * 50)) brightness(.6) saturate(1.3); } /* the photo whole, never cropped: its blur fills the margins */
 .ambient::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,10,24,.25) 0, rgba(8,10,24,0) 30%, rgba(8,10,24,.1) 50%, rgba(8,10,24,.78) 100%); }
 .ambient.night { background: #0b0b0d; } .ambient.night .ambient-time, .ambient.night .ambient-side { opacity: .6; }
 .ambient.night::after { display: none; }
@@ -560,3 +561,9 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 /* Events waiting to be added (a flyer or an email): a quiet card first on Today (home.jsx) */
 .t-waiting { padding: calc(var(--u) * 22 * var(--s)); gap: calc(var(--u) * 6); }
 .t-waiting .t-big { margin: calc(var(--u) * 4) 0 calc(var(--u) * 6); }
+.t-waiting .t-row > .t-when { width: auto; min-width: calc(var(--u) * 124 * var(--s)); }
+/* The sleep screen's lines take two lines before they're cut ("No School (Late Fall Break)" was cut at one) */
+.ambient-r { white-space: normal; }
+.ambient-r > span:first-child { white-space: nowrap; }
+.ambient-r > span:last-child { line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ambient-next h2 { white-space: normal; line-height: 1.05; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }

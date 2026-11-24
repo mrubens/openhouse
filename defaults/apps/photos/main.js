@@ -417,4 +417,6 @@ function slideshow(photos) {
 }
 function stopShow() { if (show) { clearInterval(show.timer); show = null; } }
 
-house.subscribe((d) => { H = d; draw(); });
+// Opened from Today's photo (add=<when>&photo=<name> in its address, just now): that photo, once.
+let openAsked = (() => { const q = new URLSearchParams(location.hash.slice(1)); return Date.now() - (Number(q.get('add')) || 0) < 15e3 ? q.get('photo') : null; })();
+house.subscribe((d) => { H = d; if (openAsked && (d.photos || []).includes(openAsked)) { album = null; one = openAsked; } openAsked = null; draw(); });
