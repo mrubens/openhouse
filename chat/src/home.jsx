@@ -695,7 +695,9 @@ function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
             </div>
           ))}
           {more.length > 0 && <div className="h-chips">{more.map((t) => <button key={t.id} className="h-chip" onClick={() => save({ tabs: [...mine.tabs, t] })}>+ {nameOf(t)}</button>)}</div>}
-          <div className="h-label h-gap">On Today</div>
+        </div>
+        <div className="h-arr-col">
+          <div className="h-label">On Today</div>
           {order.map((k, i) => (
             <div key={k} className="h-arr-row">
               <span className="h-grow">{todayName(k)}</span>

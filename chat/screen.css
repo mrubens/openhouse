@@ -419,7 +419,7 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .h-timer-do button:disabled { opacity: .35; }
 .h-timer-do .h-timer-clear { color: #c8372b; }
 /* Tabs and look */
-.h-arrange { display: flex; gap: calc(var(--u) * 56); width: calc(var(--u) * 980); max-height: 86%; overflow: auto; box-sizing: border-box; padding: calc(var(--u) * 40) calc(var(--u) * 44); background: var(--h-sheet); color: var(--h-ink); border-radius: calc(var(--u) * 30); box-shadow: var(--h-lift); scrollbar-width: none; }
+.h-arrange { display: flex; gap: calc(var(--u) * 48); width: calc(var(--u) * 1380); max-height: 86%; overflow: auto; box-sizing: border-box; padding: calc(var(--u) * 40) calc(var(--u) * 44); background: var(--h-sheet); color: var(--h-ink); border-radius: calc(var(--u) * 30); box-shadow: var(--h-lift); scrollbar-width: none; }
 .h-arr-col { flex: 1; min-width: 0; }
 .h-arr-row { display: flex; align-items: center; gap: calc(var(--u) * 6); font-size: calc(var(--u) * 19); font-weight: 600; letter-spacing: -.01em; padding: calc(var(--u) * 3) 0; border-bottom: 1px solid var(--h-line); }
 .h-mini { width: calc(var(--u) * 44); height: calc(var(--u) * 44); padding: calc(var(--u) * 11); box-sizing: border-box; border-radius: 50%; color: var(--h-soft); }
