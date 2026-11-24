@@ -361,7 +361,6 @@ function DishPic({ house, name }) {
   return src && !bad ? <img className="t-dish" src={src} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setBad(true)} />
     : <span className="t-dish letter">{String(name || '').trim()[0]?.toUpperCase() || ''}</span>;
 }
-const Basket = () => <svg className="t-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9.5h18l-1.6 9a1.5 1.5 0 0 1-1.5 1.2H6.1a1.5 1.5 0 0 1-1.5-1.2zM8 9.5l3.2-5.5M16 9.5l-3.2-5.5M9 13v3.5M12 13v3.5M15 13v3.5" /></svg>;
 const Check = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
 
 /** Today (also on someone's phone, phone.jsx, in one column). */
@@ -442,7 +441,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   </div>);
   // The list: what's left to get, in two columns, eight at most (more than that, seven and a count).
   if (kinds.has('lists') && list) cards.push(<div key="lists" {...card('lists')}>
-    <div className="t-top"><Basket /><div className="h-label">{list.name}</div><span className="t-n t-add" role="button" onClick={(e) => { e.stopPropagation(); setAdding(''); }}>+ Add</span></div>
+    <div className="t-top"><div className="h-label">{list.name}</div><span className="t-n t-add" role="button" onClick={(e) => { e.stopPropagation(); setAdding(''); }}>+ Add</span></div>
     {items.length || ticked ? <div className={'t-items' + (items.length <= 4 ? ' one' : '')}>{items.slice(0, items.length > 8 ? 7 : 8).map((i) => (
       <div key={i.id} className="t-item"><span className="t-box" role="button" aria-label={'Got ' + i.text} onClick={(e) => tick(e, i)} /><span className="h-grow">{i.text}</span></div>
     ))}{items.length > 8 && <div className="t-item t-more">and {items.length - 7} more</div>}</div>
