@@ -64,6 +64,7 @@ const RULES = [
   ['ask', 'POST', /^\/chat(\/stop|\/warm)?$/],
   ['ask', 'GET', /^\/chats\/[\w-]{1,40}$/],
   ['ask', 'POST', /^\/house\/recipe-link$/], // a recipe's link shared from a phone (the Recipes app)
+  ['ask', 'POST', /^\/phone\/album$/], // an iCloud album's link from a grown-up's phone, no PIN (server.js: only a phone with 'ask')
   // 'workshop': a computer someone paired, whose own AI app (Claude, ChatGPT) changes the apps and the home screen
   // with the assistant's tools (workshop.js). Only computers get it, and they get nothing else.
   ['door', 'GET', /^\/relay\/me$/], ['workshop', 'GET', /^\/relay\/me$/], // the relay's address and this device's token (relay.js)

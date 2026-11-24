@@ -361,6 +361,15 @@ async function route(req, res, url) {
       const r = await calendar.toShell(url.pathname === '/setup/calendar' ? '/calendar' : '/album', { url: String(b.link || '').trim(), who: String(b.who || '').trim().slice(0, 40), from: 'setup', trusted: true });
       json(res, r.error ? 400 : 200, r); return true;
     }
+    // An iCloud shared album's link from a grown-up's own phone (the Photos app there): theirs to add, as the setup
+    // phone's are, so no card or PIN on the tablet (unless its lock is on). A kid's phone, a shared screen or a TV can't.
+    if (req.method === 'POST' && url.pathname === '/phone/album') {
+      const who = screens.who(String(req.headers['x-openhouse-screen'] || ''));
+      if (!(who?.kind === 'phone' && who.person && who.scopes.includes('ask'))) { json(res, 403, { error: 'Only a grown-up\'s own phone can add an album here.' }); return true; }
+      const b = await body(req);
+      const r = await calendar.toShell('/album', { url: String(b.link || '').trim(), from: who.person, trusted: true });
+      json(res, r.error ? 400 : 200, r); return true;
+    }
     // Live voice from another device (screens.js 'voice', chat/src/live-voice.js): its session starts through the cloud
     // as the tablet's does (/cloud/live/start), and its time is counted the same way.
     // A device sends only its offer; the session's instructions and tools are the household's, made here (live-tools.js setupFor).

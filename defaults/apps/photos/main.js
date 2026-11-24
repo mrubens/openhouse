@@ -153,10 +153,17 @@ function addPhotos() {
     h('h2', { class: 'big' }, 'Add photos'),
     way('From a phone, now', 'Scan a code with a phone on the home Wi-Fi and pick photos.', () => { close(); phone.photos(); }),
     way('From the household’s phones, any time', 'A page each phone keeps. On Android it’s in the share sheet.', () => { close(); later(() => phone.sharePhotos(), 'Photos from phones')(); }),
-    way('An iCloud shared album', 'Photos added to it on any iPhone show up here by themselves.', () => { close(); later(() => phone.addAlbum(), 'An iCloud shared album')(); }),
+    way('An iCloud shared album', 'Photos added to it on any iPhone show up here by themselves.', () => { close(); if (!phone.addAlbum()) albumByLink(); }),
     way('Pick in Google Photos', 'Sign in to Google on a phone and choose the photos to copy here.', () => { close(); later(() => phone.googlePhotos(), 'Google Photos')(); }),
     h('div', { class: 'actions' }, btn('Cancel', close, { soft: true })),
   ], { width: 860 });
+}
+/** On a phone: the album's public link, pasted here (a grown-up's phone adds it with no PIN; the bridge says no to others). */
+function albumByLink() {
+  ask({ title: 'An iCloud shared album', hint: 'Paste its public link', extra: () => h('p', { class: 'note small' }, 'In Photos, the album’s sharing settings: turn on Public Website, then copy the link.'), onDone: async (link) => {
+    const r = await house.addAlbumLink(link);
+    openCard((c) => [h('h2', null, r?.added ? 'Added' : 'Not added'), h('p', { class: 'note' }, r?.added ? 'Its photos come in over the next few minutes, and new ones within half an hour.' : r?.error || 'It wasn’t added.'), h('div', { class: 'actions' }, btn('OK', c))]);
+  } });
 }
 const linkOf = (a) => (a?.from && H?.linked?.find((l) => l.album === a.id)) || null;
 /** A linked album's line: how it's doing. */

@@ -36,7 +36,7 @@ const APP_GROUPS = {
   rewards: [['POST', /^\/house\/reward$/]],
   meals: [['POST', /^\/house\/(meal|meal\/ingredients|recipe-link)$/]],
   events: [['POST', /^\/house\/(event|remind)$/]],
-  photos: [['GET', /^\/house\/photo\/[^/]{1,120}$/], ['POST', /^\/house\/(photo|photo\/remove|photo\/album|photo\/caption|photo\/restore)$/]],
+  photos: [['GET', /^\/house\/photo\/[^/]{1,120}$/], ['POST', /^\/house\/(photo|photo\/remove|photo\/album|photo\/caption|photo\/restore)$/], ['POST', /^\/phone\/album$/]],
   family: [],
   weather: [['GET', /^\/weather$/]],
   home: [['GET', /^\/(home|home\/wait|board)$/]],

@@ -312,6 +312,9 @@ export const house = {
   renameAlbum: (id, name) => send('/house/photo/album', { rename: { id, name } }),
   removeAlbum: (id) => send('/house/photo/album', { remove: id }),
   inAlbum: (id, photos, on = true) => send('/house/photo/album', { put: { id, photos, on } }),
+  /** On a grown-up's own phone: keep an iCloud shared album here by its public link, with no PIN ({ added } or
+   *  { error }; a kid's phone or another screen gets an error). On the display, phone.addAlbum() asks there. */
+  addAlbumLink: (link) => call('/phone/album', { link }).catch((e) => ({ error: e.message })),
   /** A line shown with a photo on the idle screen and in the slideshow (data.captions); '' takes it off. */
   caption: (name, text) => send('/house/photo/caption', { name, text }),
   /** Where an album's photos show: { sleep: the sleep screen, all: Photos' All } (false leaves them out; an app's own
