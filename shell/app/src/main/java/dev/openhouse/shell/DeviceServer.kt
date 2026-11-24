@@ -241,7 +241,7 @@ object DeviceServer {
                 val url = CalendarLinks.clean(b.optString("url")) ?: return 400 to """{"error":"That isn't a calendar link (an https:// or webcal:// address ending in .ics, usually)."}"""
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
                 val got = java.util.concurrent.LinkedBlockingQueue<Boolean>()
-                handler.post { a.offerCalendar(b.optString("who").trim().take(40), url, b.optString("from").take(40), { got.offer(it) }, trusted = b.optBoolean("trusted")) }
+                handler.post { a.offerCalendar(b.optString("who").trim().take(40), url, b.optString("from").take(40), { got.offer(it) }, trusted = b.optBoolean("trusted"), name = b.optString("name").trim().take(60), only = b.optString("only").trim().take(200)) }
                 val yes = got.poll(100, java.util.concurrent.TimeUnit.SECONDS) ?: false
                 200 to JSONObject().put("added", yes).toString()
             }

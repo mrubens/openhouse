@@ -45,7 +45,9 @@ object CalendarLinks {
     private var bridge: () -> String = { "http://127.0.0.1:8787" }
     @Volatile private var running = false
 
-    class Link(val id: String, val who: String, val url: String)
+    /** [name]: its own name, for a calendar that isn't a person's (a team's schedule); [only]: which of its events to
+     *  keep, in the words they used ("home games"), judged by the bridge (calendar.js). */
+    class Link(val id: String, val who: String, val url: String, val name: String = "", val only: String = "")
     private class Said(m: String) : Exception(m) // an error that's safe to show: never has the link in it
 
     /** Only the stored links (Move.kt), without reading the calendars. */
@@ -80,11 +82,11 @@ object CalendarLinks {
         val b = file.readBytes()
         val plain = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, b, 0, 12)) }.doFinal(b, 12, b.size - 12)
         val a = JSONArray(String(plain))
-        (0 until a.length()).map { a.getJSONObject(it).let { j -> Link(j.getString("id"), j.optString("who"), j.getString("url")) } }
+        (0 until a.length()).map { a.getJSONObject(it).let { j -> Link(j.getString("id"), j.optString("who"), j.getString("url"), j.optString("name"), j.optString("only")) } }
     }.getOrDefault(emptyList())
 
     @Synchronized private fun save(links: List<Link>) {
-        val plain = JSONArray(links.map { JSONObject().put("id", it.id).put("who", it.who).put("url", it.url) }).toString().toByteArray()
+        val plain = JSONArray(links.map { JSONObject().put("id", it.id).put("who", it.who).put("url", it.url).put("name", it.name).put("only", it.only) }).toString().toByteArray()
         val c = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
         val tmp = File(file.path + ".new")
         tmp.writeBytes(c.iv + c.doFinal(plain))
@@ -97,9 +99,9 @@ object CalendarLinks {
         return u.takeIf { it.length <= 2000 && Regex("^https?://[^\\s/]+\\S*$", RegexOption.IGNORE_CASE).matches(it) }
     }
 
-    @Synchronized fun add(who: String, url: String) {
+    @Synchronized fun add(who: String, url: String, name: String = "", only: String = "") {
         val u = clean(url) ?: return
-        save(list().filter { it.url != u } + Link(UUID.randomUUID().toString().take(8), who.trim().take(40), u))
+        save(list().filter { it.url != u } + Link(UUID.randomUUID().toString().take(8), who.trim().take(40), u, name.trim().take(60), only.trim().take(200)))
     }
 
     @Synchronized fun remove(id: String) = save(list().filter { it.id != id })
@@ -114,7 +116,7 @@ object CalendarLinks {
             try {
                 claim()
                 val feeds = JSONArray()
-                for (l in list()) feeds.put(JSONObject().put("id", l.id).put("who", l.who).apply {
+                for (l in list()) feeds.put(JSONObject().put("id", l.id).put("who", l.who).put("name", l.name).put("only", l.only).apply {
                     runCatching { put("ics", fetch(l.url)) }.onFailure { put("error", (it as? Said)?.message ?: "Couldn't read it") /* other messages can hold the link */ }
                 })
                 val ok = post("/calendar/feeds", JSONObject().put("feeds", feeds)) != null
@@ -209,12 +211,12 @@ object CalendarLinks {
      * here from the bridge (DeviceServer /calendar), never kept there. Kept only after a yes on the tablet,
      * with the PIN. [done] gets whether it was added.
      */
-    fun offer(a: Activity, withPin: (() -> Unit) -> Unit, who: String, url: String, from: String, immersive: () -> Unit, done: (Boolean) -> Unit) {
+    fun offer(a: Activity, withPin: (() -> Unit) -> Unit, who: String, url: String, from: String, immersive: () -> Unit, done: (Boolean) -> Unit, name: String = "", only: String = "") {
         var answered = false
         val finish = { yes: Boolean -> if (!answered) { answered = true; done(yes) } }
-        CalmDialog(a).setTitle("Add ${label(who)}?")
-            .setMessage(listOfNotNull(runCatching { URL(url).host }.getOrNull(), from.takeIf { it.isNotBlank() }?.let { "Sent by $it." }).joinToString("\n"))
-            .setPositiveButton("Add") { _, _ -> if (DeviceServer.personOnly("Adding a calendar someone sent")) { finish(false); return@setPositiveButton }; withPin { thread { add(who, url); sync() }; finish(true) } }
+        CalmDialog(a).setTitle("Add ${name.ifBlank { label(who) }}?")
+            .setMessage(listOfNotNull(runCatching { URL(url).host }.getOrNull(), only.takeIf { it.isNotBlank() }?.let { "Only: $it" }, from.takeIf { it.isNotBlank() }?.let { "Sent by $it." }).joinToString("\n"))
+            .setPositiveButton("Add") { _, _ -> if (DeviceServer.personOnly("Adding a calendar someone sent")) { finish(false); return@setPositiveButton }; withPin { thread { add(who, url, name, only); sync() }; finish(true) } }
             .setNegativeButton("Not now") { _, _ -> finish(false) }
             .setOnDismissListener { main.postDelayed({ if (!answered) finish(false) }, 95_000) } // the PIN box may still be open
             .show().also { immersive() }

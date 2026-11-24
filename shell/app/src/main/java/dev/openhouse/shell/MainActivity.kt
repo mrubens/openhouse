@@ -250,10 +250,10 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     /** "Add a calendar" from the Calendar app (or anywhere): behind the PIN when the lock is on, then the paste box. */
     internal fun addCalendar() = lock.withPin { CalendarAccounts.choose(this, ::immersive) } // Google, iCloud, or a link
     /** A calendar link from the computer or the assistant (DeviceServer /calendar): the tablet's card, then the PIN. */
-    internal fun offerCalendar(who: String, url: String, from: String, done: (Boolean) -> Unit, trusted: Boolean = false) =
+    internal fun offerCalendar(who: String, url: String, from: String, done: (Boolean) -> Unit, trusted: Boolean = false, name: String = "", only: String = "") =
         // From the setup's own phone or computer, with the lock off: in at once (it was set up from there a moment ago).
-        if (trusted && !lock.on) thread { CalendarLinks.add(who, url); CalendarLinks.sync(); main.post { done(true) } }
-        else CalendarLinks.offer(this, { ok -> lock.withPin(ok = ok) }, who, url, from, ::immersive, done)
+        if (trusted && !lock.on) thread { CalendarLinks.add(who, url, name, only); CalendarLinks.sync(); main.post { done(true) } }
+        else CalendarLinks.offer(this, { ok -> lock.withPin(ok = ok) }, who, url, from, ::immersive, done, name, only)
     /** "Add an iCloud album" from the Photos app: behind the PIN when the lock is on, then the paste box. */
     internal fun addAlbum() = lock.withPin { PhotoAlbums.add(this, ::immersive) }
     /** "Photos from phones, any time": behind the PIN when the lock is on, the lasting link's QR code (PhotoShare). */

@@ -4,13 +4,18 @@
 // every 15 minutes and posts what they say here. This keeps the next two weeks of events and whose they are.
 //
 //   calendars({ DIR }) -> { events(), labels(), status(), setFeeds(feeds) }
-//     feeds: [{ id, who, ics?, error? }]   (from the shell: POST /calendar/feeds)
+//     feeds: [{ id, who, name?, only?, ics?, error? }]   (from the shell: POST /calendar/feeds)
+//     only: which of a calendar's events to keep, in the words they used ("home games"): each event is judged once by
+//     the cloud's decision model (useCalendarDecide), never by matching words; until judged an event isn't shown.
 //   events: [{ who, title, start (ISO), end?, allDay, place?, notes?, uid? }]
 import fs from 'node:fs';
 import path from 'node:path';
 
 const DAY = 86400e3;
 const str = (v, n) => String(v ?? '').trim().slice(0, n);
+let decideFn = null;
+/** The judge for calendars kept only in part: (input, questions) -> {answers} (the cloud's /v1/decide). */
+export function useCalendarDecide(f) { decideFn = f; }
 
 export function calendars({ DIR }) {
   const CACHE = path.join(DIR, '../calendar.json');
@@ -18,20 +23,55 @@ export function calendars({ DIR }) {
   let cache = (() => { try { return { ...empty, ...JSON.parse(fs.readFileSync(CACHE, 'utf8')) }; } catch { return empty; } })();
   // Errors from before the links moved to the shell were keyed by the start of the link.
   if (Object.keys(cache.errors || {}).some((k) => /^(https?|webcals?):/i.test(k))) cache.errors = {};
+  // Verdicts for calendars kept only in part: { [only]: { [title + place]: true | false } }.
+  const ONLY = path.join(DIR, '../calendar-only.json');
+  let verdicts = (() => { try { return JSON.parse(fs.readFileSync(ONLY, 'utf8')) || {}; } catch { return {}; } })();
+  let lastFeeds = null, judging = false;
+  const keyOf = (e) => `${e.title || ''}\u0000${e.place || ''}`;
+  async function judge(pending) {
+    if (judging || !decideFn) return;
+    judging = true;
+    try {
+      for (const [only, list] of pending) {
+        for (let i = 0; i < list.length; i += 100) {
+          const part = list.slice(i, i + 100);
+          const input = `A household added a calendar to their home display and wants to see only some of its events: "${only}". Each question is about one event from that calendar.`;
+          const qs = part.map((e, j) => ({ type: 'predicate', name: `e${j}`, instructions: `Is this event one they want to see? "${e.title}"${e.place ? `, at ${e.place}` : ''}` }));
+          const { answers } = await decideFn(input, qs);
+          const v = (verdicts[only] ||= {});
+          part.forEach((e, j) => { const p = (answers || []).find((a) => a.name === `e${j}`)?.probability; if (typeof p === 'number') v[keyOf(e)] = p >= 0.5; });
+        }
+      }
+      try { fs.writeFileSync(ONLY, JSON.stringify(verdicts)); } catch {}
+    } catch (e) { console.log(`[calendar] couldn't judge which events to keep (${e?.message || e})`); judging = false; return; }
+    judging = false;
+    if (lastFeeds) setFeeds(lastFeeds);
+  }
 
   function setFeeds(feeds) {
     const from = Date.now() - 35 * DAY, to = Date.now() + 70 * DAY; // the Calendar app shows a month either way
     const events = [], errors = {}, labels = [];
+    lastFeeds = feeds;
+    const pending = new Map(); // only -> [events not judged yet]
     for (const f of Array.isArray(feeds) ? feeds.slice(0, 12) : []) {
-      const who = str(f.who, 40) || null, label = who ? `${who}'s calendar` : 'A calendar';
-      labels.push({ id: str(f.id, 40), who, label });
+      const who = str(f.who, 40) || null, name = str(f.name, 60) || null, only = str(f.only, 200);
+      const label = name || (who ? `${who}'s calendar` : 'A calendar');
+      labels.push({ id: str(f.id, 40), who, label, ...(name ? { name } : {}), ...(only ? { only } : {}) });
       try {
         if (f.error) throw new Error(str(f.error, 120));
         const text = String(f.ics || '');
         if (!/BEGIN:VCALENDAR/.test(text)) throw new Error('not a calendar (iCal) link');
-        for (const e of parse(text, from, to)) events.push({ who, ...e });
+        for (const e of parse(text, from, to)) {
+          if (only) {
+            const v = verdicts[only]?.[keyOf(e)];
+            if (v === undefined) { const l = pending.get(only) || []; if (l.length < 400 && !l.some((x) => keyOf(x) === keyOf(e))) l.push(e); pending.set(only, l); }
+            if (v !== true) continue;
+          }
+          events.push({ who, ...(name ? { calendar: name } : {}), ...e });
+        }
       } catch (e) { errors[label] = e.message; }
     }
+    if (pending.size) judge(pending);
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
     cache = { events, at: Date.now(), errors, labels };
     try { fs.writeFileSync(CACHE, JSON.stringify(cache)); } catch {}

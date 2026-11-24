@@ -209,7 +209,8 @@ let backups = null;
 const cloud = cloudRoutes({ DISPLAY, json, body, agentName, backupBits: () => backups?.bits() || {}, fixesFile: path.join(HB_DIR, '../heartbeat-fixes.json') });
 cloudRef = cloud;
 chat.live.useAi((q) => cloud.ai(q)); // setup: what's heard fills in the step (live-tools.js setupHeard)
-chat.live.useDecide((i, q) => cloud.decide(i, q)); // judgments about what was said, from the whole conversation (live-tools.js judge)
+chat.live.useDecide((i, q) => cloud.decide(i, q));
+import('./calendar.js').then((m) => m.useCalendarDecide((i, q) => cloud.decide(i, q))); // which events of a calendar kept only in part (calendar.js) // judgments about what was said, from the whole conversation (live-tools.js judge)
 // The tablet's assistant for typed turns and the rest: the cloud's text model with the household's tools (chat.js textTools).
 import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud.decide, tools: chat.textTools, callTool: chat.callText, instructions: chat.textInstructions }));
 // A hub (docs/hub.md) has no shell to own a USB drive: its backups go to a folder instead (a mounted drive, a share, a volume).

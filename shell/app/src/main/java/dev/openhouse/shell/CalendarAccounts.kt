@@ -306,8 +306,8 @@ object CalendarAccounts {
                 if (links.isNotEmpty()) {
                     header("Links · read only", null, null)
                     links.forEach { l ->
-                        line(CalendarLinks.label(l.who), Calm.text(a, "Tap to remove", 17f, 400, Calm.SOFT), null, null) {
-                            CalmDialog(a).setTitle("Remove ${CalendarLinks.label(l.who)}?").setDanger()
+                        line(l.name.ifBlank { CalendarLinks.label(l.who) }, Calm.text(a, l.only.takeIf { it.isNotBlank() }?.let { "Only $it · tap to remove" } ?: "Tap to remove", 17f, 400, Calm.SOFT), null, null) {
+                            CalmDialog(a).setTitle("Remove ${l.name.ifBlank { CalendarLinks.label(l.who) }}?").setDanger()
                                 .setPositiveButton("Remove") { _, _ -> shown?.dismiss(); thread { CalendarLinks.remove(l.id); CalendarLinks.sync(); main.post { again() } } }
                                 .setNegativeButton("Cancel", null).show().also { immersive() }
                         }
