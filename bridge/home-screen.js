@@ -637,7 +637,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   handle.putBack = putBack;
   // The same tools for someone's own AI app on a computer (workshop.js): the list, and a call as that computer.
   /** Kitchen timers for the workshop's timer tool (a paired agent's "set a pasta timer"): the shell rings them. */
-  handle.timers = { start: startTimer, cancel: cancelTimer, list: () => homeScreen.timers.filter((t) => t.endAt > Date.now()) };
+  handle.timers = { start: startTimer, cancel: cancelTimer, list: () => homeScreen.timers.slice() }; // (finished ones too: still on the screen, ringing, until cleared)
   // apps: the apps the change has touched so far: the home screen pulses their tabs (or Apps, for one that isn't a tab).
   handle.computerNote = (text, apps = []) => { live.computer = text ? { text: String(text).slice(0, 160), apps: apps.slice(0, 20), at: live.computer?.at || Date.now() } : null; save(); };
   /** The app in use hands-free right now: {app, note, listen, until}, or null. */

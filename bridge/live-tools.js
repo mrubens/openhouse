@@ -33,8 +33,8 @@ export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'c
 const WEATHER = { name: 'weather', description: "The weather where the family lives: now, the next 24 hours, and the next 7 days (°F, mph).", inputSchema: { type: 'object', properties: {} } };
 
 /** Kitchen timers (the tablet rings them: home-screen.js timers), as a person sets them on the screen. */
-export const TIMER_TOOL = { name: 'timer', description: 'Timers on the tablet (it rings them, and shows them): start one ("Pasta", 10 minutes), list the running ones, or cancel one by its endAt from list.',
-  inputSchema: { type: 'object', required: ['action'], properties: { action: { type: 'string', enum: ['start', 'list', 'cancel'] }, label: { type: 'string' }, minutes: { type: 'number' }, seconds: { type: 'number' }, endAt: { type: 'number', description: 'For cancel: from list' } } } };
+export const TIMER_TOOL = { name: 'timer', description: 'Timers on the tablet (it rings them, and shows them): start one ("Pasta", 10 minutes), list them (running and finished), or cancel: that stops one ringing and clears it off the screen too. To cancel, no list first: with one timer, just cancel; otherwise by its label, or all.',
+  inputSchema: { type: 'object', required: ['action'], properties: { action: { type: 'string', enum: ['start', 'list', 'cancel'] }, label: { type: 'string', description: 'For start: its name. For cancel: which one, by its name' }, all: { type: 'boolean', description: 'For cancel: every timer' }, minutes: { type: 'number' }, seconds: { type: 'number' }, endAt: { type: 'number', description: 'For cancel, optional: the exact one, from list' } } } };
 
 /** Opie putting OpenHouse's own screen on a tab, or one of its apps (setScreen: the tabs and apps there are now). */
 export function screenTool(places) {
@@ -241,8 +241,15 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (device && device.names.includes(name)) return device.call(name, args || {});
     if (name === 'timer' && homeScreen.timers) {
       const t = homeScreen.timers, a = args || {};
-      if (a.action === 'list') { const l = t.list(); return { text: l.length ? l.map((x) => `${x.label}: ${Math.max(0, Math.round((x.endAt - Date.now()) / 1000))} s left (endAt ${x.endAt})`).join('\n') : 'No timers running.', isError: false }; }
-      if (a.action === 'cancel') return t.cancel(a.endAt) ? { text: 'Stopped.', isError: false } : { text: 'No timer with that endAt (timer list).', isError: true };
+      if (a.action === 'list') { const l = t.list(); return { text: l.length ? l.map((x) => `${x.label}: ${x.endAt <= Date.now() ? 'finished (ringing or on the screen until cleared)' : `${Math.round((x.endAt - Date.now()) / 1000)} s left`} (endAt ${x.endAt})`).join('\n') : 'No timers.', isError: false }; }
+      if (a.action === 'cancel') {
+        const l = t.list(), name = String(a.label || '').trim().toLowerCase();
+        const which = a.endAt ? l.filter((x) => x.endAt === Number(a.endAt)) : a.all || l.length === 1 ? l : name ? l.filter((x) => String(x.label).toLowerCase() === name) : [];
+        if (!l.length) return { text: 'No timers to stop.', isError: false };
+        if (!which.length) return { text: `Which one? ${l.map((x) => x.label).join(', ')} (or all).`, isError: true };
+        which.forEach((x) => t.cancel(x.endAt));
+        return { text: `Stopped ${which.length > 1 ? `${which.length} timers` : `the ${which[0].label} timer`}.`, isError: false };
+      }
       const endAt = t.start({ label: a.label || 'Timer', seconds: Math.round((Number(a.minutes) || 0) * 60 + (Number(a.seconds) || 0)) });
       if (!endAt) return { text: 'A timer is 1 second to 24 hours.', isError: true };
       return { text: `${String(a.label || 'Timer')} timer on: rings at ${new Date(endAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. (endAt ${endAt})`, isError: false };
