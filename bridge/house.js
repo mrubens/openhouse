@@ -630,15 +630,15 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
         video ||= page?.video || null;
         if (!source.trim()) throw new Error('That recipe has nothing in it to cook from.');
         let cook = parseCook(await answer(cookPrompt(r.text, source, page?.links || []), COOK_SYSTEM));
+        if (page?.minutes) cook.minutes = page.minutes; // the page's own total time over the model's estimate
         // What it builds on ("make the Classic Pizza Sauce", linked on its page): each of those recipes read and made into
         // steps on its own (one answer for all of them takes longer than the cloud waits), as a part, in place of the step
         // that only says to make it (makes), so nothing is left as "prepare the sauce" with no way to.
         if (cook.needs?.length) cook = withNeeds(cook, (await Promise.all(cook.needs.slice(0, 3).map(async (x) => {
-          try { const p = await readRecipeLink(x.url, { timeoutMs: 8000 }); return { name: x.name, cook: parseCook(await answer(cookPrompt(x.name, p.text.slice(0, 12000)), COOK_SYSTEM)) }; } catch { return null; }
+          try { const p = await readRecipeLink(x.url, { timeoutMs: 8000 }); const c = parseCook(await answer(cookPrompt(x.name, `${p.text.slice(0, 12000)}\n\nThis is made for ${r.text}, whose own steps go on from where they use it: write only the steps that make the ${x.name} itself, and leave out what comes after it is ready (using it, baking, serving).`), COOK_SYSTEM)); if (p.minutes) c.minutes = p.minutes; return { name: x.name, cook: c }; } catch { return null; }
         }))).filter(Boolean));
         cook.steps = cook.steps.map(({ makes, ...st }) => st);
         cook = withPictures(cook, page?.stepPics); delete cook.needs;
-        if (page?.minutes) cook.minutes = page.minutes; // the page's own total time over the model's estimate
         const now = data.recipes[k]; if (!now) throw new Error('That recipe was taken out.');
         if (!now.notes || ownNotes) now.notes = cookAsNotes(cook).slice(0, 4000); // a link only: the Meals app shows it too
         if (video && !now.video) now.video = video;
@@ -678,7 +678,8 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     const rest = subs.filter((x) => !placed.has(x)).flatMap(steps);
     const have = new Set(cook.ingredients.map((i) => i.item.toLowerCase()));
     const more = subs.flatMap((x) => x.cook.ingredients).filter((i) => !have.has(i.item.toLowerCase()) && have.add(i.item.toLowerCase()));
-    return { ...cook, steps: [...rest, ...out].slice(0, 80), ingredients: [...cook.ingredients, ...more].slice(0, 60) };
+    const minutes = (cook.minutes || 0) + subs.reduce((n, x) => n + (x.cook.minutes || 0), 0); // (its dough's rise too)
+    return { ...cook, ...(minutes ? { minutes } : {}), steps: [...rest, ...out].slice(0, 80), ingredients: [...cook.ingredients, ...more].slice(0, 60) };
   }
   /** A recipe made into steps before pictures were kept: its page read once more for the dish and step photos (no model). */
   function pictures(k) {
