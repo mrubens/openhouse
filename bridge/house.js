@@ -615,7 +615,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     const text = str(meal, 80).trim(), k = text.toLowerCase(), key = `cook|${k}`, r = data.recipes[k];
     if (!r) return { error: `There's no recipe for ${text || 'that'} yet.` };
     // (steps made before they had titles, parts and their full detail are made again, once: COOK_V)
-    if (!force && r.cook && r.cook.for === cookSource(r) && r.cook.v === COOK_V) { if (r.link && !r.picsAt) pictures(k); return { ok: true, ready: true }; }
+    if (!force && r.cook && r.cook.for === cookSource(r) && r.cook.v === COOK_V) { if (r.link && !r.picsAt) pictures(k); if (!r.cook.minutes && !r.timeAt) howLong(k); return { ok: true, ready: true }; }
     { const no = noAssistant('Getting a recipe ready to cook'); if (no) return { error: no }; }
     if (mealWork[key]?.state === 'working') return { ok: true };
     mealWork[key] = { state: 'working' }; changed();
@@ -637,6 +637,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
           if (more.trim()) cook = parseCook(await answer(cookPrompt(r.text, `${source}${more}\n\nWrite the recipes it uses in as parts, before the steps that need them.`), COOK_SYSTEM));
         }
         cook = withPictures(cook, page?.stepPics); delete cook.needs;
+        if (page?.minutes) cook.minutes = page.minutes; // the page's own total time over the model's estimate
         const now = data.recipes[k]; if (!now) throw new Error('That recipe was taken out.');
         if (!now.notes || ownNotes) now.notes = cookAsNotes(cook).slice(0, 4000); // a link only: the Meals app shows it too
         if (video && !now.video) now.video = video;
@@ -650,6 +651,17 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
       setTimeout(() => { if (mealWork[key]?.state !== 'working') { delete mealWork[key]; changed(); } }, 60e3).unref?.();
     })();
     return { ok: true };
+  }
+  /** Steps made before they said how long the recipe takes: its page's total time, else the text model's estimate, once. */
+  function howLong(k) {
+    const r = data.recipes[k]; if (!r?.cook || r.timeAt) return;
+    r.timeAt = Date.now();
+    (async () => {
+      let m = r.link ? (await readRecipeLink(r.link).catch(() => null))?.minutes : null;
+      if (!m && !noAssistant('')) m = Math.round(Number(String(await answer(`How many minutes does this recipe take, start to finish? Reply with only a number.\n\n${cookAsNotes(r.cook).slice(0, 6000)}`, 'Reply with only a number.')).match(/\d+/)?.[0]));
+      const now = data.recipes[k];
+      if (now?.cook && m > 0 && m < 10000) { now.cook.minutes = m; save(); changed(); }
+    })().catch(() => {});
   }
   /** A recipe made into steps before pictures were kept: its page read once more for the dish and step photos (no model). */
   function pictures(k) {

@@ -128,7 +128,7 @@ export const COOK_SYSTEM = 'You turn a recipe into the steps a family cooks from
 export function cookPrompt(meal, source, links = []) {
   return `The recipe for "${meal}":\n\n${String(source).slice(0, 24000)}\n\n` +
     (links.length ? `Links on its page:\n${links.map((l) => `- ${l.text}: ${l.url}`).join('\n').slice(0, 6000)}\n\n` : '') +
-    'Write it as JSON: {"name": "...", "serves": "4", "ingredients": [{"item": "ground cumin", "amount": "2 tsp"}], ' +
+    'Write it as JSON: {"name": "...", "serves": "4", "minutes": 45, "ingredients": [{"item": "ground cumin", "amount": "2 tsp"}], ' +
     '"steps": [{"title": "Simmer the sauce", "part": "Sauce", "text": "...", "uses": [{"item": "ground cumin", "amount": "1 tsp"}], "timer": {"minutes": 20, "label": "Simmer the sauce"}, "hands": "busy", "ahead": "the day before"}]' +
     (links.length ? ', "needs": [{"name": "Classic Pizza Sauce", "url": "https://..."}]' : '') + '}.\n' +
     '- Keep the recipe\'s detail: its own amounts, units, temperatures, sizes, times, and how to tell when something is done. Don\'t shorten or summarize; leave out only stories, ads, nutrition and tips that aren\'t steps.\n' +
@@ -137,6 +137,7 @@ export function cookPrompt(meal, source, links = []) {
     '- hands: "busy" when someone has to work through it, "wait" when it mostly waits (rising, resting, chilling, an oven heating, baking). ahead: when it has to be done well before (the day before, 2 hours ahead), say so; leave it out otherwise.\n' +
     (links.length ? '- needs: the linked recipes this one says to make or use (a dough, a sauce) whose steps are not written out here; leave it out when there are none. Don\'t list related or suggested recipes.\n' : '') +
     '- uses: the ingredients that step adds, each with the amount for that step (split an amount used in two steps).\n' +
+    '- minutes: how long the whole recipe takes, start to finish: the recipe\'s own total time when it gives one, else your best estimate from its steps.\n' +
     '- timer: only when the step says to wait, cook, bake, rest or simmer for a time; minutes is the shortest time it gives. Leave it out otherwise.\n' +
     '- If there is no recipe in it, reply {"none": true}.';
 }
@@ -159,7 +160,8 @@ export function parseCook(said) {
   }).filter(Boolean).slice(0, 80);
   if (!steps.length) throw new Error('Couldn’t make steps from that recipe.');
   const needs = (Array.isArray(v?.needs) ? v.needs : []).map((x) => { try { const u = new URL(String(x?.url || '')); return u.protocol === 'https:' ? { name: clean(x?.name, 80) || u.hostname, url: u.href } : null; } catch { return null; } }).filter(Boolean).slice(0, 3);
-  return { name: clean(v.name, 80), serves: clean(v.serves, 40), ingredients, steps, ...(needs.length ? { needs } : {}) };
+  const minutes = Math.round(Number(v?.minutes));
+  return { name: clean(v.name, 80), serves: clean(v.serves, 40), ...(minutes > 0 && minutes < 10000 ? { minutes } : {}), ingredients, steps, ...(needs.length ? { needs } : {}) };
 }
 
 /** The page's step photos put on the steps they belong to. The model splits and rewords steps, so each photo goes to

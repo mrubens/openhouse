@@ -259,7 +259,7 @@ function cookView() {
       h('button', { class: 'c-back', tap: () => stop() }, icon('left'), 'Recipes'),
       video ? h('button', { class: 'c-back c-vid', tap: () => { video.shown = !video.shown; if (!video.shown) video.playing = false; draw(); } }, vid ? 'Hide video' : 'Video') : null,
       h('div', { class: 't' }, h('h1', { class: name.length > 22 ? 'long' : null }, name),
-        h('div', { class: 'm' }, [serves(c), at >= 1 && at <= n ? `step ${at} of ${n}` : `${n} step${n === 1 ? '' : 's'}`].filter(Boolean).join(' · ')))),
+        h('div', { class: 'm' }, [at >= 1 && at <= n ? `step ${at} of ${n}` : c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')))),
     h('div', { class: 'q-panel c-ing' },
       h('div', { class: 'q-label' }, 'Ingredients'),
       c.ingredients.length ? h('ul', { class: 'vscroll' }, c.ingredients.map((x) => h('li', { class: used(x) ? 'used' : null }, amounts ? h('b', null, x.amount || '') : null, h('span', null, x.item))))
@@ -268,7 +268,7 @@ function cookView() {
   // every step: the ones behind them small, the one they're on big (what it uses, its timer), the rest waiting
   const list = [];
   if (at <= 0) list.push(h('div', { class: 'c-st now start', 'data-at': '0' }, h('div', { class: 'txt' },
-    h('h3', null, 'Before you start'), h('p', null, `${n} step${n === 1 ? '' : 's'}. Get out what it needs, then start.`),
+    h('h3', null, 'Before you start'), h('p', null, `${c.minutes ? `About ${howLong(c.minutes)}. ` : ''}Get out what it needs, then start.`),
     h('div', { class: 'btns' }, h('button', { class: 'c-btn', tap: () => go('first') }, 'Start', icon('next', 2.4)),
       H.ai ? (workOf(key)?.state === 'working' ? h('button', { class: 'c-btn lt', disabled: true }, 'Making the steps…')
         : h('button', { class: 'c-btn lt', tap: () => { house.prepareCook(r.text, true); draw(); } }, 'Make the steps again')) : null,
@@ -396,9 +396,11 @@ function facts(key, r) {
   const w = workOf(key);
   if (w?.state === 'working') return ['Making the steps…'];
   if (w?.state === 'error') return [w.text];
-  if (r.cook) return [[icon('steps', 2), `${r.cook.steps.length} step${r.cook.steps.length === 1 ? '' : 's'}`], serves(r.cook), r.video && 'Video'].filter(Boolean);
+  if (r.cook) return [r.cook.minutes && [icon('timer', 2), howLong(r.cook.minutes)], serves(r.cook), r.video && 'Video'].filter(Boolean);
   return [r.link && !r.notes ? 'A link' : 'Not ready to cook yet'];
 }
+/** How long a recipe takes: "45 min", "1 hr 15 min". */
+const howLong = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ''}`);
 /** "Serves 4", or the recipe's own words for what it makes ("Makes 12 muffins"). */
 function serves(c) {
   const y = String(c?.serves || '').trim().replace(/\.$/, '');
@@ -426,6 +428,8 @@ function recipeCard(key) {
 }
 /** A tap on a recipe: straight to cooking it (its steps made first when they aren't yet). The whole recipe only when no
  *  steps can be made. Take it out and Make the steps again are on its first page, before Start. */
+let timed = false; // (recipes made into steps before they said how long: the bridge finds out, once each)
+function askHowLong() { if (timed || !H?.recipes) return; timed = true; for (const r of Object.values(H.recipes)) if (r.cook && !r.cook.minutes) house.prepareCook(r.text); }
 function openRecipe(key) {
   const r = recipeOf(key); if (!r) return;
   if (cookOf(key)?.v === 2) return begin(key);
@@ -476,7 +480,7 @@ function addCard() {
 
 // ---- start ----
 house.subscribe((d) => {
-  H = d;
+  H = d; askHowLong();
   if (waiting && cookOf(waiting.key)?.v === 2 && Date.now() - waiting.at < 5 * 60e3) begin(waiting.key); // its steps are ready: start
   else if (cooking && !recipeOf(cooking.key)) stop();
   else draw();
