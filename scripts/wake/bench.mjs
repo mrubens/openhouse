@@ -45,7 +45,7 @@ const by = {};
 for (const p of pick(man.positives)) {
   const evs = await run(pcm(p.file)), woke = evs.some((e) => e.type === 'wake');
   const k = p.voice === 'recorded' ? `recorded-${p.cond}` : p.cond; (by[k] ||= { n: 0, woke: 0 }).n++; if (woke) by[k].woke++;
-  res.scores.positives.push({ voice: p.voice, cond: p.cond, p: peak(evs), woke });
+  res.scores.positives.push({ voice: p.voice, cond: p.cond, text: p.text, p: peak(evs), woke });
 }
 for (const [k, b] of Object.entries(by)) res.positives[k] = { heard: `${b.woke}/${b.n}`, outOf10: +(10 * b.woke / b.n).toFixed(1) };
 let nn = 0, nw = 0;

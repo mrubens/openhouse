@@ -723,8 +723,12 @@ def train3(cfg):
     if isinstance(pos_seeds, (int, float)): pos_seeds = [int(pos_seeds)]
     for f in sorted(glob.glob(f'{V}/feats/synth-*.npz')):
         z = np.load(f); key, seed = os.path.basename(f)[6:-4].rsplit('-', 1)
-        h = bool(np.load(f'{V}/synth/{key}.npz')['held'][0])
-        if pos_seeds is None or int(seed) in pos_seeds: (held if h else tr)['pos'].append(z['pos'])
+        s = np.load(f'{V}/synth/{key}.npz'); h = bool(s['held'][0]); pos = z['pos']
+        if cfg.get('hey'):  # (round 6: only "Hey Opie" wakes it; the name without "hey" is a near-miss, from every pass)
+            t = s['pos_texts']; k = len(pos) // max(1, len(t)); assert k * len(t) == len(pos), (f, len(pos), len(t))
+            m = np.repeat(np.array([str(x).lower().startswith(('hey', 'oh, hey')) for x in t], dtype=bool), k)
+            (held if h else tr)['neg'].append(pos[~m]); pos = pos[m]
+        if pos_seeds is None or int(seed) in pos_seeds: (held if h else tr)['pos'].append(pos)
         (held if h else tr)['neg'].append(z['neg'])
     gen = [np.load(f)['neg'] for f in sorted(glob.glob(f'{V}/feats/speech-*.npz')) + sorted(glob.glob(f'{V}/feats/speech2-*.npz')) + sorted(glob.glob(f'{V}/feats/room-*.npz'))]
     banks = sorted(glob.glob(f'{V}/bank3/*.npz')); btr, bheld = [], {}
