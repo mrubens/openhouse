@@ -201,7 +201,7 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .h-time small { font-size: .42em; font-weight: 400; letter-spacing: 0; margin-left: .08em; } /* the am/pm, beside the time */
 .h-time + .h-day { margin-top: calc(var(--u) * 10); }
 .h-wx { display: flex; align-items: center; gap: calc(var(--u) * 7); font-size: calc(var(--u) * 16.5 * var(--s)); font-weight: 600; margin-top: calc(var(--u) * 8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.h-batt { color: var(--h-rail-soft); margin-top: auto; padding-left: calc(var(--u) * 2); } .h-batt.low { color: var(--h-ink); } .h-batt + .h-tools { margin-top: 0; padding-top: calc(var(--u) * 12); } /* the battery, above the buttons */
+.h-batt { color: var(--h-rail-soft); margin-top: auto; padding-left: calc(var(--u) * 2); gap: calc(var(--u) * 13); } .h-batt .h-wx-i { width: calc(var(--u) * 25 * var(--s)); height: calc(var(--u) * 25 * var(--s)); } /* the icon in the tabs' column, the same size as theirs */ .h-batt.low { color: var(--h-ink); } .h-batt + .h-tools { margin-top: 0; padding-top: calc(var(--u) * 12); } /* the battery, above the buttons */
 .h-wx-i { width: calc(var(--u) * 20); height: calc(var(--u) * 20); flex: none; display: block; }
 .h-wx-i svg { width: 100%; height: 100%; display: block; }
 .h-timer { display: block; text-align: left; padding: 0; color: inherit; font-size: calc(var(--u) * 16.5 * var(--s)); font-weight: 550; margin-top: calc(var(--u) * 8); }
