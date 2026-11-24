@@ -262,7 +262,7 @@ function screen() {
       step ? [round('left', set(step.back), { disabled: step.noBack, label: 'Earlier' }), small ? null : chip('Today', false, set(step.home)), round('right', set(step.on), { disabled: step.noOn, label: 'Later' })] : null,
       small ? null : tools,
       round('plus', () => guard(() => eventForm(null, view === 'day' ? oneDay : today)), { dark: true, label: 'Add' })),
-    view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? dayList(today, AGENDA_DAYS, today, false)
+    view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? schedule(today, AGENDA_DAYS, today)
       : view === 'day' ? dayView(oneDay, today) : small ? [strip(from, today, today, openDay), dayList(from, DAYS, today, true)] : weekView(from, today),
     // (a phone has less of a top row: its tools are down here, and Today only once they've stepped away)
     h('div', { class: 'foot' },
@@ -462,6 +462,29 @@ function dayList(first, n, today, done) {
       notesEl(day, 'list'));
   }
   return h('div', { class: 'agenda', 'data-keep': 'agenda' }, out.length ? out : h('p', { class: 'nothing' }, done ? 'Nothing these days' : 'Nothing coming up'));
+}
+
+/** The List view, as a schedule: each day with something on it is a row, its weekday and date in a column on the left
+ *  (the weather under them), and its things on the right: all-day ones as slim pills, then each event as a soft block
+ *  tinted with its person's color, the title over its time. Today's date in the accent. */
+const tint = (e) => { const c = people(e).map((n) => house.color(n))[0]; return c ? `color-mix(in srgb, ${c} 24%, var(--card))` : null; };
+function schedule(first, n, today) {
+  const now = Date.now(), out = [];
+  for (let i = 0; i < n; i++) {
+    const day = dayStart(first, i);
+    const list = eventsOn(day).filter((e) => e.allDay || (e.t1 ?? e.t0) >= now || day > today);
+    if (!list.length && !notesOn(day).length) continue;
+    const f = forecastOn(day), d = new Date(day);
+    out.push(h('div', { class: 'sch-day' + (day === today ? ' today' : '') },
+      h('div', { class: 'sch-date', tap: () => openDay(day) },
+        h('small', null, fmt(day, { weekday: 'short' })), h('b', null, String(d.getDate())), f ? h('span', null, `${f.high}°`) : null),
+      h('div', { class: 'sch-things' },
+        list.filter((e) => e.allDay).map((e) => h('div', { class: 'sch-pill' + (isPast(e, now) ? ' past' : ''), style: tint(e) ? `background:${tint(e)}` : null, tap: () => openEvent(e) }, e.title)),
+        list.filter((e) => !e.allDay).map((e) => h('div', { class: 'sch-ev' + (isPast(e, now) ? ' past' : ''), style: tint(e) ? `background:${tint(e)}` : null, tap: () => openEvent(e) },
+          h('b', null, e.title), h('span', null, timeOf(e.t0) + (e.t1 ? ' – ' + timeOf(e.t1) : '')))),
+        notesEl(day, 'list'))));
+  }
+  return h('div', { class: 'agenda schedule', 'data-keep': 'agenda' }, out.length ? out : h('p', { class: 'nothing' }, 'Nothing coming up'));
 }
 
 /** One day up close: everything on it, and adding to it. */

@@ -493,9 +493,14 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
             </div>
             <div className="t-agenda t-fit" ref={calFit}>{(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // the rest of its day, then each day after it, AGENDA events at most
               const rest = (k ? l : l.slice(1)).slice(0, Math.max(0, left)); left -= rest.length;
-              return rest.length > 0 && <div key={+d} className="t-daygroup">
-                <div className="h-label" data-fit="label">{k ? dayName(d) : +d === +t ? 'Later today' : 'Then'}</div>
-                {rest.map((e, i) => <div key={i} className="t-ev" data-fit=""><span className="t-when">{when(e)}</span><EvDot e={e} /><span className="h-grow">{plain(e.title)}</span></div>)}
+              // as a schedule: the day's weekday and date in a column, its things beside them (all-day ones as slim
+              // pills, the others as soft blocks tinted with their person's color, the time after the title)
+              const tintOf = (e) => { const c = eventPeople(h, e).map((n) => personColor(h, n))[0]; return c ? { background: `color-mix(in srgb, ${c} 24%, var(--h-sheet))` } : undefined; };
+              return rest.length > 0 && <div key={+d} className="t-daygroup t-sday">
+                <div className="t-sdate" data-fit="label"><small>{+d === +t ? 'Today' : weekday(d, true).slice(0, 3)}</small><b>{d.getDate()}</b></div>
+                <div className="t-sthings">{rest.map((e, i) => e.allDay
+                  ? <div key={i} className="t-spill" data-fit="" style={tintOf(e)}>{plain(e.title)}</div>
+                  : <div key={i} className="t-sev" data-fit="" style={tintOf(e)}><span className="h-grow">{plain(e.title)}</span><span className="t-when">{when(e)}</span></div>)}</div>
               </div>;
             }); })()}</div>
           </> : <div className="t-empty"><div className="h-label">Calendar</div><div className="t-big t-quiet">Nothing on this week</div></div>}
