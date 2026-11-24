@@ -34,6 +34,7 @@ internal class SettingsLock(private val act: MainActivity) {
             "lock" -> if (on) turnOff() else turnOn()
             "tablet" -> withPin { tablet() }
             "memory" -> memory()
+            "brightness" -> Brightness.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "addCalendar" -> act.addCalendar() // the setup's steps (ui/Setup.kt)
             "addAlbum" -> act.addAlbum()
             "photoPhones" -> act.sharePhotos()
@@ -98,6 +99,7 @@ internal class SettingsLock(private val act: MainActivity) {
         syncCalendar()
         val m = mutableMapOf<String, String>()
         m["lock"] = if (on) "On" else "Off"
+        m["brightness"] = Brightness.label(act)
         m["albums"] = count(runCatching { PhotoAlbums.list().size }.getOrDefault(0)) // the setup's progress (ui/Setup.kt)
         // Voice: Off, or the voice it speaks with (Hey Opie listening too); while the listening models come, how that's going.
         val name = get("/cloud/voice")?.optString("voiceName")?.takeIf { it.isNotEmpty() }?.replaceFirstChar { c -> c.uppercase() } ?: "On"
@@ -247,7 +249,6 @@ internal class SettingsLock(private val act: MainActivity) {
         ) + (if (on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Calendar needs the PIN", value = onOff(House.calendarLock)) to { withPin { setCalendarLock(!House.calendarLock); again() } },
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            CalmDialog.Row("Brightness", value = Brightness.label(act)) to { Brightness.choose(act, act::immersive) { again() } },
             CalmDialog.Row("Updates", value = Updater.installedVersion(act)) to { updates() },
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
             head("Opie"),
