@@ -114,6 +114,11 @@ object Buddy {
         window?.moveTo(null) // it stays in its place at the bottom centre: gliding beside each button it taps read as it jumping around
     }
 
+    /** Using an app for someone right now (a step in the last few seconds). */
+    fun working() = step != null && System.currentTimeMillis() - stepAt < 8000
+    /** A tap on the face while it uses an app, or "stop" said to it: the task stops (as the old Stop button did). */
+    fun stopWorking() { step = null; DeviceServer.stop("Someone stopped it."); Openhouse.stopAnswer(); LiveVoice.tappedAway() }
+
     /** Hidden while a screenshot for the agent is taken (so it doesn't cover what it's looking at). */
     fun hideForShot(hide: Boolean) = main.post { window?.view?.visibility = if (hide) View.INVISIBLE else View.VISIBLE }
 }
@@ -282,17 +287,12 @@ private fun BuddyView() {
         else if (LiveVoice.problemNow(now) != null) { // the live voice couldn't say it: the answer, and why it wasn't heard
             main = listOfNotNull(LiveVoice.problemNow(now), reply?.text?.let { prose(it) }?.takeIf { it.isNotBlank() }).joinToString("\n\n")
         }
-        else if (LiveVoice.mood != null) { // a live session: its voice is enough, no caption (only what it's doing in an app, with Stop)
-            if (step != null) { main = step; stop = true }
-        }
+        else if (LiveVoice.mood != null) {} // a live session: its voice is enough, no caption; a tap on the face, or "stop", stops what it's doing
         else when (mood) {
             Mood.Hearing -> {} // what they're saying shows centered at the bottom (WordsWindow), not out of the note
             // Only words: what it says as it comes, or (using an app for them) what it's doing there, with Stop. No
             // "thinking" text: the face shows that.
-            Mood.Working, Mood.Thinking -> if (step != null || live) {
-                main = a?.text?.takeIf { it.isNotBlank() }?.let { prose(it) } ?: step
-                stop = main != null
-            }
+            Mood.Working, Mood.Thinking -> if (step != null || live) main = a?.text?.takeIf { it.isNotBlank() }?.let { prose(it) } // no Stop button: a tap on the face stops it
             Mood.Listening -> {
                 if (reply != null) main = prose(reply.text)
                 if (handsFree && main != null) left = ((o.handsFreeUntil - now) / 8_000f).coerceIn(0f, 1f)
@@ -474,7 +474,7 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
                         val swipe = tapState.value.second
                         when {
                             swipe != null && abs(dx) > 28.dp.toPx() && abs(dx) > abs(dy) -> swipe(dx)
-                            abs(dx) < slop * 2 && abs(dy) < slop * 2 -> if (LiveVoice.active) LiveVoice.tappedAway() else (tapState.value.first ?: { Openhouse.tapToTalk() })() // open: a tap sends it away
+                            abs(dx) < slop * 2 && abs(dy) < slop * 2 -> if (Buddy.working()) Buddy.stopWorking() else if (LiveVoice.active) LiveVoice.tappedAway() else (tapState.value.first ?: { Openhouse.tapToTalk() })() // open: a tap sends it away
                         }
                     }
                 },

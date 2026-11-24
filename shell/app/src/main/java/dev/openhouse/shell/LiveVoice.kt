@@ -171,6 +171,7 @@ internal object LiveVoice {
 
     private fun end(why: String) = main.post {
         val w = web ?: return@post
+        if (Buddy.working()) Buddy.stopWorking() // told to stop (or tapped) while it used an app: that stops too
         val wasReady = ready
         val left = synchronized(held) { held.size.also { held.clear() } }
         if (left > 0 && wasReady) trouble("The live voice ended before it could say this.")
