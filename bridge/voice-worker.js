@@ -22,8 +22,10 @@ const WAKE_PHRASES = ['opie', 'hey opie', 'hi opie', 'hello opie', 'ok opie', 'o
 // model at another's threshold while a new set downloads: round 4's scores spread up to 1 and it wakes at 0.98, where
 // round 3's would hardly ever. Without the file (voice sets up to 4): 0.9, round 3's. VOICE_WAKE_THRESHOLD overrides
 // both (the bench). docs/wake-word.md
-const modelThreshold = () => { try { return Number(JSON.parse(fs.readFileSync(path.join(dir, 'models', WAKE_DIR, 'opie.json'), 'utf8')).threshold) || 0; } catch { return 0; } };
-const WAKE_T = Number(process.env.VOICE_WAKE_THRESHOLD) || modelThreshold() || 0.9;
+// The same file can fix the microphone's gain and set a loudness floor (below): since voice set 6, only someone near
+// and clear wakes it (a murmur across the room no longer gets turned up 30 times).
+const conf = (() => { try { return JSON.parse(fs.readFileSync(path.join(dir, 'models', WAKE_DIR, 'opie.json'), 'utf8')) || {}; } catch { return {}; } })();
+const WAKE_T = Number(process.env.VOICE_WAKE_THRESHOLD) || Number(conf.threshold) || 0.9;
 const AGAIN = 1.5 * RATE; // the same name, a frame later, isn't a second wake
 
 let wakeOn = true;
@@ -32,7 +34,7 @@ let wakeOn = true;
 // name at arm's length), and the model was trained on sound brought up as this does (scripts/wake/features.py): the
 // loud moments of the last minute (each 2 s's peak, if well above the room's own quiet) toward 0.3 of full scale, at
 // most 32x, squashed (tanh) so a voice next to it isn't clipped. The level is kept by the bridge across restarts.
-const fixedGain = Number(process.env.VOICE_MIC_GAIN) || 0;
+const fixedGain = Number(process.env.VOICE_MIC_GAIN) || Number(conf.gain) || 0; // (opie.json "gain": a fixed gain, no learning)
 const MAX_GAIN = Number(process.env.VOICE_MAX_GAIN) || 32;
 let micGain = fixedGain || 1, level = null, floorPk = null, winPeak = 0, winN = 0, sentLevel = null;
 const peaks = []; // the last 30 two-second peaks that were more than the room
@@ -53,6 +55,12 @@ function learn(x) {
   setLevel(level == null ? l : 0.7 * level + 0.3 * l);
   if (sentLevel == null || Math.abs(Math.log(level / sentLevel)) > 0.2) { sentLevel = level; port.post({ type: 'mic-level', level: +level.toFixed(4) }); }
 }
+// A loudness floor (VOICE_WAKE_FLOOR, of full scale, before the gain; off when 0): a wake needs the microphone's loudest
+// moment in the last 1.3 s to reach it, so only someone near and clear wakes it, never a murmur the gain brought up.
+const FLOOR = Number(process.env.VOICE_WAKE_FLOOR) || Number(conf.floor) || 0; // (opie.json "floor")
+const rawPeaks = new Float32Array(13); let rawI = 0; // (the mic's peak each 0.1 s, the last 1.3 s)
+function rawPeak(x) { for (let i = 0; i < x.length; i += 1600) { let p = 0; const e = Math.min(x.length, i + 1600); for (let j = i; j < e; j++) { const a = Math.abs(x[j]); if (a > p) p = a; } rawPeaks[rawI++ % 13] = p; } }
+const loudEnough = () => !FLOOR || Math.max(...rawPeaks) >= FLOOR;
 const amplify = (x, g) => { const y = new Float32Array(x.length); for (let i = 0; i < x.length; i++) y[i] = Math.tanh(x[i] * g); return y; };
 
 let wakeModel = null, why = null;
@@ -73,6 +81,7 @@ function heard(src, v, p, end) {
   if (p > v.peak) v.peak = p;
   if (process.env.VOICE_DEBUG_WAKE && p >= 0.05) port.post({ type: 'wake-score', src, p: +p.toFixed(3) });
   if (p < WAKE_T || !wakeOn || end - v.firedAt < AGAIN) return;
+  if (src === 'mic' && !loudEnough()) return;
   v.firedAt = end; v.woke++;
   port.post({ type: 'model-wake', src, p: +p.toFixed(3), what: 'wake' }); // (the bridge keeps when and how sure: voice-wakes.jsonl)
   port.post({ type: 'wake', src, by: 'model', p: +p.toFixed(2) });
@@ -84,7 +93,7 @@ function take(msg) {
   if (msg.type !== 'audio' || !wakeModel) return;
   const src = msg.src, v = state(src);
   if (msg.samples?.length) {
-    if (src === 'mic') learn(msg.samples);
+    if (src === 'mic') { learn(msg.samples); rawPeak(msg.samples); }
     v.listen.push(src === 'mic' && micGain > 1.05 ? amplify(msg.samples, micGain) : msg.samples); v.n += msg.samples.length;
   }
   if (msg.ack) v.listen.idle().then(() => port.post({ type: 'ack', at: msg.at })); // (a bench or replay waits for the scores, as real time would)

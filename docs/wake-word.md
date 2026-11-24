@@ -39,6 +39,16 @@ the rows with each other, not with the tables below:
   chimes). Round 4 at 0.98 should cut false wakes by about a third at the same hearing; at home that's untested.
 - **Train:** `r3 --stage train --names s0w:300:1000:45000:256:b0w+r2:0:smooth=0` (key=value options after the spec).
 
+## Near and clear only (voice set 6)
+
+The tablet is meant to wake only for someone near it speaking clearly, not across the room. Round 4's listener turned
+the microphone up to match the room (up to 32 times), so after a quiet minute a faint murmur sounded like someone next
+to it: at home, half the false wakes on its first day were near-silent (their loudest moment 0.003–0.026 of full
+scale), against 0.05–0.31 for every real wake. Since set 6, `models/wake/opie.json` sets a fixed gain (2) and a
+loudness floor (0.03: a wake needs the microphone's loudest moment in the last 1.3 s, before the gain, to reach it).
+Replaying that day's 15 clips: every adult wake still woke, and both false wakes the replay could reproduce didn't.
+Loud false wakes (a sneeze and coughs, a child calling out, typing) need training, not a floor.
+
 ## Learning a home's own false wakes (opt-in)
 
 A household can let its tablet keep a few seconds around each wake, so the wakes that weren't for it can be learned
