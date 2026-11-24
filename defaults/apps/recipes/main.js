@@ -269,7 +269,10 @@ function cookView() {
   const list = [];
   if (at <= 0) list.push(h('div', { class: 'c-st now start', 'data-at': '0' }, h('div', { class: 'txt' },
     h('h3', null, 'Before you start'), h('p', null, `${n} step${n === 1 ? '' : 's'}. Get out what it needs, then start.`),
-    h('div', { class: 'btns' }, h('button', { class: 'c-btn', tap: () => go('first') }, 'Start', icon('next', 2.4))))));
+    h('div', { class: 'btns' }, h('button', { class: 'c-btn', tap: () => go('first') }, 'Start', icon('next', 2.4)),
+      H.ai ? (workOf(key)?.state === 'working' ? h('button', { class: 'c-btn lt', disabled: true }, 'Making the steps…')
+        : h('button', { class: 'c-btn lt', tap: () => { house.prepareCook(r.text, true); draw(); } }, 'Make the steps again')) : null,
+      h('button', { class: 'c-btn lt', tap: () => takeOut(cooking.key) }, 'Take it out')))));
   let part = null;
   c.steps.forEach((st, i) => {
     if (st.part && st.part !== part) { part = st.part; list.push(h('div', { class: 'q-label c-part' }, part)); }
@@ -338,7 +341,7 @@ function choose(i) {
   openWhenThere(key);
   return have ? `${r.title} is already in the recipe box.${cookOf(key) ? ' Say let\'s make it to start.' : ''}` : `Saved ${r.title}. Making the steps now; say let's make it when you're ready.`;
 }
-function openWhenThere(key, tries = 40) { if (recipeOf(key)) recipeCard(key); else if (tries > 0) setTimeout(() => openWhenThere(key, tries - 1), 250); }
+function openWhenThere(key, tries = 40) { if (recipeOf(key)) openRecipe(key); else if (tries > 0) setTimeout(() => openWhenThere(key, tries - 1), 250); }
 const minutesText = (m) => (m >= 60 ? `${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ''}` : `${m} min`);
 
 // ---- the box ----
@@ -366,7 +369,7 @@ function boxView() {
 /** One recipe in the box: its picture, its name, a few facts; when it's planned, and Cook on the one planned for now. */
 function recipeTile(key, r, when, now) {
   const name = r.cook?.name || r.text;
-  return h('div', { class: 'r-card' + (r.image ? ' q-scrim' : ''), role: 'button', tabindex: '0', tap: () => recipeCard(key) },
+  return h('div', { class: 'r-card' + (r.image ? ' q-scrim' : ''), role: 'button', tabindex: '0', tap: () => openRecipe(key) },
     dishPic(r, name),
     when ? h('span', { class: 'r-on' }, when.text) : null,
     now ? h('span', { class: 'r-cook', role: 'button', tabindex: '0', tap: () => cook(r.text) }, 'Cook') : null,
@@ -420,6 +423,16 @@ function recipeCard(key) {
         c ? btn('Cook', () => { close(); begin(key); }) : null),
     ];
   }, { width: 1000 });
+}
+/** A tap on a recipe: straight to cooking it (its steps made first when they aren't yet). The whole recipe only when no
+ *  steps can be made. Take it out and Make the steps again are on its first page, before Start. */
+function openRecipe(key) {
+  const r = recipeOf(key); if (!r) return;
+  if (cookOf(key)?.v === 2) return begin(key);
+  if (!H.ai) return recipeCard(key);
+  waiting = { key, at: Date.now() };
+  if (workOf(key)?.state !== 'working') house.prepareCook(r.text);
+  watch(); draw();
 }
 /** Take a recipe out of the box (the Meals app's recipe for that meal too: it's the same one), after a yes. */
 function takeOut(key) {
