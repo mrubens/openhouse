@@ -171,12 +171,7 @@ object CalendarLinks {
         CalmDialog(a).setTitle("Calendars").setWidth(860f).apply { if (rows.isEmpty()) setMessage("None yet.") }
             .setRows(rows) { _, i ->
                 if (i < accounts.size) {
-                    val (name, _, id) = accounts[i]
-                    CalmDialog(a).setTitle(name).setItems(arrayOf("Its calendars", "Sign out")) { _, j ->
-                        if (j == 0) CalendarAccounts.calendars(a, id, immersive)
-                        else CalmDialog(a).setTitle("Sign out of $name?").setMessage("Its calendars leave this tablet. Nothing changes in them.").setDanger()
-                            .setPositiveButton("Sign out") { _, _ -> CalendarAccounts.signOut(id) }.setNegativeButton("Cancel", null).show().also { immersive() }
-                    }.setNegativeButton("Back", null).show().also { immersive() }
+                    CalendarAccounts.calendars(a, accounts[i].third, immersive) // its calendars, and Sign out at the bottom
                     return@setRows
                 }
                 val l = links[i - accounts.size]

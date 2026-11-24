@@ -285,7 +285,11 @@ object CalendarAccounts {
                 }
                 val h = a.resources.displayMetrics.let { minOf(it.widthPixels, it.heightPixels) }
                 val list = Calm.Capped(a, (h * .62f).toInt()).apply { addView(col); isVerticalScrollBarEnabled = false }
-                shown = CalmDialog(a).setTitle("Calendars").setWidth(860f).setView(list)
+                val name = rows().firstOrNull { it.third == account }?.first
+                shown = CalmDialog(a).setTitle(name ?: "Calendars").setWidth(860f).setView(list)
+                    .apply { if (account != null && name != null) setNeutralButton("Sign out") { _, _ ->
+                        CalmDialog(a).setTitle("Sign out of $name?").setMessage("Its calendars leave this tablet. Nothing changes in them.").setDanger()
+                            .setPositiveButton("Sign out") { _, _ -> signOut(account) }.setNegativeButton("Cancel", null).show().also { immersive() } } }
                     .setPositiveButton("Done", null).show().also { immersive() }
             }
         }
