@@ -372,10 +372,9 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   const EvDot = ({ e }) => { const p = eventPaint(h, e); return <i className={'t-dot' + (p ? '' : ' none')} style={p ? { background: p } : undefined} />; };
   const card = (kind, open) => ({ role: 'button', tabIndex: 0, className: 't-card t-' + kind, onClick: open || (() => go(kinds.get(kind))) });
 
-  // Calendar: what's next, then the rest of its day, then the days after it in the coming week, grouped by day: a few
-  // (AGENDA), with room around them, not as many as fit (a card packed with two weeks read as crowded); under it, the
-  // things on Today. The Calendar tab has the rest.
-  const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 7 * 864e5), AGENDA = 8;
+  // Calendar, as a schedule under its label: each day from today with its events, as many as fit in the column (three
+  // weeks at most); under it, the things on Today.
+  const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 21 * 864e5), AGENDA = 30; // (as many as fit fill the column: t-fit)
   const upcoming = (h.events || []).filter((e) => (e.allDay ? dayOf(e) >= t : new Date(e.end || e.start) >= now) && dayOf(e) < weekOut)
     .sort((a, b) => (dayOf(a) - dayOf(b)) || (b.allDay - a.allDay) || (new Date(a.start) - new Date(b.start)));
   const byDay = []; for (const e of upcoming) { const d = dayOf(e); if (+byDay.at(-1)?.[0] !== +d) byDay.push([d, []]); byDay.at(-1)[1].push(e); }
@@ -485,6 +484,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
       <div className={'t-grid' + (kinds.has('calendar') ? ' with-cal' : '')}>
         {kinds.has('calendar') && <div className="t-calcol">
         <div {...card('calendar')}>
+          <div className="h-label t-cal-label">Calendar</div>
           {first ? <>
             <div className="t-agenda t-fit" ref={calFit}>{!todays.length && <div className="t-daygroup t-sday"><div className="t-sdate" data-fit="label"><small>Today</small><b>{t.getDate()}</b></div><div className="t-sthings"><div className="t-snone" data-fit="">Nothing today</div></div></div>}
               {(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // each day from now, AGENDA events at most
@@ -499,7 +499,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
                   : <div key={i} className="t-sev" data-fit="" style={tintOf(e)}><span className="t-sev-t">{plain(e.title)}</span><span className="t-when">{when(e)}</span></div>)}</div>
               </div>;
             }); })()}</div>
-          </> : <div className="t-empty"><div className="h-label">Calendar</div><div className="t-big t-quiet">Nothing on this week</div></div>}
+          </> : <div className="t-empty"><div className="t-big t-quiet">Nothing coming up</div></div>}
           <Things c={c} things={h.things} go={go} tabs={tabs} ask={shell?.ask} />
         </div>
         {/* the day's other notes from the apps, the next thing under its events */}
