@@ -62,7 +62,7 @@ export function move(cook, at, go, to = null) {
   const n = cook.steps.length;
   if (Number.isInteger(to) && to >= 1 && to <= n) return { at: to, say: sayAt(cook, to) };
   if (go === 'next') { if (at > n) return { at, say: "That was the last step. Say stop when you're done." }; const to = at + 1; return { at: to, say: sayAt(cook, to) }; }
-  if (go === 'back') { if (at <= 0) return { at: 0, say: `This is the start. ${sayAt(cook, 0)}` }; const to = at - 1; return { at: to, say: sayAt(cook, to) }; }
+  if (go === 'back') { if (at <= 1) return { at: 1, say: `This is the first step. ${sayAt(cook, 1)}` }; const to = at - 1; return { at: to, say: sayAt(cook, to) }; }
   if (go === 'first') return { at: 1, say: sayAt(cook, 1) };
   if (go === 'ahead') {
     if (at >= n) return { at, say: 'Nothing: this is the last step.' };

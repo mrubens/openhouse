@@ -130,3 +130,6 @@
   .c-st.now .spic { width: 100%; margin-top: calc(22 * var(--u)); }
   .video.over { top: calc(12 * var(--u)); right: calc(12 * var(--u)); width: calc(100vw - 24 * var(--u)); }
 }
+
+/* Make the steps again, Take it out: quiet, after the last step */
+.c-more { display: flex; gap: calc(12 * var(--u)); justify-content: center; padding: calc(28 * var(--u)) 0 calc(12 * var(--u)); }

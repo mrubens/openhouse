@@ -99,9 +99,9 @@ function draw() {
 }
 
 // ---- cooking: the moves (the screen's taps and the voice both come here) ----
-function begin(key, at = 0) {
+function begin(key, at = 1) { // (on the first step: what it needs is beside it)
   if (recipeOf(key)?.link && !recipeOf(key).picsAt) house.prepareCook(recipeOf(key).text); // (one made before pictures: they're fetched)
-  cooking = { key, at }; waiting = null; video = null;
+  cooking = { key, at: Math.max(1, at) }; waiting = null; video = null;
   for (const s of [...sheets]) s.close();
   saved(); draw();
 }
@@ -240,6 +240,7 @@ function ringTick(el = $body.querySelector('.c-ring')) {
 setInterval(() => ringTick(), 1000);
 
 function cookView() {
+  if (cooking.at < 1) cooking.at = 1; // (a cook kept from before there was no start page)
   const key = cooking.key, r = recipeOf(key), c = cookOf(key), n = c.steps.length, at = cooking.at, name = c.name || nameOf(key);
   if (!video && r?.video) video = { shown: false, playing: false }; // (also after a reload mid-cook)
   const vid = video?.shown && ytId(r?.video);
@@ -259,7 +260,7 @@ function cookView() {
       h('button', { class: 'c-back', tap: () => stop() }, icon('left'), 'Recipes'),
       video ? h('button', { class: 'c-back c-vid', tap: () => { video.shown = !video.shown; if (!video.shown) video.playing = false; draw(); } }, vid ? 'Hide video' : 'Video') : null,
       h('div', { class: 't' }, h('h1', { class: name.length > 22 ? 'long' : null }, name),
-        h('div', { class: 'm' }, [at >= 1 && at <= n ? `step ${at} of ${n}` : c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')))),
+        h('div', { class: 'm' }, [c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')))),
     h('div', { class: 'q-panel c-ing' },
       h('div', { class: 'q-label' }, 'Ingredients'),
       c.ingredients.length ? h('ul', { class: 'vscroll' }, c.ingredients.map((x) => h('li', { class: used(x) ? 'used' : null }, amounts ? h('b', null, x.amount || '') : null, h('span', null, x.item))))
@@ -267,12 +268,6 @@ function cookView() {
 
   // every step: the ones behind them small, the one they're on big (what it uses, its timer), the rest waiting
   const list = [];
-  if (at <= 0) list.push(h('div', { class: 'c-st now start', 'data-at': '0' }, h('div', { class: 'txt' },
-    h('h3', null, 'Before you start'), h('p', null, `${c.minutes ? `About ${howLong(c.minutes)}. ` : ''}Get out what it needs, then start.`),
-    h('div', { class: 'btns' }, h('button', { class: 'c-btn', tap: () => go('first') }, 'Start', icon('next', 2.4)),
-      H.ai ? (workOf(key)?.state === 'working' ? h('button', { class: 'c-btn lt', disabled: true }, 'Making the steps…')
-        : h('button', { class: 'c-btn lt', tap: () => { house.prepareCook(r.text, true); draw(); } }, 'Make the steps again')) : null,
-      h('button', { class: 'c-btn lt', tap: () => takeOut(cooking.key) }, 'Take it out')))));
   let part = null;
   c.steps.forEach((st, i) => {
     if (st.part && st.part !== part) { part = st.part; list.push(h('div', { class: 'q-label c-part' }, part)); }
@@ -296,6 +291,10 @@ function cookView() {
   });
   if (at > n) list.push(h('div', { class: 'c-st now', 'data-at': String(n + 1) }, h('div', { class: 'txt' },
     h('h3', null, 'Done'), h('p', null, 'That’s the whole recipe.'), h('div', { class: 'btns' }, h('button', { class: 'c-btn', tap: () => stop() }, 'Done cooking')))));
+  // the recipe itself, at the foot: its steps made again, or out of the box
+  list.push(h('div', { class: 'c-more' },
+    H.ai ? (workOf(key)?.state === 'working' ? btn('Making the steps…', null, { soft: true, disabled: true }) : btn('Make the steps again', () => { house.prepareCook(r.text, true); draw(); }, { soft: true })) : null,
+    btn('Take it out', () => takeOut(key), { soft: true })));
   const steps = h('div', { class: 'c-steps vscroll' }, vid ? h('div', { class: 'video spot' }) : null, list);
   const view = h('div', { class: 'cook' }, left, steps);
 
