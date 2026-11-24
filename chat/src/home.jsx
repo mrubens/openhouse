@@ -581,7 +581,11 @@ export function Things({ c, things, className = 't-things', go, tabs, ask }) {
 /** A photo of theirs, a new one every minute, with its caption if it has one, opening Photos. */
 function PhotoCard({ c, names, captions, now, usePhoto, onOpen, ...rest }) {
   const name = names[Math.floor(now / 60e3) % names.length], src = usePhoto(c, name), cap = captions?.[name];
-  return <div {...rest} onClick={onOpen ? () => onOpen(name) : rest.onClick} className={rest.className + ' t-photo t-pic-card'}>{/* a tap opens this photo in Photos */}{src && <img className="t-cover" src={src} alt="" draggable={false} />}{cap && <div className="t-cap"><div className="t-line">{cap}</div></div>}</div>;
+  // A photo whose shape is far from the card's (a tall one in a wide card) shows whole, its own blur in the margins, as
+  // on the sleep screen; one close to the card's shape still fills it.
+  const [fit, setFit] = useState(false);
+  const seen = (e) => { const im = e.currentTarget, box = im.parentElement; if (!im.naturalWidth || !box?.clientHeight) return; const r = (im.naturalWidth / im.naturalHeight) / (box.clientWidth / box.clientHeight); setFit(r < 0.67 || r > 1.5); };
+  return <div {...rest} onClick={onOpen ? () => onOpen(name) : rest.onClick} className={rest.className + ' t-photo t-pic-card'}>{/* a tap opens this photo in Photos */}{src && fit && <img className="t-cover t-blurback" src={src} alt="" draggable={false} />}{src && <img className={'t-cover' + (fit ? ' t-whole' : '')} src={src} alt="" draggable={false} onLoad={seen} />}{cap && <div className="t-cap"><div className="t-line">{cap}</div></div>}</div>;
 }
 
 // ---- Notes: what the assistant put up for them, and reminders due now ------------------------------------------------

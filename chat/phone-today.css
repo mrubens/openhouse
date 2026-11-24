@@ -177,3 +177,6 @@
 .ptoday .t-cal-label .t-n { background: var(--h-sheet); box-shadow: var(--h-shadow); color: var(--h-ink); }
 .ptoday .t-agenda { padding: 8px 18px 16px; }
 .ptoday .t-waiting { padding: 20px; gap: 6px; }
+/* Today's photo: whole, with its own blur in the margins, when its shape is far from the card's (home.jsx PhotoCard) */
+.ptoday .t-cover.t-whole { object-fit: contain; }
+.ptoday .t-cover.t-blurback { inset: -8%; width: 116%; height: 116%; filter: blur(28px) brightness(.7) saturate(1.2); }
