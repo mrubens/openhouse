@@ -92,7 +92,7 @@ internal class CloudMenu(private val act: MainActivity) {
     }
 
     /** Paired computers, screens and phone lists reaching this tablet from anywhere, through the cloud's relay
-     *  (bridge/relay.js, docs/networking.md). Off until someone turns it on here. */
+     *  (bridge/relay.js, docs/networking.md). Off until someone turns it on here, or opens Connect your AI assistant. */
     private fun away() = thread {
         val r = get("/relay", 5000)
         ui {

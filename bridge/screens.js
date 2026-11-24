@@ -327,7 +327,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
         do { code = newCode(); ({ pair, key } = pairingFromCode(code)); } while (pairs.has(pair));
         const address = /^\d{1,3}(\.\d{1,3}){3}$/.test(String(b.address || '')) ? String(b.address) : null;
         closeConnect();
-        connect = { pair, code, address, until: Date.now() + 10 * 60e3 };
+        connect = { pair, code, address, until: Date.now() + 10 * 60e3, away: handle.awayForConnect?.() || null };
         if (address) named.start(address);
       }
       else if (setup) { // the setup's own: a phone scans it, or a computer types its code at openhouse.local:8788/phone
@@ -345,7 +345,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
       startLan();
       if (computer) changed(); // the relay hears of the code (relay.js), for the web connector
       if (setup) pairs.get(pair).until = Date.now() + 30 * 60e3;
-      json(res, 200, computer ? { pair, code, port: PORT, minutes: 10, host: connect.address ? HOSTNAME : null } : tv ? { pair, port: PORT, minutes: 10 }
+      json(res, 200, computer ? { pair, code, port: PORT, minutes: 10, host: connect.address ? HOSTNAME : null, away: connect.away } : tv ? { pair, port: PORT, minutes: 10 }
         : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, host: setupNamed ? HOSTNAME : null } : { pair, key: b64(key), port: PORT, minutes: 10, ...(code ? { code } : {}) });
       return true;
     }
@@ -479,7 +479,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     const head = { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' };
     if (p === '/') {
       res.writeHead(200, { ...head, 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self'; form-action 'none'; frame-ancestors 'none'" });
-      return res.end(connectPage({ code: connect.code, host: connect.address && named.on ? `${HOSTNAME}:${PORT}` : host, relay: handle.relayAt?.() || null }));
+      return res.end(connectPage({ code: connect.code, host: connect.address && named.on ? `${HOSTNAME}:${PORT}` : host, away: !!handle.awayOn?.() }));
     }
     const d = downloads(HERE), f = p === '/openhouse.mcpb' ? d.mcpb : d.script;
     if (!f) return plain(res, 404, { error: 'not built' });

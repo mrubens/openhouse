@@ -81,7 +81,9 @@ tablet bridge ◀──wss (dialed out, authenticated with the tablet's cloud de
 ```
 
 - **Setup for a household:** none beyond what they do now. A linked tablet (Settings → Account) gets a switch,
-  **Use it away from home**, off until someone turns it on. Computers and phone pages paired on the Wi-Fi then
+  **Use it away from home**, off until someone turns it on, or opens the Connect screen (Settings, "Connect your AI
+  assistant"), which turns it on: the cloud's connector, which the setup prompt adds, reaches the tablet only through
+  it. A household that never connects an assistant stays home-only. Computers and phone pages paired on the Wi-Fi then
   also work from anywhere: the computer's MCP and the list page try the Wi-Fi first and fall back to the relay.
 - **How a device is allowed:** each paired device derives a relay token from its own key (HKDF, label `relay`); the tablet
   sends the relay only the tokens' hashes. The relay forwards only from a token on that tablet's list, so a stranger
@@ -93,7 +95,7 @@ tablet bridge ◀──wss (dialed out, authenticated with the tablet's cloud de
   per connection (the tablet pings and reconnects).
 - **Security:** a stolen phone's list page key lasts 3 hours and reaches only that list page. A stolen paired laptop
   reaches the workshop tools from anywhere until someone removes it on the tablet (today: only from the Wi-Fi); that
-  is the real change, so the switch is off by default and the Screens list shows when each device last came in from
+  is the real change, so the switch stays off until someone turns it on or opens the Connect screen, and the Screens list shows when each device last came in from
   away. A stolen tablet credential lets someone pose as the tablet to the relay but not open anything a device sends.
   A compromised relay sees sealed bytes; it can drop or delay them, not read or forge them (the counters and keys are
   between device and tablet).

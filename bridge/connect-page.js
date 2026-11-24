@@ -98,8 +98,9 @@ export function setupPrompt(code) {
   return `Add the OpenHouse MCP server at ${CONNECTOR} (when it asks me to sign in, I'll type the code ${code} from our tablet, then tap Allow there), then read the OpenHouse docs at ${DOCS} and work out how you can best use OpenHouse to help us.`;
 }
 
-export function page({ code, host, relay = null }) {
-  // relay: whether the tablet has "Use it away from home" on and connected; the cloud's connector reaches it only then.
+export function page({ code, host, away = false }) {
+  // away: whether the tablet has "Use it away from home" on (opening the Connect screen turns it on for a linked
+  // tablet: relay.js); the cloud's connector reaches it only through that.
   const prompt = setupPrompt(code);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connect your AI assistant</title>
@@ -130,7 +131,7 @@ section { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--line)
 <p>Paste this into Claude, ChatGPT, Codex or another assistant. It adds OpenHouse, and asks you for the code and to tap Allow here.</p>
 <div class="prompt" id="prompt">${esc(prompt)}</div>
 <button class="btn" type="button" id="copy">Copy prompt</button>
-<div class="small">${relay ? 'The code works for 10 minutes.' : 'First turn on <b>Use it away from home</b> in the tablet’s Cloud settings: the assistant reaches the tablet through it. Without it, use the Claude app below, on this Wi-Fi.'} In claude.ai and ChatGPT you add the connector yourself, in Settings; the assistant tells you how.</div>
+<div class="small">${away ? 'The code works for 10 minutes.' : 'This tablet isn’t linked to OpenHouse’s cloud, which the assistant reaches it through: use the Claude app below, on this Wi-Fi.'} In claude.ai and ChatGPT you add the connector yourself, in Settings; the assistant tells you how.</div>
 <section>
 <h2>The Claude app</h2>
 <p>For the Claude app on a Mac or Windows computer.</p>

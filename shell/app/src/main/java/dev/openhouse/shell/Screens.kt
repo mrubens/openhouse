@@ -145,7 +145,11 @@ internal object Screens {
         val p = if (ip == null) null else runCatching { JSONObject(post("/screens/pair", JSONObject().put("kind", "computer").put("address", ip.hostAddress)) ?: "") }.getOrNull()
         // claude.ai and ChatGPT, from anywhere (a phone too), while the tablet is reachable from away: the service's
         // connector address, which pairs with the same code (openhouse-cloud/lambda/connector.ts, docs/web-chat-building.md).
-        val cloudConnector = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/relay")).optString("connector").takeIf { it.startsWith("http") } }.getOrNull()
+        // Opening this turns "Use it away from home" on for a linked tablet (bridge/relay.js): give it a moment to connect.
+        val turnedOn = p?.optString("away") == "turned-on"
+        fun relayConnector() = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/relay")).optString("connector").takeIf { it.startsWith("http") } }.getOrNull()
+        var cloudConnector = relayConnector()
+        if (turnedOn) for (i in 0 until 8) { if (cloudConnector != null) break; Thread.sleep(500); cloudConnector = relayConnector() }
         // Or the tablet's own, behind the household's own https address (web-mcp.js): no OpenHouse cloud needed.
         val ownConnector = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/webmcp")).optString("connector").takeIf { it.startsWith("http") } }.getOrNull()
         val connector = ownConnector ?: cloudConnector
@@ -165,7 +169,7 @@ internal object Screens {
                 addView(step(1, "On the computer, open", Calm.column(a, 4).apply {
                     addView(Calm.text(a, named ?: address, 34f, 600).apply { setTextIsSelectable(true) })
                     if (named != null) addView(Calm.text(a, "or $address", 17f, 400, Calm.SOFT).apply { setTextIsSelectable(true) })
-                    addView(Calm.text(a, "It shows what to add to Claude or ChatGPT.", 17f, 400, Calm.SOFT))
+                    addView(Calm.text(a, "It has a prompt to paste into your assistant.", 17f, 400, Calm.SOFT))
                     if (connector != null) {
                         addView(Calm.text(a, "Or in Claude or ChatGPT, anywhere (a phone too), add a connector at", 17f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(a, 12), 0, 0) })
                         addView(Calm.text(a, connector, 22f, 600).apply { setTextIsSelectable(true) })
@@ -173,6 +177,7 @@ internal object Screens {
                 }))
                 addView(step(2, "Then give it this code", Calm.text(a, code, 52f, 600).apply { letterSpacing = .08f; setTextIsSelectable(true) }))
                 addView(Calm.small(a, if (connector != null) "The computer on the same Wi-Fi as this tablet; Claude or ChatGPT from anywhere. The code lasts 10 minutes, while this shows." else "On the same Wi-Fi as this tablet. The page and the code last 10 minutes, while this shows."))
+                if (turnedOn) addView(Calm.small(a, "Use it away from home is on now, so your assistant can reach this tablet from anywhere. You can turn it off in Settings, Account."))
             }
             val col = Calm.row(a, 48).apply {
                 gravity = Gravity.TOP
@@ -192,7 +197,7 @@ internal object Screens {
             val multicast = runCatching { wifi.createMulticastLock("openhouse-connect").apply { setReferenceCounted(false); acquire() } }.getOrNull()
             val advertised = runCatching { nsd.registerService(android.net.nsd.NsdServiceInfo().apply { serviceName = "OpenHouse"; serviceType = "_openhouse._tcp"; setPort(port) }, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, advert) }.isSuccess
             var open = true
-            val d = CalmDialog(a).setTitle(if (connector != null) "Connect Claude or ChatGPT" else "Connect a computer").setWidth(980f).setView(col).setNegativeButton("Cancel", null)
+            val d = CalmDialog(a).setTitle("Connect your AI assistant").setWidth(980f).setView(col).setNegativeButton("Cancel", null)
                 .setNeutralButton("Your own address") { _, _ -> ownAddress(a, ownConnector) }
                 .setOnDismissListener {
                     open = false; if (advertised) runCatching { nsd.unregisterService(advert) }; runCatching { multicast?.release() }

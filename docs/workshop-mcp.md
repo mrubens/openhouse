@@ -229,8 +229,9 @@ from anywhere. The docs page is the guide for assistants as one Markdown page (o
 guide changes, run `scripts/cloud.sh node scripts/guide-docs.ts`, commit there and deploy.
 
 What it needs and where it stops:
-- The tablet has "Use it away from home" on: the connector reaches it only through the relay. The page says so
-  when it's off, and the Claude app's download (below it) still pairs on the Wi-Fi.
+- "Use it away from home": the connector reaches the tablet only through the relay, so opening the Connect screen
+  turns it on for a linked tablet (`bridge/relay.js`, `awayForConnect`), and the screen says so in a line. A tablet
+  not linked to the cloud can't; the page says so, and the Claude app's download (below it) still pairs on the Wi-Fi.
 - Claude Code and Codex add it themselves and sign in through a localhost redirect, which the connector allows; the
   tablet's Allow names them by the name they registered ("Claude Code on a computer"). claude.ai and ChatGPT can't add
   a connector from a chat: the person adds it in Settings. Cursor's sign-in returns to a `cursor://` address, which

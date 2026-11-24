@@ -244,6 +244,17 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () =
     const api = cloud.apiBase?.();
     return { url, relay: relayId, connector: api ? `${api.replace(/\/+$/, '')}/mcp` : null };
   };
+  // Opening the Connect screen (a computer's code, screens.js) turns "Use it away from home" on for a linked tablet:
+  // the cloud's connector, which the setup prompt adds, reaches the tablet only through it. Someone with the PIN
+  // is choosing to connect an assistant then; a household that never does stays home-only. Settings turns it off.
+  screens.awayForConnect = () => {
+    if (on()) return 'on';
+    if (!cloud.credential()) return 'unlinked';
+    save({ ...read(), on: true, at: new Date(now()).toISOString(), by: 'connect' });
+    tries = 0; start();
+    return 'turned-on';
+  };
+  screens.awayOn = () => on();
   /** Who is paired changed (screens.js): the relay's list follows at once. */
   const changed = () => { tokens(); pairings(); };
   // (The relay keeps a pairing for 10 minutes: one that lasts longer, an invite's week, is told again every 5.)
