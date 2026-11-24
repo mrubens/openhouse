@@ -138,12 +138,35 @@ const unreachable = (e) => e instanceof Removed
     : `Can't reach the OpenHouse at ${link?.pairing.base} right now (${e.cause?.code || (e.name === 'TimeoutError' ? 'no answer' : e.message)}). Is it on, and this computer on the same Wi-Fi? ${link?.pairing.relay ? '' : 'To reach it from anywhere, turn on "Use it away from home" on the tablet (its Cloud settings), then use this once on the Wi-Fi. '}If its address changed, pair again.`;
 function lost(e) { if (e instanceof Removed) { forget(); link = null; out({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' }); } }
 
+// MCP 2026-07-28 (stateless, a _meta on every request; skills need it) as well as the initialize kind: a request
+// with the _meta is answered in that revision, and passed on to the tablet as it is (bridge/workshop.js serves both).
+const MODERN = ['2026-07-28'];
+const VERSION = 'io.modelcontextprotocol/protocolVersion';
+// The answers made here are about this computer's pairing, which changes: never cached.
+const HINTS = { 'server/discover': 1, 'tools/list': 1, 'resources/list': 1, 'resources/read': 1, 'prompts/list': 1, 'resources/templates/list': 1, 'skills/list': 1, 'skills/get': 1 };
+
 async function handle(msg) {
   const p = msg.params || {};
-  const reply = (result) => out({ jsonrpc: '2.0', id: msg.id, result });
-  const fail = (code, message) => out({ jsonrpc: '2.0', id: msg.id, error: { code, message } });
+  const modern = p._meta?.[VERSION] != null;
+  const reply = (result) => out({ jsonrpc: '2.0', id: msg.id, result: modern ? { resultType: 'complete', ...(HINTS[msg.method] ? { ttlMs: 0, cacheScope: 'private' } : {}), ...result } : result });
+  const fail = (code, message, data) => out({ jsonrpc: '2.0', id: msg.id, error: { code, message, ...(data ? { data } : {}) } });
   if (msg.id == null) return; // notifications
+  if (modern && !MODERN.includes(p._meta[VERSION])) return fail(-32022, 'Unsupported protocol version', { supported: [...MODERN, '2025-11-25', '2025-06-18'], requested: p._meta[VERSION] });
   switch (msg.method) {
+    case 'server/discover': {
+      // The tablet's own answer when it's reached (its skills, if it has them); this computer's otherwise.
+      let r = null;
+      if (link && modern) try { r = (await toTablet(msg, { timeoutMs: 5e3 })).result || null; } catch (e) { lost(e); }
+      if (!r && link) try { const i = (await toTablet({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'openhouse-mcp', version: '0.1' } } }, { timeoutMs: 5e3 })).result; if (i) r = { instructions: i.instructions }; } catch (e) { lost(e); } // a tablet from before 2026-07-28
+      return reply({ supportedVersions: MODERN, ...(r || {}), capabilities: { ...(r?.capabilities || {}), tools: { listChanged: true }, resources: {} }, instructions: r?.instructions || LOCAL_INSTRUCTIONS, _meta: { 'io.modelcontextprotocol/serverInfo': { name: 'openhouse', version: '0.1' } }, ttlMs: 0, cacheScope: 'private' });
+    }
+    case 'skills/list': case 'skills/get': {
+      // The tablet's guide as skills (bridge/workshop-guide.js). None before pairing, or from a tablet without them.
+      const none = () => msg.method === 'skills/list' ? reply({ skills: [] }) : fail(-32602, 'no such skill');
+      if (!link) return none();
+      try { const r = await toTablet(msg, { timeoutMs: 15e3 }); return r.error ? (r.error.code === -32601 ? none() : fail(r.error.code, r.error.message)) : reply(r.result); }
+      catch (e) { lost(e); return msg.method === 'skills/list' ? reply({ skills: [] }) : fail(-32603, unreachable(e)); }
+    }
     case 'initialize': {
       let instructions = LOCAL_INSTRUCTIONS;
       if (link) try { instructions = (await toTablet({ jsonrpc: '2.0', id: 1, method: 'initialize', params: p }, { timeoutMs: 5e3 })).result?.instructions || instructions; } catch (e) { lost(e); }

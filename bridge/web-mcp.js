@@ -209,8 +209,14 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
         if (!w) { delete st.grants[g.id]; save(); return refuse(); } // removed in Screens: ended at once
         let msg; try { msg = JSON.parse(text); } catch { return out(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'parse error' } }); }
         if (!msg || Array.isArray(msg)) return out(res, 400, { jsonrpc: '2.0', id: null, error: { code: -32600, message: 'one message at a time' } });
+        // MCP 2026-07-28 over HTTP: the header's version must be the request's, and a refused request is a 400 (a
+        // method it doesn't know a 404), so a client can tell this revision from one that wants initialize.
+        const v = msg.params?._meta?.['io.modelcontextprotocol/protocolVersion'], h = req.headers['mcp-protocol-version'];
+        if (v != null && h && h !== v) return out(res, 400, { jsonrpc: '2.0', id: msg.id ?? null, error: { code: -32020, message: 'MCP-Protocol-Version is not the request\'s protocolVersion' } });
         const r = await workshop.rpc(msg, w);
-        return r ? out(res, 200, r) : out(res, 202, null);
+        if (!r) return out(res, 202, null);
+        const code = v != null && r.error?.code;
+        return out(res, code === -32601 ? 404 : [-32602, -32020, -32021, -32022].includes(code) ? 400 : 200, r);
       }
       out(res, 404, { error: 'not found' });
     } catch (e) {

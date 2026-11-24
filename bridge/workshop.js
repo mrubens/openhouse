@@ -15,6 +15,7 @@ import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { insideApps } from './inside-apps.js';
 import { showingTab, isTab } from './home-screen.js';
+import { workshopGuide } from './workshop-guide.js';
 
 const ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 // The assistant's tools a computer doesn't get: the voice's own, and the ones replaced below.
@@ -25,6 +26,13 @@ const INSTRUCTIONS = `OpenHouse is a family's kitchen tablet: a home screen of t
 Before changing anything, call get_guide: the home screen as it is now, how to work and how notes should read. Before making or changing an app, also get_guide with topic "apps": how apps are made here (calm, quiet ones that fit a tab), the kit and its CSS.
 Tabs and the look: one set_home call. An app: start_editing, read_file/write_file, check_build, look_at_tablet, then done_editing (always). A new app goes in Apps: when it's done, ask in one short line whether to put it in the sidebar, and call set_home only on a yes. Every app is a plugin: one you make or change here becomes the household's own plugin by itself (no manifest to write; changing one of OpenHouse's own, like Calendar, makes the household's version of it, and reset_plugin puts ours back). When they ask to take a change back: undo_latest (undo_plugin for one app's latest); don't mention or offer undo otherwise. A family calendar (Google, iCloud, Outlook): add_calendar with its link; the tablet keeps it sealed and someone says yes there. An iCloud shared album for Photos: add_photo_album with its public link, the same way.
 Apps the tablet noticed are broken wait in pending_fixes: fix one with start_editing {fix}; someone says yes on the tablet before it goes in.`;
+// For a client on MCP 2026-07-28 that can load this server's skills (server/discover): the guide is in them, and
+// get_guide is for the home screen as it is now.
+const SKILL_INSTRUCTIONS = INSTRUCTIONS.split('\n').map((l, i) => i !== 1 ? l : 'Before changing anything, load this server\'s working-here skill (how to work here) and call get_guide with topic "home" (the home screen as it is now). Before making or changing an app, also load the apps skill: how apps are made here, the kit and its CSS. The notes, plugins and design skills are for those. (No skills here? get_guide, and get_guide with topic "apps", give the same.)').join('\n');
+// MCP revisions: the ones that start with initialize, and the stateless one with per-request _meta (skills need it).
+const MODERN = ['2026-07-28'];
+const LEGACY = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+const SKILLS_EXT = 'io.modelcontextprotocol/skills';
 
 export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = null, fixes = null, approve = async () => null, events, checkBuild, deviceServer = () => null, whoOf = () => null, live = null, devices = null, json, body, idleMs = 10 * 60e3, log = (...a) => console.log('[workshop]', ...a) }) {
   const { emit, setState } = events; // the tablet's assistant shows the builder's state; a computer's change keeps out of it
@@ -53,27 +61,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
       `${now ? ` The tablet is showing the ${now} tab.` : ''}\nApps: ${apps.join(', ') || 'none'}.\nApps that aren't tabs are in the Apps tab.\n${homeScreen.describe()}`;
   }
 
-  // The tablet assistant's rules (AGENT.md), as they apply on a computer: by section, without the ones about the tablet
-  // itself (its other apps and devices, its own reply rules, the code layout it sees), and with no Edit tool to use.
-  function agentSections(names) {
-    const parts = read('AGENT.md').split(/^(?=## )/m);
-    return parts.filter((p) => names.some((n) => p.startsWith(`## ${n}`))).join('\n')
-      .replace(/ The message tells you what they're\s+looking at \(([^)]*)\); "this" and "it" mean that\./, ' The home screen below says which tab the tablet is showing ($1); "this" and "it" usually mean that.')
-      .replace(/\(the current one is in the message\)/, '(the current ones are below)')
-      .replace(/write them all in one turn, so it appears\s+right away; then improve it with Edit\./, 'write them all first, so it appears right away; then improve it.')
-      .replace(/ It runs\s+full screen as its own installed Android app with an icon on the board, and opens automatically while you build it\./, '');
-  }
-  const HOME_SECTIONS = ["Change what's there first", 'The home screen'];
-  const APP_SECTIONS = ['The screen', 'Note or app', "The family's things", 'Icons', 'Apps and games'];
-  const guide = (topic) => topic === 'apps' ? [
-    '# How apps are made on OpenHouse (paths are relative to the apps folder)\n\n' + agentSections(APP_SECTIONS),
-    '# /kit/quiet.css (link it after /kit/openhouse.css in an everyday tool)\n\n```css\n' + read('kit/quiet.css') + '\n```',
-  ].join('\n\n---\n\n') : [
-    read('WORKSHOP.md'),
-    '# The home screen right now\n\n' + homeNow(),
-    '# Changing the home screen\n\n' + agentSections(HOME_SECTIONS),
-    '# Notes on Today\n\n' + read('NOTES.md'),
-  ].join('\n\n---\n\n');
+  const { guide, topics, skills } = workshopGuide({ read, homeNow });
 
   const RESOURCES = [
     { uri: 'openhouse://guide/workshop', name: 'Working from a computer', mimeType: 'text/markdown', text: () => read('WORKSHOP.md') },
@@ -86,8 +74,8 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
 
   const path_ = { type: 'string', description: 'Relative to the apps folder, e.g. "apps/chores/main.js"' };
   const OWN = [
-    { name: 'get_guide', description: 'Call first: the home screen as it is now (tabs, look, apps, notes), how to work from a computer, and how notes on Today should read. With topic "apps", before making or changing an app: how apps are made here (calm everyday tools that fit a tab, games, the kit for the family\'s data, icons) and the quiet kit\'s CSS.',
-      inputSchema: { type: 'object', properties: { topic: { type: 'string', enum: ['start', 'apps'], description: '"start" (the default) or "apps"' } } } },
+    { name: 'get_guide', description: 'Call first: the home screen as it is now (tabs, look, apps, notes), how to work from a computer, and how notes on Today should read. With topic "apps", before making or changing an app: how apps are made here (calm everyday tools that fit a tab, games, the kit for the family\'s data, icons), how a tab should look and the quiet kit\'s CSS. "notes", "plugins" and "design": those alone; "home": only the home screen as it is now (when this server\'s skills give the rest).',
+      inputSchema: { type: 'object', properties: { topic: { type: 'string', enum: topics, description: '"start" (the default), "apps", "notes", "plugins", "design" or "home"' } } } },
     { name: 'start_editing', description: 'Open a change before writing or deleting any file. what: what the person asked, in their words ("A whiteboard that looks like Chores"); the tablet shows it while you work and undo lists it. Waits if the family\'s assistant is changing something right now. Not needed for set_home, notes or the household tools.',
       inputSchema: { type: 'object', required: ['what'], properties: { what: { type: 'string' }, fix: { type: 'string', description: 'A waiting fix\'s id (pending_fixes), when this change fixes it: someone says yes on the tablet before it goes in.' } } } },
     { name: 'list_files', description: 'Without app: every app (id and name) and the kit\'s files. With app: that app\'s files and sizes.', inputSchema: { type: 'object', properties: { app: { type: 'string', description: 'An app id' } } } },
@@ -220,7 +208,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
         // The tablet says so quietly (a line under its tabs), not by its assistant looking busy: that's for its own work.
         homeScreen.computerNote(`From ${who.name}: ${what}`);
         log(`${who.name} is changing: "${what}"`);
-        return ok('Go ahead: the apps are yours to change until done_editing. A new app goes in Apps: write it, check_build, look_at_tablet, done_editing, then ask in one short line whether to put it in the sidebar (set_home only on a yes).' + (guided.has(key) ? '' : ' Read get_guide with topic "apps" before writing an app: how apps are made here.'));
+        return ok('Go ahead: the apps are yours to change until done_editing. A new app goes in Apps: write it, check_build, look_at_tablet, done_editing, then ask in one short line whether to put it in the sidebar (set_home only on a yes).' + (guided.has(key) ? '' : ' Load the apps skill (or get_guide with topic "apps") before writing an app: how apps are made here.'));
       }
       case 'list_files': {
         if (!a.app) {
@@ -366,29 +354,58 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
     keep();
   } catch {}
 
-  /** One MCP message from a paired computer or connector (who: screens.who), its JSON-RPC reply; null for a notification. */
+  /**
+   * One MCP message from a paired computer or connector (who: screens.who), its JSON-RPC reply; null for a notification.
+   * Two eras on one endpoint (MCP 2026-07-28, "dual-era"): a request with the per-request _meta is served by that
+   * revision (server/discover, results with resultType and caching hints, the skills extension); one without it is
+   * the initialize-and-session kind, as before. Either way it's the same workshop, behind the same scope.
+   */
   async function rpc(msg, who) {
     if (msg?.id == null) return null; // notifications
-    const reply = (result) => ({ jsonrpc: '2.0', id: msg.id, result });
     const p = msg.params || {};
+    const meta = p._meta && typeof p._meta === 'object' ? p._meta : null;
+    const version = meta?.['io.modelcontextprotocol/protocolVersion'];
+    const modern = version != null;
+    const fail = (code, message, data) => ({ jsonrpc: '2.0', id: msg.id, error: { code, message, ...(data ? { data } : {}) } });
+    if (modern) {
+      if (!MODERN.includes(version)) return fail(-32022, 'Unsupported protocol version', { supported: [...MODERN, ...LEGACY], requested: version });
+      if (!meta['io.modelcontextprotocol/clientCapabilities'] || typeof meta['io.modelcontextprotocol/clientCapabilities'] !== 'object') return fail(-32602, 'params._meta needs io.modelcontextprotocol/clientCapabilities');
+    }
+    // Caching hints (2026-07-28): what is the household's is private to this caller; the skills are the bridge's own text.
+    const cache = (ttlMs, cacheScope = 'private') => (modern ? { ttlMs, cacheScope } : {});
+    const reply = (result, hints = {}) => ({ jsonrpc: '2.0', id: msg.id, result: modern ? { resultType: 'complete', ...result, ...hints } : result });
     switch (msg.method) {
-      case 'initialize': return reply({ protocolVersion: p.protocolVersion || '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'openhouse', version: '0.1' }, instructions: INSTRUCTIONS });
+      case 'initialize': return reply({ protocolVersion: LEGACY.includes(p.protocolVersion) ? p.protocolVersion : '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'openhouse', version: '0.1' }, instructions: INSTRUCTIONS });
+      case 'server/discover':
+        if (!modern) return fail(-32602, 'server/discover needs params._meta (MCP 2026-07-28)');
+        return reply({ supportedVersions: MODERN, capabilities: { tools: {}, resources: {}, extensions: { [SKILLS_EXT]: {} } }, _meta: { 'io.modelcontextprotocol/serverInfo': { name: 'openhouse', version: '0.1' } }, instructions: SKILL_INSTRUCTIONS }, cache(0));
       case 'ping': return reply({});
-      case 'tools/list': return reply({ tools: tools() });
-      case 'resources/templates/list': return reply({ resourceTemplates: [] });
-      case 'prompts/list': return reply({ prompts: [] });
-      case 'resources/list': return reply({ resources: RESOURCES.map(({ text, ...r }) => r) });
+      case 'tools/list': return reply({ tools: tools() }, cache(0));
+      case 'resources/templates/list': return reply({ resourceTemplates: [] }, cache(0));
+      case 'prompts/list': return reply({ prompts: [] }, cache(0));
+      case 'resources/list': return reply({ resources: RESOURCES.map(({ text, ...r }) => r) }, cache(0));
+      case 'skills/list': return reply({ skills: skills.list() }, cache(300e3, 'public'));
+      case 'skills/get': {
+        const s = skills.get(String(p.uri || ''));
+        return s ? reply({ skill: s }, cache(300e3, 'public')) : fail(-32602, 'no such skill');
+      }
       case 'resources/read': {
-        const r = RESOURCES.find((x) => x.uri === p.uri);
-        if (!r) return { jsonrpc: '2.0', id: msg.id, error: { code: -32602, message: 'no such resource' } };
-        return reply({ contents: [{ uri: r.uri, mimeType: r.mimeType, text: r.text() }] });
+        const uri = String(p.uri || '');
+        const f = skills.read(uri);
+        if (f) {
+          if (skills.topicOf(uri) === 'apps') guided.add(who.id); // it read how apps are made
+          return reply({ contents: [{ uri, mimeType: f.mimeType, text: f.text }] }, cache(300e3, 'public'));
+        }
+        const r = RESOURCES.find((x) => x.uri === uri);
+        if (!r) return fail(-32602, 'no such resource');
+        return reply({ contents: [{ uri: r.uri, mimeType: r.mimeType, text: r.text() }] }, cache(0));
       }
       case 'tools/call': {
         try { return reply(await call(String(p.name || ''), p.arguments || {}, who)); }
         catch (e) { return reply(err(e.message)); }
       }
     }
-    return { jsonrpc: '2.0', id: msg.id, error: { code: -32601, message: 'method not found' } };
+    return fail(-32601, 'method not found');
   }
 
   async function handle(req, res, url) {

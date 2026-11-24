@@ -68,7 +68,7 @@ The desktop model gets the tablet assistant's tools, from the same code, so both
 | The home screen and board (home-screen.js) | `look_at_notes`, `set_home` (tabs and look), `put_note`, `update_note`, `take_down_note`, `move_on_home`, `set_widget`, `put_back` |
 | Changes (chat.js) | `start_editing`, `check_build`, `list_changes`, `undo_change` |
 | The household (house.js, chat.js) | `about_household`, lists, chores, meals, calendar events, rewards, routines, preferences |
-| New for a computer | `get_guide`, `list_files`, `read_file`, `write_file`, `delete_file`, `done_editing`, `look_at_tablet`, `show_on_tablet`, `undo_latest`, `export_plugin` (a plugin folder of some of the family's apps, docs/plugins.md) |
+| New for a computer | `get_guide` (and the same guide as skills, below), `list_files`, `read_file`, `write_file`, `delete_file`, `done_editing`, `look_at_tablet`, `show_on_tablet`, `undo_latest`, `export_plugin` (a plugin folder of some of the family's apps, docs/plugins.md) |
 
 Left out: the voice-only ones (`end_conversation`, `progress`) and the device tools that drive other
 Android apps (tapping, installing). `look_at_tablet` is a picture of the screen, so the desktop model sees what it made.
@@ -95,7 +95,61 @@ leaving out what only applies on the tablet (its reply rules, its other apps and
 the Edit tool a computer doesn't have; `start_editing` reminds a computer that hasn't read the apps part yet. The
 same texts are also MCP resources (`openhouse://guide/workshop`, `openhouse://guide/apps`, `openhouse://kit/quiet.css`)
 for clients that read resources. A tool rather than only resources, because ChatGPT and claude.ai connectors handle
-tools well and resources unevenly.
+tools well and resources unevenly. `get_guide` also takes `notes`, `plugins` (`bridge/PLUGINS.md`), `design` (how a tab
+should look, `bridge/DESIGN.md`; also part of `apps`) and `home` (only the home screen as it is now).
+
+### Skills (MCP's skills extension)
+
+The same guide is also published as skills, which a client loads only when the work calls for one and which change
+whenever the tablet updates. Built to the extension's beta spec (`io.modelcontextprotocol/skills`, SEP-2640:
+modelcontextprotocol.io/extensions/skills) and Claude Code's "Use skills from MCP servers"
+(code.claude.com/docs/en/mcp).
+
+| Skill | What | `get_guide` topic |
+| --- | --- | --- |
+| `working-here` | How to work from a computer, the rules, changing the home screen (`WORKSHOP.md`, `AGENT.md` sections) | `start` |
+| `apps` | How apps are made (`AGENT.md` sections), with `references/quiet.css` and `references/design.md` | `apps` |
+| `notes` | How notes on Today read (`NOTES.md`) | `notes` |
+| `plugins` | Finding, adding, sharing plugins (`PLUGINS.md`) | `plugins` |
+| `design` | How a tab should look (`DESIGN.md`) | `design` |
+
+One source: `bridge/workshop-guide.js` has each topic once, as its skill (`SKILL.md` body and supporting files) and its
+`get_guide` text, so the two can't drift. A skill holds only the bridge's own files, never the household's: what is
+theirs (the tabs, the look, the apps, which tab is showing) is only in `get_guide` (topic `home`, or `start`), which
+the skills point to. So a skill tells a caller nothing `get_guide` doesn't, and both are behind the same door: every
+skills request is an MCP request on `/workshop/mcp`, which only a paired computer's `workshop` scope or a connector's
+grant reaches (`screens.js`, `web-mcp.js`, the cloud's connector), exactly like the tools.
+
+How it's negotiated. Skills need MCP revision 2026-07-28, which drops `initialize`: each request carries
+`params._meta` (`io.modelcontextprotocol/protocolVersion`, `clientCapabilities`) and the client asks `server/discover`.
+The workshop serves both eras on one endpoint (`workshop.js` `rpc`): a request with that `_meta` is answered as
+2026-07-28 (results with `resultType`, `ttlMs`, `cacheScope`; an unknown version is `-32022` with the versions it
+speaks, a missing `clientCapabilities` `-32602`), one without it as before. Only `server/discover` declares the
+extension:
+
+```json
+{ "capabilities": { "tools": {}, "resources": {}, "extensions": { "io.modelcontextprotocol/skills": {} } } }
+```
+
+and its instructions say to load `working-here` and call `get_guide {topic: "home"}` instead of the whole guide.
+`skills/list` gives each skill's `skill://<name>/SKILL.md`, its frontmatter and a manifest of every file with its
+SHA-256 and size (the client checks what it reads against them); `skills/get` one of them; the files come through
+`resources/read`. No `resources/directory/read` (`directoryRead` is left off). Skills are cached `public` for five
+minutes (they are the bridge's text); everything else the household's is `private` with a TTL of 0. Reading
+`skill://apps/…` counts as having read how apps are made, so `start_editing` doesn't remind it.
+
+The stdio proxy on the computer (`connect/openhouse-mcp.mjs`) answers `server/discover` itself, with the tablet's
+capabilities and instructions when it reaches a tablet that has them (an older tablet's `initialize` instructions
+otherwise, and no skills), and passes `skills/list`, `skills/get` and `resources/read` on. Unpaired it lists none. The
+tablet's own https connector (`web-mcp.js`) also answers a refused 2026-07-28 request with a 400 (an unknown method with
+404) and checks `MCP-Protocol-Version` against the request's `_meta`, so an HTTP client can tell the revisions apart;
+the cloud's connector passes requests through unchanged.
+
+Who can use them: Claude Code v2.1.331 or later, signed in with a claude.ai plan (not API billing, `claude -p` or a
+custom base URL), in a terminal or a local Code session; Claude Desktop's connectors and extensions don't load MCP
+skills yet, and ChatGPT only partly. They show as `openhouse:working-here`, `openhouse:apps` and so on. Claude Code
+remembers for 7 days that a stdio server didn't speak 2026-07-28; `MCP_PROTOCOL_NEGOTIATION=auto` asks again sooner
+(after updating `~/.openhouse/openhouse-mcp.mjs`). Everyone else keeps using `get_guide`.
 
 ### What the family sees
 
