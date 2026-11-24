@@ -1077,11 +1077,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     for (const n of on) off.delete(n);
     return off;
   }
-  /** The photos the sleep screen shows (all of them if every album there is off). */
-  function screensaver() {
-    const all = photos(), out = leftOut('sleep'), list = all.filter((n) => !out.has(n));
-    return list.length ? list : all;
-  }
+  /** The photos the sleep screen shows (none when every one is in an album that's off there: the plain sleep screen). */
+  function screensaver() { const out = leftOut('sleep'); return photos().filter((n) => !out.has(n)); }
   /** A picture an app saved goes in the app's own album (made the first time, named after the app; off on the sleep
    *  screen to begin with, so the slideshow stays the family's photos). */
   function intoAppAlbum(app, file) {
