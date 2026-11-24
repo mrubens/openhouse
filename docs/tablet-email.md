@@ -1,6 +1,7 @@
 # The household's email address (plan)
 
-A plan, not yet built (2026-11-24). Each household linked to the cloud gets an address, like
+Agreed and built 2026-11-24; not yet deployed or tried with real mail (see "What's built").
+Each household linked to the cloud gets an address, like
 `maple-otter-42@email.openhouse.computer`. Someone forwards it a school email, an invitation or a flyer, and Opie reads
 it and offers to add the events. Someone emails it photos and they go into Photos, the way you can email a
 picture frame. Only mail from addresses the household approved gets in.
@@ -15,6 +16,28 @@ assistant; with the cloud assistant it counts against the monthly allowance, as 
 
 Sending mail from the tablet is out of scope for now. If it comes later it goes from the same address, through SES,
 and needs its own plan: what may be sent, who says yes, and replies.
+
+## What's built (2026-11-24)
+
+- **Bridge:** `bridge/mail.js` (senders, held mail, caps, the cloud's address and its sealed mail, `/mail` routes),
+  `bridge/mime.js` (reading a message, the provider's verdict), `bridge/mail-seal.js`, `house.js` `readEmail` (photos
+  into the Email album, events offered on the Calendar), `mail.json` in backups. Tests: `bridge/test/mail.test.mjs`.
+- **Shell:** Settings → Email (`EmailMenu.kt`), the own mailbox (`MailAccount.kt`), PDF and HEIC conversion
+  (`MailConvert.kt`). Letting a sender in, turning email on and adding a mailbox take a person's tap, never Opie's.
+- **Cloud** (openhouse-cloud 132312e): SES receiving with the gate and seal, addresses at linking, the `/v1/mail`
+  endpoints, deletion with the account, the privacy page's bullet.
+
+**Not yet:** deploying (with `mailDomain` set) and the DNS records, then a real message through SES; the own mailbox
+against a real IMAP server; PDF and HEIC conversion and the Email screens on a tablet. Opie doesn't yet mention a new
+email's events on its own (they wait on the Calendar). A hub has no shell, so no own mailbox and no PDF pages there.
+
+**The own mailbox from a computer** (instead of the form in Settings → Email), with adb:
+
+```
+adb shell am broadcast -n computer.openhouse.shell/dev.openhouse.shell.ConfigReceiver -a dev.openhouse.shell.CONFIG \
+  --es mail_host imap.example.com --es mail_user tablet@example.com --es mail_password 'app-password' [--ei mail_port 993]
+adb shell am broadcast -n computer.openhouse.shell/dev.openhouse.shell.ConfigReceiver -a dev.openhouse.shell.CONFIG --ez mail_remove true
+```
 
 ## How mail gets to the tablet
 

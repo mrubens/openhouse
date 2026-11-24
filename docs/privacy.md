@@ -49,6 +49,12 @@ Everything here starts only when the household links its tablet to an account.
 - **Reports (only when someone sends one):** Send a report on the tablet sends us its recent logs, so we can see what
   went wrong. They can include things said to Opie and the household's names; the tablet says so and asks first.
   Kept 30 days, and deleted with the account.
+- **Email to the tablet:** the household's address at email.openhouse.computer, made when its tablet is linked (it
+  can be turned off on the tablet). Mail from addresses the household approved is delivered; mail from anyone else
+  waits on the tablet, unread, until someone allows it. Each message is read once as it arrives, to check it and seal
+  it so only the tablet can open it; we keep that sealed copy until the tablet takes it, at most 7 days. We keep the
+  approved addresses only as hashes, and counts of messages, for the limits. The household's assistant reads what
+  arrives.
 - **The website:** if you ask for a beta invite, the email address and answers you give.
 
 The service runs on Amazon Web Services in the United States. Only the people who run OpenHouse can reach it.
@@ -56,8 +62,8 @@ The service runs on Amazon Web Services in the United States. Only the people wh
 ## Deleting
 
 Remove a phone on the tablet (Settings, Screens) and it can no longer reach the household; deleting the app removes
-its pairing from the phone. Delete the account on the account page and we delete the account, its tablets, backups
-and any copy of the recovery code. The household's things on the tablet are the household's to keep or erase.
+its pairing from the phone. Delete the account on the account page and we delete the account, its tablets, backups,
+mail waiting for the tablet and any copy of the recovery code. Its email address is never given to anyone else. The household's things on the tablet are the household's to keep or erase.
 
 ## Children
 
