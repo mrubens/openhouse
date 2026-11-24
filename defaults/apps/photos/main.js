@@ -139,6 +139,8 @@ const seen = new IntersectionObserver((list) => {
 }, { rootMargin: '400px' });
 
 const isVideo = (n) => house.isVideo(n);
+/** A see-through poster: without one, Android's WebView paints its own grey poster with a big play button first. */
+const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 /** The small play mark on a video's still. */
 const vidMark = () => h('span', { class: 'vid-mark', 'aria-hidden': 'true' }, icon('play'));
 /** The video playing in the one view (only ever one: let go of as soon as it's off screen). */
@@ -359,7 +361,7 @@ function single(photos) {
   const [c, l] = words(), cap = h('h1', null, c), line = h('p', null, l);
   const back = h('img', { class: 'one-back', alt: '', draggable: 'false' }), pic = h('img', { class: 'one-pic', alt: '', draggable: 'false' });
   // A picture near the pane's shape fills it; one far from it (a tall one on a wide screen) shows whole, on its own blur.
-  pic.addEventListener('load', () => { const r = (pic.naturalWidth / pic.naturalHeight) / (innerWidth / innerHeight); pic.classList.toggle('fill', r > .72 && r < 1.4); });
+  pic.addEventListener('load', () => { const r = (pic.naturalWidth / pic.naturalHeight) / (innerWidth / innerHeight); pic.classList.toggle('fill', !isVideo(one) && r > .72 && r < 1.4); }); // (a video's still shows whole, as the video will)
   house.thumb(one).then((src) => { back.src = src; if (!pic.src) pic.src = src; }).catch(() => {});
   house.photo(one).then((src) => { pic.src = src; }).catch(() => {});
   const n = Math.min(photos.length, innerWidth <= 700 ? 5 : 11), from = Math.max(0, Math.min(i - (n >> 1), photos.length - n));
@@ -372,8 +374,11 @@ function single(photos) {
       const url = await house.video(name).catch(() => null);
       if (!url || one !== name || !$app.contains(el)) return;
       stopVideo();
-      const v = h('video', { class: 'one-pic', playsinline: true, preload: 'auto', tap: () => { if (v.paused) v.play().catch(() => {}); else v.pause(); } });
-      v.src = url; v.addEventListener('ended', () => { el.classList.remove('playing'); stopVideo(); play.hidden = false; });
+      // Whole, on the blurred still like a photo; out of sight until its first frame (the WebView's own poster and
+      // play button never show), then the still under it goes so it isn't seen around the edges.
+      const v = h('video', { class: 'one-pic vid', playsinline: true, preload: 'auto', poster: BLANK, tap: () => { if (v.paused) v.play().catch(() => {}); else v.pause(); } });
+      v.addEventListener('playing', () => { v.classList.add('on'); pic.classList.add('under'); }, { once: true });
+      v.src = url; v.addEventListener('ended', () => { el.classList.remove('playing'); pic.classList.remove('under'); stopVideo(); play.hidden = false; });
       v.addEventListener('pause', () => { el.classList.remove('playing'); play.hidden = false; }); v.addEventListener('play', () => { el.classList.add('playing'); play.hidden = true; });
       pic.after(v); playing = v; play.hidden = true;
       v.play().catch(() => { stopVideo(); play.hidden = false; });
@@ -430,7 +435,7 @@ function slideshow(photos) {
     if (!isVideo(order[i])) return;
     const url = await house.video(order[i]).catch(() => null);
     if (!url || show !== s || s.i !== i) return;
-    const v = h('video', { class: 'slide vid', muted: true, playsinline: true, preload: 'auto' });
+    const v = h('video', { class: 'slide vid', muted: true, playsinline: true, preload: 'auto', poster: BLANK });
     v.muted = true; v.src = url; s.clip = v;
     v.addEventListener('playing', () => { v.classList.add('on'); after(Math.min(60e3, Math.max(SECONDS * 1000, (v.duration || 0) * 1000 + 400))); }, { once: true });
     v.addEventListener('ended', () => { if (s.clip === v) after(0); });
