@@ -133,15 +133,56 @@ in a subject line); the model makes the call, with what the message holds as con
   keeps (a sealed copy until the tablet takes it, at most 7 days; hashed sender addresses; counts) and that the
   household's assistant reads what arrives.
 
+## Without our cloud: the household's own mailbox
+
+Self-hosters (and anyone who'd rather not use our cloud) can give the tablet a mailbox of their own instead: a
+dedicated address at any provider with IMAP (Fastmail, iCloud, Gmail with an app password, their own server). Either
+source works alone, or both together.
+
+- **Settings → Email → Use your own mailbox:** the server, the address and an app password. The shell keeps them
+  sealed with its key, as it keeps iCloud's app-specific password, and only ever talks to that server.
+- **Checking:** the shell looks every 2 minutes, in the inbox only, at messages that came after the mailbox was added.
+  It hands each one to the bridge, then marks it read on the server. Nothing goes anywhere but that server and the
+  tablet.
+- **The same rules.** The tablet makes the checks the cloud's gate would: senders on the list (the rest held, at most
+  10 a day), the size, the daily caps. For forgery it trusts the receiving provider's verdict, the top-most
+  `Authentication-Results` header (a sender can't put one above the provider's): DMARC `pass`, or, when the sender's
+  domain has no DMARC policy, a DKIM or SPF `pass` for a domain matching the `From`. A message with no verdict from the
+  provider is held, not read.
+- **Running our cloud yourself** isn't the self-hosted path: openhouse-cloud is private. The mailbox is.
+
+## How the parts talk (for building)
+
+- **The mail key:** X25519, made by the bridge, the private half in `display/.cloud/mail-key.json` (0600, never in a
+  backup). Its public half (32 bytes, base64url) goes to the cloud in `POST /v1/mail`.
+- **A sealed message** (`bridge/mail-seal.js`, the cloud's seal copies it): `OHM1` (4 bytes), the sender's ephemeral
+  X25519 public key (32), a nonce (12), then AES-256-GCM of the raw MIME with its 16-byte tag at the end, the 4 magic
+  bytes as additional data. The AES key is HKDF-SHA256 of the X25519 shared secret, salt = ephemeral public key ‖
+  tablet's public key, info `openhouse-mail-v1`, 32 bytes.
+- **Sender hashes:** hex HMAC-SHA256 of the address lowercased and trimmed, keyed with the household's `hashKey`
+  (base64url, from `POST /v1/mail`).
+- **The relay's nudge:** `{k: 'ml'}` to the tablet (no key, nothing else): the tablet asks `GET /v1/mail/waiting`.
+- **Bridge routes** (`bridge/mail.js`; `/mail/set`, `/mail/held` and `/mail/incoming` refuse apps, as the shell-only
+  album routes do):
+  - `GET /mail` → `{cloud: {on, address} | null, own: bool, senders: [{address, who}], held: [{id, from, subject,
+    at}], recent: [{id, from, subject, at, photos, events}], notes: [text]}`
+  - `POST /mail/set` `{on?, address?: 'new' | <name>, senders?: [{address, who}]}`
+  - `POST /mail/held` `{id, allow}`
+  - `POST /mail/incoming` `{raw: <base64 MIME>, source: 'imap'}` (the shell, for the own mailbox) → `{ok}` or
+    `{error}`; the shell marks it read on `ok` only.
+- **Shell routes the bridge calls** (DeviceServer, its token, JSON): `POST /mail/pdf` `{pdf: <base64>, pages: 20}` →
+  `{pages: [<base64 JPEG>]}`; `POST /mail/heic` `{heic: <base64>}` → `{jpeg: <base64>}`.
+
 ## What changes where
 
 - **Cloud** (openhouse-cloud): the receiving, the address and the sender list, sealing, the waiting mail and its
   endpoints; the stack and DNS. Its `docs/tablet-email.md`.
 - **Bridge:** a mail key made and kept with the tablet's other keys, given to the cloud when linking (and on
-  "turn on email"); fetching waiting mail on connect and on the relay's nudge; a MIME parser (a small, maintained one,
-  such as `postal-mime`); `addEmail` beside `addFlyer` in `bridge/house.js`, which reads it and puts photos and events
+  "turn on email"); fetching waiting mail on connect and on the relay's nudge; a MIME parser of its own (the bridge has no
+  dependencies); `addEmail` beside `addFlyer` in `bridge/house.js`, which reads it and puts photos and events
   where they go; Settings → Email (address, senders, held mail, what came in).
-- **Shell:** PDF pages to images (Android's `PdfRenderer`) and HEIC to JPEG, for the bridge.
+- **Shell:** PDF pages to images (Android's `PdfRenderer`) and HEIC to JPEG, for the bridge; the own mailbox
+  (`MailAccount.kt`: sealed, a small IMAP client over TLS); Settings → Email.
 - **Tests** (security and data safety only): a held message is never read or shown to a model until Allow; a
   forged `From` that fails DMARC is dropped; an email's events are never added without a yes; mail is deleted from the
   cloud after it's fetched.
@@ -152,3 +193,4 @@ in a subject line); the model makes the call, with what the message holds as con
 - On by default, with the account's sign-in addresses approved; a random address, no naming step.
 - One album, Email, for emailed photos.
 - The subdomain is `email.openhouse.computer`.
+- A household's own mailbox (IMAP) works without our cloud.
