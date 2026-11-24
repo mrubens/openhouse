@@ -48,14 +48,19 @@ internal class SettingsLock(private val act: MainActivity) {
 
     private fun turnOff() = PinPrompt.ask(act, act, "Turn off the lock", { ParentPin.clear(act); changed(); tablet() })
 
-    /** The lock went on or off: the calendar follows it (with the lock on, changing it asks for the PIN). */
+    /** The lock went on or off (the calendar's own lock goes off with it, never on). */
     fun changed() { syncCalendar(); Openhouse.settingsChanged() }
 
-    /** The Calendar app asks for the PIN exactly when the lock is on. */
+    /** The Calendar app asks for the PIN only when someone chose that (Calendar needs the PIN, under PIN Lock): off by
+     *  default, and off whenever there's no PIN. Until 1.0.24 it followed the lock itself, so a tablet from before has
+     *  it turned off once. */
     fun syncCalendar() {
-        val want = on
-        if (House.calendarLock != want) thread { Openhouse.post("/house/lock", JSONObject().put("calendar", want)) }
+        val prefs = act.getSharedPreferences("settings_lock", android.content.Context.MODE_PRIVATE)
+        val fresh = !prefs.getBoolean("calendar_own_choice", false)
+        if (fresh) prefs.edit().putBoolean("calendar_own_choice", true).apply()
+        if (fresh || (House.calendarLock && !on)) setCalendarLock(false)
     }
+    private fun setCalendarLock(want: Boolean) { thread { Openhouse.post("/house/lock", JSONObject().put("calendar", want)); Openhouse.settingsChanged() } }
 
     // --- what the rows show ----------------------------------------------------------------------------------------
 
@@ -204,6 +209,9 @@ internal class SettingsLock(private val act: MainActivity) {
         val items = listOf<Pair<CalmDialog.Row, () -> Unit>>(
             head("Lock and updates"),
             CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },
+        ) + (if (on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            CalmDialog.Row("Calendar needs the PIN", value = onOff(House.calendarLock)) to { withPin { setCalendarLock(!House.calendarLock); again() } },
+        ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Updates", value = Updater.installedVersion(act)) to { updates() },
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
             head("Opie"),

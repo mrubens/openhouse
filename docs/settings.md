@@ -49,8 +49,9 @@ Plain Settings (first round):
 - Devices in the house: kept as **Devices**.
 - Looking after things: **cut** (later round).
 - At night: **cut** (later round). Sleep now: **moved** to a moon button on the home screen.
-- PIN for the calendar: **folded into Lock**. With the lock on, changing the calendar asks for the PIN; with it off,
-  anyone can. (The one behaviour change a household with a PIN will notice: the calendar asks for it now.)
+- PIN for the calendar: **its own choice under Lock**, off by default. With PIN Lock on, Settings, This tablet shows
+  "Calendar needs the PIN"; turned on, changing the calendar in the apps asks for the PIN. (Until 1.0.24 it followed
+  the lock itself; tablets from before have it turned off once.)
 - Removed: **cut**, from the apps and the settings. Taken-off things stay in the bridge; Opie can put one back when asked.
 - Grown-ups: **gone**. Its rows are in the one list.
 
