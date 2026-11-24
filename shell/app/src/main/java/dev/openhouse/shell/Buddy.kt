@@ -430,6 +430,7 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
     // round button (over apps, where it moves beside what it taps).
     val shape = if (wide) RoundedCornerShape(26.u) else CircleShape
     Box(if (wide) Modifier.size(172.u, 76.u) else Modifier.size(92.u), contentAlignment = Alignment.Center) {
+        // (in the ink's gray, not the accent: a reddish outline read as odd, the user)
         // Connected to OpenAI's live voice: a thin ring around the button, so it's plain the line is open; while it thinks
         // (or is still connecting), an arc runs round the ring. (The user: "it's not clear that it's connected and thinking".)
         val live = LiveVoice.active; val ringW = 3.u; val ringR = 32.u
@@ -439,15 +440,15 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
             val p = phase?.value ?: 0f
             val thinking = mood == Mood.Thinking || (live && LiveVoice.mood == null)
             val a = if (thinking) 0.35f + 0.65f * ((sin(p * 4f * 2 * PI).toFloat() + 1f) / 2f) else .28f
-            drawRoundRect(accent.copy(alpha = a), Offset(w / 2, w / 2), Size(size.width - w, size.height - w), androidx.compose.ui.geometry.CornerRadius(r), style = Stroke(w))
+            drawRoundRect(ink.copy(alpha = a * .45f), Offset(w / 2, w / 2), Size(size.width - w, size.height - w), androidx.compose.ui.geometry.CornerRadius(r), style = Stroke(w))
         }
         if (!wide && (live || mood == Mood.Thinking)) Canvas(Modifier.size(74.u)) {
             val w = ringW.toPx(); val r = size.minDimension / 2 - w
             val tl = Offset(size.width / 2 - r, size.height / 2 - r); val sz = Size(r * 2, r * 2)
-            if (live) drawArc(accent.copy(alpha = .28f), 0f, 360f, false, tl, sz, style = Stroke(w))
+            if (live) drawArc(ink.copy(alpha = .14f), 0f, 360f, false, tl, sz, style = Stroke(w))
             if (mood == Mood.Thinking || (live && LiveVoice.mood == null)) {
                 val p = phase?.value ?: 0f
-                drawArc(accent, p * 720f - 90f, 100f, false, tl, sz, style = Stroke(w, cap = StrokeCap.Round))
+                drawArc(ink.copy(alpha = .55f), p * 720f - 90f, 100f, false, tl, sz, style = Stroke(w, cap = StrokeCap.Round))
             }
         }
         Box(
