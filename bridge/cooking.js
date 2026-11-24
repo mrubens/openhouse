@@ -143,6 +143,7 @@ export function cookPrompt(meal, source, links = []) {
     '- hands: "busy" when someone has to work through it, "wait" when it mostly waits (rising, resting, chilling, an oven heating, baking). ahead: when it has to be done well before (the day before, 2 hours ahead), say so; leave it out otherwise.\n' +
     (links.length ? '- needs: the linked recipes this one says to make or use (a dough, a sauce) whose steps are not written out here; leave it out when there are none. Don\'t list related or suggested recipes.\n' +
       '- makes: on a step that only says to make one of the needs ("prepare the pizza sauce"), that need\'s name exactly as in needs; its own steps go there. Leave it out otherwise.\n' : '') +
+    '- amount: short, one measure, no alternatives: the recipe\'s weight and one cup or spoon measure when it gives both ("1 ½ cups (368 g)"); a choice of kinds goes in item, not amount.\n' +
     '- uses: the ingredients that step adds, each with the amount for that step (split an amount used in two steps).\n' +
     '- minutes: how long the whole recipe takes, start to finish: the recipe\'s own total time when it gives one, else your best estimate from its steps.\n' +
     '- timer: only when the step says to wait, cook, bake, rest or simmer for a time; minutes is the shortest time it gives. Leave it out otherwise.\n' +

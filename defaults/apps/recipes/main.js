@@ -244,67 +244,71 @@ function cookView() {
   const key = cooking.key, r = recipeOf(key), c = cookOf(key), n = c.steps.length, at = cooking.at, name = c.name || nameOf(key);
   if (!video && r?.video) video = { shown: false, playing: false }; // (also after a reload mid-cook)
   const vid = video?.shown && ytId(r?.video);
-  const was = { steps: $body.querySelector('.c-steps')?.scrollTop || 0, ing: $body.querySelector('.c-ing ul')?.scrollTop || 0, all: $body.querySelector('.cook')?.scrollTop || 0 };
+  const was = { rest: $body.querySelector('.c-rest')?.scrollTop || 0, ing: $body.querySelector('.c-ing')?.scrollTop || 0, all: $body.querySelector('.cook')?.scrollTop || 0 };
   const jump = (i) => go('to', i);
-  const notes = (st) => [st.ahead ? st.ahead[0].toUpperCase() + st.ahead.slice(1) : '', st.wait ? 'Mostly waiting' : ''].filter(Boolean).join(' · ');
-  const size = (t) => (t.length > 200 ? ' xl' : t.length > 100 ? ' l' : '');
+  const st = at <= n ? c.steps[at - 1] : null, k = `${key}|${at}`;
+  const low = (s) => String(s || '').toLowerCase();
+  const nowUses = new Set((st?.uses || []).map((u) => low(u.item)));
 
-  // the dish, and what it needs: what the steps behind them used up is faint
+  // what it needs: amount first; this step's own in white, what the steps behind them used up faint
   const last = new Map(); // an ingredient -> the last step that uses it
-  c.steps.forEach((st, i) => { for (const u of st.uses || []) last.set(String(u.item || '').toLowerCase(), i + 1); });
-  const used = (x) => { const l = last.get(String(x.item || '').toLowerCase()); return !!l && l < at; };
+  c.steps.forEach((s, i) => { for (const u of s.uses || []) last.set(low(u.item), i + 1); });
+  const ingCls = (x) => (nowUses.has(low(x.item)) ? 'now' : (last.get(low(x.item)) || Infinity) < at ? 'used' : null);
+  const ing = h('ul', { class: 'c-ing' }, c.ingredients.length ? ingGroups(c).flatMap(([part, xs]) => [
+    part ? h('li', { class: 'c-part', 'data-part': part }, part) : null,
+    ...xs.map((x) => h('li', { class: ingCls(x) }, x.amount ? h('b', null, x.amount + ' ') : null, x.item))])
+    : [h('li', { class: 'used' }, 'The recipe doesn’t list them.')]);
   const left = h('div', { class: 'c-left' },
-    h('div', { class: 'c-hero' + (r?.image ? ' q-scrim' : '') },
-      dishPic(r, name),
-      h('button', { class: 'c-back', tap: () => stop() }, icon('left'), 'Recipes'),
-      video ? h('button', { class: 'c-back c-vid', tap: () => { video.shown = !video.shown; if (!video.shown) video.playing = false; draw(); } }, vid ? 'Hide video' : 'Video') : null,
-      h('div', { class: 't' }, h('h1', { class: name.length > 22 ? 'long' : null }, name),
-        h('div', { class: 'm' }, [c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')))),
-    h('div', { class: 'q-panel c-ing' },
-      h('div', { class: 'q-label' }, 'Ingredients'),
-      c.ingredients.length ? h('ul', { class: 'vscroll' }, ingGroups(c).flatMap(([part, xs]) => [
-        part ? h('li', { class: 'part' }, part) : null,
-        ...xs.map((x) => h('li', { class: used(x) ? 'used' : null }, h('span', null, x.item), x.amount ? h('b', null, x.amount) : null))]))
-        : h('p', { class: 'none' }, 'The recipe doesn’t list them.')));
+    h('div', { class: 'c-chips' },
+      h('button', { class: 'c-chip', tap: () => stop() }, icon('left'), 'Recipes'),
+      video ? h('button', { class: 'c-chip', tap: () => { video.shown = !video.shown; if (!video.shown) video.playing = false; draw(); } }, vid ? 'Hide video' : 'Video') : null),
+    h('div', { class: 'c-photo' }, dishPic(r, name)),
+    h('h1', null, name),
+    h('div', { class: 'c-meta' }, [c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')),
+    ing);
 
-  // every step: the ones behind them small, the one they're on big (what it uses, its timer), the rest waiting
-  const list = [];
+  // now: the step they're on, the only panel; its words at one of two sizes, what it uses, Next step (and its timer)
+  const run = started.get(k);
+  const label = st ? [st.part, `Step ${at} of ${n}`, st.title, st.wait ? 'mostly waiting' : '', st.ahead || ''].filter(Boolean).join(' · ') : 'Done';
+  const now = h('div', { class: 'c-now' + (run ? ' timing' : '') },
+    h('div', { class: 'c-now-tx' },
+      h('div', { class: 'c-label' }, label),
+      h('p', { class: st && st.text.length > 160 ? 'long' : null }, st ? st.text : 'That’s the whole recipe.'),
+      st?.uses?.length ? h('ul', { class: 'c-uses' }, st.uses.map((x) => h('li', null, x.amount ? h('b', null, x.amount + ' ') : null, x.item))) : null,
+      h('div', { class: 'c-do' },
+        h('button', { class: 'c-next', tap: () => (st && at < n ? go('next') : stop()) }, st && at < n ? 'Next step' : 'Done', st && at < n ? icon('next', 2.4) : null),
+        st?.timer && !run ? h('button', { class: 'c-glass', tap: () => startTimer() }, icon('timer'), `Start · ${shortTime(st.timer.minutes)}`) : null)),
+    run ? ring(st, run) : st?.image ? h('img', { class: 'c-spic', src: st.image, alt: '', referrerpolicy: 'no-referrer', onerror: 'this.remove()' }) : null);
+
+  // the rest: every other step a row (done ones faint, with a tick), by part; tap one to go to it
+  const rows = [];
   let part = null;
-  c.steps.forEach((st, i) => {
-    if (st.part && st.part !== part) { part = st.part; list.push(h('div', { class: 'q-label c-part' }, part)); }
-    const k = `${key}|${i + 1}`;
-    if (at > i + 1) list.push(h('div', { class: 'c-st done', 'data-at': String(i + 1), tap: () => jump(i + 1) }, h('span', { class: 'no' }, icon('check', 3)), h('div', { class: 'tx' }, h('p', null, st.text))));
-    else if (at === i + 1) list.push(h('div', { class: 'c-st now', 'data-at': String(i + 1) },
-      h('div', { class: 'txt' },
-        h('h3', null, `Step ${i + 1}${st.title ? ` · ${st.title}` : ''}`),
-        h('p', { class: size(st.text).trim() || null }, st.text),
-        notes(st) ? h('div', { class: 'snote' }, notes(st)) : null,
-        st.uses?.length ? h('div', { class: 'suses' }, st.uses.map((x) => h('span', null, x.amount ? h('b', null, x.amount + ' ') : null, x.item))) : null,
-        h('div', { class: 'btns' },
-          st.timer ? h('button', { class: 'c-btn' + (started.has(k) ? ' lt' : ''), tap: () => { cooking.at = i + 1; startTimer(); } }, icon('timer'),
-            started.has(k) ? `${shortTime(st.timer.minutes)} timer on` : `Start ${shortTime(st.timer.minutes)} timer`) : null,
-          h('button', { class: 'c-btn lt', tap: () => go('next') }, i + 1 < n ? 'Next step' : 'Finish', icon('next', 2.4)))),
-      st.timer || started.has(k) ? ring(st, started.get(k)) : st.image ? h('img', { class: 'spic', src: st.image, alt: '', referrerpolicy: 'no-referrer', onerror: 'this.remove()' }) : null));
-    else list.push(h('div', { class: 'q-panel c-st', 'data-at': String(i + 1), tap: () => jump(i + 1) },
-      h('span', { class: 'no' }, String(i + 1)),
-      h('div', { class: 'tx' }, st.title ? h('h3', null, st.title) : null, h('p', { class: size(st.text).trim() || null }, st.text)),
-      st.timer ? h('span', { class: 'c-pill' }, icon('timer', 2), shortTime(st.timer.minutes)) : null));
+  c.steps.forEach((s, i) => {
+    if (i + 1 === at) return;
+    if (s.part && s.part !== part) { part = s.part; rows.push(h('div', { class: 'c-part' }, part)); }
+    rows.push(h('div', { class: 'c-row' + (i + 1 < at ? ' done' : ''), 'data-at': String(i + 1), tap: () => jump(i + 1) },
+      h('span', { class: 'no' }, i + 1 < at ? icon('check', 2.6) : String(i + 1)),
+      h('div', { class: 'tx' }, s.title ? h('b', null, s.title) : null, h('span', { class: s.title ? null : 'two' }, s.text)),
+      s.timer ? h('span', { class: 'tm' }, icon('timer', 2), shortTime(s.timer.minutes)) : null));
   });
-  if (at > n) list.push(h('div', { class: 'c-st now', 'data-at': String(n + 1) }, h('div', { class: 'txt' },
-    h('h3', null, 'Done'), h('p', null, 'That’s the whole recipe.'), h('div', { class: 'btns' }, h('button', { class: 'c-btn', tap: () => stop() }, 'Done cooking')))));
-  // the recipe itself, at the foot: its steps made again, or out of the box
-  list.push(h('div', { class: 'c-more' },
-    H.ai ? (workOf(key)?.state === 'working' ? btn('Making the steps…', null, { soft: true, disabled: true }) : btn('Make the steps again', () => { house.prepareCook(r.text, true); draw(); }, { soft: true })) : null,
-    btn('Take it out', () => takeOut(key), { soft: true })));
-  const steps = h('div', { class: 'c-steps vscroll' }, vid ? h('div', { class: 'video spot' }) : null, list);
-  const view = h('div', { class: 'cook' }, left, steps);
+  rows.push(h('div', { class: 'c-more' },
+    H.ai ? (workOf(key)?.state === 'working' ? h('button', { class: 'c-glass', disabled: true }, 'Making the steps…') : h('button', { class: 'c-glass', tap: () => { house.prepareCook(r.text, true); draw(); } }, 'Make the steps again')) : null,
+    h('button', { class: 'c-glass', tap: () => takeOut(key) }, 'Take it out')));
+  const rest = h('div', { class: 'c-rest' }, vid ? h('div', { class: 'video spot' }) : null, rows);
+  const view = h('div', { class: 'cook' },
+    h('div', { class: 'c-bg' + (r?.image ? '' : ' plain') }, r?.image ? h('img', { src: r.image, alt: '', referrerpolicy: 'no-referrer', onerror: 'this.remove()' }) : null),
+    left, h('div', { class: 'c-right' }, now, rest));
 
-  // keep their place on a redraw; bring the step they're on into view when it changes
+  // keep their place on a redraw; when the step changes, the next one rests at the top of the list and its part of
+  // what it needs comes into view
   requestAnimationFrame(() => {
-    steps.scrollTop = was.steps; view.scrollTop = was.all; const ul = left.querySelector('ul'); if (ul) ul.scrollTop = was.ing;
+    rest.scrollTop = was.rest; ing.scrollTop = was.ing; view.scrollTop = was.all;
     if (shownAt !== `${cooking?.key}|${at}`) {
       const first = shownAt == null; shownAt = `${cooking?.key}|${at}`;
-      steps.querySelector('.c-st.now')?.scrollIntoView({ block: 'nearest', behavior: first ? 'auto' : 'smooth' });
+      const next = rest.querySelector(`.c-row[data-at="${at + 1}"]`), b = first ? 'auto' : 'smooth';
+      if (next) rest.scrollTo({ top: Math.max(0, next.offsetTop - rest.offsetTop - (next.previousElementSibling?.classList.contains('c-part') ? next.previousElementSibling.offsetHeight : 0)), behavior: b });
+      const p = st?.part && [...ing.querySelectorAll('.c-part')].find((x) => x.dataset.part === st.part);
+      if (p) ing.scrollTo({ top: p.offsetTop - ing.offsetTop, behavior: b });
     }
   });
   playerFor(vid);
@@ -369,11 +373,11 @@ function boxView() {
 /** One recipe in the box: its picture, its name, a few facts; when it's planned, and Cook on the one planned for now. */
 function recipeTile(key, r, when, now) {
   const name = r.cook?.name || r.text;
-  return h('div', { class: 'r-card' + (r.image ? ' q-scrim' : ''), role: 'button', tabindex: '0', tap: () => openRecipe(key) },
+  return h('div', { class: 'r-card' + (when ? ' on' : '') + (now ? ' tonight' : ''), role: 'button', tabindex: '0', tap: () => openRecipe(key) },
     dishPic(r, name),
-    when ? h('span', { class: 'r-on' }, when.text) : null,
+    when ? h('span', { class: 'r-on' }, when.days === 0 ? 'Tonight' : when.text.split('’')[0]) : null,
     now ? h('span', { class: 'r-cook', role: 'button', tabindex: '0', tap: () => cook(r.text) }, 'Cook') : null,
-    h('div', { class: 't' }, h('h2', null, name), h('div', { class: 'm' }, facts(key, r).map((x) => h('span', { class: 'r-chip' }, x)))));
+    h('div', { class: 't' }, h('h2', null, name), h('div', { class: 'm' }, facts(key, r).join(' · '))));
 }
 /** The recipes found on the web: a picture from its own site, the name, the time, the site. */
 function foundView(f) {
@@ -396,7 +400,7 @@ function facts(key, r) {
   const w = workOf(key);
   if (w?.state === 'working') return ['Making the steps…'];
   if (w?.state === 'error') return [w.text];
-  if (r.cook) return [r.cook.minutes && [icon('timer', 2), howLong(r.cook.minutes)], serves(r.cook), r.video && 'Video'].filter(Boolean);
+  if (r.cook) return [r.cook.minutes && howLong(r.cook.minutes), serves(r.cook)].filter(Boolean);
   return [r.link && !r.notes ? 'A link' : 'Not ready to cook yet'];
 }
 /** The ingredients in the steps' order: each recipe it builds on (part) under its name, then its own, named for the part
