@@ -467,6 +467,8 @@ function dayList(first, n, today, done) {
 /** The List view, as a schedule: each day with something on it is a row, its weekday and date in a column on the left
  *  (the weather under them), and its things on the right: all-day ones as slim pills, then each event as a soft block
  *  tinted with its person's color, the title over its time. Today's date in the accent. */
+/** Which day of an all-day thing over several days this is: " (Day 2/3)", else ''. */
+const partOf = (e, day) => { if (!e.t1) return ''; const n = Math.round((dayStart(e.t1) - dayStart(e.t0)) / 864e5); return n > 1 ? ` (Day ${Math.round((day - dayStart(e.t0)) / 864e5) + 1}/${n})` : ''; };
 const tint = (e) => { const c = people(e).map((n) => house.color(n))[0]; return c ? `color-mix(in srgb, ${c} 24%, var(--card))` : null; };
 function schedule(first, n, today) {
   const now = Date.now(), out = [];
@@ -479,7 +481,7 @@ function schedule(first, n, today) {
       h('div', { class: 'sch-date', tap: () => openDay(day) },
         h('small', null, fmt(day, { weekday: 'short' })), h('b', null, String(d.getDate())), f ? h('span', null, `${f.high}°`) : null),
       h('div', { class: 'sch-things' },
-        list.filter((e) => e.allDay).map((e) => h('div', { class: 'sch-pill' + (isPast(e, now) ? ' past' : ''), style: tint(e) ? `background:${tint(e)}` : null, tap: () => openEvent(e) }, e.title)),
+        list.filter((e) => e.allDay).map((e) => h('div', { class: 'sch-pill' + (isPast(e, now) ? ' past' : ''), style: tint(e) ? `background:${tint(e)}` : null, tap: () => openEvent(e) }, e.title + partOf(e, day))),
         list.filter((e) => !e.allDay).map((e) => h('div', { class: 'sch-ev' + (isPast(e, now) ? ' past' : ''), style: tint(e) ? `background:${tint(e)}` : null, tap: () => openEvent(e) },
           h('b', null, e.title), h('span', null, timeOf(e.t0) + (e.t1 ? ' – ' + timeOf(e.t1) : '')))),
         notesEl(day, 'list'))));

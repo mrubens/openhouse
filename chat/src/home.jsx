@@ -384,7 +384,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
     if (!e.allDay || e.date || !e.end) return [e];
     const out = [], end = new Date(e.end);
     for (let d = dayOf(e); d < end && out.length < 31; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) out.push({ ...e, date: key(d) });
-    return out.length ? out : [e];
+    return out.length > 1 ? out.map((x, i) => ({ ...x, part: `Day ${i + 1}/${out.length}` })) : out.length ? out : [e];
   });
   const upcoming = spread.filter((e) => (e.allDay ? dayOf(e) >= t : new Date(e.end || e.start) >= now) && dayOf(e) < weekOut)
     .sort((a, b) => (dayOf(a) - dayOf(b)) || (b.allDay - a.allDay) || (new Date(a.start) - new Date(b.start)));
@@ -506,7 +506,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
               return rest.length > 0 && <div key={+d} className="t-daygroup t-sday">
                 <div className="t-sdate" data-fit="label"><small>{+d === +t ? 'Today' : weekday(d, true).slice(0, 3)}</small><b>{d.getDate()}</b></div>
                 <div className="t-sthings">{rest.map((e, i) => e.allDay
-                  ? <div key={i} className="t-spill" data-fit="" style={tintOf(e)}>{plain(e.title)}</div>
+                  ? <div key={i} className="t-spill" data-fit="" style={tintOf(e)}>{plain(e.title)}{e.part ? ` (${e.part})` : ''}</div>
                   : <div key={i} className="t-sev" data-fit="" style={tintOf(e)}><span className="t-sev-t">{plain(e.title)}</span><span className="t-when">{when(e)}</span></div>)}</div>
               </div>;
             }); })()}</div>
