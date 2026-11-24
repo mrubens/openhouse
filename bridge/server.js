@@ -11,7 +11,7 @@
 // asked; "undo" is a git revert of that change. Progress: events.js (/events, /state).
 import http from 'node:http';
 import fs from 'node:fs';
-import { calendarLinkTools } from './calendar-links.js';
+import { calendarLinkTools, shellCall } from './calendar-links.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +38,7 @@ import { snapshot } from './heartbeat-review.js';
 import { laterRoutes } from './later.js';
 import { cloudRoutes, noteError } from './cloud.js';
 import { relayRoutes } from './relay.js';
+import { mailRoutes } from './mail.js';
 import { phoneBuzz } from './phone-buzz.js';
 import { phoneShareRoutes } from './phone-share.js';
 import { Readable, Writable } from 'node:stream';
@@ -227,7 +228,10 @@ const screens = screensRoutes({ HERE, json, body, APP_DIR, apns: (b) => cloud.ap
   } });
 // Away from home (relay.js, docs/networking.md): the same sealed requests through the cloud's relay. Off until someone
 //  turns it on, and only for a linked tablet.
-relay = relayRoutes({ DISPLAY, json, body, screens, cloud });
+// Email to the tablet (mail.js, docs/tablet-email.md): the household's address through the cloud, on by default once
+//  linked, and/or its own mailbox (the shell's IMAP). Display only, like the cloud's settings.
+const mail = mailRoutes({ DISPLAY, json, body, house: chat.house, cloud, shell: isHub() ? null : (p, b) => shellCall(p, b, { timeoutMs: 60e3 }).then((r) => (r.error ? null : r)), every: process.env.MAIL === 'off' ? 0 : 5 * 60e3 });
+relay = relayRoutes({ DISPLAY, json, body, screens, cloud, onMail: () => mail.nudge() });
 chat.live.setWhoOf?.((id) => screens.who(id)); // Opie on someone's phone knows who it's talking with (live-tools.js)
 chat.live.setPhones?.({ phones: () => screens.phones(), message: (people, m) => screens.message(people, m) }); // message_family: a message to someone's phones (live-tools.js)
 // A note for someone: their phone gets it (Web Push from the tablet itself; only phones that allowed notifications).
@@ -301,6 +305,7 @@ http.createServer(async (req, res) => {
   if (!authorized(req, url)) { res.writeHead(401, { 'content-type': 'application/json' }); return res.end('{"error":"unauthorized"}'); } // auth.js
   if (await screens(req, res, url)) return; // Settings' screens (loopback only: screens never reach these)
   if (/^\/(cloud|backup)\//.test(url.pathname)) { try { await (url.pathname.startsWith('/cloud/') ? cloud : backups).handle(req, res, url); } catch (e) { if (!res.headersSent) json(res, 500, { error: e.message }); } return; }
+  if (/^\/mail(\/|$)/.test(url.pathname)) { try { await mail.handle(req, res, url); } catch (e) { if (!res.headersSent) json(res, 500, { error: e.message }); } return; }
   await route(req, res, url);
 }).listen(PORT, process.env.BRIDGE_HOST || '127.0.0.1', () => console.log(`bridge on :${PORT}, app ${APP_DIR}, agent ${agentName()}`));
 

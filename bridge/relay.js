@@ -27,7 +27,7 @@ const CHUNK = 16 * 1024; // bytes per message: under the relay's 32 KB once in b
 export const okRelayUrl = (u) => /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.test(u) || /^ws:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?(\/[\w./-]*)?$/.test(u);
 const okHandoff = (b) => /^http:\/\/(10|127|192\.168|172\.(1[6-9]|2\d|3[01]))(\.\d{1,3}){1,3}:\d{2,5}$/.test(b);
 
-export function relayRoutes({ DISPLAY, json, body, screens, cloud, WS = globalThis.WebSocket, now = Date.now, backoff = [2e3, 5e3, 15e3, 60e3, 300e3], pingMs = 4 * 60e3, maxAgeMs = 110 * 60e3 }) {
+export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () => {}, WS = globalThis.WebSocket, now = Date.now, backoff = [2e3, 5e3, 15e3, 60e3, 300e3], pingMs = 4 * 60e3, maxAgeMs = 110 * 60e3 }) {
   const FILE = path.join(DISPLAY, '.cloud', 'relay.json');
   const read = () => { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { return {}; } };
   const save = (v) => { fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 }); fs.writeFileSync(FILE + '.new', JSON.stringify(v), { mode: 0o600 }); fs.renameSync(FILE + '.new', FILE); };
@@ -105,6 +105,7 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, WS = globalTh
       return;
     }
     if (m.t === 'no') { error = m.why === 'unlinked' ? 'the family account doesn\'t know this tablet' : String(m.why || 'refused'); tries = Math.max(tries, backoff.length - 1); return; }
+    if (m.t === 'mail') return onMail(); // mail waiting in the cloud for this tablet (mail.js fetches it)
     if (m.t === 'req') return request(m);
     if (m.t === 'cancel' || m.t === 'gone') { const k = `${m.to || m.from}:${m.rid}`; const x = open.get(k); if (x) { open.delete(k); for (const c of x.cancel) c(); } }
   }

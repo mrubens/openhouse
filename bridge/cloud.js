@@ -10,6 +10,7 @@
 //   POST /cloud/link/token {token, api?, name}  link with a setup token (the setup QR carried it; no code to type)
 //   POST /cloud/report {shellLog, note, version}  Send a report (Settings → Advanced, after a yes there): the shell's
 //                                    log, the tails of the runtime's logs and the waiting app fixes, gzipped, to the service
+//   (mail.js uses mailApi/mailFetch: the household's address and its waiting mail, docs/tablet-email.md)
 //   POST /cloud/google/refresh {refresh_token}  the shell only: a two-way Google calendar's access token (calendar-sync.js)
 // Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through OpenHouse cloud, off until someone turns it on (Parent
 // menu → Better voice). Without it the tablet works by touch and typing; there's no on-device fallback voice.
@@ -288,12 +289,25 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     if (!/^box\/[A-Za-z0-9_-]{22}\/o[A-Za-z0-9_-]{31}$/.test(String(key))) throw new Error('not a box');
     return key;
   }
+  /** Email to the tablet (mail.js): the service's mail endpoints, and one waiting message's sealed bytes (from the
+   *  short-lived address our own service gives this tablet). */
+  const mailApi = (method, p, b) => call(method, p, b);
+  async function mailFetch(key) {
+    const { url } = await call('GET', `/v1/mail?key=${encodeURIComponent(key)}`);
+    const u = new URL(String(url || ''));
+    if (u.protocol !== 'https:' && !/^(127\.0\.0\.1|localhost)$/.test(u.hostname)) throw new Error('not an https address');
+    const r = await fetch(u, { signal: AbortSignal.timeout(60e3) });
+    if (!r.ok) throw new Error(`the mail answered ${r.status}`);
+    const sealed = Buffer.from(await r.arrayBuffer());
+    if (sealed.length > 26e6) throw new Error('too big');
+    return sealed;
+  }
   const credential = () => device()?.credential || null;
   /** The service's own address (a phone page it serves, /l, works from anywhere). */
   const apiBase = () => device()?.api || null;
   /** A note for an iPhone (screens.js notify): sealed already; the service hands it to APNs. {ok} or {gone}. */
   const apns = async (b) => { try { return await call('POST', '/v1/push/apns', b); } catch (e) { if (e.code === 'http410') return { gone: true }; throw e; } };
-  return { handle, status, destination, escrow, voice, ai, decide, apns, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { handle, status, destination, escrow, voice, ai, decide, apns, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);
