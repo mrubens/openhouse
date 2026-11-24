@@ -33,6 +33,14 @@ Run them with `cd bridge && npm test` and `cd shell && ./gradlew -q :app:testRel
 Never hardcode words or phrase lists to interpret what someone said ("stop", "next", "never mind"). Ask a model for
 the judgment, with the conversation as context.
 
+## Opie can do what a tap can
+
+Anything someone can do by tapping on the tablet or the phone page, Opie can do when asked: when you add or change a
+feature, give Opie the same reach (a tool in `bridge/live-tools.js` LIVE_TOOLS, `bridge/home-screen.js` or
+`bridge/house.js`), and add the row to `docs/opie-parity.md`. Where a tap needs the PIN, Opie doesn't refuse: it goes
+ahead and the tablet asks a person for the PIN (Opie never sees, hears or skips it). The only things that stay a
+person's own are approvals that must be a person's tap (DeviceServer.personOnly), and the few that table lists.
+
 ## The cloud is its own private repo
 
 The hosted cloud service is in mrubens/openhouse-cloud (private: only its maintainers have it), checked out next to
