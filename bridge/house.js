@@ -92,6 +92,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   data.events ||= []; // added on the display: [{ id, title, start, end?, allDay, who, place?, notes?, repeat?, until?, skip?, countdown? }]
   data.countdowns ||= []; // synced events counted down to (their uid from calendar.js)
   data.reminds ||= {}; // synced events' reminders: uid -> minutes before (-1: none, over the household's default)
+  data.whose ||= {}; // two-way synced events' people when they aren't the calendar's own: uid -> { who, also? } (calendar-sync.js)
   data.reminded ||= []; // reminders put away: "uid-or-id|start ISO" (the latest 200)
   data.rewards ||= []; // [{ id, title, stars, who? }]
   data.spent ||= {}; // "who" (lowercase) -> stars spent on rewards
@@ -264,7 +265,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     const counted = (uid) => cd.has(uid);
     const all = data.settings.remind ?? null;
     const remindOf = (e) => { if (e.allDay || e.fromApp) return null; /* (an app's events: read-only, no chime) */ const m = e.local ? e.remind ?? all : e.uid && data.reminds[e.uid] !== undefined ? data.reminds[e.uid] : all; return m == null || m < 0 ? null : m; };
-    return [...board.calendarEvents().map((e) => (e.uid && counted(e.uid) ? { ...e, countdown: true } : e)), ...local, ...appEvents()]
+    const whose = (e) => (e.calendar && e.uid && data.whose[e.uid.replace(/\|.*$/, '')] ? { ...e, ...data.whose[e.uid.replace(/\|.*$/, '')] } : e); // (a repeat's times share one)
+    return [...board.calendarEvents().map(whose).map((e) => (e.uid && counted(e.uid) ? { ...e, countdown: true } : e)), ...local, ...appEvents()]
       .filter((e) => new Date(e.end || e.start) > from && new Date(e.start) < to)
       .map((e) => { // remind: its own minutes (the household's when absent); remindAt: when it's due
         const own = !e.local && e.uid && data.reminds[e.uid] !== undefined ? { remind: data.reminds[e.uid] } : {}, m = remindOf(e);
@@ -326,7 +328,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       v: version, today: dayKey(), family: (h.family || []).map((f, i) => ({ name: f.name, note: f.note || '', color: f.color || PEOPLE[i % PEOPLE.length] })),
       streaks: streaks(), lists: data.lists.map((l) => ({ ...l, byAisle: l.byAisle ?? l.id === 'groceries', items: l.items.map((i) => ({ ...i, aisle: aisleOf(i.text) })) })), aisles: [...AISLES.map(([a]) => a), 'Other'], chores: chores(), stars: starsView(), rewards: data.rewards, asks: data.asks, got: data.got.slice(0, 5),
       checklists: checklists(), meals: data.meals, favorites: favorites(), mealWork, recipes: data.recipes, recipeFind, mealSlots: data.mealSlots,
-      events: events(), dayNotes: (() => { try { return notes ? notes.byDay() : {}; } catch { return {}; } })(), fromApps: (() => { try { return notes ? notes.apps() : []; } catch { return []; } })(), photos: photos(), calendars: (h.calendars || []).length,
+      events: events(), dayNotes: (() => { try { return notes ? notes.byDay() : {}; } catch { return {}; } })(), fromApps: (() => { try { return notes ? notes.apps() : []; } catch { return []; } })(), photos: photos(), calendars: (h.calendars || []).length + (board.sync?.calendars().filter((c) => c.mode !== 'off').length || 0),
+      calendarTargets: board.sync?.targets() || [], // two-way calendars new events can go into (calendar-sync.js)
       things: (() => { try { return things ? things.strip({ events: events(), reminders: reminders() }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Today)
       night: data.settings.night === false ? null : data.settings.night || NIGHT,
       reminders: reminders(), flyer, calendarLock: !!data.settings.calendarLock, unlockedUntil: unlockedUntil > Date.now() ? unlockedUntil : 0,
@@ -962,6 +965,18 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       ...(pick('place', 80) ? { place: pick('place', 80) } : {}), ...(pick('notes', 400) ? { notes: pick('notes', 400) } : {}),
       ...(repeat ? { repeat } : {}), ...(repeat && until ? { until } : {}), ...(countdown ? { countdown: true } : {}), ...(remind != null ? { remind } : {}), ...(repeat && was.skip ? { skip: was.skip } : {}) };
   }
+  /** What this display keeps about a two-way synced event that its calendar doesn't: whose (when not the calendar's
+   *  own person), a countdown, its reminder. By uid ("<calendar>:<id>"). [asked]: only what an update changed. */
+  function keepOnSynced(uid, f, cal, asked = null) {
+    const has = (k) => !asked || asked[k] !== undefined;
+    if (has('who') || has('also')) {
+      if ((f.who && !same(f.who, cal?.who)) || f.also?.length) data.whose[uid] = { who: f.who || null, ...(f.also?.length ? { also: f.also } : {}) };
+      else delete data.whose[uid];
+      const keys = Object.keys(data.whose); if (keys.length > 400) delete data.whose[keys[0]];
+    }
+    if (has('countdown')) data.countdowns = f.countdown ? [...new Set([...data.countdowns, uid])].slice(-40) : data.countdowns.filter((x) => x !== uid);
+    if (has('remind')) { if (f.remind == null) delete data.reminds[uid]; else data.reminds[uid] = f.remind; }
+  }
   /** Minutes before an event, from what was asked: 0 at the start, up to a day; "none"/false/-1 no reminder; null/"default" the household's. */
   function remindMin(v) {
     if (v === null || v === undefined || v === 'default') return undefined;
@@ -980,6 +995,44 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (a.remove != null && ![].concat(a.remove).some((x) => str(x))) delete a.remove;
     if (a.remove) { delete a.add; delete a.update; delete a.countdown; delete a.remind; }
     else if (a.update) delete a.add;
+    const sync = board.sync;
+    if (a.add && sync && a.add.calendar !== 'here') { // into a two-way calendar (the person's, else the household's default)
+      const f = eventFields(a.add);
+      if (f.error) return f;
+      const twin = sync.events().find((e) => e.editable && same(e.title, f.title) && Math.abs(new Date(e.start) - new Date(f.start)) <= 5 * 60e3);
+      if (twin) { const r = changeEvents({ update: { ...a.add, id: twin.id, date: twin.date } }); return r.error ? r : { ...r, already: true, note: 'Already on the calendar, so it was changed rather than added again. Nothing more to add; to change it later, update it by id.' }; }
+      const { countdown, remind, also, ...send } = f;
+      const r = sync.add(send, a.add.calendar || null);
+      if (r) {
+        const k = /^c-([A-Za-z0-9]{8})-(.+)$/.exec(r.event.id), uid = `${k[1]}:${k[2]}`;
+        keepOnSynced(uid, f, sync.calendars().find((c) => c.key === k[1]));
+        save();
+        return { ok: true, event: { ...f, id: r.event.id }, calendar: r.calendarName };
+      }
+    }
+    if ((a.update || a.remove) && sync) { // one in a two-way calendar
+      const ids = a.remove ? [].concat(a.remove).map(String) : [String(a.update.id)];
+      if (ids.every((id) => sync.isMine(id))) {
+        if (a.remove) {
+          const gone = [], errs = [];
+          for (const id of ids) { const r = sync.remove(id, ids.length === 1 && validDay(a.date) ? a.date : null); if (r.error) errs.push(r.error); else if (r.skipped) return { ok: true, removed: [], skipped: r.skipped, note: `Only ${r.skipped} is off; it still repeats. Leave out date to remove it entirely.` }; else gone.push(id); }
+          return gone.length ? { ok: true, removed: gone } : { error: errs[0] };
+        }
+        const was = sync.events().find((e) => e.id === a.update.id && (!a.update.date || e.date === a.update.date)) || sync.events().find((e) => e.id === a.update.id);
+        if (!was) return { error: `No event ${a.update.id}.` };
+        const f = eventFields(a.update, was);
+        if (f.error) return f;
+        const { countdown, remind, also, who, ...send } = f;
+        if (a.update.repeat === undefined && was.repeat === 'custom') send.repeat = 'custom'; // a rule this can't say: left as it is
+        if (a.update.repeat === 'custom') send.repeat = 'custom';
+        const r = sync.update(a.update.id, { ...send, date: was.date });
+        if (r.error) return r;
+        const k = /^c-([A-Za-z0-9]{8})-(.+)$/.exec(a.update.id), uid = `${k[1]}:${k[2]}`;
+        keepOnSynced(uid, f, sync.calendars().find((c) => c.key === k[1]), a.update);
+        save();
+        return { ok: true, event: { ...was, ...f, id: a.update.id } };
+      }
+    }
     if (a.add) {
       const f = eventFields(a.add);
       if (f.error) return f;
@@ -1239,13 +1292,13 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         slots: { type: 'array', items: { type: 'string', enum: ['breakfast', 'lunch', 'dinner'] }, description: 'Which meals the Meals app plans each day (dinner only unless they want more).' } } } },
     { name: 'flyer_photo', description: 'The latest photo someone sent to the display from their phone: a flyer, school notice or invitation (the Calendar app\'s camera button), or a recipe (the Meals app). Look at it to add its events (say what you found and ask before adding) or type up the recipe.',
       inputSchema: { type: 'object', properties: {} } },
-    { name: 'calendar_event', description: "The family calendar (the Calendar app). Add an event; change one added on this display (update: its id and only what changes: a new time, place, title, notes, whose, repeat); remove one added here (by id; with date, only that day of a repeating one); remind them before any event (remind; synced ones too); or count down to any event, synced ones too (countdown: id for one added here, uid for a synced one; family_things lists both). Synced calendars (Google, iCloud) can't be changed here: say so, and offer to add it on the display's calendar instead.",
+    { name: 'calendar_event', description: "The family calendar (the Calendar app). Add an event; change one added on this display (update: its id and only what changes: a new time, place, title, notes, whose, repeat); remove one added here (by id; with date, only that day of a repeating one); remind them before any event (remind; synced ones too); or count down to any event, synced ones too (countdown: id for one added here, uid for a synced one; family_things lists both). Events in a two-way calendar (editable: true in family_things; Google or iCloud signed in on the display) are changed and removed by id here like the display's own, and new events go into the person's own two-way calendar, else the household's (the answer says which). Other synced calendars (read from a link) can't be changed here: say so, and offer to add it on the display's calendar instead.",
       inputSchema: { type: 'object', properties: {
-        add: { type: 'object', required: ['title', 'start'], properties: { title: { type: 'string' }, start: { type: 'string', description: 'ISO local date-time like 2026-11-20T16:30, or a date for all day (the first time, for a repeating one)' }, end: { type: 'string' }, allDay: { type: 'boolean' }, who: { type: 'string', description: 'Whose it is (a family name), if anyone\'s' }, also: { type: 'array', items: { type: 'string' }, description: 'Anyone else it is for (shown in each of their colours)' }, place: { type: 'string' },
+        add: { type: 'object', required: ['title', 'start'], properties: { title: { type: 'string' }, calendar: { type: 'string', description: 'Only when they named one: a calendar key (family_things lists the two-way ones), or "here" for only this display' }, start: { type: 'string', description: 'ISO local date-time like 2026-11-20T16:30, or a date for all day (the first time, for a repeating one)' }, end: { type: 'string' }, allDay: { type: 'boolean' }, who: { type: 'string', description: 'Whose it is (a family name), if anyone\'s' }, also: { type: 'array', items: { type: 'string' }, description: 'Anyone else it is for (shown in each of their colours)' }, place: { type: 'string' },
           notes: { type: 'string', description: 'What to bring, who drives, a phone number' }, countdown: { type: 'boolean', description: 'Count down to it on the home screen (a birthday, a trip)' },
           remind: { type: 'number', description: 'Minutes before to remind them on the display (0 at the start, -1 none); leave out for the household\'s usual' },
           repeat: { type: 'string', enum: REPEATS, description: 'Only when they said it repeats ("every Friday", "weekly", "each day"); never because of what the event is. Leave it out for a one-off.' }, until: { type: 'string', description: 'YYYY-MM-DD, last day it repeats; leave out for always' } } },
-        update: { type: 'object', required: ['id'], properties: { id: { type: 'string' }, title: { type: 'string' }, start: { type: 'string' }, end: { type: 'string' }, allDay: { type: 'boolean' }, who: { type: 'string' }, also: { type: 'array', items: { type: 'string' } }, place: { type: 'string' }, notes: { type: 'string' },
+        update: { type: 'object', required: ['id'], properties: { id: { type: 'string' }, date: { type: 'string', description: 'YYYY-MM-DD: which time of a repeating one they mean (the whole series changes)' }, title: { type: 'string' }, start: { type: 'string' }, end: { type: 'string' }, allDay: { type: 'boolean' }, who: { type: 'string' }, also: { type: 'array', items: { type: 'string' } }, place: { type: 'string' }, notes: { type: 'string' },
           countdown: { type: 'boolean' }, remind: { type: 'number' }, repeat: { type: 'string', enum: [...REPEATS, 'none'] }, until: { type: 'string' } } },
         remove: { type: 'array', items: { type: 'string' }, description: 'ids of events added on the display (one or more): all of each, every day it repeats' }, date: { type: 'string', description: 'YYYY-MM-DD: only remove that day of a repeating event' },
         countdown: { type: 'object', properties: { id: { type: 'string' }, uid: { type: 'string' }, on: { type: 'boolean' } } },
@@ -1266,8 +1319,9 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       v.fromApps = appEvents().filter((e) => new Date(e.end || e.start) > Date.now() - DAY && new Date(e.start) < soon).slice(0, 60)
         .map((e) => ({ title: e.title, start: localWhen(e.start, e.allDay), ...(e.allDay ? { allDay: true } : {}), ...(e.who ? { who: e.who } : {}), ...(e.place ? { place: e.place } : {}), from: e.appName }));
       v.dayNotes = Object.fromEntries(Object.entries(v.dayNotes || {}).filter(([k]) => k >= dayKey() && k < dayKey(new Date(soon))).map(([k, l]) => [k, l.map((x) => `${x.label}: ${x.text}${x.who ? ` (${x.who})` : ''} [from ${x.name}]`)]));
+      v.calendars = board.sync?.targets().map((t) => ({ key: t.key, name: t.name, ...(t.who ? { who: t.who } : {}), ...(t.default ? { default: true } : {}) })) || [];
       v.synced = board.calendarEvents().filter((e) => new Date(e.end || e.start) > Date.now() - DAY && new Date(e.start) < soon).slice(0, 80)
-        .map((e) => ({ title: e.title, start: localWhen(e.start, e.allDay), ...(e.allDay ? { allDay: true } : {}), who: e.who || null, ...(e.place ? { place: e.place } : {}), ...(e.uid ? { uid: e.uid } : {}), ...(e.uid && data.countdowns.includes(e.uid) ? { countdown: true } : {}), ...(e.uid && data.reminds[e.uid] !== undefined ? { remind: data.reminds[e.uid] } : {}) }));
+        .map((e) => ({ title: e.title, start: localWhen(e.start, e.allDay), ...(e.allDay ? { allDay: true } : {}), who: e.who || null, ...(e.place ? { place: e.place } : {}), ...(e.uid ? { uid: e.uid } : {}), ...(e.editable ? { id: e.id, editable: true, calendar: e.calendarName, ...(e.date ? { date: e.date } : {}), ...(e.repeat ? { repeat: e.repeat } : {}) } : {}), ...(e.uid && data.countdowns.includes(e.uid) ? { countdown: true } : {}), ...(e.uid && data.reminds[e.uid] !== undefined ? { remind: data.reminds[e.uid] } : {}) }));
       v.meals = Object.fromEntries(Object.entries(v.meals).filter(([k]) => k >= dayKey(new Date(Date.now() - 2 * DAY))));
       v.lists = v.lists.map((l) => ({ name: l.name, items: l.items.map((i) => ({ text: i.text, ...(i.who ? { who: i.who } : {}), ...(i.done ? { done: true } : {}) })) }));
       v.favorites = v.favorites.map((f) => f.text);
@@ -1404,5 +1458,6 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   handle.reminders = (now) => reminders(now); // the reminders due now (phone-buzz.js: they buzz the phones of the people on them)
   handle.night = () => (data.settings.night === false ? null : data.settings.night || { from: '21:30', to: '06:30' });
   handle.localEvents = () => [...data.events.flatMap((e) => occurrences(e, Date.now() - 35 * DAY, Date.now() + 70 * DAY)), ...appEvents()];
+  board.onCalendar = () => changed(); // a two-way calendar was read or sent to (calendar-sync.js)
   return handle;
 }

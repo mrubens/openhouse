@@ -166,13 +166,24 @@ object CalendarLinks {
     /** The calendars (tap one to remove it), and adding one from a phone. Only reached through the PIN. */
     fun manage(a: Activity, immersive: () -> Unit) {
         val links = list()
-        CalmDialog(a).setTitle("Calendars").apply { if (links.isEmpty()) setMessage("None yet.") }
-            .setItems(links.map { label(it.who) }.toTypedArray()) { _, i ->
-                val l = links[i]
+        val accounts = CalendarAccounts.rows() // two-way: Google and iCloud sign-ins (CalendarAccounts)
+        val rows = accounts.map { CalmDialog.Row(it.first, it.second) } + links.map { CalmDialog.Row(label(it.who), "A link, read only") }
+        CalmDialog(a).setTitle("Calendars").setWidth(860f).apply { if (rows.isEmpty()) setMessage("None yet.") }
+            .setRows(rows) { _, i ->
+                if (i < accounts.size) {
+                    val (name, _, id) = accounts[i]
+                    CalmDialog(a).setTitle(name).setItems(arrayOf("Its calendars", "Sign out")) { _, j ->
+                        if (j == 0) CalendarAccounts.calendars(a, id, immersive)
+                        else CalmDialog(a).setTitle("Sign out of $name?").setMessage("Its calendars leave this tablet. Nothing changes in them.").setDanger()
+                            .setPositiveButton("Sign out") { _, _ -> CalendarAccounts.signOut(id) }.setNegativeButton("Cancel", null).show().also { immersive() }
+                    }.setNegativeButton("Back", null).show().also { immersive() }
+                    return@setRows
+                }
+                val l = links[i - accounts.size]
                 CalmDialog(a).setTitle("Remove ${label(l.who)}?").setDanger()
                     .setPositiveButton("Remove") { _, _ -> thread { remove(l.id); sync() } }.setNegativeButton("Cancel", null).show().also { immersive() }
             }
-            .setPositiveButton("Add a calendar") { _, _ -> add(a, immersive) }
+            .setPositiveButton("Add a calendar") { _, _ -> CalendarAccounts.choose(a, immersive) }
             .setNegativeButton("Back", null).show().also { immersive() }
     }
 

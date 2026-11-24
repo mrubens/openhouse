@@ -10,6 +10,7 @@
 //   POST /cloud/link/token {token, api?, name}  link with a setup token (the setup QR carried it; no code to type)
 //   POST /cloud/report {shellLog, note, version}  Send a report (Settings → Advanced, after a yes there): the shell's
 //                                    log, the tails of the runtime's logs and the waiting app fixes, gzipped, to the service
+//   POST /cloud/google/refresh {refresh_token}  the shell only: a two-way Google calendar's access token (calendar-sync.js)
 // Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through OpenHouse cloud, off until someone turns it on (Parent
 // menu → Better voice). Without it the tablet works by touch and typing; there's no on-device fallback voice.
 //   GET  /cloud/voice[?check=1]      on?, the vendor, this month's use and allowance (check: ask the service)
@@ -215,6 +216,15 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     if (req.method !== 'POST') { json(res, 404, { error: 'not found' }); return true; }
     const b = await body(req);
     switch (p) {
+      // The shell, for a two-way Google calendar (CalendarAccounts.kt): a fresh access token for its sealed refresh
+      // token. The cloud adds OpenHouse's client secret and keeps nothing; neither token is kept or logged here.
+      case '/cloud/google/refresh': {
+        const t = String(b.refresh_token || '');
+        if (!t || t.length > 2048) { json(res, 400, { error: 'refresh_token' }); return true; }
+        try { const r = await call('POST', '/v1/google/refresh', { refresh_token: t }); json(res, 200, { access_token: r.access_token, expires_in: r.expires_in }); }
+        catch (e) { json(res, e.code === 'unlinked' ? 409 : 400, { error: e.message === 'invalid_grant' ? 'invalid_grant' : e.code === 'unlinked' ? 'unlinked' : 'unavailable' }); }
+        return true;
+      }
       case '/cloud/config': {
         const a = String(b.api || '').replace(/\/+$/, '');
         if (a && !okApi(a)) { json(res, 400, { error: 'https only' }); return true; }

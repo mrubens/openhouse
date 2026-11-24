@@ -1,6 +1,7 @@
 // Calendar: one day by the hour, the week in columns, the whole month, or everything coming up as a list, each person in
 // their color. Tap a day to see all of it and add to it. Events come from the family's synced calendars (added in Settings) plus ones added here,
-// which can repeat and stay on this display (synced calendars are read-only here). The events live in the bridge, not here.
+// which can repeat and stay on this display. Events in a two-way calendar (Google or iCloud signed in on the display: editable)
+// change here like those; calendars read from a link are read-only here. The events live in the bridge, not here.
 import { house, timer, say, phone, shell, weather, screen as onScreen } from '/kit/openhouse.js';
 import { icon as skyIcon } from '/kit/weather-look.js';
 
@@ -238,7 +239,7 @@ function fromAppsCard() {
   }, { width: 1100 });
 }
 const barKids = (e, cutL) => [!e.allDay && !cutL ? h('span', { class: 'bt' }, shortTime(e.t0)) : null, h('span', { class: 'bw' }, e.title)];
-const repeatLabel = (r) => REPEATS.find(([k]) => k === r)?.[1];
+const repeatLabel = (r) => (r === 'custom' ? 'Repeats' : REPEATS.find(([k]) => k === r)?.[1]); // custom: a rule from Google or iCloud
 const dayName = (d, today) => d === today ? 'Today' : d === dayStart(today, 1) ? 'Tomorrow' : null;
 
 const VIEWS = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List']];
@@ -508,7 +509,7 @@ function openEvent(e) {
   const remove = (date = null) => {
     events = events.filter((x) => x.id !== e.id || (date && x.date !== date)); draw(); house.removeEvent(e.id, date);
   };
-  const mine = e.local && e.id; // added here: it can be changed; synced ones change where they come from
+  const mine = (e.local || e.editable) && e.id; // added here, or in a two-way calendar: it can be changed; other synced ones change where they come from
   let counting = !!e.countdown;
   const later = e.t0 > Date.now() && (mine || e.uid);
   openCard((close) => [
@@ -518,13 +519,15 @@ function openEvent(e) {
     e.place ? h('p', { class: 'line light' }, e.place) : null,
     whoText(e) ? h('p', { class: 'line ink' }, whoText(e)) : null,
     e.notes ? h('p', { class: 'line notes' }, e.notes) : null,
+    e.note ? h('p', { class: 'line light small' }, e.note) : null, // changed on its calendar before a change here went in
+    e.editable && e.calendarName ? h('p', { class: 'line light small' }, `On ${e.calendarName}${e.sending ? ' · sending' : ''}`) : null,
     e.fromApp ? h('p', { class: 'line light small' }, `From ${e.appName || appName(e.fromApp)}`) // one of the household's apps put it here (read-only)
       : !mine ? h('p', { class: 'line light small' }, `From ${e.who ? e.who + '’s' : 'a'} calendar: change it there.`) : null,
     e.t0 > Date.now() && (mine || e.uid) ? h('div', { class: 'chips' }, chip(counting ? 'Counting down on the home screen' : 'Count down to it', counting, () => {
-      guard(() => { counting = !counting; e.countdown = counting; house.countdown(mine ? { id: e.id } : { uid: e.uid }, counting); sheets.at(-1)?.redraw(); });
+      guard(() => { counting = !counting; e.countdown = counting; house.countdown(e.local ? { id: e.id } : { uid: e.uid }, counting); sheets.at(-1)?.redraw(); });
     })) : null,
     later && !e.allDay ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Remind'),
-      remindChips(e.remind ?? null, (m) => guard(() => { e.remind = m; house.remind(mine ? { id: e.id } : { uid: e.uid }, m); sheets.at(-1)?.redraw(); }))) : null,
+      remindChips(e.remind ?? null, (m) => guard(() => { e.remind = m; house.remind(e.local ? { id: e.id } : { uid: e.uid }, m); sheets.at(-1)?.redraw(); }))) : null,
     h('div', { class: 'actions' },
       mine ? (e.repeat
         ? [btn('Remove this day', () => { close(); guard(() => remove(e.date || house.dayKey(new Date(e.t0)))); }, { soft: true }), btn('Remove all', () => { close(); guard(() => remove()); }, { soft: true })]
@@ -626,7 +629,7 @@ function eventForm(e = null, startDay = null, startMin = null) {
   const was = e ? { day: dayStart(e.t0), min: e.allDay ? -1 : new Date(e.t0).getHours() * 60 + new Date(e.t0).getMinutes(), len: e.allDay ? 0 : Math.round(((e.t1 ?? e.t0 + 3600e3) - e.t0) / 60000) } : null;
   const f = {
     title: e?.title || '', day: was?.day ?? startDay ?? today, min: was ? was.min : startMin ?? -1, len: was ? was.len : startMin != null ? 60 : 0,
-    people: e ? people(e) : [], repeat: e?.repeat ?? null, until: e?.until ?? null, place: e?.place || '', notes: e?.notes || '', countdown: !!e?.countdown, remind: e?.remind ?? null,
+    people: e ? people(e) : [], calendar: null, repeat: e?.repeat ?? null, until: e?.until ?? null, place: e?.place || '', notes: e?.notes || '', countdown: !!e?.countdown, remind: e?.remind ?? null,
   };
   if (f.min < 0) f.len = 0;
   let week = 0, shown = false; // week: which week of days the day chips show (0: the one with f.day)
@@ -649,6 +652,9 @@ function eventForm(e = null, startDay = null, startMin = null) {
     if (u === 'dec') return `${d.getFullYear()}-12-31`;
     return house.dayKey(new Date(dayStart(f.day, u)));
   };
+  // Where a new event goes: picked, else the first person's own two-way calendar, else the household's (bridge: targetFor).
+  const targets = H?.calendarTargets || [];
+  const goesTo = () => f.calendar || targets.find((t) => t.who && same(t.who, f.people[0]))?.key || targets.find((t) => t.default)?.key || 'here';
   const finish = () => {
     if (!f.title.trim()) return;
     const d = new Date(f.day); const allDay = f.len === 0 || f.min < 0;
@@ -656,8 +662,8 @@ function eventForm(e = null, startDay = null, startMin = null) {
     const start = d.getTime(), end = allDay ? null : start + f.len * 60000;
     const fields = { title: f.title.trim(), start, end, allDay, who: f.people[0] || null, also: f.people.slice(1), repeat: f.repeat, until: f.repeat ? f.until : null, place: f.place.trim(), notes: f.notes.trim(), countdown: f.countdown, remind: allDay ? null : f.remind };
     s.close();
-    if (e) { Object.assign(e, { ...fields, t0: start, t1: allDay ? dayStart(start, 1) : end }); draw(); house.updateEvent(e.id, { ...fields, repeat: f.repeat || 'none' }); }
-    else { events.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent(fields); }
+    if (e) { Object.assign(e, { ...fields, t0: start, t1: allDay ? dayStart(start, 1) : end }); draw(); house.updateEvent(e.id, { ...fields, repeat: f.repeat || 'none', ...(e.date ? { date: e.date } : {}) }); }
+    else { events.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent({ ...fields, calendar: goesTo() }); }
   };
   press(save, () => { if (!save.disabled) finish(); });
   const cancel = btn('Cancel', () => s.close(), { soft: true });
@@ -682,6 +688,8 @@ function eventForm(e = null, startDay = null, startMin = null) {
       H.family?.length ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Whose'),
         h('div', { class: 'chips' }, chip('Everyone', !f.people.length, pick(() => { f.people = []; })),
           H.family.map((p) => who(p.name, f.people.some((n) => same(n, p.name)), pick(() => { f.people = f.people.some((n) => same(n, p.name)) ? f.people.filter((n) => !same(n, p.name)) : [...f.people, p.name]; }))))) : null,
+      !e && targets.length ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Calendar'),
+        h('div', { class: 'chips' }, targets.map((t) => chip(t.name, goesTo() === t.key, pick(() => { f.calendar = t.key; }))), chip('This display only', goesTo() === 'here', pick(() => { f.calendar = 'here'; })))) : null,
       h('div', { class: 'row' }, h('span', { class: 'label' }, 'Repeats'),
         h('div', { class: 'chips' }, REPEATS.map(([r, l]) => chip(l, f.repeat === r, pick(() => { f.repeat = r; if (!r) f.until = null; }))))),
       f.repeat ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Until'),

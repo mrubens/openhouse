@@ -55,11 +55,13 @@ export function calendars({ DIR }) {
 export function parse(text, from, to) {
   const lines = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '').split(/\r?\n/);
   const vevents = [];
-  let cur = null;
+  let cur = null, inner = 0; // inner: inside an alarm (its DESCRIPTION isn't the event's)
   for (const l of lines) {
-    if (l === 'BEGIN:VEVENT') cur = {};
+    if (l === 'BEGIN:VEVENT') { cur = {}; inner = 0; }
     else if (l === 'END:VEVENT') { if (cur) vevents.push(cur); cur = null; }
-    else if (cur) {
+    else if (cur && /^BEGIN:/i.test(l)) inner++;
+    else if (cur && /^END:/i.test(l)) inner = Math.max(0, inner - 1);
+    else if (cur && !inner) {
       const i = l.indexOf(':'); if (i < 0) continue;
       const [name, ...params] = l.slice(0, i).split(';');
       const p = Object.fromEntries(params.map((x) => x.split('=')).map(([k, v]) => [k.toUpperCase(), v]));

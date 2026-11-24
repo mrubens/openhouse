@@ -199,7 +199,7 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/approve", "/say", "/multicast", "/share", "/calendar", "/album", "/halt", "/bt", "/front", "/camera")
+    private val HOME_PATHS = setOf("/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera")
     private val approveLock = Object()
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
@@ -240,6 +240,10 @@ object DeviceServer {
                 val yes = got.poll(100, java.util.concurrent.TimeUnit.SECONDS) ?: false
                 200 to JSONObject().put("added", yes).toString()
             }
+            // Two-way calendars (CalendarAccounts, the bridge's calendar-sync.js): the accounts without their secrets, and
+            // a request to Google or iCloud made with an account's sign-in, only to that account's own service.
+            "/calendar/accounts" -> { CalendarAccounts.init(ctx); 200 to CalendarAccounts.public().toString() }
+            "/calendar/request" -> { CalendarAccounts.init(ctx); 200 to CalendarAccounts.request(b).toString() }
             // An iCloud shared album's link (add_photo_album): the same as a calendar link, sealed here after a yes.
             "/album" -> {
                 val url = AlbumLink.clean(b.optString("url")) ?: return 400 to """{"error":"That isn't an iCloud shared album link (https://www.icloud.com/sharedalbum/#... or https://photos.icloud.com/shared/album/...). In the album's sharing settings, turn on its public link (Public Website) and copy it."}"""

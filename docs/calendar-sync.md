@@ -1,10 +1,36 @@
 # Two-way calendar sync
 
-A plan, agreed 2026-11-24; nothing of it is built yet. Today the family's calendars come in by their private iCal
+Agreed 2026-11-24. Google and iCloud are built (see "What's built" below) but haven't met a real account yet; Outlook
+isn't started. Before this the family's calendars come in by their private iCal
 links (read-only, `bridge/calendar-links.js`, the shell keeps the links sealed and fetches them) and events added on
 the tablet stay on the tablet (`bridge/house.js`, `/house/event`). The goal: an event added or changed on the tablet
 shows up in the household's Google Calendar (then iCloud, then Outlook), and changes there show up here, the way
 Skylight's two-way sync works.
+
+## What's built (2026-11-24)
+
+- **The bridge** (`bridge/calendar-sync.js`, wired in `board.js` and `house.js`): accounts' calendars, which are shown,
+  two-way or hidden, whose each is, the default for new events; reading; the outbox; Google and CalDAV. State in
+  `calendar-sync.json` next to `house.json` (no secrets). Routes for Settings: `GET /calendar/sync`,
+  `POST /calendar/sync/{discover,set,forget,now}`. `/house/event` and the assistant's `calendar_event` add, change and
+  remove events in two-way calendars by their ids (`c-<calendar>-<id>`), like the display's own; `add.calendar` picks
+  one (`"here"`: only the display). `/cloud/google/refresh` passes the shell's refresh to the cloud.
+- **The shell** (`CalendarAccounts.kt`): the sealed accounts, `DeviceServer` `/calendar/accounts` and
+  `/calendar/request` (only to Google's Calendar API, or the account's CalDAV server; iCloud's are `*.icloud.com`), a
+  small HTTPS client (Android's won't send PROPFIND or REPORT), and the screens: Add a calendar (Google, iCloud, or a
+  link), iCloud's sign-in, Google's QR code to the phone page (`google.html` with `kind: "cal"`), each account's
+  calendars and the choices for each.
+- **The cloud** (openhouse-cloud 2e17cfe, not deployed): `/g/start?k=cal` and `/g/done` (`#gc=<refresh token>`), and
+  `POST /v1/google/refresh` for a linked tablet (120 an hour; `invalid_grant` means sign in again).
+- **The Calendar tab**: events in two-way calendars can be changed and removed; a new event's sheet has a Calendar row
+  (the person's own, the default, or This display only); the note when a change lost to one made elsewhere.
+- **Tests**: no duplicate event when an answer is lost and the change is sent again; a change made offline survives a
+  restart and goes in (`bridge/test/calendar-sync.test.mjs`); the cloud's sign-in and refresher.
+
+**Not yet:** a real Google account (needs the Google project set up and the cloud deployed) and a real iCloud account;
+the screens on a tablet; Outlook; the offer to move the display's own events into a two-way calendar; noticing an
+iCal link to the same calendar (shown twice until the link is removed). `calendar-sync.json` isn't in backups: after a
+restore the accounts are signed in again anyway (the sign-ins never leave the tablet).
 
 ## Decisions
 
@@ -41,9 +67,10 @@ authorization, only to that provider's API host. This keeps one rule for every p
 calendar is off, read-only, or two-way, and may belong to a person. A calendar connected through an account replaces
 its iCal link (we offer to remove the link, so events don't show twice, the doubling Skylight warns about).
 
-**Reading.** Each provider's change feed, not the whole calendar every time: Google's `syncToken`, CalDAV's
-`sync-collection` REPORT, Graph's delta query. Every two minutes while the screen is on, and right after a write. A
-side gain: Google's secret iCal links can lag hours behind; the API doesn't.
+**Reading.** The window the Calendar shows (35 days back, 70 ahead), every two minutes and right after a write:
+Google's events list (once for the repeating series, once for each time), CalDAV's `calendar-query` REPORT. Simpler
+than change feeds (`syncToken`, `sync-collection`), which can come later if the requests ever matter. A side gain:
+Google's secret iCal links can lag hours behind; the API doesn't.
 
 **Writing.** Every change made on the tablet (from the Calendar tab, the assistant, a flyer, an app) goes into an
 outbox saved in `house.json` first, then out to the provider. Offline, it waits and retries; the event shows on the
@@ -77,7 +104,7 @@ exchanges the code and sends the phone back to its page with the refresh token a
 never kept in the cloud); the page seals it for the tablet. The phone then shows the account's calendars to pick:
 which to show, which are two-way, whose each is, and the default for new events.
 
-**The cloud's new part:** `POST /g/refresh {refresh_token}` → `{access_token, expires_in}`, only for a linked tablet
+**The cloud's new part:** `POST /v1/google/refresh {refresh_token}` → `{access_token, expires_in}`, only for a linked tablet
 (its relay key), rate-limited per tablet, logging nothing of the token. An `invalid_grant` answer (revoked, or
 Google's 7-day expiry for apps still in testing) tells the tablet to ask for a new sign-in on that account.
 

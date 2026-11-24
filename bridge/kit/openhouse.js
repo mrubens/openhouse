@@ -226,10 +226,13 @@ export const house = {
   mealSlots: (slots) => send('/house/meal', { slots }),
   /** The assistant puts what that meal needs on Groceries (watch data.mealWork["date|meal"]). */
   addIngredients: (date, meal = 'dinner') => send('/house/meal/ingredients', { date, meal }),
-  // the calendar (only events added on the display can be removed; synced calendars are read-only)
-  addEvent: ({ title, start, end = null, allDay = false, who = null, also = [], repeat = null, until = null, place = '', notes = '', countdown = false, remind = null }) => title?.trim() && send('/house/event', {
-    add: { title: title.trim(), start: iso(new Date(start), allDay), ...(end && !allDay ? { end: iso(new Date(end), false) } : {}), allDay, who, ...(also?.length ? { also } : {}), repeat, ...(until ? { until } : {}), place, notes, countdown, ...(remind != null ? { remind } : {}) } }),
-  /** Change an event added on the display: its id and only what changes (start/end as times; repeat 'none' to stop). */
+  // the calendar: events added on the display, and those in a two-way calendar (editable: Google or iCloud signed in on
+  // the display); calendars read from a link are read-only. calendar: where a new one goes (a key from
+  // data.calendarTargets, or 'here' for only the display); left out, the person's own two-way calendar, else the default.
+  addEvent: ({ title, start, end = null, allDay = false, who = null, also = [], repeat = null, until = null, place = '', notes = '', countdown = false, remind = null, calendar = null }) => title?.trim() && send('/house/event', {
+    add: { title: title.trim(), start: iso(new Date(start), allDay), ...(end && !allDay ? { end: iso(new Date(end), false) } : {}), allDay, who, ...(also?.length ? { also } : {}), repeat, ...(until ? { until } : {}), place, notes, countdown, ...(remind != null ? { remind } : {}), ...(calendar ? { calendar } : {}) } }),
+  /** Change an event (added here, or editable): its id and only what changes (start/end as times; repeat 'none' to
+   *  stop; date: which time of a repeating one it was changed from). */
   updateEvent: (id, f) => send('/house/event', { update: { id, ...f,
     ...(f.start != null ? { start: iso(new Date(f.start), !!f.allDay) } : {}), ...(f.end != null && !f.allDay ? { end: iso(new Date(f.end), false) } : {}) } }),
   removeEvent: (id, date = null) => send('/house/event', { remove: id, date }),

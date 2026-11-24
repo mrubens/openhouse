@@ -8,11 +8,19 @@
 // POST /household {family?, location?, chores?, routines?}   save what changed
 // POST /calendar/feeds {feeds: [{id, who, ics?, error?}]}   the shell: what the family's calendars say now
 // POST /calendar/claim         the shell: calendar links saved here before they moved to it (then gone from here)
+// Two-way calendars (calendar-sync.js; the shell's Settings, never apps or screens):
+//   GET  /calendar/sync          { calendars, targets, status }
+//   POST /calendar/sync/discover {account}   that account's calendars, found again (after it's signed in)
+//   POST /calendar/sync/set      {key, mode?: 'off'|'read'|'two-way', who?, default?: true}
+//   POST /calendar/sync/forget   {account}   it was signed out: its calendars go
+//   POST /calendar/sync/now      read and send now
 //
 // files: board.json (the last curation) and household.json (family, calendar, chores, location), next to the chats.
 import fs from 'node:fs';
 import path from 'node:path';
 import { calendars } from './calendar.js';
+import { calendarSync } from './calendar-sync.js';
+import { shellCall } from './calendar-links.js';
 
 export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen }) {
   const BOARD = path.join(DIR, 'board.json');
@@ -23,12 +31,15 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   let curating = false, lastError = null;
   // The family's calendars, read by the shell, which keeps their links (calendar.js).
   const cal = calendars({ DIR });
+  // Two-way calendars (Google, iCloud): the shell holds the sign-ins and makes the requests (calendar-sync.js).
+  const sync = calendarSync({ FILE: path.join(DIR, '../calendar-sync.json'), shell: (p, b) => shellCall(p, b, { timeoutMs: 60e3 }),
+    family: () => (read(HOUSE, {}).family || []).map((f) => f.name).filter(Boolean) });
   const withoutLinks = ({ calendars: _, ...h }) => h; // links saved here before they moved to the shell
 
   // Until someone sets it up, the household is empty: nothing made up is ever said about a real family.
   function household() {
     const h = read(HOUSE, { family: [], location: null, routines: [], events: [], chores: [] });
-    return { ...withoutLinks(h), events: [...(h.events || []), ...cal.events(), ...(handle.localEvents?.() || [])] };
+    return { ...withoutLinks(h), events: [...(h.events || []), ...cal.events(), ...sync.events(), ...(handle.localEvents?.() || [])] };
   }
 
   /** Save what changed about the household (the setup sheet, or the assistant's tools). */
@@ -112,7 +123,9 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   handle.saveHousehold = saveHousehold;
   handle.householdView = householdView;
   /** Synced calendars plus events in household.json (house.js adds the display's own). */
-  handle.calendarEvents = () => [...(read(HOUSE, {}).events || []), ...cal.events()];
+  handle.calendarEvents = () => [...(read(HOUSE, {}).events || []), ...cal.events(), ...sync.events()];
+  handle.sync = sync;
+  sync.start(() => handle.onCalendar?.()); // house.js redraws every screen
   homeScreen.migrate(load().pins); // pins from before the home screen had notes
   return handle;
   async function handle(req, res, url) {
@@ -132,6 +145,17 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       const st = cal.setFeeds((await body(req)).feeds);
       json(res, 200, st);
       return true;
+    }
+    if (p === '/calendar/sync' && req.method === 'GET') { await sync.loadAccounts().catch(() => {}); json(res, 200, { calendars: sync.calendars(), targets: sync.targets(), status: sync.status() }); return true; }
+    if (p.startsWith('/calendar/sync/') && req.method === 'POST') {
+      const b = await body(req);
+      const r = p === '/calendar/sync/discover' ? await sync.discover(String(b.account || ''))
+        : p === '/calendar/sync/set' ? sync.setCalendar(String(b.key || ''), b)
+        : p === '/calendar/sync/forget' ? sync.forget(String(b.account || ''))
+        : p === '/calendar/sync/now' ? (await sync.flush().catch(() => {}), await sync.pull().catch(() => {}), { ok: true, status: sync.status() })
+        : null;
+      if (!r) return false;
+      json(res, r.error ? 400 : 200, r); return true;
     }
     if (p === '/calendar/claim' && req.method === 'POST') {
       const h = read(HOUSE, null), links = (h?.calendars || []).filter((c) => c && c.url).map((c) => ({ url: String(c.url), who: c.who || null }));

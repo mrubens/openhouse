@@ -111,6 +111,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         live = this
         dev.openhouse.ui.BridgeClient.token = BridgeToken.get(this) // every request to the bridge carries it
         Runtime.init(this)
+        CalendarAccounts.init(this) // two-way calendars: the sign-ins (the bridge syncs, through DeviceServer)
         CalendarLinks.start(this) { bridge } // the family's calendar links: kept by the shell, read every 15 minutes
         PhotoAlbums.start(this) { bridge }
         PhotoShare.start(this) // the household's lasting photo page for phones, when someone turned it on // shared albums (iCloud): kept by the shell like the calendars, read every 30 minutes
@@ -246,7 +247,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     // --- kiosk and the lock -------------------------------------------------------------------
     internal fun leaveKiosk() { kioskPaused = true; DeviceOwner.leaveKiosk(this) }
     /** "Add a calendar" from the Calendar app (or anywhere): behind the PIN when the lock is on, then the paste box. */
-    internal fun addCalendar() = lock.withPin { CalendarLinks.add(this, ::immersive) }
+    internal fun addCalendar() = lock.withPin { CalendarAccounts.choose(this, ::immersive) } // Google, iCloud, or a link
     /** A calendar link from the computer or the assistant (DeviceServer /calendar): the tablet's card, then the PIN. */
     internal fun offerCalendar(who: String, url: String, from: String, done: (Boolean) -> Unit, trusted: Boolean = false) =
         // From the setup's own phone or computer, with the lock off: in at once (it was set up from there a moment ago).

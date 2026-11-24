@@ -42,6 +42,9 @@ input[type=file]{padding:18px;border-style:dashed}
 // page is the tablet's (GooglePhotos.kt), opened from its QR code: http://<tablet>:<port>/#<key>.
 //   1. Sign in: off to OpenHouse's cloud (/g/start), which sends the phone to Google's consent screen and back here
 //      with an access token after # (#g=…; it never leaves the phone). The key waits in sessionStorage meanwhile.
+//   Google Calendar (CalendarAccounts.kt, info.kind "cal"): the same page, signing in for the calendars (/g/start?k=cal);
+//      the cloud sends back a refresh token (#gc=…), sealed for the tablet, which keeps it; then the calendars are
+//      chosen on the tablet.
 //   2. The token, sealed with the key, to the tablet (POST s). The tablet starts a picking session with Google and
 //      says where to pick (GET i: its pickerUri), copies what was picked straight from Google, and forgets the token.
 'use strict';
@@ -92,19 +95,33 @@ const te = new TextEncoder(), td = new TextDecoder();
   const h = location.hash.slice(1);
   let k64 = h;
   const KEEP = 'openhouse-google';
-  if (h.startsWith('g=') || h === 'g-no') { try { k64 = sessionStorage.getItem(KEEP) || ''; } catch { k64 = ''; } }
+  if (h.startsWith('g=') || h.startsWith('gc=') || h === 'g-no') { try { k64 = sessionStorage.getItem(KEEP) || ''; } catch { k64 = ''; } }
   history.replaceState(null, '', location.pathname); // neither the key nor a token stays in the address bar
   let key; try { key = b64.dec(k64); } catch {}
   if (!key || key.length !== 32) return say('Scan the code on the tablet again.');
   const info = async () => { try { const r = await fetch('i', { cache: 'no-store' }); const box = CP.open(key, te.encode('info'), b64.dec(await r.text())); return box && JSON.parse(td.decode(box)); } catch { return null; } };
   let i = await info();
   if (!i) return say('This link has ended. Start again on the tablet.');
-  if (!i.cloud) return say('Google Photos isn’t available right now. Try again later.');
+  const cal = i.kind === 'cal';
+  if (cal) {
+    document.title = 'OpenHouse: Google Calendar'; $('t').textContent = 'Google Calendar';
+    $('start').querySelector('p').textContent = 'Sign in to Google so the tablet and Google Calendar show the same events, and what’s added on either shows up on both. The sign-in stays sealed on the tablet.';
+  }
+  if (!i.cloud) return say('Google isn’t available right now. Try again later.');
   $('go').onclick = () => {
     try { sessionStorage.setItem(KEEP, k64); } catch {}
-    location.href = `${i.cloud}/g/start?r=${encodeURIComponent(location.origin + '/')}`;
+    location.href = `${i.cloud}/g/start?r=${encodeURIComponent(location.origin + '/')}${cal ? '&k=cal' : ''}`;
   };
   if (h === 'g-no') say('Google said no, or it was cancelled. Try again?');
+  if (h.startsWith('gc=')) { // the calendars' sign-in: the refresh token to the tablet, sealed
+    try { sessionStorage.removeItem(KEEP); } catch {}
+    try {
+      const r = await fetch('s', { method: 'POST', body: CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), te.encode(JSON.stringify({ refresh: decodeURIComponent(h.slice(3)) }))), headers: { 'content-type': 'application/octet-stream' } });
+      if (!r.ok) throw 0;
+    } catch { return say('The tablet didn’t take it. Start again on the tablet.'); }
+    $('start').hidden = true;
+    return say('Signed in. Choose which calendars to show on the tablet.');
+  }
   if (h.startsWith('g=')) {
     try { sessionStorage.removeItem(KEEP); } catch {}
     const token = decodeURIComponent(h.slice(2));
@@ -116,6 +133,7 @@ const te = new TextEncoder(), td = new TextDecoder();
   }
   // Follow the tablet: signing in, picking, copying, done.
   for (;;) {
+    if (i.state === 'signedin') { $('start').hidden = true; return say('Signed in. Choose which calendars to show on the tablet.'); }
     $('start').hidden = i.state !== 'start'; $('pick').hidden = i.state !== 'picking';
     if (i.pickerUri) $('open').href = i.pickerUri + (/autoclose$/.test(i.pickerUri) ? '' : '/autoclose');
     $('bar').hidden = i.state !== 'copying';
