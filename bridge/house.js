@@ -765,14 +765,20 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     const mine = recipeFind = { query: q, state: 'working', at: Date.now() }; changed();
     (async () => {
       try {
-        const found = parseFound(await answer(findPrompt(q), FIND_SYSTEM, [], { webSearch: true }));
+        // A web search through the cloud now and then runs past its 25 s and comes back as an error: once more before giving up.
+        const ask = () => answer(findPrompt(q), FIND_SYSTEM, [], { webSearch: true });
+        const found = parseFound(await ask().catch(() => ask()));
         if (!found.length) throw new Error(`No recipes found for ${q}.`);
         // each page, read here (5 s each, all at once): its own picture and time; one with no recipe in it goes last
         const read = await Promise.all(found.map((f) => readRecipeLink(f.url, { timeoutMs: 5000 }).then((p) => ({ ...f,
           title: f.title || p.name, ...(p.image ? { image: p.image } : {}), ...(p.minutes ? { minutes: p.minutes } : {}), ok: p.recipe !== false }), () => ({ ...f, ok: false }))));
         const results = [...read.filter((r) => r.ok), ...read.filter((r) => !r.ok)].slice(0, 4).map(({ ok, ...r }) => r);
         if (recipeFind === mine) recipeFind = { query: q, state: 'done', at: mine.at, results };
-      } catch (e) { if (recipeFind === mine) recipeFind = { query: q, state: 'error', at: mine.at, text: String(e.message || e).slice(0, 160) }; }
+      } catch (e) {
+        // In words for the screen and the voice, never the service's own code ("ai service" showed where the search was)
+        const said = String(e.message || e);
+        if (recipeFind === mine) recipeFind = { query: q, state: 'error', at: mine.at, text: /^No recipes found/.test(said) ? said.slice(0, 160) : `Couldn't search the web for ${q} just now. Try again in a minute.` };
+      }
       changed();
     })();
     return { ok: true };
@@ -1433,8 +1439,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         remove: { type: 'array', items: { type: 'string', description: 'name or id' } },
         check: { type: 'array', items: { type: 'object', required: ['name', 'step', 'who'], properties: { name: { type: 'string' }, step: { type: 'string' }, who: person, done: { type: 'boolean' } } } },
       } } },
-    { name: 'save_recipe', description: "Save a recipe from its web page into the recipe box: the page is read and made into cooking steps, and it shows in Recipes. For a link to a recipe someone gives or shares (meal: the meal it's for, only if they said).",
-      inputSchema: { type: 'object', required: ['link'], properties: { link: { type: 'string' }, meal: { type: 'string' } } } },
+    { name: 'save_recipe', description: "Save a recipe into the recipe box, where it is made into cooking steps and shows in Recipes. Every recipe goes here, never in a note: a link to its page (one someone gives or shares, or one you found), or else the recipe itself as text, its ingredients and steps (one you know or read out). meal: the meal it's for, only if they said.",
+      inputSchema: { type: 'object', properties: { link: { type: 'string', description: 'Its web page' }, text: { type: 'string', description: 'Without a page: the whole recipe, its name, ingredients and steps' }, meal: { type: 'string' } } } },
     { name: 'set_meals', description: 'Plan meals (the Meals app): set or change what\'s for a meal on a day; empty text clears it. Also the recipe box (a recipe per meal) and which meals the app plans. Meals they have often come back as one-tap choices; favorite pins one there.',
       inputSchema: { type: 'object', properties: { meals: { type: 'array', items: { type: 'object', required: ['date', 'text'], properties: {
         date: { type: 'string', description: 'YYYY-MM-DD' }, meal: { type: 'string', description: 'dinner (default), lunch, breakfast' }, text: { type: 'string' } } } },
@@ -1533,7 +1539,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       return { content: [{ type: 'text', text: [...did, given ? `Given: ${who} spent ${r.stars} stars on ${r.title}.` : ask?.manual ? 'Asked: someone says yes in the Chores app on the tablet.' : `Not given: nobody said yes on the tablet${ParentPinNote}.`].join('; ') }], isError: !given && !ask?.manual };
     }
     if (name === 'change_routines') return out(changeChecklists(a));
-    if (name === 'save_recipe') { const r = addRecipeLink({ link: a.link, meal: a.meal || '' }); return r.error ? out(r) : ok('Saved: it is being read and made into steps; it will be in Recipes in a moment.'); }
+    if (name === 'save_recipe') { const r = a.link ? addRecipeLink({ link: a.link, meal: a.meal || '' }) : addRecipeText(a.text); return r.error ? out(r) : ok('Saved: it is being read and made into steps; it will be in Recipes in a moment.'); }
     if (name === 'set_meals') {
       for (const f of arr(a.favorite)) favorite(f, true);
       for (const f of arr(a.unfavorite)) favorite(f, false);

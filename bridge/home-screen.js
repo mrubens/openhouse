@@ -464,7 +464,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   const SHAPE = { type: 'string', enum: G.SHAPES, description: `Cells across x down: ${SIZE_HELP}.` };
   const TOOLS = [
     { name: 'look_at_notes', description: 'See the notes on the Today tab: id, title, who it is for, how long it has been up, whether it comes down by itself, and any the family took down. Look before putting up or changing notes.', inputSchema: { type: 'object', properties: {} } },
-    { name: 'put_note', description: 'Put a note on the Today tab, where the family sees it under the day: its title and a line of it there, and all of it when someone taps it. Only for something they asked to keep or will come back to (a recipe they are about to make, a plan for the day). Keep it short.',
+    { name: 'put_note', description: 'Put a note on the Today tab, where the family sees it under the day: its title and a line of it there, and all of it when someone taps it. Only for something they asked to keep or will come back to (a plan for the day, a list for an outing). Never a recipe: that goes in the recipe box (save_recipe). Keep it short.',
       inputSchema: { type: 'object', required: ['title', 'content'], properties: {
         title: { type: 'string', description: 'Two to four plain words, shown on Today.' },
         content: { type: 'string', description: 'What it holds when opened: a sentence or two of markdown prose, and/or one ```spec block of JSONL patches (the UI format in your instructions). Start with a plain sentence: its first words show under the title on Today.' },
