@@ -486,7 +486,8 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
         {kinds.has('calendar') && <div className="t-calcol">
         <div {...card('calendar')}>
           {first ? <>
-            <div className="t-agenda t-fit" ref={calFit}>{(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // each day from now, AGENDA events at most
+            <div className="t-agenda t-fit" ref={calFit}>{!todays.length && <div className="t-daygroup t-sday"><div className="t-sdate" data-fit="label"><small>Today</small><b>{t.getDate()}</b></div><div className="t-sthings"><div className="t-snone" data-fit="">Nothing today</div></div></div>}
+              {(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // each day from now, AGENDA events at most
               const rest = l.slice(0, Math.max(0, left)); left -= rest.length; // (the first one like the rest: no big card of its own)
               // as a schedule: the day's weekday and date in a column, its things beside them (all-day ones as slim
               // pills, the others as soft blocks tinted with their person's color, the time under the title)
