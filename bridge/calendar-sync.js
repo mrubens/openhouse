@@ -53,6 +53,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   let st = (() => { try { return { ...blank, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch { return structuredClone(blank); } })();
   let accounts = []; // from the shell: [{ id, provider: 'google'|'caldav', name, who, server? }] (no secrets)
   let changed = () => {}, timer = null, pulling = null, flushing = null;
+  let read = null; // the last list's counts (no contents), kept per calendar in st.reads for Settings and debugging
   function save() {
     const tmp = FILE + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify(st));
@@ -224,10 +225,12 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
       const r = await req(a.id, 'REPORT', c.remote, { headers: { depth: '1', 'content-type': 'application/xml; charset=utf-8' }, body:
         `<?xml version="1.0" encoding="utf-8"?><c:calendar-query ${DAV}><d:prop><d:getetag/><c:calendar-data/></d:prop><c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT"><c:time-range start="${t(from)}" end="${t(to)}"/></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>` });
       if (r.status !== 207) throw httpError(r);
-      const events = {};
-      for (const resp of blocks(r.text, 'response')) {
+      const events = {}, resps = blocks(r.text, 'response');
+      read = { status: r.status, bytes: r.text.length, items: resps.length, withData: 0 };
+      for (const resp of resps) {
         const p = okProps(resp), raw = unxml(first(p, 'calendar-data')), url = href(c.remote, first(resp, 'href')), etag = unxml(first(p, 'getetag')) || null;
         if (!raw) continue;
+        read.withData++;
         const master = raw.replace(/\r\n[ \t]/g, '').split(/\r?\n/);
         const rule = master.find((l) => /^RRULE:/i.test(l));
         for (const e of parse(raw, from, to)) {
@@ -313,7 +316,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     const s = new Date(Date.parse(ev.start) + (p.from ? moved : 0));
     return { start: s.toISOString(), end: new Date(s.getTime() + len).toISOString() };
   }
-  const calendars = () => Object.entries(st.calendars).filter(([, c]) => acc(c.account)).map(([key, c]) => ({ key, ...c, account: c.account, accountName: acc(c.account)?.name || '', provider: acc(c.account)?.provider, default: st.default === key }));
+  const calendars = () => Object.entries(st.calendars).filter(([, c]) => acc(c.account)).map(([key, c]) => ({ key, ...c, account: c.account, accountName: acc(c.account)?.name || '', provider: acc(c.account)?.provider, default: st.default === key, events: Object.keys(st.cache[key] || {}).length, read: st.reads?.[key] || null }));
   /** Where new events can go: two-way calendars (and which is the default). */
   const targets = () => calendars().filter((c) => twoWay(st.calendars[c.key])).map((c) => ({ key: c.key, name: calName(c), who: c.who || null, default: c.default }));
   /** Where an event for [who] goes: their own two-way calendar, else the household's default; null: stays on the tablet. */
@@ -361,7 +364,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   }
   /** An account signed out (the shell forgot it): its calendars, their events and its changes not yet sent go. */
   function forget(accountId) {
-    for (const [k, c] of Object.entries(st.calendars)) if (c.account === accountId) { delete st.calendars[k]; delete st.cache[k]; }
+    for (const [k, c] of Object.entries(st.calendars)) if (c.account === accountId) { delete st.calendars[k]; delete st.cache[k]; delete st.reads?.[k]; }
     st.outbox = st.outbox.filter((o) => st.calendars[o.calendar]);
     if (st.default && !st.calendars[st.default]) st.default = targets()[0]?.key || null;
     delete st.errors[accountId]; save(); changed(); return { ok: true };
@@ -377,7 +380,10 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
         for (const [k, c] of Object.entries(st.calendars)) {
           const a = acc(c.account);
           if (!a || !isOn(c)) continue;
-          try { st.cache[k] = await prov(a).list(a, c, w); delete st.errors[c.account]; }
+          try {
+            read = null; st.cache[k] = await prov(a).list(a, c, w); delete st.errors[c.account];
+            (st.reads ||= {})[k] = { ...(read || {}), events: Object.keys(st.cache[k]).length, at: now() };
+          }
           catch (e) { st.errors[c.account] = e.signin ? 'signin' : str(e.message, 120); if (!e.offline && !e.signin) log(`[calendar-sync] ${a.provider}: ${str(e.message, 80)}`); }
         }
         st.at = now(); save(); changed();
