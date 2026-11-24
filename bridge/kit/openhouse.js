@@ -48,7 +48,11 @@ const B = '/bridge';
   const r = { setProperty: (k, v) => { if (!own.has(k)) st.setProperty(k, v); } };
   if (bg) { r.setProperty('--bg', bg); r.setProperty('--surface', bg); r.setProperty('--panel', `color-mix(in srgb, ${ink || '#24282a'} 6%, ${bg})`); }
   if (ink) { for (const k of ['--ink', '--text']) r.setProperty(k, ink); for (const k of ['--ink-soft', '--muted']) r.setProperty(k, `color-mix(in srgb, ${ink} 55%, ${bg || '#fff'})`); r.setProperty('--line', `color-mix(in srgb, ${ink} 13%, transparent)`); }
-  if (accent) r.setProperty('--accent', accent);
+  if (accent) {
+    r.setProperty('--accent', accent);
+    const [ar, ag, ab] = [1, 3, 5].map((i) => parseInt(accent.slice(i, i + 2), 16));
+    if (.299 * ar + .587 * ag + .114 * ab > 186) r.setProperty('--accent-ink', '#1b1a20');
+  }
   // (the light system, quiet.css: bg is the world behind the tab, panel the white of the panels on it)
   const panel = hex(q.get('panel')); if (panel) r.setProperty('--card', panel);
   if (q.get('dark') === '1') { r.setProperty('color-scheme', 'dark'); document.documentElement.classList.add('dark'); }

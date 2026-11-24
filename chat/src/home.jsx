@@ -12,7 +12,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Widget } from './home-widgets.jsx';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
-import { PALETTES, paletteOf, worldOf } from './look.js';
+import { PALETTES, WHITE, paletteOf, worldOf } from './look.js';
 import { card as weatherCard, icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 
 const DEFAULT_TABS = ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'];
@@ -623,12 +623,13 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
 
 // ---- Tabs and look --------------------------------------------------------------------------------------------
 function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
-  const [mine, setMine] = useState({ tabs: tabs.map((t) => (t.name ? { id: t.id, name: t.name } : { id: t.id })), palette: st.palette, type: st.type, density: st.density, backdrop: st.backdrop, cards: st.cards || [] });
+  const [mine, setMine] = useState({ tabs: tabs.map((t) => (t.name ? { id: t.id, name: t.name } : { id: t.id })), palette: st.palette, colors: st.colors || {}, type: st.type, density: st.density, backdrop: st.backdrop, cards: st.cards || [] });
   const [busy, setBusy] = useState(null);
   const save = (part) => {
     const next = { ...mine, ...part }; setMine(next);
     c.json('POST', '/home/look', part).then((r) => setBusy(r.status === 409 ? r.json?.text || 'Busy' : null)).catch(() => {});
   };
+  const white = (mine.colors?.accent || '').toLowerCase() === WHITE;
   const shown = new Set(mine.tabs.map((t) => t.id));
   const more = [{ id: 'today' }, { id: 'apps' }, ...apps.filter((a) => a.web !== false).map((a) => ({ id: a.id }))].filter((t) => !shown.has(t.id));
   const moved = (list, i, by) => { const l = [...list]; const [x] = l.splice(i, 1); l.splice(Math.max(0, Math.min(l.length, i + by)), 0, x); return l; };
@@ -666,10 +667,15 @@ function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
         <div className="h-arr-col">
           <div className="h-label">Colour</div>
           <div className="h-swatches">{Object.entries(PALETTES).map(([k, p]) => (
-            <button key={k} className={'h-swatch' + (mine.palette === k ? ' on' : '')} style={{ background: p.bg }} onClick={() => save({ palette: k, colors: {} })} aria-label={k}>
+            <button key={k} className={'h-swatch' + (mine.palette === k ? ' on' : '')} style={{ background: p.bg }} onClick={() => save({ palette: k, colors: white ? { accent: WHITE } : {} })} aria-label={k}>
               <span style={{ background: p.sheet }} /><i style={{ background: p.accent }} />
             </button>
           ))}</div>
+          <div className="h-label h-gap">Accent</div>
+          <div className="h-swatches">
+            <button className={'h-dot' + (white ? '' : ' on')} style={{ background: (PALETTES[mine.palette] || PALETTES.paper).accent }} onClick={() => { const { accent, ...rest } = mine.colors || {}; save({ colors: rest }); }} aria-label="The colour's own" />
+            <button className={'h-dot white' + (white ? ' on' : '')} onClick={() => save({ colors: { ...(mine.colors || {}), accent: WHITE } })} aria-label="White" />
+          </div>
           <div className="h-label h-gap">Type</div>
           <div className="h-swatches">{Object.entries(FACES).map(([k, f]) => (
             <button key={k} className={'h-face' + (mine.type === k ? ' on' : '')} style={{ fontFamily: f }} onClick={() => save({ type: k })}>Aa</button>
