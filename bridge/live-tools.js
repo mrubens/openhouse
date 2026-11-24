@@ -22,7 +22,7 @@ import { readPage, READ_PAGE_TOOL } from './read-page.js';
 export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'change_chores', 'change_rewards', 'change_routines', 'set_meals', 'save_recipe', 'keep_shared_photo',
   'calendar_event', 'look_at_notes', 'put_note', 'update_note', 'take_down_note', 'take_down_thing', 'today_card', 'remember_preference', 'forget_preference', 'show_on_map', 'save_place', 'forget_place', 'heartbeat_settings', 'night_hours', 'later', 'later_list',
   // a calendar or an iCloud album by its link (found with a web search, say: a team's schedule): the link goes straight to
-  // the shell, and someone says yes on the tablet with the PIN (calendar-links.js), so the voice can offer it, not force it
+  // the shell, and someone says yes on the tablet (calendar-links.js; an album with the PIN, a calendar without), so the voice can offer it, not force it
   'add_calendar', 'add_photo_album',
   // what the tapping can do too (docs/opie-parity.md): the photos, a flyer sent from a phone, the family list and
   // where they live (the Family sheet), the tabs and look ("Tabs and look"), and taking a change back when asked
