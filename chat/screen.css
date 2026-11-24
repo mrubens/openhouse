@@ -303,12 +303,12 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
 [data-off] { display: none !important; }
 .t-gap-s { margin-top: calc(var(--u) * 16 * var(--s)); }
 .t-dim { color: var(--h-soft); }
-/* the calendar's panel: what's next on its coral card, then the days after it */
+/* the calendar's panel: what's next, large, then the days after it */
 .t-calcol { display: flex; flex-direction: column; gap: calc(var(--u) * 18); min-width: 0; min-height: 0; }
 .t-calcol > .t-card { flex: 1; }
 .t-calcol > .t-card.t-daynote { flex: none; padding: calc(var(--u) * 18 * var(--s)) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 20 * var(--s)); }
 .t-calendar { padding: 0; }
-.t-hero { flex: none; margin: calc(var(--u) * 12) calc(var(--u) * 12) 0; border-radius: calc(var(--u) * 20); padding: calc(var(--u) * 20 * var(--s)) calc(var(--u) * 22 * var(--s)) calc(var(--u) * 22 * var(--s)); background: linear-gradient(140deg, #ff9a73, #ff6f61 70%, #f2587a); color: #15132b; --h-soft: rgba(21,19,43,.66); box-shadow: 0 16px 30px -16px rgba(255,90,90,.6); }
+.t-hero { flex: none; margin: 0; padding: calc(var(--u) * 24 * var(--s)) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 6 * var(--s)); }
 .t-next { margin: calc(var(--u) * 10) 0 calc(var(--u) * 12); font-size: calc(var(--u) * 46 * var(--s)); font-weight: 700; line-height: 1; letter-spacing: -.03em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding-bottom: .08em; }
 .t-when-next { display: flex; align-items: center; gap: calc(var(--u) * 10); font-size: calc(var(--u) * 21 * var(--s)); font-weight: 650; white-space: nowrap; }
 .hand-type .t-next { font-size: calc(var(--u) * 54 * var(--s)); }
@@ -328,32 +328,32 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
 .t-sides { position: absolute; right: calc(var(--u) * 18); top: calc(var(--u) * 18); z-index: 2; display: flex; gap: calc(var(--u) * 10); }
 .t-sides img { width: calc(var(--u) * 74 * var(--s)); height: calc(var(--u) * 74 * var(--s)); border-radius: calc(var(--u) * 18); object-fit: cover; background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.9), 0 10px 20px -6px rgba(0,0,0,.5); }
 .t-photo:not(:has(.t-cap))::after { display: none; }
-/* Dinner, warm: tonight's, or three of theirs to tap, each with its picture (or its initial on a tile). */
-.t-meals { background: linear-gradient(150deg, #b33f2a 0%, #d9662f 55%, #eea044 100%); color: #fff; --h-soft: rgba(255,255,255,.78); --h-line: rgba(255,255,255,.2); }
+/* Dinner: tonight's on its picture, or three of theirs to tap, each with its picture (or its initial on a tile). */
+.t-meals.t-pic-card { color: #fff; --h-soft: rgba(255,255,255,.78); --h-line: rgba(255,255,255,.2); }
 .t-meals.t-pic-card { padding: calc(var(--u) * 24 * var(--s)) calc(var(--u) * 26 * var(--s)); text-shadow: 0 1px 8px rgba(0,0,0,.5); }
 .t-meals.t-pic-card > :not(.t-cover) { position: relative; z-index: 2; }
 .t-meals.t-pic-card .t-fit { flex: none; }
 .t-picks { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 12); margin-top: calc(var(--u) * 14); }
-.t-pick { display: flex; flex-direction: column; min-height: 0; border-radius: calc(var(--u) * 18); overflow: hidden; background: rgba(60,14,6,.3); box-shadow: 0 10px 20px -10px rgba(60,10,0,.6), inset 0 1px 0 rgba(255,255,255,.14); transition: transform .15s; }
+.t-pick { display: flex; flex-direction: column; min-height: 0; border-radius: calc(var(--u) * 18); overflow: hidden; background: var(--h-tint); transition: transform .15s; }
 .t-pick:active { transform: scale(.97); }
 .t-dish { flex: 1; min-height: 0; width: 100%; object-fit: cover; display: block; }
-.t-dish.letter { display: grid; place-items: center; background: linear-gradient(160deg, rgba(255,255,255,.26), rgba(255,255,255,.1)); color: rgba(255,255,255,.92); font-size: calc(var(--u) * 40 * var(--s)); font-weight: 700; }
+.t-dish.letter { display: grid; place-items: center; background: var(--h-tint); color: var(--h-faint); font-size: calc(var(--u) * 40 * var(--s)); font-weight: 700; }
 .t-pick b { flex: none; display: block; box-sizing: border-box; padding: calc(var(--u) * 9) calc(var(--u) * 12) 0; margin-bottom: calc(var(--u) * 11); font-size: calc(var(--u) * 16 * var(--s)); font-weight: 650; line-height: 1.15; height: calc(2.3em + calc(var(--u) * 9)); overflow: hidden; }
-/* the list, green: what's left to get, in two columns, a round box each to tick it here */
-.t-lists { background: linear-gradient(155deg, #0c6b58 0%, #129477 60%, #35b889 100%); color: #fff; --h-soft: rgba(255,255,255,.8); padding: calc(var(--u) * 22 * var(--s)); }
+/* the list: what's left to get, in two columns, a round box each to tick it here */
+.t-lists { padding: calc(var(--u) * 22 * var(--s)); }
 .t-top { display: flex; align-items: center; gap: calc(var(--u) * 10); flex: none; min-height: calc(var(--u) * 28); }
-.t-top .h-label { margin: 0; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-top .h-label { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-ico { width: calc(var(--u) * 22); height: calc(var(--u) * 22); flex: none; }
-.t-n { margin-left: auto; flex: none; font-size: calc(var(--u) * 15 * var(--s)); font-weight: 700; background: rgba(255,255,255,.2); height: calc(var(--u) * 28); padding: 0 calc(var(--u) * 12); border-radius: calc(var(--u) * 14); display: grid; place-items: center; white-space: nowrap; }
+.t-n { margin-left: auto; flex: none; font-size: calc(var(--u) * 15 * var(--s)); font-weight: 700; background: var(--h-tint); height: calc(var(--u) * 28); padding: 0 calc(var(--u) * 12); border-radius: calc(var(--u) * 14); display: grid; place-items: center; white-space: nowrap; }
 .t-items { flex: 1; min-height: 0; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); column-gap: calc(var(--u) * 16); grid-template-rows: repeat(auto-fill, calc(var(--u) * 50 * var(--s))); grid-auto-rows: 0; margin-top: calc(var(--u) * 8); }
-.t-item { display: flex; align-items: center; gap: calc(var(--u) * 10); min-height: 0; overflow: hidden; font-size: calc(var(--u) * 18.5 * var(--s)); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; box-shadow: inset 0 1px 0 rgba(255,255,255,.16); }
+.t-item { display: flex; align-items: center; gap: calc(var(--u) * 10); min-height: 0; overflow: hidden; font-size: calc(var(--u) * 18.5 * var(--s)); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; box-shadow: inset 0 1px 0 var(--h-line); }
 .t-items { grid-auto-flow: column; } /* down the first column, then the second: two items read as a list, not side by side (the user) */
 .t-item:first-child { box-shadow: none; }
 .t-items.one { grid-template-columns: minmax(0, 1fr); } /* a short list: one column, full width (names weren't cut off) */
 .t-more { color: var(--h-soft); }
-.t-box { width: calc(var(--u) * 26); height: calc(var(--u) * 26); border-radius: 50%; border: calc(var(--u) * 2.5) solid rgba(255,255,255,.8); flex: none; box-sizing: border-box; }
-.t-box:active { background: #fff; }
-.t-undo { flex: none; align-self: flex-start; font-size: calc(var(--u) * 15 * var(--s)); font-weight: 650; background: rgba(255,255,255,.2); padding: calc(var(--u) * 7) calc(var(--u) * 14); border-radius: calc(var(--u) * 16); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
+.t-box { width: calc(var(--u) * 26); height: calc(var(--u) * 26); border-radius: 50%; border: calc(var(--u) * 2.5) solid var(--h-faint); flex: none; box-sizing: border-box; }
+.t-box:active { background: var(--h-ink); }
+.t-undo { flex: none; align-self: flex-start; font-size: calc(var(--u) * 15 * var(--s)); font-weight: 650; background: var(--h-tint); padding: calc(var(--u) * 7) calc(var(--u) * 14); border-radius: calc(var(--u) * 16); white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; box-sizing: border-box; }
 /* chores: a ring each, filling in their color as theirs get done */
 .t-rings { display: flex; margin-top: calc(var(--u) * 20); text-align: center; }
 .t-ring { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
@@ -365,8 +365,7 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
 .t-ring-o b svg { width: 45%; height: 45%; }
 .t-ring-n { max-width: 100%; font-size: calc(var(--u) * 16 * var(--s)); font-weight: 650; margin-top: calc(var(--u) * 10); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .t-ring em { font-style: normal; font-size: calc(var(--u) * 14 * var(--s)); font-weight: 550; color: var(--h-soft); margin-top: calc(var(--u) * 2); white-space: nowrap; }
-/* a note, yellow: the newest large, the next ones small under it */
-.t-notes { background: linear-gradient(160deg, #ffd66b, #ffb84a); color: #3a2606; --h-ink: #3a2606; --h-soft: rgba(58,38,6,.62); --h-line: rgba(58,38,6,.16); }
+/* a note: the newest large, the next ones small under it */
 .t-notes .t-rows { flex: 1; display: flex; flex-direction: column; }
 .t-note { display: flex; flex-direction: column; min-width: 0; font-size: calc(var(--u) * 16 * var(--s)); font-weight: 650; padding: calc(var(--u) * 7) 0; border-top: 1px solid var(--h-line); }
 .t-note.first { border: 0; padding: 0 0 calc(var(--u) * 10); margin-top: calc(var(--u) * 14); font-size: calc(var(--u) * 27 * var(--s)); font-weight: 700; line-height: 1.16; letter-spacing: -.02em; text-wrap: balance; }
