@@ -18,7 +18,7 @@ import { pipeline } from 'node:stream/promises';
 // chosen model. Not voice/: the wake model, which the display downloads (it held taught voices once; none are kept now). Never: sign-ins for Claude or ChatGPT (in the runtime and the agent's app, outside this
 // folder), the runtime, the bridge and its secret, .cloud/ (the credential) or .backup/ (the key).
 export const INCLUDE = ['webapp', 'chats', 'household.json', 'house.json', 'photos', 'appdata', 'devices.json', 'agent-model.json',
-  'preferences.md', 'heartbeat.json', 'flyers']; // what the assistant learned, the heartbeat's notes, scanned flyers
+  'preferences.md', 'heartbeat.json', 'flyers', 'mail.json']; // what the assistant learned, the heartbeat's notes, scanned flyers, email's approved senders (not the messages, mail/)
 // .l2s.*: proot's stand-ins for hard links (git makes them); inside the runtime the real files read normally.
 const EXCLUDE = ['node_modules', '.vite', '*.tmp', '.l2s.*'];
 const MAGIC = 'DBK1';
