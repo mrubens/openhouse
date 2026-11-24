@@ -97,7 +97,7 @@ results.
 - Back is the strip down the left side (150 u wide, the whole height). Stop is at the top right. There are no small
   controls.
 - **Timers:** a step that names a time gets a big **Start 20 min timer** button, or Opie offers it ("Want a
-  20-minute timer?"). The timers are the existing door timers (`timer.start`), named after the step ("Simmer the
+  20-minute timer?"). The timers are the home screen's timers (`timer.start`), named after the step ("Simmer the
   filling"), and several can run at once. They show in the home screen's column and ring as always.
 - **Where you are** is kept in the app's store, so a reload or a restart mid-cook carries on (for 3 hours).
 
@@ -125,14 +125,14 @@ Recipes declares its voice actions in `app.json`, the way any plugin does:
 **Starting a cook:**
 - "Let's make the tacos" matches the recipe by its meal name or its own name. Saying none takes the meal planned for
   now.
-- Opie shows its tab, or its own window where it isn't a tab (`door.showApp`, `home.jsx`).
+- Opie shows its tab, or its own window where it isn't a tab (`homeScreen.showApp`, `home.jsx`).
 - Meals' recipe card and day sheet have **Cook**. It goes through `POST /apps/ask`: one of the household's own apps,
   or ours, asks another to do one of its declared actions.
 - A recipe with no steps yet is made ready on the spot. Cooking starts by itself when the steps are done.
 
 ## Listening while cooking: what was chosen, and what it costs
 
-While cooking, the app says it's in use hands-free (`kit handsFree`, `POST /door/handsfree`):
+While cooking, the app says it's in use hands-free (`kit handsFree`, `POST /home/handsfree`):
 - The screen stays on. The shell's resting screen waits (`Openhouse.kt`).
 - When a live session opens, `/live/setup` tells the voice what's on the screen (the step, what it uses, the timer
   it offers, the next step) and that short things said without its name are for it.
@@ -188,5 +188,5 @@ standby, per second, plus the first 15 s at start). Our counter charges it all a
   phone page, `LiveVoice.kt`, `Openhouse.kt`). No cloud deploy is needed.
 - **The 30 s window with a real voice:** whether "next" without the name is caught reliably, and whether the voice
   stays quiet for talk in the room, needs a try on the tablet.
-- **The screen staying on** for a whole cook: built (the door's `handsFree` keeps the resting screen away) but not
+- **The screen staying on** for a whole cook: built (the home screen's `handsFree` keeps the resting screen away) but not
   waited out on the emulator.

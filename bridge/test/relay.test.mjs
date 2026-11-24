@@ -95,7 +95,7 @@ test('on: the tablet dials out; a device learns the relay at home and keeps work
   assert.equal(r.status, 200); assert.ok(r.json && typeof r.json === 'object');
   assert.equal(away.where(), 'away');
   // A bigger answer, in many relay messages.
-  const big = await away.request('GET', '/door');
+  const big = await away.request('GET', '/home');
   assert.equal(big.status, 200);
   const screens = (await get('/screens')).screens;
   assert.ok(screens.find((s) => s.id === w.id).away, 'the Screens list shows it came from away');

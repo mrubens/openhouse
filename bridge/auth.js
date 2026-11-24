@@ -4,7 +4,7 @@
 //   - the shell's native code (the board, app windows) sends it as the X-Openhouse-Token header;
 //   - the runtime gets it as OPENHOUSE_TOKEN (or reads OPENHOUSE_TOKEN_FILE / ../.bridge-token);
 //   - a Mac over `adb forward` fetches it with scripts/bridge-token.sh.
-// The agents' MCP endpoints (/door/mcp, /mcp/home) have their own bearer tokens and check them themselves; so does
+// The agents' MCP endpoints (/home/mcp, /mcp/home) have their own bearer tokens and check them themselves; so does
 // /agent/save, where the agent's own app hands in the files it saved (box.js).
 // Also: Host must be a loopback address (a DNS-rebinding page sends its own host name).
 // BRIDGE_DEV=1 (scripts/start-host.sh, on a Mac) leaves it open.
@@ -28,7 +28,7 @@ if (!token && !DEV) console.log('[auth] no OPENHOUSE_TOKEN: refusing every reque
 // The shell makes a new one at each boot; a bridge started by hand in between picks it up from the file.
 setInterval(() => { if (!process.env.OPENHOUSE_TOKEN) token = load(); }, 30e3).unref();
 
-const OWN_MCP = new Set(['/door/mcp', '/mcp/home',
+const OWN_MCP = new Set(['/home/mcp', '/mcp/home',
   '/agent/save', // not MCP, but the same idea: it takes a running turn's key and nothing else (box.js)
   '/agent/mcp/home', '/agent/mcp/device']); // the device and home tools for the agent's own app, with that key (box.js)
 

@@ -1,8 +1,8 @@
 // The family and the assistant's hourly look at the day ("curation"): it reads the household, the
-// calendar and the door, and keeps its notes on the door current (door.js), plus a one-line headline.
+// calendar and the home screen, and keeps its notes on the home screen current (home-screen.js), plus a one-line headline.
 //
 // GET  /board                 { assistant: {at, headline, weather}, curating, error, family, events, chores }
-// POST /board/pin {title, text, conversation?, who?}   keep an answer: it goes on the door as a kept note
+// POST /board/pin {title, text, conversation?, who?}   keep an answer: it goes on the home screen as a kept note
 // POST /board/refresh         re-curate now
 // GET  /household             the family, where they live, whose calendars are read, chores (setup)
 // POST /household {family?, location?, chores?, routines?}   save what changed
@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { calendars } from './calendar.js';
 
-export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, door }) {
+export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen }) {
   const BOARD = path.join(DIR, 'board.json');
   const HOUSE = path.join(DIR, '../household.json');
   const read = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
@@ -95,9 +95,9 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     try {
       const agent = await currentAgent();
       if (!agent.chat) throw new Error(`${agentName()} can't curate`);
-      const sys = fs.readFileSync(path.join(HERE, 'CURATE.md'), 'utf8') + '\n\n---\n\n' + fs.readFileSync(path.join(HERE, 'DOOR.md'), 'utf8') + (handle.prefs?.() || '') + '\n\n---\n\n' + fs.readFileSync(path.join(HERE, 'chat-prompt.md'), 'utf8');
-      const prompt = context() + `\n\nThe fridge door right now:\n${door.describe()}`;
-      const { result: r, notes } = await door.during({ by: 'assistant' }, (run) => agent.chat({ prompt, cwd: WORK, systemPrompt: sys, onEvent: () => {}, resume: null, doorToken: run.token, route: false }));
+      const sys = fs.readFileSync(path.join(HERE, 'CURATE.md'), 'utf8') + '\n\n---\n\n' + fs.readFileSync(path.join(HERE, 'NOTES.md'), 'utf8') + (handle.prefs?.() || '') + '\n\n---\n\n' + fs.readFileSync(path.join(HERE, 'chat-prompt.md'), 'utf8');
+      const prompt = context() + `\n\nThe home screen right now:\n${homeScreen.describe()}`;
+      const { result: r, notes } = await homeScreen.during({ by: 'assistant' }, (run) => agent.chat({ prompt, cwd: WORK, systemPrompt: sys, onEvent: () => {}, resume: null, homeToken: run.token, route: false }));
       if (!r.ok) throw new Error(r.text);
       const a = parse(r.text);
       save({ ...load(), assistant: { at: Date.now(), headline: a.headline, weather: a.weather } });
@@ -113,7 +113,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   handle.householdView = householdView;
   /** Synced calendars plus events in household.json (house.js adds the display's own). */
   handle.calendarEvents = () => [...(read(HOUSE, {}).events || []), ...cal.events()];
-  door.migrate(load().pins); // pins from before the door had notes
+  homeScreen.migrate(load().pins); // pins from before the home screen had notes
   return handle;
   async function handle(req, res, url) {
     const p = url.pathname;
@@ -152,10 +152,10 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     }
     if (req.method !== 'POST' || !p.startsWith('/board/')) return false;
     const b = await body(req);
-    if (p === '/board/pin') { // "keep this": it goes on the door as a note the family kept
+    if (p === '/board/pin') { // "keep this": it goes on the home screen as a note the family kept
       const text = String(b.text || '');
       if (!text.trim()) { json(res, 400, { error: 'nothing to pin' }); return true; }
-      const { result: r } = await door.during({ by: 'family', who: b.who || null, conversation: b.conversation || null },
+      const { result: r } = await homeScreen.during({ by: 'family', who: b.who || null, conversation: b.conversation || null },
         async (run) => run.put({ title: String(b.title || 'Kept').slice(0, 60), content: text, size: 'large', paper: 'card', for: b.who || null, keep: true }, { makeRoom: true }));
       json(res, r.error ? 409 : 200, r.error ? { error: r.error } : r.note);
       return true;

@@ -46,7 +46,7 @@ const B = '/bridge';
     try { for (const rule of sh.cssRules) if (/^(:root|html)$/.test(rule.selectorText?.trim() || '')) for (const k of rule.style) if (k.startsWith('--')) own.add(k); } catch {}
   }
   const r = { setProperty: (k, v) => { if (!own.has(k)) st.setProperty(k, v); } };
-  if (bg) { r.setProperty('--bg', bg); r.setProperty('--door', bg); r.setProperty('--panel', `color-mix(in srgb, ${ink || '#24282a'} 6%, ${bg})`); }
+  if (bg) { r.setProperty('--bg', bg); r.setProperty('--surface', bg); r.setProperty('--panel', `color-mix(in srgb, ${ink || '#24282a'} 6%, ${bg})`); }
   if (ink) { for (const k of ['--ink', '--text']) r.setProperty(k, ink); for (const k of ['--ink-soft', '--muted']) r.setProperty(k, `color-mix(in srgb, ${ink} 55%, ${bg || '#fff'})`); r.setProperty('--line', `color-mix(in srgb, ${ink} 13%, transparent)`); }
   if (accent) r.setProperty('--accent', accent);
   // (the light system, quiet.css: bg is the world behind the tab, panel the white of the panels on it)
@@ -467,9 +467,9 @@ export const reach = {
  * in its app.json "uses".
  */
 export const decide = (input, questions) => call('/cloud/decide', { input: String(input || ''), questions }).then((r) => (r?.answers || null)).catch(() => null);
-export const timer = { start: (label, seconds) => send('/door/timer', { start: { label: String(label || 'Timer'), seconds: Math.round(seconds) } }),
-  /** Stop one (its endAt, from the door's timers). */
-  cancel: (endAt) => send('/door/timer', { cancel: endAt }) };
+export const timer = { start: (label, seconds) => send('/home/timer', { start: { label: String(label || 'Timer'), seconds: Math.round(seconds) } }),
+  /** Stop one (its endAt, from the home screen's timers). */
+  cancel: (endAt) => send('/home/timer', { cancel: endAt }) };
 
 /**
  * This app is in use hands-free (cooking with messy hands): the screen stays on, and while the live voice is open it
@@ -477,7 +477,7 @@ export const timer = { start: (label, seconds) => send('/door/timer', { start: {
  * each answer, so a short "next" works without the name. It lapses after `minutes`, or handsFree(null) ends it now.
  * Needs "say" in a plugin's app.json "uses".
  */
-export const handsFree = (o) => send('/door/handsfree', o ? { note: String(o.note || ''), listen: o.listen, minutes: o.minutes } : { off: true });
+export const handsFree = (o) => send('/home/handsfree', o ? { note: String(o.note || ''), listen: o.listen, minutes: o.minutes } : { off: true });
 
 /** Another of the household's apps does one of its voice actions (its app.json "actions"), as if asked aloud: the
  *  Meals app's Cook asks the Recipes app to cook that meal. Resolves to what it answered, or null. The household's own
@@ -527,7 +527,7 @@ export const phone = {
 };
 
 export const shell = {
-  /** Back to the door. */
+  /** Back to the home screen. */
   close: () => (host?.close ? host.close() : SCREEN ? window.parent.postMessage({ oh: 'close' }, '*') : history.back()),
   /** Open another of the household's apps: its tab, or full screen (the home screen does it, for an app in one of its
    *  tabs). False where it can't; canOpenApps says whether it can. */

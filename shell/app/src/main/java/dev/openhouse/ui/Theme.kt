@@ -41,7 +41,7 @@ object Oh {
     val people = listOf(Color(0xFFE9B949), Color(0xFF7CC6A4), Color(0xFFF08A6C), Color(0xFF8FB3FF), Color(0xFFD59BE6), Color(0xFFF3C98B))
 }
 
-/** Colors (and type) generated UI is drawn with: dark by default, paper and ink on the fridge door. */
+/** Colors (and type) generated UI is drawn with: dark by default, paper and ink on the home screen. */
 @Immutable
 data class Palette(
     val text: Color, val muted: Color, val card: Color, val card2: Color, val line: Color, val accent: Color, val accentInk: Color,

@@ -111,7 +111,7 @@ internal fun SettingsBack() {
         androidx.compose.foundation.Canvas(Modifier.size(22.u)) {
             val w = size.width; val h = size.height
             drawPath(androidx.compose.ui.graphics.Path().apply { moveTo(w * .62f, h * .12f); lineTo(w * .28f, h * .5f); lineTo(w * .62f, h * .88f) },
-                Door.ink, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.4f * density, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
+                PaperLook.ink, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.4f * density, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
         }
     }
 }
@@ -139,8 +139,8 @@ internal fun SettingsRow(title: String, value: String? = null, locked: Boolean =
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.u)).clickable(onClick = onClick).padding(horizontal = 12.u, vertical = 15.u),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.u)) {
         Text(title, style = quietText(21, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        value?.let { Text(it, style = quietText(18, color = Door.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 240.u)) }
-        if (locked) Icon(androidx.compose.material.icons.Icons.Filled.Lock, "Locked", tint = Door.inkSoft, modifier = Modifier.size(18.u))
+        value?.let { Text(it, style = quietText(18, color = PaperLook.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 240.u)) }
+        if (locked) Icon(androidx.compose.material.icons.Icons.Filled.Lock, "Locked", tint = PaperLook.inkSoft, modifier = Modifier.size(18.u))
     }
 }
 
@@ -182,7 +182,7 @@ internal fun DeleteAppSheet(a: AppInfo) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable { o.confirmDelete = null }, contentAlignment = Alignment.Center) {
             QuietCard(Modifier.width(600.u).clickable(enabled = false) {}) {
                 Text("Delete ${a.name}?", style = quietText(30, FontWeight.SemiBold))
-                Text("It comes off the home screen and the tablet.", style = quietText(18, color = Door.inkSoft))
+                Text("It comes off the home screen and the tablet.", style = quietText(18, color = PaperLook.inkSoft))
                 Spacer(Modifier.height(22.u))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.u)) { Spacer(Modifier.weight(1f)); Chip("Cancel") { o.confirmDelete = null }
                     // Deleting can't simply be taken back: the red button (docs/ux.md).
@@ -210,7 +210,7 @@ internal fun JobsSheet() {
                             Column(Modifier.weight(1f)) {
                                 Text("“${j.question}”", style = quietText(20, FontWeight.Medium), maxLines = 2)
                                 val mins = ((o.now - j.startedAt) / 60_000).toInt()
-                                Text(listOfNotNull(j.who, j.status.ifBlank { null }, if (mins > 0) "$mins min" else null).joinToString(" · "), style = quietText(16, color = Door.inkSoft), maxLines = 2)
+                                Text(listOfNotNull(j.who, j.status.ifBlank { null }, if (mins > 0) "$mins min" else null).joinToString(" · "), style = quietText(16, color = PaperLook.inkSoft), maxLines = 2)
                             }
                             StopButton { o.stopJob(j.id) }
                         }
@@ -221,7 +221,7 @@ internal fun JobsSheet() {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.u)) {
                             Column(Modifier.weight(1f)) {
                                 Text("“${b.request}”", style = quietText(20, FontWeight.Medium), maxLines = 2)
-                                Text((b.live ?: b.stage), style = quietText(16, color = Door.inkSoft), maxLines = 1)
+                                Text((b.live ?: b.stage), style = quietText(16, color = PaperLook.inkSoft), maxLines = 1)
                             }
                             StopButton { o.cancelBuild() }
                         }

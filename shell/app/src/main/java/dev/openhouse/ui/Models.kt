@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 data class Person(val name: String, val note: String, val color: Color)
 data class CalEvent(val who: String, val title: String, val start: Long, val bring: String?)
 data class Chore(val who: String, val task: String)
-/** [screensaver]: its app.json says `"screensaver": true` (Photos): when nobody's around, the door shows the family's photos. */
+/** [screensaver]: its app.json says `"screensaver": true` (Photos): when nobody's around, the home screen shows the family's photos. */
 data class AppInfo(val id: String, val name: String, val emoji: String, val icon: String? = null, val screensaver: Boolean = false)
 data class TimerInfo(val id: Int, val label: String, val total: Int, val endAt: Long, val ringing: Boolean)
 data class BoardData(
@@ -19,14 +19,14 @@ data class BoardData(
 data class Answer(
     val question: String, val who: String?, val text: String = "", val live: Boolean = true, val status: String = "",
     val startedAt: Long = System.currentTimeMillis(), val ok: Boolean = false, val convo: String? = null, val at: Long = 0, val voice: Boolean = false,
-    /** Notes on the door this answer put up or changed. */
+    /** Notes on the home screen this answer put up or changed. */
     val notes: List<String> = emptyList(),
     /** Which turn this is (a newer conversation can take the screen while an older one finishes in the background). */
     val turnId: Long = System.nanoTime(),
 )
 
-/** A note on the fridge door: its shape on the door's grid ([size]: "2x1", cells across x down) and where it is. */
-data class DoorNote(
+/** A note on the home screen: its shape on the home screen's grid ([size]: "2x1", cells across x down) and where it is. */
+data class HomeNote(
     val id: String, val title: String, val content: String, val size: String, val paper: String?, val color: String?, val forWho: String?,
     val keep: Boolean, val until: Long?, val by: String, val conversation: String?, val at: Long,
     /** Where it is: its page (from 0) and its top-left cell (null: not placed yet). */
@@ -34,8 +34,8 @@ data class DoorNote(
     /** The assistant is refitting what's on it (after a resize). */
     val refitting: Boolean = false,
 )
-data class DoorCell(val x: Int, val y: Int, val w: Int, val h: Int, val what: String)
-data class DoorData(val cols: Int, val rows: Int, val reserved: List<DoorCell>, val notes: List<DoorNote>, val v: Int,
+data class HomeCell(val x: Int, val y: Int, val w: Int, val h: Int, val what: String)
+data class HomeData(val cols: Int, val rows: Int, val reserved: List<HomeCell>, val notes: List<HomeNote>, val v: Int,
     /** Where the family moved the clock ("clock"), the weather, the gear, app post-its ("app:<id>") and the home app's things ("own:<key>"), in u. */
     val places: Map<String, Place> = emptyMap(),
     /** Notes the family dragged to the trash (newest first): they can be put back. */
@@ -55,7 +55,7 @@ data class Weather(val place: String, val temp: Int, val code: Int, val conditio
     val hours: List<WeatherHour> = emptyList(), val days: List<WeatherDay> = emptyList())
 data class WeatherHour(val time: String, val temp: Int, val code: Int, val isDay: Boolean, val rain: Int?)
 data class WeatherDay(val date: String, val high: Int, val low: Int, val code: Int, val condition: String, val rain: Int?)
-/** Where something that isn't a note sits on the door's grid (page from 0, its top-left cell, cells across and down; null: not yet), and whether it's in the trash. */
+/** Where something that isn't a note sits on the home screen's grid (page from 0, its top-left cell, cells across and down; null: not yet), and whether it's in the trash. */
 data class Place(val page: Int = 0, val col: Int? = null, val row: Int? = null, val w: Int? = null, val h: Int? = null, val hidden: Boolean = false)
 data class Speaker(val name: String, val unsure: Boolean, val at: Long)
 /** The agent making or changing something: its steps as they happen, then what it did. */
@@ -65,7 +65,7 @@ data class Build(
     val summary: String? = null, val endedAt: Long = 0, val app: String? = null,
 )
 data class Turn(val role: String, val text: String, val who: String? = null, val live: Boolean = false, val status: String = "", val ok: Boolean = true, val notes: List<TurnNote> = emptyList())
-/** A note an answer put on the door, as it was then (it may have changed or come down since). */
+/** A note an answer put on the home screen, as it was then (it may have changed or come down since). */
 data class TurnNote(val id: String, val title: String, val content: String)
 data class Conversation(val id: String?, val turns: List<Turn>)
 data class ConversationInfo(val id: String, val title: String, val updated: Long, val who: String?)

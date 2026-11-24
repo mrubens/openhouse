@@ -1,7 +1,7 @@
 package dev.openhouse.shell
 
 // What the display sets up on the tablet as its device owner: kiosk (lock task) mode, the permanent home app,
-// the door-colored wallpaper, the child processes kept alive, and the accessibility service the assistant uses
+// the home screen-colored wallpaper, the child processes kept alive, and the accessibility service the assistant uses
 // to work other apps (device control).
 
 import android.app.Activity
@@ -45,7 +45,7 @@ internal object DeviceOwner {
             dpm.setKeyguardDisabled(admin, true)
             dpm.setStatusBarDisabled(admin, true)
             showHiddenHomes(a)
-            doorWallpaper(a)
+            homeWallpaper(a)
         }.onFailure { Log.w(TAG, "kiosk setup failed: $it") }
     }
 
@@ -102,7 +102,7 @@ internal object DeviceOwner {
      * screen. Make that the home screen's plain paper (home and lock wallpaper), so the moment looks blank
      * instead of like a Samsung tablet. Once per device; someone can change the wallpaper back.
      */
-    private fun doorWallpaper(a: Activity) {
+    private fun homeWallpaper(a: Activity) {
         val prefs = a.getSharedPreferences("shell", Activity.MODE_PRIVATE)
         if (prefs.getBoolean("paperWallpaper", false)) return // (once again on tablets that had the old green)
         runCatching {

@@ -16,7 +16,7 @@ import crypto from 'node:crypto';
 import { weatherRoutes } from './weather.js';
 import { boardRoutes } from './board.js';
 import { voiceRoutes } from './voice.js';
-import { doorRoutes, requestApp, showingTab, isTab } from './door.js';
+import { homeScreenRoutes, requestApp, showingTab, isTab } from './home-screen.js';
 import { houseRoutes } from './house.js';
 import { mapRoutes } from './maps.js';
 import { liveToolRoutes, LIVE_TOOLS, recentTalk } from './live-tools.js';
@@ -48,13 +48,13 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const PUBLIC = path.join(HERE, 'public');
   const running = new Map(); // id -> AbortController
   const hooks = {}; // onTurn (heartbeat.js)
-  const door = doorRoutes({ DIR, json, body, edits, APP_DIR });
-  // The agents reach the door's MCP server with these (agents/*.js read them when they start).
-  process.env.DOOR_MCP_URL = `http://127.0.0.1:${process.env.PORT || 8787}${door.url}`;
-  process.env.DOOR_MCP_TOKEN = door.token;
+  const homeScreen = homeScreenRoutes({ DIR, json, body, edits, APP_DIR });
+  // The agents reach the home screen's MCP server with these (agents/*.js read them when they start).
+  process.env.HOME_MCP_URL = `http://127.0.0.1:${process.env.PORT || 8787}${homeScreen.url}`;
+  process.env.HOME_MCP_TOKEN = homeScreen.token;
   // The shell's device server (its own token, which stays here): the workshop reaches the device tools through it.
   const deviceServer = () => { try { const d = JSON.parse(fs.readFileSync(process.env.DEVICE_MCP_CONFIG, 'utf8')).mcpServers.device; return { url: d.url, auth: d.headers.Authorization }; } catch { return null; } };
-  const board = boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, door });
+  const board = boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen });
   const weather = weatherRoutes({ json, household: () => board.householdView() });
   // The family's lists, chore checkmarks, meals and own events, for the starting apps and the assistant (house.js).
   // The things on Today (things.js): reminders due, the heartbeat's suggestions, countdowns, a broken app; Opie takes one down.
@@ -62,14 +62,14 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const things = thingStore({ DIR, onChange: () => house?.changed() });
   // What apps put on the calendar's days (day-notes.js): a school lunch, a pickup day.
   const notes = dayNotes({ DIR, onChange: () => house?.changed() });
-  house = houseRoutes({ DIR, json, body, board, door, currentAgent, agentName, WORK, things, notes });
+  house = houseRoutes({ DIR, json, body, board, homeScreen, currentAgent, agentName, WORK, things, notes });
   things.setPutAway((k) => house.putAway(k));
-  door.addTools([things.tools[1]], (name, a) => things.call(name, a, { by: 'assistant', house: house.view() }));
+  homeScreen.addTools([things.tools[1]], (name, a) => things.call(name, a, { by: 'assistant', house: house.view() }));
   board.localEvents = house.localEvents; board.houseContext = house.context;
-  door.addTools(house.tools, house.call);
+  homeScreen.addTools(house.tools, house.call);
   // The Map: saved places, today's events with a place, what Opie showed (maps.js, docs/maps.md).
-  const map = mapRoutes({ DIR, json, body, board, house, door, hasApp: () => !!APP_DIR && fs.existsSync(path.join(APP_DIR, 'apps/map/index.html')) });
-  door.addTools(map.tools, map.call);
+  const map = mapRoutes({ DIR, json, body, board, house, homeScreen, hasApp: () => !!APP_DIR && fs.existsSync(path.join(APP_DIR, 'apps/map/index.html')) });
+  homeScreen.addTools(map.tools, map.call);
   const voice = voiceRoutes({ HERE, DIR, json, body });
   globalThis.openhouseSpeechLog = (kind, d) => voice.log?.(kind, d); // the home devices' actions (devices/index.js)
   setTimeout(() => familyNames(), 0);
@@ -78,7 +78,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
 
   // The household and the assistant's own name, as tools: "call yourself Hazel", "Maya turned 10", and the
   // onboarding chat that sets the family up by talking.
-  // This family's own preferences (how they like notes, answers, the door), on top of DOOR.md's defaults.
+  // This family's own preferences (how they like notes, answers, the home screen), on top of NOTES.md's defaults.
   const PREFS = path.join(DIR, '../preferences.md');
   const readPrefs = () => { try { return fs.readFileSync(PREFS, 'utf8').split('\n').map((l) => l.replace(/^[-*]\s*/, '').trim()).filter(Boolean); } catch { return []; } };
   // The household's quick tools for OpenAI's live voice (live-tools.js); typed turns get those and a few more (textTools).
@@ -86,24 +86,24 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   // each day's few lines for a week (days.js), and the last half hour word for word (recentTalk).
   const days = dayMemory({ DIR });
   const talk = recentTalk({ onAdd: days.log });
-  const live = liveToolRoutes({ HERE, door, weather, talk, prefsBlock: () => prefsBlock(), assistantName: () => 'Opie', json, body,
+  const live = liveToolRoutes({ HERE, homeScreen, weather, talk, prefsBlock: () => prefsBlock(), assistantName: () => 'Opie', json, body,
     household: { save: (b) => board.saveHousehold(b), read: () => board.householdView() },
-    now: () => snapshot({ hv: house.view(), notes: door.describe(), household: board.household(), findings: null }) });
+    now: () => snapshot({ hv: house.view(), notes: homeScreen.describe(), household: board.household(), findings: null }) });
   // Opie using the tablet's other apps for someone (device-tools.js, docs/device-control.md): the voice's and typed turns' tools.
   const device = deviceTools({ server: deviceServer, log: (kind, d) => voice.log?.(kind, d),
     describe: async (jpeg, question) => (await import('./agents/cloud.js')).answer({ prompt: question, images: [{ type: 'image/jpeg', bytes: Buffer.from(jpeg, 'base64') }] }) });
   live.setDevice(device);
   // A typed turn's tools (agents/cloud.js): the voice's, plus the household itself, the home screen's tabs and look,
   // taking back a change, adding a calendar or an album, and ending the conversation. Never an app's files.
-  const TYPED = ['update_household', 'set_home', 'today_card', 'move_on_door', 'put_back', 'list_changes', 'undo_change', 'end_conversation', 'add_calendar', 'add_photo_album'];
+  const TYPED = ['update_household', 'set_home', 'today_card', 'move_on_home', 'put_back', 'list_changes', 'undo_change', 'end_conversation', 'add_calendar', 'add_photo_album'];
   const fn = (t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) });
-  const textTools = () => [...live.tools(), ...door.tools().filter((t) => TYPED.includes(t.name)).map(fn)];
-  /** One of those, as part of the turn whose door token this is (its notes, its edit lock, end_conversation), else as the voice. */
+  const textTools = () => [...live.tools(), ...homeScreen.tools().filter((t) => TYPED.includes(t.name)).map(fn)];
+  /** One of those, as part of the turn whose home-screen token this is (its notes, its edit lock, end_conversation), else as the voice. */
   async function callText(name, args, token) {
-    const run = token ? door.runOf(token) : null;
+    const run = token ? homeScreen.runOf(token) : null;
     if (run && (TYPED.includes(name) || LIVE_TOOLS.includes(name))) {
-      args = fromModel(door.tools().find((t) => t.name === name)?.inputSchema, args || {}); // (what a strict call filled in: tool-args.js)
-      const r = await door.call(name, args || {}, run);
+      args = fromModel(homeScreen.tools().find((t) => t.name === name)?.inputSchema, args || {}); // (what a strict call filled in: tool-args.js)
+      const r = await homeScreen.call(name, args || {}, run);
       return { text: (r?.content || []).map((c) => c.text || '').join('\n').slice(0, 8000), isError: !!r?.isError };
     }
     if (TYPED.includes(name)) return { text: `${name} needs a conversation.`, isError: true };
@@ -114,7 +114,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     'You can\'t make or change an app\'s or a game\'s code: someone does that from their computer with their own Claude or ChatGPT (Settings, then Screens and computers). ' +
     'Tabs, their order and names, and the look of the home screen are set_home.\n\n---\n\n';
   const textInstructions = () => { const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
-    return TEXT_PREAMBLE(nameOf()) + read('CHAT.md') + '\n\n---\n\n' + read('DOOR.md') + prefsBlock(); };
+    return TEXT_PREAMBLE(nameOf()) + read('CHAT.md') + '\n\n---\n\n' + read('NOTES.md') + prefsBlock(); };
   const prefsBlock = () => {
     const p = readPrefs(), d = days.describe();
     return (p.length ? `\n\nWHAT THIS HOUSEHOLD TOLD YOU TO REMEMBER (facts about them and how they like things; these win over the defaults above)\n${p.map((x) => '- ' + x).join('\n')}` : '') +
@@ -124,17 +124,17 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const nameOf = () => 'Opie'; // always Opie, the name it wakes to
   // Someone pinched a note much bigger or smaller: the assistant refits what's on it (quietly, in the background).
   let refitting = Promise.resolve();
-  door.onResize = (n, from) => { refitting = refitting.then(async () => {
+  homeScreen.onResize = (n, from) => { refitting = refitting.then(async () => {
     const agent = await currentAgent(); if (!agent.chat) return;
-    const prompt = `(Nobody asked anything. Someone on the family just resized the note ${n.id} "${n.title}" on the door from ${from} to ${n.size}. ` +
+    const prompt = `(Nobody asked anything. Someone on the family just resized the note ${n.id} "${n.title}" on the home screen from ${from} to ${n.size}. ` +
       `Rewrite its content with update_note so it fits its new size: ${G.area(n.size) < G.area(from) ? 'less on it: the one thing that matters' : 'it has more room now, so it can show more'}, following THE FEEL OF A NOTE. Keep its title. Say nothing.)` +
-      `\n\n(${door.describe()})`;
-    door.mark(n.id, { refitting: true }); // a spinner on the note meanwhile
-    try { await door.during({ by: 'assistant' }, (run) => agent.chat({ prompt, cwd: WORK, systemPrompt: systemPrompt(), signal: AbortSignal.timeout(120e3), onEvent: () => {}, resume: null, doorToken: run.token, route: false })); }
-    catch {} finally { door.mark(n.id, { refitting: false }); }
-    console.log(`[door] refit ${n.id} for ${n.size}`);
+      `\n\n(${homeScreen.describe()})`;
+    homeScreen.mark(n.id, { refitting: true }); // a spinner on the note meanwhile
+    try { await homeScreen.during({ by: 'assistant' }, (run) => agent.chat({ prompt, cwd: WORK, systemPrompt: systemPrompt(), signal: AbortSignal.timeout(120e3), onEvent: () => {}, resume: null, homeToken: run.token, route: false })); }
+    catch {} finally { homeScreen.mark(n.id, { refitting: false }); }
+    console.log(`[home] refit ${n.id} for ${n.size}`);
   }); };
-  door.addTools([
+  homeScreen.addTools([
     { name: 'about_household', description: 'What this display knows about the family: your name, who lives here (names, ages or roles), where they live, whose calendars you can see (the household add calendars with the Calendar tab\'s "Add a calendar" or by giving you a link for add_calendar; you never see the links after that), chores.', inputSchema: { type: 'object', properties: {} } },
     { name: 'update_household', description: 'Save what you learned about the family. Each field you pass replaces that whole list, so include everyone/everything that should stay (read about_household first). Only what they told you; never guess.',
       inputSchema: { type: 'object', properties: {
@@ -168,7 +168,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       return ok(r.ok ? (r.note ? `No errors. ${r.note}` : 'It builds and runs.') : `Errors:\n${r.errors}`);
     }
     if (name === 'progress') { const t = String(a.text || '').trim().slice(0, 160); if (t) ctx?.send?.({ type: 'progress', text: t }); return ok('Said.'); }
-    if (name === 'put_back') return door.putBack(String(a.key || '')) ? ok('Back on the door.') : { content: [{ type: 'text', text: 'Nothing by that key was taken off.' }], isError: true };
+    if (name === 'put_back') return homeScreen.putBack(String(a.key || '')) ? ok('Back on the home screen.') : { content: [{ type: 'text', text: 'Nothing by that key was taken off.' }], isError: true };
     if (name === 'list_changes') return ok(JSON.stringify(listChanges(), null, 1));
     if (name === 'undo_change') {
       if (!undoChange) return { content: [{ type: 'text', text: 'Not available.' }], isError: true };
@@ -208,11 +208,11 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
 
   /** The home screen as it is: its tabs (and which one is showing), and the notes on Today. */
   function homeLine() {
-    const st = door.style(), tabs = (st.tabs || ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'].map((id) => ({ id }))).map((t) => t.id);
+    const st = homeScreen.style(), tabs = (st.tabs || ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'].map((id) => ({ id }))).map((t) => t.id);
     const now = showingTab();
     const here = now === 'today' ? ' They are looking at the Today tab.' : now === 'apps' || now === 'board' ? ' They are looking at the Apps tab.' : '';
     return `\n\n(The home screen right now: tabs ${tabs.join(', ')}${st.tabs ? '' : ' (the usual set)'}; look: ${st.palette}, ${st.type} type, ${st.density}${st.backdrop === 'photos' ? ', photos behind' : ''}${st.cards?.length ? `; app cards on Today: ${st.cards.join(', ')}` : ''}.${here} ` +
-      `Tabs (add, remove, reorder, rename) and the look ("make it warmer") are one set_home call: no files, no start_editing, no check_build. Apps that aren't tabs are in the Apps tab. An app's own card on Today (a remote, a score): today_card.\n${door.describe()})`;
+      `Tabs (add, remove, reorder, rename) and the look ("make it warmer") are one set_home call: no files, no start_editing, no check_build. Apps that aren't tabs are in the Apps tab. An app's own card on Today (a remote, a score): today_card.\n${homeScreen.describe()})`;
   }
 
   /** The app or game open on the screen while they talk: questions are about it, and changes are to it. */
@@ -294,7 +294,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     const showApp = (app) => {
       if (!before.has(app)) { fresh.add(app); return; }
       // One of the tabs: the home screen shows that tab and it reloads there; never the same app full screen over it.
-      if (isTab(app)) { if (showingTab() !== app) door.showTab(app); send({ type: 'edit', app, inTab: true }); return; }
+      if (isTab(app)) { if (showingTab() !== app) homeScreen.showTab(app); send({ type: 'edit', app, inTab: true }); return; }
       send({ type: 'edit', app, inTab: false });
     };
     try {
@@ -305,13 +305,13 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       });
     } catch {}
     try { // whatever goes wrong, the conversation is free again afterwards (else it answers "busy" forever)
-    ({ result, notes, ctx: run } = await door.during({ by: 'chat', who, conversation: c.id, send, turn: editTurn, signal: abort.signal, app: /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(b.app || '')) ? String(b.app) : null, crash: b.crash ? String(b.crash).slice(0, 2000) : null }, (door1) => agent.chat({
-      prompt, cwd: WORK, systemPrompt: systemPrompt(), signal: abort.signal, resume: c.sessions?.[name] || null, doorToken: door1.token, history, route: !onboard,
+    ({ result, notes, ctx: run } = await homeScreen.during({ by: 'chat', who, conversation: c.id, send, turn: editTurn, signal: abort.signal, app: /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(b.app || '')) ? String(b.app) : null, crash: b.crash ? String(b.crash).slice(0, 2000) : null }, (run1) => agent.chat({
+      prompt, cwd: WORK, systemPrompt: systemPrompt(), signal: abort.signal, resume: c.sessions?.[name] || null, homeToken: run1.token, history, route: !onboard,
       onEvent: (e) => {
         if (e.kind === 'step') { if (steps.length < 80) steps.push([Date.now() - t0, String(e.text).slice(0, 80)]); return; }
         if (e.kind === 'warm') { warmed = e.warm; return; }
         if (e.kind === 'model') { usedModel = e.id; return; } // the model this turn ran on (chats.jsonl: compare models)
-        if (e.kind === 'door-token') return door1.attach(e.token); // a warm agent, started with its own token
+        if (e.kind === 'home-token') return run1.attach(e.token); // a warm agent, started with its own token
         if ((e.kind === 'delta' || e.kind === 'message') && !firstText) firstText = Date.now() - t0;
         if (e.kind === 'session') { c.sessions = { ...c.sessions, [name]: e.id }; save(c); }
         else if (e.kind === 'edit') { // the app it's changing, so the display can show it changing
@@ -334,9 +334,9 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     // What it changed in the apps: committed with what was asked, so "undo" takes it back. A turn that failed,
     // threw or was stopped puts its half-done change back instead.
     if (editTurn) { try { edits.end(editTurn, !!result.ok); } catch (e) { console.error('[edits]', e); } }
-    // An answer that came back as UI in the reply instead of on a note still goes on the door.
+    // An answer that came back as UI in the reply instead of on a note still goes on the home screen.
     if (result.ok && !notes.length && /```spec/.test(result.text)) {
-      const r = await door.during({ by: 'chat', who, conversation: c.id }, async (d) => d.put({ title: text.slice(0, 50), content: result.text.replace(/^BUILD:.*$/m, ''), size: 'large', paper: 'card', minutes: 30 }, { makeRoom: true }));
+      const r = await homeScreen.during({ by: 'chat', who, conversation: c.id }, async (d) => d.put({ title: text.slice(0, 50), content: result.text.replace(/^BUILD:.*$/m, ''), size: 'large', paper: 'card', minutes: 30 }, { makeRoom: true }));
       notes.push(...r.notes);
     }
     if (notes.length) send({ type: 'notes', notes });
@@ -366,7 +366,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     if ((p === '/map' || p.startsWith('/map/')) && await map(req, res, url)) return true;
     if ((p.startsWith('/live/') || p === '/setup/step') && await live(req, res, url)) return true;
     if ((p === '/house' || p.startsWith('/house/')) && await house(req, res, url)) return true;
-    if (p.startsWith('/door') && await door(req, res, url)) return true;
+    if (p.startsWith('/home') && await homeScreen(req, res, url)) return true;
     // pages: /chat/ (the conversation page, the start of a phone page) and /app/ (its bundle)
     if (req.method === 'GET' && (p === '/chat' || p === '/app' || p === '/screen')) { res.writeHead(301, { location: p + '/' }); res.end(); return true; }
     const page = req.method === 'GET' && p.match(/^\/(chat|app|screen)(\/.*)$/);
@@ -407,5 +407,5 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       return true;
     }
     return false;
-  }, { door, deviceServer, house, things, notes, board, hooks, live, voice, textTools, callText, textInstructions, busy: () => running.size > 0, work: WORK, summarizeDays, weather }); // door, deviceServer: for the workshop (workshop.js); the rest for the heartbeat (heartbeat.js)
+  }, { homeScreen, deviceServer, house, things, notes, board, hooks, live, voice, textTools, callText, textInstructions, busy: () => running.size > 0, work: WORK, summarizeDays, weather }); // homeScreen, deviceServer: for the workshop (workshop.js); the rest for the heartbeat (heartbeat.js)
 }

@@ -88,8 +88,8 @@ All paths are under the display folder (`files/display/` in the shell).
 | **An app** | `webapp/apps/<id>/`: flat files `app.json` (`{"name"}`, optional `screensaver`, `tabIcon`: chat/src/tab-icons.js, `today`: §15), `icon.svg`, `index.html`, `main.js`, more js/css, optional `widget.html` (its card on Today, §15) | the assistant, the builder, the workshop MCP `write_file` | git, one commit per change (`bridge/edits.js`) | yes | **Yes.** It's a folder, and the family's data isn't in it (next row) |
 | The app's data | lists, chores, meals, events, rewards in `house.json` (`bridge/house.js`); app-private data in `appdata/<id>/*.json` | the app, through `/kit/openhouse.js` | no | yes | No. It is the family's |
 | **Tabs and look** | `webapp/apps/home/style.json`: `tabs`, `palette` (paper/linen/sage/mist/dusk), `colors {bg, sheet, ink, accent}`, `type` (clean/serif/round/hand), `density`, `backdrop` | `set_home`, the Tabs and look sheet (`setLook`) | git | yes | **Yes**, the look keys. The tabs are a suggestion (they name the family's own apps) |
-| Notes, widgets, timers | `chats/door.json` | the assistant, the family | trash and `put_back` | yes | No, these are this week's |
-| **The assistant's rules** | `bridge/CHAT.md`, `DOOR.md`, `AGENT.md`, `CURATE.md`, `HEARTBEAT.md`, `chat-prompt.md`: shipped, replaced on every update | us | — | no | No. They're ours |
+| Notes, widgets, timers | `chats/door.json` (its first name) | the assistant, the family | trash and `put_back` | yes | No, these are this week's |
+| **The assistant's rules** | `bridge/CHAT.md`, `NOTES.md`, `AGENT.md`, `CURATE.md`, `HEARTBEAT.md`, `chat-prompt.md`: shipped, replaced on every update | us | — | no | No. They're ours |
 | The family's preferences | `preferences.md`: up to 40 one-line bullets, injected as "they win over the defaults" | `remember_preference` | no | yes (since c1792f6) | Not really. They're personal ("Leo is allergic to nuts") |
 | The assistant's skills | **none.** Pi gets no `--skill`, no settings and no project `.pi/` (the box only syncs `apps/`) | — | — | — | (this proposal) |
 | **Heartbeat checks** | code: six functions in `bridge/heartbeat.js`, what to do per kind in `HEARTBEAT.md` | us | — | — | Not as code. Possibly as data later (§4) |
@@ -167,7 +167,7 @@ twins-chores/
 - **An app's `app.json` gains two optional fields:**
   - `uses`: which house data and abilities it needs, e.g. `["chores", "rewards", "say", "store"]`. The names map onto
     `APP_RULES` route groups: lists, chores, meals, events, rewards, checklists, photos, weather, say, timer, phone,
-    store, home (`/door`, `/board`).
+    store, home (`/home`, `/board`).
   - `reaches`: which outside hosts it may fetch, e.g. `["api.open-meteo.com"]`, or `"*.example.com"` for any name
     under example.com (§12).
   - The family's own apps don't need either field and keep everything, as today. The fields bind shared apps (§5).
@@ -500,7 +500,7 @@ How an action runs:
 Where they plug in:
 - `live-tools.js` takes them through `setExtra({tools, call})` (`server.js` hands it `plugins.voiceTools` and
   `plugins.callVoice`).
-- They come after the door's tools and the weather, and before `ask_opie` (which stays last). The OpenAI live voice
+- They come after the home screen's tools and the weather, and before `ask_opie` (which stays last). The OpenAI live voice
   and the cloud assistant both get them, and the cloud assistant's router (`agents/cloud.js` `routeFor`) counts them
   as household things, so "start the pasta timer" isn't sent away as changing the tablet.
 - The tablet's own assistant doesn't get them as tools. It can change the app itself.
@@ -548,7 +548,7 @@ stay as they are). Each is skipped where there's no such backup. The tablet itse
 - **Voice actions with an answer:** built (2026-11-20, for the Recipes app, docs/recipes.md). An action with
   `"answer": true` is answered by the app's page: what its `onAction` handler returns is what the voice says (the
   bridge waits up to 6 s for `appdata/<app>/replies.json`, else says `reply`). `open` now opens an app that isn't a
-  tab in its own window (`door.showApp`). One of the household's own apps (or ours) can ask another for one of its
+  tab in its own window (`homeScreen.showApp`). One of the household's own apps (or ours) can ask another for one of its
   declared actions (`POST /apps/ask`, kit `askApp`): the Meals app's Cook. And an app in use hands-free (kit
   `handsFree`) keeps the screen on and tells the live voice what it shows.
 - **Looks and widgets as plugins of their own:** a look still comes in with a shared plugin, or is a setting. A
@@ -638,7 +638,7 @@ For an app that's most useful at a glance or a tap (a remote for the speakers, a
 - **The household turns it on**: none show until someone does, in "Tabs and look" (Cards on Today: add, order, take
   off) or by holding the app in Apps (Add to Today). Opie, the text assistant and the workshop use `today_card`
   (`{app, on, position}`; with no app it lists what's on and what could be). Kept as `cards` (app ids, in order) in
-  `apps/home/style.json` with the tabs and the look (`POST /door/look {cards}`), so undo takes it back.
+  `apps/home/style.json` with the tabs and the look (`POST /home/look {cards}`), so undo takes it back.
 - **On Today** the chosen cards come after the weather, chores, dinner and groceries and before the notes and the photo,
   in the household's order, three rows at most; a wide card that doesn't fit the rest of a row starts the next one.
 - **A plugin's app needs `"today-card"` in `uses`** (the card says "a card of its own on Today"); without it the app
@@ -704,7 +704,7 @@ An audit showed a shared app could escape its card. Fixed:
 - **Its own origin.** A shared app's pages are served only at `http://<id>.localhost:5173` (Chromium and Android
   WebView resolve `*.localhost` to this device), never at `127.0.0.1:5173`, where ours and the household's stay. It
   can't read another app's frame or patch its `fetch`, and theirs can't reach it.
-  - The home page (`home.jsx` `appOrigin`), the app windows (`WebApps.kt` `appOrigin`) and the door grid load it there.
+  - The home page (`home.jsx` `appOrigin`), the app windows (`WebApps.kt` `appOrigin`) and the home screen grid load it there.
     `/apps` and `/apps/key` say `shared: true`.
   - **Stored data:** ours and the household's keep their origin, so their localStorage and IndexedDB are as they were.
     A shared app's browser storage starts empty once (none were on the family tablet; its `appdata/` is the bridge's
@@ -721,9 +721,9 @@ An audit showed a shared app could escape its card. Fixed:
   `src/`. `cors: false`.
 - **The CSP on everything** served on a shared app's host, errors and workers included.
 - **The web views as a second wall.** A shared app's own window loads only its origin and its `reaches` (https). The
-  door's web view refuses a frame on any site but this device's servers and YouTube's embeds.
+  home screen's web view refuses a frame on any site but this device's servers and YouTube's embeds.
 - **The shell's calls.** A shared app gets no phone card (calendar, album, unlink, share, PIN, photos, flyer…) and
-  can open only itself; `OpenhouseDisplay.editing` needs the door's gate (an app's frame tells the home page, which
+  can open only itself; `OpenhouseDisplay.editing` needs the home screen's gate (an app's frame tells the home page, which
   passes it on for its own frames).
 - **The cards say everything.** Install and update cards list every right first, merged across the apps, never cut
   (the shell's card scrolls), then our notes, and last the plugin's description, marked as its own words.

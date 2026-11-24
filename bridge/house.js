@@ -1,6 +1,6 @@
 // The family's own things that the starting apps (Calendar, Chores, Lists, Meals, Photos) show: kept here, by
 // the bridge, not in any app's code. So the assistant can rewrite an app, or the family can throw one away and
-// say "undo", and the events, chores, lists and meals are all still there. The same data is on the door
+// say "undo", and the events, chores, lists and meals are all still there. The same data is on the home screen
 // tools, so "add milk", "Leo fed the cat" or "what's for dinner Thursday?" work from any conversation.
 //
 // GET  /house                  { v, today, family, lists, chores, stars, rewards, asks, checklists, meals, favorites,
@@ -74,7 +74,7 @@ export const AISLES = [
 ];
 export const aisleOf = (text) => (AISLES.find(([, re]) => re.test(String(text || ''))) || ['Other'])[0];
 
-export function houseRoutes({ DIR, json, body, board, door = null, currentAgent = null, agentName = () => 'off', WORK = DIR, things = null, notes = null }) {
+export function houseRoutes({ DIR, json, body, board, homeScreen = null, currentAgent = null, agentName = () => 'off', WORK = DIR, things = null, notes = null }) {
   const FILE = path.join(DIR, '../house.json');
   const PHOTOS = path.join(DIR, '../photos');
   try { fs.mkdirSync(PHOTOS, { recursive: true }); } catch {}
@@ -797,8 +797,8 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     if (agent.answer) return String(await agent.answer({ instructions: sys, prompt, images, webSearch })); // the cloud's text model (agents/cloud.js)
     if (webSearch) throw new Error('Searching the web needs the cloud assistant.');
     if (!agent.chat) throw new Error('no assistant');
-    const go = (run) => agent.chat({ prompt, cwd: WORK, systemPrompt: sys, onEvent: () => {}, resume: null, doorToken: run?.token, route: false });
-    const r = door ? (await door.during({ by: 'assistant' }, go)).result : await go(null);
+    const go = (run) => agent.chat({ prompt, cwd: WORK, systemPrompt: sys, onEvent: () => {}, resume: null, homeToken: run?.token, route: false });
+    const r = homeScreen ? (await homeScreen.during({ by: 'assistant' }, go)).result : await go(null);
     if (!r?.ok) throw new Error(r?.text || 'no answer');
     return String(r.text);
   }
@@ -1145,7 +1145,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     ].filter(Boolean).join('\n');
   }
 
-  // ---- tools (on the door's MCP server) ----
+  // ---- tools (on the home screen's MCP server) ----
   const person = { type: 'string', description: 'A family name' };
   const TOOLS = [
     { name: 'night_hours', description: 'The screen\'s night hours: when nobody\'s using it, it dims and shows only the time (no photos), and the check-ins sleep. On by default, 9:30 PM to 6:30 AM. Pass from and to ("21:30", "06:30") to change them, off: true to turn night off, or nothing to say what they are. Change them only when they ask.',

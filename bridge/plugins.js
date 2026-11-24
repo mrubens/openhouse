@@ -19,7 +19,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import net from 'node:net';
 import { execFileSync } from 'node:child_process';
-import { cleanLook, DEFAULT_TABS, isTab } from './door.js';
+import { cleanLook, DEFAULT_TABS, isTab } from './home-screen.js';
 import { USES } from './apps.js';
 import { validateChecks } from './heartbeat-checks.js';
 
@@ -315,7 +315,7 @@ export function cleanCatalog(raw, indexUrl = CATALOG_URL, { http = false } = {})
  * A household change to a built-in makes a local plugin that overrides it (the built-in stays listed, overriddenBy),
  * in the same commit as the change (reconcile, edits.js snapshot), so our updates and their changes never collide.
  */
-export function pluginsRoutes({ APP_DIR, edits, door, json, body, approve = null, onChange = () => {}, local = !!process.env.PLUGINS_LOCAL, household = () => ({}),
+export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve = null, onChange = () => {}, local = !!process.env.PLUGINS_LOCAL, household = () => ({}),
   DATA = null, DEFAULTS = null, SEEDED = null, answerWaitMs = 6000, log = (...a) => console.log('[plugins]', ...a),
   ai = null, fetchImpl = (...a) => fetch(...a), catalogUrl = process.env.PLUGIN_INDEX_URL || CATALOG_URL }) {
   const DIR = path.join(APP_DIR, 'plugins');
@@ -727,14 +727,14 @@ export function pluginsRoutes({ APP_DIR, edits, door, json, body, approve = null
       }
       const look = { ...(p.look || {}) };
       if (tabs && p.tabs.length) {
-        const cur = (door.style().tabs || DEFAULT_TABS).map((t) => (typeof t === 'string' || t.name ? t : t.id));
+        const cur = (homeScreen.style().tabs || DEFAULT_TABS).map((t) => (typeof t === 'string' || t.name ? t : t.id));
         const add = p.tabs.map((t) => (t.name ? { id: ids[t.app], name: t.name } : ids[t.app])).filter((t) => !cur.some((x) => (x.id || x) === (t.id || t)));
         const at = cur.indexOf('apps') >= 0 ? cur.indexOf('apps') : cur.length;
         look.tabs = [...cur.slice(0, at), ...add, ...cur.slice(at)];
         entry.tabs = add.map((t) => t.id || t);
       }
       save(name, entry);
-      if (Object.keys(look).length) { const r = door.setLook(look, owner, who); if (r.error) throw new Error(r.error); }
+      if (Object.keys(look).length) { const r = homeScreen.setLook(look, owner, who); if (r.error) throw new Error(r.error); }
       log(`added ${name} from ${entry.source}${p.commit ? ' @ ' + p.commit.slice(0, 7) : ''}: ${Object.keys(entry.apps).join(', ') || 'a look'}`);
       return { ok: true, name, apps: Object.keys(entry.apps), tabs: entry.tabs };
     });
@@ -911,8 +911,8 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     return inChange(`Remove the ${e.title || f.name} plugin`, who, by, (owner) => {
       for (const id of ids) if (ID.test(id) && id !== 'home') { fs.rmSync(path.join(appsDir, id), { recursive: true, force: true }); dropBase(id); }
       const gone = new Set(ids);
-      const tabs = door.style().tabs;
-      if (tabs && tabs.some((t) => gone.has(t.id || t))) { const r = door.setLook({ tabs: tabs.filter((t) => !gone.has(t.id || t)).map((t) => (typeof t === 'string' || t.name ? t : t.id)) }, owner, who); if (r.error) throw new Error(r.error); }
+      const tabs = homeScreen.style().tabs;
+      if (tabs && tabs.some((t) => gone.has(t.id || t))) { const r = homeScreen.setLook({ tabs: tabs.filter((t) => !gone.has(t.id || t)).map((t) => (typeof t === 'string' || t.name ? t : t.id)) }, owner, who); if (r.error) throw new Error(r.error); }
       if (e.kind === 'builtin') { e.removed = true; save(f.name, e); }
       else {
         drop(f.name);
@@ -1054,7 +1054,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     const id = box.next;
     box.items = [...box.items, { id, action: x.a.name, args: clean, at: now(), ...(x.a.answer ? { answer: true } : {}) }].slice(-20); box.next += 1;
     fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f + '.tmp', JSON.stringify(box)); fs.renameSync(f + '.tmp', f);
-    if (x.a.open) (door.showApp || door.showTab)?.(x.id); // its tab, or (not a tab) its own window (door.js showApp)
+    if (x.a.open) (homeScreen.showApp || homeScreen.showTab)?.(x.id); // its tab, or (not a tab) its own window (home-screen.js showApp)
     if (!x.a.answer) return { text: x.a.reply || `Asked ${x.title} to do that.`, isError: false };
     // Its page answers (the kit's onAction writes appdata/<app>/replies.json): what it says is what the voice says.
     const said = await replyFrom(x.id, id, x.a.wait ? x.a.wait * 1000 : answerWaitMs);
@@ -1101,7 +1101,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       }
     }
     const oh = { apps: ids.map((id) => `apps/${id}`) };
-    if (look) { const st = door.style(); out['looks/look.json'] = JSON.stringify(Object.fromEntries(LOOK_KEYS.filter((k) => st[k] !== undefined).map((k) => [k, st[k]])), null, 2) + '\n'; oh.looks = ['looks/look.json']; }
+    if (look) { const st = homeScreen.style(); out['looks/look.json'] = JSON.stringify(Object.fromEntries(LOOK_KEYS.filter((k) => st[k] !== undefined).map((k) => [k, st[k]])), null, 2) + '\n'; oh.looks = ['looks/look.json']; }
     out['package.json'] = JSON.stringify({ name: pname, version, description: String(description).slice(0, 300), keywords: ['openhouse-plugin', 'pi-package'], openhouse: oh }, null, 2) + '\n';
     if (!out['README.md']) out['README.md'] = `# ${pname}\n\n${description || 'An OpenHouse plugin.'}\n\nAdd it to an OpenHouse tablet: ask the assistant to "add the plugin from <this repo's link>".\n`;
     return { files: out, warnings: warn.slice(0, 30) };
@@ -1109,7 +1109,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
 
   const images = new Map();
 
-  // ---- the tools: the assistant's and a computer's (door.addTools; the workshop adds export_plugin) ----
+  // ---- the tools: the assistant's and a computer's (homeScreen.addTools; the workshop adds export_plugin) ----
   const SRC = { type: 'string', description: "The name of a plugin on OpenHouse's list (find_plugins), or where it comes from, as the family gave it: a git link (github.com/someone/thing, optionally @version) or an https link to a .tgz." };
   const NAME = { type: 'string', description: 'The plugin\'s name or title, or one of its app ids (list_plugins).' };
   const tools = [

@@ -1,11 +1,11 @@
 // The household's quick tools for OpenAI's live voice (openhouse-cloud/docs/cloud-beta.md: its backend calls these while it talks) and,
-// with a few more (chat.js textTools), the cloud's text model for typed turns (agents/cloud.js). The door's tools
+// with a few more (chat.js textTools), the cloud's text model for typed turns (agents/cloud.js). The home screen's tools
 // (calendar, lists, chores and stars, routines, meals, notes, what the family told it) plus the weather, the TV and the
 // apps' own voice actions, so the family's things stay in one place and whoever answers changes the same data. An app's
 // code isn't among them: that's someone's own Claude or ChatGPT on a computer (workshop.js).
 //
 //   GET  /live/setup   {instructions, tools: [{type:'function', name, description, parameters}], earlier, quietS?}
-//                      (quietS: an app is in use hands-free, door.js handsFree: the session stays this long after the last words)
+//                      (quietS: an app is in use hands-free, home-screen.js handsFree: the session stays this long after the last words)
 //   POST /live/tool {name, args}  -> {text, isError}
 //   POST /live/said {role: user|assistant|tool, text}   what a live conversation heard and said (the shell's LiveVoice)
 //
@@ -17,12 +17,12 @@ import path from 'node:path';
 import { forModel, fromModel } from './tool-args.js';
 import { readPage, READ_PAGE_TOOL } from './read-page.js';
 
-/** The door's tools a voice may use; nothing that changes the tablet's apps or home screen (but an app's card on Today), or the family's names. */
+/** The home screen's tools a voice may use; nothing that changes the tablet's apps or home screen (but an app's card on Today), or the family's names. */
 export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'change_chores', 'change_rewards', 'change_routines', 'set_meals', 'save_recipe', 'keep_shared_photo',
   'calendar_event', 'look_at_notes', 'put_note', 'update_note', 'take_down_note', 'take_down_thing', 'today_card', 'remember_preference', 'forget_preference', 'show_on_map', 'save_place', 'forget_place', 'heartbeat_settings', 'night_hours', 'later', 'later_list'];
 const WEATHER = { name: 'weather', description: "The weather where the family lives: now, the next 24 hours, and the next 7 days (°F, mph).", inputSchema: { type: 'object', properties: {} } };
 
-/** Kitchen timers (the tablet rings them: door.js timers), as a person sets them on the screen. */
+/** Kitchen timers (the tablet rings them: home-screen.js timers), as a person sets them on the screen. */
 export const TIMER_TOOL = { name: 'timer', description: 'Timers on the tablet (it rings them, and shows them): start one ("Pasta", 10 minutes), list the running ones, or cancel one by its endAt from list.',
   inputSchema: { type: 'object', required: ['action'], properties: { action: { type: 'string', enum: ['start', 'list', 'cancel'] }, label: { type: 'string' }, minutes: { type: 'number' }, seconds: { type: 'number' }, endAt: { type: 'number', description: 'For cancel: from list' } } } };
 
@@ -131,7 +131,7 @@ export const SETUP_STEPS = {
 const SETUP_TOOL = { name: 'update_household', description: 'Save who lives here and where. family replaces the whole list, so pass everyone so far; location is a town or zip code. Only what they said.',
   inputSchema: { type: 'object', properties: { family: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, note: { type: 'string', description: 'an age for a child, or a role: "9", "Mom", "the dog"' } } } }, location: { type: 'string', description: 'a town or a zip code' }, home_address: { type: 'string', description: 'their street address, as they said it' } } } };
 
-export function liveToolRoutes({ HERE, door, weather, prefsBlock = () => '', assistantName = () => 'Opie', now = () => '', json, body, talk = recentTalk(), household = null }) {
+export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '', assistantName = () => 'Opie', now = () => '', json, body, talk = recentTalk(), household = null }) {
   let setupStep = null, setupAt = 0, setupGuess = '', setupHome = '';
   // What was heard during setup is read here too (the live voice's own model hands plain answers like "Ana and Ben" to
   // nobody: it only delegates requests): the text model pulls the step's answer out, it's saved, and the setup screen,
@@ -174,8 +174,8 @@ export function liveToolRoutes({ HERE, door, weather, prefsBlock = () => '', ass
   const messageTools = () => { const n = [...new Set(family().map((f) => String(f.name)))]; return phones && n.length ? [messageTool(n)] : []; };
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
-    const all = door.tools().filter((t) => LIVE_TOOLS.includes(t.name));
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(door.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(inSetup() ? [SETUP_TOOL] : [])];
+    const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name));
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(inSetup() ? [SETUP_TOOL] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   const setupText = () => !inSetup() ? '' : '\n\n---\n\nThe tablet was just set up, and its setup is on the screen now. The step showing: ' + SETUP_STEPS[setupStep] +
@@ -212,8 +212,8 @@ export function liveToolRoutes({ HERE, door, weather, prefsBlock = () => '', ass
     if (name === 'tv' && tvDevices) { const r = await tvDevices.tv(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (extra && extraTools().some((t) => t.name === name)) return extra.call(name, args || {});
     if (device && device.names.includes(name)) return device.call(name, args || {});
-    if (name === 'timer' && door.timers) {
-      const t = door.timers, a = args || {};
+    if (name === 'timer' && homeScreen.timers) {
+      const t = homeScreen.timers, a = args || {};
       if (a.action === 'list') { const l = t.list(); return { text: l.length ? l.map((x) => `${x.label}: ${Math.max(0, Math.round((x.endAt - Date.now()) / 1000))} s left (endAt ${x.endAt})`).join('\n') : 'No timers running.', isError: false }; }
       if (a.action === 'cancel') return t.cancel(a.endAt) ? { text: 'Stopped.', isError: false } : { text: 'No timer with that endAt (timer list).', isError: true };
       const endAt = t.start({ label: a.label || 'Timer', seconds: Math.round((Number(a.minutes) || 0) * 60 + (Number(a.seconds) || 0)) });
@@ -233,7 +233,7 @@ export function liveToolRoutes({ HERE, door, weather, prefsBlock = () => '', ass
       const h = household.save(b); bump(); return { text: `Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`, isError: false };
     }
     if (!LIVE_TOOLS.includes(name)) return { text: `${name} isn't one of this voice's tools.`, isError: true };
-    const r = await door.call(name, args || {}, { by: 'assistant', who: null, conversation: 'live', touched: null });
+    const r = await homeScreen.call(name, args || {}, { by: 'assistant', who: null, conversation: 'live', touched: null });
     return { text: (r?.content || []).map((c) => c.text || '').join('\n').slice(0, 8000), isError: !!r?.isError };
   }
   /** message_family: who it's for from the family list (never a name the model made up), sent to their phones. */
@@ -276,10 +276,10 @@ export function liveToolRoutes({ HERE, door, weather, prefsBlock = () => '', ass
       'for anything not here, anything that may have changed since, and for every change.\n\n' + picture +
       (w ? `\n\nWeather: ${JSON.stringify({ ...w, hours: (w.hours || []).slice(0, 8), days: (w.days || []).slice(0, 3) })}` : '');
   }
-  /** An app in use hands-free (door.js handsFree: the Recipes app while cooking): what it says is on the screen, and how
+  /** An app in use hands-free (home-screen.js handsFree: the Recipes app while cooking): what it says is on the screen, and how
    *  long the session stays after the last words (the shell's LiveVoice ends it then), so "next" works without the name for a while. */
   function handsFree() {
-    let hf = null; try { hf = door.handsFree?.(); } catch {}
+    let hf = null; try { hf = homeScreen.handsFree?.(); } catch {}
     if (!hf) return { text: '', listen: 0 };
     return { listen: hf.listen, text: '\n\n---\n\nThey are using an app hands-free right now. What it says:\n' + hf.note +
       '\nWhile this lasts, short things said without your name ("next", "back", "again", "how much salt?", "pause") are for you: ' +

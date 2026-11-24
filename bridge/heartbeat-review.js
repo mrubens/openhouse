@@ -31,7 +31,7 @@ const day = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0
 const cut = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
 /**
- * The picture the model gets: compact, today and tomorrow only. hv: house.js view(); notes: door.describe();
+ * The picture the model gets: compact, today and tomorrow only. hv: house.js view(); notes: homeScreen.describe();
  * findings: the checks' unhandled findings (null: none asked for, as for the live voice); household: board.household().
  */
 export function snapshot({ hv = {}, notes = '', findings = [], household = '', now = new Date() }) {

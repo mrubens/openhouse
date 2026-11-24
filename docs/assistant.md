@@ -20,9 +20,9 @@ key on the tablet, in place of the cloud, is the cloud work's to add (bridge/clo
 ## A typed turn
 
 - The tools: the live voice's (`LIVE_TOOLS`, the weather, the TV, the apps' voice actions) plus `update_household`,
-  `forget_preference`, `set_home`, `move_on_door`, `put_back`, `list_changes`, `undo_change`, `end_conversation`,
+  `forget_preference`, `set_home`, `move_on_home`, `put_back`, `list_changes`, `undo_change`, `end_conversation`,
   `add_calendar`, `add_photo_album`. Never an app's files: no `start_editing`, `check_build`.
-- Each tool runs as part of the turn (its door token): notes it puts up come back with the answer, `set_home` and
+- Each tool runs as part of the turn (its home-screen token): notes it puts up come back with the answer, `set_home` and
   `undo_change` hold the turn's edit lock, `end_conversation` ends it.
 - The conversation's last 12 turns go with each request (the model keeps nothing between turns).
 - "Make me a game" is answered at once, with no model turn: apps are made from a computer (`NEEDS_COMPUTER`). So is

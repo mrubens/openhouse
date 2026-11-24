@@ -1,5 +1,5 @@
-// The starting apps' widgets on the door (Calendar, Chores, Lists, Meals, Photos), drawn from the house's data the
-// way the native door drew them (main's ui/Widgets.kt): colored tiles with white text, what's coming up when there's
+// The starting apps' widgets on the home screen (Calendar, Chores, Lists, Meals, Photos), drawn from the house's data the
+// way the native home screen drew them (main's ui/Widgets.kt): colored tiles with white text, what's coming up when there's
 // nothing today, recently bought things to put back, stars, and the app's own icon when there's nothing at all.
 // Sizes are in u (one pixel of a 1536-wide screen: the --u variable), like the display's.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';

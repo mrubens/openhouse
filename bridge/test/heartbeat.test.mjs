@@ -1,4 +1,4 @@
-// What a background heartbeat run may do at each level (heartbeat.js; door.js refuses the rest).
+// What a background heartbeat run may do at each level (heartbeat.js; home-screen.js refuses the rest).
 //   cd bridge && npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

@@ -4,12 +4,12 @@
 // sheet, so an app the family or the assistant changed shows as they changed it. Today is the glance: the most
 // important bit of each tab, each opening its tab.
 //
-// What's personal is data in apps/home/style.json (bridge/door.js, cleanLook): which tabs and in what order, the
+// What's personal is data in apps/home/style.json (bridge/home-screen.js, cleanLook): which tabs and in what order, the
 // palette or the family's own colors, the type, the density and a photo backdrop. The assistant edits that file; the
-// "Tabs and look" sheet here (hold a tab, or the sliders below the tabs) writes it through POST /door/look, so "undo"
+// "Tabs and look" sheet here (hold a tab, or the sliders below the tabs) writes it through POST /home/look, so "undo"
 // takes either back.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Widget } from './door-widgets.jsx';
+import { Widget } from './home-widgets.jsx';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { PALETTES, paletteOf, worldOf } from './look.js';
@@ -42,11 +42,11 @@ const Av = ({ paint, name, className = '' }) => (paint
   : <span className={'h-av none ' + className}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="9" r="3.2" /><path d="M3.5 19a5.5 5.5 0 0 1 11 0M15.5 6.2a3.2 3.2 0 0 1 0 5.6M17.5 14.2a5.5 5.5 0 0 1 3 4.8" /></svg></span>);
 
 export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, PhotoShow, Gear }) {
-  const { door, house, weather, apps, appsLoaded } = brain;
-  const st = door?.style || {};
+  const { homeScreen, house, weather, apps, appsLoaded } = brain;
+  const st = homeScreen?.style || {};
   const appBy = useMemo(() => new Map(apps.map((a) => [a.id, a])), [apps]);
   const tabs = useMemo(() => (st.tabs || DEFAULT_TABS.map((id) => ({ id })))
-    .map((t) => (t.id === 'board' ? { ...t, id: 'apps' } : t)) // the board this used to be (door.js cleanLook does it too)
+    .map((t) => (t.id === 'board' ? { ...t, id: 'apps' } : t)) // the board this used to be (home-screen.js cleanLook does it too)
     .filter((t) => t.id === 'today' || t.id === 'apps' || appBy.has(t.id) || !appsLoaded), [st.tabs, appBy, appsLoaded]);
   const nameOf = (t) => t.name || (t.id === 'today' ? 'Today' : t.id === 'apps' ? 'Apps' : appBy.get(t.id)?.meta?.name || t.id);
   // Its icon: the app's own pick ("tabIcon" in its app.json), else a starting tab's; none leaves the space, so names line up.
@@ -55,8 +55,8 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
   const cur = tabs.some((t) => t.id === want) ? want : tabs[0]?.id;
   const [seen, setSeen] = useState(() => new Set());
   useEffect(() => { if (cur && !seen.has(cur)) setSeen(new Set([...seen, cur])); }, [cur]);
-  // The display tells the bridge which tab is showing, so "make this bigger" is about it (door.js requestApp).
-  useEffect(() => { if (shell && cur) c.json('POST', '/door/showing', { tab: cur }).catch(() => {}); }, [cur]);
+  // The display tells the bridge which tab is showing, so "make this bigger" is about it (home-screen.js requestApp).
+  useEffect(() => { if (shell && cur) c.json('POST', '/home/showing', { tab: cur }).catch(() => {}); }, [cur]);
   const go = (id) => { setWant(id); store.set('openhouse.tab', id); };
   // An app asking for another (the Calendar's "Open School lunch"): its tab, else full screen.
   const openApp = (id) => { if (tabs.some((t) => t.id === id)) go(id); else if (appBy.has(id)) shell?.openApp(id); };
@@ -68,19 +68,19 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
     if (appsLoaded) known.current = new Set(ids);
   }, [tabs.map((t) => t.id).join(), appsLoaded]);
   // A paired computer checking one of the tabs' apps (workshop.js): show that tab, once per request.
-  const showAt = door?.show?.at || 0;
-  // (or Opie showing a place on the Map, or a recipe to cook: an app that isn't a tab opens full screen, door.js showApp)
-  useEffect(() => { const t = door?.show?.tab; if (!t || Date.now() - showAt >= 60e3) return;
-    if (tabs.some((x) => x.id === t)) go(t); else if (door.show.open && appBy.has(t)) shell?.openApp(t); }, [showAt]);
+  const showAt = homeScreen?.show?.at || 0;
+  // (or Opie showing a place on the Map, or a recipe to cook: an app that isn't a tab opens full screen, home-screen.js showApp)
+  useEffect(() => { const t = homeScreen?.show?.tab; if (!t || Date.now() - showAt >= 60e3) return;
+    if (tabs.some((x) => x.id === t)) go(t); else if (homeScreen.show.open && appBy.has(t)) shell?.openApp(t); }, [showAt]);
   // Back to the first tab when the screen has rested, as a glance is what it's for.
   useEffect(() => { if (idle && tabs[0]) go(tabs[0].id); }, [idle]);
   const [arranging, setArranging] = useState(false);
   const [timerOpen, setTimerOpen] = useState(null);
-  // A minute more or less (or five more): the same timer, ending later or sooner (the shell's ringing follows /door/timer).
+  // A minute more or less (or five more): the same timer, ending later or sooner (the shell's ringing follows /home/timer).
   const moveTimer = (t, secs) => {
     const endAt = Math.max(Date.now() + 5e3, t.endAt + secs * 1000), total = Math.max(5, (t.total || 0) + secs);
     setTimerOpen(endAt);
-    c.json('POST', '/door/timer', { cancel: t.endAt }).then(() => c.json('POST', '/door/timer', { start: { label: t.label, total, endAt } })).catch(() => {});
+    c.json('POST', '/home/timer', { cancel: t.endAt }).then(() => c.json('POST', '/home/timer', { start: { label: t.label, total, endAt } })).catch(() => {});
   };
   const held = useRef(0);
   const hold = (id) => ({
@@ -92,10 +92,10 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
   if (idle) return ambient;
   // Someone's AI (Claude, ChatGPT, a computer) is changing an app (workshop.js): its tab pulses gently, or Apps for
   // one that isn't a tab (a new app goes there first). No words: the family sees where, and it stops when it's done.
-  const busy = door?.computer?.apps || [];
+  const busy = homeScreen?.computer?.apps || [];
   const making = (id) => busy.includes(id) || (id === 'apps' && busy.some((a) => !tabs.some((t) => t.id === a)));
   const d = new Date(now);
-  const timers = door?.timers || [];
+  const timers = homeScreen?.timers || [];
   return (
     <div className={'home' + (st.density === 'snug' ? ' snug' : '') + (st.type === 'hand' ? ' hand-type' : '') + (st.backdrop === 'photos' ? ' over-photos' : '') + (st.palette === 'dusk' ? ' dark' : '')} data-tab={cur} style={lookVars(st, worldTab(tabs.find((t) => t.id === cur), appBy))}>
       {st.backdrop === 'photos' && <Backdrop c={c} names={house?.screensaver || house?.photos || []} now={now} usePhoto={usePhoto} />}
@@ -123,17 +123,17 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
       <main className="h-sheet">
         {tabs.filter((t) => seen.has(t.id) || t.id === cur).map((t) => (
           <section key={t.id} className="h-page" hidden={t.id !== cur}>
-            {t.id === 'today' ? <Today c={c} house={house} now={now} notes={door?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={door?.appsV || {}} />
-              : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={door?.places || {}} cards={st.cards || []} />
-              : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={door?.appsV?.[t.id] || 0} onOpen={openApp} />
+            {t.id === 'today' ? <Today c={c} house={house} now={now} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} />
+              : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} />
+              : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} />
               : <div className="h-widget"><Widget id={t.id} app={appBy.get(t.id)} w={4} h={4} house={house} c={c} now={now} Photo={(p) => <PhotoShow c={c} {...p} />}
-                content={door?.widgets?.content?.[t.id] ? (door.widgets.content[t.id].shapes?.['4x4'] || door.widgets.content[t.id].content || '') : null} /></div>}
+                content={homeScreen?.widgets?.content?.[t.id] ? (homeScreen.widgets.content[t.id].shapes?.['4x4'] || homeScreen.widgets.content[t.id].content || '') : null} /></div>}
           </section>
         ))}
         {/* Apps that keep things up to date in the background ("background": true in app.json: a school lunch menu on the
             calendar) run hidden, even when they aren't a tab. */}
         {shell && apps.filter((a) => a.meta?.background && a.web !== false && !tabs.some((t) => t.id === a.id)).map((a) => (
-          <section key={'bg-' + a.id} className="h-page" hidden><AppFrame c={c} shell={shell} app={a} look={st} v={door?.appsV?.[a.id] || 0} onOpen={openApp} /></section>
+          <section key={'bg-' + a.id} className="h-page" hidden><AppFrame c={c} shell={shell} app={a} look={st} v={homeScreen?.appsV?.[a.id] || 0} onOpen={openApp} /></section>
         ))}
       </main>
       {(() => { const t = timers.find((x) => x.endAt === timerOpen); return t && (
@@ -147,7 +147,7 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
               <button onClick={() => moveTimer(t, 300)}>+5 min</button>
             </div>
             <div className="h-timer-do">
-              <button className="h-timer-clear" onClick={() => { setTimerOpen(null); c.json('POST', '/door/timer', { cancel: t.endAt }).catch(() => {}); }}>Clear</button>
+              <button className="h-timer-clear" onClick={() => { setTimerOpen(null); c.json('POST', '/home/timer', { cancel: t.endAt }).catch(() => {}); }}>Clear</button>
               <button onClick={() => setTimerOpen(null)}>Done</button>
             </div>
           </div>
@@ -541,7 +541,7 @@ function NotesCard({ c, notes, reminders, style }) {
   // Newest first (the bridge set aside the ones the assistant kept current for the old board).
   const shown = notes.filter((n) => !gone.has(n.id)).reverse().sort((a, b) => (b.at || 0) - (a.at || 0));
   const note = open && notes.find((n) => n.id === open);
-  const down = (n) => { setOpen(null); setGone(new Set([...gone, n.id])); c.json('POST', '/door/remove', { id: n.id }).catch(() => {}); };
+  const down = (n) => { setOpen(null); setGone(new Set([...gone, n.id])); c.json('POST', '/home/remove', { id: n.id }).catch(() => {}); };
   const room = Math.max(0, 3 - reminders.length);
   // The newest large, as a note on yellow; the next ones small under it.
   return <div className="t-card t-notes" style={style}>
@@ -549,7 +549,7 @@ function NotesCard({ c, notes, reminders, style }) {
     <div className="t-rows">
       {reminders.slice(0, 3).map((r) => <div key={r.key} className="t-row t-due"><span className="t-when">{timeOf(r)}</span><span className="h-grow">{plain(r.title)}</span></div>)}
       {shown.slice(0, room).map((n, i) => (
-        <div key={n.id} role="button" className={'t-note' + (i ? '' : ' first')} onClick={(e) => { e.stopPropagation(); setOpen(n.id); c.json('POST', '/door/touch', { id: n.id }).catch(() => {}); }}>
+        <div key={n.id} role="button" className={'t-note' + (i ? '' : ' first')} onClick={(e) => { e.stopPropagation(); setOpen(n.id); c.json('POST', '/home/touch', { id: n.id }).catch(() => {}); }}>
           <span className="t-note-title">{n.title}</span>{!i && gist(n.content) && <span className="t-note-gist">{gist(n.content)}</span>}
         </div>
       ))}
@@ -571,7 +571,7 @@ function NotesCard({ c, notes, reminders, style }) {
  *  a hold offers to make it a tab or to take it off here (an app taken off comes back when someone asks Opie). */
 function Apps({ c, shell, apps, tabs, places, cards }) {
   const android = useMemo(() => { try { return shell?.androidApps ? JSON.parse(shell.androidApps() || '[]') : []; } catch { return []; } }, [apps]);
-  const [hid, setHid] = useState({}); // shown at once, until the door has it
+  const [hid, setHid] = useState({}); // shown at once, until the home screen has it
   const [menu, setMenu] = useState(null);
   const inTabs = new Set(tabs.map((t) => t.id));
   const all = [...apps.filter((a) => a.id !== 'home' && !inTabs.has(a.id)).map((a) => ({ id: a.id, name: a.meta?.name || a.id, about: a.meta?.description || '', svg: a.icon, web: a.web !== false, today: a.today })),
@@ -579,11 +579,11 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
     .sort((a, b) => a.name.localeCompare(b.name));
   const off = (a) => hid[a.id] ?? !!places['app:' + a.id]?.hidden;
   const here = all.filter((a) => !off(a));
-  const hide = (a, on) => { setMenu(null); setHid({ ...hid, [a.id]: on }); c.json('POST', '/door/place', { key: 'app:' + a.id, hidden: on }).catch(() => {}); };
-  const toTab = (a) => { setMenu(null); c.json('POST', '/door/look', { tabs: [...tabs.map((t) => (t.name ? { id: t.id, name: t.name } : { id: t.id })), { id: a.id }] }).catch(() => {}); };
-  const [onToday, setOnToday] = useState({}); // shown at once, until the door has it
+  const hide = (a, on) => { setMenu(null); setHid({ ...hid, [a.id]: on }); c.json('POST', '/home/place', { key: 'app:' + a.id, hidden: on }).catch(() => {}); };
+  const toTab = (a) => { setMenu(null); c.json('POST', '/home/look', { tabs: [...tabs.map((t) => (t.name ? { id: t.id, name: t.name } : { id: t.id })), { id: a.id }] }).catch(() => {}); };
+  const [onToday, setOnToday] = useState({}); // shown at once, until the home screen has it
   const isOn = (a) => onToday[a.id] ?? cards.includes(a.id);
-  const toToday = (a, on) => { setMenu(null); setOnToday({ ...onToday, [a.id]: on }); c.json('POST', '/door/look', { cards: on ? [...cards.filter((x) => x !== a.id), a.id] : cards.filter((x) => x !== a.id) }).catch(() => {}); };
+  const toToday = (a, on) => { setMenu(null); setOnToday({ ...onToday, [a.id]: on }); c.json('POST', '/home/look', { cards: on ? [...cards.filter((x) => x !== a.id), a.id] : cards.filter((x) => x !== a.id) }).catch(() => {}); };
   const open = (a) => { if (a.web === false) setMenu({ ...a, old: true }); else shell?.openApp(a.id); };
   const held = useRef(null);
   const press = (a) => ({
@@ -627,7 +627,7 @@ function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
   const [busy, setBusy] = useState(null);
   const save = (part) => {
     const next = { ...mine, ...part }; setMine(next);
-    c.json('POST', '/door/look', part).then((r) => setBusy(r.status === 409 ? r.json?.text || 'Busy' : null)).catch(() => {});
+    c.json('POST', '/home/look', part).then((r) => setBusy(r.status === 409 ? r.json?.text || 'Busy' : null)).catch(() => {});
   };
   const shown = new Set(mine.tabs.map((t) => t.id));
   const more = [{ id: 'today' }, { id: 'apps' }, ...apps.filter((a) => a.web !== false).map((a) => ({ id: a.id }))].filter((t) => !shown.has(t.id));

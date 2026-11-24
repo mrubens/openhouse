@@ -40,7 +40,7 @@ export const REVIEW_CAPS = { perDay: 16, cost: 0.05 };
 const MAX_JUDGED = 8; // findings in one judgment
 const RANK = { off: 0, notice: 1, tidy: 2, fix: 3 };
 const HOUR = 3600e3, DAY = 24 * HOUR;
-// What a background turn may call, by level (door.js refuses the rest; box.js refuses the device and home tools).
+// What a background turn may call, by level (home-screen.js refuses the rest; box.js refuses the device and home tools).
 // It writes the things on Today (things.js), not notes: a line with its own end, gone once it no longer matters.
 export const TOOLS = {
   notice: ['show_thing', 'family_things', 'about_household'],
@@ -107,14 +107,14 @@ export function storage(free) {
 // ---- the heartbeat itself ----
 
 /**
- * deps: DIR (the chats folder), HERE (the bridge), door, house (house.js),
+ * deps: DIR (the chats folder), HERE (the bridge), homeScreen (home-screen.js), house (house.js),
  * board (board.js), appErrors() -> [{app, at, text}], edits (the edit lock: begin, end,
  * holder), busy() (a conversation is going), now(), freeBytes(), log(chats.jsonl line), every (ms; 0: no timer),
  * judge ({ ready(), name, decide, ai }: the decision and text models, or null), fixes (heartbeat-fixes.js),
  * extraChecks (heartbeat-checks.js's run(d)), changesOf(app) (recent changes, for a fix's log), review (the hourly
  * review, heartbeat-review.js: judge.ai with tier "flex").
  */
-export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [], edits = null, busy = () => false,
+export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () => [], edits = null, busy = () => false,
   now = () => Date.now(), freeBytes = null, logTurn = null, every = 5 * 60e3, json = null, body = null, onChange = () => {},
   judge = null, fixes = null, things = null, extraChecks = null, checkProblems = () => ({}), changesOf = () => [], review = true }) {
   const FILE = path.join(DIR, '../heartbeat.json');
@@ -178,12 +178,12 @@ export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [],
   }
 
   /** The notes and the things on Today, for a model. */
-  const onToday = (hv) => [door.describe(), things ? things.describe(hv) : ''].filter(Boolean).join('\n\n');
-  /** A background run's tools: the household's read tools (the door's) and the things on Today, by level. */
-  const bgTools = (allow) => [...door.tools().filter((t) => allow.has(t.name) && !THING_TOOLS.has(t.name)), ...(things ? things.tools.filter((t) => allow.has(t.name)) : [])]
+  const onToday = (hv) => [homeScreen.describe(), things ? things.describe(hv) : ''].filter(Boolean).join('\n\n');
+  /** A background run's tools: the household's read tools (the home screen's) and the things on Today, by level. */
+  const bgTools = (allow) => [...homeScreen.tools().filter((t) => allow.has(t.name) && !THING_TOOLS.has(t.name)), ...(things ? things.tools.filter((t) => allow.has(t.name)) : [])]
     .map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   /** A model's arguments with what a strict call filled in taken out (tool-args.js). */
-  const argsOf = (name, args) => fromModel([...door.tools(), ...(things?.tools || [])].find((t) => t.name === name)?.inputSchema, args || {});
+  const argsOf = (name, args) => fromModel([...homeScreen.tools(), ...(things?.tools || [])].find((t) => t.name === name)?.inputSchema, args || {});
   /** show_thing / take_down_thing for a background run: the day's cap, tied to the finding (it comes down once that's sorted). */
   function thingCall(name, args, ctx, key, put) {
     if (!things) return { text: 'Not here.', isError: true };
@@ -199,7 +199,7 @@ export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [],
 
   /**
    * Tidying with no AI: a note it put up about a finding that went away (the clash was sorted, the app works again)
-   * comes down. Only at Tidy up or more, and only its own notes (the door refuses the rest in the background).
+   * comes down. Only at Tidy up or more, and only its own notes (the home screen refuses the rest in the background).
    */
   async function tidyUp() {
     if (RANK[st.level] < RANK.tidy) return [];
@@ -208,7 +208,7 @@ export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [],
       if (keys.has(key)) continue;
       delete st.notesFor[key];
       if (asleep() === 'sleep') continue;
-      const r = await door.call('take_down_note', { id }, { by: 'assistant', who: null, quiet: true, allow: new Set(['take_down_note']) }).catch(() => null); // (notes from before the things)
+      const r = await homeScreen.call('take_down_note', { id }, { by: 'assistant', who: null, quiet: true, allow: new Set(['take_down_note']) }).catch(() => null); // (notes from before the things)
       if (r && !r.isError) down.push({ id, key });
     }
     const settled = asleep() === 'sleep' || !things ? 0 : things.settle(keys);
@@ -266,7 +266,7 @@ export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [],
     const allow = new Set([...toolsFor(lv)].filter((t) => NOTE_TOOLS.has(t)));
     const ctx = { by: 'assistant', who: null, quiet: true, allow, notesLeft: Math.max(0, JUDGE_CAPS.notes - st.day.notes) };
     const tools = bgTools(allow);
-    let rules = ''; try { rules = fs.readFileSync(path.join(HERE, 'DOOR.md'), 'utf8') + (board.prefs?.() || ''); } catch {}
+    let rules = ''; try { rules = fs.readFileSync(path.join(HERE, 'NOTES.md'), 'utf8') + (board.prefs?.() || ''); } catch {}
     for (const [i, f] of list.entries()) {
       const v = vs[i];
       if (v.worth < WORTH) { done.push({ key: f.key, did: 'not worth it', v }); continue; }
@@ -292,7 +292,7 @@ export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [],
       const callTool = async (name, args) => {
         args = argsOf(name, args);
         if (THING_TOOLS.has(name)) return thingCall(name, args, ctx, f.key, put);
-        const r = await door.call(name, args, ctx);
+        const r = await homeScreen.call(name, args, ctx);
         const text = (r?.content || []).map((c) => c.text || '').join('\n').slice(0, 8000);
         const m = !r?.isError && name === 'put_note' && text.match(/Put up (\S+) "(.*)"/);
         if (m) put.push({ id: m[1], title: m[2] });
@@ -340,7 +340,7 @@ export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [],
     let hv = {}, household = '';
     try { hv = house.view(); } catch {}
     try { household = board.household(); } catch {}
-    const input = snapshot({ hv: { ...hv, things: things ? things.all(hv) : undefined }, notes: door.describe(), findings: list, household, now: new Date(t0) });
+    const input = snapshot({ hv: { ...hv, things: things ? things.all(hv) : undefined }, notes: homeScreen.describe(), findings: list, household, now: new Date(t0) });
     const allow = new Set([...toolsFor(lv)].filter((x) => NOTE_TOOLS.has(x)));
     const ctx = { by: 'assistant', who: null, quiet: true, allow, notesLeft: Math.max(0, JUDGE_CAPS.notes - st.day.notes) };
     const crashed = list.filter((f) => f.kind === 'crash' && f.app);
@@ -356,11 +356,11 @@ export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [],
         fixed = r.fix; return { text: r.fresh ? `Queued ${r.fix.id}: it waits for whoever builds.` : `Already waiting (${r.fix.id}).`, isError: false };
       }
       if (THING_TOOLS.has(name)) return thingCall(name, args, ctx, list.length === 1 ? list[0].key : null, put);
-      const r = await door.call(name, args, ctx);
+      const r = await homeScreen.call(name, args, ctx);
       const text = (r?.content || []).map((c) => c.text || '').join('\n').slice(0, 8000);
       return { text, isError: !!r?.isError };
     };
-    let rules = ''; try { rules = fs.readFileSync(path.join(HERE, 'DOOR.md'), 'utf8') + (board.prefs?.() || ''); } catch {}
+    let rules = ''; try { rules = fs.readFileSync(path.join(HERE, 'NOTES.md'), 'utf8') + (board.prefs?.() || ''); } catch {}
     const r = await runReview({ ai: judge.ai, instructions: (st.prompt || REVIEW_RULES) + (rules ? `\n\n---\n\n${rules}` : ''), input, tools, callTool, tier: 'flex' });
     st.day.reviewCost += r.cost;
     st.day.notes = Math.max(st.day.notes, JUDGE_CAPS.notes - ctx.notesLeft);
@@ -409,7 +409,7 @@ export function heartbeat({ DIR, HERE, door, house, board, appErrors = () => [],
     save(); return null;
   }
   const said = () => `Check-ins: ${st.level === 'off' ? 'off' : `every ${st.every || 60} minutes, level ${st.level}`}; prompt: ${st.prompt ? 'their own' : 'ours'}.\n\nThe prompt now:\n${st.prompt || REVIEW_RULES}`;
-  door?.addTools?.([SETTINGS_TOOL], async (name, a) => {
+  homeScreen?.addTools?.([SETTINGS_TOOL], async (name, a) => {
     const e = setSettings({ ...(a?.every != null ? { every: a.every } : {}), ...(a?.reset_prompt ? { prompt: '' } : a?.prompt != null ? { prompt: a.prompt } : {}), ...(a?.level ? { level: a.level } : {}) });
     return { content: [{ type: 'text', text: e || said() }], isError: !!e };
   });

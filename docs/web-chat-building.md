@@ -225,7 +225,7 @@ of value:
 | The tablet: the relay hears of a computer pairing; the pairing steps through the relay | `bridge/relay.js`, `bridge/screens.js` (`computerPairs`, `pairRelayed`) |
 | The connector's address while the relay is up | `bridge/relay.js` (`GET /relay` → `connector`), `shell/.../Screens.kt` |
 | `edit_file`, look with errors, tool hints | `bridge/workshop.js`, `bridge/WORKSHOP.md` |
-| The household's tools (weather, TV, voice actions, timers, devices) | `bridge/workshop.js` (with `live-tools.js` and `devices/index.js`), `bridge/door.js` (`timers`) |
+| The household's tools (weather, TV, voice actions, timers, devices) | `bridge/workshop.js` (with `live-tools.js` and `devices/index.js`), `bridge/home-screen.js` (`timers`) |
 | The tablet's own connector ("Your own address": OAuth and MCP on port 8789) | `bridge/web-mcp.js`, `workshop.js` (`rpc`), `Screens.kt` (Your own address), `bridge/test/web-mcp.test.mjs` |
 | Relay messages put back in order (`i`) | `bridge/relay.js`, `openhouse-cloud/lambda/relay.ts`, `connector.ts`, `chat/src/relay-client.js`, `list.html`, `share.html` |
 | Tests | `bridge/test/connector.test.mjs` (the bridge, the local service, an OAuth client: discovery, a wrong code, pairing, Allow, PKCE, a change and undo, refresh, removal); `openhouse-cloud/test/connector.test.ts`; `openhouse-cloud/test/relay.test.ts` |

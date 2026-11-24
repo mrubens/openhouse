@@ -1,36 +1,40 @@
-// The fridge door: the notes on the home screen. The assistant puts them up, changes them and takes
-// them down with tools (an MCP server, `door`), the same way whether it is answering someone or
-// keeping the door current. The family moves and resizes anything on the door, keeps a note, or drags
-// anything to the trash; whatever they trash can be put back (on the screen, or put_back).
+// The home screen's state: the notes on it, where everything sits, its look, timers and the whiteboard. The
+// assistant puts notes up, changes them and takes them down with tools (an MCP server, `home`), the same way whether
+// it is answering someone or keeping the home screen current. The family moves and resizes anything on it, keeps a
+// note, or drags anything to the trash; whatever they trash can be put back (on the screen, or put_back).
 //
-// The door is a phone-style home screen (grid.js): pages of cells, and everything on it takes a few of them
+// It is laid out like a phone's home screen (grid.js): pages of cells, and everything on it takes a few of them
 // (notes and widgets 1x1 up to 4x4, apps 1x1). Things never overlap: what's in the way makes room. The first
 // page is what the kitchen sees; the others only when someone swipes, so the assistant chooses what is worth
 // the first page, keeps notes short, and takes things down when they're done.
 //
-// GET  /door                   { notes:[{…, page, col, row, size}], places, grid, v }   size: the note's shape ("2x1")
-// GET  /door/wait?v=N          the same, once it changes (or after 25 s)
-// POST /door/remove {id}       the family took it down (dragged to the trash: kept a while, so it can be put back)
-// POST /door/putback {key}     put back something the family trashed: a note's id, or a place key
-// POST /door/keep {id, keep}   the family wants it kept (no expiry; the assistant asks before removing)
-// POST /door/touch {id}        someone opened it up close
-// POST /door/arrange {items:[{key, page, col, row, w, h}], present?:[key]}  the display moved or resized things (a drag
+// GET  /home                   { notes:[{…, page, col, row, size}], places, grid, v }   size: the note's shape ("2x1")
+// GET  /home/wait?v=N          the same, once it changes (or after 25 s)
+// POST /home/remove {id}       the family took it down (dragged to the trash: kept a while, so it can be put back)
+// POST /home/putback {key}     put back something the family trashed: a note's id, or a place key
+// POST /home/keep {id, keep}   the family wants it kept (no expiry; the assistant asks before removing)
+// POST /home/touch {id}        someone opened it up close
+// POST /home/arrange {items:[{key, page, col, row, w, h}], present?:[key]}  the display moved or resized things (a drag
 //                              and what made room for it; or where it put something new). key: a note's id, "clock",
-//                              "weather", "app:<id>", "own:<key>". present: everything on the door now (not a note)
-// POST /door/place {key, hidden} someone dragged the clock, the weather, an app or the home app's own thing to the trash
-// POST /door/move, /door/place with x, y (u): from before the grid; the nearest cell
-// POST /door/mcp               MCP (JSON-RPC over HTTP), bearer token; tools below
+//                              "weather", "app:<id>", "own:<key>". present: everything on the home screen now (not a note)
+// POST /home/place {key, hidden} someone dragged the clock, the weather, an app or the home app's own thing to the trash
+// POST /home/move, /home/place with x, y (u): from before the grid; the nearest cell
+// POST /home/mcp               MCP (JSON-RPC over HTTP), bearer token; tools below
+// /door and /door/... are the same (homePath): their first name, still used by phones and shells from before.
 //
 // Each run (a conversation turn, a curation, a refit) reaches the tools with a token of its own, so the
 // tools know whose they are: who put a note up, whose `progress` it is, which conversation ends. An
 // agent whose tool connection is shared by all its runs (Codex's app-server) uses the one shared
 // token; its runs take turns (`exclusive`), so the shared token always means the run going now.
 //
-// file: door.json next to the chats.
+// file: door.json next to the chats (its first name, kept so tablets and backups need no move).
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import * as G from './grid.js';
+
+/** /door, /door/x (the first names, which older phones, shells and the cloud's phone page still call) as /home, /home/x. */
+export const homePath = (u) => /^\/door(?=$|[/?])/.test(u) ? '/home' + u.slice(5) : u;
 
 const SIZE_HELP = `cells across x down, on a ${G.COLS} x ${G.ROWS} grid (one cell is an app's square): ` +
   '1x1 (one number or a word or two), 2x1 (a line or two, a short list), 2x2 (a list, a picture, a recipe card), ' +
@@ -39,7 +43,7 @@ const SIZE_HELP = `cells across x down, on a ${G.COLS} x ${G.ROWS} grid (one cel
 export const BUILT_IN_WIDGETS = { calendar: '2x2', chores: '2x2', lists: '2x2', meals: '2x1', photos: '2x2' };
 /**
  * How the family wants the home screen to look (apps/home/style.json, which the assistant edits like an app; the
- * display's own "Tabs and look" sheet writes it too, through POST /door/look):
+ * display's own "Tabs and look" sheet writes it too, through POST /home/look):
  *   tabs      the tabs, in order: "today" (the day, and the notes put up), "apps" (every app that isn't a tab, and the
  *             Android apps added), or an app's id ("calendar", "homework"); an entry may be {"id": "homework",
  *             "name": "School"} to name it differently. Missing: today, the five starting apps, apps. A "board" tab
@@ -51,7 +55,7 @@ export const BUILT_IN_WIDGETS = { calendar: '2x2', chores: '2x2', lists: '2x2', 
  *   backdrop  "none" (the default) or "photos": the family's photos behind the screen, one every 5 minutes
  *   cards     the apps' own cards on Today, in order: app ids (an app offers one with a widget.html and "today" in its
  *             app.json; apps.js list). None until someone turns one on.
- *   door      "#rrggbb", the board's color (under the scenery, if any)
+ *   door      "#rrggbb", the screen's color, under the scenery if any (the key keeps its first name, as households' files have it)
  *   clock     true (the board's clock), "compact" (a small dark clock with the date), or false (no clock)
  *   scenery   up to 10 https picture URLs shown behind the board, one at a time (5 minutes each)
  *   weather   "family" for the deep-blue weather card with the hours and an animated sky; else the plain one
@@ -76,7 +80,7 @@ export function cleanLook(s = {}) {
   };
 }
 // What the display is showing: the home screen's tab ("today", "apps" or an app's id), so "make this bigger" means
-// it. The display reports each change (POST /door/showing); a report older than an hour counts for nothing.
+// it. The display reports each change (POST /home/showing); a report older than an hour counts for nothing.
 let showing = null;
 /** Is this app one of the home screen's tabs? */
 // The tabs a home screen has until the family changes them (chat/src/home.jsx DEFAULT_TABS).
@@ -102,17 +106,17 @@ function homeStyle() {
     ...cleanLook(s),
   };
 }
-/** What each kind of thing on the door is when nobody has sized it (the home app's own things: the display measures them). */
+/** What each kind of thing on the home screen is when nobody has sized it (the home app's own things: the display measures them). */
 const DEFAULT_SHAPE = (key, widgets = {}) => (key === 'clock' ? '2x1' : key === 'weather' ? '2x2' : key === 'whiteboard' ? '2x2'
   : key.startsWith('app:') ? BUILT_IN_WIDGETS[key.slice(4)] || (widgets[key.slice(4)] ? '2x2' : '1x1') : key.startsWith('timer:') ? '1x1' : null);
 const hasWidget = (key, widgets = {}) => key.startsWith('app:') && !!(BUILT_IN_WIDGETS[key.slice(4)] || widgets[key.slice(4)]);
 
-export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
+export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   const FILE = path.join(DIR, 'door.json');
   const TOKEN = crypto.randomUUID();
   let version = 1;
   const waiters = new Set();
-  /** Tools called outside any run (or by a run that hasn't started yet) count as keeping the door current. */
+  /** Tools called outside any run (or by a run that hasn't started yet) count as keeping the home screen current. */
   const NOBODY = Object.freeze({ by: 'assistant', who: null, conversation: null, touched: null });
   const runs = new Map(); // token -> the run's context (null: minted ahead, its run hasn't started)
   const minted = new Map(); // token -> when, for tokens minted ahead (a warm agent)
@@ -124,7 +128,7 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
     for (const [k, at] of minted) if (Date.now() - at > 30 * 60e3) { minted.delete(k); if (runs.get(k) === null) runs.delete(k); }
     return t;
   };
-  /** Whose tools these are, by the bearer token; undefined: not a door token at all. */
+  /** Whose tools these are, by the bearer token; undefined: not a home-screen token at all. */
   const contextOf = (token) => (runs.get(token) || (runs.has(token) ? NOBODY : token === TOKEN ? shared || NOBODY : undefined));
 
   // Written to a temp file and renamed, so a power cut mid-write can't leave half a file; the previous
@@ -133,46 +137,46 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   const read = () => tryRead(FILE) || tryRead(FILE + '.bak') || { notes: [] };
   const write = () => {
     const tmp = FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(door));
+    fs.writeFileSync(tmp, JSON.stringify(homeScreen));
     try { if (fs.existsSync(FILE)) fs.copyFileSync(FILE, FILE + '.bak'); } catch {}
     fs.renameSync(tmp, FILE);
   };
-  let door = read();
-  door.notes ||= [];
-  for (const n of door.notes) { n.content = fenced(n.content); delete n.refitting; } // notes saved in an older shape read right again; no refit outlives a restart
-  door.places ||= {}; // where the other things on the door are (the clock, the weather, apps, the home app's own things)
-  door.trash ||= []; // notes the family dragged to the trash, newest first, so they can be put back
+  let homeScreen = read();
+  homeScreen.notes ||= [];
+  for (const n of homeScreen.notes) { n.content = fenced(n.content); delete n.refitting; } // notes saved in an older shape read right again; no refit outlives a restart
+  homeScreen.places ||= {}; // where the other things on the home screen are (the clock, the weather, apps, the home app's own things)
+  homeScreen.trash ||= []; // notes the family dragged to the trash, newest first, so they can be put back
   // Once, when the board became the Apps tab and notes moved to Today: the notes the assistant kept current for the
   // board on its own (by: 'assistant', from its hourly look) are put aside, kept in door.json, so Today shows the notes
   // someone asked for.
-  if (!door.notesOnToday) { door.notesOnToday = true; door.boardNotes = door.notes.filter((n) => n.by === 'assistant'); door.notes = door.notes.filter((n) => n.by !== 'assistant'); write(); }
-  door.present ||= null; // what the display last said is on the door (not notes); null: it hasn't yet
-  // The whiteboard on the door: what the family drew, as strokes ({c: color, w: width, p: [x, y, ...]}, 0-1000 across
+  if (!homeScreen.notesOnToday) { homeScreen.notesOnToday = true; homeScreen.boardNotes = homeScreen.notes.filter((n) => n.by === 'assistant'); homeScreen.notes = homeScreen.notes.filter((n) => n.by !== 'assistant'); write(); }
+  homeScreen.present ||= null; // what the display last said is on the home screen (not notes); null: it hasn't yet
+  // The whiteboard on the home screen: what the family drew, as strokes ({c: color, w: width, p: [x, y, ...]}, 0-1000 across
   // and down its box). `was`: what a clear wiped, so undo brings it back.
-  door.sketch ||= { v: 0, strokes: [], was: null };
-  door.timers ||= []; // kitchen timers, {label, total (s), endAt (ms)}: on the door as "timer:<endAt>". The shell rings them; screens show them too.
-  // Once, before the door first moves onto the grid: the free-form door as it was, kept (door.json.pregrid), in case it's wanted back.
-  try { if (!door.widgetsOnDoor && fs.existsSync(FILE) && !fs.existsSync(FILE + '.pregrid')) fs.copyFileSync(FILE, FILE + '.pregrid'); } catch {}
-  if (!door.widgetsOnDoor) { // once: the starting apps' icons become their widgets, where they are (what's in the way makes room)
-    door.widgetsOnDoor = true;
-    toGrid(door);
+  homeScreen.sketch ||= { v: 0, strokes: [], was: null };
+  homeScreen.timers ||= []; // kitchen timers, {label, total (s), endAt (ms)}: on the home screen as "timer:<endAt>". The shell rings them; screens show them too.
+  // Once, before the home screen first moves onto the grid: the free-form board as it was, kept (door.json.pregrid), in case it's wanted back.
+  try { if (!homeScreen.widgetsOnHome && fs.existsSync(FILE) && !fs.existsSync(FILE + '.pregrid')) fs.copyFileSync(FILE, FILE + '.pregrid'); } catch {}
+  if (!homeScreen.widgetsOnHome) { // once: the starting apps' icons become their widgets, where they are (what's in the way makes room)
+    homeScreen.widgetsOnHome = true;
+    toGrid(homeScreen);
     for (const [app, shape] of Object.entries(BUILT_IN_WIDGETS)) {
-      const key = 'app:' + app, p = door.places[key];
+      const key = 'app:' + app, p = homeScreen.places[key];
       if (!p || p.hidden || p.col == null || (p.w || 1) * (p.h || 1) > 1) continue;
-      const all = [...Object.entries(door.places).filter(([k, q]) => k !== key && !q.hidden && q.col != null).map(([k, q]) => ({ key: k, page: q.page | 0, col: q.col, row: q.row, w: q.w || 1, h: q.h || 1 })),
-        ...door.notes.filter((n) => n.col != null).map((n) => ({ key: n.id, page: n.page | 0, col: n.col, row: n.row, ...G.dims(n.size) }))];
+      const all = [...Object.entries(homeScreen.places).filter(([k, q]) => k !== key && !q.hidden && q.col != null).map(([k, q]) => ({ key: k, page: q.page | 0, col: q.col, row: q.row, w: q.w || 1, h: q.h || 1 })),
+        ...homeScreen.notes.filter((n) => n.col != null).map((n) => ({ key: n.id, page: n.page | 0, col: n.col, row: n.row, ...G.dims(n.size) }))];
       const { w, h } = G.dims(shape);
       for (const m of G.makeRoom(all, key, { page: p.page | 0, col: p.col, row: p.row, w, h })) {
-        const n = door.notes.find((x) => x.id === m.key);
-        const q = door.places[m.key];
+        const n = homeScreen.notes.find((x) => x.id === m.key);
+        const q = homeScreen.places[m.key];
         if (n) Object.assign(n, { page: m.page, col: m.col, row: m.row });
-        else door.places[m.key] = { ...q, page: m.page, col: m.col, row: m.row, ...(q?.w != null || m.key === key ? { w: m.w, h: m.h } : {}) }; // the home app's things keep being measured
+        else homeScreen.places[m.key] = { ...q, page: m.page, col: m.col, row: m.row, ...(q?.w != null || m.key === key ? { w: m.w, h: m.h } : {}) }; // the home app's things keep being measured
       }
     }
     write();
   }
-  door.widgets ||= {}; // app id -> { content (a layout, like a note's), shapes: { "4x2": content for that shape }, at }: what agent-made apps show on the door
-  if (toGrid(door)) write();
+  homeScreen.widgets ||= {}; // app id -> { content (a layout, like a note's), shapes: { "4x2": content for that shape }, at }: what agent-made apps show on the home screen
+  if (toGrid(homeScreen)) write();
   // A change to how the home screen looks (the assistant's edit, an undo) reaches every screen at once.
   // A change to the apps reaches every screen at once: the look (apps/home, the assistant's edit or an undo), and an
   // app's own files (appsV: when each last changed), so a tab showing that app loads it again and they watch it change.
@@ -201,19 +205,19 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   }
 
   // ---- space ----
-  // Everything on the door, as grid items: notes, then the rest (what the display says is there, or every place it ever had).
-  const onDoor = (p, k) => !p.hidden && p.col != null && (!door.present || door.present.includes(k));
+  // Everything on the home screen, as grid items: notes, then the rest (what the display says is there, or every place it ever had).
+  const onHome = (p, k) => !p.hidden && p.col != null && (!homeScreen.present || homeScreen.present.includes(k));
   const items = (but = null) => [
-    ...Object.entries(door.places).filter(([k, p]) => k !== but && onDoor(p, k)).map(([key, p]) => ({ key, page: p.page | 0, col: p.col, row: p.row, w: p.w || 1, h: p.h || 1 })),
-    ...door.notes.filter((n) => n.id !== but && n.col != null).map((n) => ({ key: n.id, page: n.page | 0, col: n.col, row: n.row, ...G.dims(n.size) })),
+    ...Object.entries(homeScreen.places).filter(([k, p]) => k !== but && onHome(p, k)).map(([key, p]) => ({ key, page: p.page | 0, col: p.col, row: p.row, w: p.w || 1, h: p.h || 1 })),
+    ...homeScreen.notes.filter((n) => n.id !== but && n.col != null).map((n) => ({ key: n.id, page: n.page | 0, col: n.col, row: n.row, ...G.dims(n.size) })),
   ];
   /** Put [moved] (grid items, each with a key) where they say, back into the notes and places. */
   function apply(moved) {
     for (const m of moved) {
-      const n = door.notes.find((x) => x.id === m.key);
+      const n = homeScreen.notes.find((x) => x.id === m.key);
       const at = { page: m.page, col: m.col, row: m.row };
       if (n) Object.assign(n, at);
-      else if (/^[\w:.-]{1,80}$/.test(m.key)) door.places[m.key] = { ...door.places[m.key], ...at, w: m.w, h: m.h };
+      else if (/^[\w:.-]{1,80}$/.test(m.key)) homeScreen.places[m.key] = { ...homeScreen.places[m.key], ...at, w: m.w, h: m.h };
     }
   }
   /** [key] (w x h) to [want] ({page, col, row}), whatever is there making room; or, with no [want], the first free spot. */
@@ -231,10 +235,10 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   const where = (i) => `page ${(i.page | 0) + 1}, col ${i.col + 1}, row ${i.row + 1}`;
 
   function expire() {
-    const now = Date.now(), before = door.notes.length, timers = door.timers.length;
-    door.notes = door.notes.filter((n) => !n.until || n.until > now || n.keep);
-    door.timers = door.timers.filter((t) => t.endAt > now - 10 * 60e3); // rung long ago (the shell stops ringing after 5 min)
-    if (door.notes.length !== before || door.timers.length !== timers) save();
+    const now = Date.now(), before = homeScreen.notes.length, timers = homeScreen.timers.length;
+    homeScreen.notes = homeScreen.notes.filter((n) => !n.until || n.until > now || n.keep);
+    homeScreen.timers = homeScreen.timers.filter((t) => t.endAt > now - 10 * 60e3); // rung long ago (the shell stops ringing after 5 min)
+    if (homeScreen.notes.length !== before || homeScreen.timers.length !== timers) save();
   }
   /** A timer started (by the shell, a screen, a note's Timer), or put back with the time it had: by when it rings. */
   function startTimer(a) {
@@ -242,22 +246,22 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
     const endAt = Number.isFinite(Number(a.endAt)) && Number(a.endAt) > 0 ? Math.round(Number(a.endAt)) : Date.now() + Math.round(Number(a.seconds) * 1000);
     const total = Math.round(Number(a.total ?? a.seconds ?? (endAt - Date.now()) / 1000));
     if (!(endAt > Date.now() - 60e3 && endAt < Date.now() + 86400e3) || !(total >= 1 && total <= 86400)) return null;
-    if (!door.timers.some((t) => t.endAt === endAt)) door.timers.push({ label, total, endAt });
+    if (!homeScreen.timers.some((t) => t.endAt === endAt)) homeScreen.timers.push({ label, total, endAt });
     save();
     return endAt;
   }
   function cancelTimer(endAt) {
-    const before = door.timers.length;
-    door.timers = door.timers.filter((t) => t.endAt !== Number(endAt));
-    delete door.places['timer:' + Number(endAt)];
+    const before = homeScreen.timers.length;
+    homeScreen.timers = homeScreen.timers.filter((t) => t.endAt !== Number(endAt));
+    delete homeScreen.places['timer:' + Number(endAt)];
     save();
-    return door.timers.length !== before;
+    return homeScreen.timers.length !== before;
   }
   setInterval(expire, 20e3).unref?.();
 
   /**
    * The home screen's tabs and look (apps/home/style.json), changed in one step: from the "Tabs and look" sheet
-   * (POST /door/look) and from the assistant (set_home). Only the keys given change. It's a change like any other,
+   * (POST /home/look) and from the assistant (set_home). Only the keys given change. It's a change like any other,
    * so "undo" takes it back: its own commit, or part of the turn's when that turn is already editing.
    */
   function setLook(b, turn = null, who = null) {
@@ -285,24 +289,24 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   }
 
   function view() {
-    return { v: version, computer: live.computer, show: live.show, handsFree: handsFree() && { app: live.handsFree.app, until: live.handsFree.until }, sketch: door.sketch.v, notes: door.notes, places: door.places, timers: door.timers, trash: door.trash.map((n) => ({ id: n.id, title: n.title })),
+    return { v: version, computer: live.computer, show: live.show, handsFree: handsFree() && { app: live.handsFree.app, until: live.handsFree.until }, sketch: homeScreen.sketch.v, notes: homeScreen.notes, places: homeScreen.places, timers: homeScreen.timers, trash: homeScreen.trash.map((n) => ({ id: n.id, title: n.title })),
       grid: { cols: G.COLS, rows: G.ROWS, reserved: G.RESERVED, shapes: G.SHAPES },
       // Apps with a widget (bigger than 1x1 they show it, at 1x1 their icon) and the shape each starts at; agent-made apps' widget layouts.
-      style: homeStyle(), appsV, widgets: { builtin: BUILT_IN_WIDGETS, starts: Object.fromEntries(Object.keys(door.widgets).map((k) => [k, '2x2'])), content: door.widgets } };
+      style: homeStyle(), appsV, widgets: { builtin: BUILT_IN_WIDGETS, starts: Object.fromEntries(Object.keys(homeScreen.widgets).map((k) => [k, '2x2'])), content: homeScreen.widgets } };
   }
 
   const ago = (t) => { const m = Math.round((Date.now() - t) / 60e3); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} d ago`; };
-  const label = (i) => { const n = door.notes.find((x) => x.id === i.key); return n ? `note ${n.id} "${n.title}"` : i.key.startsWith('app:') ? `app ${i.key.slice(4)}` : i.key.startsWith('own:') ? `the home app's ${i.key.slice(4)}` : i.key; };
+  const label = (i) => { const n = homeScreen.notes.find((x) => x.id === i.key); return n ? `note ${n.id} "${n.title}"` : i.key.startsWith('app:') ? `app ${i.key.slice(4)}` : i.key.startsWith('own:') ? `the home app's ${i.key.slice(4)}` : i.key; };
   /** The notes, for the assistant: they show on the Today tab, newest first (a title and a line; a tap opens one). */
   function describe() {
     expire();
-    const mine = door.notes;
+    const mine = homeScreen.notes;
     const lines = [mine.length ? 'Notes on Today now (newest first; Today shows five):' : 'No notes on Today.'];
     for (const x of [...mine].reverse().sort((a, b) => (b.at || 0) - (a.at || 0))) lines.push(`- ${x.id} "${x.title}"; ` +
         `${x.by === 'family' ? 'kept by the family' : x.keep ? 'kept' : x.until ? `comes down by itself in ${Math.max(1, Math.round((x.until - Date.now()) / 60e3))} min` : 'stays until taken down'}` +
         `${x.for ? `; for ${x.for}` : ''}; put up ${ago(x.at)} by ${x.by === 'chat' ? `you, answering ${x.askedBy || 'someone'}` : 'the family'}` +
         `${x.touched ? `; last opened ${ago(x.touched)}` : ''}`);
-    if (door.trash.length) lines.push(`Taken down by the family (put_back brings one back): ${door.trash.map((x) => `${x.id} "${x.title}"`).join(', ')}.`);
+    if (homeScreen.trash.length) lines.push(`Taken down by the family (put_back brings one back): ${homeScreen.trash.map((x) => `${x.id} "${x.title}"`).join(', ')}.`);
     return lines.join('\n');
   }
 
@@ -344,7 +348,7 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
       by: context.by, askedBy: context.who, conversation: context.conversation, at: Date.now(), touched: null,
     };
     if (!n.content.trim()) return { error: 'content is empty' };
-    door.notes = [...door.notes, n];
+    homeScreen.notes = [...homeScreen.notes, n];
     const { w, h } = G.dims(size);
     settleOne(n.id, w, h, wanted(a));
     save(); snapshot(n, context);
@@ -352,7 +356,7 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
     return { note: n };
   }
   function update(a, context = NOBODY) {
-    const n = door.notes.find((x) => x.id === a.id);
+    const n = homeScreen.notes.find((x) => x.id === a.id);
     if (!n) return { error: `No note ${a.id}.\n\n${describe()}` };
     const next = { ...n };
     for (const k of ['title', 'content', 'paper', 'color', 'for']) if (a[k] != null && String(a[k]).trim()) next[k] = String(a[k]);
@@ -361,44 +365,44 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
     if (shape) next.size = shape;
     if (a.keep != null) { next.keep = !!a.keep; if (next.keep) next.until = null; }
     if (a.minutes != null && !next.keep) next.until = Number(a.minutes) > 0 ? Date.now() + Number(a.minutes) * 60e3 : null;
-    door.notes = door.notes.map((x) => (x.id === n.id ? next : x));
+    homeScreen.notes = homeScreen.notes.map((x) => (x.id === n.id ? next : x));
     const want = wanted(a, n);
     if (want || next.size !== n.size || next.col == null) { const { w, h } = G.dims(next.size); settleOne(n.id, w, h, want || (next.col != null ? { page: next.page, col: next.col, row: next.row } : null)); }
     save(); snapshot(next, context);
     return { note: next };
   }
-  /** An app's widget on the door: a layout like a note's content (for every shape, or one [shape]); empty content takes it away. */
+  /** An app's widget on the home screen: a layout like a note's content (for every shape, or one [shape]); empty content takes it away. */
   function setWidget(a) {
     const app = String(a.app || '').replace(/^app:/, '').trim();
-    if (!/^[\w.-]{1,80}$/.test(app)) return { error: 'Which app? Its id, as in "app:<id>" on the door.' };
-    if (BUILT_IN_WIDGETS[app]) return { error: `${app} is a starting app: the display draws its widget from the house's data. Change the data (the house tools), or resize it with move_on_door.` };
+    if (!/^[\w.-]{1,80}$/.test(app)) return { error: 'Which app? Its id, as in "app:<id>" on the home screen.' };
+    if (BUILT_IN_WIDGETS[app]) return { error: `${app} is a starting app: the display draws its widget from the house's data. Change the data (the house tools), or resize it with move_on_home.` };
     const content = fenced(a.content);
     const shape = a.shape ? G.shapeOf(a.shape) : null;
     if (a.shape && !shape) return { error: `Shapes: ${G.SHAPES.join(', ')}.` };
     if (!content.trim()) {
-      if (shape && door.widgets[app]?.shapes) delete door.widgets[app].shapes[shape]; else delete door.widgets[app];
+      if (shape && homeScreen.widgets[app]?.shapes) delete homeScreen.widgets[app].shapes[shape]; else delete homeScreen.widgets[app];
     } else {
-      const w = door.widgets[app] || { content: null, shapes: {} };
+      const w = homeScreen.widgets[app] || { content: null, shapes: {} };
       if (shape) w.shapes = { ...w.shapes, [shape]: content }; else w.content = content;
-      door.widgets[app] = { ...w, at: Date.now() };
+      homeScreen.widgets[app] = { ...w, at: Date.now() };
     }
     // A widget only shows bigger than 1x1: an app that's still an icon grows to its first shape where it is.
-    const p = door.places['app:' + app];
-    if (door.widgets[app] && p && !p.hidden && p.col != null && (p.w || 1) * (p.h || 1) === 1) {
+    const p = homeScreen.places['app:' + app];
+    if (homeScreen.widgets[app] && p && !p.hidden && p.col != null && (p.w || 1) * (p.h || 1) === 1) {
       const { w, h } = G.dims(shape && shape !== '1x1' ? shape : '2x2'); settleOne('app:' + app, w, h, p);
     }
-    if (!door.widgets[app] && p && (p.w || 1) * (p.h || 1) > 1) { p.w = 1; p.h = 1; }
+    if (!homeScreen.widgets[app] && p && (p.w || 1) * (p.h || 1) > 1) { p.w = 1; p.h = 1; }
     save();
     return { ok: true };
   }
-  /** Move or resize anything on the door (a note by id, or "clock", "weather", "app:<id>", "own:<key>"); what's in the way makes room. */
+  /** Move or resize anything on the home screen (a note by id, or "clock", "weather", "app:<id>", "own:<key>"); what's in the way makes room. */
   function arrange(a) {
     const key = String(a.what || a.id || '');
-    const n = door.notes.find((x) => x.id === key), p = door.places[key];
-    if (!n && !(p && onDoor(p, key))) return { error: `Nothing called ${key} on the door.\n\n${describe()}` };
+    const n = homeScreen.notes.find((x) => x.id === key), p = homeScreen.places[key];
+    if (!n && !(p && onHome(p, key))) return { error: `Nothing called ${key} on the home screen.\n\n${describe()}` };
     const was = n ? { page: n.page | 0, col: n.col, row: n.row, ...G.dims(n.size) } : { page: p.page | 0, col: p.col, row: p.row, w: p.w || 1, h: p.h || 1 };
     let shape = G.shapeOf(a.shape);
-    if (key.startsWith('app:') && !hasWidget(key, door.widgets)) shape = '1x1';
+    if (key.startsWith('app:') && !hasWidget(key, homeScreen.widgets)) shape = '1x1';
     const { w, h } = shape ? G.dims(shape) : was;
     if (n && shape && shape !== n.size) { const from = n.size; n.size = shape; setTimeout(() => handle.onResize?.(n, from), 0); }
     const at = settleOne(key, w, h, wanted(a, was) || was);
@@ -406,30 +410,30 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
     return { at };
   }
   function remove(id) {
-    const before = door.notes.length;
-    door.notes = door.notes.filter((x) => x.id !== id);
-    if (door.notes.length === before) return { error: `No note ${id}` };
+    const before = homeScreen.notes.length;
+    homeScreen.notes = homeScreen.notes.filter((x) => x.id !== id);
+    if (homeScreen.notes.length === before) return { error: `No note ${id}` };
     save();
     return { ok: true };
   }
-  /** The family dragged a note to the trash: off the door, but kept (the newest 20) so it can be put back. */
+  /** The family dragged a note to the trash: off the home screen, but kept (the newest 20) so it can be put back. */
   function trash(id) {
-    const n = door.notes.find((x) => x.id === id);
+    const n = homeScreen.notes.find((x) => x.id === id);
     if (!n) return false;
-    door.notes = door.notes.filter((x) => x !== n);
-    door.trash = [{ ...n, trashed: Date.now() }, ...door.trash.filter((x) => x.id !== id)].slice(0, 20);
+    homeScreen.notes = homeScreen.notes.filter((x) => x !== n);
+    homeScreen.trash = [{ ...n, trashed: Date.now() }, ...homeScreen.trash.filter((x) => x.id !== id)].slice(0, 20);
     save();
     return true;
   }
-  /** Put back something the family trashed: a note (by id) or anything else on the door (by its place key), where it was if that's still free. */
+  /** Put back something the family trashed: a note (by id) or anything else on the home screen (by its place key), where it was if that's still free. */
   function putBack(key) {
-    const p = door.places[key];
+    const p = homeScreen.places[key];
     if (p?.hidden) { p.hidden = false; if (p.col != null) settleOne(key, p.w || 1, p.h || 1, p); save(); return true; }
-    const t = door.trash.find((x) => x.id === key);
+    const t = homeScreen.trash.find((x) => x.id === key);
     if (!t) return false;
     const { trashed, ...n } = t;
-    door.trash = door.trash.filter((x) => x !== t);
-    door.notes = [...door.notes.filter((x) => x.id !== n.id), n]; // the family's own choice: back on the door
+    homeScreen.trash = homeScreen.trash.filter((x) => x !== t);
+    homeScreen.notes = [...homeScreen.notes.filter((x) => x.id !== n.id), n]; // the family's own choice: back on the home screen
     const { w, h } = G.dims(n.size);
     const spot = n.col != null ? { page: n.page | 0, col: n.col, row: n.row, w, h } : null;
     if (spot && G.fits(items(n.id), spot)) apply([{ key: n.id, ...spot }]);
@@ -439,10 +443,10 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   }
   /** Replace the notes the assistant keeps current (curation) with these, each in the first free spot. */
   function replaceCurated(cards) {
-    door.notes = door.notes.filter((n) => n.by !== 'assistant');
+    homeScreen.notes = homeScreen.notes.filter((n) => n.by !== 'assistant');
     for (const c of cards) {
       const n = { id: 'n-' + crypto.randomUUID().slice(0, 6), title: c.title, content: c.content, size: G.shapeOf(c.size) || '2x1', paper: c.paper || null, color: null, for: null, keep: false, until: null, by: 'assistant', at: Date.now(), touched: null };
-      door.notes.push(n); const { w, h } = G.dims(n.size); settleOne(n.id, w, h, null);
+      homeScreen.notes.push(n); const { w, h } = G.dims(n.size); settleOne(n.id, w, h, null);
     }
     save();
   }
@@ -492,7 +496,7 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
     if (name === 'put_note') { const r = put(a, {}, context); if (!r.error && context?.notesLeft != null) context.notesLeft--; return r.error ? err(r.error) : ok(`Put up ${r.note.id} "${r.note.title}" on Today.`); }
     if (name === 'update_note') { const r = update(a, context); return r.error ? err(r.error) : ok(`Updated ${r.note.id}.`); }
     if (name === 'set_widget') { const r = setWidget(a); return r.error ? err(r.error) : ok(String(a.content || '').trim() ? `Set ${String(a.app).replace(/^app:/, '')}'s widget.` : 'Took the widget away.'); }
-    if (name === 'move_on_door') { const r = arrange(a); return r.error ? err(r.error) : ok(`Moved ${a.what} to ${where(r.at)} (${r.at.w}x${r.at.h}).`); }
+    if (name === 'move_on_home') { const r = arrange(a); return r.error ? err(r.error) : ok(`Moved ${a.what} to ${where(r.at)} (${r.at.w}x${r.at.h}).`); }
     if (name === 'set_home') {
       const r = setLook(a || {}, context?.turn || null, context?.who || null);
       if (r.error) return err(r.error);
@@ -513,7 +517,7 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
       return r.error ? err(r.error) : ok(`Done, it's on the screen now. ${line(r.style.cards)}`);
     }
     if (name === 'take_down_note') {
-      const n = door.notes.find((x) => x.id === a.id);
+      const n = homeScreen.notes.find((x) => x.id === a.id);
       if (n && (n.by === 'family' || n.keep) && context.by === 'assistant') return err('The family kept that one. Leave it.');
       if (n && context.quiet && n.by !== 'assistant') return err('Only your own notes, in the background.');
       const r = remove(a.id); return r.error ? err(r.error) : ok(`Took down ${a.id}.`);
@@ -526,7 +530,7 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
     const msg = await body(req);
     if (msg.id == null) { res.writeHead(202); return res.end(); } // notifications
     const reply = (result) => json(res, 200, { jsonrpc: '2.0', id: msg.id, result });
-    if (msg.method === 'initialize') return reply({ protocolVersion: msg.params?.protocolVersion || '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'door', version: '0.1' } });
+    if (msg.method === 'initialize') return reply({ protocolVersion: msg.params?.protocolVersion || '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'home', version: '0.1' } });
     if (msg.method === 'tools/list') return reply({ tools: [...TOOLS, ...extra] });
     if (msg.method === 'tools/call') { try { return reply(await call(msg.params?.name, msg.params?.arguments || {}, context)); } catch (e) { return reply({ content: [{ type: 'text', text: e.message }], isError: true }); } }
     if (msg.method === 'ping') return reply({});
@@ -535,10 +539,10 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
 
   async function handle(req, res, url) {
     const p = url.pathname;
-    if (p === '/door/mcp' && req.method === 'POST') { await mcp(req, res); return true; }
-    if (req.method === 'GET' && p === '/door') { expire(); json(res, 200, view()); return true; }
-    if (req.method === 'GET' && p === '/door/sketch') { json(res, 200, { v: door.sketch.v, strokes: door.sketch.strokes }); return true; }
-    if (req.method === 'GET' && p === '/door/wait') {
+    if (p === '/home/mcp' && req.method === 'POST') { await mcp(req, res); return true; }
+    if (req.method === 'GET' && p === '/home') { expire(); json(res, 200, view()); return true; }
+    if (req.method === 'GET' && p === '/home/sketch') { json(res, 200, { v: homeScreen.sketch.v, strokes: homeScreen.sketch.strokes }); return true; }
+    if (req.method === 'GET' && p === '/home/wait') {
       expire();
       if (Number(url.searchParams.get('v')) !== version) { json(res, 200, view()); return true; }
       const t = setTimeout(() => { waiters.delete(done); json(res, 200, view()); }, 25e3);
@@ -547,41 +551,41 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
       req.on('close', () => { clearTimeout(t); waiters.delete(done); });
       return true;
     }
-    if (req.method !== 'POST' || !p.startsWith('/door/')) return false;
+    if (req.method !== 'POST' || !p.startsWith('/home/')) return false;
     const b = await body(req);
-    const n = door.notes.find((x) => x.id === String(b.id || ''));
-    if (p === '/door/arrange') { // the display moved or resized things, or placed something new
+    const n = homeScreen.notes.find((x) => x.id === String(b.id || ''));
+    if (p === '/home/arrange') { // the display moved or resized things, or placed something new
       const list = Array.isArray(b.items) ? b.items : [];
       const ok = (v, max) => Number.isInteger(v) && v >= 0 && v < max;
       const good = list.filter((m) => m && typeof m.key === 'string' && ok(m.col, G.COLS) && ok(m.row, G.ROWS) && Number.isInteger(m.page) && m.page >= 0 && m.page < 50 && G.SHAPES.includes(`${m.w}x${m.h}`));
       for (const m of good) {
-        const n = door.notes.find((x) => x.id === m.key);
-        if (n && `${m.w}x${m.h}` !== n.size) { const from = n.size; n.size = `${m.w}x${m.h}`; door.notes = [...door.notes.filter((x) => x !== n), n]; setTimeout(() => handle.onResize?.(n, from), 0); }
+        const n = homeScreen.notes.find((x) => x.id === m.key);
+        if (n && `${m.w}x${m.h}` !== n.size) { const from = n.size; n.size = `${m.w}x${m.h}`; homeScreen.notes = [...homeScreen.notes.filter((x) => x !== n), n]; setTimeout(() => handle.onResize?.(n, from), 0); }
       }
       apply(good.map(({ key, page, col, row, w, h }) => ({ key, page, col, row, w, h })));
-      if (Array.isArray(b.present)) door.present = b.present.filter((k) => typeof k === 'string').slice(0, 500);
-      if (door.present) for (const k of Object.keys(door.places)) if (k.startsWith('timer:') && !door.present.includes(k)) delete door.places[k]; // rung or stopped
-      save(); json(res, 200, { ok: true, v: version }); return true; // v: the door's version with this in it (a screen holds its move until it sees it)
+      if (Array.isArray(b.present)) homeScreen.present = b.present.filter((k) => typeof k === 'string').slice(0, 500);
+      if (homeScreen.present) for (const k of Object.keys(homeScreen.places)) if (k.startsWith('timer:') && !homeScreen.present.includes(k)) delete homeScreen.places[k]; // rung or stopped
+      save(); json(res, 200, { ok: true, v: version }); return true; // v: the home screen's version with this in it (a screen holds its move until it sees it)
     }
-    if (p === '/door/showing') { // the display's tab changed (only the display reports it)
+    if (p === '/home/showing') { // the display's tab changed (only the display reports it)
       const t = String(b.tab || '');
       showing = TAB_ID.test(t) ? { tab: t, at: Date.now() } : null;
       json(res, 200, { ok: true }); return true;
     }
-    if (p === '/door/look') { // the display's "Tabs and look" sheet: a change like any other, so "undo" takes it back
+    if (p === '/home/look') { // the display's "Tabs and look" sheet: a change like any other, so "undo" takes it back
       const r = setLook(b, null, b.who ? String(b.who).slice(0, 40) : null);
       if (r.busy) { json(res, 409, { error: 'busy', text: r.error }); return true; }
       if (r.error) { json(res, 500, { error: r.error }); return true; }
       json(res, 200, { ok: true, style: r.style }); return true;
     }
-    if (p === '/door/place' && /^[\w:.-]{1,80}$/.test(String(b.key || ''))) { // put in the trash (hidden), or from before the grid: x, y in u
-      const was = door.places[b.key] || {};
-      if (b.hidden != null) door.places[b.key] = { ...was, hidden: !!b.hidden };
-      if (b.x != null || b.y != null) { const d = G.dims(DEFAULT_SHAPE(b.key, door.widgets) || `${was.w || 1}x${was.h || 1}`); settleOne(b.key, d.w, d.h, G.cellFromU(b.x, b.y, d.w, d.h)); }
+    if (p === '/home/place' && /^[\w:.-]{1,80}$/.test(String(b.key || ''))) { // put in the trash (hidden), or from before the grid: x, y in u
+      const was = homeScreen.places[b.key] || {};
+      if (b.hidden != null) homeScreen.places[b.key] = { ...was, hidden: !!b.hidden };
+      if (b.x != null || b.y != null) { const d = G.dims(DEFAULT_SHAPE(b.key, homeScreen.widgets) || `${was.w || 1}x${was.h || 1}`); settleOne(b.key, d.w, d.h, G.cellFromU(b.x, b.y, d.w, d.h)); }
       save(); json(res, 200, { ok: true }); return true;
     }
-    if (p === '/door/sketch') { // {add: stroke} | {undo: true} | {clear: true}
-      const k = door.sketch, a = b.add;
+    if (p === '/home/sketch') { // {add: stroke} | {undo: true} | {clear: true}
+      const k = homeScreen.sketch, a = b.add;
       if (a) {
         const pts = Array.isArray(a.p) ? a.p.slice(0, 800).map((n) => Math.max(0, Math.min(1000, Math.round(Number(n) || 0)))) : [];
         if (pts.length < 2 || pts.length % 2) { json(res, 400, { error: 'a stroke needs points' }); return true; }
@@ -592,11 +596,11 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
       else if (b.undo) { if (!k.strokes.length && k.was) { k.strokes = k.was; k.was = null; } else k.strokes.pop(); }
       k.v++; save(); json(res, 200, { ok: true, v: k.v }); return true;
     }
-    if (p === '/door/timer') { // {start: {label, seconds} or {label, total, endAt}} or {cancel: endAt}
+    if (p === '/home/timer') { // {start: {label, seconds} or {label, total, endAt}} or {cancel: endAt}
       if (b.start && typeof b.start === 'object') { const endAt = startTimer(b.start); json(res, endAt ? 200 : 400, endAt ? { ok: true, endAt } : { error: 'bad timer' }); return true; }
       json(res, 200, { ok: cancelTimer(b.cancel) }); return true;
     }
-    if (p === '/door/handsfree') { // {note, listen (s), minutes} from an app in use hands-free, or {off: true}
+    if (p === '/home/handsfree') { // {note, listen (s), minutes} from an app in use hands-free, or {off: true}
       const app = String(req.headers['x-openhouse-app'] || 'home').slice(0, 60);
       if (b.off) { if (live.handsFree?.app === app) { live.handsFree = null; save(); } json(res, 200, { ok: true }); return true; }
       const minutes = Math.max(1, Math.min(90, Number(b.minutes) || 20));
@@ -605,24 +609,24 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
       // the screens hear of it when it starts or stops (a new step's note needs no redraw anywhere)
       if (!was || was.app !== app) save(); json(res, 200, { ok: true }); return true;
     }
-    if (p === '/door/remove') { trash(String(b.id || '')); json(res, 200, { ok: true }); return true; }
-    if (p === '/door/putback') { json(res, 200, { ok: putBack(String(b.key || '')) }); return true; }
-    if (p === '/door/keep' && n) { n.keep = b.keep !== false; if (n.keep) n.until = null; else if (n.by === 'family') n.by = 'chat'; save(); json(res, 200, n); return true; }
-    if (p === '/door/move' && n) { // from before the grid: x, y in u, to the nearest cell
+    if (p === '/home/remove') { trash(String(b.id || '')); json(res, 200, { ok: true }); return true; }
+    if (p === '/home/putback') { json(res, 200, { ok: putBack(String(b.key || '')) }); return true; }
+    if (p === '/home/keep' && n) { n.keep = b.keep !== false; if (n.keep) n.until = null; else if (n.by === 'family') n.by = 'chat'; save(); json(res, 200, n); return true; }
+    if (p === '/home/move' && n) { // from before the grid: x, y in u, to the nearest cell
       const { w, h } = G.dims(n.size); settleOne(n.id, w, h, G.cellFromU(b.x, b.y, w, h)); save(); json(res, 200, { ok: true }); return true;
     }
-    if (p === '/door/touch' && n) { n.touched = Date.now(); write(); json(res, 200, { ok: true }); return true; }
+    if (p === '/home/touch' && n) { n.touched = Date.now(); write(); json(res, 200, { ok: true }); return true; }
     json(res, 404, { error: 'not found' });
     return true;
   }
 
   /** Set a flag on a note (e.g. refitting) and tell the screens. */
-  handle.mark = (id, flags) => { const x = door.notes.find((m) => m.id === id); if (x) { Object.assign(x, flags); save(); } };
-  /** Put something the family trashed (a note, the clock, the weather, an app, a home-app thing) back on the door. */
+  handle.mark = (id, flags) => { const x = homeScreen.notes.find((m) => m.id === id); if (x) { Object.assign(x, flags); save(); } };
+  /** Put something the family trashed (a note, the clock, the weather, an app, a home-app thing) back on the home screen. */
   handle.putBack = putBack;
   // The same tools for someone's own AI app on a computer (workshop.js): the list, and a call as that computer.
   /** Kitchen timers for the workshop's timer tool (a paired agent's "set a pasta timer"): the shell rings them. */
-  handle.timers = { start: startTimer, cancel: cancelTimer, list: () => door.timers.filter((t) => t.endAt > Date.now()) };
+  handle.timers = { start: startTimer, cancel: cancelTimer, list: () => homeScreen.timers.filter((t) => t.endAt > Date.now()) };
   // apps: the apps the change has touched so far: the home screen pulses their tabs (or Apps, for one that isn't a tab).
   handle.computerNote = (text, apps = []) => { live.computer = text ? { text: String(text).slice(0, 160), apps: apps.slice(0, 20), at: live.computer?.at || Date.now() } : null; save(); };
   /** The app in use hands-free right now: {app, note, listen, until}, or null. */
@@ -633,7 +637,7 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   handle.tools = () => [...TOOLS, ...extra];
   handle.call = (name, a, ctx) => call(name, a || {}, ctx || NOBODY);
   handle.addTools = (tools, fn) => { extra.push(...tools); for (const t of tools) extraCall.set(t.name, fn); };
-  handle.url = `/door/mcp`;
+  handle.url = `/home/mcp`;
   handle.token = TOKEN;
   handle.describe = describe;
   handle.style = homeStyle;
@@ -651,7 +655,7 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   handle.replaceCurated = replaceCurated;
   /**
    * Run fn as one run with this context: fn({ token, attach, put }) gets the run's own token (for its agent's
-   * door connection), attach(token) for a token minted ahead, and put() as this run. Returns the notes it put
+   * home-screen connection), attach(token) for a token minted ahead, and put() as this run. Returns the notes it put
    * up or changed. exclusive: the agent shares one connection (the shared token), so wait for the others.
    */
   handle.during = async (ctx, fn, { exclusive = false } = {}) => {
@@ -676,11 +680,11 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   };
   /** Pins from the old board, once. */
   handle.migrate = (pins) => {
-    if (door.migrated) return;
-    door.migrated = true;
+    if (homeScreen.migrated) return;
+    homeScreen.migrated = true;
     for (const p of pins || []) {
       const n = { id: 'n-' + crypto.randomUUID().slice(0, 6), title: p.title, content: p.text, size: '2x2', paper: 'card', color: null, for: p.who, keep: true, until: null, by: 'family', at: p.at || Date.now(), touched: null, conversation: p.conversation || null };
-      door.notes.push(n); settleOne(n.id, 2, 2, null);
+      homeScreen.notes.push(n); settleOne(n.id, 2, 2, null);
     }
     save();
   };
@@ -688,22 +692,22 @@ export function doorRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
 }
 
 /**
- * A door from before the grid (free x, y in u, scale and turn) onto the grid: everything to the free cell nearest
+ * A board from before the grid (free x, y in u, scale and turn) onto the grid: everything to the free cell nearest
  * where it was, on the first page (the clock, the weather, apps and the home app's things first, then notes, oldest
  * first), or the next page with room. Returns whether anything changed.
  */
-export function toGrid(door) {
+export function toGrid(homeScreen) {
   let changed = false;
   const placed = [];
   const old = (p) => p && p.col == null && (p.x != null || p.y != null);
-  for (const [key, p] of Object.entries(door.places)) {
-    if (key === 'gear') { delete door.places[key]; changed = true; continue; } // the gear sits by the page dots now, off the grid
+  for (const [key, p] of Object.entries(homeScreen.places)) {
+    if (key === 'gear') { delete homeScreen.places[key]; changed = true; continue; } // the gear sits by the page dots now, off the grid
     if (!old(p)) { if (p.col != null && !p.hidden) placed.push({ key, page: p.page | 0, col: p.col, row: p.row, w: p.w || 1, h: p.h || 1 }); continue; }
-    const shape = DEFAULT_SHAPE(key, door.widgets || {});
+    const shape = DEFAULT_SHAPE(key, homeScreen.widgets || {});
     const { w, h } = shape ? G.dims(shape) : { w: 1, h: 1 }; // the home app's own things: the display measures them and picks
     const at = G.nearest(p.hidden ? [] : placed, w, h, G.cellFromU(p.x, p.y, w, h));
     const { x, y, scale, rot, ...rest } = p;
-    door.places[key] = { ...rest, page: at.page, col: at.col, row: at.row, ...(shape ? { w, h } : {}) };
+    homeScreen.places[key] = { ...rest, page: at.page, col: at.col, row: at.row, ...(shape ? { w, h } : {}) };
     if (!p.hidden) placed.push({ key, ...at });
     changed = true;
   }
@@ -720,7 +724,7 @@ export function toGrid(door) {
       changed = true;
     } else if (live) placed.push({ key: n.id, page: n.page | 0, col: n.col, row: n.row, ...G.dims(size) });
   };
-  [...door.notes].sort((a, b) => (a.x == null) - (b.x == null) || (a.at || 0) - (b.at || 0)).forEach((n) => fix(n, true));
-  for (const n of door.trash || []) fix(n, false);
+  [...homeScreen.notes].sort((a, b) => (a.x == null) - (b.x == null) || (a.at || 0) - (b.at || 0)).forEach((n) => fix(n, true));
+  for (const n of homeScreen.trash || []) fix(n, false);
   return changed;
 }

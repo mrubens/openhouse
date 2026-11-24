@@ -1,5 +1,5 @@
 // The bridge: the display's local server. The shell's native board, its app windows and a paired computer's AI
-// (workshop.js) talk to it; it keeps the conversations (chat.js), the family's door, household, voices and devices,
+// (workshop.js) talk to it; it keeps the conversations (chat.js), the family's home screen, household, voices and devices,
 // and owns undo. It listens on this device only, and every
 // request carries the display's secret (auth.js).
 //
@@ -23,7 +23,7 @@ import { devicesRoutes } from './devices/index.js';
 import { editLock } from './edits.js';
 import { authorized, loopbackHost } from './auth.js';
 import { eventStream } from './events.js';
-import { isTab } from './door.js';
+import { isTab, homePath } from './home-screen.js';
 import { builderRoutes } from './builder.js';
 import { screensRoutes } from './screens.js';
 import { appsRoutes, onScreen, appAllowed, houseFor } from './apps.js';
@@ -93,7 +93,7 @@ const chat = chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body, bu
   // stopped), and the screens are told to reload their apps.
   edits: {
     begin: edits.begin, claim: edits.claim, startEditing: edits.startEditing, holder: edits.holder,
-    tryAcquire: edits.tryAcquire, finish: edits.finish, busyText: edits.busyText, // the home screen's look (door.js /door/look)
+    tryAcquire: edits.tryAcquire, finish: edits.finish, busyText: edits.busyText, // the home screen's look (home-screen.js /home/look)
     end: (t, ok) => { const sha = edits.end(t, ok); if (sha) { emit({ type: 'state', ...events.state }); emit({ type: 'apps' }); } return !!sha; },
   },
   // The family's changes, newest first, and taking back one of them (not just the latest): git revert, so
@@ -118,20 +118,20 @@ const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes
 };
 // A calendar link (add_calendar, from the workshop or a typed chat): straight to the shell, never kept here (calendar-links.js).
 const calendar = calendarLinkTools({ config: () => process.env.DEVICE_MCP_CONFIG });
-chat.door.addTools(calendar.tools, calendar.call);
+chat.homeScreen.addTools(calendar.tools, calendar.call);
 // Every app is a plugin (ours from defaults/, the household's own, or from a link): on start-up the one-time move,
 // then this release's built-ins. A commit's changed apps keep their manifests right (edits.js snapshot).
 const DEFAULTS = (() => { const d = process.env.DEFAULTS_DIR || path.join(HERE, '../defaults'); return fs.existsSync(path.join(d, 'apps')) ? path.join(d, 'apps') : d; })();
 // "Both" on an update (a shared app the household changed): the cloud's text model puts the two versions together.
-const plugins = pluginsRoutes({ APP_DIR, edits, door: chat.door, json, body, approve: shellApprove,
+const plugins = pluginsRoutes({ APP_DIR, edits, homeScreen: chat.homeScreen, json, body, approve: shellApprove,
   ai: async (q) => { if (!cloudRef?.brainOn?.()) throw new Error("OpenHouse's cloud assistant isn't set up"); return cloudRef.ai(q); },
   DATA: path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'), '../appdata'), DEFAULTS, SEEDED: path.join(HERE, '../.defaults-seeded'),
   onChange: () => { emit({ type: 'state', ...events.state }); emit({ type: 'apps' }); },
   household: () => { try { return JSON.parse(fs.readFileSync(path.join(HERE, '../household.json'), 'utf8')); } catch { return {}; } } });
-chat.door.addTools(plugins.tools, plugins.call);
-// An app's card on Today (its widget.html): a plugin's app only with "today-card" granted; the household turns each on (door.js today_card).
+chat.homeScreen.addTools(plugins.tools, plugins.call);
+// An app's card on Today (its widget.html): a plugin's app only with "today-card" granted; the household turns each on (home-screen.js today_card).
 apps.setRightsOf(plugins.rightsOf); apps.setFrozenOf(plugins.frozenOf);
-chat.door.setCardApps(() => apps.list().filter((a) => a.today).map((a) => ({ id: a.id, name: a.meta?.name || a.id })));
+chat.homeScreen.setCardApps(() => apps.list().filter((a) => a.today).map((a) => ({ id: a.id, name: a.meta?.name || a.id })));
 plugins.start();
 chat.live.setExtra?.({ tools: plugins.voiceTools, call: plugins.callVoice });
 chat.live.setTv?.(devices);
@@ -142,7 +142,7 @@ let appIds = { at: 0, ids: new Set() };
 chat.notes.setAlive((app) => { if (Date.now() - appIds.at > 2000) appIds = { at: Date.now(), ids: new Set(apps.list().map((a) => a.id)) }; return appIds.ids.has(app); });
 chat.live.setDayNotes?.(() => chat.notes.describe());
 // Opie putting the screen on a tab or one of the household's apps (live-tools.js show_on_screen): OpenHouse to the front
-// (from another Android app), an app open full screen closed, then the tab, or the app full screen (door.js showApp).
+// (from another Android app), an app open full screen closed, then the tab, or the app full screen (home-screen.js showApp).
 chat.live.setScreen?.({
   places: () => {
     const all = apps.list().filter((a) => a.web);
@@ -152,7 +152,7 @@ chat.live.setScreen?.({
     const d = chat.deviceServer();
     if (d) await fetch(d.url.replace(/\/mcp$/, '/front'), { method: 'POST', headers: { authorization: d.auth, 'content-type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(3e3) }).catch(() => {});
     emit({ type: 'home' });
-    if (id === 'today' || id === 'apps') chat.door.showTab(id); else chat.door.showApp(id);
+    if (id === 'today' || id === 'apps') chat.homeScreen.showTab(id); else chat.homeScreen.showApp(id);
     await new Promise((r) => setTimeout(r, 1200)); // (it's on screen before look_at_screen reads it)
   },
 }); // "Opie, turn off the TV" without the agent (docs/phones-and-tv.md)
@@ -161,7 +161,7 @@ chat.live.setScreen?.({
 // app waits for whoever builds (heartbeat-fixes.js: the workshop's pending_fixes), behind the PIN card, one undo.
 const HB_DIR = path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'));
 const fixes = fixQueue({ DIR: HB_DIR });
-chat.door.addTools(fixes.tools, fixes.call);
+chat.homeScreen.addTools(fixes.tools, fixes.call);
 chat.things.setFixes(() => fixes.open()); // a broken app waiting for its fix shows on Today (things.js)
 const checksFromApps = appChecks({ APP_DIR, readData: dataReader(path.resolve(HB_DIR, '../appdata')), houseView: () => chat.house.view(),
   houseKeysOf: (app) => { const r = plugins.rightsOf(app); return r ? new Set(Object.keys(houseFor(chat.house.view(), r))) : null; },
@@ -169,7 +169,7 @@ const checksFromApps = appChecks({ APP_DIR, readData: dataReader(path.resolve(HB
 const hb = heartbeat({ judge: { name: 'cloud', ready: () => !!cloudRef?.liveOn?.(), decide: (i, q) => cloudRef.decide(i, q), ai: (q) => cloudRef.ai(q) },
   fixes, things: chat.things, extraChecks: checksFromApps.run, checkProblems: checksFromApps.problems,
   changesOf: (app) => { const all = edits.listChanges(); const mine = all.filter((c) => c.change.includes(app)); return (mine.length ? mine : all).slice(0, 5); },
-  HERE, DIR: HB_DIR, door: chat.door, house: chat.house, board: chat.board,
+  HERE, DIR: HB_DIR, homeScreen: chat.homeScreen, house: chat.house, board: chat.board,
   appErrors: builder.errors, busy: chat.busy, json, body,
   edits: { begin: edits.begin, claim: edits.claim, holder: edits.holder, end: (t, ok) => { const sha = edits.end(t, ok); if (sha) { emit({ type: 'state', ...events.state }); emit({ type: 'apps' }); } return !!sha; } },
   every: process.env.HEARTBEAT === 'off' ? 0 : 5 * 60e3 });
@@ -180,9 +180,9 @@ chat.hooks.onTurn = hb.awake;
 const later = laterRoutes({ DIR: HB_DIR, say: (t) => chat.voice.say(t), things: chat.things, night: () => chat.house.night(),
   asleep: () => (hb.state.sleepUntil || 0) > Date.now(), talk: chat.live.talk, live: chat.live,
   ai: (q) => { if (!cloudRef?.liveOn?.()) throw new Error('no cloud'); return cloudRef.ai({ ...q, webSearch: true }); }, // (the vendor's own search, as the voice has)
-  picture: () => snapshot({ hv: chat.house.view(), notes: chat.door.describe(), household: chat.board.household(), findings: null }),
+  picture: () => snapshot({ hv: chat.house.view(), notes: chat.homeScreen.describe(), household: chat.board.household(), findings: null }),
   every: process.env.HEARTBEAT === 'off' ? 0 : 20e3 });
-chat.door.addTools(later.tools, later.call);
+chat.homeScreen.addTools(later.tools, later.call);
 // Each day's conversations in a few lines (days.js), hourly on the Flex tier, when the family chose OpenAI and there's new talk.
 if (process.env.HEARTBEAT !== 'off') setInterval(() => { if (cloudRef?.liveOn?.()) chat.summarizeDays((q) => cloudRef.ai(q)).catch((e) => console.error('[days]', e.message)); }, 60 * 60e3).unref?.();
 // Weather sense (weather-sense.js): a line or two tying the forecast to the next days' plans, for /weather. Flex tier,
@@ -222,7 +222,7 @@ const screens = screensRoutes({ HERE, json, body, APP_DIR, apns: (b) => cloud.ap
     // A phone may not make the tablet speak or run its timers for an app (it isn't in the room).
     const app = req.headers['x-openhouse-screen-app'];
     if (!app) return route(req, res, url);
-    if (!appAllowed(req.method, url.pathname, plugins.rightsOf(app)) || /^\/(voice\/say|door\/handsfree|door\/timer)$/.test(url.pathname)) return json(res, 403, { error: 'not for this app' });
+    if (!appAllowed(req.method, url.pathname, plugins.rightsOf(app)) || /^\/(voice\/say|home\/handsfree|home\/timer)$/.test(url.pathname)) return json(res, 403, { error: 'not for this app' });
     return appCall(req, res, url, app);
   } });
 // Away from home (relay.js, docs/networking.md): the same sealed requests through the cloud's relay. Off until someone
@@ -231,7 +231,7 @@ relay = relayRoutes({ DISPLAY, json, body, screens, cloud });
 chat.live.setWhoOf?.((id) => screens.who(id)); // Opie on someone's phone knows who it's talking with (live-tools.js)
 chat.live.setPhones?.({ phones: () => screens.phones(), message: (people, m) => screens.message(people, m) }); // message_family: a message to someone's phones (live-tools.js)
 // A note for someone: their phone gets it (Web Push from the tablet itself; only phones that allowed notifications).
-chat.door.onNoteFor = (n) => { screens.notify(n.for, { title: n.title, body: String(n.content || '').replace(/```[\s\S]*?```/g, '').replace(/[#*_>`]/g, '').trim().split('\n')[0], tag: n.id }).catch(() => {}); };
+chat.homeScreen.onNoteFor = (n) => { screens.notify(n.for, { title: n.title, body: String(n.content || '').replace(/```[\s\S]*?```/g, '').replace(/[#*_>`]/g, '').trim().split('\n')[0], tag: n.id }).catch(() => {}); };
 // Send to Opie (docs/phones.md): something shared from someone's phone is a typed turn as from them (phone-share.js).
 /** A typed turn run here, as a screen's POST /chat would: {ok, text, id}. */
 function chatTurn(text, who, id) {
@@ -251,14 +251,14 @@ function chatTurn(text, who, id) {
 }
 const phoneShare = phoneShareRoutes({ screens, json, body, turn: chatTurn, shareKey: (id) => screens.shareKeyOf(id), message: (people, m) => screens.message(people, m), phones: () => screens.phones(), addPhoto: (bytes, name, text) => chat.house.addPhoto(bytes, name, text),
   describe: async (bytes, type) => (await import('./agents/cloud.js')).answer({ prompt: 'Someone in this household shared this picture with their home assistant. Say plainly what it is and everything in it they might want done: events with their dates, times and places; a recipe; things to buy; anything else. Plain text.', images: [{ type, bytes }] }) });
-chat.door.addTools(phoneShare.tools, phoneShare.call); // keep_shared_photo: a photo shared from a phone, into Photos
+chat.homeScreen.addTools(phoneShare.tools, phoneShare.call); // keep_shared_photo: a photo shared from a phone, into Photos
 // A reminder for someone's event buzzes their phones once when it comes due, never at night (phone-buzz.js).
 const buzz = phoneBuzz({ reminders: (t) => chat.house.reminders(t), night: () => chat.house.night(), notify: (p, m) => screens.notify(p, m) });
 setInterval(() => { buzz.tick().catch(() => {}); }, 30e3).unref();
 
 // Someone's own AI app on a computer (Claude, ChatGPT), paired like a screen, changes the apps with the assistant's
 // tools (workshop.js, docs/workshop-mcp.md).
-const workshop = workshopRoutes({ HERE, APP_DIR, door: chat.door, edits, plugins, fixes, approve: shellApprove, events, checkBuild: builder.checkBuild, deviceServer: chat.deviceServer, whoOf: (id) => screens.who(id), live: chat.live, devices, json, body }); // live, devices: the household's tools for a connected agent
+const workshop = workshopRoutes({ HERE, APP_DIR, homeScreen: chat.homeScreen, edits, plugins, fixes, approve: shellApprove, events, checkBuild: builder.checkBuild, deviceServer: chat.deviceServer, whoOf: (id) => screens.who(id), live: chat.live, devices, json, body }); // live, devices: the household's tools for a connected agent
 // The tablet's own connector for Claude or ChatGPT, with no OpenHouse cloud: behind the household's own https address
 // (a Tailscale Funnel, a tunnel), off until someone turns it on (web-mcp.js, docs/web-chat-building.md).
 const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });
@@ -282,6 +282,7 @@ function allowedOrigin(req) {
 }
 
 http.createServer(async (req, res) => {
+  req.url = homePath(req.url); // /door/... is /home/... (home-screen.js)
   const url = new URL(req.url, 'http://x');
   if (!allowedOrigin(req)) { res.writeHead(403); return res.end(); }
   if (req.method === 'OPTIONS') { // only the pages allowedOrigin lets in get here
@@ -289,7 +290,7 @@ http.createServer(async (req, res) => {
     return res.end();
   }
   if (apps.kit(req, res, url)) return; // the apps' kit: plain code and fonts
-  // The door's own page and its code (also served to other screens with no key): GET only, nothing secret in them.
+  // The home screen's own page and its code (also served to other screens with no key): GET only, nothing secret in them.
   if (req.method === 'GET' && loopbackHost(req) && /^\/(screen|app)\//.test(url.pathname)) return route(req, res, url);
   // A family app, with its own key: only what APP_RULES allow (apps.js).
   const app = apps.caller(req);

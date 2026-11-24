@@ -128,11 +128,11 @@ object House {
         }
     }
 
-    /** Whoever's color: their place in the family, the same color as on the door and in conversations. */
+    /** Whoever's color: their place in the family, the same color as on the home screen and in conversations. */
     fun color(who: String?): Color {
-        if (who.isNullOrBlank()) return Door.inkSoft
+        if (who.isNullOrBlank()) return PaperLook.inkSoft
         val i = family.indexOfFirst { it.name.equals(who, ignoreCase = true) }
-        return if (i < 0) Door.inkSoft else Oh.people[i % Oh.people.size]
+        return if (i < 0) PaperLook.inkSoft else Oh.people[i % Oh.people.size]
     }
     fun list(name: String) = lists.firstOrNull { it.name.equals(name, true) || it.id.equals(name, true) }
 
@@ -384,15 +384,15 @@ fun TextAsk(title: String, initial: String = "", hint: String = "", onCancel: ()
     Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { keyboard?.hide(); onCancel() },
         contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
         androidx.compose.foundation.layout.Column(
-            Modifier.padding(top = 70.u).width(820.u).clip(androidx.compose.foundation.shape.RoundedCornerShape(30.u)).background(Door.paper)
+            Modifier.padding(top = 70.u).width(820.u).clip(androidx.compose.foundation.shape.RoundedCornerShape(30.u)).background(PaperLook.paper)
                 .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {}
                 .padding(horizontal = 36.u, vertical = 30.u),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(22.u),
         ) {
             androidx.compose.material3.Text(title, style = roundText(34, androidx.compose.ui.text.font.FontWeight.ExtraBold))
             Box(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(18.u)).background(Color.White)
-                .border(2.u, Door.ink.copy(alpha = .15f), androidx.compose.foundation.shape.RoundedCornerShape(18.u)).padding(horizontal = 24.u, vertical = 18.u)) {
-                if (text.text.isEmpty() && hint.isNotEmpty()) androidx.compose.material3.Text(hint, style = roundText(36, androidx.compose.ui.text.font.FontWeight.SemiBold, Door.inkSoft.copy(alpha = .6f)))
+                .border(2.u, PaperLook.ink.copy(alpha = .15f), androidx.compose.foundation.shape.RoundedCornerShape(18.u)).padding(horizontal = 24.u, vertical = 18.u)) {
+                if (text.text.isEmpty() && hint.isNotEmpty()) androidx.compose.material3.Text(hint, style = roundText(36, androidx.compose.ui.text.font.FontWeight.SemiBold, PaperLook.inkSoft.copy(alpha = .6f)))
                 androidx.compose.foundation.text.BasicTextField(text, { text = it }, Modifier.fillMaxWidth().focusRequester(focus), singleLine = true,
                     textStyle = roundText(36, androidx.compose.ui.text.font.FontWeight.SemiBold),
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences, imeAction = androidx.compose.ui.text.input.ImeAction.Done),
@@ -407,23 +407,23 @@ fun TextAsk(title: String, initial: String = "", hint: String = "", onCancel: ()
     }
 }
 
-/** A big rounded button in the door's print type. */
+/** A big rounded button in the home screen's print type. */
 @Composable
-fun BigButton(label: String, modifier: Modifier = Modifier, primary: Boolean = true, enabled: Boolean = true, color: Color = Door.ink, onClick: () -> Unit) {
-    Box(modifier.height(84.u).clip(androidx.compose.foundation.shape.RoundedCornerShape(42.u)).background(if (primary) color.copy(alpha = if (enabled) 1f else .35f) else Door.ink.copy(alpha = .08f))
+fun BigButton(label: String, modifier: Modifier = Modifier, primary: Boolean = true, enabled: Boolean = true, color: Color = PaperLook.ink, onClick: () -> Unit) {
+    Box(modifier.height(84.u).clip(androidx.compose.foundation.shape.RoundedCornerShape(42.u)).background(if (primary) color.copy(alpha = if (enabled) 1f else .35f) else PaperLook.ink.copy(alpha = .08f))
         .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 40.u), contentAlignment = androidx.compose.ui.Alignment.Center) {
-        androidx.compose.material3.Text(label, style = roundText(28, androidx.compose.ui.text.font.FontWeight.ExtraBold, if (primary) Color.White else Door.ink), maxLines = 1)
+        androidx.compose.material3.Text(label, style = roundText(28, androidx.compose.ui.text.font.FontWeight.ExtraBold, if (primary) Color.White else PaperLook.ink), maxLines = 1)
     }
 }
 
-/** A choice chip in the door's print type; [dot]: a person's color. */
+/** A choice chip in the home screen's print type; [dot]: a person's color. */
 @Composable
 fun ChoiceChip(label: String, selected: Boolean, dot: Color? = null, onClick: () -> Unit) {
     androidx.compose.foundation.layout.Row(Modifier.height(70.u).clip(androidx.compose.foundation.shape.RoundedCornerShape(35.u))
-        .background(if (selected) Door.ink else Door.ink.copy(alpha = .07f)).clickable(onClick = onClick).padding(horizontal = 26.u),
+        .background(if (selected) PaperLook.ink else PaperLook.ink.copy(alpha = .07f)).clickable(onClick = onClick).padding(horizontal = 26.u),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.u)) {
         if (dot != null) Box(Modifier.size(22.u).clip(androidx.compose.foundation.shape.CircleShape).background(dot))
-        androidx.compose.material3.Text(label, style = roundText(24, androidx.compose.ui.text.font.FontWeight.Bold, if (selected) Color.White else Door.ink), maxLines = 1)
+        androidx.compose.material3.Text(label, style = roundText(24, androidx.compose.ui.text.font.FontWeight.Bold, if (selected) Color.White else PaperLook.ink), maxLines = 1)
     }
 }
 

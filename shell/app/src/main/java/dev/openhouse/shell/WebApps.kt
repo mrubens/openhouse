@@ -48,7 +48,7 @@ internal fun reachMatches(host: String, reaches: List<String>): Boolean = reache
 private fun refused() = android.webkit.WebResourceResponse("text/plain", "utf-8", 403, "Not for this app", emptyMap(), java.io.ByteArrayInputStream(ByteArray(0)))
 
 /**
- * An app's page in a web view. [key]: the app's own key from the bridge (it only opens the house's data, the door,
+ * An app's page in a web view. [key]: the app's own key from the bridge (it only opens the house's data, the home screen,
  * timers and speaking; apps.js), handed to the page as `window.OpenhouseApp`. Only pages from the app's own origin get
  * it, and the view never leaves for another site. A shared app's view loads nothing but its own origin and the hosts
  * its card granted (under the dev server's CSP, a second wall), and can't ask for a phone card. Errors it throws go to

@@ -21,7 +21,7 @@ import kotlin.concurrent.thread
 
 /**
  * The display: the fixed shell, which the agent never edits. Layers, bottom to top:
- *  - the door (DoorView: the bridge's door page, the same one other screens show);
+ *  - the home screen (HomeView: the bridge's home screen page, the same one other screens show);
  *  - the family's apps opened inside the display (AppHost; usually they open as their own Android apps instead);
  *  - the overlay (ui/Overlay.kt: the assistant's note, what it hears, typing, sheets);
  *  - the first-time setup screen, and the timers' pills (shown over apps).
@@ -85,7 +85,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     // by feeding recordings to /voice/utterance instead).
     internal val listenOn get() = getSharedPreferences("shell", MODE_PRIVATE).getBoolean("listen", android.os.Build.HARDWARE != "ranchu")
     private lateinit var timers: Timers
-    private lateinit var home: DoorView
+    private lateinit var home: HomeView
     private lateinit var apps: AppHost
     private lateinit var overlay: androidx.compose.ui.platform.ComposeView
     internal val lock by lazy { SettingsLock(this) }
@@ -129,7 +129,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         root = FrameLayout(this)
         LiveVoice.install(this) // OpenAI's live voice, when the family chose it
         LiveVoice.onChosen = { liveChanged() }
-        home = DoorView(this, { uiUrl }) { bridge }
+        home = HomeView(this, { uiUrl }) { bridge }
         Runtime.setSafeMode(safeMode)
         root.addView(home.layer, FrameLayout.LayoutParams(-1, -1))
         dev.openhouse.ui.Openhouse.start(OpenhouseHost())
@@ -150,7 +150,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         startServices()
 
         home.layer.visibility = View.VISIBLE; home.start()
-        timers.showPills(false) // the door draws the timers itself; the pills are for over apps
+        timers.showPills(false) // the home screen draws the timers itself; the pills are for over apps
         main.postDelayed(::watchdog, 15000)
 
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
@@ -221,7 +221,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         }
     }
 
-    /** This keeps the servers up, each on its own (DoorView reloads the door when the bridge is back). */
+    /** This keeps the servers up, each on its own (HomeView reloads the home screen when the bridge is back). */
     private fun watchdog() {
         if (Move.handedOver(this)) { Move.stepAside(this); finish(); return }
         if (Move.toPkg != null) Move.offer(this) // under the old ID: open the new display once it's installed
@@ -347,8 +347,8 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     private val stoppedHere = mutableSetOf<Long>()
     private fun mirrorTimers() {
         val o = dev.openhouse.ui.Openhouse
-        timers.onStart = { label, total, endAt -> stoppedHere.remove(endAt); thread { o.post("/door/timer", JSONObject().put("start", JSONObject().put("label", label).put("total", total).put("endAt", endAt))) } }
-        timers.onStop = { endAt -> stoppedHere += endAt; thread { o.post("/door/timer", JSONObject().put("cancel", endAt)) } }
+        timers.onStart = { label, total, endAt -> stoppedHere.remove(endAt); thread { o.post("/home/timer", JSONObject().put("start", JSONObject().put("label", label).put("total", total).put("endAt", endAt))) } }
+        timers.onStop = { endAt -> stoppedHere += endAt; thread { o.post("/home/timer", JSONObject().put("cancel", endAt)) } }
     }
     private fun syncTimers(list: List<dev.openhouse.ui.TimerInfo>) {
         val ends = list.map { it.endAt }.toSet()
@@ -426,7 +426,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         thread { if (acc.approve("Open ${AppStore.label(pkg)}?", "", parent = ParentPin.isSet(this), yes = "Open")) main.post { KioskApps.openApp(pkg, parentOk = true) } }
     }
 
-    // --- video: YouTube full screen over everything, with a close button (a note's Video, from the door) ---------
+    // --- video: YouTube full screen over everything, with a close button (a note's Video, from the home screen) ---------
     private var player: FrameLayout? = null
 
     @android.annotation.SuppressLint("SetJavaScriptEnabled")

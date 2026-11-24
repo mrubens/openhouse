@@ -2,7 +2,7 @@
 
 Steps 1–3 and the move to web only (step 6) are built on this branch (see "Built so far" and "Web only" below).
 The rest is a plan. It splits openhouse three ways: a **brain** that keeps the house's data, **screens** that draw
-the door, and a **workshop**, the family's own laptop, where apps get made and changed. A single tablet keeps working
+the home screen, and a **workshop**, the family's own laptop, where apps get made and changed. A single tablet keeps working
 as it does today, as its own brain and screen.
 
 The starting idea was to split the brain from the screens. Two points from the discussion reshaped it:
@@ -14,10 +14,10 @@ The starting idea was to split the brain from the screens. Two points from the d
 
 ## Built so far (steps 1–3)
 
-![The same door on a browser screen](brain-screens-browser.jpg)
+![The same home screen on a browser screen](brain-screens-browser.jpg)
 
-- **Door as data.**
-  - Timers are in door.json (`POST /door/timer`, `timers` in `GET /door`). The shell mirrors them both ways and
+- **The home screen as data.**
+  - Timers are in door.json (`POST /home/timer`, `timers` in `GET /home`). The shell mirrors them both ways and
     still rings them (`MainActivity.mirrorTimers`, `Timers.onStart/onStop`).
   - `GET /apps` relays the build server's list.
 - **Screens on the home network** (`bridge/screens.js`).
@@ -30,7 +30,7 @@ The starting idea was to split the brain from the screens. Two points from the d
 - **Settings → Screens** (`shell/Screens.kt`): the list with last seen, Remove, Add a screen (QR, link, Share),
   the Allow/No prompt, and Home network on/off.
 - **Browser screen** (`chat/src/screen.jsx`, served at `/screen/`). It:
-  - draws the door's pages live: notes, clock, weather, the starting widgets, app icons, timers;
+  - draws the home screen's pages live: notes, clock, weather, the starting widgets, app icons, timers;
   - drags on `grid.js`'s rules, and a long press steps a note or widget to its next shape;
   - ticks lists and chores;
   - rings timers with Web Audio;
@@ -39,7 +39,7 @@ The starting idea was to split the brain from the screens. Two points from the d
   Its client (`chat/src/screen-client.js`) and cipher (`chat/src/seal.js`) are the same code the bridge tests run.
 - **Tests.** `bridge/test/screens.test.mjs` (11 tests) covers:
   - pairing (yes, no, one use, wrong keys);
-  - the door both ways, timers, a typed question;
+  - the home screen both ways, timers, a typed question;
   - every refused route;
   - nothing unsealed on the network, replays, another screen's key;
   - revoking mid-request;
@@ -71,14 +71,14 @@ On my own emulator (`display-screens`, a clone of display-grid), with the APK bu
 
 ## Web only (step 6)
 Nobody uses openhouse yet, so native family apps are gone rather than kept alongside.
-- **The tablet's door is the door page.** `shell/DoorView.kt` shows the bridge's `/screen/?display` in a web view:
+- **The tablet shows the home screen page.** `shell/HomeView.kt` shows the bridge's `/screen/?display` in a web view:
   the same page other screens show, from the same data.
   - On the display it talks to the bridge with the display's secret and places anything new (an app, a timer).
   - Only the shell can do a few things, and the page asks for them through `window.OpenhouseDisplay`: open an app,
     the settings, the weather sheet, a video, and whether the display is idle (the photos screensaver).
   - The shell's overlay (the assistant's note, listening, typing, conversations, settings) is still native and sits
     above it, and the shell still rings the timers.
-  - The Compose door (`ui/Board.kt`, `DoorGestures.kt`, `Widgets.kt` and the rest) is removed.
+  - The Compose board (`ui/Board.kt`, `DoorGestures.kt`, `Widgets.kt` and the rest) is removed.
 - **Family apps are web pages.** Each one lives in `webapp/apps/<id>/` (`index.html`, `main.js`, `app.json`,
   `icon.svg`).
   - Vite serves it and reloads it on every save (`device/vite.config.mjs`, kept outside the apps folder).
@@ -86,11 +86,11 @@ Nobody uses openhouse yet, so native family apps are gone rather than kept along
     (`WebApps.kt`).
   - An app reaches the family's data only through the kit (`bridge/kit/openhouse.js`), with its own key from the
     bridge (`bridge/apps.js`).
-  - That key opens the house's data, the door, timers and speaking. It never opens undo, deleting apps, the builder,
+  - That key opens the house's data, the home screen, timers and speaking. It never opens undo, deleting apps, the builder,
     devices, the agents' tools, the household's settings or screens.
   - The kit's `phone.photos()` and `phone.list()` ask the app's window for the QR phone pages.
 - **The starting apps** (Calendar, Chores, Lists, Meals, Photos) are rewritten as web apps in `defaults/apps/`.
-- **The door's look** is `apps/home/style.json` (`{door, clock}`), which the agent edits like an app.
+- **The home screen's look** is `apps/home/style.json` (`{door, clock}`: `door` is the screen's color, under its first name), which the agent edits like an app.
   - Things the family wants to glance at are notes or an app's widget.
   - There's no family "home board" code any more, so the home app's own `own:` things are gone.
 - **Removed:** the Kotlin build server, its jars and JRE (in the Dockerfile; the existing runtime image still carries
@@ -101,7 +101,7 @@ Nobody uses openhouse yet, so native family apps are gone rather than kept along
   - keys only for the display;
   - what an app's key opens and doesn't;
   - wrong and borrowed keys;
-  - the kit and the door page needing no key, but only on this device's own address.
+  - the kit and the home screen page needing no key, but only on this device's own address.
 
 ## The family's own apps, moved to web
 The tablet's own family-made apps were native too. They're rewritten as web apps in `defaults/ports/` (see its
@@ -112,8 +112,8 @@ README).
   - **Drawing:** pen pressure, palm rejection, the eraser end, all six tools and the palettes; saving an image puts
     it in the family's Photos.
   - **Typing Garden:** the learners are the family, from the house, with no names in the code.
-  - **Their door:** landscape photos behind it and their compact clock, as `apps/home/style.json`. Their
-    `Weather.kt` card was never on their door (their `App.kt` didn't use it), so its look is there as an option
+  - **Their home screen:** landscape photos behind it and their compact clock, as `apps/home/style.json`. Their
+    `Weather.kt` card was never on their home screen (their `App.kt` didn't use it), so its look is there as an option
     (`"weather": "family"`) but isn't switched on.
 - **Pocket Pet** (Cuddle Club) was already a web app. It needs no change: it keeps its own `localStorage`, in its
   same window.
@@ -133,15 +133,15 @@ README).
 - **Nothing that may hold saved work is removed.**
   - The shell no longer uninstalls an app's window on its own: not for a deleted app, which is only shut out of
     kiosk mode, and not for one signed by an older key, which then opens in the display instead.
-  - An app that's still only Kotlin is listed with `web: false`. It's left off the door, but its window stays.
+  - An app that's still only Kotlin is listed with `web: false`. It's left off the home screen, but its window stays.
 
 ## Three roles
 
 | Role | Runs on | Does |
 |---|---|---|
-| Brain | one full tablet (today's Tab S10 FE) | the door and the house's data, voice, short answers out loud, kiosk, undo, the watchdog |
-| Screen | the brain's own display, an old tablet, an iPad, a frame with a browser | draws the door, moves things, ticks lists, types a question |
-| Workshop | the family's laptop | makes and changes apps and the door's look, with the family's own agent and an openhouse MCP server |
+| Brain | one full tablet (today's Tab S10 FE) | the home screen and the house's data, voice, short answers out loud, kiosk, undo, the watchdog |
+| Screen | the brain's own display, an old tablet, an iPad, a frame with a browser | draws the home screen, moves things, ticks lists, types a question |
+| Workshop | the family's laptop | makes and changes apps and the home screen's look, with the family's own agent and an openhouse MCP server |
 
 ## What runs on the device
 
@@ -160,9 +160,9 @@ The agent can rewrite the bridge and its start script, and it can read the bridg
 | Piece | Stays on the device? | Why |
 |---|---|---|
 | Shell: kiosk, PIN, watchdog, undo, timers ringing | yes | unchanged; nothing the agent can edit |
-| House server: door, grid, lists, chores, meals, photos, calendar, weather, timers, screen pairing | yes | plain data, no AI. The door works when the AI service is down or nobody is signed in. |
+| House server: the home screen, grid, lists, chores, meals, photos, calendar, weather, timers, screen pairing | yes | plain data, no AI. The home screen works when the AI service is down or nobody is signed in. |
 | Voice: wake word, speech-to-text, voiceprints, on-device speech | yes | the microphone never leaves the house |
-| Ask path: a question at the wall gets an answer, a note or a timer | yes, thin | one vendor-CLI call with only the door and house MCP tools: no Bash, no file reads or edits, no install |
+| Ask path: a question at the wall gets an answer, a note or a timer | yes, thin | one vendor-CLI call with only the home screen and house MCP tools: no Bash, no file reads or edits, no install |
 | Coding agent, edit lock, builder | no, it moves to the workshop | the agent stops being on the household device at all |
 | Kotlin build server and JRE | no, if apps become web apps (see the decision below) | the largest part of the runtime image after the CLIs |
 | Running family apps | yes | a web view (web apps) or today's stub APKs (native) |
@@ -180,15 +180,15 @@ What stays hard:
   tried.
 - **Kids can't say "make me a game" at the wall any more.** That's the main product cost (see the decisions below).
 
-## Step 1: the door as data
+## Step 1: the home screen as data
 
-Notes, the grid, pages, places, the trash and widget layouts are already bridge data (`door.js` `view()`,
+Notes, the grid, pages, places, the trash and widget layouts are already bridge data (`home-screen.js` `view()`,
 `grid.js`). House data (`/house`), the board (`/board`) and the weather (`/weather`) are too. Gaps a second screen
 would hit:
 
 1. **Timers live only in the shell** (`shell/Timers.kt`). The bridge knows a `timer:<endAt>` key only as a place on
    the grid.
-   - Fix: the bridge keeps `{label, total, endAt}` in door.json, with `POST /door/timer {start | cancel}`, and
+   - Fix: the bridge keeps `{label, total, endAt}` in door.json, with `POST /home/timer {start | cancel}`, and
      `view()` includes them.
    - The shell mirrors them and still does the ringing.
    - Reconciling: start what the bridge lists, stop what it dropped, never restart one stopped locally.
@@ -201,7 +201,7 @@ would hit:
      - the five starting widgets need HTML versions.
 4. **The clock** is local, and each screen draws its own.
 
-Nothing else on the door comes from the shell process.
+Nothing else on the home screen comes from the shell process.
 
 ## Step 2: the bridge on the home network, behind pairing
 
@@ -226,15 +226,15 @@ Nothing else on the door comes from the shell process.
     before its last restart, not seen before, and within a minute of the newest. So a replayed request is refused,
     and requests that arrive out of order still work.
   - Replies come back as sealed frames, labelled with the request and the frame number, ending in an end frame. So
-    streamed answers and the door's long poll work, and a cut-off reply is noticed.
+    streamed answers and the home screen's long poll work, and a cut-off reply is noticed.
   - The bridge checks the scope, then hands the opened request to the same routes the loopback listener uses. There
     is no second copy of any route.
 - **Scopes** are an allowlist; anything not listed is refused:
-  - `door`: read the door, house data, photos, weather, apps, state;
+  - `door` (a name from before): read the home screen, house data, photos, weather, apps, state;
   - `arrange`: move, resize, trash, put back, timers, ticking lists and chores;
   - `ask`: a typed question, stopping it, reading that conversation;
   - `voice`: reserved. A screen's microphone isn't routed in the first version.
-  - Never allowed: undo, restore, deleting apps, the builder, `/door/mcp`, devices, `/mcp/home`, the household,
+  - Never allowed: undo, restore, deleting apps, the builder, `/home/mcp`, devices, `/mcp/home`, the household,
     voice enrollment, calendars, or the screen routes themselves.
 - **Revoking.** Settings lists screens (name, when added, last seen) and removes them. A removed screen's
   open streams close at once and its next request is refused. The page then forgets its key and shows the pairing
@@ -256,7 +256,7 @@ Recommended over the Android shell in screen mode:
 - Screen mode for the shell would mean a second kiosk setup on every screen, and it only covers Android.
 
 What the page does:
-- draws the door's pages from `/door`, following `/door/wait`;
+- draws the home screen's pages from `/home`, following `/home/wait`;
 - moves and resizes on the same grid rules (`grid.js` is plain JS and can be shared as is);
 - ticks lists and shows timers (ringing with Web Audio);
 - takes a typed question and streams the answer.
@@ -269,11 +269,11 @@ There's no harness of our own. We ship two things for whatever agent the family 
 
 - **An openhouse MCP server**, a small local program the agent starts. It pairs with the brain the way a screen
   does, with a `workshop` scope that screens never get:
-  - read the door and the household's apps;
+  - read the home screen and the household's apps;
   - pull an app's source and push a change: committed to the apps repo on the brain with who asked and what for, so
     undo, last-good and the watchdog keep working as today;
   - see build or load errors and a screenshot of the app running on the brain;
-  - set an app's widget and arrange the door.
+  - set an app's widget and arrange the home screen.
 - **A skill / AGENTS.md** with how openhouse apps are made (what AGENT.md says today): Claude Code takes it as a
   plugin, Codex and others as an AGENTS.md plus the MCP config.
 
@@ -290,7 +290,7 @@ restores last-good if the screen fails to load, and the shell never loads code i
 | Building | none; the agent writes files and the browser loads them | Kotlin to dex: the build server and JRE stay on the brain, or every laptop needs Android build tools |
 | Preview while making it | the laptop's own browser, instantly | the brain's screen, or an emulator on the laptop |
 | Agents' skill at it | very high; it's what they write most | good, but slower to iterate, and compile errors cost turns |
-| Feel on the wall | good in a WebView; less native gesture feel | best: same widgets and gestures as the door |
+| Feel on the wall | good in a WebView; less native gesture feel | best: same widgets and gestures as the home screen |
 | Device access (camera, mic, sensors, other apps) | through a small bridge API the shell offers the WebView | direct |
 | Safety | a WebView sandbox per app, only bridge routes it's allowed; easy to limit | runs Kotlin code in a stub APK's process; needs the dex checks from the isolation review |
 | Cost to switch | rewrite the 5 starting apps' screens in HTML (their data is already in the bridge); a WebView host in the stubs; port family-made apps or keep them native-only | none now; screens other than full tablets show icons only |
@@ -308,7 +308,7 @@ until they're rewritten. What this means:
   - If a listening second screen matters later, the options are real HTTPS per house (a hostname and certificate
     pointing at the brain's local address) or the shell in screen mode on old Android tablets.
 - **Previews anywhere.** An app being made can be tried on the laptop, a phone or any paired screen before it goes on
-  the door. The workshop can show a draft there while the door keeps the last version.
+  the home screen. The workshop can show a draft there while the home screen keeps the last version.
 - **One kit for every screen.** A web version of the openhouse kit (colors, paper, notes, fonts) and the live-state
   API are built once and shared by the browser screen and every family app.
 

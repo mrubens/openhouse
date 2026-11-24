@@ -56,4 +56,4 @@ web search (the service the household already chose), so its spoken times are ty
   from a CDN.
 - `defaults/apps/map`: the page. `"tabIcon": "map-pin"`.
 - When Opie shows something the home screen goes to the Map tab, or opens the Map full screen where it isn't a tab
-  (`door.showApp`).
+  (`homeScreen.showApp`).

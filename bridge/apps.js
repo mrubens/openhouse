@@ -4,7 +4,7 @@
 //
 // An app reaches the family's data through the kit (/kit/openhouse.js) with its own key: the shell asks for it
 // (GET /apps/key, the display's secret) and hands it to the app's page. That key only opens the routes in APP_RULES
-// (the house's data, the door, timers, speaking, the home's speakers and TVs; for an app from a plugin, only what it was
+// (the house's data, the home screen, timers, speaking, the home's speakers and TVs; for an app from a plugin, only what it was
 // granted); never undo, deleting apps, the builder, the devices' own routes (scanning, recipes, pairing), the agents'
 // tools, the household's settings or screens.
 //
@@ -39,9 +39,9 @@ const APP_GROUPS = {
   photos: [['GET', /^\/house\/photo\/[^/]{1,120}$/], ['POST', /^\/house\/(photo|photo\/remove|photo\/album|photo\/caption|photo\/restore)$/]],
   family: [],
   weather: [['GET', /^\/weather$/]],
-  home: [['GET', /^\/(door|door\/wait|board)$/]],
-  timer: [['POST', /^\/door\/timer$/]],
-  say: [['POST', /^\/(voice\/say|door\/handsfree)$/]], // speaking, and being used hands-free (the voice listens longer)
+  home: [['GET', /^\/(home|home\/wait|board)$/]],
+  timer: [['POST', /^\/home\/timer$/]],
+  say: [['POST', /^\/(voice\/say|home\/handsfree)$/]], // speaking, and being used hands-free (the voice listens longer)
   decide: [['POST', /^\/cloud\/decide$/]], // OpenAI Decisions through the family's account: counts against its allowance
   today: [['POST', /^\/today\/line$/]], // its own one line on Today, with an until (things.js putApp)
   days: [['POST', /^\/calendar\/days$/]], // its own notes on the calendar's days (day-notes.js)
@@ -118,7 +118,7 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
   function list() {
     const dir = path.join(APP_DIR, 'apps');
     let ids = [];
-    // An app made before apps were web pages (only Kotlin left) is listed with web: false: the door doesn't show it,
+    // An app made before apps were web pages (only Kotlin left) is listed with web: false: the home screen doesn't show it,
     // but its window (and what it saved) isn't removed until the app is gone.
     try { ids = fs.readdirSync(dir).filter((d) => ID.test(d) && d !== 'home' && (fs.existsSync(path.join(dir, d, 'index.html')) || fs.existsSync(path.join(dir, d, 'app.json')))); } catch {}
     return ids.sort().map((id) => {
