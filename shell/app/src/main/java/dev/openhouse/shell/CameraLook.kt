@@ -34,14 +34,14 @@ import java.util.concurrent.TimeUnit
  * its screen tools are refused (DeviceServer.call1, so it can't see the sheet or tap it), and an Allow its own tap set
  * off does nothing (DeviceServer.personOnly). Cancel, or no answer in 30 seconds, is a no.
  *
- * After Allow: the live preview, marked "Camera on", one picture on a tap or after a short countdown, and the camera
+ * After Allow: the live preview, marked "Camera on", one picture when a person taps Take picture (never by itself: no
+ * countdown, and Opie's own taps can't take it), and the camera
  * closed at once. The picture is only ever in memory, handed to the bridge once (which sends it to the household's
  * own cloud AI and keeps nothing).
  */
 object CameraLook {
     private const val TAG = "CameraLook"
     private const val ASK_MS = 30_000L
-    private const val COUNT_S = 6
     /** The camera's sheet is on the screen: Opie's screen tools wait (DeviceServer). */
     @Volatile var showing = false; private set
 
@@ -62,7 +62,7 @@ object CameraLook {
             main.postDelayed({
                 runCatching { Sheet(a, why) { got.offer(it) }.show() }.onFailure { Log.w(TAG, "sheet: $it"); got.offer(Result.No("The camera didn't start.")) }
             }, 400)
-            val r = got.poll(2, TimeUnit.MINUTES) ?: Result.No("The camera didn't answer.")
+            val r = got.poll(3, TimeUnit.MINUTES) ?: Result.No("The camera didn't answer.")
             runCatching { dev.openhouse.ui.Openhouse.vlog("camera", if (r is Result.No) "no picture: ${r.why}" else "one picture taken, after Allow") }
             return r
         } finally { showing = false }
@@ -88,7 +88,6 @@ object CameraLook {
         var provider: ProcessCameraProvider? = null
         var capture: ImageCapture? = null
         var front = true
-        var left = COUNT_S
         var taking = false
         lateinit var preview: PreviewView
         lateinit var count: TextView
@@ -141,15 +140,15 @@ object CameraLook {
                 clipToOutline = true; outlineProvider = object : android.view.ViewOutlineProvider() {
                     override fun getOutline(v: android.view.View, o: android.graphics.Outline) { o.setRoundRect(0, 0, v.width, v.height, K.R_SHEET * K.u(a) * .6f) } } }
             c.addView(preview, LinearLayout.LayoutParams(-1, K.px(a, 470)).apply { topMargin = K.px(a, 18) })
-            c.addView(K.text(a, "Hold it up to the camera.", 18f, 400, K.SOFT).apply { setPadding(0, K.px(a, 14), 0, 0) })
+            c.addView(K.text(a, "Hold it up to the camera, then tap Take picture.", 18f, 400, K.SOFT).apply { setPadding(0, K.px(a, 14), 0, 0) })
             val row = K.row(a, 8).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; setPadding(0, K.px(a, 20), 0, 0) }
             row.addView(K.quiet(a, "Cancel") { finish(Result.No("They tapped Cancel.")) })
             val switch = K.quiet(a, "Switch camera") { if (!taking) { front = !front; bind() } }.apply { visibility = android.view.View.GONE } // shown once both are found
             row.addView(switch)
-            row.addView(K.primary(a, "Take it now") { take() })
+            row.addView(K.primary(a, "Take picture") { if (!DeviceServer.personOnly("Taking a picture")) take() })
             c.addView(row)
             put(c, 900)
-            h.postDelayed({ finish(Result.No("The camera didn't take a picture.")) }, 60_000) // nothing came of it: closed anyway
+            h.postDelayed({ finish(Result.No("Nobody took a picture.")) }, 90_000) // nobody tapped: closed with none
             val f = ProcessCameraProvider.getInstance(a)
             f.addListener({
                 if (finished) return@addListener
@@ -179,15 +178,7 @@ object CameraLook {
                 p.bindToLifecycle(a, sel, pv, cap)
                 capture = cap
             }.onFailure { Log.w(TAG, "bind: $it"); finish(Result.No("The camera didn't start.")); return }
-            if (left == COUNT_S) tick()
-        }
-
-        fun tick() {
-            if (finished || taking) return
-            if (left <= 0) { take(); return }
-            count.text = "Taking it in $left"
-            left--
-            h.postDelayed(::tick, 1000)
+            if (!taking) count.text = ""
         }
 
         fun take() {
