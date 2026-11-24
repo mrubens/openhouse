@@ -694,8 +694,11 @@ function eventForm(e = null, startDay = null, startMin = null) {
   return s;
 }
 
+// Opened from Today's "+ Add" (add=<when> in its address, just now): the new-event card, once.
+let addAsked = Number(new URLSearchParams(location.hash.slice(1)).get('add')) || 0;
 house.subscribe((d) => {
   H = d;
+  if (addAsked) { const fresh = Date.now() - addAsked < 15e3; addAsked = 0; if (fresh) setTimeout(() => eventForm(null, dayStart(Date.now())), 0); }
   events = (d.events || []).map((e) => ({ ...e, t0: Date.parse(e.start), t1: e.end ? Date.parse(e.end) : null })).filter((e) => !isNaN(e.t0));
   draw(); showFlyer();
   if (afterPin && H.unlockedUntil > Date.now()) { const fn = afterPin; afterPin = null; if (Date.now() - afterPinAt < 120e3) fn(); } // the PIN was just given (not long after asking)

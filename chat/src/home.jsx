@@ -59,6 +59,9 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
   useEffect(() => { if (shell && cur) c.json('POST', '/home/showing', { tab: cur }).catch(() => {}); }, [cur]);
   const go = (id) => { setWant(id); store.set('openhouse.tab', id); };
   // An app asking for another (the Calendar's "Open School lunch"): its tab, else full screen.
+  // "+ Add" on a Today card that opens its tab's own add (Calendar's new event): the app is told in its address, once.
+  const [addIn, setAddIn] = useState(null);
+  const addTo = (id) => { setAddIn({ id, at: Date.now() }); go(id); };
   const openApp = (id) => { if (tabs.some((t) => t.id === id)) go(id); else if (appBy.has(id)) shell?.openApp(id); };
   // A tab that wasn't there a moment ago (the assistant just added it): show it, so they see what they asked for.
   const known = useRef(null);
@@ -123,9 +126,9 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
       <main className="h-sheet">
         {tabs.filter((t) => seen.has(t.id) || t.id === cur).map((t) => (
           <section key={t.id} className="h-page" hidden={t.id !== cur}>
-            {t.id === 'today' ? <Today c={c} house={house} now={now} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} />
+            {t.id === 'today' ? <Today c={c} house={house} now={now} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} />
               : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} />
-              : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} />
+              : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} add={addIn?.id === t.id ? addIn.at : 0} />
               : <div className="h-widget"><Widget id={t.id} app={appBy.get(t.id)} w={4} h={4} house={house} c={c} now={now} Photo={(p) => <PhotoShow c={c} {...p} />}
                 content={homeScreen?.widgets?.content?.[t.id] ? (homeScreen.widgets.content[t.id].shapes?.['4x4'] || homeScreen.widgets.content[t.id].content || '') : null} /></div>}
           </section>
@@ -198,7 +201,7 @@ function useAppFrame(frame, shell, app, key, { onPhone, onOpen } = {}) {
 }
 
 /** One of the family's apps, running in the sheet (its own page and kit, given its key and the look). */
-function AppFrame({ c, shell, app, look, v, onOpen }) {
+function AppFrame({ c, shell, app, look, v, onOpen, add = 0 }) {
   const [key, setKey] = useState(null);
   const frame = useRef(null);
   // A phone card the app asks for ("Add from phone", "Send to phone", a flyer): the shell shows it over the home.
@@ -214,7 +217,7 @@ function AppFrame({ c, shell, app, look, v, onOpen }) {
     return () => { off = true; };
   }, [c, app?.id]);
   if (!app) return null;
-  const hash = lookHash(look, shell, null, app);
+  const hash = lookHash(look, shell, null, app) + (add ? `&add=${add}` : ''); // add: open its add (a Today card's + Add)
   return key && <iframe ref={frame} key={shownV + hash} className="h-app" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/index.html#${hash}`} />;
 }
 
@@ -364,7 +367,7 @@ function DishPic({ house, name }) {
 const Check = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
 
 /** Today (also on someone's phone, phone.jsx, in one column). */
-export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp, shell, usePhoto, look, appsV }) {
+export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = go, openApp, shell, usePhoto, look, appsV }) {
   const h = house || {};
   const kinds = new Map(); for (const t of tabs) { const k = kindOf(t, appBy.get(t.id)); if (k && !kinds.has(k)) kinds.set(k, t.id); }
   const t = new Date(now); t.setHours(0, 0, 0, 0);
@@ -484,7 +487,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
       <div className={'t-grid' + (kinds.has('calendar') ? ' with-cal' : '')}>
         {kinds.has('calendar') && <div className="t-calcol">
         <div {...card('calendar')}>
-          <div className="h-label t-cal-label">Calendar</div>
+          <div className="t-top t-cal-label"><div className="h-label">Calendar</div><span className="t-n t-add" role="button" onClick={(e) => { e.stopPropagation(); addTo(kinds.get('calendar')); }}>+ Add</span></div>
           {first ? <>
             <div className="t-agenda t-fit" ref={calFit}>{!todays.length && <div className="t-daygroup t-sday"><div className="t-sdate" data-fit="label"><small>Today</small><b>{t.getDate()}</b></div><div className="t-sthings"><div className="t-snone" data-fit="">Nothing today</div></div></div>}
               {(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // each day from now, AGENDA events at most
