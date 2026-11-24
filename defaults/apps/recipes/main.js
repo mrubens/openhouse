@@ -120,8 +120,9 @@ function startTimer(min = null) {
   if (!m) return "This step doesn't say how long. Say how many minutes.";
   const own = s?.timer && (!(Number(min) > 0) || Number(min) === s.timer.minutes); // the step's own timer, by its label
   const label = String((own ? s.timer.label : c.name || nameOf(cooking.key)) || 'Cooking').slice(0, 40);
-  timer.start(label, Math.round(m * 60));
-  started.set(`${cooking.key}|${cooking.at}`, { end: Date.now() + Math.round(m * 60) * 1000, total: Math.round(m * 60) }); draw();
+  const k = `${cooking.key}|${cooking.at}`, run = { end: Date.now() + Math.round(m * 60) * 1000, total: Math.round(m * 60) };
+  started.set(k, run); draw();
+  timer.start(label, Math.round(m * 60)).then((r) => { if (r?.endAt) run.end = r.endAt; }); // (the home screen's own, to follow it)
   return `${timerWords(m).replace('-', ' ')} timer on${label ? ` for ${label.toLowerCase()}` : ''}.`;
 }
 /** The place, kept (a reload carries on) and told to the live voice (what's on the screen now). */
@@ -240,6 +241,14 @@ function ringTick(el = $body.querySelector('.c-ring')) {
   el.querySelector('span').textContent = !end ? 'timer' : left <= 0 ? 'time’s up' : `of ${shortTime(total / 60)}`;
 }
 setInterval(() => ringTick(), 1000);
+// A step's timer is the home screen's: cleared there (its x, Opie), it stops here too.
+setInterval(async () => {
+  if (!started.size) return;
+  const list = await timer.list(); if (!list) return;
+  let gone = false;
+  for (const [k, run] of started) if (!list.some((t) => Math.abs(t.endAt - run.end) < 3000) && run.end > Date.now() - 10 * 60e3) { started.delete(k); gone = true; }
+  if (gone) draw();
+}, 2000);
 
 function cookView() {
   if (cooking.at < 1) cooking.at = 1; // (a cook kept from before there was no start page)

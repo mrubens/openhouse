@@ -469,7 +469,9 @@ export const reach = {
 export const decide = (input, questions) => call('/cloud/decide', { input: String(input || ''), questions }).then((r) => (r?.answers || null)).catch(() => null);
 export const timer = { start: (label, seconds) => send('/home/timer', { start: { label: String(label || 'Timer'), seconds: Math.round(seconds) } }),
   /** Stop one (its endAt, from the home screen's timers). */
-  cancel: (endAt) => send('/home/timer', { cancel: endAt }) };
+  cancel: (endAt) => send('/home/timer', { cancel: endAt }),
+  /** The timers running now, [{label, total (s), endAt (ms)}] (one cleared from the home screen is gone). */
+  list: () => call('/home/timer').then((r) => r?.timers || []).catch(() => null) };
 
 /**
  * This app is in use hands-free (cooking with messy hands): the screen stays on, and while the live voice is open it

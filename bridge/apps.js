@@ -40,7 +40,7 @@ const APP_GROUPS = {
   family: [],
   weather: [['GET', /^\/weather$/]],
   home: [['GET', /^\/(home|home\/wait|board)$/]],
-  timer: [['POST', /^\/home\/timer$/]],
+  timer: [['POST', /^\/home\/timer$/], ['GET', /^\/home\/timer$/]], // start and stop the kitchen timers, and see which are running
   say: [['POST', /^\/(voice\/say|home\/handsfree)$/]], // speaking, and being used hands-free (the voice listens longer)
   decide: [['POST', /^\/cloud\/decide$/]], // OpenAI Decisions through the family's account: counts against its allowance
   today: [['POST', /^\/today\/line$/]], // its own one line on Today, with an until (things.js putApp)
