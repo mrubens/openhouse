@@ -131,6 +131,10 @@
 .wc-days .track { height: calc(6 * var(--wu)); }
 .wcard.cell .wc-days { margin-top: calc(18 * var(--wu)); padding-top: calc(4 * var(--wu)); } /* one cell: now, the next hours, then the next two days, each with room (they were crammed at the bottom once) */
 .wcard.cell .wc-days .day { height: calc(46 * var(--wu)); }
+/* On the tablet's Today the grid sets the card's height: when a row's worth is too short for the days under the hours
+   (a photo card makes three rows), they go, so nothing is cut off. (Not on a phone: there the content sets the height.) */
+.h-today .wcard.cell { container-type: size; }
+@container (min-aspect-ratio: 1/1) { .wcard.cell .wc-days { display: none; } } /* wider than tall: no room for them (they fit at about 9:10) */
 .wcard.cell .wc-hours { margin-top: auto; }
 .wcard.tall .wc-temp { font-size: calc(112 * var(--wu)); }
 .wcard.tall .wc-now { margin-top: calc(20 * var(--wu)); display: block; }

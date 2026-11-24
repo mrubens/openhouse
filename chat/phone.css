@@ -165,3 +165,5 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .listbar { display: flex; justify-content: flex-end; margin: -2px 0 2px; }
 .listbar .quiet { color: var(--soft); font-size: 15px; padding: 6px 2px; }
 .appframe[hidden] { display: none; }
+/* Opie's mark only, round, the size of the keyboard button beside it (talk.jsx) */
+.opie-pill{width:46px;padding:0;justify-content:center}
