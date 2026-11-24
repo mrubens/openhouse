@@ -72,8 +72,14 @@ export function textFromHtml(html, n = 14000) {
 
 /** The page's links to other pages (its text and address), for finding the recipes it builds on ("make the Classic Pizza
  *  Sauce"): https only, each once, not the page itself; the model picks which ones the recipe needs. */
-export function linksFromHtml(html, base, n = 60) {
+export function linksFromHtml(html, base, n = 60, recipe = '') {
   const out = [], seen = new Set([String(base).split('#')[0]]);
+  // A page's menus come first in it; the links in the recipe's own words ("our Classic Pizza Dough") are put first.
+  if (recipe) {
+    const all = linksFromHtml(html, base, 1000), said = String(recipe).toLowerCase();
+    const inIt = all.filter((l) => said.includes(l.text.toLowerCase()));
+    return [...inIt, ...all.filter((l) => !inIt.includes(l))].slice(0, n);
+  }
   for (const m of String(html).matchAll(/<a\s[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
     let url; try { url = new URL(m[1], base); } catch { continue; }
     const text = clean(m[2], 80);
@@ -96,7 +102,7 @@ export async function readRecipeLink(link, { fetch = globalThis.fetch, timeoutMs
     html = (await r.text()).slice(0, 3e6);
   } catch (e) { throw new Error(e.name === 'AbortError' ? 'That page took too long to open.' : e.message.startsWith('That page') ? e.message : 'That page didn’t open.'); }
   finally { clearTimeout(t); }
-  const rec = recipeFromHtml(html), links = linksFromHtml(html, url.href);
+  const rec = recipeFromHtml(html), links = linksFromHtml(html, url.href, 60, rec?.text || '');
   if (rec) return { ...rec, image: rec.image || ogImage(html), recipe: true, links };
   const { title, text } = textFromHtml(html);
   return { name: title.replace(/\s*[|–—-]\s*[^|–—-]{2,40}$/, '').slice(0, 80), text, video: youtube(link) || youtube(html), image: ogImage(html), stepPics: [], minutes: null, recipe: false, links };
