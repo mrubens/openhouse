@@ -247,6 +247,7 @@ internal class SettingsLock(private val act: MainActivity) {
         ) + (if (on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Calendar needs the PIN", value = onOff(House.calendarLock)) to { withPin { setCalendarLock(!House.calendarLock); again() } },
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            CalmDialog.Row("Brightness", value = Brightness.label(act)) to { Brightness.choose(act, act::immersive) { again() } },
             CalmDialog.Row("Updates", value = Updater.installedVersion(act)) to { updates() },
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
             head("Opie"),
