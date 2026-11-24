@@ -134,3 +134,4 @@ html:root #app .r-card > .r-on { left: calc(22 * var(--u)); top: calc(20 * var(-
 html:root #app .r-card > .r-cook { top: auto; bottom: calc(22 * var(--u)); right: calc(22 * var(--u)); height: calc(56 * var(--u)); padding: 0 calc(30 * var(--u)); border-radius: calc(28 * var(--u)); background: #fff; color: #15110e; font-size: calc(20 * var(--u)); font-weight: 650; box-shadow: none; }
 html:root #app .r-card.tonight > .t { right: calc(160 * var(--u)); }
 html:root #app .found { background: var(--tint); box-shadow: none; }
+html:root.in-tab #app { padding: calc(30 * var(--u)) calc(36 * var(--u)) calc(30 * var(--u)); } /* (dark, the stage needs its own margin: the home screen's world doesn't show around it) */
