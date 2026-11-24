@@ -167,7 +167,7 @@ object Calm {
         addView(FrameLayout(c).apply {
             background = rounded(0xFFFFFFFF.toInt(), R_CARD * u(c), px(c, 1.5f).coerceAtLeast(1), LINE); setPadding(pad, pad, pad, pad)
             addView(image, FrameLayout.LayoutParams(px(c, size), px(c, size)))
-        })
+        }, LinearLayout.LayoutParams(-2, -2)) // the card hugs the code, centered (not the dialog's whole width)
         caption?.let { t -> (t.parent as? ViewGroup)?.removeView(t); t.gravity = Gravity.CENTER; addView(t, LinearLayout.LayoutParams(px(c, size.toFloat() + 36), -2).apply { topMargin = px(c, 16) }) }
         onShare?.let { addView(quiet(c, "Share") { it() }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = px(c, 4) }) }
     }
