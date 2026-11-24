@@ -193,4 +193,5 @@
 :root .btn { min-width: calc(96 * var(--u)); }
 :root .item, :root .chore, :root .erow { min-height: calc(60 * var(--u)); }
 :root [role="button"]:focus-visible, :root button:focus-visible, :root .field:focus-visible { outline: calc(3 * var(--u)) solid var(--accent); outline-offset: calc(2 * var(--u)); }
+:root .field:focus-visible { outline-color: color-mix(in srgb, var(--ink) 22%, transparent); } /* (a field being typed in isn't an alarm: a soft ring, not the red) */
 :root .mev { padding: calc(4 * var(--u)) calc(8 * var(--u)); }
