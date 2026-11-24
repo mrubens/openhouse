@@ -375,7 +375,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   // Calendar: what's next, then the rest of its day, then the days after it in the coming week, grouped by day: a few
   // (AGENDA), with room around them, not as many as fit (a card packed with two weeks read as crowded); under it, the
   // things on Today. The Calendar tab has the rest.
-  const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 7 * 864e5), AGENDA = 6;
+  const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 7 * 864e5), AGENDA = 8;
   const upcoming = (h.events || []).filter((e) => (e.allDay ? dayOf(e) >= t : new Date(e.end || e.start) >= now) && dayOf(e) < weekOut)
     .sort((a, b) => (dayOf(a) - dayOf(b)) || (b.allDay - a.allDay) || (new Date(a.start) - new Date(b.start)));
   const byDay = []; for (const e of upcoming) { const d = dayOf(e); if (+byDay.at(-1)?.[0] !== +d) byDay.push([d, []]); byDay.at(-1)[1].push(e); }
@@ -486,13 +486,8 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
         {kinds.has('calendar') && <div className="t-calcol">
         <div {...card('calendar')}>
           {first ? <>
-            <div className="t-hero">
-              <div className="h-label">{+firstDay === +t ? ['Next', inText(first, now)].filter(Boolean).join(' · ') : dayName(firstDay)}</div>
-              <div className="t-next">{plain(first.title)}</div>
-              <div className="t-when-next">{eventPaint(h, first) ? <EvDot e={first} /> : null}<span className="h-grow">{[when(first), eventPeople(h, first).join(' & ') || null, first.place].filter(Boolean).join(' · ')}</span></div>
-            </div>
-            <div className="t-agenda t-fit" ref={calFit}>{(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // the rest of its day, then each day after it, AGENDA events at most
-              const rest = (k ? l : l.slice(1)).slice(0, Math.max(0, left)); left -= rest.length;
+            <div className="t-agenda t-fit" ref={calFit}>{(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // each day from now, AGENDA events at most
+              const rest = l.slice(0, Math.max(0, left)); left -= rest.length; // (the first one like the rest: no big card of its own)
               // as a schedule: the day's weekday and date in a column, its things beside them (all-day ones as slim
               // pills, the others as soft blocks tinted with their person's color, the time under the title)
               const tintOf = (e) => { const c = eventPeople(h, e).map((n) => personColor(h, n))[0]; return c ? { background: `color-mix(in srgb, ${c} 24%, var(--h-sheet))` } : undefined; };

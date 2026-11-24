@@ -543,6 +543,7 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 /* Today's calendar, calmer: a few events with room between them (home.jsx AGENDA) */
 .t-agenda .t-ev { height: calc(var(--u) * 50 * var(--s)); }
 /* Today's calendar as a schedule (home.jsx): the date in a column, the day's things beside it */
+.t-agenda > .t-sday:first-child { margin-top: calc(var(--u) * 10); }
 .t-sday { display: grid; grid-template-columns: calc(var(--u) * 56 * var(--s)) minmax(0, 1fr); column-gap: calc(var(--u) * 14); align-items: start; margin-top: calc(var(--u) * 18); }
 .t-sdate { display: grid; justify-items: center; padding-top: calc(var(--u) * 4); color: var(--h-soft); }
 .t-sdate small { font-size: calc(var(--u) * 12.5 * var(--s)); font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
