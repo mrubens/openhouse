@@ -417,7 +417,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   }
   const plan = (e, text) => { e.stopPropagation(); setPicked({ day: dayKey(t), text }); c.json('POST', '/house/meal', { date: dayKey(t), meal: 'dinner', text }).catch(() => {}); };
   const calFit = useFit(), mealFit = useFit();
-  const photos = h.screensaver?.length ? h.screensaver : h.photos || [];
+  const photos = h.screensaver || h.photos || []; // the sleep screen's photos (its albums' choice), none when they're all off
 
   const cards = [];
   // Weather: on its sky (the Weather tab's look, /kit/weather-look.js): now, the next hours, and the model's line tying

@@ -713,7 +713,7 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
   const night = isNight(house?.night, now) || !!shell?.sleeping?.(); // night hours (or "Sleep now") hold with or without the Photos app
   // At night the backlight goes right down too (the shell), and comes back when someone touches it.
   useEffect(() => { shell?.dim?.(night); return () => shell?.dim?.(false); }, [night]);
-  const names = wantsPhotos && !night ? house?.screensaver || house?.photos || [] : []; // the album chosen in Photos, else all
+  const names = wantsPhotos && !night ? house?.screensaver || house?.photos || [] : []; // those whose albums are on for the sleep screen (Photos)
   const shown = names.length ? names[Math.floor(now / 12e3) % names.length] : null;
   const src = usePhoto(c, shown), caption = shown && house?.captions?.[shown];
   const d = new Date(now);
