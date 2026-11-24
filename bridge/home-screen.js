@@ -541,6 +541,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     const p = url.pathname;
     if (p === '/home/mcp' && req.method === 'POST') { await mcp(req, res); return true; }
     if (req.method === 'GET' && p === '/home') { expire(); json(res, 200, view()); return true; }
+    if (req.method === 'GET' && p === '/home/timer') { expire(); json(res, 200, { timers: homeScreen.timers.map(({ label, total, endAt }) => ({ label, total, endAt })) }); return true; }
     if (req.method === 'GET' && p === '/home/sketch') { json(res, 200, { v: homeScreen.sketch.v, strokes: homeScreen.sketch.strokes }); return true; }
     if (req.method === 'GET' && p === '/home/wait') {
       expire();
@@ -596,7 +597,6 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
       else if (b.undo) { if (!k.strokes.length && k.was) { k.strokes = k.was; k.was = null; } else k.strokes.pop(); }
       k.v++; save(); json(res, 200, { ok: true, v: k.v }); return true;
     }
-    if (req.method === 'GET' && p === '/home/timer') { expire(); json(res, 200, { timers: homeScreen.timers.map(({ label, total, endAt }) => ({ label, total, endAt })) }); return true; }
     if (p === '/home/timer') { // {start: {label, seconds} or {label, total, endAt}} or {cancel: endAt}
       if (b.start && typeof b.start === 'object') { const endAt = startTimer(b.start); json(res, endAt ? 200 : 400, endAt ? { ok: true, endAt } : { error: 'bad timer' }); return true; }
       json(res, 200, { ok: cancelTimer(b.cancel) }); return true;
