@@ -3,6 +3,8 @@
 // and a slideshow. Albums gather some of them (each can be left off the sleep screen or All; an app saves into its own). "Add photos" shows a code a
 // phone on the home Wi-Fi scans to send photos from its camera roll. The same photos show on the display when nobody's around,
 // because app.json says "screensaver": true (take that out to stop it), except at night (the hours are set in the display's Settings).
+// Videos are in it too: their still everywhere (a play mark on it here), played with sound on a tap in the one view, and
+// muted, once through, in the slideshow. The sleep screen and Today show only their stills.
 import { house, timer, say, phone, shell } from '/kit/openhouse.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
@@ -136,6 +138,12 @@ const seen = new IntersectionObserver((list) => {
   for (const e of list) if (e.isIntersecting) { const img = e.target; seen.unobserve(img); house.thumb(img.dataset.name, Number(img.dataset.px) || undefined).then((src) => { img.src = src; }).catch(() => {}); }
 }, { rootMargin: '400px' });
 
+const isVideo = (n) => house.isVideo(n);
+/** The small play mark on a video's still. */
+const vidMark = () => h('span', { class: 'vid-mark', 'aria-hidden': 'true' }, icon('play'));
+/** The video playing in the one view (only ever one: let go of as soon as it's off screen). */
+let playing = null;
+function stopVideo() { if (!playing) return; const v = playing; playing = null; v.pause(); v.removeAttribute('src'); v.load(); v.remove(); }
 /** One of the family's photos, as an <img> (filled in when it arrives). small: true, or how wide a copy in px. */
 function photo(name, cls = '', small = false) {
   const img = h('img', { class: 'photo ' + cls, alt: '', draggable: 'false' });
@@ -151,7 +159,7 @@ function addPhotos() {
   const way = (title, line, tap) => h('div', { class: 'way', tap }, h('div', { class: 'way-title' }, title), h('div', { class: 'note small' }, line));
   openCard((close) => [
     h('h2', { class: 'big' }, 'Add photos'),
-    way('From a phone, now', 'Scan a code with a phone on the home Wi-Fi and pick photos.', () => { close(); phone.photos(); }),
+    way('From a phone, now', 'Scan a code with a phone on the home Wi-Fi and pick photos or videos.', () => { close(); phone.photos(); }),
     way('From the household’s phones, any time', 'A page each phone keeps. On Android it’s in the share sheet.', () => { close(); later(() => phone.sharePhotos(), 'Photos from phones')(); }),
     way('An iCloud shared album', 'Photos added to it on any iPhone show up here by themselves.', () => { close(); if (!phone.addAlbum()) albumByLink(); }),
     way('Pick in Google Photos', 'Sign in to Google on a phone and choose the photos to copy here.', () => { close(); later(() => phone.googlePhotos(), 'Google Photos')(); }),
@@ -181,7 +189,7 @@ function draw() {
   const photos = shownPhotos();
   $app.className = '';
   if (one && !photos.includes(one)) one = null; // taken off meanwhile
-  if (!one) alone = null;
+  if (!one) { alone = null; stopVideo(); }
   if (!H) { stopShow(); $app.replaceChildren(); }
   else if (!(H.photos || []).length) { stopShow(); $app.replaceChildren(empty()); }
   else if (!photos.length) { stopShow(); keepScroll($app, () => $app.replaceChildren(gridView(photos))); } // an empty album
@@ -238,7 +246,7 @@ function gridView(photos) {
       if (picking.has(p)) picking.delete(p); else picking.add(p);
       cell.classList.toggle('picked', picking.has(p)); drawTop(); // (not the whole grid: its photos stay loaded)
     }, hold: () => (picking ? null : removing(p)) }, photo(p, '', kind === 'b' || kind === 'b2' ? 900 : kind === 'w' ? 600 : true),
-    picking ? h('span', { class: 'cell-check' }, icon('check')) : null);
+    isVideo(p) && !picking ? vidMark() : null, picking ? h('span', { class: 'cell-check' }, icon('check')) : null);
     return cell;
   }
   return h('div', { class: 'grid-screen' + (picking ? ' picking' : '') }, top,
@@ -346,6 +354,7 @@ function single(photos) {
   const go = (n) => { one = photos[(n + photos.length) % photos.length]; draw(); };
   const words = () => [captionOf(one), [a?.name, `${i + 1} of ${photos.length}`].filter(Boolean).join(' · ')];
   if (alone && alone.name === one && alone.key === photos.join('\n') && $app.contains(alone.el)) { const [c, l] = words(); alone.cap.textContent = c; alone.line.textContent = l; return; }
+  stopVideo();
   const glass = (label, ic, tap, cls = '') => h('button', { class: `pill glass ${cls}`, 'aria-label': label, tap }, icon(ic), h('span', { class: 'lbl' }, label));
   const [c, l] = words(), cap = h('h1', null, c), line = h('p', null, l);
   const back = h('img', { class: 'one-back', alt: '', draggable: 'false' }), pic = h('img', { class: 'one-pic', alt: '', draggable: 'false' });
@@ -354,7 +363,23 @@ function single(photos) {
   house.thumb(one).then((src) => { back.src = src; if (!pic.src) pic.src = src; }).catch(() => {});
   house.photo(one).then((src) => { pic.src = src; }).catch(() => {});
   const n = Math.min(photos.length, innerWidth <= 700 ? 5 : 11), from = Math.max(0, Math.min(i - (n >> 1), photos.length - n));
-  const el = h('div', { class: 'one' }, back, pic, h('div', { class: 'shade' }),
+  // A video: its still, and a play button; a tap plays it with sound over the still, and a tap on it pauses or plays.
+  let play = null;
+  if (isVideo(one)) {
+    const name = one;
+    play = h('button', { class: 'one-play glass', 'aria-label': 'Play the video', tap: async () => {
+      if (playing && el.contains(playing)) { playing.play().catch(() => {}); return; } // (paused: on from there)
+      const url = await house.video(name).catch(() => null);
+      if (!url || one !== name || !$app.contains(el)) return;
+      stopVideo();
+      const v = h('video', { class: 'one-pic', playsinline: true, preload: 'auto', tap: () => { if (v.paused) v.play().catch(() => {}); else v.pause(); } });
+      v.src = url; v.addEventListener('ended', () => { el.classList.remove('playing'); stopVideo(); play.hidden = false; });
+      v.addEventListener('pause', () => { el.classList.remove('playing'); play.hidden = false; }); v.addEventListener('play', () => { el.classList.add('playing'); play.hidden = true; });
+      pic.after(v); playing = v; play.hidden = true;
+      v.play().catch(() => { stopVideo(); play.hidden = false; });
+    } }, icon('play'));
+  }
+  const el = h('div', { class: 'one' }, back, pic, play, h('div', { class: 'shade' }),
     h('div', { class: 'one-top' },
       glass(a ? a.name : 'All photos', 'left', () => { one = null; grid = true; draw(); }),
       h('span', { class: 'grow' }),
@@ -363,7 +388,7 @@ function single(photos) {
     photos.length > 1 ? [h('button', { class: 'rbtn arr l glass', 'aria-label': 'The one before', tap: () => go(i - 1) }, icon('left')),
       h('button', { class: 'rbtn arr r glass', 'aria-label': 'The next one', tap: () => go(i + 1) }, icon('right'))] : null,
     h('div', { class: 'capt' }, cap, line),
-    photos.length > 1 ? h('div', { class: 'film glass' }, photos.slice(from, from + n).map((p) => h('div', { class: p === one ? 'on' : '', tap: () => { one = p; draw(); } }, photo(p, '', true)))) : null);
+    photos.length > 1 ? h('div', { class: 'film glass' }, photos.slice(from, from + n).map((p) => h('div', { class: p === one ? 'on' : '', tap: () => { one = p; draw(); } }, photo(p, '', true), isVideo(p) ? vidMark() : null))) : null);
   $app.replaceChildren(el);
   alone = { name: one, key: photos.join('\n'), el, cap, line };
 }
@@ -387,21 +412,34 @@ function slideshow(photos) {
   const cap = h('h1');
   const el = h('div', { class: 'show', tap: () => { grid = true; draw(); } }, layers, h('div', { class: 'shade' }), h('div', { class: 'capt' }, cap, count));
   $app.replaceChildren(el);
-  show = { key, el, count, cap, order, i: 0, front: 0, timer: 0 };
+  show = { key, el, count, cap, order, i: 0, front: 0, timer: 0, clip: null };
   const s = show;
+  // The next one after SECONDS; a video plays muted over its still, once through (a minute at most), then the next.
+  const after = (ms) => { clearTimeout(s.timer); if (order.length > 1 || s.clip) s.timer = setTimeout(() => put((s.i + 1) % order.length), ms); };
   const put = async (i) => {
     const src = await house.photo(order[i]).catch(() => null);
-    if (!src || show !== s) return;
+    if (show !== s) return;
+    if (!src) { s.i = i; return after(1000); } // (a video still without its still: on to the next)
     const next = layers[1 - s.front];
     next.src = src; await next.decode().catch(() => {});
     if (show !== s) return;
+    endClip(s);
     next.classList.add('on'); layers[s.front].classList.remove('on'); s.front = 1 - s.front; s.i = i;
     cap.textContent = captionOf(order[i]);
+    after(SECONDS * 1000);
+    if (!isVideo(order[i])) return;
+    const url = await house.video(order[i]).catch(() => null);
+    if (!url || show !== s || s.i !== i) return;
+    const v = h('video', { class: 'slide vid', muted: true, playsinline: true, preload: 'auto' });
+    v.muted = true; v.src = url; s.clip = v;
+    v.addEventListener('playing', () => { v.classList.add('on'); after(Math.min(60e3, Math.max(SECONDS * 1000, (v.duration || 0) * 1000 + 400))); }, { once: true });
+    v.addEventListener('ended', () => { if (s.clip === v) after(0); });
+    next.after(v); v.play().catch(() => endClip(s));
   };
   put(0);
-  if (order.length > 1) s.timer = setInterval(() => put((s.i + 1) % order.length), SECONDS * 1000);
 }
-function stopShow() { if (show) { clearInterval(show.timer); show = null; } }
+function endClip(s) { const v = s?.clip; if (!v) return; s.clip = null; v.classList.remove('on'); v.pause(); v.removeAttribute('src'); v.load(); setTimeout(() => v.remove(), 1300); }
+function stopShow() { if (show) { clearTimeout(show.timer); endClip(show); show = null; } }
 
 // Opened from Today's photo (add=<when>&photo=<name> in its address, just now): that photo, once.
 let openAsked = (() => { const q = new URLSearchParams(location.hash.slice(1)); return Date.now() - (Number(q.get('add')) || 0) < 15e3 ? q.get('photo') : null; })();

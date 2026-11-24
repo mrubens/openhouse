@@ -597,7 +597,9 @@ function PhotoCard({ c, names, captions, now, usePhoto, onOpen, ...rest }) {
 }
 function PhotoTile({ c, name, usePhoto, onOpen }) {
   const src = usePhoto(c, name);
-  return <div className="t-tile" onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(name); } : undefined}>{src && <img className="t-cover" src={src} alt="" draggable={false} />}</div>;
+  // A video shows its still with a small play mark (it plays in Photos, a tap away): a clip moving on Today would pull the eye.
+  return <div className="t-tile" onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(name); } : undefined}>{src && <img className="t-cover" src={src} alt="" draggable={false} />}
+    {src && /\.(mp4|mov|m4v)$/i.test(name) && <span className="t-vid" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z" /></svg></span>}</div>;
 }
 
 // ---- Notes: what the assistant put up for them, and reminders due now ------------------------------------------------

@@ -300,8 +300,18 @@ export const house = {
     })());
     return thumbs.get(key);
   },
-  /** Into Photos: { ok, name }, the photo's name there (the same picture again gives the one already there, not a copy). */
+  /** Into Photos: { ok, name }, the photo's name there (the same picture again gives the one already there, not a copy).
+   *  A video too (name it .mp4 or .mov; 80 MB at most): Photos keeps it with a still, which photo() and thumb() give. */
   addPhoto: (blob, name = 'photo.jpg') => call('/house/photo?name=' + encodeURIComponent(name), blob),
+  /** Is this one of the photos a video? (photo() and thumb() give its still; video() an address to play it.) */
+  isVideo: (name) => /\.(mp4|mov|m4v)$/i.test(String(name || '')),
+  /** An address for <video src> that plays one of the videos in Photos (it lasts a few hours), or null where it can't
+   *  play (an app shown on another screen: show its still). */
+  async video(name) {
+    if (SCREEN) return null;
+    const r = await call('/house/photo/' + encodeURIComponent(name) + '?play=1').catch(() => null);
+    return r?.url ? B + r.url : null;
+  },
   removePhoto: (name) => send('/house/photo/remove', { name }),
   /** Put back a photo taken off in the last 30 days (data.removed: their names, newest first). */
   restorePhoto: (name) => send('/house/photo/restore', { name }),

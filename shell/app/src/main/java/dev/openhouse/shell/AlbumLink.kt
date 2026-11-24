@@ -30,7 +30,7 @@ object AlbumLink {
     /** Only Apple's own CloudKit partitions are asked. */
     fun okPartition(p: String?): Boolean = p != null && Regex("^https://p[0-9]{1,3}-ckdatabasews\\.icloud\\.com(:443)?/?$", RegexOption.IGNORE_CASE).matches(p)
     /** The fields of a record the bridge reads (the rest stays here). */
-    fun keepField(name: String): Boolean = Regex("^res(JPEG(Thumb|Med|Large|Full)|Original)(Res|Width|Height|FileType)$|^(itemType|addedDate|assetDate|captionEnc|masterRef|duration)$").matches(name)
+    fun keepField(name: String): Boolean = Regex("^res(JPEG(Thumb|Med|Large|Full)|Vid(Small|Med|Full)|Original)(Res|Width|Height|FileType)$|^(itemType|addedDate|assetDate|captionEnc|masterRef|duration)$").matches(name)
 
     fun token(raw: String): String? = LINK.matchEntire(raw.trim().replace(Regex("\\s"), ""))?.groupValues?.get(2)
 

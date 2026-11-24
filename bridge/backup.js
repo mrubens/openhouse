@@ -16,11 +16,11 @@
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
-import { newRecoveryCode, keyFromCode, normalCode, encryptFile, decryptFile, pack, run, INCLUDE } from './backup-format.js';
+import { newRecoveryCode, keyFromCode, normalCode, encryptFile, decryptFile, pack, run, INCLUDE, VIDEO_BUDGET, keptVideos } from './backup-format.js';
 
 export const KEEP = { nightly: 7, manual: 5 };
 
-export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = null, busy = () => false, exit = () => process.exit(0), now = Date.now, tick = 15 * 60e3 }) {
+export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = null, busy = () => false, exit = () => process.exit(0), now = Date.now, tick = 15 * 60e3, videoBudget = VIDEO_BUDGET }) {
   const DIR = path.join(DISPLAY, '.backup'); // never in a backup (not in INCLUDE)
   const TMP = path.join(DIR, 'tmp');
   const f = (n) => path.join(DIR, n);
@@ -55,7 +55,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
     const results = {};
     try {
       try {
-        const entries = await pack(DISPLAY, tgz);
+        const entries = await pack(DISPLAY, tgz, { videoBudget });
         job.step = 'locking';
         await encryptFile(tgz, file, k, { entries });
         fs.rmSync(tgz, { force: true });
@@ -143,6 +143,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
         if (fs.existsSync(path.join(DISPLAY, e))) fs.renameSync(path.join(DISPLAY, e), path.join(aside, e));
         fs.renameSync(path.join(out, e), path.join(DISPLAY, e));
       }
+      if (entries.includes('photos')) keptVideos(path.join(aside, 'photos'), path.join(DISPLAY, 'photos')); // (videos the backup left out stay)
       if (adopt) { setKey(adopt, true); escrowNow().catch(() => {}); } // the family's code is this tablet's code now
       setState({ lastRestore: { at: iso(), ok: true, dest, id, from: header.createdAt } });
       // Start fresh on what came back: the shell's watchdog starts the bridge again in a few seconds.

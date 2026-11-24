@@ -30,7 +30,9 @@
 // POST /house/remind           { done: key }  a reminder put away, on every screen (its key from view().reminders)
 // POST /house/thing            { take: id }  one of the things on Today taken down (view().things: things.js)
 // GET  /house/photo/<name>     one of the family's photos (files in display/photos/)
-// POST /house/photo?name=x.jpg the image itself as the body (the phone upload page)
+// POST /house/photo?name=x.jpg the image itself as the body (the phone upload page); x.mp4 / x.mov: a video (MAX_VIDEO)
+// GET  /house/photo/<video>    its still (stills.js); ?play=1: {url} for <video src>, /house/video/<name>?t=… (serveVideo)
+// POST /house/photo/part?id&n&of&name  a video from the phone page in parts (the shell only), put together in .incoming
 // POST /house/photo/remove     { name }  (moved to photos/.removed, not deleted)
 // POST /house/photo/album      { add: {name, photos?} } | { rename: {id, name} } | { remove: id } | { put: {id, photos, on?} } | { show: {id, sleep?, all?} }
 // POST /house/photo?name=x.jpg from an app (x-openhouse-app): into that app's own album, named after it
@@ -46,6 +48,7 @@
 // update_household keep them.
 import fs from 'node:fs';
 import { albumSync } from './photo-albums.js';
+import { stillMaker } from './stills.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { cookSource, readRecipeLink, cookPrompt, COOK_SYSTEM, parseCook, cookAsNotes, youtube, findPrompt, FIND_SYSTEM, parseFound, withPictures } from './cooking.js';
@@ -56,6 +59,15 @@ const DAY = 86400e3;
 export const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'];
 const WEEKDAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 const PHOTO = /\.(jpe?g|png|webp|gif|heic)$/i;
+/** Videos keep their own file (no transcoding: the tablet's WebView plays what phones make, H.264 and HEVC in mp4 or
+ *  mov) and a still beside it (stills.js). They're in Photos and its albums like any photo (docs/photos.md, "Videos"). */
+export const VIDEO = /\.(mp4|mov|m4v)$/i;
+const MEDIA = /\.(jpe?g|png|webp|gif|heic|mp4|mov|m4v)$/i;
+/** The biggest video kept (about a minute or two from a phone); bigger ones are refused, never cut. */
+export const MAX_VIDEO = 80e6;
+const MAX_PICTURE = 25e6;
+/** A video's file type from its first bytes (an ISO media file has "ftyp" at byte 4: 'qt' is QuickTime), or null. */
+export const videoKind = (bytes) => (bytes?.length > 12 && bytes.toString('latin1', 4, 8) === 'ftyp' ? (bytes.toString('latin1', 8, 10) === 'qt' ? '.mov' : '.mp4') : null);
 const REPEATS = ['daily', 'weekdays', 'weekly', 'biweekly', 'monthly', 'yearly'];
 /** The pictures a checklist step can have (drawn by the display: dev.openhouse.ui StepPicture). */
 export const PICS = ['sun', 'moon', 'shirt', 'teeth', 'shoes', 'backpack', 'bed', 'bath', 'book', 'plate', 'hands', 'hair', 'toys', 'cup', 'coat', 'pet', 'star', 'plant', 'trash', 'laundry', 'broom'];
@@ -284,13 +296,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     return events().filter((e) => e.remindAt && new Date(e.remindAt) <= now && now < Math.min(new Date(e.start).getTime() + 10 * 60e3, new Date(e.end || e.start).getTime() + 60e3) && !away.has(remindKey(e)))
       .map((e) => ({ key: remindKey(e), title: e.title, start: e.start, who: [e.who, ...(e.also || [])].filter(Boolean).join(' & ') || null, ...(e.place ? { place: e.place } : {}) }));
   }
-  const albums = albumSync({ photosDir: PHOTOS, data, save: () => save(), log: (m) => console.log(m) });
+  const stills = stillMaker({ photosDir: PHOTOS, onMade: () => changed(), log: (m) => console.log(m) });
+  const albums = albumSync({ photosDir: PHOTOS, data, save: () => save(), log: (m) => console.log(m), stills });
   let photoCache = null; // the folder's listing, kept while the folder hasn't changed
   function photos() {
     try {
       const at = fs.statSync(PHOTOS).mtimeMs;
       if (photoCache?.at === at) return photoCache.list;
-      const list = fs.readdirSync(PHOTOS).filter((f) => PHOTO.test(f) && !f.startsWith('.'))
+      const list = fs.readdirSync(PHOTOS).filter((f) => MEDIA.test(f) && !f.startsWith('.'))
         .map((f) => ({ name: f, at: fs.statSync(path.join(PHOTOS, f)).mtimeMs })).sort((a, b) => b.at - a.at).map((p) => p.name);
       photoCache = { at, list };
       return list;
@@ -919,9 +932,12 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   /** {from: a first name or address, subject, text, images: [{bytes, type, name}], pages: [{bytes, type}] (a PDF's)} ->
    *  {photos: [file names], events: n}. One model call with no tools: what's in the message is only ever data. Without
    *  an assistant, the images go into Photos and the message isn't read (throws, so mail.js keeps it to read later). */
-  async function readEmail({ from, subject, text, images = [], pages = [] }) {
-    const keep = (idx) => idx.map((i) => images[i]).filter(Boolean).map((im) => addPhoto(im.bytes, im.name || 'email.jpg', str(subject, 120))).map((file) => { intoEmailAlbum(file); return file; });
-    if (noAssistant('')) { const photos = keep(images.map((_, i) => i)); if (photos.length) { save(); changed(); } return { photos, events: 0, unread: true }; }
+  async function readEmail({ from, subject, text, images = [], pages = [], videos = [] }) {
+    const keep = (idx) => idx.map((i) => images[i]).filter(Boolean).map((im) => addPhoto(im.bytes, im.name || 'email.jpg', str(subject, 120))).filter(Boolean).map((file) => { intoEmailAlbum(file); return file; });
+    // Videos are kept as they come (a video sent to the household's photos is a moment, not a flyer): no model needed.
+    const clips = videos.map((v) => addPhoto(v.bytes, v.name || 'email.mp4', str(subject, 120))).filter(Boolean).map((file) => { intoEmailAlbum(file); return file; });
+    if (clips.length) save();
+    if (noAssistant('')) { const photos = [...keep(images.map((_, i) => i)), ...clips]; if (photos.length) { save(); changed(); } return { photos, events: 0, unread: true }; }
     const d = new Date(), today = `${dayKey(d)} (${d.toLocaleDateString('en-US', { weekday: 'long' })})`;
     const prompt = `An email came to the household's display from ${str(from, 80) || 'someone in the household'} (approved by the household). Today is ${today}.\n` +
       `It has ${images.length} image${images.length === 1 ? '' : 's'} attached first (numbered from 0)${pages.length ? `, then ${pages.length} page${pages.length === 1 ? '' : 's'} of PDFs` : ''}. ` +
@@ -935,7 +951,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       [...images, ...pages].map((x) => ({ bytes: x.bytes, type: x.type })));
     let j = {}; try { j = JSON.parse(said.match(/\{[\s\S]*\}/)?.[0] || '{}'); } catch {}
     const idx = [...new Set((Array.isArray(j.photos) ? j.photos : []).filter((i) => Number.isInteger(i) && i >= 0 && i < images.length))];
-    const photos = keep(idx);
+    const photos = [...keep(idx), ...clips];
     const evs = flyerEvents(j.events);
     if (evs.length) { // offered on the Calendar app, with any not yet put away
       const was = flyer?.state === 'done' ? flyer.events || [] : [];
@@ -1136,11 +1152,11 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
 
   function removePhoto(name) {
     const n = path.basename(String(name || ''));
-    if (!PHOTO.test(n) || n.startsWith('.')) return { error: 'no such photo' };
+    if (!MEDIA.test(n) || n.startsWith('.')) return { error: 'no such photo' };
     const bin = path.join(PHOTOS, '.removed');
     try { fs.mkdirSync(bin, { recursive: true }); fs.renameSync(path.join(PHOTOS, n), path.join(bin, n)); } catch { return { error: 'no such photo' }; }
     try { const t = new Date(); fs.utimesSync(path.join(bin, n), t, t); } catch {} // its 30 days start now (not from when it was taken)
-    try { for (const f of fs.readdirSync(bin)) if (fs.statSync(path.join(bin, f)).mtimeMs < Date.now() - 30 * DAY) fs.unlinkSync(path.join(bin, f)); } catch {}
+    try { for (const f of fs.readdirSync(bin)) if (fs.statSync(path.join(bin, f)).mtimeMs < Date.now() - 30 * DAY) { fs.unlinkSync(path.join(bin, f)); if (VIDEO.test(f)) stills.drop(f); } } catch {}
     albums.removed(n);
     for (const a of data.albums) a.photos = a.photos.filter((x) => x !== n); delete data.captions[n];
     save(); return { ok: true };
@@ -1151,14 +1167,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     const bin = path.join(PHOTOS, '.removed');
     try {
       const at = fs.statSync(bin).mtimeMs;
-      if (removedCache?.at !== at) removedCache = { at, list: fs.readdirSync(bin).filter((f) => PHOTO.test(f) && !f.startsWith('.'))
+      if (removedCache?.at !== at) removedCache = { at, list: fs.readdirSync(bin).filter((f) => MEDIA.test(f) && !f.startsWith('.'))
         .map((f) => ({ f, t: fs.statSync(path.join(bin, f)).mtimeMs })).sort((a, b) => b.t - a.t).map((x) => x.f).slice(0, 60) };
       return removedCache.list;
     } catch { return []; }
   }
   function restorePhoto(name) {
     const n = path.basename(String(name || ''));
-    if (!PHOTO.test(n) || n.startsWith('.')) return { error: 'no such photo' };
+    if (!MEDIA.test(n) || n.startsWith('.')) return { error: 'no such photo' };
     try { fs.renameSync(path.join(PHOTOS, '.removed', n), path.join(PHOTOS, n)); } catch { return { error: 'That photo isn’t there to put back.' }; }
     if (n.startsWith('ic-')) { albums.restored(n); save(); return { ok: true }; }
     changed(); return { ok: true };
@@ -1174,7 +1190,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     return off;
   }
   /** The photos the sleep screen shows (none when every one is in an album that's off there: the plain sleep screen). */
-  function screensaver() { const out = leftOut('sleep'); return photos().filter((n) => !out.has(n)); }
+  function screensaver() { const out = leftOut('sleep'); return photos().filter((n) => !out.has(n) && (!VIDEO.test(n) || stills.has(n))); } // (a video shows as its still, once it has one)
   /** A picture an app saved goes in the app's own album (made the first time, named after the app; off on the sleep
    *  screen to begin with, so the slideshow stays the family's photos). */
   function intoAppAlbum(app, file) {
@@ -1215,22 +1231,31 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     data.albums = data.albums.filter((x) => x !== a); // the photos stay: only the album goes
     save(); return { ok: true };
   }
-  /** A photo into Photos (a phone's upload page, or one shared to Opie: phone-share.js), with a caption if given. Its file name. */
+  /** A photo or a video into Photos (a phone's upload page, an email, an app, one shared to Opie: phone-share.js), with a
+   *  caption if given. Its file name, or null when it's a video over MAX_VIDEO (or a picture over 25 MB): nothing kept. */
   function addPhoto(bytes, name = 'photo.jpg', text = '', app = null) {
+    const kind = videoKind(bytes); // (a video sent as "phone.jpg": the shell's upload page doesn't know which it is)
+    if (kind && !VIDEO.test(name)) name = String(name).replace(/\.[^.]*$/, '') + kind;
+    if (bytes.length > (VIDEO.test(name) ? MAX_VIDEO : MAX_PICTURE)) return null;
     // The very same picture again (a drawing saved twice unchanged): it's already there, so that one's name comes back.
     const same = samePhoto(bytes);
     if (same) { if (app) intoAppAlbum(app, same); if (str(text, 120) && !data.captions[same]) data.captions[same] = str(text, 120); if (app || str(text, 120)) { save(); changed(); } return same; }
     const file = Date.now() + '-' + String(name).replace(/[^\w.-]/g, '_').slice(-80);
     fs.mkdirSync(PHOTOS, { recursive: true });
-    fs.writeFileSync(path.join(PHOTOS, file), bytes);
+    const tmp = path.join(PHOTOS, '.' + file + '.tmp'); // whole or not at all: the folder never shows half a video
+    fs.writeFileSync(tmp, bytes); fs.renameSync(tmp, path.join(PHOTOS, file));
+    return added(file, text, app);
+  }
+  function added(file, text = '', app = null) {
     if (str(text, 120)) data.captions[file] = str(text, 120);
     if (app) intoAppAlbum(app, file);
+    if (VIDEO.test(file)) stills.want(file);
     save(); changed();
     return file;
   }
   /** A photo already in Photos with exactly these bytes (same size first, then the same SHA-256), or null. */
   function samePhoto(bytes) {
-    let names; try { names = fs.readdirSync(PHOTOS).filter((n) => PHOTO.test(n)); } catch { return null; }
+    let names; try { names = fs.readdirSync(PHOTOS).filter((n) => MEDIA.test(n) && !n.startsWith('.')); } catch { return null; }
     let digest = null;
     for (const n of names) {
       let st; try { st = fs.statSync(path.join(PHOTOS, n)); } catch { continue; }
@@ -1239,6 +1264,52 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       try { if (crypto.createHash('sha256').update(fs.readFileSync(path.join(PHOTOS, n))).digest('hex') === digest) return n; } catch {}
     }
     return null;
+  }
+  // ---- videos from the phone page, in parts (a whole one sealed at once would be too much for the shell) ----
+  const INCOMING = path.join(PHOTOS, '.incoming'), parts = new Map(); // id -> { next, size, at }
+  function videoPart(q, bytes) {
+    const id = String(q.get('id') || ''), n = Number(q.get('n')), of = Number(q.get('of'));
+    if (!/^[A-Za-z0-9_-]{8,40}$/.test(id) || !Number.isInteger(n) || !Number.isInteger(of) || n < 0 || of < 1 || n >= of || of > 200) return { error: 'which part?' };
+    for (const [k, v] of parts) if (Date.now() - v.at > 3600e3) { parts.delete(k); fs.rmSync(path.join(INCOMING, k), { force: true }); } // (an upload left halfway)
+    const file = path.join(INCOMING, id);
+    if (n === 0) { if (!videoKind(bytes)) return { error: 'not a video' }; fs.mkdirSync(INCOMING, { recursive: true }); fs.writeFileSync(file, bytes); parts.set(id, { next: 1, size: bytes.length, at: Date.now(), kind: videoKind(bytes) }); }
+    else {
+      const p = parts.get(id);
+      if (!p || p.next !== n) return { error: 'out of order', code: 409 };
+      if (p.size + bytes.length > MAX_VIDEO) { parts.delete(id); fs.rmSync(file, { force: true }); return { error: 'too big', code: 413 }; }
+      fs.appendFileSync(file, bytes); p.next++; p.size += bytes.length; p.at = Date.now();
+    }
+    if (n < of - 1) return { ok: true };
+    const p = parts.get(id); parts.delete(id);
+    const base = String(q.get('name') || 'phone').replace(/\.[^.]*$/, '').replace(/[^\w-]/g, '_').slice(-60) || 'phone';
+    const name = Date.now() + '-' + base + p.kind;
+    fs.renameSync(file, path.join(PHOTOS, name));
+    return { ok: true, name: added(name) };
+  }
+  // A <video> can't send the app's key, so an app that may see a photo gets an address for it that works for a few
+  // hours, on this device only (the bridge listens on loopback), for that one video.
+  const playKey = crypto.randomBytes(32);
+  const playSig = (name, exp) => crypto.createHmac('sha256', playKey).update(name + '|' + exp).digest('base64url').slice(0, 32);
+  function playUrl(name) { const exp = (Date.now() + 6 * 3600e3).toString(36); return `/house/video/${encodeURIComponent(name)}?t=${exp}.${playSig(name, exp)}`; }
+  /** GET /house/video/<name>?t=… (server.js, before the callers' keys): the video, with ranges (the WebView seeks). */
+  function serveVideo(req, res, url) {
+    if (req.method !== 'GET' || !url.pathname.startsWith('/house/video/')) return false;
+    let name; try { name = decodeURIComponent(url.pathname.slice('/house/video/'.length)); } catch { name = ''; }
+    const [exp, sig] = String(url.searchParams.get('t') || '').split('.');
+    const want = VIDEO.test(name) && name === path.basename(name) && !name.startsWith('.') && exp && sig ? playSig(name, exp) : '';
+    if (!want || want.length !== sig.length || !crypto.timingSafeEqual(Buffer.from(want), Buffer.from(sig)) || parseInt(exp, 36) < Date.now()) { res.writeHead(403); res.end(); return true; }
+    const file = path.join(PHOTOS, name);
+    let size; try { size = fs.statSync(file).size; } catch { res.writeHead(404); res.end(); return true; }
+    const type = /\.mov$/i.test(name) ? 'video/quicktime' : 'video/mp4';
+    const m = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || ''));
+    let start = 0, end = size - 1;
+    if (m && (m[1] || m[2])) {
+      if (m[1]) { start = Number(m[1]); if (m[2]) end = Math.min(size - 1, Number(m[2])); } else start = Math.max(0, size - Number(m[2]));
+      if (start > end || start >= size) { res.writeHead(416, { 'content-range': `bytes */${size}` }); res.end(); return true; }
+      res.writeHead(206, { 'content-type': type, 'accept-ranges': 'bytes', 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': end - start + 1, 'cache-control': 'private, max-age=3600' });
+    } else res.writeHead(200, { 'content-type': type, 'accept-ranges': 'bytes', 'content-length': size, 'cache-control': 'private, max-age=3600' });
+    fs.createReadStream(file, { start, end }).on('error', () => res.destroy()).pipe(res);
+    return true;
   }
   function caption(b) {
     const n = photoName(b.name); if (!n) return { error: 'no such photo' };
@@ -1506,7 +1577,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     }
     if (p.startsWith('/house/photo/') && req.method === 'GET') {
       const name = decodeURIComponent(p.slice('/house/photo/'.length));
-      if (!PHOTO.test(name) || name.includes('/') || name.startsWith('.')) { json(res, 404, { error: 'not found' }); return true; }
+      if (!MEDIA.test(name) || name.includes('/') || name.startsWith('.')) { json(res, 404, { error: 'not found' }); return true; }
+      if (VIDEO.test(name)) { // a video: its still (what every picture of it shows), or where to play it
+        const removed = !!url.searchParams.get('removed');
+        if (url.searchParams.get('play')) { fs.existsSync(path.join(PHOTOS, name)) ? json(res, 200, { url: playUrl(name) }) : json(res, 404, { error: 'not found' }); return true; }
+        try { const buf = fs.readFileSync(stills.fileOf(name)); res.writeHead(200, { 'content-type': 'image/jpeg', 'cache-control': 'max-age=86400' }); res.end(buf); }
+        catch { if (!removed) stills.want(name); json(res, 404, { error: 'no still yet' }); }
+        return true;
+      }
       try {
         const buf = fs.readFileSync(url.searchParams.get('removed') ? path.join(PHOTOS, '.removed', name) : path.join(PHOTOS, name)); // ?removed=1: one taken off, to put back
         res.writeHead(200, { 'content-type': /png$/i.test(name) ? 'image/png' : /webp$/i.test(name) ? 'image/webp' : /gif$/i.test(name) ? 'image/gif' : 'image/jpeg', 'cache-control': 'max-age=86400' });
@@ -1517,12 +1595,19 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (req.method !== 'POST') return false;
     if (p === '/house/photo') { // raw image body
       const name = String(url.searchParams.get('name') || '').replace(/[^\w.-]/g, '_').slice(-80);
-      if (!PHOTO.test(name)) { json(res, 400, { error: 'name must end in .jpg, .png, .webp' }); return true; }
+      if (!MEDIA.test(name)) { json(res, 400, { error: 'name must end in .jpg, .png, .webp, .mp4 or .mov' }); return true; }
       const chunks = []; let size = 0;
-      for await (const c of req) { size += c.length; if (size > 25e6) { json(res, 413, { error: 'too big' }); return true; } chunks.push(c); }
+      for await (const c of req) { size += c.length; if (size > MAX_VIDEO) { json(res, 413, { error: 'too big' }); return true; } chunks.push(c); }
       const app = String(req.headers['x-openhouse-app'] || '').trim(); // an app saving a picture: into its own album
       const file = addPhoto(Buffer.concat(chunks), name, '', /^[a-z0-9][a-z0-9-]{0,60}$/.test(app) ? app : null);
+      if (!file) { json(res, 413, { error: 'too big' }); return true; }
       json(res, 200, { ok: true, name: file }); return true;
+    }
+    if (p === '/house/photo/part') { // raw: one part of a video (the phone page, through the shell)
+      const chunks = []; let size = 0;
+      for await (const c of req) { size += c.length; if (size > 8e6) { json(res, 413, { error: 'too big' }); return true; } chunks.push(c); }
+      const r = videoPart(url.searchParams, Buffer.concat(chunks));
+      json(res, r.error ? r.code || 400 : 200, r); return true;
     }
     if ((p === '/house/flyer' || p === '/house/recipe-photo') && req.method === 'POST') { // raw image body
       const chunks = []; let size = 0;
@@ -1567,7 +1652,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   }
 
   // Photos added straight into the folder (adb push, a file share) show up without a restart.
-  try { fs.watch(PHOTOS, () => { clearTimeout(handle._pt); handle._pt = setTimeout(changed, 500); }).unref?.(); } catch {}
+  try { fs.watch(PHOTOS, () => { clearTimeout(handle._pt); handle._pt = setTimeout(() => { changed(); stills.sweep(photos().filter((n) => VIDEO.test(n))); }, 500); }).unref?.(); } catch {}
+  setTimeout(() => stills.sweep(photos().filter((n) => VIDEO.test(n))), 5e3).unref?.(); // videos without a still yet (one put in the folder by hand)
   // Routines come and go with the clock: tell the apps when one starts or ends.
   let wasActive = '';
   setInterval(() => { const now = data.checklists.filter((c) => activeNow(c)).map((c) => c.id).join(','); if (now !== wasActive) { wasActive = now; changed(); } }, 30e3).unref?.();
@@ -1590,6 +1676,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   handle.putAway = putAway;
   handle.caption = caption;
   handle.addPhoto = addPhoto;
+  handle.serveVideo = serveVideo;
+  handle.stills = stills;
   handle.removePhoto = removePhoto;
   handle.restorePhoto = restorePhoto;
   handle.albums = albums;

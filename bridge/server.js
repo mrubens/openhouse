@@ -300,6 +300,9 @@ http.createServer(async (req, res) => {
     return res.end();
   }
   if (apps.kit(req, res, url)) return; // the apps' kit: plain code and fonts
+  // A video in Photos for a <video src> (it can't send a key): only with the address /house/photo/<name>?play=1 gave
+  // a caller allowed to see that photo, for a few hours, on this device (house.js serveVideo).
+  if (req.method === 'GET' && loopbackHost(req) && url.pathname.startsWith('/house/video/') && chat.house.serveVideo(req, res, url)) return;
   // The home screen's own page and its code (also served to other screens with no key): GET only, nothing secret in them.
   if (req.method === 'GET' && loopbackHost(req) && /^\/(screen|app)\//.test(url.pathname)) return route(req, res, url);
   // A family app, with its own key: only what APP_RULES allow (apps.js).

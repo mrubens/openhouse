@@ -204,7 +204,7 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen")
+    private val HOME_PATHS = setOf("/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still")
     private val approveLock = Object()
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
@@ -274,6 +274,8 @@ object DeviceServer {
                     else -> 200 to JSONObject().put("brightness", Brightness.label(a)).toString()
                 }
             }
+            // A video's still for Photos (bridge/stills.js): a frame from a file in the photos folder, as a JPEG.
+            "/media/still" -> MediaStill.still(ctx, b.optString("path"))
             "/say" -> { acc?.status(b.optString("text").take(120)); 200 to "{}" }
             // "Opie, stop" (bridge device-tools.js): what it's doing in an app stops now; the next request starts fresh.
             // OpenHouse back in front (from another Android app), for Opie showing one of its tabs (bridge show_on_screen).

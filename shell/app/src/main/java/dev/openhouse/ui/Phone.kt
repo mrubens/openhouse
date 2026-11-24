@@ -72,13 +72,30 @@ fun PhoneQr(title: String, help: String, page: String, info: JSONObject, maxByte
 fun PhonePhotos(onClose: () -> Unit) {
     var sent by remember { mutableStateOf(0) }
     val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
-    PhoneQr("Add photos from a phone", "Scan this with a phone on the home Wi-Fi, then pick photos.", "photos.html",
-        JSONObject().put("title", "Add photos to the display"),
+    PhoneQr("Add photos from a phone", "Scan this with a phone on the home Wi-Fi, then pick photos or videos.", "photos.html",
+        JSONObject().put("title", "Add photos to the display").put("videos", true),
         maxBytes = 12_000_000, minutes = 20, sent = sent, sentLabel = { if (it == 1) "1 photo added" else "$it photos added" },
         onData = { bytes ->
-            if (!House.addPhoto(bytes)) throw IllegalStateException("the display didn't take it")
-            main.post { sent++ }
+            val part = videoPart(bytes)
+            if (part != null) { // a video, in parts: counted once its last one is in
+                val (h, off) = part
+                if (!House.addVideoPart(h.optString("id"), h.optInt("n", -1), h.optInt("of", 0), h.optString("name"), bytes, off)) throw IllegalStateException("the display didn't take it")
+                if (h.optInt("n") == h.optInt("of") - 1) main.post { sent++ }
+            } else {
+                if (!House.addPhoto(bytes)) throw IllegalStateException("the display didn't take it")
+                main.post { sent++ }
+            }
         }, onClose = onClose)
+}
+
+/** A part of a video from photos.html: "OHV1", the header's length (2 bytes), the header {id, n, of, name}, then the
+ *  part's bytes. The header and where the bytes start, or null for a plain photo. */
+internal fun videoPart(b: ByteArray): Pair<JSONObject, Int>? {
+    if (b.size < 6 || b[0] != 'O'.code.toByte() || b[1] != 'H'.code.toByte() || b[2] != 'V'.code.toByte() || b[3] != '1'.code.toByte()) return null
+    val len = ((b[4].toInt() and 0xff) shl 8) or (b[5].toInt() and 0xff)
+    if (len < 2 || 6 + len > b.size) return null
+    val h = runCatching { JSONObject(String(b, 6, len, Charsets.UTF_8)) }.getOrNull() ?: return null
+    return h to 6 + len
 }
 
 /** A flyer or school notice from a phone: one photo, which the assistant reads into events (the Calendar app shows

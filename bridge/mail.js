@@ -1,6 +1,6 @@
 // Email to the tablet (docs/tablet-email.md): mail from the household's approved senders, by the cloud's address
 // (sealed for this tablet's mail key until it's fetched) or the household's own mailbox (the shell's IMAP, MailAccount.kt).
-// Photos go into the Email album and events are offered on the Calendar app to say yes to (house.js readEmail). Mail from
+// Photos (and videos, kept as they come) go into the Email album and events are offered on the Calendar app to say yes to (house.js readEmail). Mail from
 // anyone else is held, unread, for Allow in Settings → Email, and deleted after 3 days.
 //
 //   GET  /mail                 what Settings → Email shows: {cloud, own, senders, held, recent, notes}
@@ -18,9 +18,12 @@ import { newMailKey, open, senderHash } from './mail-seal.js';
 import { parseMail, authenticated } from './mime.js';
 
 const DAY = 86400e3;
-export const LIMITS = { size: 25e6, perDay: 50, heldPerDay: 10, images: 20, pdfs: 5, pages: 20, heldDays: 3, recentDays: 7 };
+export const LIMITS = { size: 25e6, perDay: 50, heldPerDay: 10, images: 20, videos: 5, pdfs: 5, pages: 20, heldDays: 3, recentDays: 7 };
 const IMAGE = { 'image/jpeg': '.jpg', 'image/jpg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
 const HEIC = /^image\/hei[cf]/;
+const VIDEO = { 'video/mp4': '.mp4', 'video/quicktime': '.mov', 'video/x-m4v': '.m4v' };
+/** A video attachment's file type (some mail apps send one as octet-stream, named .mov), or null. */
+const videoType = (a) => VIDEO[a.type] || (a.type === 'application/octet-stream' && /\.(mp4|mov|m4v)$/i.exec(a.name || '')?.[0].toLowerCase()) || null;
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
 export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = null, now = Date.now, every = 5 * 60e3, log = (m) => console.log(m) }) {
@@ -66,10 +69,11 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
   /** An approved sender's message, read: photos and events (house.readEmail); a note of it in recent. */
   async function read(id, bytes, m = parseMail(bytes)) {
     const from = m.from.address, s = whoOf(from);
-    const images = [], pages = [];
+    const images = [], pages = [], videos = [];
     let pdfs = 0, skipped = 0;
     for (const a of m.attachments) {
       if (IMAGE[a.type] && images.length < LIMITS.images) images.push({ bytes: a.bytes, type: a.type === 'image/jpg' ? 'image/jpeg' : a.type, name: (a.name || 'email').replace(/\.[^.]*$/, '').slice(0, 60) + IMAGE[a.type] });
+      else if (videoType(a) && videos.length < LIMITS.videos) videos.push({ bytes: a.bytes, name: (a.name || 'email').replace(/\.[^.]*$/, '').slice(0, 60) + videoType(a) });
       else if (HEIC.test(a.type) && images.length < LIMITS.images && shell) {
         const r = await shell('/mail/heic', { heic: a.bytes.toString('base64') }).catch(() => null);
         if (r?.jpeg) images.push({ bytes: Buffer.from(r.jpeg, 'base64'), type: 'image/jpeg', name: (a.name || 'email').replace(/\.[^.]*$/, '').slice(0, 60) + '.jpg' }); else skipped++;
@@ -81,7 +85,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     }
     const entry = { id, from, who: s?.who || '', subject: m.subject.slice(0, 200), at: now(), photos: 0, events: 0 };
     try {
-      const r = await house.readEmail({ from: s?.who || m.from.name || from, subject: m.subject, text: m.text, images, pages });
+      const r = await house.readEmail({ from: s?.who || m.from.name || from, subject: m.subject, text: m.text, images, pages, videos });
       entry.photos = r.photos.length; entry.events = r.events;
       if (r.unread) entry.unread = true; // no assistant yet: read again once there is one (tick)
     } catch (e) { entry.unread = true; entry.error = String(e.message || e).slice(0, 120); }

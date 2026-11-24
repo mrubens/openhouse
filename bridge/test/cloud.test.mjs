@@ -67,13 +67,13 @@ async function fakeDrive(D, { present = true } = {}) {
   return { dir: path.join(dir, 'Display backups'), st };
 }
 
-function tablet(D) {
+function tablet(D, opts = {}) {
   let exited = 0;
   const json = (res, code, obj) => { res.code = code; res.obj = obj; };
   const body = async (req) => req.b || {};
   let backups = null;
   const cloud = cloudRoutes({ DISPLAY: D, tick: 0, json, body, agentName: () => 'cloud', backupBits: () => backups.bits() });
-  backups = backupRoutes({ DISPLAY: D, tick: 0, json, body, destinations: [cloud.destination, driveDestination({ DISPLAY: D })], escrow: cloud.escrow, exit: () => { exited++; } });
+  backups = backupRoutes({ DISPLAY: D, tick: 0, json, body, destinations: [cloud.destination, driveDestination({ DISPLAY: D })], escrow: cloud.escrow, exit: () => { exited++; }, ...opts });
   const call = async (method, p, b) => { const res = {}; const h = p.startsWith('/cloud/') ? cloud : backups; assert.ok(await h.handle({ method, b }, res, new URL('http://x' + p)), p); return res; };
   return { cloud, backups, call, exited: () => exited };
 }
@@ -181,6 +181,26 @@ test('USB drive, no cloud at all: off until chosen, then backs up, keeps a few, 
   s = await until(t, (x) => !x.job && !x.last.ok);
   assert.match(s.last.error, /Plug in the drive/);
   assert.equal((await t.call('GET', '/cloud/health-bits')).obj.lastErrorType, 'backup.drive.notready');
+});
+
+test('videos: a backup holds the newest up to its budget, and a restore keeps the ones it left out', async () => {
+  const D = display(); const t = tablet(D, { videoBudget: 5000 });
+  const mp4 = (n, at) => { fs.writeFileSync(path.join(D, 'photos', n), crypto.randomBytes(3000)); fs.utimesSync(path.join(D, 'photos', n), at, at); };
+  mp4('new.mp4', new Date()); mp4('old.mov', new Date(Date.now() - 864e5));
+  fs.mkdirSync(path.join(D, 'photos/.stills')); fs.writeFileSync(path.join(D, 'photos/.stills/old.mov.jpg'), 'still');
+  const drive = await fakeDrive(D);
+  const code = (await t.call('POST', '/backup/dest', { id: 'drive', on: true })).obj.recoveryCode;
+  await t.call('POST', '/backup/now');
+  const s = await until(t, (x) => !x.job && x.last?.at);
+  assert.equal(s.last.ok, true, s.last.error);
+  const list = await opened(path.join(drive.dir, fs.readdirSync(drive.dir)[0]), code);
+  assert.ok(list.some((l) => l.endsWith('photos/new.mp4')), 'the newest video is in it');
+  assert.ok(!list.some((l) => l.includes('old.mov')), 'the one past the budget is left out');
+  assert.ok(list.some((l) => l.endsWith('photos/a.jpg')), 'photos always are');
+  const id = (await t.call('GET', '/backup/list')).obj.backups[0].id;
+  mp4('later.mp4', new Date()); // came after the backup
+  assert.equal((await t.call('POST', '/backup/restore', { dest: 'drive', id })).code, 200);
+  for (const n of ['a.jpg', 'new.mp4', 'old.mov', 'later.mp4', '.stills/old.mov.jpg']) assert.ok(fs.existsSync(path.join(D, 'photos', n)), n + ' is still on the tablet');
 });
 
 test('cloud and drive together; a new tablet restores with the code; the copy kept with OpenHouse; unlink from the web', { skip: !svc && SKIP }, async () => {

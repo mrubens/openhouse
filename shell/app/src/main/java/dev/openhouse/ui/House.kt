@@ -249,6 +249,16 @@ object House {
             outputStream.use { it.write(bytes) }; responseCode in 200..299
         }
     }.getOrDefault(false)
+    /** One part of a video from the phone page (photos.html sends a video in parts: [Phone.videoPart]); the bridge
+     *  puts them together and keeps it (/house/photo/part). */
+    fun addVideoPart(id: String, n: Int, of: Int, name: String, bytes: ByteArray, off: Int): Boolean = runCatching {
+        val q = "id=" + URLEncoder.encode(id, "UTF-8") + "&n=$n&of=$of&name=" + URLEncoder.encode(name, "UTF-8")
+        BridgeClient.open(bridge() + "/house/photo/part?" + q).run {
+            requestMethod = "POST"; doOutput = true; connectTimeout = 3000; readTimeout = 60000
+            setRequestProperty("content-type", "application/octet-stream"); setFixedLengthStreamingMode(bytes.size - off)
+            outputStream.use { it.write(bytes, off, bytes.size - off) }; responseCode in 200..299
+        }
+    }.getOrDefault(false)
     /** A flyer's photo, for the assistant to read into events (the bridge's /house/flyer). */
     fun addFlyer(bytes: ByteArray): Boolean = runCatching {
         BridgeClient.open(bridge() + "/house/flyer?name=flyer.jpg").run {

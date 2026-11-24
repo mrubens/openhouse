@@ -55,8 +55,8 @@ which photos came from it (never the link). Rules it keeps:
   tablet keeps the tablet's name. Photos the household put into the album themselves stay in it.
 - The album can't be taken away from the Photos app; someone takes the link off in Photo albums, and then the
   album and its photos go (they're copies; the originals stay in iCloud).
-- The newest 600 photos of an album are kept. Videos are skipped.
-- Files are `ic-<id>-<photoGuid>.jpg`, dated when they were shared, so they sort with the rest.
+- The newest 600 photos of an album are kept, and of those the newest 50 videos (see Videos, below).
+- Files are `ic-<id>-<photoGuid>.jpg` (a video `.mp4`), dated when they were shared, so they sort with the rest.
 
 **When Apple changes it.** Anything that doesn't read as an album becomes a quiet line on the album ("Couldn't read
 the album", or "The album isn't shared any more" for a 404), shown in Photo albums and on the album's card. Nothing
@@ -188,6 +188,53 @@ someone's OK on the tablet for new ones), the photos handed to the tablet throug
 and deleted from the cloud once delivered. It's the most grandparent-friendly way, and the one where photos rest on
 our servers for a while, so it would be off by default and said plainly. Not built.
 
+## Videos
+
+Short videos sit in Photos beside the photos: in its albums, in All, with captions, taken off and put back the same
+way. Everything else that shows a photo shows a video's **still**.
+
+**Kept as they come.** No transcoding: the tablet's WebView plays what phones make (H.264 and HEVC, in mp4 or mov),
+so the file is kept as it is, `display/photos/<name>.mp4|.mov`. **80 MB at most** (`house.js MAX_VIDEO`, about a
+minute or two from a phone); a bigger one is refused, never cut, and nothing already there is touched. Files land
+whole or not at all (a temporary file, then a rename).
+
+**Its still** is `photos/.stills/<name>.jpg` (`bridge/stills.js`): Apple's poster frame for an iCloud video, else a
+frame half a second in, made on the tablet by the shell (`MediaStill.kt`, DeviceServer `/media/still`: Android's
+MediaMetadataRetriever, only files in the photos folder), or by ffmpeg when the bridge runs on a computer.
+`GET /house/photo/<video>` gives the still, so every place that shows photos shows videos without knowing about them;
+the sleep screen leaves out a video until it has one.
+
+**Where they play.**
+- **Photos tab:** the grid shows the still with a small play mark; the one view has a play button, and a tap plays the
+  video with sound (a tap on it pauses). The slideshow plays a video muted, once through (a minute at most), then
+  goes on. A `<video>` can't send an app's key, so `GET /house/photo/<video>?play=1` gives an address for it,
+  `/house/video/<name>?t=…`, signed for that one video and good for 6 hours, served only on the device (loopback)
+  with ranges (`house.js serveVideo`). The kit's `house.video(name)` asks for it; `house.isVideo(name)` tells which.
+- **Sleep screen, Today's photo card, the Photos widget, the backdrop:** the still (Today's card with a small play
+  mark; a tap opens it in Photos). Playing clips on a screen nobody is watching would keep a decoder busy for hours,
+  warm the tablet and hold its memory; a still is also calmer across the room. The album switches (the sleep screen,
+  All) work on videos as on photos.
+- **Phones:** the still, as for any photo (Today's card on the phone page, with its mark). Playing them through the
+  relay, sealed, isn't worth the bytes.
+
+**Coming in.**
+- **iCloud shared albums**, both kinds: the old webstream's video sizes (`720p`, `360p`…: the largest up to 1080p
+  under the cap) and its `PosterFrame`; a new (CloudKit) album's `resVidSmall/Med/Full` (Apple's H.264 copies; the
+  original only when there are none and it's mp4 or mov) and a JPEG size for the still. Streamed to a file, up to
+  the cap. The newest 50 videos of an album (`MAX_VIDEOS`), so an album full of clips stays a few GB.
+- **The Add photos page** (`assets/photos.html`, a phone on the Wi-Fi): pick photos or videos. A video isn't
+  shrunk; it goes in sealed parts of 4 MB ("OHV1", a header `{id, n, of, name}`, the bytes: `Phone.kt videoPart`),
+  which the bridge puts together in `photos/.incoming` and keeps only once the last part is in, in order
+  (`/house/photo/part`, the display only). The lasting page (`share.html`, through the cloud) still takes photos only.
+- **Email:** mp4, mov and m4v attachments (or a `.mov` sent as octet-stream), five a message, kept as they come in
+  the Email album (no model call: a video sent to the household's photos is a moment, not a flyer).
+- **Apps:** `house.addPhoto(blob, 'name.mp4')` (the kit), the same cap.
+
+**Backups** hold the newest videos up to **1 GB** of video in all (`backup-format.js VIDEO_BUDGET`); the rest stay
+on the tablet only, so a few long clips can't make every backup, and the cloud's copy, many times bigger. Photos are
+always in it. A restore on the same tablet keeps every video that's there and not in the backup (left out for size,
+or newer), with its still (`keptVideos`); on a new tablet those aren't there to keep.
+
 ## Files
 
 | Where | What |
@@ -202,4 +249,5 @@ our servers for a while, so it would be off by default and said plainly. Not bui
 | `shell/.../Handoff.kt` | `fixedKey`, `port`, `minutes = 0` (until stopped) |
 | `openhouse-cloud/lambda/share-page.ts`, `phone-pages.ts`, `app.ts` | `/p/` (the page, manifest, service worker, icon) |
 | `openhouse-cloud/lambda/google.ts`, `app.ts`, `lib/stack.ts` | `/g/start`, `/g/done`, the Google parameter |
-| `defaults/apps/photos` | the Add photos card, a linked album's card |
+| `defaults/apps/photos` | the Add photos card, a linked album's card; videos: play marks, the one view, the slideshow |
+| `bridge/stills.js`, `shell/.../MediaStill.kt` | a video's still |

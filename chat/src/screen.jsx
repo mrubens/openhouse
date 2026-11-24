@@ -719,6 +719,8 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
   // At night the backlight goes right down too (the shell), and comes back when someone touches it.
   useEffect(() => { shell?.dim?.(night); return () => shell?.dim?.(false); }, [night]);
   const names = wantsPhotos && !night ? house?.screensaver || house?.photos || [] : []; // those whose albums are on for the sleep screen (Photos)
+  // A video is its still here (the bridge gives a video's still as its photo): hours of decoding on a screen nobody is
+  // watching would warm the tablet and hold its memory, and a still is calmer across the room. It plays in Photos.
   const shown = names.length ? names[Math.floor(now / 12e3) % names.length] : null;
   const src = usePhoto(c, shown), caption = shown && house?.captions?.[shown];
   const d = new Date(now);

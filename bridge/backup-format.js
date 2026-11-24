@@ -87,12 +87,41 @@ export function run(cmd, args, opts = {}) {
     p.on('error', no); p.on('close', (c) => (c === 0 ? ok() : no(new Error(`${cmd} failed: ${err.slice(-300)}`))));
   });
 }
+/** Videos in Photos (house.js VIDEO): a backup holds the newest of them up to VIDEO_BUDGET bytes in all, so a few
+ *  long clips can't make every backup (and the cloud's copy) many times bigger. The rest stay on the tablet only, and
+ *  a restore on it keeps them (keptVideos). */
+export const VIDEO = /\.(mp4|mov|m4v)$/i;
+export const VIDEO_BUDGET = 1e9;
+/** The photos folder's videos a backup leaves out (their names), the newest kept first. */
+export function videosLeftOut(DISPLAY, budget = VIDEO_BUDGET) {
+  const dir = path.join(DISPLAY, 'photos');
+  let list; try { list = fs.readdirSync(dir).filter((n) => VIDEO.test(n) && !n.startsWith('.')); } catch { return []; }
+  const st = list.map((n) => { try { const s = fs.statSync(path.join(dir, n)); return { n, size: s.size, at: s.mtimeMs }; } catch { return null; } }).filter(Boolean).sort((a, b) => b.at - a.at);
+  let used = 0; const out = [];
+  for (const v of st) { if (used + v.size > budget) out.push(v.n); else used += v.size; }
+  return out;
+}
 /** The family's things from the display folder into a .tar.gz; the entries it holds. */
-export async function pack(DISPLAY, tgz) {
+export async function pack(DISPLAY, tgz, { videoBudget = VIDEO_BUDGET } = {}) {
   const entries = INCLUDE.filter((e) => fs.existsSync(path.join(DISPLAY, e)));
   if (!entries.length) throw new Error('nothing to back up');
-  await run('tar', ['-czf', tgz, ...EXCLUDE.map((x) => `--exclude=${x}`), '-C', DISPLAY, ...entries]); // links stay links: never followed
+  // (names in photos/ are only letters, digits, - _ and ., so none reads as a tar pattern)
+  const out = videosLeftOut(DISPLAY, videoBudget).flatMap((n) => [`--exclude=photos/${n}`, `--exclude=photos/.stills/${n}.jpg`]);
+  await run('tar', ['-czf', tgz, ...EXCLUDE.map((x) => `--exclude=${x}`), '--exclude=photos/.incoming', ...out, '-C', DISPLAY, ...entries]); // links stay links: never followed
   return entries;
+}
+/** After a restore put [restored] photos in place: the videos (and their stills) that were on this tablet and aren't in
+ *  it (left out of the backup for size, or newer than it) come back from [aside], so a restore never loses a video. */
+export function keptVideos(aside, restored) {
+  let names; try { names = fs.readdirSync(aside).filter((n) => VIDEO.test(n) && !n.startsWith('.')); } catch { return 0; }
+  let n = 0;
+  for (const v of names) {
+    if (fs.existsSync(path.join(restored, v))) continue;
+    try { fs.renameSync(path.join(aside, v), path.join(restored, v)); n++; } catch { continue; }
+    const still = path.join(aside, '.stills', v + '.jpg');
+    if (fs.existsSync(still)) { try { fs.mkdirSync(path.join(restored, '.stills'), { recursive: true }); fs.renameSync(still, path.join(restored, '.stills', v + '.jpg')); } catch {} }
+  }
+  return n;
 }
 
 /** Plain HTTP(S) to the service, the shell or a presigned URL, without fetch's limits on streaming bodies. */

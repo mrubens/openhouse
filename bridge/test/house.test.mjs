@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { houseRoutes } from '../house.js';
+import { houseRoutes, MAX_VIDEO } from '../house.js';
 
 function house(synced = []) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x');
@@ -137,4 +137,34 @@ test('the calendar: a call with every part filled in (blank add, real remove) re
   const r2 = await h.call('calendar_event', { add: { title: '', start: '', repeat: 'daily' }, update: { id: '' }, remove: [] });
   assert.ok(r2.isError, 'a call with nothing real in it is refused, not an empty event');
   assert.equal(h.localEvents().length, before - 1);
+});
+
+test('videos: one over the size cap is refused and nothing there is lost; one sent in parts arrives whole or not at all', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x'), PHOTOS = path.join(root, 'photos');
+  fs.mkdirSync(DIR);
+  let last = null;
+  const board = { householdView: () => ({ family: [], chores: [], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => [] };
+  const h = houseRoutes({ DIR, json: (res, code, obj) => { last = { code, obj }; }, body: async () => ({}), board });
+  const ftyp = (n, brand = 'isom') => { const b = Buffer.alloc(n); b.write('\0\0\0\x18ftyp' + brand, 'latin1'); return b; };
+  const kept = h.addPhoto(ftyp(4000), 'clip.mp4');
+  assert.ok(kept && fs.existsSync(path.join(PHOTOS, kept)));
+  assert.equal(h.addPhoto(ftyp(MAX_VIDEO + 1), 'long.mov'), null, 'too big: not kept');
+  assert.deepEqual(fs.readdirSync(PHOTOS).filter((n) => !n.startsWith('.')), [kept], 'and nothing else gone or half there');
+  assert.match(h.addPhoto(ftyp(3000, 'qt  '), 'phone.jpg'), /\.mov$/, 'a video sent as phone.jpg is kept as a video');
+
+  const part = async (q, bytes) => {
+    const req = { method: 'POST', headers: {}, async *[Symbol.asyncIterator]() { yield bytes; } };
+    assert.ok(await h(req, {}, new URL('http://x/house/photo/part?' + new URLSearchParams(q))));
+    return last;
+  };
+  const whole = ftyp(9000); whole.fill(7, 20);
+  const before = fs.readdirSync(PHOTOS).length;
+  assert.equal((await part({ id: 'abcdefgh1', n: 0, of: 3, name: 'party.mov' }, whole.subarray(0, 4000))).code, 200);
+  assert.equal((await part({ id: 'abcdefgh1', n: 2, of: 3 }, whole.subarray(8000))).code, 409, 'out of order');
+  assert.equal(fs.readdirSync(PHOTOS).length, before + 1, 'nothing shows until the last part (only the incoming folder)');
+  assert.equal((await part({ id: 'abcdefgh1', n: 1, of: 3 }, whole.subarray(4000, 8000))).code, 200);
+  const done = await part({ id: 'abcdefgh1', n: 2, of: 3, name: 'party.mov' }, whole.subarray(8000));
+  assert.equal(done.code, 200);
+  assert.deepEqual(fs.readFileSync(path.join(PHOTOS, done.obj.name)), whole, 'whole, byte for byte');
+  assert.equal((await part({ id: 'zzzzzzzz2', n: 0, of: 2 }, Buffer.from('not a video at all'))).code, 400);
 });

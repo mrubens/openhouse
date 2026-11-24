@@ -92,6 +92,7 @@ const te = new TextEncoder(), td = new TextDecoder();
   $('t').textContent = info.title; $('f').hidden = false;
   if (info.label) $('lbl').textContent = info.label; // a flyer: one picture, read by the assistant
   if (info.one) $('pick').removeAttribute('multiple');
+  if (info.videos) { $('pick').accept = 'image/*,video/*'; $('lbl').textContent = 'Photos and videos'; } // (short videos: VIDEO_MAX)
   $('pick').onchange = () => { $('go').disabled = !$('pick').files.length; say(''); };
   const MAX = 2400; // longest side: sharp on the display, a few hundred KB
   async function shrink(file) { // createImageBitmap: no image URL needed (the page may load nothing), turned upright
@@ -102,22 +103,36 @@ const te = new TextEncoder(), td = new TextDecoder();
     const blob = await new Promise((ok) => c.toBlob(ok, 'image/jpeg', 0.86));
     return new Uint8Array(await blob.arrayBuffer());
   }
+  // A video goes as it is (the display plays what phones make), in parts of PART bytes, each sealed on its own:
+  // "OHV1", the header's length, the header {id, n, of, name}, the bytes (Phone.kt videoPart). VIDEO_MAX: the display's cap.
+  const PART = 4e6, VIDEO_MAX = 80e6, isVideo = (f) => /^video\//.test(f.type) || /\.(mp4|mov|m4v)$/i.test(f.name);
+  const post = async (bytes) => { const r = await fetch('s', { method: 'POST', body: CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), bytes), headers: { 'content-type': 'application/octet-stream' } }); if (!r.ok) throw 0; };
+  async function sendVideo(f, progress) {
+    const id = b64.enc(crypto.getRandomValues(new Uint8Array(12))), of = Math.max(1, Math.ceil(f.size / PART));
+    for (let n = 0; n < of; n++) {
+      const head = te.encode(JSON.stringify({ id, n, of, name: f.name.slice(-80) })), body = new Uint8Array(await f.slice(n * PART, (n + 1) * PART).arrayBuffer());
+      const msg = new Uint8Array(6 + head.length + body.length);
+      msg.set(te.encode('OHV1')); msg[4] = head.length >> 8; msg[5] = head.length & 255; msg.set(head, 6); msg.set(body, 6 + head.length);
+      await post(msg); progress((n + 1) / of);
+    }
+  }
   $('go').onclick = async () => {
     const files = [...$('pick').files]; if (!files.length) return;
     $('go').disabled = true; $('pick').disabled = true; $('bar').hidden = false;
-    let done = 0, failed = 0;
+    let done = 0, failed = 0, big = 0;
+    const fill = (k) => { $('fill').style.width = `${Math.round(100 * (done + failed + big + k) / files.length)}%`; };
     for (const f of files) {
-      say(`Sending ${done + failed + 1} of ${files.length}…`);
+      say(`Sending ${done + failed + big + 1} of ${files.length}…`);
       try {
-        const box = CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), await shrink(f));
-        const r = await fetch('s', { method: 'POST', body: box, headers: { 'content-type': 'application/octet-stream' } });
-        if (!r.ok) throw 0;
+        if (info.videos && isVideo(f)) { if (f.size > VIDEO_MAX) { big++; continue; } await sendVideo(f, fill); }
+        else await post(await shrink(f));
         done++;
       } catch { failed++; }
-      $('fill').style.width = `${Math.round(100 * (done + failed) / files.length)}%`;
+      fill(0);
     }
     $('pick').value = ''; $('pick').disabled = false; $('bar').hidden = true; $('fill').style.width = '0';
-    say(failed ? `${done} sent, ${failed} didn’t go through. Try those again.` : done === 1 ? (info.sent || 'Sent. It’s on the display.') : `All ${done} sent. They’re on the display.`);
+    const tooBig = big ? ` ${big === 1 ? 'One video was' : `${big} videos were`} too long to send (80 MB at most).` : '';
+    say((failed ? `${done} sent, ${failed} didn’t go through. Try those again.` : !done ? '' : done === 1 ? (info.sent || 'Sent. It’s on the display.') : `All ${done} sent. They’re on the display.`) + tooBig);
   };
 })();
 </script>
