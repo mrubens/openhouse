@@ -1,4 +1,4 @@
-// The family's apps (apps.js): the list, each app's own key and what it opens, the kit, and the door page.
+// The family's apps (apps.js): the list, each app's own key and what it opens, the kit, and the home screen page.
 //   cd bridge && npm test
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +24,7 @@ before(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-apps-'));
   fs.cpSync(BRIDGE, path.join(root, 'bridge'), { recursive: true, filter: (f) => !/[\\/](node_modules|test|public)$|\.jsonl$|undo\.json$|screens\.json$/.test(f) });
   fs.mkdirSync(path.join(root, 'bridge/public/screen'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'bridge/public/screen/index.html'), '<!doctype html><title>door</title>');
+  fs.writeFileSync(path.join(root, 'bridge/public/screen/index.html'), '<!doctype html><title>home</title>');
   const app = path.join(root, 'webapp');
   fs.mkdirSync(app); initRepo(app);
   for (const [id, meta] of [['lists', { name: 'Lists' }], ['snack-attack', { name: 'Snack Attack' }]]) {
@@ -62,17 +62,18 @@ test('only the display gets an app\'s key', async () => {
   assert.equal((await get('/apps/key?app=lists', asApp('lists', k))).status, 403, 'an app can\'t ask for keys');
 });
 
-test('an app\'s key opens the house, the door, timers and speaking, and nothing else', async () => {
+test('an app\'s key opens the house, the home screen, timers and speaking, and nothing else', async () => {
   const k = await keyFor('lists'), h = asApp('lists', k);
   assert.equal((await get('/house', h)).status, 200);
-  assert.equal((await get('/door', h)).status, 200);
+  assert.equal((await get('/home', h)).status, 200);
+  assert.equal((await get('/door', h)).status, 200, 'the first name still answers');
   assert.equal((await get('/apps', h)).status, 200);
   const r = await fetch(url + '/house/list', { method: 'POST', headers: h, body: JSON.stringify({ list: 'Groceries', add: ['Milk'] }) });
   assert.equal(r.status, 200);
   assert.ok((await (await get('/house')).json()).lists.find((l) => l.id === 'groceries').items.some((i) => i.text === 'Milk'));
-  assert.equal((await fetch(url + '/door/timer', { method: 'POST', headers: h, body: JSON.stringify({ start: { label: 'Tea', seconds: 60 } }) })).status, 200);
+  assert.equal((await fetch(url + '/home/timer', { method: 'POST', headers: h, body: JSON.stringify({ start: { label: 'Tea', seconds: 60 } }) })).status, 200);
   for (const [m, p] of [['POST', '/undo'], ['POST', '/restore'], ['POST', '/apps/delete'], ['POST', '/request'], ['POST', '/cancel'], ['POST', '/chat'], ['GET', '/chats'],
-    ['GET', '/devices'], ['POST', '/door/mcp'], ['POST', '/mcp/home'], ['POST', '/door/arrange'], ['POST', '/door/remove'], ['GET', '/household'], ['POST', '/household'],
+    ['GET', '/devices'], ['POST', '/home/mcp'], ['POST', '/mcp/home'], ['POST', '/home/arrange'], ['POST', '/home/remove'], ['GET', '/household'], ['POST', '/household'],
     ['POST', '/voice/wake'], ['GET', '/voice/events'], ['GET', '/screens'], ['POST', '/screens/pair'], ['POST', '/calendar/feeds'], ['GET', '/events']]) {
     const res = await fetch(url + p, { method: m, headers: h, ...(m === 'POST' ? { body: '{}' } : {}) });
     assert.equal(res.status, 403, `${m} ${p}`);
@@ -86,7 +87,7 @@ test('a wrong key, or one app\'s key for another, opens nothing', async () => {
   assert.equal((await get('/house', asApp('../x', k))).status, 401);
 });
 
-test('the kit and the door page need no key; nothing else does', async () => {
+test('the kit and the home screen page need no key; nothing else does', async () => {
   const js = await fetch(url + '/kit/openhouse.js');
   assert.equal(js.status, 200);
   assert.equal(js.headers.get('access-control-allow-origin'), '*');

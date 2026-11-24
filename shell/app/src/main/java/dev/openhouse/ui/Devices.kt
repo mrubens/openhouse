@@ -2,7 +2,7 @@ package dev.openhouse.ui
 
 // The devices in the house (TVs, speakers, the printer…), found on the display's Wi-Fi and over
 // Bluetooth by the bridge (bridge/devices, docs/bluetooth.md) and controlled directly. On the board: `DevicesPaper()`, a note on the
-// door; tapping it opens the devices sheet. The agent can do the same things by voice.
+// home screen; tapping it opens the devices sheet. The agent can do the same things by voice.
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -151,7 +151,7 @@ object Devices {
 
 /** A small line drawing of what a device is: tv, speaker, printer, console, light, other. */
 @Composable
-fun DeviceGlyph(kind: String, modifier: Modifier = Modifier, color: Color = Door.ink) {
+fun DeviceGlyph(kind: String, modifier: Modifier = Modifier, color: Color = PaperLook.ink) {
     Canvas(modifier) {
         val w = size.width; val h = size.height; val s = Stroke(width = w * .07f, cap = StrokeCap.Round)
         fun line(x1: Float, y1: Float, x2: Float, y2: Float) = drawLine(color, Offset(x1 * w, y1 * h), Offset(x2 * w, y2 * h), s.width, StrokeCap.Round)
@@ -169,35 +169,35 @@ fun DeviceGlyph(kind: String, modifier: Modifier = Modifier, color: Color = Door
     }
 }
 
-/** A sticker in the door's bottom row (beside the apps): opens the devices sheet. Takes no door cell. */
+/** A sticker in the home screen's bottom row (beside the apps): opens the devices sheet. Takes no cell of the grid. */
 @Composable
 fun DevicesSticker(modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { Devices.ensureLoaded() }
     val n = Devices.controllable.size
-    Sticker("Devices", if (Devices.scannedAt == null) "find them" else "$n to use", Door.magnets[5], modifier, tilt = -2f,
+    Sticker("Devices", if (Devices.scannedAt == null) "find them" else "$n to use", PaperLook.magnets[5], modifier, tilt = -2f,
         onClick = { Devices.open = true; if (Devices.scannedAt == null) Devices.scan() else Devices.load() }) {
         DeviceGlyph("tv", Modifier.size(58.u), Color.White)
     }
     if (Devices.open) DevicesSheet()
 }
 
-/** The note on the door: the devices openhouse can use, and a way to look for more. */
+/** The note on the home screen: the devices openhouse can use, and a way to look for more. */
 @Composable
 fun DevicesPaper(modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { Devices.ensureLoaded() }
     val ds = Devices.controllable
-    Paper(modifier.clickable { Devices.open = true; Devices.refreshStatus() }, kind = PaperKind.Plain, tilt = 1.1f, magnet = Door.magnets[5]) {
+    Paper(modifier.clickable { Devices.open = true; Devices.refreshStatus() }, kind = PaperKind.Plain, tilt = 1.1f, magnet = PaperLook.magnets[5]) {
         Text("Devices", style = handText(40, weight = FontWeight.Bold))
         Spacer(Modifier.height(6.u))
         when {
-            Devices.scannedAt == null -> Text(if (Devices.scanning) "Looking around the house…" else "Tap to find the TVs, speakers and printers here.", style = roundText(18, FontWeight.Medium, Door.inkSoft))
-            ds.isEmpty() -> Text("Nothing here to control yet.", style = roundText(18, FontWeight.Medium, Door.inkSoft))
+            Devices.scannedAt == null -> Text(if (Devices.scanning) "Looking around the house…" else "Tap to find the TVs, speakers and printers here.", style = roundText(18, FontWeight.Medium, PaperLook.inkSoft))
+            ds.isEmpty() -> Text("Nothing here to control yet.", style = roundText(18, FontWeight.Medium, PaperLook.inkSoft))
             else -> ds.take(5).forEach { d ->
                 Row(Modifier.padding(vertical = 4.u), verticalAlignment = Alignment.CenterVertically) {
                     DeviceGlyph(d.kind, Modifier.size(30.u))
                     Spacer(Modifier.width(12.u))
                     Text(d.name, style = roundText(20, FontWeight.SemiBold), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    Devices.status[d.id]?.takeIf { it.isNotBlank() }?.let { Text("  ${it.substringBefore(" · ")}", style = roundText(16, FontWeight.Medium, Door.inkSoft), maxLines = 1) }
+                    Devices.status[d.id]?.takeIf { it.isNotBlank() }?.let { Text("  ${it.substringBefore(" · ")}", style = roundText(16, FontWeight.Medium, PaperLook.inkSoft), maxLines = 1) }
                 }
             }
         }
@@ -206,7 +206,7 @@ fun DevicesPaper(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun DoorButton(label: String, primary: Boolean = false, onClick: () -> Unit) {
+private fun DeviceButton(label: String, primary: Boolean = false, onClick: () -> Unit) {
     Box(Modifier.clip(RoundedCornerShape(999.u)).background(if (primary) Calm.ink else Calm.tint2).clickable(onClick = onClick).padding(horizontal = 24.u, vertical = 14.u)) {
         Text(label, style = calmText(19, FontWeight.SemiBold, if (primary) Calm.sheet else Calm.ink))
     }
@@ -236,9 +236,9 @@ fun DevicesSheet() {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     SettingsBack()
                     Text("Linked devices", style = calmText(Calm.TITLE, FontWeight.SemiBold), modifier = Modifier.weight(1f))
-                    DoorButton("Add") { Openhouse.host.setting("addLinked") }
+                    DeviceButton("Add") { Openhouse.host.setting("addLinked") }
                     Spacer(Modifier.width(12.u))
-                    DoorButton("Done", primary = true) { Devices.open = false }
+                    DeviceButton("Done", primary = true) { Devices.open = false }
                 }
                 // Looking again is a quiet line under the title, not a third button (docs/ux.md).
                 Text(Devices.error ?: if (Devices.scanning) "Looking on the Wi-Fi and Bluetooth…" else "Look again",
@@ -255,7 +255,7 @@ fun DevicesSheet() {
                             Text(l.name, style = calmText(21, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             Text(when (l.kind) { "computer" -> "Computer"; "tv" -> "TV"; "phone" -> "Phone"; else -> "Screen" }, style = calmText(17, FontWeight.Normal, Calm.soft))
                             Spacer(Modifier.width(16.u))
-                            DoorButton("Remove") { Openhouse.host.setting("unlink:" + l.id) }
+                            DeviceButton("Remove") { Openhouse.host.setting("unlink:" + l.id) }
                         }
                     }
                     if (linked.isNotEmpty() && useful.isNotEmpty()) Spacer(Modifier.height(8.u))
@@ -278,7 +278,7 @@ fun DevicesSheet() {
                                 if ("pair" in d.actions) {
                                     Spacer(Modifier.width(16.u))
                                     Devices.busy[d.id]?.let { Text(it, style = calmText(16, FontWeight.Medium, Calm.soft), maxLines = 1) }
-                                        ?: DoorButton("Pair") { Devices.act(d, "pair", doing = "Pairing…") }
+                                        ?: DeviceButton("Pair") { Devices.act(d, "pair", doing = "Pairing…") }
                                 }
                             }
                         }
@@ -326,25 +326,25 @@ private fun DeviceCard(d: HomeDevice, modifier: Modifier) {
             // A Bluetooth speaker: where the tablet's sound goes, and its volume while it plays there.
             if ("play_here" in a) {
                 val here = st?.startsWith("Playing the tablet") == true
-                if (here) DoorButton("Back to the tablet") { Devices.act(d, "stop_here", doing = "Switching…") }
-                else DoorButton("Play here", primary = true) { Devices.act(d, "play_here", doing = "Connecting…") }
-                if (here) { DoorButton("Quieter") { Devices.act(d, "volume_down", doing = "Quieter…") }; DoorButton("Louder") { Devices.act(d, "volume_up", doing = "Louder…") } }
+                if (here) DeviceButton("Back to the tablet") { Devices.act(d, "stop_here", doing = "Switching…") }
+                else DeviceButton("Play here", primary = true) { Devices.act(d, "play_here", doing = "Connecting…") }
+                if (here) { DeviceButton("Quieter") { Devices.act(d, "volume_down", doing = "Quieter…") }; DeviceButton("Louder") { Devices.act(d, "volume_up", doing = "Louder…") } }
             }
-            if ("beep" in a) DoorButton("Beep") { Devices.act(d, "beep", doing = "Beeping…") }
-            if (d.bluetooth && "pair" in a) DoorButton("Pair", primary = true) { Devices.act(d, "pair", doing = "Pairing…") }
+            if ("beep" in a) DeviceButton("Beep") { Devices.act(d, "beep", doing = "Beeping…") }
+            if (d.bluetooth && "pair" in a) DeviceButton("Pair", primary = true) { Devices.act(d, "pair", doing = "Pairing…") }
             if (!d.bluetooth) { // (a Bluetooth speaker's volume is above, only while it plays there)
-                if ("pause" in a && playing) DoorButton("Pause") { Devices.act(d, "pause", doing = "Pausing…") }
-                else if ("play" in a) DoorButton("Play") { Devices.act(d, "play", doing = "Playing…") }
-                if ("volume_down" in a) DoorButton("Quieter") { Devices.act(d, "volume_down", doing = "Quieter…") }
-                if ("volume_up" in a) DoorButton("Louder") { Devices.act(d, "volume_up", doing = "Louder…") }
+                if ("pause" in a && playing) DeviceButton("Pause") { Devices.act(d, "pause", doing = "Pausing…") }
+                else if ("play" in a) DeviceButton("Play") { Devices.act(d, "play", doing = "Playing…") }
+                if ("volume_down" in a) DeviceButton("Quieter") { Devices.act(d, "volume_down", doing = "Quieter…") }
+                if ("volume_up" in a) DeviceButton("Louder") { Devices.act(d, "volume_up", doing = "Louder…") }
             }
-            if ("press" in a && d.kind == "streamer") DoorButton("Home") { Devices.act(d, "press", JSONObject().put("button", "home"), "Going home…") }
+            if ("press" in a && d.kind == "streamer") DeviceButton("Home") { Devices.act(d, "press", JSONObject().put("button", "home"), "Going home…") }
             val isOn = st?.startsWith("On") == true
-            if ("power_off" in a && st?.startsWith("Off") != true) DoorButton("Turn off", primary = true) { Devices.act(d, "power_off", doing = "Turning off…") }
-            else if ("power_on" in a && !isOn) DoorButton("Turn on", primary = true) { Devices.act(d, "power_on", doing = "Asking first…") }
+            if ("power_off" in a && st?.startsWith("Off") != true) DeviceButton("Turn off", primary = true) { Devices.act(d, "power_off", doing = "Turning off…") }
+            else if ("power_on" in a && !isOn) DeviceButton("Turn on", primary = true) { Devices.act(d, "power_on", doing = "Asking first…") }
             // A device the agent taught (a recipe): its actions that need nothing filled in.
             if (d.recipe != null) d.simple.filter { it != "status" && it !in KNOWN }.take(4).forEach { name ->
-                DoorButton(name.replace('_', ' ').replaceFirstChar { it.uppercase() }) { Devices.act(d, name, doing = "Working…") }
+                DeviceButton(name.replace('_', ' ').replaceFirstChar { it.uppercase() }) { Devices.act(d, name, doing = "Working…") }
             }
         }
     }

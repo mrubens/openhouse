@@ -220,7 +220,7 @@ fun Chip(label: String, modifier: Modifier = Modifier, selected: Boolean = false
 
 /**
  * Where you are in an answer's steps and what you've ticked, kept outside the composition: the same
- * answer on the door, up close, or re-laid-out to fit shares one place in the recipe.
+ * answer on the home screen, up close, or re-laid-out to fit shares one place in the recipe.
  */
 /** The height of the note an answer is fitted into (FitToBox), so pictures can take a share of it. */
 val LocalFitHeight = staticCompositionLocalOf<androidx.compose.ui.unit.Dp?> { null }
@@ -231,7 +231,7 @@ object SpecMemory {
 }
 
 /**
- * Fits its content into the space it's given, like a note on the door: no scrolling. Too tall at
+ * Fits its content into the space it's given, like a note on the home screen: no scrolling. Too tall at
  * full size, everything is laid out again a little smaller (down to [minScale]), so text reflows
  * instead of being cut off. Content should still be written to fit; this absorbs the last bit.
  */

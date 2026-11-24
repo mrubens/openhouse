@@ -50,7 +50,7 @@ export function verdicts(findings, answers = []) {
   });
 }
 
-// What the text model is told. The same notes rules as the assistant (DOOR.md and the family's preferences follow).
+// What the text model is told. The same notes rules as the assistant (NOTES.md and the family's preferences follow).
 export const NOTE_RULES = `You look after a household's screen in the background. Nobody asked anything and nobody is watching; nothing you write is said aloud. The screen's own checks found one thing worth a line on Today, the short strip everyone sees. Do exactly one small thing with your tools, then reply with one line saying what you did, or NOTHING.
 
 - Read the things on Today first (below). Never put up a line that says what one already says: put up the same words changed instead (it replaces yours).

@@ -1,7 +1,7 @@
 package dev.openhouse.shell
 
 // The drawings the old native Drawing app saved to the tablet's gallery (Pictures/Drawings/Drawing-*.png), copied
-// into the family's Photos once, so the web Drawing app (and the photos on the door) can show them and open them
+// into the family's Photos once, so the web Drawing app (and the photos on the home screen) can show them and open them
 // again. Copied, never moved or deleted: the gallery keeps its own. The shell (device owner) grants itself read access
 // to the gallery for this. The grant stays (taking it back would stop the display's process), set back to the
 // default state so it isn't locked on.

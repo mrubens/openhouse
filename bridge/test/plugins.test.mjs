@@ -66,7 +66,7 @@ test('an app from a plugin: only the groups it was granted, and only its part of
   assert.equal(appAllowed('POST', '/house/chore', r), true);
   assert.equal(appAllowed('GET', '/house', r), true);
   assert.equal(appAllowed('POST', '/appdata/progress', r), true);
-  for (const [m, p] of [['POST', '/house/settings'], ['POST', '/house/list'], ['POST', '/house/share'], ['GET', '/house/photo/a.jpg'], ['POST', '/voice/say'], ['GET', '/door']]) assert.equal(appAllowed(m, p, r), false, p);
+  for (const [m, p] of [['POST', '/house/settings'], ['POST', '/house/list'], ['POST', '/house/share'], ['GET', '/house/photo/a.jpg'], ['POST', '/voice/say'], ['GET', '/home']]) assert.equal(appAllowed(m, p, r), false, p);
   const view = { v: 3, today: 'd', family: [{ name: 'Maya' }], chores: [1], stars: {}, lists: [2], events: [3], photos: [4], flyer: 'x' };
   assert.deepEqual(Object.keys(houseFor(view, r)).sort(), ['chores', 'family', 'stars', 'today', 'v']);
   assert.deepEqual(Object.keys(houseFor(view, new Set())).sort(), ['today', 'v']);
@@ -78,9 +78,9 @@ test('the assistant\'s add_plugin: a yes on the card first, then one change that
   execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam', 'x', '--allow-empty'], { cwd: app }); execFileSync('git', ['add', '-A'], { cwd: app }); execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'own app'], { cwd: app });
   const edits = editLock({ APP_DIR: app, UNDO_FILE: path.join(app, '../undo-' + path.basename(app) + '.json'), log: () => {} });
   let style = { tabs: ['today', 'chores', 'apps'] }, asked = [];
-  const door = { style: () => style, setLook: (b, owner) => { assert.equal(edits.holder(), owner); style = { ...style, ...b }; fs.writeFileSync(path.join(app, 'apps/home-style.json'), JSON.stringify(style)); return { style }; } };
+  const homeScreen = { style: () => style, setLook: (b, owner) => { assert.equal(edits.holder(), owner); style = { ...style, ...b }; fs.writeFileSync(path.join(app, 'apps/home-style.json'), JSON.stringify(style)); return { style }; } };
   let answer = false;
-  const pl = pluginsRoutes({ APP_DIR: app, edits, door, json: () => {}, body: async () => ({}), local: true, approve: async (title, detail, pin) => { asked.push({ title, detail, pin }); return answer; }, log: () => {} });
+  const pl = pluginsRoutes({ APP_DIR: app, edits, homeScreen, json: () => {}, body: async () => ({}), local: true, approve: async (title, detail, pin) => { asked.push({ title, detail, pin }); return answer; }, log: () => {} });
   const src = makePlugin(tmp('p'));
   const no = await pl.call('add_plugin', { source: src });
   assert.equal(no.isError, true);
@@ -170,9 +170,9 @@ test('an app reaching the web through the tablet: only its own hosts, never the 
 test('a website chosen at setup: never reachable without a yes on the card for it, and only for the app that asked', async () => {
   const app = tmp('webapp'); initRepo(app);
   const edits = editLock({ APP_DIR: app, UNDO_FILE: path.join(app, '../undo-' + path.basename(app) + '.json'), log: () => {} });
-  const door = { style: () => ({}), setLook: () => ({}) };
+  const homeScreen = { style: () => ({}), setLook: () => ({}) };
   let answer = true; const asked = [];
-  const pl = pluginsRoutes({ APP_DIR: app, edits, door, json: () => {}, body: async () => ({}), local: true, approve: async (title, detail, pin) => { asked.push({ title, detail, pin }); return answer; }, log: () => {} });
+  const pl = pluginsRoutes({ APP_DIR: app, edits, homeScreen, json: () => {}, body: async () => ({}), local: true, approve: async (title, detail, pin) => { asked.push({ title, detail, pin }); return answer; }, log: () => {} });
   const bus = makePlugin(tmp('p'), { name: 'bus', app: 'bus', uses: [], reaches: [{ setup: 'transit-feed', why: 'Live arrivals from your transit agency' }] });
   const other = makePlugin(tmp('p'), { name: 'other', app: 'other', uses: [], reaches: ['api.example.com'] });
   const card = await pl.inspect(bus);
@@ -222,9 +222,9 @@ function tablet(fetchImpl, more = {}) {
   const app = tmp('webapp'); initRepo(app);
   const edits = editLock({ APP_DIR: app, UNDO_FILE: path.join(app, '../undo-' + path.basename(app) + '.json'), log: () => {} });
   let style = { tabs: ['today', 'apps'] };
-  const door = { style: () => style, setLook: (b) => { style = { ...style, ...b }; return { style }; } };
+  const homeScreen = { style: () => style, setLook: (b) => { style = { ...style, ...b }; return { style }; } };
   fs.mkdirSync(path.join(app, 'plugins'), { recursive: true }); fs.writeFileSync(path.join(app, 'plugins/.v1'), '');
-  const pl = pluginsRoutes({ APP_DIR: app, edits, door, json: () => {}, body: async () => ({}), approve: async () => true, fetchImpl, catalogUrl: CDN + 'index.json', log: () => {}, ...more });
+  const pl = pluginsRoutes({ APP_DIR: app, edits, homeScreen, json: () => {}, body: async () => ({}), approve: async () => true, fetchImpl, catalogUrl: CDN + 'index.json', log: () => {}, ...more });
   return { app, edits, pl };
 }
 
@@ -281,7 +281,7 @@ test('both versions put together: the household\'s changes and theirs, and never
   // A merge that can't be done cleanly changes nothing.
   const before = fs.readFileSync(path.join(dir, 'main.js'), 'utf8');
   const t2 = t;
-  const bad = await pluginsRoutes({ APP_DIR: t.app, edits: t.edits, door: { style: () => ({}), setLook: () => ({}) }, json: () => {}, body: async () => ({}), fetchImpl: served(files), catalogUrl: CDN + 'index.json', log: () => {},
+  const bad = await pluginsRoutes({ APP_DIR: t.app, edits: t.edits, homeScreen: { style: () => ({}), setLook: () => ({}) }, json: () => {}, body: async () => ({}), fetchImpl: served(files), catalogUrl: CDN + 'index.json', log: () => {},
     ai: async () => ({ output: [{ type: 'message', content: [{ type: 'output_text', text: '{"ok": false, "reason": "they contradict"}' }] }] }) });
   fs.writeFileSync(path.join(dir, 'main.js'), before + '// more\n'); const hand2 = { id: 'y', kind: 'edit', text: 'More' }; t2.edits.tryAcquire(hand2); t2.edits.finish(hand2, true);
   const p3 = { ...p, sha256: 'f'.repeat(64), apps: [{ ...p.apps[0], files: { ...p.apps[0].files, 'main.js': Buffer.from('document.body.textContent = "v3";\n') } }] };

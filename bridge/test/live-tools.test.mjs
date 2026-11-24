@@ -7,7 +7,7 @@ import { liveToolRoutes, LIVE_TOOLS } from '../live-tools.js';
 
 const HERE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const calls = [];
-const door = {
+const homeScreen = {
   tools: () => [{ name: 'change_list', description: 'Lists', inputSchema: { type: 'object', properties: { list: { type: 'string' } } } }, { name: 'set_home', description: 'Home', inputSchema: {} }, { name: 'calendar_event', description: 'Calendar', inputSchema: { type: 'object' } }],
   call: async (name, a, ctx) => { calls.push({ name, a, ctx }); return { content: [{ type: 'text', text: `Added ${a.item || '?'}.` }] }; },
 };
@@ -16,7 +16,7 @@ const res = () => ({ code: 0, obj: null });
 const json = (r, code, obj) => { r.code = code; r.obj = obj; };
 
 test('only the household tools, never ones that change the tablet', async () => {
-  const live = liveToolRoutes({ HERE, door, weather, prefsBlock: () => '\nPREFS: short answers', assistantName: () => 'Hazel', json, body: async (r) => r.b });
+  const live = liveToolRoutes({ HERE, homeScreen, weather, prefsBlock: () => '\nPREFS: short answers', assistantName: () => 'Hazel', json, body: async (r) => r.b });
   const r = res(); assert.ok(await live({ method: 'GET' }, r, new URL('http://x/live/setup')));
   for (const t of ['set_home', 'start_editing', 'write_file', 'device_action']) assert.ok(!r.obj.tools.some((x) => x.name === t), t);
   assert.ok(!LIVE_TOOLS.includes('set_home') && !LIVE_TOOLS.includes('start_editing'));

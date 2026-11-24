@@ -1,5 +1,5 @@
 // The weather for the family's place (household location: a ZIP code or a town), from Open-Meteo: free, no
-// account or key. Looked up at most every 10 minutes and cached; the door's weather card reads it.
+// account or key. Looked up at most every 10 minutes and cached; the home screen's weather card reads it.
 //   GET /weather  { place, temp, code, condition, isDay, high, low, feels, humidity, wind, sunrise, sunset,
 //                   hours: [{time, temp, code, isDay, rain}] (24), days: [{date, high, low, code, condition, rain}] (7), at,
 //                   sense: [{text, until}] }  (°F, mph; sense: weather-sense.js, the lines tying it to the household's plans)

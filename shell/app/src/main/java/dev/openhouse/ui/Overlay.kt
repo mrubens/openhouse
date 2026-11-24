@@ -199,8 +199,8 @@ private fun Reminders(modifier: Modifier) {
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
                 Box(Modifier.size(14.u).clip(CircleShape).background(House.color(r.who?.substringBefore(" & "))))
                 Column(Modifier.weight(1f, fill = false)) {
-                    Text(o.remindWords(r, o.now).substringBefore(", for "), style = quietText(22, FontWeight.Medium, Door.ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    listOfNotNull(r.who, r.place).takeIf { it.isNotEmpty() }?.let { Text(it.joinToString(" · "), style = quietText(17, color = Door.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    Text(o.remindWords(r, o.now).substringBefore(", for "), style = quietText(22, FontWeight.Medium, PaperLook.ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    listOfNotNull(r.who, r.place).takeIf { it.isNotEmpty() }?.let { Text(it.joinToString(" · "), style = quietText(17, color = PaperLook.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis) }
                 }
                 CompositionLocalProvider(LocalPalette provides paperPalette()) { Pill("Got it", primary = false) { House.putAway(r.key) } }
             }
@@ -214,7 +214,7 @@ private fun OfflineNote() {
     val bubble = AssistantCardShape
     Row(Modifier.shadow(18.u, bubble).clip(bubble).background(Color.White).padding(start = 20.u, end = 12.u, top = 10.u, bottom = 10.u),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
-        Text(if (o.net == Net.NoNetwork) "Not on Wi-Fi" else "Can't reach the internet", style = quietText(19, FontWeight.Medium, Door.ink))
+        Text(if (o.net == Net.NoNetwork) "Not on Wi-Fi" else "Can't reach the internet", style = quietText(19, FontWeight.Medium, PaperLook.ink))
         Pill("Wi-Fi") { o.joinWifi() }
     }
 }
@@ -237,13 +237,13 @@ private fun Caption(live: Boolean, heard: Heard?, reply: Answer? = null, build: 
             when {
                 // Working on it: what they asked, then its own words as they come (what it's doing, or the answer itself).
                 // Answering: its words as they come (each new message starts afresh), not its last two lines.
-                reply != null && reply.live -> Text(tail(Answers.speakable(Answers.segments(reply.text).filterIsInstance<Segment.Prose>().joinToString(" ") { it.text }), 330), style = quietText(20, FontWeight.Normal, Door.ink), maxLines = 7)
+                reply != null && reply.live -> Text(tail(Answers.speakable(Answers.segments(reply.text).filterIsInstance<Segment.Prose>().joinToString(" ") { it.text }), 330), style = quietText(20, FontWeight.Normal, PaperLook.ink), maxLines = 7)
                 build != null && !build.done -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.u)) {
-                    Text((build.live ?: build.stage) + "…", style = quietText(18, FontWeight.Normal, Door.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text((build.live ?: build.stage) + "…", style = quietText(18, FontWeight.Normal, PaperLook.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                build != null && (reply == null || build.endedAt > reply.at) -> Text(build.summary?.ifBlank { null } ?: if (build.ok) "Done." else "That didn’t work.", style = quietText(19, FontWeight.Normal, Door.ink), maxLines = if (small) 1 else 3, overflow = TextOverflow.Ellipsis)
+                build != null && (reply == null || build.endedAt > reply.at) -> Text(build.summary?.ifBlank { null } ?: if (build.ok) "Done." else "That didn’t work.", style = quietText(19, FontWeight.Normal, PaperLook.ink), maxLines = if (small) 1 else 3, overflow = TextOverflow.Ellipsis)
                 // The finished answer from its start (as it came, the newest words showed), long enough to read whole.
-                reply != null -> Text(Answers.speakable(Answers.segments(reply.text).filterIsInstance<Segment.Prose>().joinToString(" ") { it.text }).ifEmpty { "Done." }, style = quietText(20, FontWeight.Normal, Door.ink), maxLines = 7, overflow = TextOverflow.Ellipsis)
+                reply != null -> Text(Answers.speakable(Answers.segments(reply.text).filterIsInstance<Segment.Prose>().joinToString(" ") { it.text }).ifEmpty { "Done." }, style = quietText(20, FontWeight.Normal, PaperLook.ink), maxLines = 7, overflow = TextOverflow.Ellipsis)
                 else -> {}
             }
         }

@@ -1,6 +1,6 @@
-// The door's grid, like a phone's home screen: pages of cells, and everything on the door (notes, the clock, the
+// The home screen's grid, like a phone's home screen: pages of cells, and everything on the home screen (notes, the clock, the
 // weather, apps, the home app's own things) takes a whole number of them. The display (ui/DoorGrid.kt) lays the
-// door out with the same rules, so what the assistant is told here is what the family sees.
+// home screen out with the same rules, so what the assistant is told here is what the family sees.
 //
 // Positions are 0-based in door.json ({page, col, row, w, h}); the assistant's tools count from 1.
 
@@ -11,7 +11,7 @@ export const RESERVED = [{ col: COLS - 1, row: ROWS - 1, w: 1, h: 1 }];
 export const SHAPES = ['1x1', '2x1', '2x2', '4x2', '4x4'];
 /** Note sizes from before the grid, and what they became. */
 export const OLD_SIZES = { small: '1x1', wide: '2x1', tall: '2x2', large: '2x2', big: '4x2', huge: '4x4' };
-/** A cell in the old free-form door's units (u), for moving old places onto the grid. */
+/** A cell in the old free-form board's units (u), for moving old places onto the grid. */
 export const CELL_U = [182, 173];
 
 export const dims = (shape) => { const [w, h] = String(shape).split('x').map(Number); return { w, h }; };

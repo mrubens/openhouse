@@ -16,7 +16,7 @@ import android.widget.TextView
 
 /**
  * Kitchen timers, kept by the shell so they keep running and ring whatever is on screen (the
- * conversation, an app, the home screen). The board draws them as dials on the door; over apps they're
+ * conversation, an app, the home screen). The board draws them as dials on the home screen; over apps they're
  * pills along the bottom-left edge. Tap a ringing pill to stop it; tap its cross to cancel a running one.
  */
 class Timers(private val activity: Activity, parent: FrameLayout) {

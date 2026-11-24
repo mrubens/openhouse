@@ -1,9 +1,9 @@
-/* The display's look, for the family's apps and the door: link it with <link rel="stylesheet" href="/kit/openhouse.css">. */
+/* The display's look, for the family's apps and the home screen: link it with <link rel="stylesheet" href="/kit/openhouse.css">. */
 @font-face { font-family: 'Caveat'; src: url('fonts/Caveat.ttf') format('truetype'); font-weight: 400 700; font-display: swap; }
 @font-face { font-family: 'Nunito'; src: url('fonts/Nunito.ttf') format('truetype'); font-weight: 200 1000; font-display: swap; }
 :root {
-  /* the fridge door */
-  --door: #d5dbd4; --ink: #24282a; --ink-soft: #5e6466; --paper: #fbf8f0; --card: #ffffff; --tile: #2a2d31;
+  /* the home screen */
+  --surface: #d5dbd4; --door: var(--surface); /* --door: the first name, for apps that still say it */ --ink: #24282a; --ink-soft: #5e6466; --paper: #fbf8f0; --card: #ffffff; --tile: #2a2d31;
   --lines: #c9d6e6; --margin: #e9a3a0; --tape: rgba(255, 248, 214, .75);
   --sticky: #f7de79; --sticky-pink: #f6c5c9; --sticky-blue: #bfddf4; --sticky-green: #cde9c4; --sticky-orange: #f8cfa0;
   /* inside apps: the light look (a warm off-white world, ink type); quiet.css has the rest of the system, and in a

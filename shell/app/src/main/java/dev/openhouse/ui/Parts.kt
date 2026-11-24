@@ -1,6 +1,6 @@
 package dev.openhouse.ui
 
-// Small pieces the overlay and its sheets share (the door itself is the bridge's web page now: DoorView).
+// Small pieces the overlay and its sheets share (the home screen itself is the bridge's web page now: HomeView).
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas

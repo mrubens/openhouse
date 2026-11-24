@@ -80,7 +80,7 @@ class AppWindow private constructor(private val act: Activity, private val shell
         root.addView(banner, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         act.setContentView(root)
         act.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        runCatching { dev.openhouse.ui.Door.loadFonts(shell.assets) }
+        runCatching { dev.openhouse.ui.PaperLook.loadFonts(shell.assets) }
         runCatching { dev.openhouse.ui.Openhouse.startInApp(bridge) }
         thread { handOver(); val key = appKey(bridge, id); main.post { open(key) } }
         Log.i(TAG, "$id open in ${act.packageName}")
@@ -121,7 +121,7 @@ class AppWindow private constructor(private val act: Activity, private val shell
         } // else: the bridge wasn't up; try again next time
     }
 
-    /** The kit's calls that only the display can do: a phone page (QR code), or back to the door. */
+    /** The kit's calls that only the display can do: a phone page (QR code), or back to the home screen. */
     private val calls = object : AppCalls {
         override fun phone(kind: String, arg: String) {
             // The links are the display's (its own keystore): back to it, which asks for the PIN and shows the paste box.

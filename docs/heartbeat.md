@@ -149,7 +149,7 @@ A judged finding isn't judged again. One that goes away and comes back is new.
 
 For each finding worth it (but a crash: that line is written in code), `writeNote` (heartbeat-judge.js) runs the
 cloud's text model (`POST /v1/ai/respond`, `gpt-6-luna`).
-- **Instructions:** short rules per kind (`NOTE_RULES`), plus `DOOR.md` and the household's preferences.
+- **Instructions:** short rules per kind (`NOTE_RULES`), plus `NOTES.md` and the household's preferences.
 - **Tools:** cut to the level, refused in code (`thingCall`), not by the prompt.
   - **Notice only:** `show_thing`, `family_things`, `about_household`.
   - **Tidy up** and **Fix things:** those, plus `take_down_thing` (its own only).
@@ -165,7 +165,7 @@ when the judge says `fix` for a crash:
 1. **Queued:** `heartbeat-fixes.json`, one fix per app. It holds the errors, the page's log (the last 20) and the
    app's recent changes. The same app breaking again adds to it.
 2. **Today says so:** "Chores has a problem: ask Claude or ChatGPT to fix it", while the fix waits.
-3. **The workshop sees it.** `pending_fixes` is a door tool, so the paired computer's Claude or Codex gets it
+3. **The workshop sees it.** `pending_fixes` is a home-screen tool, so the paired computer's Claude or Codex gets it
    through the workshop MCP. WORKSHOP.md and the server's instructions tell it to mention waiting fixes. `close_fix`
    closes one as `done` or `dismissed`.
 4. **The fix is an ordinary change:** `start_editing {what, fix: <id>}`, then edit, `check_build`, `done_editing`.
@@ -212,7 +212,7 @@ cloud's text model looks at the day. Code: `bridge/heartbeat-review.js`, `review
   heartbeat.json's log). `today().reviewCost` is the day's spend.
 
 **Cost per household-day (estimated, 2026-11-20).** A review's first call is about 1,550 tokens in: the rules and
-DOOR.md about 740, the snapshot of a busy household about 300, the tools about 510. That's from the text's length;
+NOTES.md about 740, the snapshot of a busy household about 300, the tools about 510. That's from the text's length;
 the real counts are logged per run. A quiet hour is one call. An hour that does something is about three calls and
 5,250 tokens in. With 14 waking hours, 2 of them doing something:
 

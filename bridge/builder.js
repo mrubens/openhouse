@@ -6,7 +6,7 @@
 // POST /request {text, who?, app?, crash?, context?}  start a run; app = the app open on screen
 // POST /cancel                 stop the run and put back what it changed
 // POST /apperror {app, text}   an app's page threw (the shell's web view, or the kit); its next check sees it
-import { requestApp, showingTab } from './door.js';
+import { requestApp, showingTab } from './home-screen.js';
 import fs from 'node:fs';
 import path from 'node:path';
 

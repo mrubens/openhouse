@@ -1,6 +1,6 @@
 package dev.openhouse.shell
 
-// After a self-update (Updater): if the new display hasn't come up healthy (the bridge answering, the door's page
+// After a self-update (Updater): if the new display hasn't come up healthy (the bridge answering, the home screen's page
 // loaded) in a few minutes, go back to the release's rescue build, staged before the update. This runs in its own
 // process (":guard"), apart from everything the display does on screen, so a display that crashes as it starts still
 // gets taken back. It's kept small, and changes rarely.

@@ -94,21 +94,21 @@ test('scopes: never undo, restore, apps, the builder, devices, the agents\' tool
   const { welcome } = await join('Curious');
   const c = client({ base: lan, ...welcome });
   for (const [m, p] of [['POST', '/undo'], ['POST', '/restore'], ['POST', '/apps/delete'], ['POST', '/request'], ['POST', '/cancel'], ['GET', '/devices'], ['POST', '/mcp/home'],
-    ['POST', '/door/mcp'], ['GET', '/household'], ['POST', '/household'], ['POST', '/voice/wake'], ['GET', '/voice/events'], ['POST', '/calendar/feeds'], ['GET', '/screens'],
+    ['POST', '/home/mcp'], ['GET', '/household'], ['POST', '/household'], ['POST', '/voice/wake'], ['GET', '/voice/events'], ['POST', '/calendar/feeds'], ['GET', '/screens'],
     ['POST', '/screens/pair'], ['POST', '/screens/answer'], ['POST', '/screens/revoke'], ['GET', '/events'], ['POST', '/board/refresh'], ['GET', '/chat/'], ['POST', '/house/photo']]) {
     assert.equal((await c.json(m, p, m === 'POST' ? {} : undefined)).status, 403, `${m} ${p}`);
   }
-  assert.equal((await c.json('GET', '/door/../undo')).status, 403, 'paths are normalized before the check');
-  // Without the door scope there's nothing at all.
-  assert.equal(allowed(['ask'], 'GET', '/door'), false);
+  assert.equal((await c.json('GET', '/home/../undo')).status, 403, 'paths are normalized before the check');
+  // Without the home screen scope there's nothing at all.
+  assert.equal(allowed(['ask'], 'GET', '/home'), false);
   assert.equal(allowed(['door'], 'POST', '/chat'), false);
-  assert.equal(allowed(['door'], 'POST', '/door/arrange'), false);
+  assert.equal(allowed(['door'], 'POST', '/home/arrange'), false);
   assert.equal(allowed(DEFAULT_SCOPES, 'GET', '/house/photo/a.jpg'), true);
 });
 
 test('the home network gets nothing unsealed: no display secret, no plain routes, no replays, no strangers', async () => {
   const { welcome } = await join('Replay');
-  for (const p of ['/door', '/state', '/screens', '/chats']) assert.equal((await fetch(lan + p, { headers: H })).status, 404, `plain ${p}`);
+  for (const p of ['/home', '/state', '/screens', '/chats']) assert.equal((await fetch(lan + p, { headers: H })).status, 404, `plain ${p}`);
   assert.equal((await fetch(lan + '/undo', { method: 'POST', headers: H })).status, 404);
   assert.equal((await fetch(lan + '/s', { method: 'POST', headers: { 'x-screen': 's-00000000' }, body: 'x' })).status, 401, 'unknown screen');
   assert.equal((await fetch(lan + '/s', { method: 'POST', headers: { 'x-screen': welcome.id }, body: crypto.randomBytes(60) })).status, 400, 'not sealed with its key');
@@ -127,12 +127,13 @@ test('the home network gets nothing unsealed: no display secret, no plain routes
 test('revoking: its open requests end now and the next one is refused', async () => {
   const { welcome } = await join('Old iPad');
   const c = client({ base: lan, ...welcome });
-  const v = (await c.json('GET', '/door')).json.v;
-  const waiting = c.json('GET', `/door/wait?v=${v}`).then(() => 'answered', (e) => e);
+  const v = (await c.json('GET', '/home')).json.v;
+  assert.equal((await c.json('GET', '/door')).json.v, v, 'the first name still answers, sealed too');
+  const waiting = c.json('GET', `/home/wait?v=${v}`).then(() => 'answered', (e) => e);
   await wait(150);
   assert.equal((await post('/screens/revoke', { id: welcome.id })).ok, true);
   assert.ok((await waiting) instanceof Error, 'the long poll is cut off, not answered');
-  await assert.rejects(c.json('GET', '/door'), Removed);
+  await assert.rejects(c.json('GET', '/home'), Removed);
   assert.ok(!(await get('/screens')).screens.some((x) => x.id === welcome.id));
 });
 

@@ -13,7 +13,7 @@ export const DEFAULT_TABS = ['today', 'calendar', 'weather', 'map', 'chores', 'l
 const APPS = 'openhouse.phone.apps', STYLE = 'openhouse.phone.style';
 
 /** The apps this phone runs ([{id, name, icon, tabIcon, shared, v}]): the last list until the tablet answers. */
-export function usePhoneApps(c, door) {
+export function usePhoneApps(c, homeScreen) {
   const [apps, setApps] = useState(() => get(APPS, null));
   useEffect(() => {
     let stop = false;
@@ -26,7 +26,7 @@ export function usePhoneApps(c, door) {
     return () => { stop = true; };
   }, [c]);
   const [style, setStyle] = useState(() => get(STYLE, null));
-  useEffect(() => { if (door?.style) { setStyle(door.style); put(STYLE, door.style); } }, [door?.style]);
+  useEffect(() => { if (homeScreen?.style) { setStyle(homeScreen.style); put(STYLE, homeScreen.style); } }, [homeScreen?.style]);
   return { apps, style };
 }
 

@@ -102,7 +102,7 @@ internal fun FamilySheet() {
                     Column(Modifier.weight(1f)) {
                         Text(if (o.householdSetUp) "Your family" else "Welcome! Who lives here?", style = quietText(30, FontWeight.SemiBold))
                         // Telling Opie instead is a quiet line, not a third button (docs/ux.md).
-                        Text("Or just tell Opie", style = quietText(17, FontWeight.Medium, Door.inkSoft),
+                        Text("Or just tell Opie", style = quietText(17, FontWeight.Medium, PaperLook.inkSoft),
                             modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { o.startOnboarding() }.padding(vertical = 4.u))
                     }
                     // The ‹ (opened from Settings) or the edge swipe goes back without saving; otherwise a word for it.
@@ -119,7 +119,7 @@ internal fun FamilySheet() {
                             if (p.c.isBlank()) p.c = PERSON_COLORS[i % 6]
                             Box(Modifier.size(40.u).clip(CircleShape).background(hexColor(p.c)).clickable { p.c = PERSON_COLORS[(PERSON_COLORS.indexOf(p.c) + 1) % PERSON_COLORS.size] })
                             Field(p.a, { p.a = it }, "Name", Modifier.weight(1f)); Field(p.b, { p.b = it }, "Age 9, or Mom", Modifier.weight(1f)); Remove { people.remove(p) } } }
-                        if (people.size > 0) Text("Tap a color to change it.", style = quietText(15, color = Door.inkSoft))
+                        if (people.size > 0) Text("Tap a color to change it.", style = quietText(15, color = PaperLook.inkSoft))
                         AddLink("Add someone") { people += Pair2("", "", PERSON_COLORS[people.size % 6]) }
                         Section("Where you live")
                         Field(place, { place = it }, "Zip code or town, for the weather")
@@ -128,7 +128,7 @@ internal fun FamilySheet() {
                         Section("Calendars")
                         cals.forEach { Text(it, style = quietText(18, FontWeight.Medium)) }
                         AddLink(if (cals.isEmpty()) "Add a calendar" else "Add or remove") { o.host.setting("calendars") }
-                        calStatus?.let { Text(it, style = quietText(15, color = Door.inkSoft)) }
+                        calStatus?.let { Text(it, style = quietText(15, color = PaperLook.inkSoft)) }
                         Section("Chores")
                         chores.forEach { c -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
                             Field(c.a, { c.a = it }, "Who", Modifier.width(170.u)); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }
@@ -145,14 +145,14 @@ internal fun FamilySheet() {
 @Composable
 internal fun Field(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier.fillMaxWidth(), focus: FocusRequester? = null) {
     Box(modifier.clip(RoundedCornerShape(12.u)).background(Color(0xFFF1EEE6)).border(1.u, Color(0xFFDAD5CA), RoundedCornerShape(12.u)).padding(horizontal = 14.u, vertical = 11.u)) {
-        if (value.isEmpty()) Text(hint, style = quietText(18, color = Door.inkSoft.copy(alpha = .6f)), maxLines = 1)
+        if (value.isEmpty()) Text(hint, style = quietText(18, color = PaperLook.inkSoft.copy(alpha = .6f)), maxLines = 1)
         val cover = coverAttached()
-        BasicTextField(value, onChange, Modifier.fillMaxWidth().let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, onChange, null) }, readOnly = cover, singleLine = true, keyboardOptions = NoSuggestions, textStyle = quietText(18), cursorBrush = SolidColor(Door.ink))
+        BasicTextField(value, onChange, Modifier.fillMaxWidth().let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, onChange, null) }, readOnly = cover, singleLine = true, keyboardOptions = NoSuggestions, textStyle = quietText(18), cursorBrush = SolidColor(PaperLook.ink))
     }
 }
 
 @Composable private fun Remove(onClick: () -> Unit) {
-    Box(Modifier.size(40.u).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, "Remove", tint = Door.inkSoft, modifier = Modifier.size(20.u)) }
+    Box(Modifier.size(40.u).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) { Icon(Icons.Default.Close, "Remove", tint = PaperLook.inkSoft, modifier = Modifier.size(20.u)) }
 }
 
 @Composable private fun AddLink(t: String, onClick: () -> Unit) {

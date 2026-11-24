@@ -27,7 +27,7 @@ internal object Updater {
 
     /** What Settings shows: where updates stand on this tablet. */
     @Volatile var status = ""; private set
-    /** The door's page loaded since this display started (DoorView): half of "healthy". */
+    /** The home screen's page loaded since this display started (HomeView): half of "healthy". */
     @Volatile var homeLoaded = false
 
     @Volatile private var busy = false
@@ -289,7 +289,7 @@ internal object Updater {
     // --- after an update: healthy, or went back ----------------------------------------------------------------------
 
     /**
-     * Just updated: once the bridge answers and the door's page has loaded, this display is healthy (UpdateGuard then
+     * Just updated: once the bridge answers and the home screen's page has loaded, this display is healthy (UpdateGuard then
      * leaves it be). Just gone back to the rescue build: remember that release failed here, so it isn't tried again.
      */
     private fun afterUpdate(c: Context, bridge: String) {

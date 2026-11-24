@@ -4,7 +4,7 @@
 // POST /workshop/mcp   MCP (JSON-RPC over HTTP). Reached by a paired computer through the home-network listener (its
 //                      sealed requests, scope "workshop": screens.js), or on this device with the display's secret.
 //
-// The tools are the tablet assistant's own (door.js, chat.js, house.js: the same code), plus what a computer needs
+// The tools are the tablet assistant's own (home-screen.js, chat.js, house.js: the same code), plus what a computer needs
 // because it has no turn and no files here: reading and writing files under apps/, a picture of the screen, and
 // "done". A computer's change goes through the same lock as the assistant's (edits.js): start_editing opens it with
 // what was asked, done_editing commits it as one change, so "undo" on the tablet takes it back like any other. A
@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { insideApps } from './inside-apps.js';
-import { showingTab, isTab } from './door.js';
+import { showingTab, isTab } from './home-screen.js';
 
 const ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 // The assistant's tools a computer doesn't get: the voice's own, and the ones replaced below.
@@ -26,7 +26,7 @@ Before changing anything, call get_guide: the home screen as it is now, how to w
 Tabs and the look: one set_home call. An app: start_editing, read_file/write_file, check_build, look_at_tablet, then done_editing (always). A new app goes in Apps: when it's done, ask in one short line whether to put it in the sidebar, and call set_home only on a yes. Every app is a plugin: one you make or change here becomes the household's own plugin by itself (no manifest to write; changing one of OpenHouse's own, like Calendar, makes the household's version of it, and reset_plugin puts ours back). When they ask to take a change back: undo_latest (undo_plugin for one app's latest); don't mention or offer undo otherwise. A family calendar (Google, iCloud, Outlook): add_calendar with its link; the tablet keeps it sealed and someone says yes there. An iCloud shared album for Photos: add_photo_album with its public link, the same way.
 Apps the tablet noticed are broken wait in pending_fixes: fix one with start_editing {fix}; someone says yes on the tablet before it goes in.`;
 
-export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fixes = null, approve = async () => null, events, checkBuild, deviceServer = () => null, whoOf = () => null, live = null, devices = null, json, body, idleMs = 10 * 60e3, log = (...a) => console.log('[workshop]', ...a) }) {
+export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = null, fixes = null, approve = async () => null, events, checkBuild, deviceServer = () => null, whoOf = () => null, live = null, devices = null, json, body, idleMs = 10 * 60e3, log = (...a) => console.log('[workshop]', ...a) }) {
   const { emit, setState } = events; // the tablet's assistant shows the builder's state; a computer's change keeps out of it
   const guided = new Set(); // computers that read how apps are made (get_guide topic apps)
   // Open changes, kept on disk so one survives the bridge restarting (an update installed mid-change): its files are
@@ -45,12 +45,12 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
   const err = (t) => ({ content: [{ type: 'text', text: t }], isError: true });
 
   function homeNow() {
-    const st = door.style();
+    const st = homeScreen.style();
     const tabs = (st.tabs || ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'].map((id) => ({ id }))).map((t) => (t.name ? `${t.id} ("${t.name}")` : t.id));
     const apps = appIds().filter((a) => a !== 'home').map((a) => `${a} ("${appName(a)}")`);
     const now = showingTab();
     return `Tabs, in order: ${tabs.join(', ')}${st.tabs ? '' : ' (the usual set)'}. Look: ${st.palette}, ${st.type} type, ${st.density}${st.backdrop === 'photos' ? ', photos behind' : ''}.` +
-      `${now ? ` The tablet is showing the ${now} tab.` : ''}\nApps: ${apps.join(', ') || 'none'}.\nApps that aren't tabs are in the Apps tab.\n${door.describe()}`;
+      `${now ? ` The tablet is showing the ${now} tab.` : ''}\nApps: ${apps.join(', ') || 'none'}.\nApps that aren't tabs are in the Apps tab.\n${homeScreen.describe()}`;
   }
 
   // The tablet assistant's rules (AGENT.md), as they apply on a computer: by section, without the ones about the tablet
@@ -72,13 +72,13 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
     read('WORKSHOP.md'),
     '# The home screen right now\n\n' + homeNow(),
     '# Changing the home screen\n\n' + agentSections(HOME_SECTIONS),
-    '# Notes on Today\n\n' + read('DOOR.md'),
+    '# Notes on Today\n\n' + read('NOTES.md'),
   ].join('\n\n---\n\n');
 
   const RESOURCES = [
     { uri: 'openhouse://guide/workshop', name: 'Working from a computer', mimeType: 'text/markdown', text: () => read('WORKSHOP.md') },
     { uri: 'openhouse://guide/apps', name: 'How apps are made', mimeType: 'text/markdown', text: () => guide('apps') },
-    { uri: 'openhouse://guide/board', name: 'Notes on Today', mimeType: 'text/markdown', text: () => read('DOOR.md') },
+    { uri: 'openhouse://guide/board', name: 'Notes on Today', mimeType: 'text/markdown', text: () => read('NOTES.md') },
     { uri: 'openhouse://kit/quiet.css', name: 'The quiet kit', mimeType: 'text/css', text: () => read('kit/quiet.css') },
     { uri: 'openhouse://kit/openhouse.js', name: 'The kit (family data)', mimeType: 'text/javascript', text: () => read('kit/openhouse.js') },
     { uri: 'openhouse://home', name: 'The home screen now', mimeType: 'text/plain', text: homeNow },
@@ -122,12 +122,12 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
   // Not for a computer: driving the tablet's screen and its other apps is for someone at the tablet asking Opie
   // (device-tools.js), and show_on_tablet is this side's show_on_screen.
   const VOICE_ONLY = new Set([...DEVICE_NAMES, 'show_on_screen']);
-  const liveExtra = () => { try { const own = new Set(door.tools().map((t) => t.name)); return (live?.tools() || []).filter((t) => !own.has(t.name) && !VOICE_ONLY.has(t.name)).map((t) => ({ name: t.name, description: t.description, inputSchema: t.parameters })); } catch { return []; } };
+  const liveExtra = () => { try { const own = new Set(homeScreen.tools().map((t) => t.name)); return (live?.tools() || []).filter((t) => !own.has(t.name) && !VOICE_ONLY.has(t.name)).map((t) => ({ name: t.name, description: t.description, inputSchema: t.parameters })); } catch { return []; } };
   let deviceList = [];
   const deviceTools = () => { if (!devices?.mcp) return []; return deviceList; };
   devices?.mcp?.({ jsonrpc: '2.0', id: 1, method: 'tools/list' }).then((r) => { deviceList = (r?.result?.tools || []).filter((t) => DEVICE_TOOLS.includes(t.name)); }).catch(() => {});
   const houseExtra = () => [...liveExtra(), ...deviceTools()];
-  const tools = () => [...OWN, ...door.tools().filter((t) => !SKIP.has(t.name) && !OWN.some((o) => o.name === t.name)), ...houseExtra()].map(hint);
+  const tools = () => [...OWN, ...homeScreen.tools().filter((t) => !SKIP.has(t.name) && !OWN.some((o) => o.name === t.name)), ...houseExtra()].map(hint);
 
   /** The computer's open change, kept alive by each call. */
   function touch(c) {
@@ -137,7 +137,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
         log(`${c.name}'s fix was left open: put back out`);
         for (const [k, v] of open) if (v === c) open.delete(k);
         try { edits.end(c.turn, false); } catch {}
-        fixes?.set(c.fix, { status: 'pending' }); door.computerNote(null); keep(); emit({ type: 'apps' });
+        fixes?.set(c.fix, { status: 'pending' }); homeScreen.computerNote(null); keep(); emit({ type: 'apps' });
         return;
       }
       log(`${c.name}'s change was left open: it goes in as it is`); finish(c, c.what);
@@ -149,7 +149,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
     for (const [k, v] of open) if (v === c) open.delete(k);
     let sha = null;
     try { sha = edits.end(c.turn, true); } catch (e) { log('commit failed:', e.message); }
-    door.computerNote(null);
+    homeScreen.computerNote(null);
     keep();
     emit({ type: 'apps' });
     // A new app that isn't a tab opens now that it's made (one that is a tab already shows in it).
@@ -162,7 +162,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
    */
   function show(app) {
     const tab = isTab(app) ? app : 'apps';
-    if (showingTab() !== tab) door.showTab(tab);
+    if (showingTab() !== tab) homeScreen.showTab(tab);
   }
   /** An app checked without running it: each script parses, and the files index.html loads exist. */
   function staticCheck(app) {
@@ -183,7 +183,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
   function shown(c, app) {
     if (!app || app === 'home' || c.shown.has(app)) return;
     c.shown.add(app);
-    door.computerNote(`From ${c.name}: ${c.what}`, [...c.shown]); // its tab pulses (or Apps, for a new one)
+    homeScreen.computerNote(`From ${c.name}: ${c.what}`, [...c.shown]); // its tab pulses (or Apps, for a new one)
     if (!c.before.has(app)) { c.fresh.add(app); keep(); return; }
     show(app);
   }
@@ -218,7 +218,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
         if (fx) fixes.set(fx.id, { status: 'working', by: who.name });
         open.set(key, n); touch(n); keep();
         // The tablet says so quietly (a line under its tabs), not by its assistant looking busy: that's for its own work.
-        door.computerNote(`From ${who.name}: ${what}`);
+        homeScreen.computerNote(`From ${who.name}: ${what}`);
         log(`${who.name} is changing: "${what}"`);
         return ok('Go ahead: the apps are yours to change until done_editing. A new app goes in Apps: write it, check_build, look_at_tablet, done_editing, then ask in one short line whether to put it in the sidebar (set_home only on a yes).' + (guided.has(key) ? '' : ' Read get_guide with topic "apps" before writing an app: how apps are made here.'));
       }
@@ -314,7 +314,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
           const fx = fixes?.get(c.fix);
           const yes = await approve(`Put in ${who.name}'s fix for ${fx?.name || 'the app'}?`, `${String(a.summary || c.what).slice(0, 300).replace(/\.$/, '')}.`, true, { yes: 'Put it in' });
           if (yes === false) {
-            clearTimeout(c.timer); open.delete(key); keep(); door.computerNote(null);
+            clearTimeout(c.timer); open.delete(key); keep(); homeScreen.computerNote(null);
             try { edits.end(c.turn, false); } catch {}
             fixes?.set(c.fix, { status: 'pending' });
             emit({ type: 'apps' });
@@ -348,7 +348,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
       }
     }
     if (!tools().some((t) => t.name === name)) return err(`unknown tool ${name}`);
-    const r = await door.call(name, a, ctx);
+    const r = await homeScreen.call(name, a, ctx);
     return r;
   }
 
@@ -360,7 +360,7 @@ export function workshopRoutes({ HERE, APP_DIR, door, edits, plugins = null, fix
       if (!edits.tryAcquire(turn)) { log(`couldn't reopen ${x.name}'s change "${x.what}": another is being made`); continue; }
       const n = { turn, what: x.what, name: x.name, before: new Set(x.before || []), shown: new Set(), fresh: new Set(x.fresh || []), timer: null, fix: x.fix || null };
       open.set(key, n); touch(n);
-      door.computerNote(`From ${x.name}: ${x.what}`);
+      homeScreen.computerNote(`From ${x.name}: ${x.what}`);
       log(`${x.name}'s change "${x.what}" is open again`);
     }
     keep();

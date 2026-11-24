@@ -2,7 +2,7 @@ package dev.openhouse.shell
 
 // The family's apps and games, opened from the display. Each is its own installed Android app (AppStubs: its own
 // icon, task and back gesture) where the display is device owner; otherwise, or if its app window can't be made, it
-// opens here, in a full-screen layer over the door. Either way it's a web page from the dev server (WebApps.kt).
+// opens here, in a full-screen layer over the home screen. Either way it's a web page from the dev server (WebApps.kt).
 
 import android.app.Activity
 import android.graphics.Color
@@ -21,7 +21,7 @@ internal class AppHost(private val act: Activity, private val bridge: () -> Stri
     private fun dp(v: Int) = (v * act.resources.displayMetrics.density).toInt()
     private val o get() = dev.openhouse.ui.Openhouse
 
-    /** The layer apps open in over the door (with the error banner at the top). */
+    /** The layer apps open in over the home screen (with the error banner at the top). */
     val layer = FrameLayout(act).apply { setBackgroundColor(dev.openhouse.ui.Calm.PAPER); visibility = View.GONE; isClickable = true }
     private val banner = TextView(act).apply {
         setBackgroundColor(dev.openhouse.ui.Calm.INK); setTextColor(dev.openhouse.ui.Calm.SHEET); textSize = 16f; typeface = dev.openhouse.ui.Calm.face(act, 500)
@@ -32,7 +32,7 @@ internal class AppHost(private val act: Activity, private val bridge: () -> Stri
 
     init {
         layer.addView(banner, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
-        // No Home button over the app: the back gesture (swipe in from either edge) returns to the door. The system
+        // No Home button over the app: the back gesture (swipe in from either edge) returns to the home screen. The system
         // handles it where gesture navigation is on; these thin strips do the same where it isn't.
         addEdgeBack(layer) { close() }
     }
@@ -82,7 +82,7 @@ internal class AppHost(private val act: Activity, private val bridge: () -> Stri
         val extras = mapOf("bridge" to bridge(), "ui" to uiUrl(), "token" to BridgeToken.get(act))
         stubOpening = id
         thread(name = "stub-$id") {
-            // A brand-new app (the agent just wrote it) may not be in the door's list yet: read its app.json, so the
+            // A brand-new app (the agent just wrote it) may not be in the home screen's list yet: read its app.json, so the
             // stub gets its real name and icon now instead of being reinstalled (and closed) a minute later.
             val entry = if (info != null) null else runCatching {
                 val a = org.json.JSONArray(dev.openhouse.ui.BridgeClient.getText("${bridge()}/apps", 1000, 5000))

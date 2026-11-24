@@ -3,7 +3,7 @@
 // tools (chat.js textTools: live-tools.js's, plus the household, the home screen's tabs and look, undo) and the
 // assistant's own rules (CHAT.md and the family's preferences). There's no coding agent on the tablet: making or changing
 // an app is someone's own Claude or ChatGPT on a computer (the workshop, workshop.js).
-let deps = null; // { ai, decide?, tools(), callTool(name, args, doorToken), instructions() } (server.js, once the door and the cloud exist)
+let deps = null; // { ai, decide?, tools(), callTool(name, args, homeToken), instructions() } (server.js, once the home screen and the cloud exist)
 // Which way a request goes, decided first (OpenAI Decisions: fast, and about a hundredth of a cent): the household's
 // quick things and everyday questions here; making or changing an app is for a computer, said plainly at once.
 const ROUTE = [{ type: 'choice', name: 'route', instructions: "A family member said this to their kitchen tablet's assistant. What does it need?",
@@ -25,10 +25,10 @@ const textOf = (out) => out.filter((o) => o.type === 'message').flatMap((o) => o
 
 /**
  * One turn: prompt (with the household's context), history [{role, text}] (this conversation's earlier turns),
- * systemPrompt (the rules; the household's own by default), doorToken (the turn's run, so its tools act as part of it),
+ * systemPrompt (the rules; the household's own by default), homeToken (the turn's run, so its tools act as part of it),
  * route false for a background turn or the first conversation (no "is this for me?" question first).
  */
-export async function chat({ prompt, onEvent = () => {}, signal, doorToken = null, route = true, history = [], systemPrompt = null }) {
+export async function chat({ prompt, onEvent = () => {}, signal, homeToken = null, route = true, history = [], systemPrompt = null }) {
   if (!deps) return { ok: false, text: "I can't think right now: the cloud assistant isn't ready." };
   const before = (Array.isArray(history) ? history : []).filter((t) => t && t.text).map((t) => ({ role: t.role === 'assistant' ? 'assistant' : 'user', content: String(t.text) }));
   const input = [...before, { role: 'user', content: String(prompt || '') }], tools = deps.tools(), instructions = systemPrompt || deps.instructions();
@@ -51,7 +51,7 @@ export async function chat({ prompt, onEvent = () => {}, signal, doorToken = nul
     for (const c of calls) {
       onEvent({ kind: 'status', text: c.name.replace(/_/g, ' ') });
       let args = {}; try { args = JSON.parse(c.arguments || '{}'); } catch {}
-      const out = await deps.callTool(c.name, args, doorToken);
+      const out = await deps.callTool(c.name, args, homeToken);
       input.push(c, { type: 'function_call_output', call_id: c.call_id, output: out.text });
     }
   }

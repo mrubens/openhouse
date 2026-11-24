@@ -177,7 +177,7 @@ private fun PeopleStep(onSave: (() -> Unit) -> Unit) {
                 Field(p.name, { p.name = it; edited = true }, "Name", Modifier.weight(1f), focus = if (i == 0) first else null)
                 Field(p.note, { p.note = it; edited = true }, "Age 9, or Mom", Modifier.weight(1f))
                 Box(Modifier.size(44.u).clip(CircleShape).clickable { people.remove(p); edited = true; if (people.isEmpty()) people += SetupPerson("", "") }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Close, "Remove", tint = Door.inkSoft, modifier = Modifier.size(20.u))
+                    Icon(Icons.Default.Close, "Remove", tint = PaperLook.inkSoft, modifier = Modifier.size(20.u))
                 }
             }
         }

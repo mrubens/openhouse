@@ -289,7 +289,7 @@ internal object Turns {
                     Speech.afterSpeaking { Listening.arm(if (ended) 0 else HANDS_FREE_MS, "followup", anyone = Listening.askedQuestion(t)) }
                 }
                 o.ui { o.conversation = o.conversation?.copy(id = cid) }
-                // The notes it put on the door, from the saved conversation.
+                // The notes it put on the home screen, from the saved conversation.
                 cid?.let { id -> o.loadConversation(id) }
                 if (ok) Answers.buildLine(t)?.let { build(it, "Family: $q\n\nAssistant: $t", app) }
                 o.loadConversations(); o.loadVoiceStatus()

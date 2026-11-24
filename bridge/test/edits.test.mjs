@@ -1,4 +1,4 @@
-// The edit lock, undo and the door's per-run context, against a real bridge with the fake agent.
+// The edit lock, undo and the home screen's per-run context, against a real bridge with the fake agent.
 //   node --test bridge/test/*.test.mjs   (or: cd bridge && npm test)
 // Each server runs from a copy of bridge/ in a temp folder, with its own webapp git repo, so nothing
 // here touches the checkout.
@@ -176,13 +176,13 @@ test('a cancelled build puts back only its own work and never resets history', a
   assert.equal(r.done.ok, true); assert.match(b.commits().at(-1).msg, /^Kid: after the build/);
 });
 
-async function doorIsolation(br) {
+async function homeIsolation(br) {
   const mom = br.chat('recipe [wait:300] [note:Mom note] [progress:Mom working] [wait:400]', 'Mom');
   await wait(100);
   const kid = br.chat('bye [note:Kid note] [end] [wait:500]', 'Kid');
   const [m, k] = await Promise.all([mom, kid]);
-  const door = await br.get('/door');
-  const note = (t) => door.notes.find((n) => n.title === t);
+  const homeScreen = await br.get('/home');
+  const note = (t) => homeScreen.notes.find((n) => n.title === t);
   assert.equal(note('Mom note').askedBy, 'Mom'); assert.equal(note('Mom note').conversation, m.id);
   assert.equal(note('Kid note').askedBy, 'Kid'); assert.equal(note('Kid note').conversation, k.id);
   assert.ok(m.events.some((e) => e.type === 'progress' && e.text === 'Mom working'));
@@ -193,9 +193,9 @@ async function doorIsolation(br) {
   assert.deepEqual(k.events.find((e) => e.type === 'notes').notes.map((n) => n.title), ['Kid note']);
 }
 
-test('door tools: each overlapping turn gets its own context (per-turn tokens)', () => doorIsolation(b));
+test('home-screen tools: each overlapping turn gets its own context (per-turn tokens)', () => homeIsolation(b));
 
-test('unknown door tokens are refused', async () => {
-  const r = await fetch(b.url + '/door/mcp', { method: 'POST', headers: { authorization: 'Bearer nope' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
+test('unknown home-screen tokens are refused', async () => {
+  const r = await fetch(b.url + '/home/mcp', { method: 'POST', headers: { authorization: 'Bearer nope' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list' }) });
   assert.equal(r.status, 401);
 });

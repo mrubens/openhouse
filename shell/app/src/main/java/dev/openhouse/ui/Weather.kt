@@ -1,6 +1,6 @@
 package dev.openhouse.ui
 
-// The weather: its card on the door (tap it for the full view), the full view, and the drawn sky.
+// The weather: its card on the home screen (tap it for the full view), the full view, and the drawn sky.
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize

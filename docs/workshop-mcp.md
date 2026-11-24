@@ -35,7 +35,7 @@ Claude Code / Claude Desktop (the Mac)
         │  home network, plain http, every request and reply sealed (ChaCha20-Poly1305, the computer's own key)
         ▼
 Tablet: bridge, home-network listener (screens.js, :8788)  ── scope "workshop" ──▶  POST /workshop/mcp
-        └─ workshop.js: the MCP server. Its tools are the tablet assistant's own (door.js, chat.js, house.js),
+        └─ workshop.js: the MCP server. Its tools are the tablet assistant's own (home-screen.js, chat.js, house.js),
            plus files under apps/, a screenshot, and "done". Edits go through the same lock and undo (edits.js).
 ```
 
@@ -65,7 +65,7 @@ The desktop model gets the tablet assistant's tools, from the same code, so both
 
 | From | Tools |
 | --- | --- |
-| The home screen and board (door.js) | `look_at_notes`, `set_home` (tabs and look), `put_note`, `update_note`, `take_down_note`, `move_on_door`, `set_widget`, `put_back` |
+| The home screen and board (home-screen.js) | `look_at_notes`, `set_home` (tabs and look), `put_note`, `update_note`, `take_down_note`, `move_on_home`, `set_widget`, `put_back` |
 | Changes (chat.js) | `start_editing`, `check_build`, `list_changes`, `undo_change` |
 | The household (house.js, chat.js) | `about_household`, lists, chores, meals, calendar events, rewards, routines, preferences |
 | New for a computer | `get_guide`, `list_files`, `read_file`, `write_file`, `delete_file`, `done_editing`, `look_at_tablet`, `show_on_tablet`, `undo_latest`, `export_plugin` (a plugin folder of some of the family's apps, docs/plugins.md) |
@@ -89,7 +89,7 @@ The new ones exist only because the desktop has no turn and no file system on th
 The MCP `initialize` reply carries short instructions: what OpenHouse is, that a family is watching, and to call
 `get_guide` before changing anything. `get_guide` comes in two parts, so moving a tab doesn't mean reading the whole
 rulebook: by default the computer's own guide (`bridge/WORKSHOP.md`: how to work, its rules), the home screen as it is
-now, how to change it and how notes on Today read (`bridge/DOOR.md`); with `topic: "apps"`, how apps are made and the
+now, how to change it and how notes on Today read (`bridge/NOTES.md`); with `topic: "apps"`, how apps are made and the
 quiet kit (`bridge/kit/quiet.css`). Both come from the tablet assistant's own rules (`bridge/AGENT.md`), by section,
 leaving out what only applies on the tablet (its reply rules, its other apps and devices, the code layout it sees) and
 the Edit tool a computer doesn't have; `start_editing` reminds a computer that hasn't read the apps part yet. The

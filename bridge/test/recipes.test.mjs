@@ -10,5 +10,5 @@ test('who may add a recipe by its link, and who may ask another app or be used h
   assert.ok(appAllowed('POST', '/house/recipe-link', new Set(['meals'])));
   assert.ok(appAllowed('POST', '/apps/ask', null), "the household's own apps and ours");
   assert.ok(!appAllowed('POST', '/apps/ask', new Set(['meals', 'say'])), 'not a shared one');
-  assert.ok(appAllowed('POST', '/door/handsfree', new Set(['say'])) && !appAllowed('POST', '/door/handsfree', new Set(['meals'])));
+  assert.ok(appAllowed('POST', '/home/handsfree', new Set(['say'])) && !appAllowed('POST', '/home/handsfree', new Set(['meals'])));
 });

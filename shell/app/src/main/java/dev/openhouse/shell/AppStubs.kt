@@ -174,7 +174,7 @@ object AppStubs {
         return f
     }
 
-    /** The launcher icon, like its post-it on the door: the icon the agent drew, or its first letter, on its color, as the
+    /** The launcher icon, like its post-it on the home screen: the icon the agent drew, or its first letter, on its color, as the
      *  adaptive icon's full-bleed foreground. */
     private fun icon(s: Spec): ByteArray {
         val n = 432 // 108 dp at xxxhdpi; launchers mask it to the middle 72 dp

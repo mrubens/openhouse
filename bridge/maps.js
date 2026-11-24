@@ -6,7 +6,7 @@
 //   GET  /map               { on, home, places, shown, today: [{title, start, who, place, lat, lon, minutes, miles, leaveBy}], looking }
 //   GET  /map/route?lat=&lon=   the drive from home: { minutes, miles, line: [[lon, lat]...] } or { error }
 //   POST /map/on {on}       POST /map/place {name, address, home?}   POST /map/place/remove {name}   POST /map/clear
-//   tools: show_on_map, save_place, forget_place (door tools; the live voice and typed turns have them)
+//   tools: show_on_map, save_place, forget_place (home-screen tools; the live voice and typed turns have them)
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -17,7 +17,7 @@ const str = (v, n = 120) => String(v ?? '').trim().slice(0, n);
 const key = (s) => str(s, 200).toLowerCase().replace(/\s+/g, ' ');
 const round = (n, d = 5) => Math.round(n * 10 ** d) / 10 ** d;
 
-export function mapRoutes({ DIR, json, body, board, house = null, door = null, hasApp = () => true, fetchImpl = (...a) => fetch(...a), now = () => Date.now(), gap = 1100 }) {
+export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = null, hasApp = () => true, fetchImpl = (...a) => fetch(...a), now = () => Date.now(), gap = 1100 }) {
   const HOUSE = path.join(DIR, '../household.json'), CACHE = path.join(DIR, 'maps.json');
   const read = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
   const cache = { geo: {}, routes: {}, shown: null, ...read(CACHE, {}) };
@@ -165,7 +165,7 @@ export function mapRoutes({ DIR, json, body, board, house = null, door = null, h
     cache.shown = { name: str(label || saved?.name || words, 80), address: saved?.address || at.label || words, lat: at.lat, lon: at.lon,
       ...(note ? { note: str(note, 200) } : {}), ...(d ? { minutes: d.minutes, miles: d.miles, line: d.line } : {}), at: now() };
     keep();
-    door?.showApp?.('map');
+    homeScreen?.showApp?.('map');
     return cache.shown;
   }
 

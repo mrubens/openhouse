@@ -155,7 +155,7 @@ function Answer({ text, failed, question, convo }) {
       {build && <div className="building-app">Building: {build}</div>}
       {hasUI && !build && (
         <div className="keep">
-          <button className="ghost" disabled={pinned} onClick={() => { pin(question || 'Pinned', text, convo); setPinned(true); }}>{pinned ? 'On the door' : 'Stick it on the door'}</button>
+          <button className="ghost" disabled={pinned} onClick={() => { pin(question || 'Pinned', text, convo); setPinned(true); }}>{pinned ? 'On the home screen' : 'Stick it on the home screen'}</button>
           <button className="ghost" onClick={() => makeApp('Turn this answer into an app on the display, keeping its content and layout. Add a tile for it on the home screen.', lastContext())}>Make it an app</button>
         </div>
       )}

@@ -20,7 +20,7 @@ interface Host {
     val bridge: String
     fun startTimer(label: String, seconds: Int)
     fun cancelTimer(id: Int)
-    /** A timer taken off the door a moment ago, put back: the same label, ending when it would have. */
+    /** A timer taken off the home screen a moment ago, put back: the same label, ending when it would have. */
     fun restoreTimer(label: String, total: Int, endAt: Long) = startTimer(label, ((endAt - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(1))
     fun timers(): List<TimerInfo>
     /** The house's timers as the bridge has them (some started on other screens): the shell matches its own to them. */
@@ -28,7 +28,7 @@ interface Host {
     fun openApp(id: String)
     /** Back to the home screen from a family app open full screen (a paired computer's show_on_tablet). */
     fun closeApp() {}
-    /** The family's app on screen (not the door), or null. */
+    /** The family's app on screen (not the home screen), or null. */
     val openAppId: String?
     fun playVideo(url: String, title: String)
     fun makeApp(request: String, context: String)
@@ -62,7 +62,7 @@ interface Host {
 enum class Net { Online, NoInternet, NoNetwork }
 
 /**
- * The home board's connection to everything: the family's data, the door, asking (Conversations.kt: streamed
+ * The home board's connection to everything: the family's data, the home screen, asking (Conversations.kt: streamed
  * answers with generated UI, read aloud when asked by voice, Speech.kt), voice (Listening.kt: who's talking, tap
  * to talk), timers and apps. Fixed in the shell: the board the family's agent edits only draws what's here.
  */
@@ -72,8 +72,8 @@ object Openhouse : AnswerActions {
     var apps by mutableStateOf(listOf<AppInfo>()); private set
     var timers by mutableStateOf(listOf<TimerInfo>()); private set
     var answer by mutableStateOf<Answer?>(null); internal set
-    /** The fridge door: the notes the assistant (and the family) put up, and where everything else sits. */
-    var door by mutableStateOf<DoorData?>(null); private set
+    /** The home screen: the notes the assistant (and the family) put up, and where everything else sits. */
+    var homeScreen by mutableStateOf<HomeData?>(null); private set
     /** The note opened up close, full screen. */
     var fullNote by mutableStateOf<String?>(null)
     var speaker by mutableStateOf<Speaker?>(null); internal set
@@ -97,13 +97,13 @@ object Openhouse : AnswerActions {
     var typing by mutableStateOf<String?>(null); internal set
     /** Text typed before the typing box opened (a keyboard's first keys). */
     var draft by mutableStateOf(""); internal set
-    /** The settings sheet (the door's gear): the voice, family, devices, the door. */
+    /** The settings sheet (the home screen's gear): the voice, family, devices, the home screen. */
     var showSettings by mutableStateOf(false)
     /** The family setup sheet (who lives here, where, calendars, chores). */
     var showFamily by mutableStateOf(false)
-    /** A text field on the home screen's page (or an app in a tab) has the keyboard (DoorView's editing()). */
+    /** A text field on the home screen's page (or an app in a tab) has the keyboard (HomeView's editing()). */
     @Volatile var webEditing = false
-    /** What's been taken off the door (Settings → Off the door): put any of it back. */
+    /** What's been taken off the home screen (Settings → Off the home screen): put any of it back. */
     /** The assistant. It wakes to "Opie" or "Hey Opie", the same in every home (docs/wake-word.md). */
     val assistantName: String get() = "Opie"
     /** How to wake it, for hints. */
@@ -192,9 +192,9 @@ object Openhouse : AnswerActions {
     private val main = Handler(Looper.getMainLooper())
     internal val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var lastTouch = System.currentTimeMillis()
-    /** An app is in use hands-free until then (the door's handsFree: the Recipes app while cooking): no resting screen. */
+    /** An app is in use hands-free until then (the home screen's handsFree: the Recipes app while cooking): no resting screen. */
     @Volatile private var appInUseUntil = 0L
-    /** The latest "show this" from the bridge (door.js showTab/showApp) already seen. */
+    /** The latest "show this" from the bridge (home-screen.js showTab/showApp) already seen. */
     @Volatile private var shownAt = 0L
     private var started = false
     internal fun ui(f: () -> Unit) = main.post(f)
@@ -216,14 +216,14 @@ object Openhouse : AnswerActions {
         dev.openhouse.shell.AppStore.onChanged = { appsChanged() }
         if (started) return; started = true
         Speech.init(h.context)
-        Door.loadFonts(h.context.assets)
+        PaperLook.loadFonts(h.context.assets)
         scope.launch { while (true) { loadBoard(); delay(15_000) } }
         scope.launch { while (true) { loadWeather(); delay(if (weather == null) 15_000 else 5 * 60_000) } } // quickly until the bridge is up
         scope.launch { while (true) { loadApps(); delay(if (apps.isEmpty()) 4_000 else 60_000) } } // the bridge may still be starting
         scope.launch { while (true) { loadVoiceStatus(); delay(20_000) } }
         scope.launch { Listening.events() }
         scope.launch { Turns.buildEvents() }
-        scope.launch { doorEvents() }
+        scope.launch { homeEvents() }
         House.start() // the family's things: reminders show over everything, whatever app is open
         scope.launch { delay(4000); checkHousehold() }
         main.post(object : Runnable {
@@ -279,7 +279,7 @@ object Openhouse : AnswerActions {
     /** A phone card over the home (an app in a tab asked): kind ("photos", "flyer", "list") and its arg, or null. */
     var phoneCard by mutableStateOf<Pair<String, String>?>(null)
 
-    /** The home screen is dark (night hours, or "Sleep now"): the page says so with the backlight (DoorView.dim). */
+    /** The home screen is dark (night hours, or "Sleep now"): the page says so with the backlight (HomeView.dim). */
     var dark by mutableStateOf(false); internal set
 
     /** "Sleep now": dark at once, as at night, until someone touches it or morning (the night's end, else 6:30). */
@@ -307,7 +307,7 @@ object Openhouse : AnswerActions {
     private fun JSONObject.s(k: String) = optString(k).takeIf { has(k) && !isNull(k) && it.isNotEmpty() }
     private fun <T> JSONArray?.map(f: (JSONObject) -> T?): List<T> = this?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it)?.let(f) } } ?: emptyList()
 
-    /** The weather where the family lives (the bridge asks Open-Meteo), for the door's weather card. */
+    /** The weather where the family lives (the bridge asks Open-Meteo), for the home screen's weather card. */
     var weather by mutableStateOf<Weather?>(null); private set
     /** The weather, full screen (tap the weather card). */
     var showWeather by mutableStateOf(false)
@@ -338,13 +338,13 @@ object Openhouse : AnswerActions {
         // Plus Android apps added through Aurora Store (newest first; the sticker shows its icon).
         val added = dev.openhouse.shell.AppStore.homeApps().take(3).map { (pkg, label) -> AppInfo("android:$pkg", label, "") }
         val web = a.map { it.optBoolean("web", true) }
-        val list = all.filterIndexed { i, _ -> web[i] } // an app from before apps were web pages: not on the door, but its window stays (AppStubs)
+        val list = all.filterIndexed { i, _ -> web[i] } // an app from before apps were web pages: not on the home screen, but its window stays (AppStubs)
         ui { apps = added + list.filter { it.id != "home" } }
         // Each app is also an installed Android app (its own icon, task and back gesture): see AppStubs.
         dev.openhouse.shell.AppStubs.sync(all.map { dev.openhouse.shell.AppStubs.Spec(it.id, it.name, stickerColor(it.id), it.icon) })
     }
     /** An app's sticker color (also its launcher icon's). */
-    fun stickerColor(id: String): Int = Door.magnets[(id.hashCode() and 0xff) % Door.magnets.size].toArgb()
+    fun stickerColor(id: String): Int = PaperLook.magnets[(id.hashCode() and 0xff) % PaperLook.magnets.size].toArgb()
     fun appsChanged() { scope.launch { loadApps() } }
     internal fun loadVoiceStatus(): VoiceStatus? {
         val j = runCatching { JSONObject(get("/voice/status")) }.getOrNull() ?: return null
@@ -356,38 +356,38 @@ object Openhouse : AnswerActions {
     }
 
     // ---- the board's actions ----
-    /** Ask the assistant to look at the day again now (its notes on the door, the headline). */
+    /** Ask the assistant to look at the day again now (its notes on the home screen, the headline). */
     fun refresh() { board = board?.copy(curating = true); postAsync("/board/refresh") }
     fun dismissAnswer() { answer = null; stopSpeaking() }
 
-    // ---- the door ----
-    fun openNote(id: String) { touch(); fullNote = id; postAsync("/door/touch", JSONObject().put("id", id)) }
+    // ---- the home screen ----
+    fun openNote(id: String) { touch(); fullNote = id; postAsync("/home/touch", JSONObject().put("id", id)) }
     fun closeNote() { fullNote = null }
     /** Take a note down (it goes in the trash, so it can be put back). */
     fun takeDown(id: String) { trash(id) }
-    fun keepNote(id: String, keep: Boolean = true) { door = door?.let { d -> d.copy(notes = d.notes.map { if (it.id == id) it.copy(keep = keep, until = if (keep) null else it.until) else it }) }; postAsync("/door/keep", JSONObject().put("id", id).put("keep", keep)) }
-    fun note(id: String?) = door?.notes?.firstOrNull { it.id == id }
-    /** The last thing taken off the door, and when (Settings, Off the door, puts it back). */
+    fun keepNote(id: String, keep: Boolean = true) { homeScreen = homeScreen?.let { d -> d.copy(notes = d.notes.map { if (it.id == id) it.copy(keep = keep, until = if (keep) null else it.until) else it }) }; postAsync("/home/keep", JSONObject().put("id", id).put("keep", keep)) }
+    fun note(id: String?) = homeScreen?.notes?.firstOrNull { it.id == id }
+    /** The last thing taken off the home screen, and when (Settings, Off the home screen, puts it back). */
     var trashed by mutableStateOf<Pair<String, Long>?>(null); private set
     private val trashedTimers = mutableMapOf<String, TimerInfo>()
 
     /**
-     * Take something off the door, the same for everything: a note (kept a while in the trash), a timer (stopped),
-     * or anything else (the clock, the weather, an app: hidden). Settings (Off the door) or the assistant (put_back)
-     * puts it back. (On the door itself, the page does this: dropping on its trash.)
+     * Take something off the home screen, the same for everything: a note (kept a while in the trash), a timer (stopped),
+     * or anything else (the clock, the weather, an app: hidden). Settings (Off the home screen) or the assistant (put_back)
+     * puts it back. (On the home screen itself, the page does this: dropping on its trash.)
      */
     fun trash(key: String) {
         touch()
         when {
             key.startsWith("timer:") -> timers.firstOrNull { "timer:${it.endAt}" == key }?.let { t -> trashedTimers[key] = t; host.cancelTimer(t.id) }
             note(key) != null -> {
-                door = door?.let { d -> val n = d.notes.first { it.id == key }; d.copy(notes = d.notes - n, trash = listOf(TrashedNote(n.id, n.title)) + d.trash.filter { it.id != key }) }
+                homeScreen = homeScreen?.let { d -> val n = d.notes.first { it.id == key }; d.copy(notes = d.notes - n, trash = listOf(TrashedNote(n.id, n.title)) + d.trash.filter { it.id != key }) }
                 if (fullNote == key) fullNote = null
-                postAsync("/door/remove", JSONObject().put("id", key))
+                postAsync("/home/remove", JSONObject().put("id", key))
             }
             else -> {
-                door = door?.let { d -> d.copy(places = d.places + (key to (d.places[key] ?: Place()).copy(hidden = true))) }
-                postAsync("/door/place", JSONObject().put("key", key).put("hidden", true))
+                homeScreen = homeScreen?.let { d -> d.copy(places = d.places + (key to (d.places[key] ?: Place()).copy(hidden = true))) }
+                postAsync("/home/place", JSONObject().put("key", key).put("hidden", true))
             }
         }
         trashed = key to System.currentTimeMillis()
@@ -397,20 +397,20 @@ object Openhouse : AnswerActions {
         touch()
         if (trashed?.first == key) trashed = null
         if (key.startsWith("timer:")) { trashedTimers.remove(key)?.takeIf { it.endAt > System.currentTimeMillis() }?.let { t -> host.restoreTimer(t.label, t.total, t.endAt) }; return }
-        door = door?.let { d -> d.places[key]?.let { p -> d.copy(places = d.places + (key to p.copy(hidden = false))) } ?: d } // a note comes back with the door's next update
-        postAsync("/door/putback", JSONObject().put("key", key))
+        homeScreen = homeScreen?.let { d -> d.places[key]?.let { p -> d.copy(places = d.places + (key to p.copy(hidden = false))) } ?: d } // a note comes back with the home screen's next update
+        postAsync("/home/putback", JSONObject().put("key", key))
     }
-    /** Delete an app or game the family made ("undo" brings it back). From Settings → Off the door, after asking. */
+    /** Delete an app or game the family made ("undo" brings it back). From Settings → Off the home screen, after asking. */
     var confirmDelete by mutableStateOf<AppInfo?>(null)
     fun deleteApp(a: AppInfo) {
         confirmDelete = null
         apps = apps.filter { it.id != a.id }
         scope.launch { post("/apps/delete", JSONObject().put("id", a.id).put("who", me?.name)); loadApps() }
     }
-    private fun parseDoor(j: JSONObject) = DoorData(
+    private fun parseHomeScreen(j: JSONObject) = HomeData(
         j.optJSONObject("grid")?.optInt("cols") ?: 8, j.optJSONObject("grid")?.optInt("rows") ?: 5,
-        j.optJSONArray("reserved").map { DoorCell(it.optInt("x"), it.optInt("y"), it.optInt("w", 1), it.optInt("h", 1), it.optString("what")) },
-        j.optJSONArray("notes").map { n -> DoorNote(n.optString("id"), n.optString("title"), n.optString("content"), n.optString("size", "wide"), n.s("paper"), n.s("color"), n.s("for"),
+        j.optJSONArray("reserved").map { HomeCell(it.optInt("x"), it.optInt("y"), it.optInt("w", 1), it.optInt("h", 1), it.optString("what")) },
+        j.optJSONArray("notes").map { n -> HomeNote(n.optString("id"), n.optString("title"), n.optString("content"), n.optString("size", "wide"), n.s("paper"), n.s("color"), n.s("for"),
             n.optBoolean("keep"), n.optLong("until").takeIf { it > 0 }, n.optString("by"), n.s("conversation"), n.optLong("at"), n.int("page"), n.int("col"), n.int("row"), n.optBoolean("refitting")) },
         j.optInt("v"),
         j.optJSONObject("places")?.let { o -> o.keys().asSequence().associateWith { k -> o.optJSONObject(k).let { Place(it.optInt("page"), it.int("col"), it.int("row"), it.int("w"), it.int("h"), it.optBoolean("hidden")) } } } ?: emptyMap(),
@@ -419,18 +419,18 @@ object Openhouse : AnswerActions {
         j.optJSONObject("widgets")?.optJSONObject("content")?.let { o -> o.keys().asSequence().associateWith { k -> o.optJSONObject(k).let { w ->
             AppWidget(w.s("content"), w.optJSONObject("shapes")?.let { sh -> sh.keys().asSequence().associateWith { sh.optString(it) } } ?: emptyMap()) } } } ?: emptyMap())
     private fun JSONObject.int(k: String) = if (has(k) && !isNull(k)) optInt(k) else null
-    /** Waits for the door to change (the bridge answers when it does), so notes appear the moment they go up. */
-    private suspend fun doorEvents() {
+    /** Waits for the home screen to change (the bridge answers when it does), so notes appear the moment they go up. */
+    private suspend fun homeEvents() {
         var v = -1
         while (true) {
-            val j = runCatching { JSONObject(BridgeClient.getText(bridge + "/door/wait?v=$v", readMs = 40_000)) }.getOrNull()
+            val j = runCatching { JSONObject(BridgeClient.getText(bridge + "/home/wait?v=$v", readMs = 40_000)) }.getOrNull()
             if (j == null) { delay(3000); continue }
-            val d = parseDoor(j); v = d.v
+            val d = parseHomeScreen(j); v = d.v
             appInUseUntil = j.optJSONObject("handsFree")?.optLong("until", 0L) ?: 0L
             // Opie opened a tab or an app ("find a bolognese" shows Recipes): a resting screen wakes, so it's seen.
             j.optJSONObject("show")?.optLong("at", 0L)?.let { at -> if (at > shownAt) { val fresh = shownAt > 0L && System.currentTimeMillis() - at < 30_000; shownAt = at; if (fresh) ui { touch() } } }
             j.optJSONArray("timers")?.let { a -> runCatching { host.syncTimers((0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { TimerInfo(0, it.optString("label"), it.optInt("total"), it.optLong("endAt"), false) }) } }
-            ui { door = d; if (fullNote != null && d.notes.none { it.id == fullNote }) fullNote = null }
+            ui { homeScreen = d; if (fullNote != null && d.notes.none { it.id == fullNote }) fullNote = null }
         }
     }
 
@@ -438,7 +438,7 @@ object Openhouse : AnswerActions {
     fun openApp(id: String) = host.openApp(id)
     /** The app on screen (not the board), or null. */
     internal val openAppId: String? get() = host.openAppId
-    /** An app or game is open over the door (set by the shell; observable, so the overlay redraws: the assistant tucks away). */
+    /** An app or game is open over the home screen (set by the shell; observable, so the overlay redraws: the assistant tucks away). */
     var appOpen by mutableStateOf(false)
     /** Change the app that's open ("make the stars bigger"): the agent edits that app. */
     fun changeApp(text: String, appId: String, context: String? = null) = Turns.changeApp(text, appId, context)
@@ -468,7 +468,7 @@ object Openhouse : AnswerActions {
     }
     /** Ask in the open conversation (typed or spoken there). */
     fun sayInConversation(text: String, voice: Boolean = false) = Turns.sayInConversation(text, voice)
-    /** "Stick it on the door": an answer from the conversation goes on the door as a kept note. */
+    /** "Stick it on the home screen": an answer from the conversation goes on the home screen as a kept note. */
     fun pinFromConversation(question: String, answer: String) {
         val id = conversation?.id
         scope.launch { post("/board/pin", JSONObject().put("title", question).put("text", answer).put("conversation", id).put("who", me?.name)) }

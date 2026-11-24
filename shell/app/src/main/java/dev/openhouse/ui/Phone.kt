@@ -50,14 +50,14 @@ fun PhoneQr(title: String, help: String, page: String, info: JSONObject, maxByte
     val url = if (handoff.url != null) link ?: handoff.url else null
     val code = remember(started, url) { url?.let { runCatching { Handoff.qr(it, 520).asImageBitmap() }.getOrNull() } }
     Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(MutableInteractionSource(), null) { onClose() }, contentAlignment = Alignment.Center) {
-        Column(Modifier.width(820.u).clip(RoundedCornerShape(30.u)).background(Door.paper).clickable(MutableInteractionSource(), null) {}.padding(36.u),
+        Column(Modifier.width(820.u).clip(RoundedCornerShape(30.u)).background(PaperLook.paper).clickable(MutableInteractionSource(), null) {}.padding(36.u),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.u)) {
             Text(title, style = roundText(40, FontWeight.ExtraBold), modifier = Modifier.fillMaxWidth())
             if (code != null) {
                 Image(code, "QR code", Modifier.size(440.u).clip(RoundedCornerShape(16.u)))
-                Text(help, style = roundText(24, FontWeight.SemiBold, Door.inkSoft), modifier = Modifier.fillMaxWidth())
-                if (sent > 0) Text(sentLabel(sent), style = roundText(28, FontWeight.ExtraBold, Door.magnets[2]), modifier = Modifier.fillMaxWidth())
-            } else Text("The display isn't on Wi-Fi right now, so a phone can't reach it.", style = roundText(26, FontWeight.SemiBold, Door.inkSoft), modifier = Modifier.fillMaxWidth())
+                Text(help, style = roundText(24, FontWeight.SemiBold, PaperLook.inkSoft), modifier = Modifier.fillMaxWidth())
+                if (sent > 0) Text(sentLabel(sent), style = roundText(28, FontWeight.ExtraBold, PaperLook.magnets[2]), modifier = Modifier.fillMaxWidth())
+            } else Text("The display isn't on Wi-Fi right now, so a phone can't reach it.", style = roundText(26, FontWeight.SemiBold, PaperLook.inkSoft), modifier = Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.u, Alignment.End)) {
                 // the same link through Android's share sheet (a message to someone on the Wi-Fi, a nearby phone)
                 if (code != null) BigButton("Share", primary = false) { url?.let { House.share(it) } }

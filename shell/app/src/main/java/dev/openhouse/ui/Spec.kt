@@ -15,7 +15,7 @@ sealed class Segment {
 
 class Element(val id: String, val type: String, val props: JSONObject, val children: List<String>, val on: JSONObject?, val show: String? = null)
 
-/** How the assistant asked for its answer to sit on the door (a root `Note` element), if it did. */
+/** How the assistant asked for its answer to sit on the home screen (a root `Note` element), if it did. */
 data class NoteStyle(val size: String?, val paper: String?, val color: String?)
 class Spec(val root: String, val elements: Map<String, Element>)
 
@@ -44,13 +44,13 @@ object Answers {
         val ui = text?.let { segments(it) }?.filterIsInstance<Segment.Ui>()?.singleOrNull() ?: return null
         val spec = compile(ui.src, ui.done) ?: return null
         var e = spec.elements[spec.root] ?: return null
-        // What shows on the door (elements marked "show": "full" are only up close).
-        fun onDoor(x: Element) = x.children.mapNotNull { spec.elements[it] }.filter { it.show != "full" }
-        while (e.type in setOf("Stack", "Note", "Card") && onDoor(e).size == 1) e = onDoor(e)[0]
+        // What shows on the home screen (elements marked "show": "full" are only up close).
+        fun onHome(x: Element) = x.children.mapNotNull { spec.elements[it] }.filter { it.show != "full" }
+        while (e.type in setOf("Stack", "Note", "Card") && onHome(e).size == 1) e = onHome(e)[0]
         return if (e.type == "Image") e.props.optString("url").ifEmpty { null } else null
     }
 
-    /** The answer's `Note` (its size, paper and color on the door), from the first UI block. */
+    /** The answer's `Note` (its size, paper and color on the home screen), from the first UI block. */
     fun note(text: String?): NoteStyle? {
         val ui = text?.let { segments(it) }?.filterIsInstance<Segment.Ui>()?.firstOrNull() ?: return null
         val spec = compile(ui.src, ui.done) ?: return null

@@ -2,7 +2,7 @@
 :root { --u: calc(100vw / 1536); --red: #d9543f; }
 * { box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; }
-body { background: var(--door); user-select: none; -webkit-user-select: none; touch-action: manipulation; -webkit-touch-callout: none; }
+body { background: var(--surface); user-select: none; -webkit-user-select: none; touch-action: manipulation; -webkit-touch-callout: none; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; cursor: pointer; }
 #app { position: fixed; inset: 0; display: flex; flex-direction: column; padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u)); }
 .top { display: flex; align-items: center; gap: calc(16 * var(--u)); margin-bottom: calc(22 * var(--u)); flex: none; }

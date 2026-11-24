@@ -179,7 +179,7 @@ object Runtime {
 
     /**
      * Settings: put the fixed software back as the APK has it (the bridge, start script and
-     * starting board), keeping the family's things: household, chats, door, voices, devices and apps. Then start
+     * starting board), keeping the family's things: household, chats, the home screen, voices, devices and apps. Then start
      * again.
      */
     fun reset() = thread(name = "runtime-reset") {

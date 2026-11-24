@@ -37,12 +37,12 @@ function tablet({ seeded = ['calendar', 'chores'], defs } = {}) {
 function setup({ app, defs, seededFile = null, approve = async () => true }) {
   const edits = editLock({ APP_DIR: app, UNDO_FILE: path.join(app, '../undo-' + path.basename(app) + '.json'), log: () => {} });
   let style = JSON.parse(read(path.join(app, 'apps/home/style.json')));
-  const door = { style: () => style, setLook: (b) => { style = { ...style, ...b }; write(path.join(app, 'apps/home/style.json'), JSON.stringify(style)); return { style }; }, showTab: () => {} };
+  const homeScreen = { style: () => style, setLook: (b) => { style = { ...style, ...b }; write(path.join(app, 'apps/home/style.json'), JSON.stringify(style)); return { style }; }, showTab: () => {} };
   const DATA = tmp('appdata');
-  const pl = pluginsRoutes({ APP_DIR: app, edits, door, json: () => {}, body: async () => ({}), local: true, approve, DATA, DEFAULTS: defs, SEEDED: seededFile, log: () => {} });
+  const pl = pluginsRoutes({ APP_DIR: app, edits, homeScreen, json: () => {}, body: async () => ({}), local: true, approve, DATA, DEFAULTS: defs, SEEDED: seededFile, log: () => {} });
   /** One household change, as a conversation turn makes it. */
   const change = (text, fn) => { const t = edits.begin({ who: 'Maya', text }); edits.claim(t); fn(); return edits.end(t, true); };
-  return { edits, pl, door, DATA, change };
+  return { edits, pl, homeScreen, DATA, change };
 }
 const kinds = (pl) => Object.fromEntries(Object.entries(pl.readAll()).map(([n, e]) => [n, e.kind + (e.overriddenBy ? ' over by ' + e.overriddenBy : '') + (e.removed ? ' removed' : '') + (e.overrides ? ' over ' + e.overrides : '')]));
 

@@ -61,7 +61,7 @@ function Join({ onJoined, removed }) {
 
 // ---- data: live when it can be, the last copy when it can't, and changes that wait ----------------------
 function useHouse(c, onRemoved) {
-  const [house, setHouse] = useState(() => get(CACHE)?.house || null), [door, setDoor] = useState(null), [messages, setMessages] = useState([]);
+  const [house, setHouse] = useState(() => get(CACHE)?.house || null), [homeScreen, setHomeScreen] = useState(null), [messages, setMessages] = useState([]);
   const [up, setUp] = useState(null), [at, setAt] = useState(() => get(CACHE)?.at || null), [waiting, setWaiting] = useState(() => get(QUEUE, []).length);
   const flushing = useRef(false);
   async function flush() {
@@ -89,7 +89,7 @@ function useHouse(c, onRemoved) {
         } catch (e) { if (e instanceof Removed) { stop = true; return onRemoved(); } setUp(false); v = -1; if (!stop) await new Promise((r) => setTimeout(r, 4000)); }
       }
     })();
-    (async () => { while (!stop) { try { const r = await c.json('GET', '/door'); if (r.status === 200) setDoor(r.json); } catch {} await new Promise((r) => setTimeout(r, 60e3)); } })();
+    (async () => { while (!stop) { try { const r = await c.json('GET', '/home'); if (r.status === 200) setHomeScreen(r.json); } catch {} await new Promise((r) => setTimeout(r, 60e3)); } })();
     // What Opie was asked to tell this phone's person lately ("tell Alex dinner's ready"): screens.js /phone/messages.
     (async () => { while (!stop) { try { const r = await c.json('GET', '/phone/messages'); if (r.status === 200) setMessages(r.json.messages || []); } catch {} await new Promise((r) => setTimeout(r, 60e3)); } })();
     const back = () => { if (!document.hidden) flush(); };
@@ -103,7 +103,7 @@ function useHouse(c, onRemoved) {
   }
   /** A change an app made with no signal: it goes, marked with that app, when the phone is back in touch. */
   const later = ({ p, b, a }) => { const q = [...get(QUEUE, []), { p, b, a }]; put(QUEUE, q); setWaiting(q.length); setUp(false); };
-  return { house, door, messages, up, at, waiting, change, later };
+  return { house, homeScreen, messages, up, at, waiting, change, later };
 }
 
 // ---- the tabs --------------------------------------------------------------------------------------------
@@ -121,7 +121,7 @@ const talkScopes = (me) => (canAsk(me) && !me.scopes.includes('voice') ? [...me.
 /** Today: the tablet's own Today (home.jsx), phone-sized, then what's only for this phone's person: what Opie was asked to
  *  tell them, and turning on notes. */
 function Today({ me, h, c, onOpen, tabs, apps, go, style }) {
-  const { house, door } = h;
+  const { house, homeScreen } = h;
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 30e3); return () => clearInterval(t); }, []);
   const [weather, setWeather] = useState(() => get('openhouse.phone.weather'));
@@ -132,7 +132,7 @@ function Today({ me, h, c, onOpen, tabs, apps, go, style }) {
     <>
       <header className="phead"><div><div className="lab">{new Date(now).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div><h1>Today</h1></div><span className="soft">{me.person}</span></header>
       <div className={'ptoday' + (style?.palette === 'dusk' ? ' dark' : '')} style={lookVars(style, 'today')}>
-        <TabletToday c={c} house={house} now={now} notes={door?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} openApp={go} shell={null} usePhoto={usePhoto} look={style || {}} appsV={{}} />
+        <TabletToday c={c} house={house} now={now} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} openApp={go} shell={null} usePhoto={usePhoto} look={style || {}} appsV={{}} />
       </div>
       <div className="page">
         {(h.messages || []).filter((m) => now - m.at < 12 * 3600e3).slice(-2).reverse().map((m) => <div key={m.id} className="card note" {...(m.open && onOpen ? { role: 'button', onClick: () => onOpen(m.open.slice(5)) } : {})}><div className="t">{m.text}</div><div className="soft">{m.title}, {new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>)}
@@ -421,7 +421,7 @@ const TabIcon = ({ t }) => {
 const MoreIcon = () => <svg className="tab-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg>;
 function Phone({ me, c, onRemoved }) {
   const h = useHouse(c, onRemoved);
-  const { apps, style } = usePhoneApps(c, h.door);
+  const { apps, style } = usePhoneApps(c, h.homeScreen);
   const tabs = phoneTabs(style, apps);
   const [setup, setSetup] = useState(() => (me.scopes || []).includes('setup') && !get(DONE));
   const [want, setTab] = useState(() => (shared ? 'today' : get('openhouse.phone.tab') || 'today'));

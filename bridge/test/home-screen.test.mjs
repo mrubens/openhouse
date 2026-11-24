@@ -1,4 +1,4 @@
-// The door's trash and put-back, and the speech log off by default.
+// The home screen's trash and put-back, and the speech log off by default.
 //   cd bridge && npm test
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,7 +17,7 @@ const TOKEN = 'test-token', H = { 'x-openhouse-token': TOKEN, 'content-type': 'a
 
 let b;
 before(async () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-door-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-home-'));
   fs.cpSync(BRIDGE, path.join(root, 'bridge'), { recursive: true, filter: (f) => !/[\\/](node_modules|test|public)$|\.jsonl$|undo\.json$/.test(f) });
   const app = path.join(root, 'webapp');
   fs.mkdirSync(app); initRepo(app);
@@ -37,29 +37,29 @@ after(() => b?.stop());
 test('a note dragged to the trash can be put back, as it was', async () => {
   const n = await b.post('/board/pin', { title: 'Swim bag', text: 'Pack the swim bag' });
   assert.ok(n.id);
-  await b.post('/door/arrange', { items: [{ key: n.id, page: 1, col: 3, row: 2, w: 2, h: 2 }] });
-  await b.post('/door/remove', { id: n.id });
-  let d = await b.get('/door');
+  await b.post('/home/arrange', { items: [{ key: n.id, page: 1, col: 3, row: 2, w: 2, h: 2 }] });
+  await b.post('/home/remove', { id: n.id });
+  let d = await b.get('/home');
   assert.equal(d.notes.find((x) => x.id === n.id), undefined);
   assert.deepEqual(d.trash.map((x) => x.id), [n.id]);
-  assert.deepEqual(await b.post('/door/putback', { key: n.id }), { ok: true });
-  d = await b.get('/door');
+  assert.deepEqual(await b.post('/home/putback', { key: n.id }), { ok: true });
+  d = await b.get('/home');
   const back = d.notes.find((x) => x.id === n.id);
-  assert.ok(back, 'back on the door');
+  assert.ok(back, 'back on the home screen');
   assert.deepEqual([back.page, back.col, back.row, back.size], [1, 3, 2, '2x2']);
   assert.equal(back.trashed, undefined);
   assert.equal(d.trash.length, 0);
-  assert.deepEqual(await b.post('/door/putback', { key: n.id }), { ok: false }, 'nothing to put back twice');
+  assert.deepEqual(await b.post('/home/putback', { key: n.id }), { ok: false }, 'nothing to put back twice');
 });
 
-test('anything else on the door goes in the trash the same way (hidden), and comes back where it was', async () => {
+test('anything else on the home screen goes in the trash the same way (hidden), and comes back where it was', async () => {
   for (const key of ['clock', 'weather', 'app:lists', 'own:garden']) {
-    await b.post('/door/arrange', { items: [{ key, page: 0, col: 3, row: 2, w: 2, h: 2 }] });
-    await b.post('/door/place', { key, hidden: true });
-    let d = await b.get('/door');
+    await b.post('/home/arrange', { items: [{ key, page: 0, col: 3, row: 2, w: 2, h: 2 }] });
+    await b.post('/home/place', { key, hidden: true });
+    let d = await b.get('/home');
     assert.equal(d.places[key].hidden, true, key);
-    assert.deepEqual(await b.post('/door/putback', { key }), { ok: true }, key);
-    d = await b.get('/door');
+    assert.deepEqual(await b.post('/home/putback', { key }), { ok: true }, key);
+    d = await b.get('/home');
     assert.deepEqual(d.places[key], { page: 0, col: 3, row: 2, w: 2, h: 2, hidden: false }, key);
   }
 });

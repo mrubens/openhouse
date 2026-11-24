@@ -80,8 +80,8 @@ tasks.matching { it.name.startsWith("lintVital") || it.name.startsWith("generate
 dependencies {
     implementation("com.android.tools.build:apksig:8.7.3") // signs each family app's installed APK on the device (AppStubs)
     implementation("com.google.zxing:core:3.5.3") // QR code for the sign-in link
-    // Compose, for the overlay (the assistant's note, typing, conversations, settings). The door and the family's
-    // apps are web pages (DoorView, AppWindow).
+    // Compose, for the overlay (the assistant's note, typing, conversations, settings). The home screen and the family's
+    // apps are web pages (HomeView, AppWindow).
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.compose.runtime:runtime")
     implementation("androidx.compose.ui:ui")

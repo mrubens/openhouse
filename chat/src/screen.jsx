@@ -1,8 +1,8 @@
-// The door, drawn from the brain's data: on the display itself (the shell's DoorView, `?display`) and on any other
+// The home screen, drawn from the brain's data: on the display itself (the shell's HomeView, `?display`) and on any other
 // screen on the home network (an old tablet, an iPad, a frame with a browser; docs/brain-screens.md).
 //
 // On the display it talks to the bridge as the display (its secret, from window.OpenhouseDisplay), places anything new
-// on the door, and asks the shell for what only it can do (open an app, the settings, the weather sheet, a video); the
+// on the home screen, and asks the shell for what only it can do (open an app, the settings, the weather sheet, a video); the
 // shell's overlay (the assistant's note, typing) sits above it and the shell rings the timers.
 // On another screen it pairs once (the QR code from Settings), then every request is sealed with that screen's
 // own key (screen-client.js); the brain can remove the screen at any time.
@@ -14,7 +14,7 @@ import * as G from '../../bridge/grid.js';
 import { Talk } from './talk.jsx';
 import { pair, client, Removed } from './screen-client.js';
 import { AnswerBody, Display, page as answerPage } from './answer.jsx';
-import { Widget, Fit, IconFill, U } from './door-widgets.jsx';
+import { Widget, Fit, IconFill, U } from './home-widgets.jsx';
 import { Home as HomeTabs, appOrigin } from './home.jsx';
 import { pairingFromCode, cleanCode } from './scrypt.js';
 import { icon as weatherIcon } from '../../bridge/kit/weather-look.js';
@@ -23,7 +23,7 @@ import { icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 const TV = new URLSearchParams(location.search).has('tv');
 
 // The shell's object is given to every frame in this page (a live widget, a video), so it answers hello() once, to
-// this script as it starts, with the display's secret and a word every later call must carry (shell/DoorView.kt).
+// this script as it starts, with the display's secret and a word every later call must carry (shell/HomeView.kt).
 const shell = (() => {
   const raw = window.OpenhouseDisplay && new URLSearchParams(location.search).has('display') ? window.OpenhouseDisplay : null;
   let hi = null; try { hi = raw && JSON.parse(raw.hello() || 'null'); } catch {}
@@ -73,7 +73,7 @@ function Pairing({ onJoined, removed }) {
   return (
     <div className="pairing">
       {step === 'name' && <form onSubmit={join}>
-        <h1>Join the door</h1>
+        <h1>Join the home screen</h1>
         <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="Name this screen" maxLength={40} />
         <button className="go">Join</button>
       </form>}
@@ -134,7 +134,7 @@ function TvPairing({ onJoined, removed }) {
 
 // ---- data from the brain ------------------------------------------------------------------------------
 function useBrain(c, onRemoved) {
-  const [door, setDoor] = useState(null), [house, setHouse] = useState(null), [weather, setWeather] = useState(null), [apps, setApps] = useState(null), [board, setBoard] = useState(null);
+  const [homeScreen, setHomeScreen] = useState(null), [house, setHouse] = useState(null), [weather, setWeather] = useState(null), [apps, setApps] = useState(null), [board, setBoard] = useState(null);
   const [up, setUp] = useState(true);
   useEffect(() => {
     let stop = false;
@@ -147,11 +147,11 @@ function useBrain(c, onRemoved) {
       }
     };
     const every = async (p, set, ms) => { while (!stop) { try { const r = await c.json('GET', p); if (r.status === 200) set(r.json); } catch (e) { guard(e); } await new Promise((r) => setTimeout(r, ms)); } };
-    follow('/door', setDoor); follow('/house', setHouse);
+    follow('/home', setHomeScreen); follow('/house', setHouse);
     every('/weather', setWeather, 10 * 60e3); every('/apps', (a) => Array.isArray(a) && setApps(a), 20e3); every('/board', setBoard, 5 * 60e3);
     return () => { stop = true; };
   }, [c]);
-  return { door, setDoor, house, weather, apps: apps || [], appsLoaded: apps != null, board, up };
+  return { homeScreen, setHomeScreen, house, weather, apps: apps || [], appsLoaded: apps != null, board, up };
 }
 
 /** A photo from the brain (from another screen it comes sealed, so not as a plain <img src>). */
@@ -174,7 +174,7 @@ function usePhoto(c, name) {
   return src;
 }
 
-// ---- the door's things --------------------------------------------------------------------------------
+// ---- the home screen's things --------------------------------------------------------------------------------
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const hm = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
@@ -278,8 +278,8 @@ function beep() {
   o.connect(g).connect(audio.destination); o.start(); o.stop(audio.currentTime + 0.45);
 }
 /**
- * A whiteboard on the door: draw on it with a finger or a pen, right there. The strip along the top holds the pens,
- * undo and wipe, and is where it's picked up to move; the drawing is the brain's (door.js), so every screen has it.
+ * A whiteboard on the home screen: draw on it with a finger or a pen, right there. The strip along the top holds the pens,
+ * undo and wipe, and is where it's picked up to move; the drawing is the brain's (home-screen.js), so every screen has it.
  */
 const INKS = ['#24282a', '#d9543f', '#3f76db', '#4fa877'];
 function Whiteboard({ c, v }) {
@@ -287,7 +287,7 @@ function Whiteboard({ c, v }) {
   const [strokes, setStrokes] = useState([]), [ink, setInk] = useState(INKS[0]);
   useEffect(() => {
     let off = false;
-    c.json('GET', '/door/sketch').then((r) => { if (!off && r.status === 200 && !live.current) setStrokes(r.json.strokes || []); }).catch(() => {});
+    c.json('GET', '/home/sketch').then((r) => { if (!off && r.status === 200 && !live.current) setStrokes(r.json.strokes || []); }).catch(() => {});
     return () => { off = true; };
   }, [c, v]);
   paintNow.current = () => {
@@ -316,9 +316,9 @@ function Whiteboard({ c, v }) {
     for (const ev of (e.nativeEvent.getCoalescedEvents?.() || [e.nativeEvent])) { const [x, y] = at(ev), n = s.p.length; if (Math.abs(x - s.p[n - 2]) + Math.abs(y - s.p[n - 1]) >= 3 && n < 800) s.p.push(x, y); }
     paintNow.current();
   };
-  const end = () => { const s = live.current; if (!s) return; live.current = null; setStrokes((a) => [...a, s]); c.json('POST', '/door/sketch', { add: s }).catch(() => {}); };
-  const undo = () => { setStrokes((a) => a.slice(0, -1)); c.json('POST', '/door/sketch', { undo: true }).catch(() => {}); };
-  const wipe = () => { setStrokes([]); c.json('POST', '/door/sketch', { clear: true }).catch(() => {}); };
+  const end = () => { const s = live.current; if (!s) return; live.current = null; setStrokes((a) => [...a, s]); c.json('POST', '/home/sketch', { add: s }).catch(() => {}); };
+  const undo = () => { setStrokes((a) => a.slice(0, -1)); c.json('POST', '/home/sketch', { undo: true }).catch(() => {}); };
+  const wipe = () => { setStrokes([]); c.json('POST', '/home/sketch', { clear: true }).catch(() => {}); };
   return (
     <div className="tile whiteboard">
       <div className="wb-bar">
@@ -332,7 +332,7 @@ function Whiteboard({ c, v }) {
   );
 }
 /**
- * An app's own live widget: its widget.html, running in its cells, so they use it right on the door. Optional: an app
+ * An app's own live widget: its widget.html, running in its cells, so they use it right on the home screen. Optional: an app
  * without one shows its icon (or the layout its assistant set). The strip along the top is where it's picked up to
  * move, and has the button that opens the app full size. The page gets the app's own key, never the display's.
  */
@@ -392,42 +392,42 @@ function Note({ n, house }) {
   );
 }
 
-// ---- the door -----------------------------------------------------------------------------------------
-/** What should be on the door that isn't a note: the clock, the weather, every app, the timers. */
-function wanted(door, apps, android) {
+// ---- the home screen -----------------------------------------------------------------------------------------
+/** What should be on the home screen that isn't a note: the clock, the weather, every app, the timers. */
+function wanted(homeScreen, apps, android) {
   const keys = [];
-  if (door?.style?.clock !== false) keys.push('clock');
+  if (homeScreen?.style?.clock !== false) keys.push('clock');
   keys.push('weather');
-  if (door?.style?.whiteboard !== false) keys.push('whiteboard');
+  if (homeScreen?.style?.whiteboard !== false) keys.push('whiteboard');
   for (const a of [...android, ...apps]) keys.push('app:' + a.id);
-  for (const t of door?.timers || []) keys.push('timer:' + t.endAt);
+  for (const t of homeScreen?.timers || []) keys.push('timer:' + t.endAt);
   return keys;
 }
-function itemsOf(door, present) {
-  if (!door) return [];
+function itemsOf(homeScreen, present) {
+  if (!homeScreen) return [];
   const out = [];
-  for (const [key, p] of Object.entries(door.places || {})) {
+  for (const [key, p] of Object.entries(homeScreen.places || {})) {
     if (p.hidden || p.col == null || !present.has(key)) continue;
     out.push({ key, page: p.page | 0, col: p.col, row: p.row, w: p.w || 1, h: p.h || 1 });
   }
-  for (const n of door.notes || []) if (n.col != null) out.push({ key: n.id, page: n.page | 0, col: n.col, row: n.row, ...G.dims(n.size) });
+  for (const n of homeScreen.notes || []) if (n.col != null) out.push({ key: n.id, page: n.page | 0, col: n.col, row: n.row, ...G.dims(n.size) });
   return out;
 }
-const defaultShape = (key, door) => key === 'clock' ? '2x1' : key === 'weather' ? '2x2' : key === 'whiteboard' ? '2x2' : key.startsWith('app:') ? (door.widgets?.builtin?.[key.slice(4)] || (door.widgets?.content?.[key.slice(4)] ? '2x2' : '1x1')) : '1x1';
+const defaultShape = (key, homeScreen) => key === 'clock' ? '2x1' : key === 'weather' ? '2x2' : key === 'whiteboard' ? '2x2' : key.startsWith('app:') ? (homeScreen.widgets?.builtin?.[key.slice(4)] || (homeScreen.widgets?.content?.[key.slice(4)] ? '2x2' : '1x1')) : '1x1';
 
-function Door({ c, brain, now, onAsk, idle, embedded = false }) {
-  const { setDoor, house, weather, apps, board } = brain;
-  // A move made here is drawn at once and held until the brain's door has it (its version), so a late or stale answer
+function NotesGrid({ c, brain, now, onAsk, idle, embedded = false }) {
+  const { setHomeScreen, house, weather, apps, board } = brain;
+  // A move made here is drawn at once and held until the brain's home screen has it (its version), so a late or stale answer
   // can't pull it back; if the brain then has it somewhere else, the brain wins.
   const [pending, setPending] = useState([]); // [{items: [{key, page, col, row, w, h}], v}]
-  const live = pending.filter((p) => !(brain.door && brain.door.v >= p.v));
-  useEffect(() => { if (live.length !== pending.length) setPending(live); }, [brain.door?.v]);
-  const door = useMemo(() => {
-    const d = brain.door; if (!d || !live.length) return d;
+  const live = pending.filter((p) => !(brain.homeScreen && brain.homeScreen.v >= p.v));
+  useEffect(() => { if (live.length !== pending.length) setPending(live); }, [brain.homeScreen?.v]);
+  const homeScreen = useMemo(() => {
+    const d = brain.homeScreen; if (!d || !live.length) return d;
     const at = new Map(live.flatMap((p) => p.items.map((m) => [m.key, m])));
     return { ...d, notes: d.notes.map((n) => { const m = at.get(n.id); return m ? { ...n, page: m.page, col: m.col, row: m.row, size: `${m.w}x${m.h}` } : n; }),
       places: { ...d.places, ...Object.fromEntries([...at].filter(([k]) => !d.notes.some((n) => n.id === k)).map(([k, m]) => [k, { ...d.places[k], page: m.page, col: m.col, row: m.row, w: m.w, h: m.h }])) } };
-  }, [brain.door, pending]);
+  }, [brain.homeScreen, pending]);
   const [pg, setPg] = useState(0);
   const [drag, setDrag] = useState(null); // {key, x, y, page, over}: where the dragged thing is (its top-left in the grid, px)
   const [settle, setSettle] = useState(null); // {key, dx, dy}: just dropped, drawn where the finger let go for a frame, then easing into its cell
@@ -442,49 +442,49 @@ function Door({ c, brain, now, onAsk, idle, embedded = false }) {
   const area = useRef(null);
   const [size, setSize] = useState({ w: innerWidth, h: innerHeight - 60 });
   useEffect(() => { if (!area.current) return; const ro = new ResizeObserver(() => { const r = area.current.getBoundingClientRect(); setSize({ w: r.width, h: r.height }); }); ro.observe(area.current); return () => ro.disconnect(); }, [idle]);
-  // Like the display's door: the grid fills the space inside its margins (the right one wider: the gear lives there).
+  // Like the display's board: the grid fills the space inside its margins (the right one wider: the gear lives there).
   const u = innerWidth / 1536;
   const cw = Math.max(10, (size.w - 124 * u) / G.COLS), ch = Math.max(10, (size.h - 24 * u) / G.ROWS);
-  const timers = door?.timers || [];
+  const timers = homeScreen?.timers || [];
   const android = useMemo(() => { try { return shell?.androidApps ? JSON.parse(shell.androidApps() || '[]') : []; } catch { return []; } }, [apps]);
-  const want = useMemo(() => wanted(door, apps, android), [door, apps, android]);
+  const want = useMemo(() => wanted(homeScreen, apps, android), [homeScreen, apps, android]);
   const present = useMemo(() => new Set(want), [want]);
-  const items = useMemo(() => itemsOf(door, present), [door, present]);
+  const items = useMemo(() => itemsOf(homeScreen, present), [homeScreen, present]);
   // While something's dragged there's one more page (empty) to drag it onto.
   const pages = Math.max(1, G.pages(items)) + (drag ? 1 : 0), page = Math.min(pg, pages - 1);
-  const notes = new Map((door?.notes || []).map((n) => [n.id, n]));
+  const notes = new Map((homeScreen?.notes || []).map((n) => [n.id, n]));
   const appBy = new Map(apps.map((a) => [a.id, a])), androidBy = new Map(android.map((a) => [a.id, a]));
-  const builtin = door?.widgets?.builtin || {}, own = door?.widgets?.content || {};
+  const builtin = homeScreen?.widgets?.builtin || {}, own = homeScreen?.widgets?.content || {};
 
   // The display places anything new (an app just made, a timer) in the first free spot, and tells the bridge what's on
-  // the door, so the assistant knows which cells are free. Other screens only draw.
+  // the home screen, so the assistant knows which cells are free. Other screens only draw.
   const placed = useRef('');
   useEffect(() => {
-    if (!shell || !door || !brain.appsLoaded) return;
-    // Two things on the same cells (one came back to the door after the other took its place): notes stay, the
+    if (!shell || !homeScreen || !brain.appsLoaded) return;
+    // Two things on the same cells (one came back to the home screen after the other took its place): notes stay, the
     // other moves to the nearest free spot.
     const all = [], moved = [];
-    const order = itemsOf(door, present).sort((a, b) => (notes.has(b.key) - notes.has(a.key)));
+    const order = itemsOf(homeScreen, present).sort((a, b) => (notes.has(b.key) - notes.has(a.key)));
     for (const it of order) {
       if (G.fits(all, it)) { all.push(it); continue; }
       const at = G.nearest(all, it.w, it.h, it);
       const m = { ...it, page: at.page, col: at.col, row: at.row }; all.push(m); moved.push(m);
     }
     for (const key of want) {
-      const p = door.places?.[key];
+      const p = homeScreen.places?.[key];
       if (p && (p.hidden || p.col != null)) continue;
-      const { w, h } = G.dims(defaultShape(key, door));
+      const { w, h } = G.dims(defaultShape(key, homeScreen));
       const corner = { page: 0, col: G.COLS - 2, row: G.ROWS - 1, w: 1, h: 1 };
       const at = key.startsWith('timer:') && G.fits(all, corner) ? corner : G.firstFree(all, w, h);
       const it = { key, page: at.page, col: at.col, row: at.row, w, h }; all.push(it); moved.push(it);
     }
-    const same = JSON.stringify(want) === JSON.stringify(door.present || null);
+    const same = JSON.stringify(want) === JSON.stringify(homeScreen.present || null);
     if (!moved.length && same) return;
     const sig = JSON.stringify([moved, want]);
     if (sig === placed.current) return;
     placed.current = sig;
-    c.json('POST', '/door/arrange', { items: moved, present: want }).catch(() => {});
-  }, [door, want, brain.appsLoaded]);
+    c.json('POST', '/home/arrange', { items: moved, present: want }).catch(() => {});
+  }, [homeScreen, want, brain.appsLoaded]);
 
   /** Move or resize [key] to [target]; what's in the way makes room. The brain keeps it, and every screen sees it. */
   function place(key, target) {
@@ -494,36 +494,36 @@ function Door({ c, brain, now, onAsk, idle, embedded = false }) {
     const moved = next.filter((i) => { const o = was.get(i.key); return !o || o.page !== i.page || o.col !== i.col || o.row !== i.row || o.w !== i.w || o.h !== i.h; });
     if (!moved.length) return null;
     const mine = { items: moved.map(({ key, page, col, row, w, h }) => ({ key, page, col, row, w, h })), v: Infinity };
-    setPending((p) => [...p, mine]); // drawn now, and held until the brain's door has it
-    c.json('POST', '/door/arrange', { items: mine.items })
+    setPending((p) => [...p, mine]); // drawn now, and held until the brain's home screen has it
+    c.json('POST', '/home/arrange', { items: mine.items })
       .then((r) => { mine.v = r.json?.v || 0; setPending((p) => [...p]); })
-      .catch(() => { mine.v = 0; setPending((p) => [...p]); }); // not taken: the brain's door stands
+      .catch(() => { mine.v = 0; setPending((p) => [...p]); }); // not taken: the brain's home screen stands
     return next.find((i) => i.key === key);
   }
-  /** Off the door: a note to the trash, a timer stopped, anything else hidden. The arrow by the trash puts it back
+  /** Off the home screen: a note to the trash, a timer stopped, anything else hidden. The arrow by the trash puts it back
    *  (and Settings, Removed, or the assistant). */
   function trash(key) {
     const timer = key.startsWith('timer:') ? timers.find((t) => 'timer:' + t.endAt === key) : null;
-    if (notes.has(key)) { setDoor((d) => ({ ...d, notes: d.notes.filter((n) => n.id !== key) })); c.json('POST', '/door/remove', { id: key }).catch(() => {}); }
-    else if (timer) c.json('POST', '/door/timer', { cancel: timer.endAt }).catch(() => {});
-    else { setDoor((d) => ({ ...d, places: { ...d.places, [key]: { ...d.places[key], hidden: true } } })); c.json('POST', '/door/place', { key, hidden: true }).catch(() => {}); }
+    if (notes.has(key)) { setHomeScreen((d) => ({ ...d, notes: d.notes.filter((n) => n.id !== key) })); c.json('POST', '/home/remove', { id: key }).catch(() => {}); }
+    else if (timer) c.json('POST', '/home/timer', { cancel: timer.endAt }).catch(() => {});
+    else { setHomeScreen((d) => ({ ...d, places: { ...d.places, [key]: { ...d.places[key], hidden: true } } })); c.json('POST', '/home/place', { key, hidden: true }).catch(() => {}); }
     setTrashed({ key, at: Date.now(), timer });
   }
   function putBack() {
     const t = trashed; if (!t) return;
     setTrashed(null);
-    if (t.timer) { if (t.timer.endAt > Date.now()) c.json('POST', '/door/timer', { start: { label: t.timer.label, total: t.timer.total, endAt: t.timer.endAt } }).catch(() => {}); return; }
-    if (!notes.has(t.key)) setDoor((d) => (d.places[t.key] ? { ...d, places: { ...d.places, [t.key]: { ...d.places[t.key], hidden: false } } } : d));
-    c.json('POST', '/door/putback', { key: t.key }).catch(() => {});
+    if (t.timer) { if (t.timer.endAt > Date.now()) c.json('POST', '/home/timer', { start: { label: t.timer.label, total: t.timer.total, endAt: t.timer.endAt } }).catch(() => {}); return; }
+    if (!notes.has(t.key)) setHomeScreen((d) => (d.places[t.key] ? { ...d, places: { ...d.places, [t.key]: { ...d.places[t.key], hidden: false } } } : d));
+    c.json('POST', '/home/putback', { key: t.key }).catch(() => {});
   }
   useEffect(() => { if (!trashed) return; const k = setTimeout(() => setTrashed(null), 10e3); return () => clearTimeout(k); }, [trashed]);
   const liveApp = (id) => !!shell?.ui && !!appBy.get(id)?.widget; // the app brings its own live widget (widget.html): shown on the display itself
   const resizable = (key) => notes.has(key) || key === 'whiteboard' || (key.startsWith('app:') && liveApp(key.slice(4))) || (key.startsWith('app:') && (builtin[key.slice(4)] || own[key.slice(4)]));
-  /** The shape nearest to [w] x [h] cells (a note or a widget; never bigger than the door). */
+  /** The shape nearest to [w] x [h] cells (a note or a widget; never bigger than the home screen). */
   const nearestShape = (w, h) => G.SHAPES.map(G.dims).reduce((b, s) => ((s.w - w) ** 2 + (s.h - h) ** 2 < (b.w - w) ** 2 + (b.h - h) ** 2 ? s : b));
 
   // Touch: drag to move (onto the trash to take it off), pinch with two fingers to resize (it snaps to the nearest
-  // shape as they spread), a tap opens. A swipe on empty door turns the page.
+  // shape as they spread), a tap opens. A swipe on an empty spot turns the page.
   const trashRef = useRef(null);
   const overTrash = (x, y) => { const r = trashRef.current?.getBoundingClientRect(); return !!r && x >= r.left - 20 && x <= r.right + 20 && y >= r.top - 20 && y <= r.bottom + 20; };
   const fingers = useRef(new Map()); // pointer id -> {x, y} on the item being touched
@@ -532,14 +532,14 @@ function Door({ c, brain, now, onAsk, idle, embedded = false }) {
     unlock(); e.stopPropagation();
     if (e.target.closest?.('.tile button, .tile a, .tile input, .tile iframe, .wtile button, .wb-pad')) return; // a widget's or note's own button, or the whiteboard's drawing
     try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
-    if (e.isPrimary) { fingers.current.clear(); gesture.current = null; } // a new touch: nothing left over (a lift the door never saw, as an app opened)
+    if (e.isPrimary) { fingers.current.clear(); gesture.current = null; } // a new touch: nothing left over (a lift the home screen never saw, as an app opened)
     fingers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (secondFinger(e)) return;
     if (fingers.current.size > 1) return;
     const grid = gridRef.current.getBoundingClientRect();
     gesture.current = { key: it.key, it, mode: 'tap', start: { x: e.clientX, y: e.clientY }, grab: { x: e.clientX - grid.left - it.col * cw, y: e.clientY - grid.top - it.row * ch } };
   }
-  /** A second finger (anywhere on the door) while one is on something resizable: a pinch. Its edges follow the fingers. */
+  /** A second finger (anywhere on the home screen) while one is on something resizable: a pinch. Its edges follow the fingers. */
   function secondFinger(e) {
     const g = gesture.current;
     if (e.isPrimary || !g || g.mode === 'pinch' || !resizable(g.key)) return false; // a first finger is never the second
@@ -606,8 +606,8 @@ function Door({ c, brain, now, onAsk, idle, embedded = false }) {
   }
   function tap(it, ev) {
     if (ev?.target?.closest?.('button')) return; // a widget's own button (a tick)
-    if (notes.has(it.key)) { setOpen(it.key); c.json('POST', '/door/touch', { id: it.key }).catch(() => {}); }
-    else if (it.key.startsWith('timer:')) { const t = timers.find((x) => 'timer:' + x.endAt === it.key); if (t && t.endAt <= Date.now()) c.json('POST', '/door/timer', { cancel: t.endAt }); }
+    if (notes.has(it.key)) { setOpen(it.key); c.json('POST', '/home/touch', { id: it.key }).catch(() => {}); }
+    else if (it.key.startsWith('timer:')) { const t = timers.find((x) => 'timer:' + x.endAt === it.key); if (t && t.endAt <= Date.now()) c.json('POST', '/home/timer', { cancel: t.endAt }); }
     else if (it.key === 'weather') shell?.weather();
     else if (it.key.startsWith('app:')) {
       const a = appBy.get(it.key.slice(4));
@@ -630,9 +630,9 @@ function Door({ c, brain, now, onAsk, idle, embedded = false }) {
 
   function draw(it, w, h) {
     if (notes.has(it.key)) return <Note n={{ ...notes.get(it.key), size: `${w}x${h}` }} house={house} />;
-    if (it.key === 'clock') return door?.style?.clock === 'compact' ? <CompactClock now={now} /> : <Clock now={now} w={w} />;
-    if (it.key === 'weather') return <Weather weather={weather} w={w} h={h} family={door?.style?.weather === 'family'} />;
-    if (it.key === 'whiteboard') return <Whiteboard c={c} v={door?.sketch} />;
+    if (it.key === 'clock') return homeScreen?.style?.clock === 'compact' ? <CompactClock now={now} /> : <Clock now={now} w={w} />;
+    if (it.key === 'weather') return <Weather weather={weather} w={w} h={h} family={homeScreen?.style?.weather === 'family'} />;
+    if (it.key === 'whiteboard') return <Whiteboard c={c} v={homeScreen?.sketch} />;
     if (it.key.startsWith('timer:')) { const t = timers.find((x) => 'timer:' + x.endAt === it.key); return t ? <Timer t={t} now={now} /> : null; }
     if (it.key.startsWith('app:android:')) return <AppIcon id={it.key.slice(4)} name={androidBy.get(it.key.slice(4))?.name} img={androidBy.get(it.key.slice(4))?.icon} />;
     if (it.key.startsWith('app:')) {
@@ -662,9 +662,9 @@ function Door({ c, brain, now, onAsk, idle, embedded = false }) {
   const shown = items.filter((i) => i.page === page || i.key === drag?.key);
   const note = open && notes.get(open);
   return (
-    <div className={'screen' + (door?.style?.scenery?.length ? ' scenic' : '')} style={door?.style?.door ? { '--door': door.style.door } : undefined}>
-      {door?.style?.scenery?.length > 0 && <Scenery urls={door.style.scenery} now={now} />}
-      <div className="door" ref={area} onPointerDown={swipe} onPointerDownCapture={(e) => { if (secondFinger(e)) e.stopPropagation(); }}>
+    <div className={'screen' + (homeScreen?.style?.scenery?.length ? ' scenic' : '')} style={homeScreen?.style?.door ? { '--surface': homeScreen.style.door } : undefined}>
+      {homeScreen?.style?.scenery?.length > 0 && <Scenery urls={homeScreen.style.scenery} now={now} />}
+      <div className="notes-grid" ref={area} onPointerDown={swipe} onPointerDownCapture={(e) => { if (secondFinger(e)) e.stopPropagation(); }}>
         <div className="grid" ref={gridRef} style={{ width: cw * G.COLS, height: ch * G.ROWS, left: 40 * u, top: 24 * u }}>
           {shown.map((it) => {
             const ps = pinch?.key === it.key ? pinch : null, w = ps ? ps.w : it.w, h = ps ? ps.h : it.h;
@@ -699,7 +699,7 @@ function Door({ c, brain, now, onAsk, idle, embedded = false }) {
   );
 }
 
-/** The family's pictures behind the door (their home style: scenery), one every 5 minutes, crossfading. */
+/** The family's pictures behind the home screen (their home style: scenery), one every 5 minutes, crossfading. */
 function Scenery({ urls, now }) {
   const i = Math.floor(now / 300e3) % urls.length;
   const [shown, setShown] = useState([urls[i]]);
@@ -825,11 +825,11 @@ function Ask({ c, onClose, first = '' }) {
   );
 }
 
-// ---- the home screen: tabs (home.jsx). The board above (Door) is no longer shown; its notes are on Today. ---------
+// ---- the home screen: tabs (home.jsx). The board above (NotesGrid) is no longer shown; its notes are on Today. ---------
 function Home(props) {
   const { c, brain, now } = props;
   return <HomeTabs {...props} shell={shell}
-    ambient={<Ambient c={c} house={brain.house} apps={brain.apps} board={brain.board} timers={brain.door?.timers || []} weather={brain.weather} now={now} />}
+    ambient={<Ambient c={c} house={brain.house} apps={brain.apps} board={brain.board} timers={brain.homeScreen?.timers || []} weather={brain.weather} now={now} />}
     usePhoto={usePhoto} PhotoShow={PhotoShow} Gear={Gear} />;
 }
 
@@ -922,14 +922,14 @@ function TvFrame({ c, onRemoved }) {
 function Joined({ c, scopes, now, idle, asking, setAsking, onRemoved }) {
   const brain = useBrain(c, onRemoved);
   // A note's Timer button starts a timer for the whole house; on the display, its Video plays full screen.
-  Display.startTimer = (label, seconds) => c.json('POST', '/door/timer', { start: { label, seconds } }).catch(() => {});
+  Display.startTimer = (label, seconds) => c.json('POST', '/home/timer', { start: { label, seconds } }).catch(() => {});
   if (shell) Display.openApp = (id) => shell.openApp(id);
   // A note's button that asks the assistant something ("Plan tacos for tonight"): on the display it's asked at once,
   // as if typed; on another screen the asking panel opens with it.
   answerPage.ask = (q) => { if (shell?.ask) shell.ask(q); else setAsking(q); };
   return (
     <>
-      {brain.door ? <Home c={c} brain={brain} now={now} idle={idle} onAsk={(text) => setAsking(typeof text === 'string' ? text : true)} /> : <div className="pairing"><div className="dots"><i /><i /><i /></div></div>}
+      {brain.homeScreen ? <Home c={c} brain={brain} now={now} idle={idle} onAsk={(text) => setAsking(typeof text === 'string' ? text : true)} /> : <div className="pairing"><div className="dots"><i /><i /><i /></div></div>}
       {!brain.up && <div className="offline" />}
       {!shell && <Reminders c={c} house={brain.house} now={now} />}
       {asking && <Ask c={c} first={typeof asking === 'string' ? asking : ''} onClose={() => setAsking(false)} />}

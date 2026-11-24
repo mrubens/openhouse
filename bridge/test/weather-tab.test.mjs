@@ -11,8 +11,8 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-wx-')), DIR = path.join(r
 fs.mkdirSync(DIR);
 fs.writeFileSync(path.join(root, 'household.json'), JSON.stringify({ family: [{ name: 'Alex' }], chores: [] }));
 const json = (res, code, obj) => { res.code = code; res.body = obj; };
-const door = { migrate() {}, describe: () => '', during: async () => ({ result: { ok: false, text: 'no agent' }, notes: [] }) };
-const board = boardRoutes({ HERE: root, DIR, WORK: root, currentAgent: async () => ({}), agentName: () => 'test', json, body: async (r) => r.body, door });
+const homeScreen = { migrate() {}, describe: () => '', during: async () => ({ result: { ok: false, text: 'no agent' }, notes: [] }) };
+const board = boardRoutes({ HERE: root, DIR, WORK: root, currentAgent: async () => ({}), agentName: () => 'test', json, body: async (r) => r.body, homeScreen });
 const call = async (method, p, b) => { const res = {}; await board({ method, body: b }, res, new URL('http://x' + p)); return res; };
 
 test('POST /household/location sets only the place, and keeps the family', async () => {

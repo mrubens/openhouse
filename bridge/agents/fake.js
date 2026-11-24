@@ -6,7 +6,7 @@
 //   [edit:path=text]   append text to that file in the app folder, reported as an edit (like Edit/Write)
 //   [sh:path=text]     the same, not reported (like a shell command): only the file watcher sees it
 //   [wait:ms]          wait (stops early when the turn is stopped)
-//   [start_editing] [note:title] [progress:text] [end] [undo:id]   the door tools, as this turn
+//   [start_editing] [note:title] [progress:text] [end] [undo:id]   the home screen tools, as this turn
 //   [fail]  return not ok      [throw]  throw
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,16 +34,16 @@ export async function run({ prompt, cwd, signal, onEvent }) {
 }
 
 
-async function doorTool(name, args, token) {
-  const r = await fetch(process.env.DOOR_MCP_URL, {
-    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token || process.env.DOOR_MCP_TOKEN}` },
+async function homeTool(name, args, token) {
+  const r = await fetch(process.env.HOME_MCP_URL, {
+    method: 'POST', headers: { 'content-type': 'application/json', authorization: `Bearer ${token || process.env.HOME_MCP_TOKEN}` },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } }),
   });
   const j = await r.json();
   return j.result?.content?.[0]?.text || JSON.stringify(j);
 }
 
-export async function chat({ prompt, signal, onEvent, doorToken }) {
+export async function chat({ prompt, signal, onEvent, homeToken }) {
   const said = prompt.split('\n')[0].replace(/^.*? says: /, '');
   const dir = process.env.OPENHOUSE_APP_DIR;
   onEvent({ kind: 'session', id: 'fake-session' });
@@ -56,11 +56,11 @@ export async function chat({ prompt, signal, onEvent, doorToken }) {
       if (step === 'edit') onEvent({ kind: 'edit', paths: [f] });
       fs.mkdirSync(path.dirname(f), { recursive: true });
       fs.appendFileSync(f, t.join('=') + '\n');
-    } else if (step === 'start_editing') out.push(await doorTool('start_editing', {}, doorToken));
-    else if (step === 'note') out.push(await doorTool('put_note', { title: arg, content: `${arg}.`, size: 'small', minutes: 5 }, doorToken));
-    else if (step === 'progress') out.push(await doorTool('progress', { text: arg }, doorToken));
-    else if (step === 'end') out.push(await doorTool('end_conversation', {}, doorToken));
-    else if (step === 'undo') out.push(await doorTool('undo_change', { id: arg }, doorToken));
+    } else if (step === 'start_editing') out.push(await homeTool('start_editing', {}, homeToken));
+    else if (step === 'note') out.push(await homeTool('put_note', { title: arg, content: `${arg}.`, size: 'small', minutes: 5 }, homeToken));
+    else if (step === 'progress') out.push(await homeTool('progress', { text: arg }, homeToken));
+    else if (step === 'end') out.push(await homeTool('end_conversation', {}, homeToken));
+    else if (step === 'undo') out.push(await homeTool('undo_change', { id: arg }, homeToken));
     else if (step === 'fail') return { ok: false, text: 'It went wrong (on purpose).' };
     else if (step === 'throw') throw new Error('thrown on purpose');
   }

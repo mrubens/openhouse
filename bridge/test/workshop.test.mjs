@@ -75,7 +75,7 @@ test('codes: 12 characters, the same pairing on both sides, typos forgiven', () 
 
 test('a computer gets only the workshop; screens never do', () => {
   assert.ok(allowed(COMPUTER_SCOPES, 'POST', '/workshop/mcp'));
-  assert.ok(!allowed(COMPUTER_SCOPES, 'GET', '/door'));
+  assert.ok(!allowed(COMPUTER_SCOPES, 'GET', '/home'));
   assert.ok(!allowed(COMPUTER_SCOPES, 'POST', '/undo'));
   assert.ok(!allowed(DEFAULT_SCOPES, 'POST', '/workshop/mcp'));
 });
@@ -119,7 +119,7 @@ test('an open change survives the bridge restarting (an update installed mid-cha
   await mcp.call('write_file', { path: 'apps/clock/index.html', content: '<!doctype html><script type="module" src="./main.js"></script>' });
   child.kill(); await new Promise((r) => child.on('exit', r));
   await startBridge();
-  assert.match((await get('/door')).computer?.text || '', /A clock tab/, 'still shown as being changed');
+  assert.match((await get('/home')).computer?.text || '', /A clock tab/, 'still shown as being changed');
   const w = await mcp.call('write_file', { path: 'apps/clock/main.js', content: 'export const x = 1;' });
   assert.ok(!w.error, w.text);
   const before = Number(git('rev-list', '--count', 'HEAD'));
@@ -156,7 +156,7 @@ test('the Connect screen\'s page: only while it shows, only its page and downloa
   const html = await (await fetch(`http://${lan}/`)).text();
   assert.ok(html.includes(p.code));
   assert.equal((await fetch(`http://${lan}/openhouse.mcpb`)).status, 200);
-  assert.equal((await fetch(`http://${lan}/door`)).status, 404, 'nothing else');
+  assert.equal((await fetch(`http://${lan}/home`)).status, 404, 'nothing else');
   await post('/screens/pair/end', { pair: p.pair });
   assert.equal((await fetch(`http://${lan}/openhouse.mcpb`, { redirect: 'manual' })).status, 404, 'gone when the screen closes');
   assert.equal((await fetch(`http://${lan}/`, { redirect: 'manual' })).status, 302);

@@ -1,12 +1,12 @@
-/* One corner radius for everything on the door: widgets, app icons, the clock, the weather and notes. */
+/* One corner radius for everything on the home screen: widgets, app icons, the clock, the weather and notes. */
 :root { --r: calc(var(--u) * 12); }
-/* The door (src/screen.jsx): the fridge look, the same on the display and on other screens. Colors and fonts from the
+/* The home screen (src/screen.jsx): the paper look, the same on the display and on other screens. Colors and fonts from the
    kit (/kit/openhouse.css); the generated UI inside notes from ui.css, made light here. */
 html, body, #root { margin: 0; height: 100%; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
-body { background: var(--door); color: var(--ink); font-family: var(--round); }
-.screen { height: 100%; display: flex; flex-direction: column; background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.35), transparent 60%), var(--door); }
+body { background: var(--surface); color: var(--ink); font-family: var(--round); }
+.screen { height: 100%; display: flex; flex-direction: column; background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.35), transparent 60%), var(--surface); }
 :root { --u: 1px; --cell: calc(var(--u) * 182); }
-.door { flex: 1; min-height: 0; position: relative; }
+.notes-grid { flex: 1; min-height: 0; position: relative; }
 .grid { position: absolute; }
 .item { position: absolute; box-sizing: border-box; padding: calc(var(--u) * 9); transition: left .25s, top .25s, width .25s, height .25s, transform .22s ease-out; }
 .item.dragging, .item.settling { transition: none; }
@@ -112,11 +112,11 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
 .offline { position: fixed; top: 14px; left: 14px; width: 12px; height: 12px; border-radius: 6px; background: #d9543f; }
 
 /* the family's home style (apps/home/style.json) */
-.screen.scenic { background: var(--door); position: relative; }
+.screen.scenic { background: var(--surface); position: relative; }
 .scenery { position: absolute; inset: 0; overflow: hidden; }
 .scenery img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 1.8s; }
 .scenery img.on { opacity: 1; }
-.screen.scenic .door, .screen.scenic .dots-row { position: relative; }
+.screen.scenic .notes-grid, .screen.scenic .dots-row { position: relative; }
 .compact-clock { background: #292a2d; color: #f3efe6; justify-content: center; padding: .4em .9em; border-radius: var(--r); box-shadow: 0 6px 14px rgba(0,0,0,.3); }
 .compact-clock .time { font-size: calc(var(--cell) * .28); font-weight: 800; line-height: 1.1; white-space: nowrap; }
 .compact-clock .date { font-size: calc(var(--cell) * .13); font-weight: 600; color: #b9b5ac; white-space: nowrap; }
@@ -135,7 +135,7 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
 @keyframes drift { from { transform: translateX(-2.5px); } to { transform: translateX(2.5px); } }
 @keyframes fall { from { transform: translateY(-4px); opacity: 0; } 30% { opacity: 1; } to { transform: translateY(18px); opacity: 0; } }
 
-/* the starting apps' widgets (src/door-widgets.jsx), like the display's: colored tiles, white text, sizes in u */
+/* the starting apps' widgets (src/home-widgets.jsx), like the display's: colored tiles, white text, sizes in u */
 .wtile { width: 100%; height: 100%; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; color: #fff; font-family: var(--round);
   border-radius: var(--r); padding: calc(var(--u) * 18) calc(var(--u) * 22); box-shadow: 0 6px 14px rgba(32, 48, 48, .3); }
 .w-head { font-size: calc(var(--wu, var(--u)) * 19); font-weight: 800; color: rgba(255,255,255,.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -157,7 +157,7 @@ body { background: var(--door); color: var(--ink); font-family: var(--round); }
 .w-check { flex: 1; display: flex; align-items: center; justify-content: center; }
 .wtile.agent { background: var(--paper); color: var(--ink); padding: calc(var(--u) * 16) calc(var(--u) * 20); }
 .w-agent-name { font-size: calc(var(--u) * 26); font-weight: 700; }
-/* an app from before apps were web pages: on the door, but it needs remaking */
+/* an app from before apps were web pages: on the home screen, but it needs remaking */
 .app.old .icon, .app.old .letter { filter: grayscale(.85); opacity: .55; }
 .old-app p { font-size: calc(var(--u) * 24); line-height: 1.4; }
 .old-actions { display: flex; gap: 14px; margin-top: 10px; }

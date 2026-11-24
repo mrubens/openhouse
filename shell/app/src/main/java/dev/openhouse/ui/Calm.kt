@@ -76,7 +76,7 @@ object Calm {
     fun palette() = Palette(
         text = ink, muted = soft, card = tint, card2 = tint2, line = line, accent = ink, accentInk = sheet,
         ok = Color(0xFF4E7D5C), tipBg = tint, warnBg = Color(0xFFF6E7DF), timerBg = tint, timerLine = line, timerOnBg = tint2,
-        panel = tint, font = Door.quiet,
+        panel = tint, font = PaperLook.quiet,
     )
 
     // --- Android views ---------------------------------------------------------------------------------------

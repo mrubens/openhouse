@@ -1,4 +1,4 @@
-// Screens: other devices on the home network that show and use the same door (docs/brain-screens.md).
+// Screens: other devices on the home network that show and use the same home screen (docs/brain-screens.md).
 //
 // Off until someone adds a screen from Settings. Then a second listener answers on the home network
 // (SCREENS_PORT, 8788). Without a key it only serves the screen page's files and pairing. Everything else is one
@@ -31,10 +31,10 @@
 // from its key, handed over sealed by GET /relay/me). `away` is when one last came that way.
 //
 // Apps for screens (docs/phones-and-tv.md): an app whose app.json says "screens": ["tv"] is what a paired TV shows.
-//   GET /screens/apps  (sealed, door)  [{id, name, at}]: the apps for this screen's kind, the household's own first;
+//   GET /screens/apps  (sealed, door scope)  [{id, name, at}]: the apps for this screen's kind, the household's own first;
 //                                  at is /screen-app/<id>/<token>/, the token the screen's own (from its key).
 //                                  A phone's: [{id, name, icon, shared, v}], every app that runs on phones.
-//   GET /screens/app-files?app=  (sealed, door, a phone)  {v, files}: that app's files, for its frame on the phone.
+//   GET /screens/app-files?app=  (sealed, door scope, a phone)  {v, files}: that app's files, for its frame on the phone.
 //   GET /screen-app/<id>/<token>/<file>   that app's files, on the home network: the screen loads them into a sandboxed
 //                                  frame, and everything the app reads goes through the screen's sealed requests
 //                                  (marked with the app, {a}: read only, and only what that app may see).
@@ -49,16 +49,17 @@ import { Readable, Writable } from 'node:stream';
 import { newCode, pairingFromCode } from './pair-code.js';
 import { responder, page as connectPage, downloads, HOSTNAME } from './connect-page.js';
 import * as push from './web-push.js';
+import { homePath } from './home-screen.js';
 
 export { newCode, pairingFromCode };
 
 /** What each scope lets a screen do. Never: undo, restore, deleting apps, the builder, the agents' MCP, devices, the household, voices, calendars, screens. */
 const RULES = [
-  ['door', 'GET', /^\/(door|door\/wait|door\/sketch|weather|board|house|house\/wait|apps|state)$/],
+  ['door', 'GET', /^\/(home|home\/wait|home\/sketch|weather|board|house|house\/wait|apps|state)$/],
   ['door', 'GET', /^\/house\/photo\/[^/]{1,120}$/],
   ['door', 'GET', /^\/screens\/apps$/], // the apps for this kind of screen (a TV's layout, a phone's tabs)
   ['door', 'GET', /^\/screens\/app-files$/], // one app's files, for a phone's frame (appFiles)
-  ['arrange', 'POST', /^\/door\/(arrange|place|remove|putback|keep|touch|timer|sketch)$/],
+  ['arrange', 'POST', /^\/home\/(arrange|place|remove|putback|keep|touch|timer|sketch)$/],
   ['arrange', 'POST', /^\/house\/(list|chore|remind|thing)$/], // the widgets' own taps: a grocery ticked, a chore done, a reminder or a thing on Today put away
   ['ask', 'POST', /^\/chat(\/stop|\/warm)?$/],
   ['ask', 'GET', /^\/chats\/[\w-]{1,40}$/],
@@ -90,6 +91,7 @@ const RULES = [
   ['admin', 'POST', /^\/backup\/(dest|now|restore|escrow|recovery-code\/confirmed)$/],
   ['admin', 'POST', /^\/(relay|hub\/update|webmcp)$/], ['admin', 'GET', /^\/webmcp$/], // the connector at the household's own address (web-mcp.js)
 ];
+// door: see the home screen and the house (read only). The name is from before and stays: paired screens hold it.
 export const SCOPES = ['door', 'arrange', 'ask', 'voice', 'workshop', 'notify', 'setup', 'admin'];
 export const COMPUTER_SCOPES = ['workshop'];
 
@@ -513,6 +515,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
       const len = Buffer.alloc(4); len.writeUInt32BE(box.length);
       res.write(Buffer.concat([len, box]));
     };
+    if (typeof msg.p === 'string') msg.p = homePath(msg.p); // /door/... is /home/... (home-screen.js)
     let url;
     try { url = new URL(msg.p, 'http://x'); } catch { url = null; }
     // From a screen app (msg.a): read only, and the app has to be one this screen shows.

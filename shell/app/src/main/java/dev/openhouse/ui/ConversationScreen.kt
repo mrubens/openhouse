@@ -1,6 +1,6 @@
 package dev.openhouse.ui
 
-// The conversation screen (earlier conversations, and this one on the door) and a note up close.
+// The conversation screen (earlier conversations, and this one on the home screen) and a note up close.
 
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -50,7 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 
 // --- conversations ----------------------------------------------------------------------------
 
-/** A conversation with the assistant, full screen: earlier ones on the left, this one on the door. */
+/** A conversation with the assistant, full screen: earlier ones on the left, this one on the home screen. */
 @Composable
 internal fun ConversationScreen() {
     val o = Openhouse
@@ -102,8 +102,8 @@ internal fun ConversationScreen() {
                                 }
                                 if (!t.live && t.ok && !o.onboarding) Row(Modifier.padding(top = 12.u), horizontalArrangement = Arrangement.spacedBy(10.u)) {
                                     val q = turns.getOrNull(i - 1)?.text ?: ""
-                                    val onDoor = t.notes.firstOrNull { n -> o.note(n.id) != null }
-                                    if (onDoor != null) Chip(if (o.note(onDoor.id)?.keep == true) "Kept on Today" else "Keep it on Today") { o.keepNote(onDoor.id) }
+                                    val onHome = t.notes.firstOrNull { n -> o.note(n.id) != null }
+                                    if (onHome != null) Chip(if (o.note(onHome.id)?.keep == true) "Kept on Today" else "Keep it on Today") { o.keepNote(onHome.id) }
                                     else if (t.notes.isNotEmpty() || Answers.hasUi(t.text)) Chip("Put it on Today") { o.pinFromConversation(q, t.notes.firstOrNull()?.content ?: t.text) }
                                     if (t.notes.isNotEmpty() || Answers.hasUi(t.text)) Chip("Make it an app") { o.makeApp("Make an app from this: $q") }
                                 }
@@ -119,15 +119,15 @@ internal fun ConversationScreen() {
 
 // --- a note up close -----------------------------------------------------------------------------
 
-/** A note from the door, full screen: about three times the room, and what can be done with it. */
+/** A note from the home screen, full screen: about three times the room, and what can be done with it. */
 @Composable
-internal fun FullNote(n: DoorNote) {
+internal fun FullNote(n: HomeNote) {
     val o = Openhouse
     CompositionLocalProvider(LocalPalette provides paperPalette(), LocalView provides "full", LocalTwoColumns provides true, LocalAnswerActions provides o) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f)).clickable { o.closeNote() }) {
             Paper(
                 Modifier.align(Alignment.Center).size(1340.u, 860.u).clickable(enabled = false) {}, kind = PaperKind.Card,
-                magnet = o.person(n.forWho)?.color ?: Door.magnets[(n.id.hashCode() and 0xff) % Door.magnets.size], fill = true,
+                magnet = o.person(n.forWho)?.color ?: PaperLook.magnets[(n.id.hashCode() and 0xff) % PaperLook.magnets.size], fill = true,
                 padding = PaddingValues(horizontal = 48.u, vertical = 34.u),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.u)) {
