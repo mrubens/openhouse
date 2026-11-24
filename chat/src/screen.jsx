@@ -133,8 +133,13 @@ function TvPairing({ onJoined, removed }) {
 }
 
 // ---- data from the brain ------------------------------------------------------------------------------
+// The last of each kept on this screen, so after a restart (an update, the bridge starting) it shows what it showed
+// before at once, not an empty Today for the seconds the brain takes to answer; each is replaced as soon as it does.
+const lastKept = (k) => { try { return JSON.parse(localStorage.getItem('openhouse.kept.' + k)); } catch { return null; } };
+const keeping = (k, set) => (v) => { set(v); if (typeof v === 'function') return; try { localStorage.setItem('openhouse.kept.' + k, JSON.stringify(v)); } catch {} };
 function useBrain(c, onRemoved) {
-  const [homeScreen, setHomeScreen] = useState(null), [house, setHouse] = useState(null), [weather, setWeather] = useState(null), [apps, setApps] = useState(null), [board, setBoard] = useState(null);
+  const [homeScreen, setHomeScreen0] = useState(() => lastKept('home')), [house, setHouse0] = useState(() => lastKept('house')), [weather, setWeather0] = useState(() => lastKept('weather')), [apps, setApps0] = useState(() => lastKept('apps')), [board, setBoard0] = useState(() => lastKept('board'));
+  const setHomeScreen = keeping('home', setHomeScreen0), setHouse = keeping('house', setHouse0), setWeather = keeping('weather', setWeather0), setApps = keeping('apps', setApps0), setBoard = keeping('board', setBoard0);
   const [up, setUp] = useState(true);
   useEffect(() => {
     let stop = false;
