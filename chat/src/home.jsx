@@ -215,7 +215,7 @@ function AppFrame({ c, shell, app, look, v, onOpen }) {
   }, [c, app?.id]);
   if (!app) return null;
   const hash = lookHash(look, shell, null, app);
-  return key && <iframe ref={frame} key={shownV} className="h-app" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/index.html#${hash}`} />;
+  return key && <iframe ref={frame} key={shownV + hash} className="h-app" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/index.html#${hash}`} />;
 }
 
 /** What an app's page is given in its address: the screen's colors and type (the kit takes them). Never its key.
@@ -243,7 +243,7 @@ function AppCard({ c, shell, app, look, v, openApp, style }) {
   const hash = lookHash(look, shell, (p) => p.sheet, app);
   return <div className="t-card t-app" style={style}>
     <div className="h-label t-app-name" role="button" onClick={() => openApp(app.id)}>{app.meta?.name || app.id}</div>
-    {key && <iframe ref={frame} key={shownV} className="t-app-pad" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/widget.html?today=${app.today}#${hash}`} />}
+    {key && <iframe ref={frame} key={shownV + hash} className="t-app-pad" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/widget.html?today=${app.today}#${hash}`} />}
   </div>;
 }
 
