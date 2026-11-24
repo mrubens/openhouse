@@ -284,9 +284,10 @@ function cookView() {
   const label = st ? [st.part, `Step ${at} of ${n}`, st.title, st.wait ? 'mostly waiting' : '', st.ahead || ''].filter(Boolean).join(' · ') : 'Done';
   const now = h('div', { class: 'c-now' + (run ? ' timing' : '') },
     h('div', { class: 'c-now-tx' },
-      h('div', { class: 'c-label' }, label),
-      h('p', { class: st && st.text.length > 160 ? 'long' : null }, st ? st.text : 'That’s the whole recipe.'),
-      st?.uses?.length ? h('ul', { class: 'c-uses' }, st.uses.map((x) => h('li', null, x.amount ? h('b', null, x.amount + ' ') : null, x.item))) : null,
+      h('div', { class: 'c-now-body' },
+        h('div', { class: 'c-label' }, label),
+        h('p', { class: st && st.text.length > 160 ? 'long' : null }, st ? st.text : 'That’s the whole recipe.'),
+        st?.uses?.length ? h('ul', { class: 'c-uses' }, st.uses.map((x) => h('li', null, x.amount ? h('b', null, x.amount + ' ') : null, x.item))) : null),
       h('div', { class: 'c-do' },
         h('button', { class: 'c-next', tap: () => (st && at < n ? go('next') : stop()) }, st && at < n ? 'Next step' : 'Done', st && at < n ? icon('next', 2.4) : null),
         st?.timer && !run ? h('button', { class: 'c-glass', tap: () => startTimer() }, icon('timer'), `Start · ${shortTime(st.timer.minutes)}`) : null)),

@@ -3,7 +3,7 @@
    One accent (--warm), only for a running timer; one filled button, Next step. */
 .cook { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-columns: calc(380 * var(--u)) minmax(0, 1fr); gap: calc(44 * var(--u)); padding: calc(10 * var(--u)) calc(10 * var(--u)) 0;
   color: var(--ink); background: var(--bg); overflow: hidden;
-  --fg: var(--ink); --glass: var(--tint); --warm: color-mix(in srgb, #d0700c 80%, var(--ink)); }
+  --fg: var(--ink); --glass: var(--tint); --warm: var(--accent); } /* (the household's own accent: no brown of its own) */
 :root:not(.in-tab) .cook { padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u)); }
 .cook > .c-left, .cook > .c-right { position: relative; z-index: 1; min-height: 0; }
 
@@ -38,12 +38,15 @@
 
 /* the right: the step they're on, held; the rest scrolling under it */
 .c-right { display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
-.c-now { flex: none; display: flex; gap: calc(36 * var(--u)); align-items: center; padding: calc(32 * var(--u)) calc(38 * var(--u)); border-radius: calc(26 * var(--u));
+.c-now { flex: none; max-height: 78%; min-height: 0; display: flex; gap: calc(36 * var(--u)); align-items: center; padding: calc(32 * var(--u)) calc(38 * var(--u)); border-radius: calc(26 * var(--u));
   background: var(--card); box-shadow: var(--shadow); }
-.c-now-tx { flex: 1; min-width: 0; }
+.c-now-tx { flex: 1; min-width: 0; align-self: stretch; display: flex; flex-direction: column; min-height: 0; }
+.c-now-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; } /* a long step scrolls; Next step stays */
+.c-now-body::-webkit-scrollbar { display: none; }
+.c-do { flex: none; }
 .c-label { font-size: calc(16 * var(--u)); font-weight: 600; color: var(--fg2); }
 .c-now p { margin: calc(12 * var(--u)) 0 0; font-size: calc(40 * var(--u)); font-weight: 650; letter-spacing: -.02em; line-height: 1.15; text-wrap: pretty; }
-.c-now p.long { font-size: calc(32 * var(--u)); line-height: 1.2; }
+.c-now p.long { font-size: calc(30 * var(--u)); line-height: 1.22; }
 .c-uses { list-style: none; margin: calc(20 * var(--u)) 0 0; padding: 0; border-top: 1px solid var(--hair); }
 .c-uses li { padding: calc(10 * var(--u)) 0 0; font-size: calc(22 * var(--u)); font-weight: 450; color: var(--fg2); line-height: 1.3; }
 .c-uses li b { font-weight: 650; color: var(--fg); }
