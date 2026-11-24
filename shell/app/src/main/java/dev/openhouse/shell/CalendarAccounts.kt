@@ -258,9 +258,33 @@ object CalendarAccounts {
             main.post {
                 if (cals.isEmpty()) { CalmDialog(a).setTitle("No calendars").setMessage("This account has no calendars to show.").setPositiveButton("OK", null).show().also { immersive() }; return@post }
                 val modeWord = mapOf("two-way" to "Two-way", "read" to "Shown, changed only there", "off" to "Hidden")
-                val rows = cals.map { c -> CalmDialog.Row(c.optString("name"), listOfNotNull(modeWord[c.optString("mode")],
-                    c.optString("who").takeIf { it.isNotBlank() && it != "null" }?.let { "$it's" }, if (c.optBoolean("default")) "New events go here" else null).joinToString(" · ")) }
-                CalmDialog(a).setTitle("Calendars").setWidth(860f).setRows(rows) { _, i -> one(a, cals[i], immersive) { calendars(a, account, immersive) } }
+                val detail = { c: JSONObject -> listOfNotNull(modeWord[c.optString("mode")],
+                    c.optString("who").takeIf { it.isNotBlank() && it != "null" }?.let { "$it's" }, if (c.optBoolean("default") && c.optString("mode") == "two-way") "New events go here" else null).joinToString(" · ") }
+                var shown: android.app.Dialog? = null
+                // Each calendar: a box to show it or not, and its name to open how it's shown, whose it is, where new events go.
+                val col = Calm.column(a)
+                cals.forEach { c ->
+                    val line = Calm.row(a).apply { minimumHeight = Calm.px(a, 72); gravity = android.view.Gravity.CENTER_VERTICAL }
+                    val sub = Calm.text(a, detail(c), 17f, 400, Calm.SOFT)
+                    val box = Check(a, c.optString("mode") != "off")
+                    box.setOnClickListener {
+                        box.on = !box.on
+                        c.put("mode", if (!box.on) "off" else if (c.optBoolean("canWrite")) "two-way" else "read"); sub.text = detail(c)
+                        thread { bridgePost("/calendar/sync/set", JSONObject().put("key", c.optString("key")).put("mode", c.optString("mode"))) }
+                    }
+                    line.addView(box, android.widget.LinearLayout.LayoutParams(Calm.px(a, 72), Calm.px(a, 72)))
+                    line.addView(Calm.column(a, 4).apply {
+                        val r = 16 * Calm.u(a)
+                        background = Calm.pressable(a, Calm.rounded(0x00FFFFFF, r), r); isClickable = true
+                        setPadding(Calm.px(a, 8), Calm.px(a, 14), Calm.px(a, 16), Calm.px(a, 14))
+                        addView(Calm.text(a, c.optString("name"), 22f, 500)); addView(sub)
+                        setOnClickListener { shown?.dismiss(); one(a, c, immersive) { calendars(a, account, immersive) } }
+                    }, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+                    col.addView(line, android.widget.LinearLayout.LayoutParams(-1, -2))
+                }
+                val h = a.resources.displayMetrics.let { minOf(it.widthPixels, it.heightPixels) }
+                val list = Calm.Capped(a, (h * .62f).toInt()).apply { addView(col); isVerticalScrollBarEnabled = false }
+                shown = CalmDialog(a).setTitle("Calendars").setWidth(860f).setView(list)
                     .setPositiveButton("Done", null).show().also { immersive() }
             }
         }
@@ -289,6 +313,21 @@ object CalendarAccounts {
     fun rows(): List<Triple<String, String, String>> = list().map { Triple(it.name.ifBlank { if (it.provider == "google") "Google" else "iCloud" }, if (it.provider == "google") "Google, two-way" else "iCloud, two-way", it.id) }
 
     fun signOut(id: String) { thread { remove(id); bridgePost("/calendar/sync/forget", JSONObject().put("account", id)) } }
+}
+
+/** A checkbox: a rounded square, filled with a check when [on]. */
+private class Check(c: Context, on: Boolean) : android.view.View(c) {
+    var on = on; set(v) { field = v; invalidate() }
+    private val u = Calm.u(c)
+    private val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    init { isClickable = true; contentDescription = "Show" }
+    override fun onDraw(cv: android.graphics.Canvas) {
+        val s = 28 * u; val l = (width - s) / 2f; val t = (height - s) / 2f; val r = 7 * u
+        if (on) { p.style = android.graphics.Paint.Style.FILL; p.color = Calm.INK; cv.drawRoundRect(l, t, l + s, t + s, r, r, p)
+            p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 3 * u; p.color = 0xFFFFFFFF.toInt(); p.strokeCap = android.graphics.Paint.Cap.ROUND; p.strokeJoin = android.graphics.Paint.Join.ROUND
+            cv.drawPath(android.graphics.Path().apply { moveTo(l + s * .26f, t + s * .52f); lineTo(l + s * .44f, t + s * .70f); lineTo(l + s * .76f, t + s * .32f) }, p)
+        } else { p.style = android.graphics.Paint.Style.STROKE; p.strokeWidth = 2 * u; p.color = Calm.SOFT; cv.drawRoundRect(l + u, t + u, l + s - u, t + s - u, r, r, p) }
+    }
 }
 
 /** A small HTTPS/1.1 client: Android's own one won't send PROPFIND or REPORT, which CalDAV needs. */
