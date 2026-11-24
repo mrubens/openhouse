@@ -45,7 +45,8 @@
     .vscroll { overflow-y: auto; overflow-x: hidden; scrollbar-width: none; min-height: 0; }
     .actions { display: flex; gap: calc(16 * var(--u)); justify-content: flex-end; flex-wrap: wrap; }
     .soft-text { color: var(--ink-soft); }
-    .screen { display: flex; flex-direction: column; flex: 1; min-height: 0; touch-action: pan-y; } /* (a sideways swipe steps the calendar: main.js swipeStep) */
+    .screen { display: flex; flex-direction: column; flex: 1; min-height: 0; } /* a sideways swipe steps the calendar (main.js swipeStep): the browser keeps only vertical panning. Set on every element, as a scrolling box inside resets what its ancestors say */
+    .screen, .screen * { touch-action: pan-y; } .screen .hscroll, .screen .hscroll * { touch-action: pan-x pan-y; }
     .icon.thin svg { stroke-width: 1.9; }
     .foot { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: calc(8 * var(--u)); min-height: calc(46 * var(--u)); padding: 0 calc(6 * var(--u)); }
     .foot p { flex: 1; min-width: 0; margin: 0 0 0 calc(4 * var(--u)); font-size: calc(16 * var(--u)); font-weight: 500; color: var(--fg2); }
