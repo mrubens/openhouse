@@ -123,6 +123,19 @@ export default {
       params: { button: { type: 'string', enum: Object.keys(KEYS), required: true }, times: { type: 'integer', min: 1, max: 10 } },
       async run(d, p, ctx) { return withRemote(d, ctx, async (ws) => { for (let i = 0; i < (p.times || 1); i++) { press(ws, KEYS[p.button]); await sleep(200); } return `Pressed ${p.button}.`; }); },
     },
+    type: {
+      says: 'Type words into the box the TV has open (a search in YouTube or Netflix: open the search and select the box first)',
+      params: { text: { type: 'string', maxLength: 200, required: true }, enter: { type: 'boolean' } },
+      async run(d, p, ctx) {
+        return withRemote(d, ctx, async (ws) => {
+          ws.send({ method: 'ms.remote.control', params: { Cmd: Buffer.from(String(p.text)).toString('base64'), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' } });
+          await sleep(300);
+          ws.send({ method: 'ms.remote.control', params: { TypeOfRemote: 'SendInputEnd' } });
+          if (p.enter) { await sleep(300); press(ws, 'KEY_ENTER'); }
+          return `Typed "${p.text}"${p.enter ? ' and pressed enter' : ''}. (It only lands when a text box on the TV is open.)`;
+        });
+      },
+    },
     apps: { says: 'The apps installed on the TV', async run(d, p, ctx) { return withRemote(d, ctx, async (ws) => (await installed(ws, d)).map((a) => a.short || a.name)); } },
     launch: {
       says: 'Open an app on the TV by name (Netflix, YouTube…)', risky: true,
