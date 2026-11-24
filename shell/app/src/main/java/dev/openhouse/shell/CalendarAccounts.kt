@@ -163,7 +163,8 @@ object CalendarAccounts {
                         1 -> addICloud(a, immersive)
                         else -> CalendarLinks.add(a, immersive)
                     }
-                }.setNegativeButton("Cancel", null).show().also { immersive() }
+                }.setNeutralButton("Your calendars") { _, _ -> CalendarLinks.manage(a, immersive) } // back to the ones already here
+                    .setNegativeButton("Cancel", null).show().also { immersive() }
             }
         }
     }
