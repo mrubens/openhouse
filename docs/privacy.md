@@ -46,6 +46,9 @@ Everything here starts only when the household links its tablet to an account.
   uploaded. We can't open them, unless the household asked us to keep a copy of that code.
 - **Use and cost:** minutes and amounts used each month, as numbers, so we can keep within the limits.
 - **Logs:** each request's path, result, time taken and household, kept 30 days. Never what was said or shared.
+- **Reports (only when someone sends one):** Send a report on the tablet sends us its recent logs, so we can see what
+  went wrong. They can include things said to Opie and the household's names; the tablet says so and asks first.
+  Kept 30 days, and deleted with the account.
 - **The website:** if you ask for a beta invite, the email address and answers you give.
 
 The service runs on Amazon Web Services in the United States. Only the people who run OpenHouse can reach it.

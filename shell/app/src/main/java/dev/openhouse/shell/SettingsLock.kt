@@ -42,6 +42,26 @@ internal class SettingsLock(private val act: MainActivity) {
         }
     }
 
+    /** Send a report (docs/beta.md): after a yes, the shell's own log goes to the bridge, which adds the runtime's logs
+     *  and the waiting app fixes and sends them to the service (bridge/cloud.js sendReport). */
+    private fun report() {
+        CalmDialog(act).setTitle("Send a report?")
+            .setMessage("It sends this tablet's recent logs to OpenHouse, so we can see what went wrong. They can include things said to Opie and your household's names. We keep them 30 days.")
+            .setPositiveButton("Send") { _, _ ->
+                thread {
+                    val log = runCatching { java.lang.Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "5000")).inputStream.bufferedReader().readText() }.getOrDefault("")
+                    val (code, r) = CloudSetup.post("${act.bridge}/cloud/report", JSONObject().put("shellLog", log.takeLast(600_000)).put("version", Updater.installedVersion(act)), 60_000)
+                    act.runOnUiThread {
+                        when {
+                            code == 200 -> act.toast("Sent. Thank you")
+                            r?.optString("code") == "unlinked" -> CalmDialog(act).setTitle("Not linked").setMessage("Reports go through your OpenHouse account: link this tablet first, in Settings → Account.").setPositiveButton("OK", null).show()
+                            else -> CalmDialog(act).setTitle("Couldn't send it").setMessage(r?.optString("error")?.takeIf { it.isNotBlank() } ?: "The tablet didn't answer. Try again in a minute.").setPositiveButton("OK", null).show()
+                        }
+                    }
+                }
+            }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
+    }
+
     private fun erase() {
         CalmDialog(act).setTitle("Erase this tablet?")
             .setMessage("Everything on it goes: the family, calendars, lists, photos and apps. It's unlinked from the account, whose backups stay there. This can't be undone.")
@@ -212,6 +232,8 @@ internal class SettingsLock(private val act: MainActivity) {
         // A few sections, each row's value at its right, as the main Settings list (docs/ux.md).
         fun head(t: String) = CalmDialog.Row(t, header = true) to {}
         val items = listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            head("Help"),
+            CalmDialog.Row("Send a report") to person("Send a report") { report() },
             head("Lock and updates"),
             CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },
         ) + (if (on) listOf<Pair<CalmDialog.Row, () -> Unit>>(

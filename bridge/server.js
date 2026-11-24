@@ -199,7 +199,7 @@ sense.onRun((x) => {
 //  turns them on in Settings. Display secret only: paired screens and apps never reach them.
 const DISPLAY = process.env.CLOUD_DISPLAY || path.join(HERE, '..');
 let backups = null;
-const cloud = cloudRoutes({ DISPLAY, json, body, agentName, backupBits: () => backups?.bits() || {} });
+const cloud = cloudRoutes({ DISPLAY, json, body, agentName, backupBits: () => backups?.bits() || {}, fixesFile: path.join(HB_DIR, '../heartbeat-fixes.json') });
 cloudRef = cloud;
 chat.live.useAi((q) => cloud.ai(q)); // setup: what's heard fills in the step (live-tools.js setupHeard)
 chat.live.useDecide((i, q) => cloud.decide(i, q)); // judgments about what was said, from the whole conversation (live-tools.js judge)

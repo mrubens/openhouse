@@ -8,6 +8,8 @@
 //   POST /cloud/link/cancel          POST /cloud/unlink
 //   GET  /cloud/health-bits          the bridge's part of the shell's check-in (agent, model, last error type)
 //   POST /cloud/link/token {token, api?, name}  link with a setup token (the setup QR carried it; no code to type)
+//   POST /cloud/report {shellLog, note, version}  Send a report (Settings → Advanced, after a yes there): the shell's
+//                                    log, the tails of the runtime's logs and the waiting app fixes, gzipped, to the service
 // Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through OpenHouse cloud, off until someone turns it on (Parent
 // menu → Better voice). Without it the tablet works by touch and typing; there's no on-device fallback voice.
 //   GET  /cloud/voice[?check=1]      on?, the vendor, this month's use and allowance (check: ask the service)
@@ -18,6 +20,7 @@
 // The credential lives in display/.cloud/device.json (0600), never in a backup.
 import fs from 'node:fs';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { request } from './backup-format.js';
 
 // The service a tablet links to unless someone sets another (Settings → Account → Address). Filled in after the
@@ -25,7 +28,7 @@ import { request } from './backup-format.js';
 export const DEFAULT_API = 'https://cloud.openhouse.computer';
 const DAY = 86400e3;
 
-export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', backupBits = () => ({}), now = Date.now, tick = 15 * 60e3, defaultApi = process.env.OPENHOUSE_CLOUD_URL || DEFAULT_API }) {
+export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', backupBits = () => ({}), fixesFile = null, now = Date.now, tick = 15 * 60e3, defaultApi = process.env.OPENHOUSE_CLOUD_URL || DEFAULT_API }) {
   const DIR = path.join(DISPLAY, '.cloud');
   const f = (n) => path.join(DIR, n);
   const read = (n) => { try { return JSON.parse(fs.readFileSync(f(n), 'utf8')); } catch { return null; } };
@@ -49,6 +52,22 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     }
     if (r.status >= 300) throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}` });
     return r.json;
+  }
+
+  /** Send a report: what someone at the tablet agreed to send (the shell asked): the shell's own log, the last part of
+   *  each of the runtime's logs (start, bridge, vite…), and the app fixes waiting. Never the chats or the household's
+   *  files themselves, though the logs can mention what was said. Under the service's size limit once gzipped. */
+  async function sendReport(b) {
+    const tail = (file, n) => { try { const st = fs.statSync(file), fd = fs.openSync(file, 'r'); const len = Math.min(st.size, n), buf = Buffer.alloc(len); fs.readSync(fd, buf, 0, len, st.size - len); fs.closeSync(fd); return buf.toString('utf8'); } catch { return null; } };
+    const parts = [`OpenHouse report ${iso()}  version ${String(b.version || '?').slice(0, 40)}`, `note: ${String(b.note || '').slice(0, 500)}`,
+      `status: ${JSON.stringify(status())}`, '', '== shell (logcat) ==', String(b.shellLog || '').slice(-600_000)];
+    let logs = []; try { logs = fs.readdirSync(DISPLAY).filter((n) => /\.log(\.1)?$/.test(n)).sort(); } catch {}
+    for (const n of logs) { const t = tail(path.join(DISPLAY, n), 200_000); if (t != null) parts.push('', `== ${n} ==`, t); }
+    if (fixesFile) { const t = tail(fixesFile, 100_000); if (t) parts.push('', '== heartbeat-fixes.json ==', t); }
+    let text = parts.join('\n'), gz = zlib.gzipSync(text);
+    while (gz.length > 340_000 && text.length > 10_000) { text = text.slice(0, 20_000) + '\n…(cut)…\n' + text.slice(-Math.floor(text.length / 2)); gz = zlib.gzipSync(text); }
+    const r = await call('POST', '/v1/report', { gz: gz.toString('base64'), note: String(b.note || '').slice(0, 500), version: String(b.version || '').slice(0, 40) });
+    return { ok: true, id: r.id };
   }
 
   // --- linking -------------------------------------------------------------------------------------------------
@@ -204,6 +223,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       }
       case '/cloud/link/start': await reply(res, () => linkStart(String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
       case '/cloud/link/cancel': linking = null; json(res, 200, { ok: true }); return true;
+      case '/cloud/report': await reply(res, () => sendReport(b)); return true;
       case '/cloud/link/token': await reply(res, () => linkToken(String(b.token || ''), String(b.api || ''), String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
       case '/cloud/voice': await reply(res, () => voiceSet(!!b.on)); return true;
       case '/cloud/voice/name': await reply(res, async () => { const v = String(b.voice || '').toLowerCase(); if (!/^[a-z]{2,20}$/.test(v)) throw new Error('voice'); write('voice.json', { ...(read('voice.json') || {}), voiceName: v }); return voiceStatus(false); }); return true;
