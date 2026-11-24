@@ -580,12 +580,24 @@ export function Things({ c, things, className = 't-things', go, tabs, ask }) {
 
 /** A photo of theirs, a new one every minute, with its caption if it has one, opening Photos. */
 function PhotoCard({ c, names, captions, now, usePhoto, onOpen, ...rest }) {
-  const name = names[Math.floor(now / 60e3) % names.length], src = usePhoto(c, name), cap = captions?.[name];
-  // A photo whose shape is far from the card's (a tall one in a wide card) shows whole, its own blur in the margins, as
-  // on the sleep screen; one close to the card's shape still fills it.
-  const [fit, setFit] = useState(false);
-  const seen = (e) => { const im = e.currentTarget, box = im.parentElement; if (!im.naturalWidth || !box?.clientHeight) return; const r = (im.naturalWidth / im.naturalHeight) / (box.clientWidth / box.clientHeight); setFit(r < 0.67 || r > 1.5); };
-  return <div {...rest} onClick={onOpen ? () => onOpen(name) : rest.onClick} className={rest.className + ' t-photo t-pic-card'}>{/* a tap opens this photo in Photos */}{src && fit && <img className="t-cover t-blurback" src={src} alt="" draggable={false} />}{src && <img className={'t-cover' + (fit ? ' t-whole' : '')} src={src} alt="" draggable={false} onLoad={seen} />}{cap && <div className="t-cap"><div className="t-line">{cap}</div></div>}</div>;
+  // A wide card shows a few photos side by side, each about as wide as it is tall, so none is cut to a strip (the
+  // user); a card near square shows one. They move on each minute.
+  const box = useRef(null), [n, setN] = useState(1);
+  useEffect(() => {
+    const el = box.current; if (!el) return;
+    const o = new ResizeObserver(() => { const r = el.getBoundingClientRect(); if (r.width && r.height) setN(Math.max(1, Math.min(5, Math.round(r.width / r.height / 0.85)))); });
+    o.observe(el); return () => o.disconnect();
+  }, []);
+  const k = Math.min(n, names.length), at = Math.floor(now / 60e3) * k;
+  const shown = Array.from({ length: k }, (_, i) => names[(at + i) % names.length]);
+  const cap = k === 1 ? captions?.[shown[0]] : null;
+  return <div ref={box} {...rest} onClick={onOpen ? () => onOpen(shown[0]) : rest.onClick} className={rest.className + ' t-photo t-pic-card' + (k > 1 ? ' t-photos' : '')}>{/* a tap opens a photo in Photos */}
+    {k > 1 ? shown.map((name) => <PhotoTile key={name} c={c} name={name} usePhoto={usePhoto} onOpen={onOpen} />) : shown[0] && <PhotoTile c={c} name={shown[0]} usePhoto={usePhoto} onOpen={onOpen} />}
+    {cap && <div className="t-cap"><div className="t-line">{cap}</div></div>}</div>;
+}
+function PhotoTile({ c, name, usePhoto, onOpen }) {
+  const src = usePhoto(c, name);
+  return <div className="t-tile" onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(name); } : undefined}>{src && <img className="t-cover" src={src} alt="" draggable={false} />}</div>;
 }
 
 // ---- Notes: what the assistant put up for them, and reminders due now ------------------------------------------------
