@@ -102,15 +102,39 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
     }.getOrNull()?.also { icons[pkg] = it }
     private val calls = Calls()
 
+    /** While the page loads (the tablet starting, the bridge restarting): the OpenHouse logo and name on the paper, the
+     *  house breathing slowly so it reads as starting, not stuck. Under the page, which covers it once loaded. */
+    private val logo = android.widget.ImageView(act).apply {
+        val K = dev.openhouse.ui.Calm
+        setImageResource(R.drawable.ic_launcher_foreground)
+        background = K.rounded(0xFF2A2826.toInt(), K.px(act, 34).toFloat())
+        scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+    }
+    private val breathe = android.animation.ObjectAnimator.ofFloat(logo, View.ALPHA, 1f, .55f).apply {
+        duration = 1400; repeatMode = android.animation.ValueAnimator.REVERSE; repeatCount = android.animation.ValueAnimator.INFINITE
+    }
+    private val splash = dev.openhouse.ui.Calm.column(act).apply {
+        val K = dev.openhouse.ui.Calm
+        gravity = Gravity.CENTER_HORIZONTAL
+        addView(logo, android.widget.LinearLayout.LayoutParams(K.px(act, 148), K.px(act, 148)))
+        addView(K.text(act, "OpenHouse", 34f, 600).apply { letterSpacing = -.01f }, android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = K.px(act, 26) })
+    }
+    private fun loading(on: Boolean) {
+        splash.visibility = if (on) View.VISIBLE else View.GONE
+        if (on) { if (!breathe.isStarted) breathe.start() } else { breathe.cancel(); logo.alpha = 1f }
+    }
+
     fun start() {
         if (web != null) return
-        layer.addView(make(), 0, FrameLayout.LayoutParams(-1, -1))
+        layer.addView(splash, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        loading(true)
+        layer.addView(make(), 1, FrameLayout.LayoutParams(-1, -1))
         layer.addView(banner, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
         load()
     }
 
     /** The activity is going: the page stops too (else it keeps running, hidden, polling and placing things). */
-    fun destroy() { web?.let { it.stopLoading(); it.loadUrl("about:blank"); it.destroy() }; web = null }
+    fun destroy() { breathe.cancel(); web?.let { it.stopLoading(); it.loadUrl("about:blank"); it.destroy() }; web = null }
 
     /** Settings: load the home screen again. */
     fun reload() = load()
@@ -148,12 +172,12 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
             private var failed = false
             private fun retry(why: String) {
                 Log.w(TAG, "homeScreen didn't load: $why") // try again shortly
-                failed = true; v().visibility = View.INVISIBLE
+                failed = true; v().visibility = View.INVISIBLE; loading(true)
                 main.removeCallbacks(again); main.postDelayed(again, 2000)
             }
             private fun v() = web!!
             override fun onPageStarted(v: WebView, url: String?, b: android.graphics.Bitmap?) { calls.ours = ours(url); calls.fresh(); failed = false; banner.visibility = View.GONE }
-            override fun onPageFinished(v: WebView, url: String?) { if (!failed && ours(url)) { v.visibility = View.VISIBLE; Updater.homeLoaded = true } }
+            override fun onPageFinished(v: WebView, url: String?) { if (!failed && ours(url)) { v.visibility = View.VISIBLE; loading(false); Updater.homeLoaded = true } }
             override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) { if (r.isForMainFrame) retry(e.description.toString()) }
             override fun onReceivedHttpError(v: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) { if (r.isForMainFrame) retry("HTTP ${e.statusCode}") }
         }
