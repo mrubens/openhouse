@@ -7,6 +7,10 @@
 //   claude mcp add openhouse -- npx openhouse-mcp          (or: node /path/to/openhouse/connect/openhouse-mcp.mjs)
 //   openhouse-mcp pair K7QM-2XD9-HPA4      pair from a terminal instead ("192.168.1.23:8788 K7QM-2XD9-HPA4" if it
 //                                          isn't found on the Wi-Fi by itself)
+//   openhouse-mcp pair K7QM-2XD9-HPA4 --name "Claude on Sam's laptop"   from anywhere, through the cloud (the setup
+//                                          page's prompt: a chat's sandbox, or away from home), else on the Wi-Fi
+//   openhouse-mcp tools                    the tablet's tools, for an AI that can run commands but not add MCP servers
+//   openhouse-mcp call get_guide '{"topic":"apps"}'   one of them
 //   openhouse-mcp status | forget
 //
 // The pairing is kept in ~/.config/openhouse/pairing.json (OPENHOUSE_PAIRING to put it elsewhere), readable only by you.
@@ -16,15 +20,19 @@ import path from 'node:path';
 import readline from 'node:readline';
 import dns from 'node:dns';
 import { execFileSync } from 'node:child_process';
-import { pair as pairScreen, client as sealedClient, Removed } from '../chat/src/screen-client.js';
-import { b64 } from '../chat/src/seal.js';
+import { pair as pairScreen, client as sealedClient, relayTokenOf, Removed } from '../chat/src/screen-client.js';
+import { relayTransport } from '../chat/src/relay-client.js';
+import { CP, b64 } from '../chat/src/seal.js';
 import { pairingFromCode, cleanCode } from '../bridge/pair-code.js';
 import { findTablets } from './mdns.mjs';
 
 const FILE = process.env.OPENHOUSE_PAIRING || path.join(os.homedir(), '.config', 'openhouse', 'pairing.json');
 const PORT = 8788;
+// The cloud's relay (docs/networking.md): a code can be used from anywhere through it while the tablet has "Use it
+// away from home" on. OPENHOUSE_RELAY_URL: another one (a local cloud, for trying it).
+const RELAY = process.env.OPENHOUSE_RELAY_URL || 'wss://relay.openhouse.computer';
 
-const load = () => { try { const p = JSON.parse(fs.readFileSync(FILE, 'utf8')); return p.base && p.id && p.key ? p : null; } catch { return null; } };
+const load = () => { try { const p = JSON.parse(fs.readFileSync(FILE, 'utf8')); return (p.base || p.relay) && p.id && p.key ? p : null; } catch { return null; } };
 function save(p) {
   fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
   fs.writeFileSync(FILE + '.tmp', JSON.stringify(p, null, 1), { mode: 0o600 });
@@ -47,6 +55,28 @@ export function parseInvite(text) {
   return { base: host ? `http://${host[1]}:${host[2] || PORT}` : null, code: cleanCode(code) };
 }
 
+/** The pairing's two steps through the cloud's relay (as the web connector does them, openhouse-cloud connector.ts):
+ *  hello, then wait for Allow. Resolves to the welcome; rejects at once when no tablet is showing the code there. */
+async function relayPair({ pair, key, name, onAsked, signal }) {
+  const te = new TextEncoder(), td = new TextDecoder(), k = b64.dec(key);
+  const rt = relayTransport({ url: RELAY, pair });
+  const step = async (p, body) => { const r = await rt.request({ p }, te.encode(JSON.stringify(body)), { signal }); return { ok: r.ok, j: await r.json().catch(() => ({})) }; };
+  try {
+    const box = CP.seal(k, crypto.getRandomValues(new Uint8Array(12)), te.encode(`hello:${pair}`), te.encode(JSON.stringify({ name })));
+    let r = await step('hello', { box: b64.enc(box) });
+    if (!r.ok) throw new Error('ended');
+    onAsked?.();
+    for (;;) {
+      r = await step('wait', {});
+      if (!r.ok) throw new Error('ended');
+      if (r.j.waiting) { await new Promise((a) => setTimeout(a, 1500)); continue; }
+      const opened = CP.open(k, te.encode(`welcome:${pair}`), b64.dec(r.j.box));
+      if (!opened) throw new Error('ended');
+      return JSON.parse(td.decode(opened));
+    }
+  } finally { rt.close(); }
+}
+
 const WHERE = 'On the tablet: the gear, then Screens and computers, then "A computer, to change the apps".';
 let pending = null; // a pairing waiting for Allow on the tablet
 
@@ -65,9 +95,27 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
     try { named = `http://${(await dns.promises.lookup(u.hostname, { family: 4 })).address}:${u.port || PORT}`; } catch {}
   }
   let bases = named ? [named] : inv.base && !/[a-z]/i.test(new URL(inv.base).hostname) ? [inv.base] : [];
-  if (!bases.length) bases = (await findTablets()).map((t) => `http://${t.address}:${t.port}`);
-  if (!bases.length) return { ok: false, needAddress: true, text: 'I couldn\'t find the OpenHouse on this Wi-Fi. Is "A computer, to change the apps" open on the tablet? Its name and code only work while that screen shows. If it is, ask for the address shown under the name (like 192.168.1.23:8788) and pair again with both. This computer has to be on the same Wi-Fi as the tablet.' };
   const name = computerName();
+  // No address: through the cloud first (it works from anywhere, a chat's sandbox too), then the Wi-Fi.
+  if (!inv.base && globalThis.WebSocket) {
+    let asked = false;
+    const stop = new AbortController();
+    const promise = relayPair({ pair: p.pair, key: b64.enc(p.key), name, signal: stop.signal, onAsked: () => { asked = true; told(); } })
+      .then(async (w) => {
+        if (w.refused) return { ok: false, text: 'The tablet said no.' };
+        if (!w.base && !w.relay) return { ok: false, text: 'This OpenHouse needs an update before it can be paired this way. Pair on its Wi-Fi instead.' };
+        const relay = w.relay ? { url: RELAY, relay: w.relay.relay, token: await relayTokenOf(w.key) } : undefined;
+        save({ base: w.base || null, ...(relay ? { relay } : {}), id: w.id, key: w.key, name: w.name, paired: Date.now() });
+        return { ok: true, text: `Paired: "${w.name}" can change this OpenHouse now. Call get_guide before changing anything.` };
+      })
+      .catch((error) => ({ ok: false, asked, error }));
+    const first = await Promise.race([promise, new Promise((r) => setTimeout(() => r(null), 10e3))]);
+    const notThere = first && !first.ok && !first.asked && first.error; // no tablet showing the code there: the Wi-Fi next
+    if (!first && !asked) stop.abort(); // no answer from the cloud at all: the Wi-Fi
+    else if (!notThere) { pending = { promise: promise.then((r) => (r.error ? { ok: false, text: 'The pairing ended on the tablet. Start again there.' } : r)), name }; return finishPending(waitMs); }
+  }
+  if (!bases.length) bases = (await findTablets()).map((t) => `http://${t.address}:${t.port}`);
+  if (!bases.length) return { ok: false, needAddress: true, text: 'I couldn\'t find the OpenHouse through the cloud or on this Wi-Fi. Through the cloud, the tablet needs "Use it away from home" on (its Cloud settings). Is "A computer, to change the apps" open on the tablet? Its name and code only work while that screen shows. If it is, ask for the address shown under the name (like 192.168.1.23:8788) and pair again with both. This computer has to be on the same Wi-Fi as the tablet.' };
   for (const base of bases) {
     let asked = false;
     const promise = pairScreen({ base, pair: p.pair, key: b64.enc(p.key), name, onAsked: () => { asked = true; told(); } })
@@ -102,7 +150,7 @@ let link = null; // { pairing, c }
 function connect() {
   const p = load();
   const relay = p?.relay ? { ...p.relay, ...(process.env.OPENHOUSE_RELAY_URL ? { url: process.env.OPENHOUSE_RELAY_URL } : {}) } : null;
-  link = p ? { pairing: p, c: sealedClient({ base: p.base, id: p.id, key: p.key, relay, onRelay: (r) => { const now = load(); if (now?.id === p.id) save({ ...now, relay: r || undefined }); } }) } : null;
+  link = p ? { pairing: p, c: sealedClient({ base: p.base || '', onlyRelay: !p.base, id: p.id, key: p.key, relay, onRelay: (r) => { const now = load(); if (now?.id === p.id) save({ ...now, relay: r || undefined }); } }) } : null;
   return link;
 }
 connect();
@@ -135,8 +183,9 @@ const unreachable = (e) => e instanceof Removed
   ? 'The tablet removed this computer. Ask for a new code and pair again. ' + WHERE + ''
   : /brain said 503/.test(e.message) && link?.c.where() === 'away'
     ? 'The OpenHouse isn\'t connected to the internet right now (this computer is away from its Wi-Fi, so it goes through OpenHouse\'s relay). Is the tablet on?'
-    : `Can't reach the OpenHouse at ${link?.pairing.base} right now (${e.cause?.code || (e.name === 'TimeoutError' ? 'no answer' : e.message)}). Is it on, and this computer on the same Wi-Fi? ${link?.pairing.relay ? '' : 'To reach it from anywhere, turn on "Use it away from home" on the tablet (its Cloud settings), then use this once on the Wi-Fi. '}If its address changed, pair again.`;
-function lost(e) { if (e instanceof Removed) { forget(); link = null; out({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' }); } }
+    : `Can't reach the OpenHouse${link?.pairing.base ? ` at ${link.pairing.base}` : ''} right now (${e.cause?.code || (e.name === 'TimeoutError' ? 'no answer' : e.message)}). Is it on, and this computer on the same Wi-Fi? ${link?.pairing.relay ? '' : 'To reach it from anywhere, turn on "Use it away from home" on the tablet (its Cloud settings), then use this once on the Wi-Fi. '}If its address changed, pair again.`;
+let serving = false;
+function lost(e) { if (e instanceof Removed) { forget(); link = null; if (serving) out({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' }); } }
 
 // MCP 2026-07-28 (stateless, a _meta on every request; skills need it) as well as the initialize kind: a request
 // with the _meta is answered in that revision, and passed on to the tablet as it is (bridge/workshop.js serves both).
@@ -206,18 +255,48 @@ async function handle(msg) {
 }
 
 function serve() {
+  serving = true;
   const rl = readline.createInterface({ input: process.stdin });
   rl.on('line', (l) => { if (!l.trim()) return; let m; try { m = JSON.parse(l); } catch { return; } handle(m).catch((e) => m.id != null && out({ jsonrpc: '2.0', id: m.id, error: { code: -32603, message: e.message } })); });
   rl.on('close', () => process.exit(0));
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
-if (cmd === 'pair') { // from a terminal (the setup page's one-liner): pair now, so the next session just has the tools
+/** A tool's answer, for a terminal: its text, and any picture saved to a file (its path printed). */
+function printResult(r) {
+  for (const c of r?.content || []) {
+    if (c.type === 'text') console.log(c.text);
+    else if (c.type === 'image' && c.data) {
+      const f = path.join(path.dirname(FILE), `look-${Date.now()}.${/jpe?g/.test(c.mimeType || '') ? 'jpg' : 'png'}`);
+      fs.writeFileSync(f, Buffer.from(c.data, 'base64')); console.log(`(picture: ${f})`);
+    }
+  }
+}
+if (cmd === 'pair') { // from a terminal (the setup page's prompt): pair now, so the AI has the tools from then on
+  const at = rest.indexOf('--name');
+  if (at >= 0) { process.env.OPENHOUSE_NAME = String(rest[at + 1] || '').trim() || ''; rest.splice(at, 2); }
   console.log('Looking for your OpenHouse…');
   const r = await doPair(rest.join(' '), rest.join(' '), { waitMs: 10 * 60e3, onAsked: () => console.log('Now tap Allow on the tablet.') });
-  console.log(r.ok ? `Paired. Start a new Claude Code or Codex session and ask it to change your OpenHouse.` : r.text);
+  const me = process.argv[1];
+  console.log(r.ok ? `Paired. Add it as an MCP server (command: node ${me}), or use it from here: node ${me} tools, then node ${me} call get_guide '{}'.` : r.text);
   process.exit(r.ok ? 0 : 1);
 }
-else if (cmd === 'status') { const p = load(); console.log(p ? `Paired with ${p.base} as "${p.name}".` : 'Not paired.'); }
+else if (cmd === 'tools' || cmd === 'call') { // for an AI that can run commands but not add an MCP server (a chat's sandbox)
+  if (!link) { console.log('Not paired. Pair first: node ' + process.argv[1] + ' pair <the code on the tablet>'); process.exit(1); }
+  try {
+    if (cmd === 'tools') {
+      const r = await toTablet({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, { timeoutMs: 20e3 });
+      for (const t of r.result?.tools || []) console.log(`${t.name}: ${t.description || ''}\n  arguments: ${JSON.stringify(t.inputSchema?.properties || {})}${t.inputSchema?.required?.length ? ` (required: ${t.inputSchema.required.join(', ')})` : ''}\n`);
+    } else {
+      let args = {}; try { args = rest[1] ? JSON.parse(rest[1]) : {}; } catch { console.log('The arguments are JSON, like \'{"topic":"apps"}\'.'); process.exit(1); }
+      const r = await toTablet({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: String(rest[0] || ''), arguments: args } });
+      if (r.error) { console.log(r.error.message); process.exit(1); }
+      printResult(r.result);
+      process.exit(r.result?.isError ? 1 : 0);
+    }
+  } catch (e) { lost(e); console.log(unreachable(e)); process.exit(1); }
+  process.exit(0);
+}
+else if (cmd === 'status') { const p = load(); console.log(p ? `Paired with ${p.base || 'the OpenHouse, through the cloud'} as "${p.name}".` : 'Not paired.'); }
 else if (cmd === 'forget') { forget(); console.log('Unpaired.'); }
 else serve();

@@ -237,6 +237,13 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () =
     return sink;
   }
 
+  // Where a computer that pairs now can reach this tablet away from home (its welcome, screens.js), and the cloud's
+  // connector for claude.ai and ChatGPT (the setup page): only while the relay is up.
+  screens.relayAt = () => {
+    if (!on() || !connected || !relayId || !url) return null;
+    const api = cloud.apiBase?.();
+    return { url, relay: relayId, connector: api ? `${api.replace(/\/+$/, '')}/mcp` : null };
+  };
   /** Who is paired changed (screens.js): the relay's list follows at once. */
   const changed = () => { tokens(); pairings(); };
   // (The relay keeps a pairing for 10 minutes: one that lasts longer, an invite's week, is told again every 5.)

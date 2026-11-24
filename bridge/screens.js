@@ -286,6 +286,13 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
         ...(x.kind === 'phone' ? { person: x.person } : {}) };
       state.screens.push(s); write(); changed();
       welcome = { id: s.id, key: s.key, scopes: s.scopes, name: s.name, kind: s.kind, ...(s.person ? { person: s.person } : {}) };
+      // A computer may have paired through the cloud (the setup page's prompt, from a chat's sandbox or away from home):
+      // where to find the tablet afterwards, on the Wi-Fi and through the relay (its token comes from the key).
+      if (computer) {
+        if (connect?.pair === pairId && connect.address) welcome.base = `http://${connect.address}:${PORT}`;
+        const r = handle.relayAt?.();
+        if (r?.url && r.relay) welcome.relay = { url: r.url, relay: r.relay };
+      }
     }
     x.answer = seal(x.key, `welcome:${pairId}`, Buffer.from(JSON.stringify(welcome)));
     if (state.invites.some((v) => v.pair === pairId)) { state.invites = state.invites.filter((v) => v.pair !== pairId); write(); } // an invite is used once
@@ -472,7 +479,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     const head = { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' };
     if (p === '/') {
       res.writeHead(200, { ...head, 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self'; form-action 'none'; frame-ancestors 'none'" });
-      return res.end(connectPage({ code: connect.code, host: connect.address && named.on ? `${HOSTNAME}:${PORT}` : host }));
+      return res.end(connectPage({ code: connect.code, host: connect.address && named.on ? `${HOSTNAME}:${PORT}` : host, relay: handle.relayAt?.() || null }));
     }
     const d = downloads(HERE), f = p === '/openhouse.mcpb' ? d.mcpb : d.script;
     if (!f) return plain(res, 404, { error: 'not built' });
