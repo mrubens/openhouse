@@ -62,6 +62,8 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         @JavascriptInterface fun weather(g: String?) { if (ok(g)) main.post { o.showWeather = true } }
         @JavascriptInterface fun touch(g: String?) { if (ok(g)) main.post { o.touch() } }
         @JavascriptInterface fun idle(g: String?): Boolean = ok(g) && o.idle
+        /** Settings → Time: whether the clock is 24-hour (shell/Clock.kt). */
+        @JavascriptInterface fun clock24(g: String?): Boolean = ok(g) && Clock.is24(act)
         /** Put to sleep with "Sleep now": dark like night until touched or morning. */
         @JavascriptInterface fun sleeping(g: String?): Boolean = ok(g) && o.sleeping
         /** A text field in the page (or an app in one of its tabs, which tells the page) has the keyboard: keys go to

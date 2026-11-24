@@ -22,6 +22,8 @@ const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const hm = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
+/** The rail's clock: "3:07pm", or "15:07" when Settings → Time says 24-hour (the shell's clock24). */
+const railTime = (d, h24) => h24 ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : <>{d.getHours() % 12 || 12}:{pad(d.getMinutes())}<small>{d.getHours() < 12 ? 'am' : 'pm'}</small></>;
 const clock = (s) => { const m = Math.floor(s / 60), x = s % 60; return `${m}:${pad(x)}`; };
 const dayOf = (e) => (e.date ? new Date(e.date + 'T00:00') : (() => { const d = new Date(e.start); d.setHours(0, 0, 0, 0); return d; })());
 const timeOf = (e) => (e.allDay ? null : new Date(e.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }).replace(':00', '').replace(/\s?([AP])M$/i, (_, x) => x.toLowerCase()));
@@ -103,7 +105,7 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
     <div className={'home' + (st.density === 'snug' ? ' snug' : '') + (st.type === 'hand' ? ' hand-type' : '') + (st.backdrop === 'photos' ? ' over-photos' : '') + (st.palette === 'dusk' ? ' dark' : '')} data-tab={cur} style={lookVars(st, worldTab(tabs.find((t) => t.id === cur), appBy))}>
       {st.backdrop === 'photos' && <Backdrop c={c} names={house?.screensaver || house?.photos || []} now={now} usePhoto={usePhoto} />}
       <aside className="h-rail">
-        <div className="h-time">{hm(d)}</div>
+        <div className="h-time">{railTime(d, shell?.clock24?.())}</div>
         <div className="h-day">{d.toLocaleDateString([], { weekday: 'long' })}</div>
         <div className="h-day h-date">{d.toLocaleDateString([], { day: 'numeric', month: 'long' })}</div>
         {weather && !weather.error && <div className="h-wx"><span className="h-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(weather.code, weather.isDay !== false) }} />{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}

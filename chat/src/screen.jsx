@@ -30,7 +30,7 @@ const shell = (() => {
   if (!hi?.gate) return null;
   const g = hi.gate;
   return { token: () => hi.token, ui: hi.ui, openApp: (id) => raw.openApp(g, id), settings: () => raw.settings(g), plugins: raw.plugins ? () => raw.plugins(g) : null, type: raw.type ? () => raw.type(g) : undefined, sleep: raw.sleep ? () => raw.sleep(g) : undefined, weather: () => raw.weather(g), touch: () => raw.touch(g),
-    idle: () => raw.idle(g), sleeping: () => { try { return !!raw.sleeping(g); } catch { return false; } }, dim: (on) => { try { raw.dim(g, !!on); } catch {} }, ask: (t) => raw.ask(g, t), androidApps: () => raw.androidApps(g), video: (u) => raw.video(g, u),
+    idle: () => raw.idle(g), clock24: () => { try { return !!raw.clock24(g); } catch { return false; } }, sleeping: () => { try { return !!raw.sleeping(g); } catch { return false; } }, dim: (on) => { try { raw.dim(g, !!on); } catch {} }, ask: (t) => raw.ask(g, t), androidApps: () => raw.androidApps(g), video: (u) => raw.video(g, u),
     phone: raw.phone ? (kind, arg) => raw.phone(g, kind, arg) : null, editing: (on) => { try { raw.editing(g, !!on); } catch {} } };
 })();
 const STORE = 'openhouse.screen';
