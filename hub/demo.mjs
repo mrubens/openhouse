@@ -66,6 +66,8 @@ if (!state.link || args.includes('--new-phone')) {
   const r = await call('GET', '/relay');
   if (!r.linked) { console.error('[demo] the hub isn\'t linked to a cloud account yet: link it on its settings page, then run this again.'); process.exit(1); }
   await call('POST', '/relay', { on: true });
+  // Opie: the cloud assistant and live voice (the household's yes to OpenAI, which on a demo is the operator's).
+  try { await call('POST', '/cloud/voice', { on: true }); } catch (e) { console.error('[demo] the cloud assistant didn\'t turn on:', e.message); }
   let up = false;
   for (let i = 0; i < 60 && !(up = (await call('GET', '/relay')).connected); i++) await wait(500);
   if (!up) { console.error('[demo] the relay didn\'t connect in 30 s:', (await call('GET', '/relay')).error || 'no answer'); process.exit(1); }

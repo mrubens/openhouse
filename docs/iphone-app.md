@@ -100,6 +100,12 @@ the review notes. The hub needs no open ports: phones reach it through the cloud
    their own. `--new-phone` makes a new link; remove the old phone on the settings page to end the old one.
 4. Paste the link into the app on a phone to check it, then into the review notes.
 
+OpenHouse's own demo household runs on AWS, in the cloud's stack with `demoHub: on` (`openhouse-cloud/lib/demo-hub.ts`:
+a t4g.small with no inbound ports, about $17 a month). Its family and hub credential are made by the operator with
+`scripts/cloud.sh node scripts/demo-hub.ts` (no sign-up; the family has no members), and its first start does steps 1
+to 3 by itself, with the nightly run in cron. Its link: `AWS_PROFILE=openhouse-admin scripts/cloud.sh node
+scripts/demo-hub.ts link`. Its shell: `aws ssm start-session --target <DemoHubInstance from the stack's outputs>`.
+
 Anyone with the link is Sam on the demo household, so it goes only where it has to (the review notes, never a public
 page). Tried on 2026-11-24 against the local cloud: the seed ran twice, and the link opened Sam's Today through the
 relay.
@@ -126,7 +132,7 @@ In App Store Connect (an Account Holder, Admin or App Manager does these):
    - Beta App Review Information: contact name, phone and email. Sign-in required: off (there's no account in the
      app). Review notes:
      "The app is the phone companion to a household's OpenHouse tablet, so it needs a household to join. Use our
-     demo household: open the app, tap 'Or paste its link', and paste this link: <the demo link>. You'll be Sam in a
+     demo household: open the app, tap 'Or paste its link', and paste this link: <the demo link, from `scripts/demo-hub.ts link`>. You'll be Sam in a
      sample household. Try Today and the tabs, Talk to Opie, the Today and Groceries widgets, 'Ask OpenHouse' in
      Shortcuts, and Send to Opie from Safari's share sheet."
    - Save.
