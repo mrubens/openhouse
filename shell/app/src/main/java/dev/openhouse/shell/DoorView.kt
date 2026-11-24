@@ -66,7 +66,13 @@ class DoorView(private val act: ComponentActivity, private val ui: () -> String,
         @JavascriptInterface fun sleeping(g: String?): Boolean = ok(g) && o.sleeping
         /** A text field in the page (or an app in one of its tabs, which tells the page) has the keyboard: keys go to
          *  it, not to the assistant. */
-        @JavascriptInterface fun editing(g: String?, on: Boolean) { if (ok(g)) o.webEditing = on }
+        @JavascriptInterface fun editing(g: String?, on: Boolean) {
+            if (!ok(g)) return
+            o.webEditing = on
+            // A field focused by the page itself (Add a recipe opens with its box ready) gets the keyboard too: Android only
+            // brings it up for a touch on the field.
+            if (on) main.post { web?.let { w -> w.requestFocus(); (act.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager)?.showSoftInput(w, 0) } }
+        }
         /** Night, and nobody using it: the backlight goes right down (on: true), back to normal on false. */
         @JavascriptInterface fun dim(g: String?, on: Boolean) { if (ok(g)) main.post {
             val w = act.window; val a = w.attributes
