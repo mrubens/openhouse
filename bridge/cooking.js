@@ -154,7 +154,7 @@ export function parseCook(said) {
   let v;
   try { v = JSON.parse(String(said).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { throw new Error('Couldn’t make steps from that recipe.'); }
   if (v?.none) throw new Error('There’s no recipe in that.');
-  const ing = (x) => ({ item: clean(x?.item ?? x?.name, 80), amount: clean(x?.amount, 40) });
+  const ing = (x) => ({ item: clean(x?.item ?? x?.name, 80), amount: clean(x?.amount, 90) });
   const ingredients = (Array.isArray(v?.ingredients) ? v.ingredients : []).map(ing).filter((x) => x.item).slice(0, 60);
   const steps = (Array.isArray(v?.steps) ? v.steps : []).map((s) => {
     const text = clean(typeof s === 'string' ? s : s?.text, 900); if (!text) return null;
