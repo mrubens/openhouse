@@ -7,21 +7,22 @@ import { b64 } from './seal.js';
 const CHUNK = 16 * 1024;
 export class Refused extends Error {}
 
-/** cfg: {url, relay, token} from the tablet's GET /relay/me. api: the cloud's own address, when this page may reach it
+/** cfg: {url, relay, token} from the tablet's GET /relay/me, or {url, pair} for a pairing (an invite's link: its two
+ *  steps, p 'hello' and 'wait', as on the home network). api: the cloud's own address, when this page may reach it
  *  (the cloud's copy of the phone page): a big reply can then come as a box in its storage (bx, openhouse-cloud
  *  relay-box.ts box/out), fetched from there once, still sealed. */
-export function relayTransport({ url, relay, token }, { WS = globalThis.WebSocket, pingMs = 4 * 60e3, api = null, fetch: f = globalThis.fetch } = {}) {
+export function relayTransport({ url, relay, token, pair }, { WS = globalThis.WebSocket, pingMs = 4 * 60e3, api = null, fetch: f = globalThis.fetch } = {}) {
   let ready = null, n = 0, ping = null;
   const pending = new Map();
   function connect() {
     if (ready) return ready;
     const p = new Promise((resolve, reject) => {
       const s = new WS(url);
-      s.onopen = () => s.send(JSON.stringify({ t: 'hello', role: 'device', relay, token }));
+      s.onopen = () => s.send(JSON.stringify(pair ? { t: 'hello', role: 'pairing', pair } : { t: 'hello', role: 'device', relay, token }));
       s.onmessage = (e) => {
         let m; try { m = JSON.parse(String(e.data)); } catch { return; }
         if (m.t === 'ok') { resolve(s); ping = setInterval(() => { try { s.send('{"t":"ping"}'); } catch {} }, pingMs); ping.unref?.(); }
-        else if (m.t === 'no') reject(new Refused(m.why || 'refused'));
+        else if (m.t === 'no') { reject(new Refused(m.why || 'refused')); try { s.close(); } catch {} }
         else if (m.t === 'res') pending.get(m.rid)?.(m);
       };
       s.onerror = () => {};

@@ -13,7 +13,7 @@ import http from 'node:http';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { initRepo } from '../edits.js';
-import { pair, client, Removed } from '../../chat/src/screen-client.js';
+import { pair, relayPair, client, Removed } from '../../chat/src/screen-client.js';
 import { relayTransport } from '../../chat/src/relay-client.js';
 import { localCloud, SKIP } from './cloud-service.mjs';
 
@@ -103,6 +103,21 @@ test('on: the tablet dials out; a device learns the relay at home and keeps work
   // Removed on the tablet: the relay stops taking its requests.
   await post('/screens/revoke', { id: w.id });
   await assert.rejects(away.json('GET', '/state'), (e) => e instanceof Removed || /not paired|relay closed/.test(e.message));
+});
+
+test("an invite joins from anywhere through the relay, once, as that person's phone", opts, async () => {
+  const inv = await post('/setup/invite', { person: 'Maya', grownup: false });
+  assert.match(inv.page, /\/h\/$/); assert.match(inv.relay, /^[A-Za-z0-9_-]{22}$/);
+  const wsUrl = svc.url.replace('http', 'ws').replace('localhost', '127.0.0.1') + '/relay';
+  const go = () => relayPair({ url: wsUrl, relay: inv.relay, pair: inv.pair, key: inv.key, name: "Maya's phone" });
+  let w; for (let i = 0; i < 20 && !w; i++) w = await go().catch(() => wait(100)); // (the relay hears of the invite a moment later)
+  assert.equal(w.person, 'Maya'); assert.equal(w.kind, 'phone'); assert.ok(!w.scopes.includes('setup'));
+  const away = client({ base: 'http://127.0.0.1:1', id: w.id, key: w.key, relay: w.relay, onRelay: () => {} });
+  assert.equal((await away.json('GET', '/state')).status, 200);
+  await assert.rejects(go()); // used once
+  assert.ok(!(await get('/screens')).invites.includes('Maya'));
+  await post('/screens/revoke', { id: w.id });
+  await assert.rejects(away.json('GET', '/state')); // (and its socket to the relay closes)
 });
 
 test('a phone list page reaches its page on the tablet through the relay, only while it lasts', opts, async () => {

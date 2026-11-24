@@ -24,6 +24,36 @@ export async function pair({ base = '', pair, key, name, onAsked, signal, fetch:
   }
 }
 
+/** The token a device says hello to the relay with: from its key, as the tablet makes it (bridge/screens.js relayToken). */
+export async function relayTokenOf(key) {
+  const k = await crypto.subtle.importKey('raw', b64.dec(key), 'HKDF', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt: new Uint8Array(0), info: te.encode('openhouse relay') }, k, 128);
+  return b64.enc(new Uint8Array(bits));
+}
+
+/** pair(), from anywhere: an invite's link, opened away from home, joins through the cloud's relay (url: its address).
+ *  Resolves to the welcome, with relay ({url, relay, token}) for reaching the tablet afterwards. */
+export async function relayPair({ url, relay, pair, key, name, onAsked, signal, WS = globalThis.WebSocket }) {
+  const rt = relayTransport({ url, pair }, { WS });
+  try {
+    const k = b64.dec(key);
+    const box = CP.seal(k, nonce(), te.encode(`hello:${pair}`), te.encode(JSON.stringify({ name })));
+    const step = async (p, body) => { const r = await rt.request({ p }, te.encode(JSON.stringify(body)), { signal }); return { ok: r.ok, j: await r.json().catch(() => ({})) }; };
+    let r = await step('hello', { box: b64.enc(box) });
+    if (!r.ok) throw new Error('ended');
+    onAsked?.();
+    for (;;) {
+      r = await step('wait', {});
+      if (!r.ok) throw new Error('ended');
+      if (r.j.waiting) { await new Promise((a) => setTimeout(a, 1500)); continue; }
+      const opened = CP.open(k, te.encode(`welcome:${pair}`), b64.dec(r.j.box));
+      if (!opened) throw new Error('ended');
+      const w = JSON.parse(td.decode(opened));
+      return w.refused ? w : { ...w, relay: { url, relay, token: await relayTokenOf(w.key) } };
+    }
+  } catch (e) { throw e instanceof Refused ? new Error('ended') : e; } finally { rt.close(); }
+}
+
 export class Removed extends Error {}
 
 /**

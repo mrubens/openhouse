@@ -357,7 +357,11 @@ async function route(req, res, url) {
     // added with no card on the tablet unless its lock is on), and invites for the family.
     if (req.method === 'POST' && /^\/setup\/(calendar|album|invite)$/.test(url.pathname)) {
       const b = await body(req);
-      if (url.pathname === '/setup/invite') { const r = screens.invite(b.person, b.grownup !== false); json(res, r.error ? 400 : 200, r); return true; }
+      if (url.pathname === '/setup/invite') {
+        const r = screens.invite(b.person, b.grownup !== false);
+        if (!r.error) { const via = relay?.inviteVia?.(); if (via) { Object.assign(r, via); relay.changed(); } } // a link that works from anywhere
+        json(res, r.error ? 400 : 200, r); return true;
+      }
       const r = await calendar.toShell(url.pathname === '/setup/calendar' ? '/calendar' : '/album', { url: String(b.link || '').trim(), who: String(b.who || '').trim().slice(0, 40), from: 'setup', trusted: true });
       json(res, r.error ? 400 : 200, r); return true;
     }

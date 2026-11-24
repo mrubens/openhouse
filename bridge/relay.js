@@ -238,7 +238,14 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, WS = globalTh
 
   /** Who is paired changed (screens.js): the relay's list follows at once. */
   const changed = () => { tokens(); pairings(); };
-  const sweep = setInterval(() => { tokens(); pairings(); if (want() && !sock && !retryTimer) start(); if (!want() && sock) stop(); }, 30e3); sweep.unref?.();
+  // (The relay keeps a pairing for 10 minutes: one that lasts longer, an invite's week, is told again every 5.)
+  let pairsAt = 0;
+  const sweep = setInterval(() => {
+    tokens();
+    if (now() - pairsAt > 5 * 60e3) { pairsAt = now(); sentPairs = new Set(); }
+    pairings();
+    if (want() && !sock && !retryTimer) start(); if (!want() && sock) stop();
+  }, 30e3); sweep.unref?.();
   if (want()) start();
 
   async function handle(req, res, url2) {
@@ -292,5 +299,8 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, WS = globalTh
   handle.changed = changed;
   handle.stop = () => { clearInterval(sweep); stop(); };
   handle.status = () => ({ on: on(), connected });
+  /** For an invite's link (POST /setup/invite): the cloud's phone page and this tablet's relay id, while reaching
+   *  home from away is on and connected; else null (the link works on the home Wi-Fi only). */
+  handle.inviteVia = () => { const api = cloud.apiBase?.(); return on() && connected && relayId && api ? { page: `${api.replace(/\/+$/, '')}/h/`, relay: relayId } : null; };
   return handle;
 }

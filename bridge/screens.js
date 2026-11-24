@@ -375,9 +375,9 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   });
 
   /** A device's hello with its pairing's one-time key: from the home network, or (a computer's) through the relay. */
-  function hello(b, ip, { computerOnly = false } = {}) {
+  function hello(b, ip, { relayable = null } = {}) {
     const x = pairs.get(String(b.pair || ''));
-    const opened = x && !x.asked && (!computerOnly || x.kind === 'computer') && open(x.key, `hello:${b.pair}`, Buffer.from(String(b.box || ''), 'base64url'));
+    const opened = x && !x.asked && (!relayable || relayable(x)) && open(x.key, `hello:${b.pair}`, Buffer.from(String(b.box || ''), 'base64url'));
     if (!opened) {
       miss(ip);
       if (x && ++x.misses >= 5) { pairs.delete(String(b.pair)); changed(); } // guessing at a pairing: it ends
@@ -656,17 +656,23 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     sink.closed?.(() => res.destroy());
     return sealed(req, res, `relay:${id}`).catch(() => { if (!res.destroyed) res.destroy(); });
   };
-  /** Computer pairings still going (their code showing, or asked and waiting for its answer to be collected): someone
-   *  with the code may pair through the relay too (the web connector for claude.ai and ChatGPT,
-   *  openhouse-cloud/lambda/connector.ts). relay.js tells the relay. */
-  handle.computerPairs = () => { sweep(); return [...pairs].filter(([, x]) => x.kind === 'computer').map(([pair]) => pair); };
-  /** A computer's pairing step through the relay: 'hello' (body {pair, box}), or 'wait', which answers at once
-   *  ({waiting: true} until someone answers on the tablet, then the sealed welcome, once). */
+  /** A pairing someone may finish through the relay: a computer's (its code showing, or asked and waiting for its
+   *  answer to be collected: the web connector for claude.ai and ChatGPT, openhouse-cloud/lambda/connector.ts), or an
+   *  invite for someone in the family (its link opens the cloud's phone page, from anywhere, within its week). */
+  const relayable = (pair, x) => x.kind === 'computer' || (x.kind === 'phone' && x.pre && state.invites.some((v) => v.pair === pair));
+  /** The pairings the relay may let someone reach (relay.js tells the relay). */
+  handle.computerPairs = () => { sweep(); return [...pairs].filter(([pair, x]) => relayable(pair, x) || (x.kind === 'phone' && x.answer && x.relayed)).map(([pair]) => pair); };
+  /** A pairing step through the relay: 'hello' (body {pair, box}), or 'wait', which answers at once ({waiting: true}
+   *  until someone answers on the tablet, then the sealed welcome, once). An invite is answered at its hello. */
   handle.pairRelayed = (pair, step, body) => {
     sweep();
     const x = pairs.get(pair);
-    if (!x || x.kind !== 'computer') return { status: 404, json: { error: 'ended' } };
-    if (step === 'hello') { let b = {}; try { b = JSON.parse(body.toString()); } catch {} return hello({ ...b, pair }, `relay:${pair}`, { computerOnly: true }); }
+    if (!x || !(relayable(pair, x) || x.relayed)) return { status: 404, json: { error: 'ended' } };
+    if (step === 'hello') {
+      let b = {}; try { b = JSON.parse(body.toString()); } catch {}
+      if (x.kind === 'phone') x.relayed = true; // (its welcome is collected through the relay too, after the invite is used)
+      return hello({ ...b, pair }, `relay:${pair}`, { relayable: (y) => y === x });
+    }
     if (!x.asked) return { status: 404, json: { error: 'ended' } };
     if (x.answer) { pairs.delete(pair); changed(); return { status: 200, json: { box: b64(x.answer) } }; }
     return { status: 200, json: { waiting: true } };

@@ -42,12 +42,14 @@ On the phone or computer (`chat/src/phone.jsx`, SetupFlow), five steps with Next
 3. **Photos**: an iCloud shared album's link (`POST /setup/album`).
 4. **Invite your family**: Send for each person (not pets) makes their own link (`POST /setup/invite`, a week, once)
    and opens the share sheet. Opening it joins their phone as theirs, a kid's with a kid's scopes, with no Allow.
-   Links work on the home Wi-Fi.
+   With Use it away from home on, a link opens the cloud's phone page and joins through the relay from anywhere
+   (the invite is announced to the relay like a computer's code, `screens.js` `computerPairs`); without it, links work
+   on the home Wi-Fi.
 5. **Make your own apps**: connect Claude or ChatGPT on a computer (openhouse.computer).
 
 Then the usual phone page. On the tablet, Done goes to the home screen, filled in.
 
-Not yet: invites that work away from home (through the relay), photos from phones in the phone's setup, and the
+Not yet: photos from phones in the phone's setup, and the
 address guess on a real tablet (the emulator has no location).
 
 ## The proposal (history)

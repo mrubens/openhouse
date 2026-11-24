@@ -6,7 +6,7 @@
 // (the cloud's copy, a next step) or localhost.
 import { createRoot } from 'react-dom/client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { pair, client, Removed } from './screen-client.js';
+import { pair, relayPair, client, Removed } from './screen-client.js';
 import { Talk, canTalk } from './talk.jsx';
 import { pairingFromCode } from './scrypt.js';
 import { AppFrame, AppIcon, usePhoneApps, phoneTabs, appBundle } from './phone-apps.jsx';
@@ -27,7 +27,8 @@ const mine = (me, who) => String(who || '').toLowerCase() === String(me?.person 
 
 // ---- joining ----------------------------------------------------------------------------------------------
 function Join({ onJoined, removed }) {
-  const [ask] = useState(() => { const m = location.hash.slice(1).match(/^([\w-]+)\.([\w-]{43})$/); return m && { pair: m[1], key: m[2] }; });
+  // An invite's link: pair.key on the tablet's own page; pair.key.relay on the cloud's (it joins through the relay).
+  const [ask] = useState(() => { const m = location.hash.slice(1).match(/^([\w-]+)\.([\w-]{43})(?:\.([\w-]+))?$/); return m && { pair: m[1], key: m[2], ...(m[3] ? { relay: m[3] } : {}) }; });
   const person = new URLSearchParams(location.search).get('for') || '';
   const [step, setStep] = useState(ask ? 'go' : 'none');
   const [code, setCode] = useState('');
@@ -37,7 +38,9 @@ function Join({ onJoined, removed }) {
   useEffect(() => { if (!CLOUD_RELAY) fetch('/pair/about').then((r) => r.json()).then((j) => setHub(!!j.hub)).catch(() => {}); }, []);
   async function join(via = ask) {
     try {
-      const w = await pair({ ...via, name: person ? `${person}'s phone` : computer ? 'A computer' : 'A phone', onAsked: () => setStep('asked') });
+      const name = person ? `${person}'s phone` : computer ? 'A computer' : 'A phone';
+      const w = via.relay && CLOUD_RELAY ? await relayPair({ url: CLOUD_RELAY, ...via, name, onAsked: () => setStep('asked') })
+        : await pair({ ...via, name, onAsked: () => setStep('asked') });
       if (w.refused) return setStep('refused');
       put(STORE, w); onJoined(w);
     } catch { setStep('ended'); }
@@ -327,8 +330,12 @@ function Invite({ c, family }) {
     try {
       const r = await c.json('POST', '/setup/invite', { person: f.name, grownup: !kidOrPet(f.note) });
       if (r.status !== 200) return;
-      const url = `${location.origin}/phone/?for=${encodeURIComponent(f.name)}#${r.json.pair}.${r.json.key}`;
-      const text = `${f.name}, here's our OpenHouse. Open it at home, on our Wi-Fi.`;
+      // With reaching home from away on, the cloud's page, which joins through the relay from anywhere; else the
+      // tablet's own page on the home Wi-Fi.
+      const away = r.json.page && r.json.relay;
+      const url = away ? `${r.json.page}?for=${encodeURIComponent(f.name)}#${r.json.pair}.${r.json.key}.${r.json.relay}`
+        : `${location.origin}/phone/?for=${encodeURIComponent(f.name)}#${r.json.pair}.${r.json.key}`;
+      const text = away ? `${f.name}, here's our OpenHouse.` : `${f.name}, here's our OpenHouse. Open it at home, on our Wi-Fi.`;
       setSent({ ...sent, [f.name]: true });
       if (navigator.share) await navigator.share({ title: 'OpenHouse', text, url }).catch(() => setLink({ who: f.name, url }));
       else setLink({ who: f.name, url });
@@ -523,10 +530,12 @@ function fromCloudHash() {
 
 function App() {
   const [me, setMe] = useState(() => (CLOUD_RELAY ? fromCloudHash() || get(STORE) : get(STORE))), [removed, setRemoved] = useState(false);
+  const [invite] = useState(() => !!CLOUD_RELAY && /^#[\w-]+\.[\w-]{43}\.[\w-]+$/.test(location.hash)); // (Join takes it off the address)
   useEffect(() => { if (CLOUD_RELAY && me) put(STORE, me); }, []);
   const c = useMemo(() => me && (CLOUD_RELAY
     ? client({ id: me.id, key: me.key, relay: me.relay, onlyRelay: true, api: location.origin }) // (the cloud's copy: big replies may come as boxes)
     : client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => { const n = { ...(get(STORE) || me), relay: r || undefined }; put(STORE, n); setMe(n); } })), [me?.id, me?.relay?.token]);
+  if (CLOUD_RELAY && !me && invite) return <Join onJoined={(w) => { put(STORE, w); setMe(w); }} />; // an invite, opened anywhere
   if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">OpenHouse</div><h1>Not linked to a home yet</h1><p>On the tablet: Settings, Screens, Add a screen, Someone's phone. Scan the code with this phone's camera.</p></main>;
   if (!c) return <Join removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;
   return <Phone me={me} c={c} onRemoved={() => { put(STORE, null); put(CACHE, null); put(QUEUE, null); setMe(null); setRemoved(true); }} />;
