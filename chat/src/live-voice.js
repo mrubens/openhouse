@@ -56,7 +56,7 @@ export function talk(c, on = {}) {
       const r = await post('/live/tool', { name, args: a });
       later((x) => x.toolResult(d, callId, String(r?.text ?? "That didn't work.").slice(0, 6000)));
     },
-    usage: (sessionId, seconds) => { if (sessionId) post('/live/usage', { sessionId, seconds }); },
+    usage: (sessionId, seconds, backend) => { if (sessionId) post('/live/usage', { sessionId, seconds, backend: (() => { try { return JSON.parse(backend); } catch { return null; } })() }); },
     said: (event, text) => {
       if (!String(text).trim()) return;
       const role = event === 'live-heard' ? 'user' : event === 'live-said' ? 'assistant' : 'tool';

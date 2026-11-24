@@ -17,7 +17,7 @@
 //   GET  /cloud/voice[?check=1]      on?, the vendor, this month's use and allowance (check: ask the service)
 //   POST /cloud/voice {on}           turn it on or off here and for the family
 //   POST /cloud/voice/name {voice}   which of OpenAI's voices it speaks with (Settings → Voice, no PIN; from the next session)
-//   POST /cloud/live/start {sdp, name, instructions, tools} -> {sessionId, sdp}   POST /cloud/live/usage {sessionId, seconds}
+//   POST /cloud/live/start {sdp, name, instructions, tools} -> {sessionId, sdp}   POST /cloud/live/usage {sessionId, seconds, backend}
 //
 // The credential lives in display/.cloud/device.json (0600), never in a backup.
 import fs from 'node:fs';
@@ -245,7 +245,12 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       // An app's small question (the kit's decide(); apps.js lets only the family's own apps and those that declare
       // "decide" reach this): {input, questions} -> {answers}.
       case '/cloud/decide': await reply(res, () => decide(b.input, Array.isArray(b.questions) ? b.questions : [])); return true;
-      case '/cloud/live/usage': await reply(res, () => call('POST', '/v1/voice/live/usage', { sessionId: String(b.sessionId || ''), seconds: Number(b.seconds) || 0 })); return true;
+      case '/cloud/live/usage': {
+        // backend: what the session's text model used (live-session.cjs), as numbers and its model's name, nothing said.
+        const k = b.backend && typeof b.backend === 'object' ? b.backend : {};
+        const backend = { model: String(k.model || '').slice(0, 60), ...Object.fromEntries(['input_tokens', 'output_tokens', 'cached_tokens', 'cache_write_tokens', 'ttl_12h_tokens', 'searches'].map((f) => [f, Math.max(0, Math.round(Number(k[f]) || 0))])) };
+        await reply(res, () => call('POST', '/v1/voice/live/usage', { sessionId: String(b.sessionId || ''), seconds: Number(b.seconds) || 0, backend })); return true;
+      }
       case '/cloud/unlink':
         await reply(res, async () => {
           try { await call('POST', '/v1/device/unlink'); } catch (e) { if (e.code !== 'unlinked') throw e; }

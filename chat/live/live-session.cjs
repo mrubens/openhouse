@@ -7,6 +7,15 @@
 function liveSession(Host) {
   let asked = '', out, pc, dc, mic, sessionId = '', started = false, closed = false, seconds = 0, n = 0, delegation = null, heard = '', queue = [], sayTimer = null, pend = [];
   const calls = {}, done = {}, called = {}, answered = {}; // per delegation: tool calls not yet answered; its backend response has ended
+  // What its text model used (OpenAI bills it apart from the session's seconds): each finished response's usage, and
+  // its web searches. Reported with the seconds when the session ends (Host.usage), for the household's allowance.
+  const backend = { model: '', input_tokens: 0, output_tokens: 0, cached_tokens: 0, cache_write_tokens: 0, ttl_12h_tokens: 0, searches: 0 };
+  function countBackend(r) {
+    const u = (r && r.usage) || {}, d = u.input_tokens_details || {}, w = d.cache_write_tokens_details || {};
+    if (r && r.model) backend.model = String(r.model);
+    backend.input_tokens += u.input_tokens || 0; backend.output_tokens += u.output_tokens || 0;
+    backend.cached_tokens += d.cached_tokens || 0; backend.cache_write_tokens += d.cache_write_tokens || 0; backend.ttl_12h_tokens += w.ttl_12h_tokens || 0;
+  }
   const send = (e) => { e.event_id = 'c' + (++n); if (started && dc && dc.readyState === 'open') { Host.log('> ' + e.type); dc.send(JSON.stringify(e)); } else { Host.log('> ' + e.type + ' (queued)'); queue.push(e); } };
   // Logs: event types only, and for the ones that say why something ended, their fields with any words cut out.
   const SECRET = /^(delta|text|transcript|content|instructions|arguments|output|audio|sdp|item)$/;
@@ -162,7 +171,8 @@ function liveSession(Host) {
         const e = ev.event || {}, d = ev.delegation_id;
         lastAct = Date.now(); workAt = lastAct; // (still at it: using an app takes many steps, each one counts)
         if (e.type === 'response.created') called[d] = false;
-        if (e.type === 'response.output_item.done' && e.item && /^web_search/.test(e.item.type || '')) { Host.log('web search'); Host.said('live-tool', 'web search'); }
+        if (e.type === 'response.output_item.done' && e.item && /^web_search/.test(e.item.type || '')) { backend.searches++; Host.log('web search'); Host.said('live-tool', 'web search'); }
+        if (e.response && /^response\.(completed|done|failed|incomplete)$/.test(e.type)) countBackend(e.response); // (a failed one is billed for what it used)
         // Its text model gave up (failed, cut short, an error): nothing would ever be said, so say that, and stop waiting.
         if (e.type === 'response.failed' || e.type === 'response.incomplete' || e.type === 'error') {
           const r = e.response || {};
@@ -219,7 +229,7 @@ function liveSession(Host) {
     clearTimeout(sayTimer);
     const unsaid = pend.splice(0).concat(queue.splice(0).filter((e) => /append$/.test(e.type)).map((e) => String(e.content || '').replace(/^Read the following exactly[^<]*<say>/, '').replace(/<\/say>$/, ''))).join(' ');
     if (unsaid.trim()) Host.unsaid(unsaid);
-    Host.usage(sessionId, seconds);
+    Host.usage(sessionId, seconds, JSON.stringify(backend));
     try { pc && pc.close(); } catch (e) {}
     try { mic && mic.getTracks().forEach((t) => t.stop()); } catch (e) {}
     try { ctx && ctx.close(); } catch (e) {}

@@ -287,7 +287,10 @@ internal object LiveVoice {
             val w = web ?: return@thread
             main.post { w.evaluateJavascript("toolResult(${JSONObject.quote(delegationId)}, ${JSONObject.quote(callId)}, ${JSONObject.quote(out.take(6000))})", null) }
         }
-        @JavascriptInterface fun usage(sessionId: String, seconds: Double) { if (sessionId.isNotEmpty()) thread { post("/cloud/live/usage", JSONObject().put("sessionId", sessionId).put("seconds", seconds)) } }
+        /** backend: what its text model used (JSON from live-session.cjs), billed apart from the seconds. */
+        @JavascriptInterface fun usage(sessionId: String, seconds: Double, backend: String) {
+            if (sessionId.isNotEmpty()) thread { post("/cloud/live/usage", JSONObject().put("sessionId", sessionId).put("seconds", seconds).put("backend", runCatching { JSONObject(backend) }.getOrNull())) }
+        }
         @JavascriptInterface fun log(text: String) { Log.i(TAG, text.take(600)) }
         @JavascriptInterface fun level(mic: Double, out: Double) { dev.openhouse.ui.MicLevel.set(mic.toFloat()); dev.openhouse.ui.OutLevel.set(out.toFloat()) }
         @JavascriptInterface fun gain() = LiveVoice.gain
