@@ -18,8 +18,9 @@ all the talk in the room, and it missed half the time.
 
 ## Results (2026-11-24, round 5: fewer false wakes, more misses)
 
-Round 5 is on the tablet from voice set 7 (`models/wake/opie.onnx`, f3, 2.5 MB, width 192), at 0.98 with set 6's
-gain and floor. It aims at false wakes and accepts more misses: a wake that wasn't wanted costs more trust than
+Round 5 is on the tablet from voice set 8 (`models/wake/opie.onnx`, f3, 2.5 MB, width 192), at 0.99 with set 6's
+gain and floor (set 7 had it at 0.98; 0.99 hears 9.1 up close and 8.2 in kitchen noise, with about a third fewer
+false wakes again). It aims at false wakes and accepts more misses: a wake that wasn't wanted costs more trust than
 saying the name twice. What changed from round 4:
 
 - **Everyday sounds as negatives:** FSD50K (Zenodo 4060432; only its CC0 and CC-BY clips, 35k for training, 8.4k held
@@ -43,7 +44,7 @@ Replaying a home's first-day clips (kept on its tablet, opt-in), every false wak
 to 0.998), and every adult wake still woke. Across the room it now rarely wakes, as intended.
 
 - **Train:** `r3 --stage train --names f3:1000:3000:45000:192:b0w+r2+s0w:0:smooth=0:pos_seeds=200`.
-- **If it still wakes too often:** 0.99 in `opie.json` (near 9.1, noisy 8.2), no retraining.
+- **If it misses too often:** 0.98 in `opie.json` (set 7), no retraining.
 
 ## Results (2026-11-23, round 4: scores that spread)
 

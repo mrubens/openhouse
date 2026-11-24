@@ -96,8 +96,10 @@ Set 3 (made 2026-11-20, `scripts/voice-bundle.sh … 3`): the wake model and onn
 pointer goes on a tablet (`node scripts/release.ts --voice ~/.openhouse/voice/3`). Not yet tried on a device:
 onnxruntime-node 1.20.1 in the runtime's Node on linux-arm64 (it runs on the Mac, and its library is the arm64 build).
 
+Set 8 (made 2026-11-24): set 7 with the threshold at 0.99. `openhouse.voiceUrl` points at it.
+
 Set 7 (made 2026-11-24): set 6 with round 5's wake model (`opie.onnx`, f3, 2.5 MB); same threshold, gain and floor.
-`openhouse.voiceUrl` points at it from 1.0.25.
+No published release points at it.
 
 Set 6 (made 2026-11-24): set 5 with `opie.json` also setting the microphone's gain (2, fixed) and a loudness floor
 (0.03) for the listener; same model. `openhouse.voiceUrl` points at it from 1.0.24.
