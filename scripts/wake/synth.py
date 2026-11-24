@@ -16,6 +16,14 @@ from scipy.signal import resample_poly
 
 NAMES = ['Opee', 'Ohpee', 'Opey', 'Opi']
 WAKE = ['{n}', '{n}.', '{n}?', '{n}!', 'Hey {n}', 'Hey, {n}.', 'Hey {n}!', 'Hey {n}?', 'Hi {n}', 'Okay {n}', 'Oh, hey {n}']
+# Round 7 ("Hey Opie" only, since voice set 9): the name always with "hey", said every way; and what's near it with
+# "hey" (other names, the name without it) as near-misses.
+HEY = ['Hey {n}', 'Hey {n}.', 'Hey {n}!', 'Hey {n}?', 'Hey, {n}.', 'Hey, {n}!', 'Hey... {n}.', 'Hey {n}, hey.', 'Oh, hey {n}.', 'Hey hey {n}!']
+HEY_NEAR = ['Hey Obi.', 'Hey Toby.', 'Hey Ollie.', 'Hey Joey.', 'Hey Opal.', 'Hey Poppy.', 'Hey Zoe.', 'Hey Sophie.', 'Hey Oakley.',
+            'Hey Odie.', 'Hey Bobby.', 'Hey, okay.', 'Hey, open up.', 'Hey Otis.', 'Hey Opus.', 'Hey Opa.', 'Hey Chloe.', 'Hey Ozzy.',
+            'Hey Owen.', 'Hey Coby.', 'Hey Jody.', 'Hey Rosie.', 'Hey Mommy.', 'Hey Daddy.', 'Hey Papi.', 'Hey Hopi.', 'Hey Goofy.',
+            'Hey Snoopy.', 'Hey, hoping.', 'Hey, oh pee.', 'Hey, O.P.', 'Hey, hold on.', 'Hey, hope he does.', 'Hey, show me.',
+            '{n}.', '{n}?', '{n}!', 'Hi {n}.', 'Okay {n}.', '{n}, set a timer.', 'Hello {n}.', 'Ohh, {n}.']
 # What comes right after the name when someone asks at once: the window that ends just after "Opie" holds its start.
 AFTER = ["what's the weather", 'set a timer', 'add milk', 'turn it down', 'what time is it', 'play some music',
          'are you there', 'help me', 'how long', 'can you', 'remind me', 'stop', 'when is', 'tell me a joke']
@@ -53,14 +61,20 @@ def voice(piper_dir, espeak, model):
         _voices[model] = PiperVoice.load(os.path.join(piper_dir, model + '.onnx'), espeak_data_dir=espeak)
     return _voices[model]
 
-def say(v, text, speaker, rng):
+def say(v, text, speaker, rng, slow=1.0):
     from piper import SynthesisConfig
-    cfg = SynthesisConfig(speaker_id=speaker, length_scale=rng.uniform(0.75, 1.35), noise_scale=rng.uniform(0.35, 0.9), noise_w_scale=rng.uniform(0.5, 1.1))
+    cfg = SynthesisConfig(speaker_id=speaker, length_scale=rng.uniform(0.75, 1.35) * slow, noise_scale=rng.uniform(0.35, 0.9), noise_w_scale=rng.uniform(0.5, 1.1))
     a = np.concatenate([c.audio_int16_array for c in v.synthesize(text, cfg)]).astype(np.float32) / 32768
     a = resample_poly(a, 160, 220)  # 22050 -> 16000
     nz = np.nonzero(np.abs(a) > 0.01)[0]  # trim Piper's silence, keeping 30 ms
     if len(nz): a = a[max(0, nz[0] - 480): nz[-1] + 480]
     return a
+
+def child(say_slow, rng):
+    """A child-like voice from an adult one (round 7): said slower by f, then played f times faster, so its pitch and its
+    vocal tract's resonances are f times higher at the same pace (f 1.15-1.45: about a 6 to 12 year old's)."""
+    f = rng.uniform(1.15, 1.45); a = say_slow(f)
+    return resample_poly(a, 100, int(round(100 * f))).astype(np.float32)
 
 def work(args):
     piper_dir, espeak, (model, spk, split), n_pos, n_neg, seed = args

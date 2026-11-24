@@ -82,21 +82,23 @@ def _say_one(job):
     sys.path.insert(0, '/root/wake')
     import numpy as np, synth, tempfile, piper
     from testset import Kokoro, trim
-    model, spk, n = job
-    rng = random.Random(f'{model}-{spk}')
+    model, spk, n, *hey = job; hey = bool(hey)  # (round 7: (model, spk, n, 'hey'): "Hey Opie" only, half in a child-like voice)
+    rng = random.Random(f'{"hey7-" if hey else ""}{model}-{spk}')
     if model == 'kokoro':
-        k = Kokoro(f'{V}/dl/kokoro-multi-lang-v1_0', tempfile.mkdtemp()); say = lambda t: trim(k(t, spk)); names = ['Opie']  # ("Opie" added to its lexicon, as said)
+        k = Kokoro(f'{V}/dl/kokoro-multi-lang-v1_0', tempfile.mkdtemp()); say1 = lambda t, f=1.0: trim(k(t, spk, speed=1 / f)); names = ['Opie']  # ("Opie" added to its lexicon, as said)
     else:
         from piper import PiperVoice
         v = PiperVoice.load(f'{V}/dl/piper/{model}.onnx', espeak_data_dir=os.path.join(os.path.dirname(piper.__file__), 'espeak-ng-data'))
-        say = lambda t: synth.say(v, t, spk if v.config.num_speakers > 1 else None, rng); names = synth.NAMES
+        say1 = lambda t, f=1.0: synth.say(v, t, spk if v.config.num_speakers > 1 else None, rng, slow=f); names = synth.NAMES
     pos, neg = [], []
     for i in range(n):
-        t = rng.choice(synth.WAKE).format(n=rng.choice(names)); a = say(t); end = len(a)
+        kid = hey and i % 2 == 1; say = (lambda t: synth.child(lambda f: say1(t, f), rng)) if kid else say1
+        t = rng.choice(synth.HEY if hey else synth.WAKE).format(n=rng.choice(names)); a = say(t); end = len(a)
         if i % 4 == 3: nxt = rng.choice(synth.AFTER); a = np.concatenate([a, np.zeros(int(rng.uniform(0, 0.15) * 16000), np.float32), say(nxt)]); t += ' ' + nxt
-        pos.append((t, a, end))
+        pos.append((t + (' [child]' if kid else ''), a, end))
     for i in range(max(8, n // 2)):
-        t = rng.choice(synth.NEAR) if i % 3 else rng.choice(synth.SENTENCES); a = say(t); neg.append((t, a, len(a)))
+        kid = hey and i % 2 == 1; say = (lambda t: synth.child(lambda f: say1(t, f), rng)) if kid else say1
+        t = (rng.choice(synth.HEY_NEAR).format(n=rng.choice(names)) if hey else rng.choice(synth.NEAR)) if i % 3 else rng.choice(synth.SENTENCES); a = say(t); neg.append((t, a, len(a)))
     return pos, neg
 
 @app.function(image=image, volumes={V: vol}, timeout=1500, cpu=8, memory=16384, max_containers=40)
@@ -104,7 +106,7 @@ def voices(batch):
     """A batch of speakers (all held out, or none) -> one npz of name clips and near-misses on the volume."""
     import numpy as np
     from multiprocessing import Pool
-    key = f'{batch[0][0]}-{batch[0][1]}'; out = f'{V}/synth/{key}.npz'
+    key = f'{"hey7-" if len(batch[0]) > 3 else ""}{batch[0][0]}-{batch[0][1]}'; out = f'{V}/synth/{key}.npz'
     if os.path.exists(out): return key, 0
     import multiprocessing as mp
     with mp.get_context('spawn').Pool(min(8, len(batch))) as p: res = p.map(_say_one, batch)  # (spawn: a forked pool hung, and billed)
@@ -470,14 +472,14 @@ def clone_smoke():
 _MODELS = {}
 
 @app.function(image=clone_image, volumes={V: vol}, gpu='L4', timeout=1500, max_containers=10)  # (the Starter plan: 10 GPUs)
-def clone(spk_dir, n_pos=32, n_neg=12):
+def clone(spk_dir, n_pos=32, n_neg=12, hey=False):
     """One LibriTTS-R speaker's voice, cloned (Chatterbox, MIT): the name and near-misses in it. Each name clip must be
     heard as the name by Parakeet (else it's dropped: a cloned voice can mumble or say something else)."""
     sys.path.insert(0, '/root/wake')
     import glob, re, numpy as np, soundfile as sf, sherpa_onnx
     from scipy.signal import resample_poly
     import synth
-    key = 'clone-' + os.path.basename(spk_dir); out = f'{V}/synth/{key}.npz'
+    key = ('hey7-' if hey else '') + 'clone-' + os.path.basename(spk_dir); out = f'{V}/synth/{key}.npz'
     if os.path.exists(out): return key, 0, 0
     from chatterbox.tts import ChatterboxTTS
     if 'cb' not in _MODELS: _MODELS['cb'] = ChatterboxTTS.from_pretrained(device='cuda')
@@ -501,13 +503,15 @@ def clone(spk_dir, n_pos=32, n_neg=12):
         s = _ASR.create_stream(); s.accept_waveform(16000, np.concatenate([np.zeros(8000, np.float32), a, np.zeros(8000, np.float32)])); _ASR.decode_stream(s); return s.result.text
     pos, neg, dropped = [], [], 0
     for i in range(n_pos):
-        t = rng.choice(synth.WAKE).format(n='Opie'); a = say(t)
+        t = rng.choice(synth.HEY if hey else synth.WAKE).format(n='Opie'); a = say(t)
         if not heard.match(asr(a)): dropped += 1; continue
+        if hey and i % 3 == 2:  # (a third child-like: played faster, higher; Chatterbox can't say it slower first)
+            f = rng.uniform(1.12, 1.3); a = resample_poly(a, 100, int(round(100 * f))).astype(np.float32); t += ' [child]'
         end = len(a)
         if i % 4 == 3: nxt = rng.choice(synth.AFTER); a = np.concatenate([a, np.zeros(int(rng.uniform(0, 0.15) * 16000), np.float32), say(nxt)]); t += ' ' + nxt
         pos.append((t, a, end))
     for i in range(n_neg):
-        t = rng.choice(synth.NEAR) if i % 3 else rng.choice(synth.SENTENCES); a = say(t); neg.append((t, a, len(a)))
+        t = (rng.choice(synth.HEY_NEAR).format(n='Opie') if hey else rng.choice(synth.NEAR)) if i % 3 else rng.choice(synth.SENTENCES); a = say(t); neg.append((t, a, len(a)))
     def pack(items):
         if not items: return dict(audio=np.zeros(0, np.int16), offsets=np.zeros(1, np.int64), ends=np.zeros(0, np.int64), texts=np.array([], dtype=str))
         lens = np.array([len(a) for _, a, _ in items], np.int64)
@@ -799,6 +803,28 @@ def r3(stage: str, hours: float = 20, names: str = '', thr: float = 0.3, only: s
             else: print('clone error', str(r)[:200], flush=True)
         print('cloned name clips', n, 'dropped', d, f'{(time.time() - t0) / 60:.0f} min', flush=True)
     if stage == 'data5': data5.remote()
+    if stage == 'hey7':  # round 7: "Hey Opie" only, from every Piper and Kokoro voice (half child-like) and 120 cloned voices
+        js = [(m, s_, max(12, n // 3), 'hey') for m, s_, n in jobs()]; rnd = random.Random(7); batches = []
+        for model in sorted(set(j[0] for j in js)):
+            mj = [j for j in js if j[0] == model]; size = 1 if model in ('kokoro', 'en_US-l2arctic-medium') or len(mj) == 1 else 10
+            batches += [mj[i:i + size] for i in range(0, len(mj), size)]
+        rnd.shuffle(batches)
+        spks = (speakers.remote()[::2] + speakers360.remote()[1::9])[:120]
+        cl = clone.with_options(max_containers=20).starmap([(d, 24, 12, True) for d in spks], order_outputs=False, return_exceptions=True)
+        n = 0
+        for r in voices.map(batches, order_outputs=False, return_exceptions=True):
+            if isinstance(r, tuple): n += r[1]
+            else: print('voices error', str(r)[:200], flush=True)
+        print('hey clips', n, f'{(time.time() - t0) / 60:.0f} min', flush=True)
+        c = d = 0
+        for r in cl:
+            if isinstance(r, tuple): c += r[1]; d += r[2]
+            else: print('clone error', str(r)[:200], flush=True)
+        print('cloned hey clips', c, 'dropped', d, f'{(time.time() - t0) / 60:.0f} min', flush=True)
+    if stage == 'features7':  # round 7's clips, in ordinary rooms (seed 1: their near-misses) and near and clear (seed 200)
+        files = [f for f in synth_files.remote() if 'hey7-' in f]; tasks = [('synth', f, sd) for f in files for sd in (1, 200)]
+        for _ in features.map(tasks, order_outputs=False, return_exceptions=True): pass
+        print('features7 done', len(files), f'{(time.time() - t0) / 60:.0f} min', flush=True)
     if stage == 'featuresnear':  # round 5: every voice's name clips again, near and clear only (seed 200: train with pos_seeds=200)
         files = synth_files.remote(); tasks = [('synth', f, 200) for f in files]
         for _ in features.map(tasks, order_outputs=False, return_exceptions=True): pass

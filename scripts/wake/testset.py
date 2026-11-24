@@ -64,8 +64,8 @@ class Kokoro:
                 model=f'{d}/model.onnx', voices=f'{d}/voices.bin', tokens=f'{d}/tokens.txt', data_dir=f'{d}/espeak-ng-data',
                 lexicon=lex, dict_dir=f'{d}/dict'), num_threads=4))
             self.tts[acc] = sherpa_onnx.OfflineTts(cfg)
-    def __call__(self, text, sid):
-        a = self.tts['gb' if sid >= 20 else 'us'].generate(text, sid=sid, speed=1.0)
+    def __call__(self, text, sid, speed=1.0):
+        a = self.tts['gb' if sid >= 20 else 'us'].generate(text, sid=sid, speed=speed)
         return resample_poly(np.asarray(a.samples, np.float32), RATE, a.sample_rate).astype(np.float32)
 
 def trim(a):
