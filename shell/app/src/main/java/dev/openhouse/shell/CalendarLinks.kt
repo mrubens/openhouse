@@ -164,23 +164,7 @@ object CalendarLinks {
 
     // --- Settings' screens --------------------------------------------------------------
     /** The calendars (tap one to remove it), and adding one from a phone. Only reached through the PIN. */
-    fun manage(a: Activity, immersive: () -> Unit) {
-        val links = list()
-        val accounts = CalendarAccounts.rows() // two-way: Google and iCloud sign-ins (CalendarAccounts)
-        val rows = accounts.map { CalmDialog.Row(it.first, it.second) } + links.map { CalmDialog.Row(label(it.who), "A link, read only") }
-        CalmDialog(a).setTitle("Calendars").setWidth(860f).apply { if (rows.isEmpty()) setMessage("None yet.") }
-            .setRows(rows) { _, i ->
-                if (i < accounts.size) {
-                    CalendarAccounts.calendars(a, accounts[i].third, immersive) // its calendars, and Sign out at the bottom
-                    return@setRows
-                }
-                val l = links[i - accounts.size]
-                CalmDialog(a).setTitle("Remove ${label(l.who)}?").setDanger()
-                    .setPositiveButton("Remove") { _, _ -> thread { remove(l.id); sync() } }.setNegativeButton("Cancel", null).show().also { immersive() }
-            }
-            .setPositiveButton("Add a calendar") { _, _ -> CalendarAccounts.choose(a, immersive) }
-            .setNegativeButton("Back", null).show().also { immersive() }
-    }
+    fun manage(a: Activity, immersive: () -> Unit) = CalendarAccounts.calendars(a, null, immersive) // one list: accounts' calendars, then links
 
     private const val HELP = "Google Calendar: Settings, your calendar, “Secret address in iCal format”. iCloud: share as a public calendar. Outlook: publish a calendar, ICS link."
 
