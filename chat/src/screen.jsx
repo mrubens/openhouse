@@ -15,7 +15,7 @@ import { Talk } from './talk.jsx';
 import { pair, client, Removed } from './screen-client.js';
 import { AnswerBody, Display, page as answerPage } from './answer.jsx';
 import { Widget, Fit, IconFill, U } from './home-widgets.jsx';
-import { Home as HomeTabs, appOrigin } from './home.jsx';
+import { Home as HomeTabs, appOrigin, Clip, useClipUrl } from './home.jsx';
 import { pairingFromCode, cleanCode } from './scrypt.js';
 import { icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 
@@ -719,10 +719,9 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
   // At night the backlight goes right down too (the shell), and comes back when someone touches it.
   useEffect(() => { shell?.dim?.(night); return () => shell?.dim?.(false); }, [night]);
   const names = wantsPhotos && !night ? house?.screensaver || house?.photos || [] : []; // those whose albums are on for the sleep screen (Photos)
-  // A video is its still here (the bridge gives a video's still as its photo): hours of decoding on a screen nobody is
-  // watching would warm the tablet and hold its memory, and a still is calmer across the room. It plays in Photos.
   const shown = names.length ? names[Math.floor(now / 12e3) % names.length] : null;
   const src = usePhoto(c, shown), caption = shown && house?.captions?.[shown];
+  const clipUrl = useClipUrl(c, /\.(mp4|mov|m4v)$/i.test(shown || '') ? shown : null); // a video plays silently over its still (the user)
   const d = new Date(now);
   // The rest of today (once today is done, tomorrow's): its all-day things on one line, then the next few events, the
   // same size, each with its time; and the things on Today (a reminder, a suggestion, a countdown). Readable from across the room.
@@ -761,7 +760,7 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
   ].slice(0, 5);
   return (
     <div className={'ambient' + (night ? ' night' : '')} onPointerDown={() => shell?.touch()}>
-      {src && <img className="ambient-back" src={src} alt="" />}{src && <img className="ambient-fit" src={src} alt="" />}{/* the whole photo, its own blur in the margins (as Photos shows one) */}
+      {src && <img className="ambient-back" src={src} alt="" />}{src && <img className="ambient-fit" src={src} alt="" />}{clipUrl && <Clip className="ambient-fit" url={clipUrl} />}{/* the whole photo, its own blur in the margins (as Photos shows one) */}
       {src && caption && <div className="ambient-caption">{caption}</div>}
       <div className="ambient-time"><div className="t">{hm(d)}</div><div className="d">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
         {sky && <div className="w"><span style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: weatherIcon(w.code, w.isDay !== false) }} />{sky}</div>}</div>

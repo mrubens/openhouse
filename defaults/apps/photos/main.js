@@ -139,6 +139,23 @@ const seen = new IntersectionObserver((list) => {
 }, { rootMargin: '400px' });
 
 const isVideo = (n) => house.isVideo(n);
+/** A video in the grid plays silently on a loop over its still (the user), only while it's in view; its mark goes once it plays. */
+const clipSeen = new IntersectionObserver((es) => es.forEach((e) => {
+  const cell = e.target;
+  if (!e.isIntersecting) { cell.querySelector('video')?.pause(); return; }
+  const v = cell.querySelector('video');
+  if (v) { v.play().catch(() => {}); return; }
+  if (cell.dataset.clip === 'asked') return;
+  cell.dataset.clip = 'asked';
+  house.video(cell.dataset.name).then((url) => {
+    if (!url || !cell.isConnected) return;
+    const clip = h('video', { class: 'cell-clip', muted: true, loop: true, playsinline: true, preload: 'auto', poster: BLANK });
+    clip.muted = true; clip.src = url;
+    clip.addEventListener('playing', () => { clip.classList.add('on'); cell.querySelector('.vid-mark')?.remove(); }, { once: true });
+    cell.append(clip); clip.play().catch(() => {});
+  }).catch(() => {});
+}), { threshold: 0.3 });
+function gridClip(cell, name) { cell.dataset.name = name; clipSeen.observe(cell); }
 /** A see-through poster: without one, Android's WebView paints its own grey poster with a big play button first. */
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
 /** The small play mark on a video's still. */
@@ -249,6 +266,7 @@ function gridView(photos) {
       cell.classList.toggle('picked', picking.has(p)); drawTop(); // (not the whole grid: its photos stay loaded)
     }, hold: () => (picking ? null : removing(p)) }, photo(p, '', kind === 'b' || kind === 'b2' ? 900 : kind === 'w' ? 600 : true),
     isVideo(p) && !picking ? vidMark() : null, picking ? h('span', { class: 'cell-check' }, icon('check')) : null);
+    if (isVideo(p) && !picking) gridClip(cell, p);
     return cell;
   }
   return h('div', { class: 'grid-screen' + (picking ? ' picking' : '') }, top,

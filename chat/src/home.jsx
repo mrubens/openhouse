@@ -616,9 +616,28 @@ function PhotoCard({ c, names, captions, now, usePhoto, onOpen, ...rest }) {
 }
 function PhotoTile({ c, name, usePhoto, onOpen }) {
   const src = usePhoto(c, name);
-  // A video shows its still with a small play mark (it plays in Photos, a tap away): a clip moving on Today would pull the eye.
+  // A video plays over its still, silently and on a loop (the user); where it can't play (a phone), its still with a play mark.
+  const clip = /\.(mp4|mov|m4v)$/i.test(name || '');
+  const url = useClipUrl(c, clip ? name : null);
   return <div className="t-tile" onClick={onOpen ? (e) => { e.stopPropagation(); onOpen(name); } : undefined}>{src && <img className="t-cover" src={src} alt="" draggable={false} />}
-    {src && /\.(mp4|mov|m4v)$/i.test(name) && <span className="t-vid" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z" /></svg></span>}</div>;
+    {url ? <Clip className="t-cover" url={url} /> : src && clip && <span className="t-vid" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l10.5-6.5z" /></svg></span>}</div>;
+}
+/** Where a video in Photos plays from, on the tablet (the bridge's signed address, the page's own origin); null elsewhere. */
+export function useClipUrl(c, name) {
+  const [url, setUrl] = useState(null);
+  useEffect(() => {
+    setUrl(null);
+    if (!name || !globalThis.OpenhouseDisplay) return;
+    let stop = false;
+    c.json('GET', '/house/photo/' + encodeURIComponent(name) + '?play=1').then((r) => { if (!stop && r?.url) setUrl(r.url); }).catch(() => {});
+    return () => { stop = true; };
+  }, [name]);
+  return url;
+}
+/** A video playing silently on a loop, out of sight until its first frame (so no player chrome ever shows). */
+export function Clip({ url, className }) {
+  const [on, setOn] = useState(false);
+  return <video className={className + ' h-clip' + (on ? ' on' : '')} src={url} muted autoPlay loop playsInline preload="auto" disablePictureInPicture onPlaying={() => setOn(true)} ref={(v) => { if (v) v.muted = true; }} />;
 }
 
 // ---- Notes: what the assistant put up for them, and reminders due now ------------------------------------------------
