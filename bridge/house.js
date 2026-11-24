@@ -615,7 +615,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     const text = str(meal, 80).trim(), k = text.toLowerCase(), key = `cook|${k}`, r = data.recipes[k];
     if (!r) return { error: `There's no recipe for ${text || 'that'} yet.` };
     // (steps made before they had titles, parts and their full detail are made again, once: COOK_V)
-    if (!force && r.cook && r.cook.for === cookSource(r) && r.cook.v === COOK_V) { if (r.link && !r.picsAt) pictures(k); if (!r.cook.minutes && !r.timeAt) howLong(k); return { ok: true, ready: true }; }
+    if (!force && r.cook && r.cook.for === cookSource(r) && r.cook.v === COOK_V) { if (r.link && !r.picsAt) pictures(k); if (!r.cook.minutes && !r.timeAt) howLong(k); if (!r.link && !r.image) photoFor(k); return { ok: true, ready: true }; }
     { const no = noAssistant('Getting a recipe ready to cook'); if (no) return { error: no }; }
     if (mealWork[key]?.state === 'working') return { ok: true };
     mealWork[key] = { state: 'working' }; changed();
@@ -652,6 +652,21 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
       setTimeout(() => { if (mealWork[key]?.state !== 'working') { delete mealWork[key]; changed(); } }, 60e3).unref?.();
     })();
     return { ok: true };
+  }
+  /** A recipe with no page of its own (typed, pasted, or written by the assistant): a photo of the dish from a recipe for
+   *  it on the web (the household's text model searches, as findRecipes does; the first page with a picture), once. */
+  function photoFor(k) {
+    const r = data.recipes[k]; if (!r || r.link || r.image || r.photoAt || noAssistant('')) return;
+    r.photoAt = Date.now(); save();
+    (async () => {
+      const name = r.cook?.name || r.text;
+      const found = parseFound(await answer(findPrompt(name), FIND_SYSTEM, [], { webSearch: true }));
+      for (const f of found) {
+        const img = (await readRecipeLink(f.url, { timeoutMs: 5000 }).catch(() => null))?.image;
+        const now = data.recipes[k];
+        if (img && now && !now.image) { now.image = img; save(); changed(); return; }
+      }
+    })().catch(() => {});
   }
   /** Steps made before they said how long the recipe takes: its page's total time, else the text model's estimate, once. */
   function howLong(k) {
@@ -756,7 +771,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
         if (!name || !notes) throw new Error('Couldn’t make a recipe from that.');
         setRecipe({ meal: name, notes, quiet: true });
         mealWork.link = { state: 'done', meal: name };
-        changed(); prepareCook(name);
+        changed(); prepareCook(name); photoFor(name.toLowerCase());
       } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
       setTimeout(() => { if (mealWork.link?.state !== 'working') { delete mealWork.link; changed(); } }, 60e3).unref?.();
     })();
