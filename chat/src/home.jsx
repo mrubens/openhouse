@@ -378,7 +378,15 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
   // Calendar, as a schedule under its label: each day from today with its events, as many as fit in the column (three
   // weeks at most); under it, the things on Today.
   const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 21 * 864e5), AGENDA = 30; // (as many as fit fill the column: t-fit)
-  const upcoming = (h.events || []).filter((e) => (e.allDay ? dayOf(e) >= t : new Date(e.end || e.start) >= now) && dayOf(e) < weekOut)
+  // An all-day thing over several days (a school break) is on each of its days, from today.
+  const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const spread = (h.events || []).flatMap((e) => {
+    if (!e.allDay || e.date || !e.end) return [e];
+    const out = [], end = new Date(e.end);
+    for (let d = dayOf(e); d < end && out.length < 31; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) out.push({ ...e, date: key(d) });
+    return out.length ? out : [e];
+  });
+  const upcoming = spread.filter((e) => (e.allDay ? dayOf(e) >= t : new Date(e.end || e.start) >= now) && dayOf(e) < weekOut)
     .sort((a, b) => (dayOf(a) - dayOf(b)) || (b.allDay - a.allDay) || (new Date(a.start) - new Date(b.start)));
   const byDay = []; for (const e of upcoming) { const d = dayOf(e); if (+byDay.at(-1)?.[0] !== +d) byDay.push([d, []]); byDay.at(-1)[1].push(e); }
   const first = upcoming[0], firstDay = first && dayOf(first);
