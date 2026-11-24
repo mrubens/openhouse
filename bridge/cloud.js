@@ -118,7 +118,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     const r = await call('GET', '/v1/device');
     const d = device();
     if (d && r.family?.name !== undefined && r.family.name !== d.family) write('device.json', { ...d, family: r.family.name });
-    setState({ checkedAt: iso() });
+    setState({ checkedAt: iso(), iphoneApp: /^https:\/\//.test(r.iphoneApp || '') ? r.iphoneApp : null }); // (Settings' iPhone app row)
   }
   async function rotateIfDue() {
     const d = device();
@@ -191,6 +191,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       api: api(), linked: !!d, family: d?.family || null, name: d?.name || null, linkedAt: d?.linkedAt || null,
       unlinked: !d && s.unlinkedAt ? { at: s.unlinkedAt, why: s.unlinkedWhy } : null,
       linking: linking ? { display: linking.display, url: linking.url, expiresAt: new Date(linking.until).toISOString() } : null,
+      iphoneApp: d ? s.iphoneApp || null : null,
     };
   }
 
