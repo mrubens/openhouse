@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- OpenHouse's logo, as brand/logo.svg: the house outline on its dark rounded square (the loading screen, HomeView). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="148dp" android:height="148dp" android:viewportWidth="512" android:viewportHeight="512">
+    <path android:fillColor="#FF2A2826" android:pathData="M112,0 L400,0 A112,112 0 0,1 512,112 L512,400 A112,112 0 0,1 400,512 L112,512 A112,112 0 0,1 0,400 L0,112 A112,112 0 0,1 112,0 Z"/>
+    <path android:strokeColor="#FFFBF9F5" android:strokeWidth="28" android:strokeLineJoin="round"
+        android:pathData="M136,260 L256,152 L376,260 L376,376 A20,20 0 0,1 356,396 L156,396 A20,20 0 0,1 136,376 Z"/>
+</vector>

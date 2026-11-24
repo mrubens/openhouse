@@ -105,9 +105,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
     /** While the page loads (the tablet starting, the bridge restarting): the OpenHouse logo and name on the paper, the
      *  house breathing slowly so it reads as starting, not stuck. Under the page, which covers it once loaded. */
     private val logo = android.widget.ImageView(act).apply {
-        val K = dev.openhouse.ui.Calm
-        setImageResource(R.drawable.ic_launcher_foreground)
-        background = K.rounded(0xFF2A2826.toInt(), K.px(act, 34).toFloat())
+        setImageResource(R.drawable.logo)
         scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
     }
     private val breathe = android.animation.ObjectAnimator.ofFloat(logo, View.ALPHA, 1f, .55f).apply {
