@@ -337,7 +337,7 @@ function useFit() {
 
 /** Today's own cards, in their usual order; an app's card ("app:<id>") goes before the photos. */
 export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'meals', 'lists', 'chores', 'notes', 'photos'];
-export const TODAY_NAMES = { calendar: 'Calendar', weather: 'Weather', lunch: 'Notes from apps, with a photo', meals: 'Dinner', lists: 'Groceries', chores: 'Chores', notes: 'Notes', photos: 'Photos' };
+export const TODAY_NAMES = { calendar: 'Calendar', weather: 'Weather', lunch: 'App notes with a photo', meals: 'Dinner', lists: 'Groceries', chores: 'Chores', notes: 'Notes', photos: 'Photos' };
 /** The cards Today shows, in order: the look's choice (look.today), with the apps' cards that are on (look.cards). */
 export function todayOrder(look) {
   const apps = (look?.cards || []).map((id) => 'app:' + id);
