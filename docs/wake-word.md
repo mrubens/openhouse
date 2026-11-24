@@ -16,9 +16,38 @@ nothing listens, and Settings shows Live voice: Off (Hey Opie only shows while i
 (1.0, 1.6 and 2.2 s in, then at the end) and looked for the ways it writes "Opie". It was slow, it ran Parakeet on
 all the talk in the room, and it missed half the time.
 
+## Results (2026-11-24, round 5: fewer false wakes, more misses)
+
+Round 5 is on the tablet from voice set 7 (`models/wake/opie.onnx`, f3, 2.5 MB, width 192), at 0.98 with set 6's
+gain and floor. It aims at false wakes and accepts more misses: a wake that wasn't wanted costs more trust than
+saying the name twice. What changed from round 4:
+
+- **Everyday sounds as negatives:** FSD50K (Zenodo 4060432; only its CC0 and CC-BY clips, 35k for training, 8.4k held
+  out as `fsd-0`), banked like the speech (`r3 --stage data5`, then `bank --only fsd`), and round 4's mistakes on it
+  mined (`mine --names s0w`).
+- **The name only near and clear:** positives from a near-only pass (`featuresnear`, seed 200: louder, no far rooms,
+  the listener's fixed gain), and `pos_seeds=200` trains on those alone.
+- **False wakes weigh more:** neg weight 1000, hard 3000 (round 4: 300, 1000).
+
+Same test set as round 4, at 0.98 (out of 10; false wakes as the bench counts them):
+
+| | up close | kitchen noise | across the room | TV or talk behind | false wakes per hour | near-misses woke |
+|---|---|---|---|---|---|---|
+| round 4 (s0w, set 6) | 9.7 | 8.8 | 6.7 | 6.0 | 1.17 | 56/384 |
+| **round 5 (f3)** | **9.3** | **8.4** | **2.6** | **4.3** | **0.50** | **36/384** |
+| round 5, width 256 (f1) | 8.8 | 7.8 | 3.1 | 4.1 | 0.42 | 31/384 |
+| round 5, weights 600/2000 (f2) | 9.6 | 8.4 | 3.4 | 4.3 | 0.67 | 38/384 |
+
+On the training run's held-out sound (speech, meetings, everyday sounds) f3 woke 0.27 times an hour, against s0w's 0.83.
+Replaying a home's first-day clips (kept on its tablet, opt-in), every false wake scored at most 0.03 with f3 (s0w: up
+to 0.998), and every adult wake still woke. Across the room it now rarely wakes, as intended.
+
+- **Train:** `r3 --stage train --names f3:1000:3000:45000:192:b0w+r2+s0w:0:smooth=0:pos_seeds=200`.
+- **If it still wakes too often:** 0.99 in `opie.json` (near 9.1, noisy 8.2), no retraining.
+
 ## Results (2026-11-23, round 4: scores that spread)
 
-Round 4 is on the tablet from voice set 5 (`models/wake/opie.onnx`, s0w, 4.3 MB, width 256), at 0.98. The threshold
+Round 4 was on the tablet from voice set 5 to 6 (`models/wake/opie.onnx`, s0w, 4.3 MB, width 256), at 0.98. The threshold
 now comes with the model (`models/wake/opie.json`), so a tablet never runs one round's model at another's threshold.
 
 Round 3's labels were smoothed (the name's target was 0.95), so every score piled up between 0.90 and 0.98 and no
