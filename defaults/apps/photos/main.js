@@ -220,7 +220,6 @@ function gridView(photos) {
     a ? round('more', () => albumCard(a), { label: 'Album' }) : null,
     photos.length ? btn('Slideshow', () => { grid = false; draw(); }, { soft: true, ic: 'play' }) : null,
     photos.length > 1 ? btn('Choose', () => { picking = new Set(); draw(); }, { soft: true }) : null,
-    !a && H.removed?.length ? btn('Taken off', takenOff, { soft: true }) : null,
     btn('Add photos', addPhotos, { ic: 'plus' }),
   ]).filter(Boolean));
   drawTop();
@@ -317,19 +316,6 @@ function photoCard(p) {
   s.redraw = () => {}; // (drawn once: the field keeps what's being typed while the house updates)
 }
 
-/** Photos taken off in the last 30 days: tap one to put it back. */
-function takenOff() {
-  openCard((close) => [
-    h('h2', null, 'Taken off'),
-    h('p', { class: 'note' }, 'Photos taken off stay here for 30 days. Tap one to put it back.'),
-    (H.removed || []).length ? h('div', { class: 'grid small vscroll' }, H.removed.map((n) => {
-      const img = h('img', { class: 'photo', alt: '', draggable: 'false' });
-      house.thumb(n, 240, true).then((src) => { img.src = src; }).catch(() => {});
-      return h('div', { class: 'cell', tap: () => { H.removed = H.removed.filter((x) => x !== n); H.photos = [n, ...H.photos]; draw(); house.restorePhoto(n); } }, img);
-    })) : h('p', { class: 'note' }, 'Nothing left to put back.'),
-    h('div', { class: 'actions' }, btn('Done', close)),
-  ], { width: 1000 });
-}
 
 function removingMany(names) {
   openCard((close) => [
