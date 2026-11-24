@@ -47,7 +47,7 @@ object CalendarLinks {
 
     /** [name]: its own name, for a calendar that isn't a person's (a team's schedule); [only]: which of its events to
      *  keep, in the words they used ("home games"), judged by the bridge (calendar.js). */
-    class Link(val id: String, val who: String, val url: String, val name: String = "", val only: String = "")
+    class Link(val id: String, val who: String, val url: String, val name: String = "", val only: String = "", val tone: String = "")
     private class Said(m: String) : Exception(m) // an error that's safe to show: never has the link in it
 
     /** Only the stored links (Move.kt), without reading the calendars. */
@@ -82,11 +82,11 @@ object CalendarLinks {
         val b = file.readBytes()
         val plain = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.DECRYPT_MODE, key(), GCMParameterSpec(128, b, 0, 12)) }.doFinal(b, 12, b.size - 12)
         val a = JSONArray(String(plain))
-        (0 until a.length()).map { a.getJSONObject(it).let { j -> Link(j.getString("id"), j.optString("who"), j.getString("url"), j.optString("name"), j.optString("only")) } }
+        (0 until a.length()).map { a.getJSONObject(it).let { j -> Link(j.getString("id"), j.optString("who"), j.getString("url"), j.optString("name"), j.optString("only"), j.optString("tone")) } }
     }.getOrDefault(emptyList())
 
     @Synchronized private fun save(links: List<Link>) {
-        val plain = JSONArray(links.map { JSONObject().put("id", it.id).put("who", it.who).put("url", it.url).put("name", it.name).put("only", it.only) }).toString().toByteArray()
+        val plain = JSONArray(links.map { JSONObject().put("id", it.id).put("who", it.who).put("url", it.url).put("name", it.name).put("only", it.only).put("tone", it.tone) }).toString().toByteArray()
         val c = Cipher.getInstance("AES/GCM/NoPadding").apply { init(Cipher.ENCRYPT_MODE, key()) }
         val tmp = File(file.path + ".new")
         tmp.writeBytes(c.iv + c.doFinal(plain))
@@ -101,10 +101,12 @@ object CalendarLinks {
 
     @Synchronized fun add(who: String, url: String, name: String = "", only: String = "") {
         val u = clean(url) ?: return
-        save(list().filter { it.url != u } + Link(UUID.randomUUID().toString().take(8), who.trim().take(40), u, name.trim().take(60), only.trim().take(200)))
+        save(list().filter { it.url != u } + Link(UUID.randomUUID().toString().take(8), who.trim().take(40), u, name.trim().take(60), only.trim().take(200), list().firstOrNull { it.url == u }?.tone ?: ""))
     }
 
     @Synchronized fun remove(id: String) = save(list().filter { it.id != id })
+    /** Its events' color (Settings, Calendars): one of the household's palette, or "" for none. */
+    @Synchronized fun setTone(id: String, tone: String) = save(list().map { if (it.id == id) Link(it.id, it.who, it.url, it.name, it.only, tone) else it })
 
     fun label(who: String) = if (who.isBlank()) "A calendar" else "$who's calendar"
 
@@ -116,7 +118,7 @@ object CalendarLinks {
             try {
                 claim()
                 val feeds = JSONArray()
-                for (l in list()) feeds.put(JSONObject().put("id", l.id).put("who", l.who).put("name", l.name).put("only", l.only).apply {
+                for (l in list()) feeds.put(JSONObject().put("id", l.id).put("who", l.who).put("name", l.name).put("only", l.only).put("tone", l.tone).apply {
                     runCatching { put("ics", fetch(l.url)) }.onFailure { put("error", (it as? Said)?.message ?: "Couldn't read it") /* other messages can hold the link */ }
                 })
                 val ok = post("/calendar/feeds", JSONObject().put("feeds", feeds)) != null

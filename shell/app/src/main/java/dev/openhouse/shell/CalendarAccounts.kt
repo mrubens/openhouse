@@ -306,10 +306,15 @@ object CalendarAccounts {
                 if (links.isNotEmpty()) {
                     header("Links · read only", null, null)
                     links.forEach { l ->
-                        line(l.name.ifBlank { CalendarLinks.label(l.who) }, Calm.text(a, l.only.takeIf { it.isNotBlank() }?.let { "Only $it · tap to remove" } ?: "Tap to remove", 17f, 400, Calm.SOFT), null, null) {
-                            CalmDialog(a).setTitle("Remove ${l.name.ifBlank { CalendarLinks.label(l.who) }}?").setDanger()
-                                .setPositiveButton("Remove") { _, _ -> shown?.dismiss(); thread { CalendarLinks.remove(l.id); CalendarLinks.sync(); main.post { again() } } }
-                                .setNegativeButton("Cancel", null).show().also { immersive() }
+                        val title = l.name.ifBlank { CalendarLinks.label(l.who) }
+                        line(title, Calm.text(a, l.only.takeIf { it.isNotBlank() }?.let { "Only $it" } ?: "Read only", 17f, 400, Calm.SOFT), l.tone.takeIf { it.startsWith("#") }, null) {
+                            shown?.dismiss()
+                            CalmDialog(a).setTitle(title).setItems(arrayOf("Color", "Remove")) { _, i ->
+                                if (i == 0) palette(a, title, l.tone.takeIf { it.startsWith("#") }, immersive, { again() }) { t -> thread { CalendarLinks.setTone(l.id, t ?: ""); CalendarLinks.sync(); main.post { again() } } }
+                                else CalmDialog(a).setTitle("Remove $title?").setDanger()
+                                    .setPositiveButton("Remove") { _, _ -> thread { CalendarLinks.remove(l.id); CalendarLinks.sync(); main.post { again() } } }
+                                    .setNegativeButton("Cancel") { _, _ -> again() }.show().also { immersive() }
+                            }.setNegativeButton("Back") { _, _ -> again() }.show().also { immersive() }
                         }
                     }
                 }
@@ -344,10 +349,14 @@ object CalendarAccounts {
     }
 
     /** A calendar's color, from the household's palette (its events take it unless they're someone's). */
-    private fun color(a: Activity, c: JSONObject, immersive: () -> Unit, back: () -> Unit) {
-        val now = c.optString("tone").takeIf { it.startsWith("#") }
+    private fun color(a: Activity, c: JSONObject, immersive: () -> Unit, back: () -> Unit) =
+        palette(a, c.optString("name"), c.optString("tone").takeIf { it.startsWith("#") }, immersive, back) { t ->
+            thread { bridgePost("/calendar/sync/set", JSONObject().put("key", c.optString("key")).put("tone", t ?: "")); main.post(back) } }
+
+    /** The household's palette (or none) for a calendar's color: [chosen] gets the pick, null for none. */
+    private fun palette(a: Activity, title: String, now: String?, immersive: () -> Unit, back: () -> Unit, chosen: (String?) -> Unit) {
         var d: android.app.Dialog? = null
-        fun pick(t: String?) { d?.dismiss(); thread { bridgePost("/calendar/sync/set", JSONObject().put("key", c.optString("key")).put("tone", t ?: "")); main.post(back) } }
+        fun pick(t: String?) { d?.dismiss(); chosen(t) }
         val grid = android.widget.GridLayout(a).apply { columnCount = 6 }
         val s = Calm.px(a, 64); val m = Calm.px(a, 10)
         (listOf<String?>(null) + dev.openhouse.ui.PERSON_COLORS).forEach { t ->
@@ -360,7 +369,7 @@ object CalendarAccounts {
                 contentDescription = t ?: "No color"; isClickable = true; setOnClickListener { pick(t) }
             }, android.widget.GridLayout.LayoutParams().apply { width = s; height = s; setMargins(m, m, m, m) })
         }
-        d = CalmDialog(a).setTitle("${c.optString("name")}'s color").setWidth(640f).setView(grid)
+        d = CalmDialog(a).setTitle("$title's color").setWidth(640f).setView(grid)
             .setNegativeButton("Back") { _, _ -> back() }.show().also { immersive() }
     }
 

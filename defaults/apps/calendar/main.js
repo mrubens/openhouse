@@ -246,6 +246,21 @@ const dayName = (d, today) => d === today ? 'Today' : d === dayStart(today, 1) ?
 
 const VIEWS = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List']];
 
+/** A swipe across the calendar steps it, as the arrows do: right for earlier, left for later (day, week and month). Seen
+ *  in the capture phase, before a tapped event's own handler; a swipe never taps (press() lets a moved finger go). */
+let swipeStep = null;
+{
+  let sx = 0, sy = 0, st = 0, on = false;
+  document.addEventListener('pointerdown', (e) => { on = e.isPrimary && !e.target.closest?.('input, textarea, .sheet'); sx = e.clientX; sy = e.clientY; st = Date.now(); }, true);
+  document.addEventListener('pointerup', (e) => {
+    if (!on || !swipeStep || sheets.length) return; on = false;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (Date.now() - st > 900 || Math.abs(dx) < Math.max(70, innerWidth * 0.06) || Math.abs(dx) < Math.abs(dy) * 2) return;
+    (dx > 0 ? swipeStep.back : swipeStep.on)?.();
+  }, true);
+  document.addEventListener('pointercancel', () => { on = false; }, true);
+}
+
 function screen() {
   if (!H) return h('div');
   const today = dayStart(Date.now()), from = dayStart(today, weeks * DAYS), oneDay = dayStart(today, days), small = narrow();
@@ -256,6 +271,7 @@ function screen() {
   const step = view === 'day' ? { back: () => days--, noBack: days <= -30, on: () => days++, noOn: days >= 60, home: () => { days = 0; }, away: days !== 0 }
     : view === 'week' ? { back: () => weeks--, noBack: weeks <= -4, on: () => weeks++, noOn: weeks >= 9, home: () => { weeks = 0; }, away: weeks !== 0 }
     : view === 'month' ? { back: () => months--, noBack: months <= -1, on: () => months++, noOn: months >= 2, home: () => { months = 0; }, away: months !== 0 } : null;
+  swipeStep = step && !sheets.length ? { back: step.noBack ? null : set(step.back), on: step.noOn ? null : set(step.on) } : null;
   const tools = [round('photo', fromPhoto, { label: 'From a photo of a flyer' }), round('bell', remindersCard, { label: 'Reminders' })];
   const link = (label, tap) => h('button', { class: 'quiet', tap }, label);
   return h('div', { class: 'screen' },

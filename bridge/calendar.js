@@ -55,7 +55,7 @@ export function calendars({ DIR }) {
     const pending = new Map(); // only -> [events not judged yet]
     for (const f of Array.isArray(feeds) ? feeds.slice(0, 12) : []) {
       const who = str(f.who, 40) || null, name = str(f.name, 60) || null, only = str(f.only, 200);
-      const label = name || (who ? `${who}'s calendar` : 'A calendar');
+      const label = name || (who ? `${who}'s calendar` : 'A calendar'), tone = /^#[0-9a-f]{6}$/i.test(f.tone || '') ? f.tone.toLowerCase() : null;
       labels.push({ id: str(f.id, 40), who, label, ...(name ? { name } : {}), ...(only ? { only } : {}) });
       try {
         if (f.error) throw new Error(str(f.error, 120));
@@ -67,7 +67,7 @@ export function calendars({ DIR }) {
             if (v === undefined) { const l = pending.get(only) || []; if (l.length < 400 && !l.some((x) => keyOf(x) === keyOf(e))) l.push(e); pending.set(only, l); }
             if (v !== true) continue;
           }
-          events.push({ who, ...(name ? { calendar: name } : {}), ...e });
+          events.push({ who, ...(name ? { calendarName: name } : {}), ...(tone ? { color: tone } : {}), ...e }); // (its color: Settings, Calendars)
         }
       } catch (e) { errors[label] = e.message; }
     }
