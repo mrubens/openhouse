@@ -176,7 +176,7 @@ internal object LiveVoice {
         if (left > 0 && wasReady) trouble("The live voice ended before it could say this.")
         web = null; ready = false; mood = null; caption = ""
         act?.micTap(null); buffering = false; feeding = false; synchronized(kept) { kept.reset() }
-        if (!wasReady && why != "microphone turned off") trouble("The live voice couldn't connect. Try again in a moment.")
+        if (!wasReady && why != "microphone turned off" && why != "tapped away") trouble("The live voice couldn't connect. Try again in a moment.")
         Log.i(TAG, "ended ($why) after ${(System.currentTimeMillis() - startedAt) / 1000} s")
         Openhouse.vlog("live-ended", "$why after ${(System.currentTimeMillis() - startedAt) / 1000} s") // the speech log outlives logcat
         w.evaluateJavascript("stop()", null)
@@ -193,6 +193,8 @@ internal object LiveVoice {
 
     /** The microphone switch was turned off (Settings): a session going now ends. */
     fun stopNow() { if (web != null) end("microphone turned off") }
+    /** Someone tapped Opie while it was open: it goes away now (the conversation ends, as if they said goodbye). */
+    fun tappedAway() { if (web != null) end("tapped away") }
 
     // One volume for both voices, done in software. WebRTC plays on the call stream, which on Samsung tablets is much
     // louder a step than media and can't go below 1, so the call stream is held at one fixed level for the session (the

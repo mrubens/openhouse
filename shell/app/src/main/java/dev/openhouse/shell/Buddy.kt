@@ -391,7 +391,9 @@ private fun prose(t: String): String {
 private fun Bubble(label: String?, text: String, foot: String?, left: Float, listening: Boolean, stop: Boolean) {
     val shape = dev.openhouse.ui.AssistantCardShape
     Column(
-        Modifier.width(BUBBLE_U.u).shadow(18.u, shape).clip(shape).background(Color.White).padding(horizontal = 26.u, vertical = 18.u),
+        Modifier.width(BUBBLE_U.u).shadow(18.u, shape).clip(shape).background(Color.White)
+            .then(if (LiveVoice.active) Modifier.clickable { LiveVoice.tappedAway() } else Modifier) // open: a tap on what it says sends it away too
+            .padding(horizontal = 26.u, vertical = 18.u),
         verticalArrangement = Arrangement.spacedBy(6.u),
     ) {
         if (label != null) Text(label, style = ohText(16, color = Oh.muted), maxLines = 1)
@@ -474,7 +476,7 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
                         val swipe = tapState.value.second
                         when {
                             swipe != null && abs(dx) > 28.dp.toPx() && abs(dx) > abs(dy) -> swipe(dx)
-                            abs(dx) < slop * 2 && abs(dy) < slop * 2 -> (tapState.value.first ?: { Openhouse.tapToTalk() })()
+                            abs(dx) < slop * 2 && abs(dy) < slop * 2 -> if (LiveVoice.active) LiveVoice.tappedAway() else (tapState.value.first ?: { Openhouse.tapToTalk() })() // open: a tap sends it away
                         }
                     }
                 },
