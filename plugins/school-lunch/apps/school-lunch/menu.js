@@ -64,8 +64,8 @@ export function dayMenu(day) {
   if (!main.length) main = st[0].items.filter((x) => !TABLE.has(x.cat)).slice(0, 1).map((x) => x.name);
   const sides = uniq(st[0].items.filter((x) => SIDE.has(x.cat)).map((x) => x.name)).filter((x) => !main.includes(x));
   const also = uniq(st.slice(1).flatMap((s) => s.items.filter(isMain).map((x) => x.name))).filter((x) => !main.includes(x));
-  // the main dishes' and other choices' photos, where Nutrislice has one
-  const pics = Object.fromEntries(st.flatMap((s) => s.items).filter((x) => x.image && (main.includes(x.name) || also.includes(x.name))).map((x) => [x.name, x.image]));
+  // every dish's photo on the menu, where Nutrislice has one (main dishes, sides and the other choices)
+  const pics = Object.fromEntries(st.flatMap((s) => s.items).filter((x) => x.image && (main.includes(x.name) || sides.includes(x.name) || also.includes(x.name))).map((x) => [x.name, x.image]));
   return { main, sides, also, pics };
 }
 

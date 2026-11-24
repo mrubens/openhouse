@@ -125,12 +125,12 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
         <div className="h-day">{d.toLocaleDateString([], { weekday: 'long' })}</div>
         <div className="h-day h-date">{d.toLocaleDateString([], { day: 'numeric', month: 'long' })}</div>
         {weather && !weather.error && <div className="h-wx"><span className="h-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(weather.code, weather.isDay !== false) }} />{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}
-        <BatteryLine shell={shell} now={now} />
         {/* Tap a timer to change or clear it (a small sheet over the screen). */}
         {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b>{t.endAt <= now ? '0:00' : clock(Math.ceil((t.endAt - now) / 1000))}</b></button>)}
         <nav className="h-tabs">
           {tabs.map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '') + (making(t.id) ? ' making' : '')} {...hold(t.id)}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
         </nav>
+        <BatteryLine shell={shell} now={now} />
         <div className="h-tools">
           {/* On the display there's no assistant button (say "Hey Opie" or just type; the shell shows it only while it's
               busy, Overlay.kt). On another screen this page has its own, which opens the asking panel. */}

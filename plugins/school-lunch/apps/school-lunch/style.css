@@ -55,4 +55,8 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 
 /* a dish with its photo (Nutrislice's, where it has one): small and rounded, the name under it */
 .dish { display: flex; flex-direction: column; gap: calc(6 * var(--u)); }
+.pics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(6 * var(--u)); margin-bottom: calc(4 * var(--u)); }
+.pics.one { grid-template-columns: minmax(0, calc(150 * var(--u))); }
+.pics img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(10 * var(--u)); background: var(--tint); }
+#app .top { padding-left: 0; } /* the title in line with the menus below it */
 .dish img { width: 100%; max-width: calc(150 * var(--u)); aspect-ratio: 4 / 3; object-fit: cover; border-radius: calc(14 * var(--u)); background: var(--tint); }

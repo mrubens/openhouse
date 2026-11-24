@@ -29,6 +29,7 @@ const firstWeek = (k = dayKey()) => addDays(sunday(k), dateOf(k).getDay() === 6 
 
 // ---- state ----
 let kids = [];          // [{name, link}] (store "setup")
+const uniqPics = (a) => [...new Set(a)];
 let saved = { menus: {}, at: 0 }; // store "menus": { menus: { key: { days: {date: dayMenu}, at, error? } }, at }
 let family = [];        // the household's names (house.family)
 let week = 0;           // 0 this week, 1 next
@@ -53,7 +54,7 @@ const daysOf = (key) => saved.menus[key]?.days || {};
 async function refresh({ force = false } = {}) {
   const gs = groups();
   if (!gs.length || loading) return;
-  const fresh = saved.v === 2 && Date.now() - (saved.at || 0) < 20 * 3600e3 && dayKey(new Date(saved.at)) === dayKey(); // v2: with the dishes' photos
+  const fresh = saved.v === 3 && Date.now() - (saved.at || 0) < 20 * 3600e3 && dayKey(new Date(saved.at)) === dayKey(); // v3: with every dish's photo
   if (fresh && !force && gs.every((g) => saved.menus[g.key]?.weeks?.includes(addDays(firstWeek(), 7)))) { update(); return; }
   loading = true; draw();
   const t = dayKey(), base = firstWeek(t);
@@ -70,7 +71,7 @@ async function refresh({ force = false } = {}) {
     }
   }
   for (const k of Object.keys(saved.menus)) if (!gs.some((g) => g.key === k)) delete saved.menus[k];
-  if (gs.every((g) => !saved.menus[g.key].error)) { saved.at = Date.now(); saved.v = 2; }
+  if (gs.every((g) => !saved.menus[g.key].error)) { saved.at = Date.now(); saved.v = 3; }
   loading = false;
   await store.set('menus', saved);
   update();
@@ -147,7 +148,10 @@ function draw() {
           h('div', { class: 'dow' }, d === t ? 'Today' : weekday(d), h('span', { class: 'date' }, monthDay(d))),
           !m ? h('div', { class: 'none' }, loading && !Object.keys(days).length ? '' : 'No menu')
             : m.note ? h('div', { class: 'none' }, m.note)
-              : [h('div', { class: 'main' }, m.main.map((x) => h('div', { class: 'dish' }, m.pics?.[x] ? h('img', { src: m.pics[x], alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() }) : null, h('span', {}, x)))),
+              : [(() => { // every picture on the day's menu, main dishes first, in a row above the words
+                  const ps = uniqPics([...m.main, ...m.sides, ...m.also.filter((x) => !daily.includes(x))].map((x) => m.pics?.[x]).filter(Boolean));
+                  return ps.length ? h('div', { class: 'pics' + (ps.length === 1 ? ' one' : '') }, ps.map((src) => h('img', { src, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', onerror: (e) => e.target.remove() }))) : null; })(),
+                h('div', { class: 'main' }, m.main.map((x) => h('div', { class: 'dish' }, h('span', {}, x)))),
                 m.sides.length ? h('div', { class: 'sides' }, m.sides.join(', ')) : null,
                 m.also.filter((x) => !daily.includes(x)).length ? h('div', { class: 'also' }, 'Or ' + and(m.also.filter((x) => !daily.includes(x)))) : null]);
       })),
