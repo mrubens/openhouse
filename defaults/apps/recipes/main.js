@@ -267,7 +267,7 @@ function cookView() {
     h('div', { class: 'c-photo' }, dishPic(r, name)),
     h('h1', null, name),
     h('div', { class: 'c-meta' }, [c.minutes ? howLong(c.minutes) : '', serves(c)].filter(Boolean).join(' · ')),
-    r?.link ? h('div', { class: 'c-from' }, `From ${siteOf(r.link)}`) : null,
+    credit(r) ? h('div', { class: 'c-from' }, credit(r)) : null,
     ing);
 
   // now: the step they're on, the only panel; its words at one of two sizes, what it uses, Next step (and its timer)
@@ -409,6 +409,11 @@ function ingGroups(c) {
   if (!parts.length) return [['', own]];
   const ownPart = c.steps.map((s) => s.part).filter((p) => p && !parts.includes(p)).pop() || c.name || '';
   return [...parts.map((p) => [p, c.ingredients.filter((x) => x.part === p)]), ...(own.length ? [[ownPart, own]] : [])];
+}
+/** Where a recipe and its photo are from: "From bonappetit.com", "Written by Opie · photo from kingarthurbaking.com". */
+function credit(r) {
+  const t = [r?.link ? `From ${siteOf(r.link)}` : r?.by === 'assistant' ? 'Written by Opie' : '', !r?.link && r?.photoFrom && r.image ? `photo from ${siteOf(r.photoFrom)}` : ''].filter(Boolean).join(' · ');
+  return t && t[0].toUpperCase() + t.slice(1);
 }
 /** Where a recipe is from, for its credit: "bonappetit.com". */
 const siteOf = (link) => { try { return new URL(link).hostname.replace(/^www\./, ''); } catch { return ''; } };

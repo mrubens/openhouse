@@ -600,7 +600,10 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     if (!link && !notes) { delete data.recipes[k]; save(); return { ok: true, did: [`took ${text}'s recipe out`] }; }
     const was = data.recipes[k], unchanged = !!was && cookSource(was) === cookSource({ link, notes });
     // Its cooking steps (cooking.js) stay while it's the same recipe; a changed one is read again.
-    data.recipes[k] = { text: was?.text || text, ...(link ? { link } : {}), ...(notes ? { notes } : {}), at: Date.now(),
+    // by: 'assistant' when the assistant wrote it (for its credit); photoFrom: the page its photo came from (photoFor)
+    const by = r.by === 'assistant' ? 'assistant' : unchanged ? was.by : undefined;
+    data.recipes[k] = { text: was?.text || text, ...(link ? { link } : {}), ...(notes ? { notes } : {}), at: Date.now(), ...(by ? { by } : {}),
+      ...(unchanged && was.photoFrom ? { photoFrom: was.photoFrom, photoAt: was.photoAt } : {}),
       ...(unchanged && was.cook ? { cook: was.cook } : {}), ...(unchanged && was.video ? { video: was.video } : {}), ...(unchanged && was.image ? { image: was.image, picsAt: was.picsAt } : {}), ...(r.video && youtube(r.video) ? { video: youtube(r.video) } : !unchanged && youtube(link) ? { video: youtube(link) } : {}) };
     const keys = Object.keys(data.recipes);
     if (keys.length > 150) delete data.recipes[keys.sort((a, b) => data.recipes[a].at - data.recipes[b].at)[0]];
@@ -615,7 +618,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     const text = str(meal, 80).trim(), k = text.toLowerCase(), key = `cook|${k}`, r = data.recipes[k];
     if (!r) return { error: `There's no recipe for ${text || 'that'} yet.` };
     // (steps made before they had titles, parts and their full detail are made again, once: COOK_V)
-    if (!force && r.cook && r.cook.for === cookSource(r) && r.cook.v === COOK_V) { if (r.link && !r.picsAt) pictures(k); if (!r.cook.minutes && !r.timeAt) howLong(k); if (!r.link && !r.image) photoFor(k); return { ok: true, ready: true }; }
+    if (!force && r.cook && r.cook.for === cookSource(r) && r.cook.v === COOK_V) { if (r.link && !r.picsAt) pictures(k); if (!r.cook.minutes && !r.timeAt) howLong(k); if (!r.link && !r.photoFrom) photoFor(k); return { ok: true, ready: true }; }
     { const no = noAssistant('Getting a recipe ready to cook'); if (no) return { error: no }; }
     if (mealWork[key]?.state === 'working') return { ok: true };
     mealWork[key] = { state: 'working' }; changed();
@@ -656,7 +659,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
   /** A recipe with no page of its own (typed, pasted, or written by the assistant): a photo of the dish from a recipe for
    *  it on the web (the household's text model searches, as findRecipes does; the first page with a picture), once. */
   function photoFor(k) {
-    const r = data.recipes[k]; if (!r || r.link || r.image || r.photoAt || noAssistant('')) return;
+    const r = data.recipes[k]; if (!r || r.link || r.photoFrom || (r.image ? !r.photoAt : r.photoAt) || noAssistant('')) return; // (once; a photo of their own stays; one found before credits were kept is found again)
     r.photoAt = Date.now(); save();
     (async () => {
       const name = r.cook?.name || r.text;
@@ -664,7 +667,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
       for (const f of found) {
         const img = (await readRecipeLink(f.url, { timeoutMs: 5000 }).catch(() => null))?.image;
         const now = data.recipes[k];
-        if (img && now && !now.image) { now.image = img; save(); changed(); return; }
+        if (img && now && !now.photoFrom && (!now.image || now.photoAt)) { now.image = img; now.photoFrom = f.url; save(); changed(); return; } // (its credit)
       }
     })().catch(() => {});
   }
@@ -780,7 +783,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
         const notes = v.pasted ? text.slice(0, 4000) : (await answer(`Write a simple family recipe for "${name || text.slice(0, 200)}". First a line "Ingredients", then one ingredient per line starting with "- ", then a line "Steps", then numbered steps. Plain text, under 1500 characters.`,
           'You write short, reliable home recipes for a family. Reply with only the recipe. Use no tools.')).trim();
         if (!name || !notes) throw new Error('Couldn’t make a recipe from that.');
-        setRecipe({ meal: name, notes, quiet: true });
+        setRecipe({ meal: name, notes, quiet: true, ...(v.pasted ? {} : { by: 'assistant' }) });
         mealWork.link = { state: 'done', meal: name };
         changed(); prepareCook(name); photoFor(name.toLowerCase());
       } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
@@ -817,7 +820,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
         const prompt = `Write a simple family recipe for "${text}". First a line "Ingredients", then one ingredient per line starting with "- ", then a line "Steps", then numbered steps. Plain text, no markdown headings or bold, under 1500 characters.`;
         const notes = (await answer(prompt, 'You write short, reliable home recipes for a family. Reply with only the recipe. Use no tools.')).trim();
         if (!notes) throw new Error('no recipe');
-        setRecipe({ meal: text, link: data.recipes[text.toLowerCase()]?.link, notes });
+        setRecipe({ meal: text, link: data.recipes[text.toLowerCase()]?.link, notes, by: 'assistant' });
         mealWork[key] = { state: 'done' };
       } catch (e) { mealWork[key] = { state: 'error', text: String(e.message || e).slice(0, 120) }; }
       changed();
