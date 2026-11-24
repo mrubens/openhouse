@@ -134,7 +134,16 @@
 /* On the tablet's Today the grid sets the card's height: when a row's worth is too short for the days under the hours
    (a photo card makes three rows), they go, so nothing is cut off. (Not on a phone: there the content sets the height.) */
 .h-today .wcard.cell { container-type: size; }
-@container (min-aspect-ratio: 1/1) { .wcard.cell .wc-days { display: none; } } /* wider than tall: no room for them (they fit at about 9:10) */
+/* wider than tall (a short row on Today): everything tighter so the next two days still fit (the user wants them) */
+@container (min-aspect-ratio: 1/1) {
+  .wcard.cell .wc-temp { font-size: calc(64 * var(--wu)); }
+  .wcard.cell .wc-now { margin-top: calc(2 * var(--wu)); }
+  .wcard.cell .wc-hours { padding-top: calc(6 * var(--wu)); padding-bottom: calc(4 * var(--wu)); row-gap: calc(2 * var(--wu)); grid-template-rows: auto calc(22 * var(--wu)) auto; }
+  .wcard.cell .wc-hours .i { width: calc(22 * var(--wu)); height: calc(22 * var(--wu)); }
+  .wcard.cell .wc-hours .d { font-size: calc(16 * var(--wu)); }
+  .wcard.cell .wc-days { margin-top: calc(6 * var(--wu)); padding-top: 0; }
+  .wcard.cell .wc-days .day { height: calc(32 * var(--wu)); font-size: calc(16 * var(--wu)); }
+}
 .wcard.cell .wc-hours { margin-top: auto; }
 .wcard.tall .wc-temp { font-size: calc(112 * var(--wu)); }
 .wcard.tall .wc-now { margin-top: calc(20 * var(--wu)); display: block; }
