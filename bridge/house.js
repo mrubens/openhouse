@@ -736,6 +736,32 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     })();
     return { ok: true };
   }
+  /** What someone typed in Add a recipe: a link (read as one), a recipe pasted in (kept as written, named by the model), or an
+   *  idea ("something with leftover chicken") the model writes a recipe for. Then its steps are made, as for a link. */
+  function addRecipeText(input) {
+    const text = String(input || '').trim().slice(0, 20000);
+    if (!text) return { error: 'Nothing to add.' };
+    if (/^\S+\.\S+$/.test(text) && !/\n/.test(text)) return addRecipeLink({ link: text }); // one word with a dot in it: a link
+    { const no = noAssistant('Adding a recipe'); if (no) return { error: no }; }
+    if (mealWork.link?.state === 'working') return { error: 'Still adding the last one.' };
+    mealWork.link = { state: 'working' }; changed();
+    (async () => {
+      try {
+        const said = await answer(`Someone typed this to add a recipe to their family's recipe box:\n\n${text}\n\n` +
+          'If it is a recipe (its ingredients or steps), reply {"name": "the dish\'s name", "pasted": true}. If it is an idea or a dish\'s name, ' +
+          'write a simple, reliable family recipe for it and reply {"name": "the dish\'s name", "recipe": "Ingredients\n- ...\nSteps\n1. ..."} (plain text, under 2000 characters). Reply with only the JSON.',
+          'You add recipes to a family\'s recipe box. Reply with only JSON. Use no tools.');
+        const v = JSON.parse(String(said).match(/\{[\s\S]*\}/)?.[0] || '{}');
+        const name = str(v.name, 60).trim(), notes = v.pasted ? text.slice(0, 4000) : str(v.recipe, 4000).trim();
+        if (!name || !notes) throw new Error('Couldn’t make a recipe from that.');
+        setRecipe({ meal: name, notes, quiet: true });
+        mealWork.link = { state: 'done', meal: name };
+        changed(); prepareCook(name);
+      } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
+      setTimeout(() => { if (mealWork.link?.state !== 'working') { delete mealWork.link; changed(); } }, 60e3).unref?.();
+    })();
+    return { ok: true };
+  }
   /** One answer from the assistant, with no tools (the Meals app's buttons; a flyer or recipe photo in images). */
   async function answer(prompt, sys, images = [], { webSearch = false } = {}) {
     const agent = await currentAgent();
@@ -1250,7 +1276,7 @@ export function houseRoutes({ DIR, json, body, board, door = null, currentAgent 
     if (p === '/house/reward') { send(changeRewards(b, { fromApp: true })); return true; }
     if (p === '/house/checklist') { send(changeChecklists(b)); return true; }
     if (p === '/house/recipe-link') { send(addRecipeLink(b)); return true; } // a link shared from a phone (Recipes)
-    if (p === '/house/meal') { send(b.favorite != null ? favorite(b.favorite, b.value !== false) : b.recipe ? setRecipe({ ...b.recipe, quiet: false, video: b.recipe.video }) : b.cook ? prepareCook(b.cook, { force: !!b.force }) : b.find ? findRecipes(b.find) : b.findDone ? (recipeFind = null, changed(), { ok: true }) : b.writeRecipe ? writeRecipe(b.writeRecipe) : b.slots ? setSlots(b.slots) : setMeals([b])); return true; }
+    if (p === '/house/meal') { send(b.favorite != null ? favorite(b.favorite, b.value !== false) : b.recipe ? setRecipe({ ...b.recipe, quiet: false, video: b.recipe.video }) : b.cook ? prepareCook(b.cook, { force: !!b.force }) : b.find ? findRecipes(b.find) : b.findDone ? (recipeFind = null, changed(), { ok: true }) : b.writeRecipe ? writeRecipe(b.writeRecipe) : b.addText ? addRecipeText(b.addText) : b.slots ? setSlots(b.slots) : setMeals([b])); return true; }
     if (p === '/house/meal/ingredients') { send(await ingredients(b.date, str(b.meal || 'dinner', 20).toLowerCase())); return true; }
     if (p === '/house/event') {
       // With the calendar locked, an app changes it only for a little while after the PIN on the display.

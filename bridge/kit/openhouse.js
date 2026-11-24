@@ -216,6 +216,8 @@ export const house = {
   prepareCook: (meal, force = false) => send('/house/meal', { cook: meal, force }),
   /** The assistant writes a meal's recipe into the box (watch data.mealWork["recipe|tacos"]). */
   writeRecipe: (meal) => send('/house/meal', { writeRecipe: meal }),
+  /** Add a recipe from whatever they typed: a link, a recipe pasted in, or an idea the assistant writes one for (watch mealWork.link). */
+  addRecipe: (text) => send('/house/meal', { addText: text }),
   /** Which meals the Meals app plans: some of 'breakfast', 'lunch', 'dinner' (data.mealSlots). */
   mealSlots: (slots) => send('/house/meal', { slots }),
   /** The assistant puts what that meal needs on Groceries (watch data.mealWork["date|meal"]). */

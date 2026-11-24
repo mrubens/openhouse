@@ -362,7 +362,7 @@ function boxView() {
       h('div', { class: 'name' }, w?.state === 'error' ? w.text : `${recipeOf(waiting.key)?.text || ''}: making the steps…`)),
       w?.state === 'error' ? btn('Try again', () => { house.prepareCook(recipeOf(waiting.key).text, true); }, { soft: true }) : null,
       btn('Cancel', () => { waiting = null; watch(); draw(); }, { soft: true })) : null,
-    link ? h('p', { class: 'note' }, link.state === 'working' ? 'Reading the recipe from that link…' : link.state === 'error' ? link.text : `Added ${link.meal}.`) : null,
+    link ? h('p', { class: 'note' }, link.state === 'working' ? (link.link ? 'Reading the recipe from that link…' : 'Adding the recipe…') : link.state === 'error' ? link.text : `Added ${link.meal}.`) : null,
     q ? h('h3', { class: 'section' }, all.length ? 'In the recipe box' : `Nothing in the recipe box for ${q}`) : null,
     all.length ? h('div', { class: 'r-grid vscroll' }, all.map(([key, r]) => recipeTile(key, r, when.get(key), !waiting && tonight?.key === key)))
       : q ? (f?.query === q ? null : btn(`Search the web for ${q}`, () => webFind(q), { soft: true, cls: 'webq' }))
@@ -464,28 +464,23 @@ function takeOut(key) {
   ], { width: 760 });
 }
 
-/** Add one: a link (or have a phone send it), typed, a photo of the page, or written by the assistant. */
+/** Add one: one box for a link, a recipe pasted in, or an idea the assistant writes a recipe for (house.addRecipe). */
 function addCard() {
-  const link = h('input', { class: 'field', placeholder: 'A link to the recipe (https://…)', inputmode: 'url', autocapitalize: 'off', autocomplete: 'off', spellcheck: 'false' });
-  const name = h('input', { class: 'field', placeholder: 'Or its name (Tacos)', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
-  const notes = h('textarea', { class: 'field notes', placeholder: 'Ingredients and steps, typed or pasted (optional)', autocapitalize: 'sentences', spellcheck: 'false' });
+  const text = h('textarea', { class: 'field notes add', placeholder: 'Paste a recipe or a link, or say what you’d like to make', autocapitalize: 'sentences', spellcheck: 'false' });
   const card = openCard((close) => [
     h('h2', null, 'Add a recipe'),
-    link, name, notes,
-    !H?.ai ? h('p', { class: 'note' }, 'Making steps from a recipe needs the assistant (Settings, Grown-ups, Live voice).') : h('p', { class: 'note' }, 'From a phone: share the recipe page to OpenHouse, or take a photo of the page.'),
+    text,
+    !H?.ai ? h('p', { class: 'note' }, 'Adding recipes needs the assistant (Settings, Grown-ups, Live voice).') : null,
     h('div', { class: 'actions' },
       btn('Cancel', () => { document.activeElement?.blur(); close(); }, { soft: true }),
-      H?.ai ? btn('From a photo', () => { const t = name.value.trim(); if (!t) { name.focus(); name.placeholder = 'Its name first (Tacos)'; return; } document.activeElement?.blur(); close(); if (!phone.recipe(t)) openCard((c2) => [h('h2', null, 'From a photo'), h('p', { class: 'note' }, 'This works on the tablet itself: a phone sends it the photo.'), h('div', { class: 'actions' }, btn('OK', c2))]); }, { soft: true }) : null,
-      H?.ai ? btn('Write one for me', () => { const t = name.value.trim(); if (!t) { name.focus(); name.placeholder = 'Its name first (Tacos)'; return; } document.activeElement?.blur(); close(); house.writeRecipe(t); }, { soft: true }) : null,
       btn('Add', () => {
-        const l = link.value.trim(), t = name.value.trim(), n = notes.value.trim();
-        if (!l && !(t && n)) { (l || t ? notes : link).focus(); return; }
+        const t = text.value.trim();
+        if (!t) { text.focus(); return; }
         document.activeElement?.blur(); close();
-        if (l && !t && !n) house.addRecipeLink(l);
-        else house.setRecipe(t || 'Recipe', { link: l && !/^https?:\/\//i.test(l) ? 'https://' + l : l, notes: n });
-      })),
-  ], { width: 980 });
-  requestAnimationFrame(() => link.focus());
+        house.addRecipe(t);
+      }, { disabled: !H?.ai })),
+  ], { width: 900 });
+  requestAnimationFrame(() => text.focus());
   return card;
 }
 
