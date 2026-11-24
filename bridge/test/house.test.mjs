@@ -57,6 +57,48 @@ test('a locked calendar: apps change it only for a little while after the PIN on
   assert.equal((await post('/house/event', add)).code, 200, 'the display itself is never locked out');
 });
 
+test('Opie and a locked calendar: it asks, and only the PIN typed on the tablet lets the change in', async () => {
+  const http = await import('node:http');
+  let answer = { yes: false }; const asked = [];
+  const srv = http.createServer((req, res) => { let b = ''; req.on('data', (d) => (b += d)); req.on('end', () => { asked.push(JSON.parse(b || '{}')); res.end(JSON.stringify(answer)); }); });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  const cfg = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'shell-')), 'mcp.json');
+  fs.writeFileSync(cfg, JSON.stringify({ mcpServers: { device: { url: `http://127.0.0.1:${srv.address().port}/mcp`, headers: { Authorization: 'Bearer t' } } } }));
+  const was = process.env.DEVICE_MCP_CONFIG; process.env.DEVICE_MCP_CONFIG = cfg;
+  try {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x'); fs.mkdirSync(DIR);
+    let chores = [];
+    const board = { householdView: () => ({ family: [{ name: 'Leo' }], chores, calendars: [] }), saveHousehold: (b) => { if (b.chores) chores = b.chores; }, calendarEvents: () => [] };
+    let next = {};
+    const h = houseRoutes({ DIR, json: () => {}, body: async () => next, board });
+    next = { calendar: true }; await h({ method: 'POST', headers: {} }, {}, new URL('http://x/house/lock'));
+    const opie = { by: 'assistant', who: null, conversation: 'live' };
+    const events = async () => JSON.parse((await h.call('family_things', {})).content[0].text).events.length;
+    // Opie's own words can't be the yes: the card (pin: true) is the only way in, and a no leaves the calendar as it was.
+    const no = await h.call('calendar_event', { add: { title: 'Dentist', start: '2026-12-02T09:00' }, yes: true, pin: '1234' }, opie);
+    assert.equal(no.isError, true); assert.equal(asked.length, 1); assert.equal(asked[0].pin, true);
+    assert.equal(await events(), 0);
+    // No card on the tablet (the shell not answering): never falls through to the change.
+    process.env.DEVICE_MCP_CONFIG = path.join(root, 'none.json');
+    assert.equal((await h.call('calendar_event', { remove: ['x'] }, opie)).isError, true);
+    process.env.DEVICE_MCP_CONFIG = cfg;
+    answer = { yes: true };
+    assert.ok(!(await h.call('calendar_event', { add: { title: 'Dentist', start: '2026-12-02T09:00' } }, opie)).isError);
+    assert.equal(await events(), 1);
+    // A reward needs a grown-up's yes on the card too: a no gives nothing.
+    await h.call('change_rewards', { add: [{ title: 'Ice cream', stars: 1 }] }, opie); await new Promise((ok) => setTimeout(ok, 150));
+    await h.call('change_chores', { add: [{ who: 'Leo', task: 'Feed the cat' }] }, opie);
+    await h.call('change_chores', { done: [{ who: 'Leo', task: 'Feed the cat' }] }, opie);
+    const starsNow = async () => JSON.stringify(JSON.parse((await h.call('family_things', {})).content[0].text).stars);
+    const before = await starsNow();
+    answer = { yes: false }; const n = asked.length;
+    const r = await h.call('change_rewards', { redeem: { who: 'Leo', reward: 'Ice cream' } }, opie);
+    assert.equal(r.isError, true, r.content[0].text);
+    assert.equal(asked.length, n + 1, r.content[0].text); assert.equal(asked.at(-1).pin, true);
+    assert.equal(await starsNow(), before, 'no stars spent');
+  } finally { srv.close(); process.env.DEVICE_MCP_CONFIG = was; }
+});
+
 test('the calendar: adding the same event again gives the one already there, and a list of ids is removed in one go', async () => {
   const { h, call } = house();
   const t = new Date(Date.now() + 86400e3).toISOString().slice(0, 10);

@@ -68,7 +68,10 @@ object DeviceServer {
         return (0 until n.childCount).any { i -> n.getChild(i)?.let { secretIn(it, depth + 1) } == true }
     }
 
-    private const val PRIVATE = "Not done: a PIN is being asked for, and only the people here type it. Opie never enters it or gets round it. Tell them it's theirs to type."
+    private const val PRIVATE = "The tablet is asking for the PIN, and only a person types it: Opie never enters it, hears it or gets round it. " +
+        "Tell them to type the PIN on the tablet (on the tablet itself, when they're talking from a phone), then look_at_screen: it waits for them, and you carry on from there."
+    /** What Opie's tap or typing just opened is the PIN pad (a locked Settings row, say): not a refusal, the person's turn. */
+    private const val PIN_NOW = "\n\nThe tablet is asking for the PIN now. Tell them to type it on the tablet (never to you), then look_at_screen: it waits for them."
     /** A PIN pad is up (in OpenHouse or one of its apps): nothing Opie does lands while it is. Everything else a person
      *  can tap in OpenHouse, Settings too, Opie can (Settings' rows ask for the PIN themselves when the lock is on). */
     @Suppress("UNUSED_PARAMETER")
@@ -387,7 +390,7 @@ object DeviceServer {
         fun after(msg: String): JSONObject {
             Thread.sleep(700)
             refused?.let { refused = null; return text("$it\n\nOn screen now:\n${acc.describe()}", true) }
-            return text("$msg\n\nOn screen now:\n${acc.describe()}")
+            return text("$msg${if (acc.pinShowing()) PIN_NOW else ""}\n\nOn screen now:\n${acc.describe()}")
         }
         fun nodeOrPoint(): Pair<AccessibilityNodeInfo?, Pair<Float, Float>?> {
             if (a.has("id")) return (acc.node(a.getInt("id")) ?: return null to null) to null
@@ -395,7 +398,12 @@ object DeviceServer {
             return null to null
         }
         return when (name.removePrefix("device_")) {
-            "screen" -> { acc.status("Reading the screen"); text(acc.describe()) }
+            "screen" -> {
+                // The PIN pad is up (Opie opened something behind the PIN): wait for the person to type it, up to a minute.
+                if (acc.pinShowing()) { acc.status("Waiting for the PIN"); val t0 = System.currentTimeMillis(); while (acc.pinShowing() && System.currentTimeMillis() - t0 < 60_000) Thread.sleep(400); Thread.sleep(600) }
+                if (acc.pinShowing()) return text("Nobody has typed the PIN yet. Ask once more, or leave it for when someone is at the tablet.\n\nOn screen now:\n${acc.describe()}")
+                acc.status("Reading the screen"); text(acc.describe())
+            }
             "look" -> {
                 acc.status("Looking at the screen")
                 val div = a.optInt("scale", 2).coerceIn(1, 8)

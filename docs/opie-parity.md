@@ -1,9 +1,21 @@
 # What Opie can do, next to what tapping can do
 
-Aim: whatever someone can do by tapping the tablet, they can ask Opie (the live voice) to do. The exceptions are on
-purpose: anything behind the PIN that guards against kids or against Opie itself, and anything a person must say yes
-to (`DeviceServer.personOnly` in the shell). For those, Opie can at most open the right screen
-(`show_on_screen`), and its taps there stop at the PIN pad or are refused.
+Aim: whatever someone can do by tapping the tablet, they can ask Opie (the live voice) to do. Something behind the
+PIN is no reason for Opie to refuse: it does it, and the tablet asks a person for the PIN (a card with the PIN pad, as
+add_calendar has always done; or, on a locked Settings row it opens, the row's own PIN pad). Opie says "type the PIN on
+the tablet", and from a phone, that it's on the tablet itself. The rules that don't bend:
+
+- The PIN is only ever typed by a person on the tablet. Opie never sees it, never takes it from what someone says,
+  and nothing it does lands while a PIN pad is up (`DeviceServer.ownPrivate`); its tools can't answer the card
+  (one tool runs at a time, and the card's own call is the one waiting).
+- What is person-only (`DeviceServer.personOnly`: turning on email, allowing a held email, Opie uses apps and other
+  switches that widen what Opie may do, ways out of OpenHouse, saying yes to a calendar or album someone sent) needs a
+  person's own tap, PIN or not. Opie can open the screen; the tap is theirs.
+- PIN Lock itself (turning it off, changing the PIN) and leaving kiosk mode: Opie only opens the screen. Asking Opie to
+  take off the lock that guards against Opie makes no sense, and leaving kiosk mode takes the tablet out of OpenHouse.
+
+`test/house.test.mjs` checks the PIN can't be got round: Opie's change to a locked calendar or a reward goes through
+the card, and a no (or no card) leaves things as they were.
 
 Opie's tools: `LIVE_TOOLS` and the voice's own tools in `bridge/live-tools.js` (timer, weather, read_page, volume,
 tablet_screen, home_devices, tv, bluetooth, message_family, show_on_screen, the apps' voice actions); the home screen's
@@ -13,7 +25,7 @@ anything without a tool of its own, in OpenHouse's own screens even with "Opie u
 same tools (`chat.js` textTools).
 
 Key: **yes** a tool does it; **screen** only by opening the screen and tapping there; **no, on purpose** stays a
-person's; **new** closed by this change.
+person's; **screen, with the PIN** Opie opens it and carries on once someone types the PIN; **new** closed by this change.
 
 ## Home screen and Today
 
@@ -21,7 +33,7 @@ person's; **new** closed by this change.
 | --- | --- | --- |
 | Open a tab or app | yes | show_on_screen |
 | Tabs: add, remove, order, rename; the look (palette, colours, type, density, photo backdrop) | **new** | set_home (it was typed-only; "Tabs and look" has no PIN) |
-| Today's app cards on or off | yes | today_card |
+| Today's cards: order, on or off (Tabs and look) | **new** | set_home today (the order and which show), today_card (an app's own card) |
 | Timers: start, +/− minutes, clear | yes | timer (a changed time is cancel and start) |
 | Today's lines (things): take one down | yes | take_down_thing |
 | Notes: open, take down | yes | look_at_notes, take_down_note; put_note and update_note too |
@@ -42,10 +54,10 @@ person's; **new** closed by this change.
 | Calendar: the usual reminder and saying it aloud (the bell) | **new** | calendar_event settings |
 | Calendar: an event from a flyer photo sent from a phone | **new** | flyer_photo (was typed-only), then calendar_event |
 | Calendar: Add a calendar | yes | add_calendar; the tablet asks for the PIN |
-| Calendar: unlock with the PIN | no, on purpose | The PIN is a person's |
+| Calendar, with "Calendar needs the PIN" on: any change | **new** | calendar_event asks; the tablet's card takes the PIN, then the calendar is open for 5 minutes, as after the app's unlock. A computer's workshop isn't asked |
 | Chores: done / not done, who did an Anyone chore, add, change (who, days, every N days, stars, picture, stays until done), skip, remove | yes | change_chores |
 | Chores: rewards add, remove | yes | change_rewards |
-| Chores: spend stars on a reward (Get it!) | no, on purpose | The kid asks on the tablet and a grown-up says yes with the PIN |
+| Chores: spend stars on a reward (Get it!) | **new** | change_rewards redeem: the same card as Get it!, a grown-up's yes with the PIN on the tablet |
 | Chores: routines add, change, remove, tick a step | yes | change_routines |
 | Lists: tick, add, edit, whose, remove, clear checked, new list, rename, delete list | yes | change_list |
 | Lists: by store section or in the order added | **new** | change_list byAisle |
@@ -66,20 +78,22 @@ person's; **new** closed by this change.
 
 | Row | Opie | Notes |
 | --- | --- | --- |
-| Voice (the voice, Hey Opie, the microphone) | no, on purpose | Locked: it costs money and it's Opie's own off switch |
+| Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN; then it chooses there |
 | Family: who, ages or roles, colours, where, chores | **new** | update_household (was typed-only). Leaving someone out of the list is refused unless they're named in taking_off |
-| Calendars: accounts, shown or not, two-way, whose, where new events go | no, on purpose | Locked; adding one by link is add_calendar with the PIN |
+| Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the row, the tablet asks for the PIN, Opie carries on there; adding one by link is add_calendar |
 | What Opie remembers | yes | remember_preference, forget_preference |
-| Linked devices: pair or remove a screen, phone, computer, TV | no, on purpose | Locked (Add and Remove) |
+| Linked devices: pair or remove a screen, phone, computer, TV | screen, with the PIN | Add and Remove ask for the PIN; the pairing code itself is shown for the person's own device |
 | Linked devices: the house's speakers, streamers, printers and their buttons | **new** | home_devices (tv, bluetooth and volume were already there); turning on or opening something asks the room first |
 | Brightness | **new** | tablet_screen (Settings' row has no PIN) |
-| Email: turn on, allow a held email, who's read | no, on purpose | personOnly |
-| Account: link, backups, reach from away | no, on purpose | Locked |
-| Advanced: PIN Lock, Updates, Plugins, Opie uses apps, home network, cloud address, USB debugging, Android settings, leave kiosk mode | no, on purpose | Locked, and personOnly where it widens what Opie may do or leaves OpenHouse |
+| Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
+| Account: link, backups, reach from away | screen, with the PIN | Opie opens the row; the tablet asks for the PIN |
+| Advanced: Updates, home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
+| Advanced: PIN Lock, leave kiosk mode | no, on purpose | Opie only opens the screen (above) |
+| Advanced: Opie uses apps, device control, USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave OpenHouse |
 | Advanced: check-ins (how often, what they look for) | yes | heartbeat_settings |
 | Night hours | yes | night_hours |
 | Volume (no row: the tablet's buttons) | yes | volume |
-| Plugins: add, update, remove | no (voice) | The gallery is behind the PIN; a typed turn or a computer can ask (add_plugin), and the tablet still asks for the PIN |
+| Plugins: find, look at, add, update, remove | **new** | find_plugins, look_at_plugin, add_plugin, update_plugin, remove_plugin: each change asks on the tablet, with the PIN |
 
 ## The phone page
 
@@ -89,10 +103,3 @@ person's; **new** closed by this change.
 | Ask Opie, share text or a link to Opie | yes | That is Opie |
 | Turn notifications on, add to home screen, the iPhone shortcut | no | The phone's own permissions, given by the person holding it |
 | Setup: a calendar link and whose it is, an album, invite someone | yes / no | add_calendar takes who; inviting someone uses the phone's share sheet, so it stays there |
-
-## Open question
-
-- **The calendar's PIN lock.** With "Calendar needs the PIN" on, the Calendar app can't change events without the
-  PIN, but Opie's calendar_event still can, so a child can ask Opie for what they couldn't tap. Not changed here:
-  either Opie honours the lock (and asks for the PIN on the tablet first, as add_calendar does) or the lock is only
-  about the app. That is the household's call.

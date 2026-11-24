@@ -1345,10 +1345,12 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
           every: { type: 'number', description: 'Every N days (2-90) instead of weekdays: 14 for every other week' }, after: { type: 'boolean', description: 'With every: N days after it was last done (change the sheets a week after)' } } } },
         remove: { type: 'array', items: { type: 'object', required: ['task'], properties: { who: person, task: { type: 'string' } } } },
       } } },
-    { name: 'change_rewards', description: 'Rewards the kids save their chore stars for (the Chores app), like "Movie night" for 20 stars. Add or change one (same title changes its stars), or remove one. You can\'t give a reward: the kid asks on the display and someone says yes there.',
+    { name: 'change_rewards', description: 'Rewards the kids save their chore stars for (the Chores app), like "Movie night" for 20 stars. Add or change one (same title changes its stars), or remove one. ' +
+      'redeem spends a kid\'s stars on a reward ("Leo wants movie night"), as the Chores app\'s Get it! does: the tablet asks a grown-up to say yes there, with the PIN, and this waits for them (tell them to type the PIN on the tablet). You never say yes for them.',
       inputSchema: { type: 'object', properties: {
         add: { type: 'array', items: { type: 'object', required: ['title', 'stars'], properties: { title: { type: 'string' }, stars: { type: 'number' }, who: { type: 'string', description: 'Only for this person; leave out for anyone' } } } },
         remove: { type: 'array', items: { type: 'string', description: 'title or id' } },
+        redeem: { type: 'object', required: ['who', 'reward'], properties: { who: person, reward: { type: 'string', description: 'The reward\'s title or id' } } },
       } } },
     { name: 'change_routines', description: 'Routines: short picture checklists (morning, bedtime, after school) that the Chores app shows at the top during their hours, one row per person. Add, change (by name or id), remove, or check a step off. Each step has a picture.',
       inputSchema: { type: 'object', properties: {
@@ -1396,7 +1398,22 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
           album: { type: 'string', description: 'Which album, by its name or id (not for add)' }, name: { type: 'string', description: 'For add and rename: its name' },
           sleep: { type: 'boolean', description: 'For show: on the sleep screen' }, all: { type: 'boolean', description: 'For show: in Photos\' All' } } } } } },
   ];
-  async function call(name, a) {
+  const ParentPinNote = ' (a grown-up types the PIN there)';
+  /** Opie changing a locked calendar (Settings, Calendar needs the PIN): it asks, and the tablet's card takes the PIN
+   *  from a person, as the Calendar app's unlock does; then the calendar stays open a few minutes, as after that unlock.
+   *  Nothing Opie says or types answers it (the card is the shell's own: DeviceAccess.approve). A computer's workshop
+   *  is a grown-up's own (paired with the PIN), so it isn't asked. */
+  async function calendarPin(a, ctx) {
+    if (!data.settings.calendarLock || unlockedUntil > Date.now() || ctx?.workshop) return null;
+    const changes = ['add', 'update', 'remove', 'countdown', 'remind'].some((k) => a?.[k] != null) ||
+      (a?.settings && ['remind', 'remind_aloud', 'app_notes'].some((k) => a.settings[k] != null));
+    if (!changes) return null;
+    const what = a.add?.title ? `Add "${str(a.add.title, 60)}"` : a.update ? 'Change an event' : a.remove ? 'Remove an event' : 'Change the calendar';
+    const r = await shell('/approve', { title: `${what} on the calendar?`, detail: 'Opie was asked to. The calendar needs the PIN.', pin: true, yes: 'Allow' }, 100_000);
+    if (r?.yes === true) { unlockedUntil = Date.now() + 5 * 60e3; changed(); return null; }
+    return { content: [{ type: 'text', text: r == null || r.why ? 'Not changed: the calendar needs the PIN, and the tablet can\'t ask for it right now. Someone can unlock it in the Calendar app.' : 'Not changed: the calendar needs the PIN, and nobody typed it on the tablet. Say so; they can ask again when someone is at the tablet.' }], isError: true };
+  }
+  async function call(name, a, ctx = null) {
     const ok = (t) => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t, null, 1) }] });
     const out = (r) => (r.error ? { content: [{ type: 'text', text: r.error }], isError: true } : ok(r));
     if (name === 'family_things') {
@@ -1429,7 +1446,21 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (name === 'flyer_photo') return flyerPhoto();
     if (name === 'change_list') return out(changeList(a));
     if (name === 'change_chores') return out(changeChores(a));
-    if (name === 'change_rewards') return out(changeRewards(a));
+    if (name === 'change_rewards') {
+      if (!a?.redeem) return out(changeRewards(a));
+      // Spending stars, as the Chores app's Get it!: the same ask and the same "Is this OK?" card, with the PIN, that only
+      // a person answers on the tablet (askGrownUp); this waits for it.
+      const { redeem, ...rest } = a, did = Object.keys(rest).length ? (changeRewards(rest).did || []) : [];
+      const r = data.rewards.find((y) => y.id === redeem.reward || same(y.title, redeem.reward)), who = str(redeem.who, 40);
+      if (!r || !who) return out({ error: `Which reward, for whom? The rewards: ${data.rewards.map((y) => `${y.title} (${y.stars} stars)`).join(', ') || 'none'}.` });
+      if (stars(who) < r.stars) return out({ error: `${who} has ${stars(who)} stars; ${r.title} needs ${r.stars}.` });
+      const before = stars(who);
+      changeRewards({ redeem: { who, id: r.id } }, { fromApp: true });
+      const ask = data.asks.find((x) => x.reward === r.id && same(x.who, who));
+      if (ask && !ask.manual) { const t0 = Date.now(); while (data.asks.includes(ask) && Date.now() - t0 < 105e3) await new Promise((ok) => setTimeout(ok, 300)); }
+      const given = stars(who) < before;
+      return { content: [{ type: 'text', text: [...did, given ? `Given: ${who} spent ${r.stars} stars on ${r.title}.` : ask?.manual ? 'Asked: someone says yes in the Chores app on the tablet.' : `Not given: nobody said yes on the tablet${ParentPinNote}.`].join('; ') }], isError: !given && !ask?.manual };
+    }
     if (name === 'change_routines') return out(changeChecklists(a));
     if (name === 'save_recipe') { const r = addRecipeLink({ link: a.link, meal: a.meal || '' }); return r.error ? out(r) : ok('Saved: it is being read and made into steps; it will be in Recipes in a moment.'); }
     if (name === 'set_meals') {
@@ -1442,6 +1473,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       return out({ ...m, did: [...(m.did || []), ...did] });
     }
     if (name === 'calendar_event') {
+      const locked = await calendarPin(a, ctx); if (locked) return locked;
       if (a?.settings && typeof a.settings === 'object') {
         const s = a.settings, b = {};
         if (s.remind !== undefined) b.remind = s.remind;

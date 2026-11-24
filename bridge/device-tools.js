@@ -123,7 +123,7 @@ export function deviceTools({ server = () => null, describe = null, log = () => 
         }
         case 'look_at_screen': {
           const wait = Math.max(0, Math.min(10, Number(args.wait) || 0));
-          const r = wait ? await shell('wait', { seconds: wait }, 20e3) : await shell('screen', {});
+          const r = wait ? await shell('wait', { seconds: wait }, 20e3) : await shell('screen', {}, 75e3); // (it waits for a PIN someone is typing: DeviceServer)
           if (r.isError) return out(r);
           let text = short(textOf(r));
           const labelled = (text.match(/"[^"]+"/g) || []).length;

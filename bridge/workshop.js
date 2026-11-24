@@ -186,7 +186,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
     if (devices?.mcp && DEVICE_TOOLS.includes(name)) { const r = await devices.mcp({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: a } }); return r?.result || err('The devices didn\'t answer.'); }
     const key = who.id, c = open.get(key);
     if (c) touch(c);
-    const ctx = { by: 'assistant', who: who.name, conversation: null, turn: c?.turn || null, touched: [] };
+    const ctx = { by: 'assistant', who: who.name, conversation: null, turn: c?.turn || null, touched: [], workshop: true };
     switch (name) {
       case 'export_plugin': {
         if (!plugins) return err('Plugins aren\'t on this tablet.');

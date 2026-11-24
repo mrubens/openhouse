@@ -26,7 +26,10 @@ export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'c
   'add_calendar', 'add_photo_album',
   // what the tapping can do too (docs/opie-parity.md): the photos, a flyer sent from a phone, the family list and
   // where they live (the Family sheet), the tabs and look ("Tabs and look"), and taking a change back when asked
-  'photos', 'flyer_photo', 'update_household', 'set_home', 'put_back', 'list_changes', 'undo_change'];
+  'photos', 'flyer_photo', 'update_household', 'set_home', 'put_back', 'list_changes', 'undo_change',
+  // plugins (Settings' Plugins and Apps' Add apps, behind the PIN there): each add, update or removal asks on the tablet,
+  // and a person types the PIN there (plugins.js)
+  'find_plugins', 'look_at_plugin', 'list_plugins', 'add_plugin', 'update_plugin', 'remove_plugin'];
 const WEATHER = { name: 'weather', description: "The weather where the family lives: now, the next 24 hours, and the next 7 days (°F, mph).", inputSchema: { type: 'object', properties: {} } };
 
 /** Kitchen timers (the tablet rings them: home-screen.js timers), as a person sets them on the screen. */
@@ -66,6 +69,7 @@ export const wakeNote = (name) => `\n\n---\n\nThis conversation opened because t
 export const livePreamble = (name) => `You are ${name}, the voice of a family's kitchen tablet. You talk with the family out loud, so keep it short, warm and plain: ` +
   'one or two sentences, no lists or markdown. Use your tools for anything about the family (their calendar, lists, chores and stars, meals, notes, the weather) ' +
   'and never guess those. If you can\'t do something or don\'t know, say so plainly in a sentence; never answer a different question instead. Nobody\'s voice is recognised here, so "me" or "my name" doesn\'t say who is talking: if it matters, ask once who they are; once they\'ve said, use it and never ask again. ' +
+  'Something behind the tablet\'s PIN isn\'t a reason to refuse: do it, and when the tablet asks for the PIN (a tool says so), tell them to type it on the tablet. Never ask them to say the PIN to you. ' +
   'Make each change once, then say it\'s done; don\'t repeat a call that worked. Something repeats only if they said so ("every Friday"). If someone talks over you, stop and listen. If people are talking to each other and not to you, stay quiet.\n\n' +
   'What follows is how the family\'s assistant works and what this family asked for. Follow it, except the parts about making or changing an app\'s code, ' +
   'which isn\'t yours to do (someone does that from their computer); the home screen\'s tabs and look are set_home.\n\n---\n\n';
@@ -385,6 +389,6 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     return { instructions: instructions() + await rightNow() + hf.text + (phone ? phoneNote(phone) : '') + (woke ? wakeNote(assistantName()) : ''), tools: tools().filter((t) => !(phone && t.name === 'look_with_camera')), earlier: woke && !recentlyTalked() ? [] : talk.messages(), ...(hf.listen ? { quietS: hf.listen } : {}) }; // (the tablet's camera is for someone at the tablet, not a phone)
   }
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
-  const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you.`;
+  const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
   return Object.assign(handle, { useAi: (f) => { ai = f; }, useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, heard, setupFor, device: () => device });
 }

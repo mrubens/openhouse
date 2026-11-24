@@ -477,14 +477,15 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
         id: { type: 'string' }, title: { type: 'string' }, content: { type: 'string' }, for: { type: 'string' },
         minutes: { type: 'number', description: 'Comes down by itself after this many minutes from now; 0 to stay up.' }, keep: { type: 'boolean' },
       } } },
-    { name: 'set_home', description: 'Change the home screen itself in one step: which tabs there are and their order, and its look. This is the only way to change them: don\'t read or edit apps/home/style.json, and there is nothing to check afterwards. Give only what changes. tabs is the whole list in order: "today", "apps", or app ids (from the home screen line you were given); {"id", "name"} names a tab differently. Today is the day at a glance with your notes; Apps holds every app that isn\'t a tab (and the Android apps added), so an app taken out of the tabs is still in Apps.',
+    { name: 'set_home', description: 'Change the home screen itself in one step: which tabs there are and their order, and its look. This is the only way to change them: don\'t read or edit apps/home/style.json, and there is nothing to check afterwards. Give only what changes (call it with nothing to hear how it is now); today orders the cards on the Today tab. tabs is the whole list in order: "today", "apps", or app ids (from the home screen line you were given); {"id", "name"} names a tab differently. Today is the day at a glance with your notes; Apps holds every app that isn\'t a tab (and the Android apps added), so an app taken out of the tabs is still in Apps.',
       inputSchema: { type: 'object', properties: {
         tabs: { type: 'array', items: { anyOf: [{ type: 'string' }, { type: 'object', required: ['id'], properties: { id: { type: 'string' }, name: { type: 'string' } } }] } },
         palette: { type: 'string', enum: ['paper', 'linen', 'sage', 'mist', 'dusk'], description: 'paper is the usual; linen warmer; sage and mist cooler; dusk dark' },
         colors: { type: 'object', description: 'The family\'s own colors over the palette: bg, sheet, ink, accent as #rrggbb. {} goes back to the palette\'s.', properties: { bg: { type: 'string' }, sheet: { type: 'string' }, ink: { type: 'string' }, accent: { type: 'string' } } },
         type: { type: 'string', enum: ['clean', 'serif', 'round', 'hand'] },
         density: { type: 'string', enum: ['calm', 'snug'], description: 'snug: smaller, more fits' },
-        backdrop: { type: 'string', enum: ['none', 'photos'] } } } },
+        backdrop: { type: 'string', enum: ['none', 'photos'] },
+        today: { type: 'array', items: { type: 'string' }, description: 'The cards on the Today tab, in order, as Tabs and look arranges them: the whole list of those to show, from ' + TODAY_CARDS.join(', ') + ', and "app:<id>" for an app\'s own card that is on (today_card turns one on). Leave one out to take it off Today; [] for the usual order.' } } } },
     { name: 'today_card', description: 'Turn an app\'s own card on Today on or off (a remote for the speakers, a score): only apps that offer one, listed here when you call it with no app. A new one shows only once someone turns it on. on: true to show it, false to take it off. position: where among the cards, from 1 (leave out for the end; give it alone to move one that is on).',
       inputSchema: { type: 'object', properties: { app: { type: 'string', description: 'The app\'s id' }, on: { type: 'boolean' }, position: { type: 'number' } } } },
     { name: 'take_down_note', description: 'Take a note off Today. Notes the family kept: ask first.', inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } },
@@ -503,10 +504,14 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     if (name === 'set_widget') { const r = setWidget(a); return r.error ? err(r.error) : ok(String(a.content || '').trim() ? `Set ${String(a.app).replace(/^app:/, '')}'s widget.` : 'Took the widget away.'); }
     if (name === 'move_on_home') { const r = arrange(a); return r.error ? err(r.error) : ok(`Moved ${a.what} to ${where(r.at)} (${r.at.w}x${r.at.h}).`); }
     if (name === 'set_home') {
+      if (!Object.keys(a || {}).length) { // nothing to change: how it is now, to change from
+        const st = readStyle();
+        return ok(`Now: tabs ${(st.tabs || []).map((x) => x.id || x).join(', ') || 'the usual set'}; Today's cards ${(Array.isArray(st.today) && st.today.length ? st.today : TODAY_CARDS).join(', ')}${(st.cards || []).length ? ` (app cards on: ${st.cards.map((x) => 'app:' + x).join(', ')})` : ''}; look ${st.palette || 'paper'}, ${st.type || 'clean'}, ${st.density || 'calm'}.`);
+      }
       const r = setLook(a || {}, context?.turn || null, context?.who || null);
       if (r.error) return err(r.error);
       const st = r.style, tabs = (st.tabs || []).map((t) => t.name ? `${t.id} ("${t.name}")` : t.id);
-      return ok(`Done. Tabs: ${tabs.length ? tabs.join(', ') : 'the usual set'}; look: ${st.palette}, ${st.type}, ${st.density}${st.backdrop === 'photos' ? ', photos behind' : ''}. It's on the screen now.`);
+      return ok(`Done. Tabs: ${tabs.length ? tabs.join(', ') : 'the usual set'}; look: ${st.palette}, ${st.type}, ${st.density}${st.backdrop === 'photos' ? ', photos behind' : ''}${Array.isArray(st.today) ? `; Today's cards: ${st.today.join(', ')}` : ''}. It's on the screen now.`);
     }
     if (name === 'today_card') {
       const offer = cardApps(), cur = readStyle().cards || [], nameOf = (id) => offer.find((x) => x.id === id)?.name || id;
