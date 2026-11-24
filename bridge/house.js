@@ -32,10 +32,11 @@
 // GET  /house/photo/<name>     one of the family's photos (files in display/photos/)
 // POST /house/photo?name=x.jpg the image itself as the body (the phone upload page)
 // POST /house/photo/remove     { name }  (moved to photos/.removed, not deleted)
-// POST /house/photo/album      { add: {name, photos?} } | { rename: {id, name} } | { remove: id } | { put: {id, photos, on?} }
+// POST /house/photo/album      { add: {name, photos?} } | { rename: {id, name} } | { remove: id } | { put: {id, photos, on?} } | { show: {id, sleep?, all?} }
+// POST /house/photo?name=x.jpg from an app (x-openhouse-app): into that app's own album, named after it
 // POST /house/photo/caption    { name, text }  (empty text takes it off)
-//   view(): albums [{id, name, photos}], captions {photo: text}, slideshow (an album's id, or null for all of them),
-//   screensaver: the photos the idle screen shows (that album's, else all)
+//   view(): albums [{id, name, photos, app?, sleep?, all?}], captions {photo: text},
+//   screensaver: the photos the sleep screen shows (all but those whose albums are all off there)
 //   linked: shared albums kept in step from iCloud [{id, album, from, status, error?, at, photos, coming}] (photo-albums.js)
 // POST /house/album/stream, /house/album/assets   the shell only: what a linked album said (photo-albums.js)
 // POST /house/share            { url }  a phone hand-off link (PhoneQr) through the shell's share sheet
@@ -74,7 +75,7 @@ export const AISLES = [
 ];
 export const aisleOf = (text) => (AISLES.find(([, re]) => re.test(String(text || ''))) || ['Other'])[0];
 
-export function houseRoutes({ DIR, json, body, board, homeScreen = null, currentAgent = null, agentName = () => 'off', WORK = DIR, things = null, notes = null }) {
+export function houseRoutes({ DIR, json, body, board, homeScreen = null, currentAgent = null, agentName = () => 'off', WORK = DIR, things = null, notes = null, appName = (id) => id }) {
   const FILE = path.join(DIR, '../house.json');
   const PHOTOS = path.join(DIR, '../photos');
   try { fs.mkdirSync(PHOTOS, { recursive: true }); } catch {}
@@ -106,7 +107,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   const SHOWS = ['week', 'today', 'off'];
   notes?.setPrefs({ show: (app) => (SHOWS.includes(data.settings.fromApps?.[app]) ? data.settings.fromApps[app] : 'today'), order: () => data.settings.fromAppsOrder || [] });
   const appEvents = () => { try { return notes ? notes.events() : []; } catch (e) { console.error('[day-notes]', e); return []; } };
-  data.albums ||= []; // [{ id, name, photos: [file names] }]
+  data.albums ||= []; // [{ id, name, photos: [file names], app?: the app that saved them, sleep?: false (not on the sleep screen), all?: false (not in Photos' All) }]
   data.captions ||= {}; // file name -> a line shown with it ("Grandma's 80th")
   // shared albums linked on the tablet (photo-albums.js): data.synced; their links stay in the shell
   if (!data.earned) { // stars earned so far, kept apart from checkmarks (those are pruned after two months)
@@ -279,6 +280,19 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       .map((e) => ({ key: remindKey(e), title: e.title, start: e.start, who: [e.who, ...(e.also || [])].filter(Boolean).join(' & ') || null, ...(e.place ? { place: e.place } : {}) }));
   }
   const albums = albumSync({ photosDir: PHOTOS, data, save: () => save(), log: (m) => console.log(m) });
+  // Pictures an app saved before they went into its own album (by the names Whiteboard and Drawing give them), and an
+  // album chosen as the whole sleep screen before each album had its own say: once.
+  if (!data.settings.albumsV2) {
+    const all = photos();
+    for (const [app, re] of [['whiteboard', /^\d+-whiteboard-\d{4}-\d\d-\d\d-\d{4}\.png$/], ['drawing', /^\d+-Drawing-\d+\.png$/]]) {
+      const mine = all.filter((n) => re.test(n));
+      if (mine.length) for (const n of mine) intoAppAlbum(app, n);
+    }
+    const only = data.albums.find((a) => a.id === data.settings.slideshow);
+    if (only) for (const a of data.albums) if (a !== only) a.sleep = false;
+    delete data.settings.slideshow;
+    data.settings.albumsV2 = true; // (kept with the next save: running this again changes nothing)
+  }
   let photoCache = null; // the folder's listing, kept while the folder hasn't changed
   function photos() {
     try {
@@ -316,7 +330,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       things: (() => { try { return things ? things.strip({ events: events(), reminders: reminders() }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Today)
       night: data.settings.night === false ? null : data.settings.night || NIGHT,
       reminders: reminders(), flyer, calendarLock: !!data.settings.calendarLock, unlockedUntil: unlockedUntil > Date.now() ? unlockedUntil : 0,
-      removed: removedPhotos(), albums: data.albums, linked: albums.view(), captions: data.captions, slideshow: data.settings.slideshow || null, screensaver: screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
+      removed: removedPhotos(), albums: data.albums, linked: albums.view(), captions: data.captions, screensaver: screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
       ai: !['off', 'none'].includes(agentName()) && !!currentAgent,
     };
   }
@@ -1055,12 +1069,30 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   }
 
   // ---- albums and captions ----
-  /** The photos the idle screen shows: the chosen album's (those still there), else all of them. */
+  /** Photos left out of a place (the sleep screen: 'sleep'; Photos' All: 'all'): those whose albums are all turned off
+   *  there. A photo in no album, or in one album that's on, shows. */
+  function leftOut(where) {
+    const off = new Set(), on = new Set();
+    for (const a of data.albums) for (const n of a.photos) (a[where] === false ? off : on).add(n);
+    for (const n of on) off.delete(n);
+    return off;
+  }
+  /** The photos the sleep screen shows (all of them if every album there is off). */
   function screensaver() {
-    const all = photos(), a = data.albums.find((x) => x.id === data.settings.slideshow);
-    if (!a) return all;
-    const have = new Set(all), list = a.photos.filter((n) => have.has(n));
+    const all = photos(), out = leftOut('sleep'), list = all.filter((n) => !out.has(n));
     return list.length ? list : all;
+  }
+  /** A picture an app saved goes in the app's own album (made the first time, named after the app; off on the sleep
+   *  screen to begin with, so the slideshow stays the family's photos). */
+  function intoAppAlbum(app, file) {
+    let a = data.albums.find((x) => x.app === app);
+    if (!a) {
+      let name = str(appName(app) || app, 40) || app;
+      if (data.albums.some((x) => same(x.name, name))) name = str(name + ' (app)', 40);
+      a = { id: 'a-' + crypto.randomUUID().slice(0, 6), name, photos: [], app, sleep: false };
+      data.albums.push(a);
+    }
+    if (!a.photos.includes(file)) a.photos.push(file);
   }
   const photoName = (n) => { const b = String(n || ''); return b === path.basename(b) && photos().includes(b) ? b : null; }; // one of theirs, by its name
   function changeAlbums(b) {
@@ -1070,12 +1102,16 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       const a = { id: 'a-' + crypto.randomUUID().slice(0, 6), name, photos: [...new Set(arr(b.add.photos).map(photoName).filter(Boolean))] };
       data.albums.push(a); save(); return { ok: true, album: a };
     }
-    const a = data.albums.find((x) => x.id === (b.rename?.id ?? b.put?.id ?? b.remove));
+    const a = data.albums.find((x) => x.id === (b.rename?.id ?? b.put?.id ?? b.show?.id ?? b.remove));
     if (!a) return { error: 'No such album.' };
     if (b.rename) {
       const name = str(b.rename.name, 40); if (!name) return { error: 'An album needs a name.' };
       if (data.albums.some((x) => x !== a && same(x.name, name))) return { error: `There's an album called ${name} already.` };
       a.name = name; albums.renamed(a.id); save(); return { ok: true };
+    }
+    if (b.show) { // where the album's photos show: the sleep screen, Photos' All
+      for (const k of ['sleep', 'all']) if (typeof b.show[k] === 'boolean') { if (b.show[k]) delete a[k]; else a[k] = false; }
+      save(); return { ok: true };
     }
     if (b.put) {
       const names = arr(b.put.photos).map(photoName).filter(Boolean);
@@ -1084,18 +1120,18 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     }
     if (a.from) return { error: `${a.name} comes from ${a.from}: someone takes it off in the Photos app, the album's card.` };
     data.albums = data.albums.filter((x) => x !== a); // the photos stay: only the album goes
-    if (data.settings.slideshow === a.id) delete data.settings.slideshow;
     save(); return { ok: true };
   }
   /** A photo into Photos (a phone's upload page, or one shared to Opie: phone-share.js), with a caption if given. Its file name. */
-  function addPhoto(bytes, name = 'photo.jpg', text = '') {
+  function addPhoto(bytes, name = 'photo.jpg', text = '', app = null) {
     // The very same picture again (a drawing saved twice unchanged): it's already there, so that one's name comes back.
     const same = samePhoto(bytes);
-    if (same) { if (str(text, 120) && !data.captions[same]) { data.captions[same] = str(text, 120); save(); changed(); } return same; }
+    if (same) { if (app) intoAppAlbum(app, same); if (str(text, 120) && !data.captions[same]) data.captions[same] = str(text, 120); if (app || str(text, 120)) { save(); changed(); } return same; }
     const file = Date.now() + '-' + String(name).replace(/[^\w.-]/g, '_').slice(-80);
     fs.mkdirSync(PHOTOS, { recursive: true });
     fs.writeFileSync(path.join(PHOTOS, file), bytes);
     if (str(text, 120)) data.captions[file] = str(text, 120);
+    if (app) intoAppAlbum(app, file);
     save(); changed();
     return file;
   }
@@ -1123,7 +1159,6 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     else if (b.night) data.settings.night = { from: hhmm(b.night.from, NIGHT.from), to: hhmm(b.night.to, NIGHT.to) };
     if (b.remind !== undefined) { const m = remindMin(b.remind); if (m === undefined || m < 0) delete data.settings.remind; else data.settings.remind = m; }
     if (b.remindAloud !== undefined) data.settings.remindAloud = !!b.remindAloud;
-    if (b.slideshow !== undefined) { if (b.slideshow && data.albums.some((a) => a.id === b.slideshow)) data.settings.slideshow = b.slideshow; else delete data.settings.slideshow; }
     // An app's things on the calendar: {app, show: 'week' | 'today' | 'off'}; fromAppsOrder: the apps' ids, first first.
     if (b.fromApp && typeof b.fromApp === 'object') {
       const app = str(b.fromApp.app, 80);
@@ -1296,7 +1331,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       if (!PHOTO.test(name)) { json(res, 400, { error: 'name must end in .jpg, .png, .webp' }); return true; }
       const chunks = []; let size = 0;
       for await (const c of req) { size += c.length; if (size > 25e6) { json(res, 413, { error: 'too big' }); return true; } chunks.push(c); }
-      const file = addPhoto(Buffer.concat(chunks), name);
+      const app = String(req.headers['x-openhouse-app'] || '').trim(); // an app saving a picture: into its own album
+      const file = addPhoto(Buffer.concat(chunks), name, '', /^[a-z0-9][a-z0-9-]{0,60}$/.test(app) ? app : null);
       json(res, 200, { ok: true, name: file }); return true;
     }
     if ((p === '/house/flyer' || p === '/house/recipe-photo') && req.method === 'POST') { // raw image body

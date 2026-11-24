@@ -62,7 +62,8 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const things = thingStore({ DIR, onChange: () => house?.changed() });
   // What apps put on the calendar's days (day-notes.js): a school lunch, a pickup day.
   const notes = dayNotes({ DIR, onChange: () => house?.changed() });
-  house = houseRoutes({ DIR, json, body, board, homeScreen, currentAgent, agentName, WORK, things, notes });
+  const appName = (id) => { try { return JSON.parse(fs.readFileSync(path.join(APP_DIR || WORK, 'apps', id, 'app.json'), 'utf8')).name || id; } catch { return id; } };
+  house = houseRoutes({ DIR, json, body, board, homeScreen, currentAgent, agentName, WORK, things, notes, appName });
   things.setPutAway((k) => house.putAway(k));
   homeScreen.addTools([things.tools[1]], (name, a) => things.call(name, a, { by: 'assistant', house: house.view() }));
   board.localEvents = house.localEvents; board.houseContext = house.context;

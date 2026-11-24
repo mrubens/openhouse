@@ -1,6 +1,6 @@
 // Photos: all of them at a glance, a mosaic (a hold on one takes it off), one of them big (tap it: the next and the
 // last beside it, a strip of its neighbours under it, its card behind the dots: a caption, its albums, take it off),
-// and a slideshow. Albums gather some of them (one can be what the idle screen shows). "Add photos" shows a code a
+// and a slideshow. Albums gather some of them (each can be left off the sleep screen or All; an app saves into its own). "Add photos" shows a code a
 // phone on the home Wi-Fi scans to send photos from its camera roll. The same photos show on the display when nobody's around,
 // because app.json says "screensaver": true (take that out to stop it), except at night (the hours are set in the display's Settings).
 import { house, timer, say, phone, shell } from '/kit/openhouse.js';
@@ -122,7 +122,14 @@ let one = null;
 let album = null;
 const albumOf = () => (album && H?.albums?.find((a) => a.id === album)) || null;
 /** The photos in view: the album's (those still there), else all. */
-const shownPhotos = () => { const all = H?.photos || [], a = albumOf(); return a ? a.photos.filter((n) => all.includes(n)) : all; };
+const shownPhotos = () => { const all = H?.photos || [], a = albumOf(); return a ? a.photos.filter((n) => all.includes(n)) : all.filter((n) => !hidden().has(n)); };
+/** Left out of All: photos whose albums are all turned off there (album.all === false). */
+function hidden() {
+  const off = new Set(), on = new Set();
+  for (const a of H?.albums || []) for (const n of a.photos) (a.all === false ? off : on).add(n);
+  for (const n of on) off.delete(n);
+  return off;
+}
 const captionOf = (n) => H?.captions?.[n] || '';
 /** Grid photos load as they come into view (a few hundred photos no longer load at once). */
 const seen = new IntersectionObserver((list) => {
@@ -201,7 +208,7 @@ function gridView(photos) {
     h('h1', { class: 'title' }, a ? a.name : 'Photos', ' ', h('span', null, String(photos.length))),
     h('div', { class: 'albums hscroll', 'data-keep': 'albums' }, h('div', { class: 'q-seg' },
       h('button', { class: a ? '' : 'on', tap: () => { album = null; draw(); } }, 'All'),
-      albums.map((x) => h('button', { class: a === x ? 'on' : '', tap: () => { album = x.id; draw(); } }, x.name + (H.slideshow === x.id ? ' · idle screen' : ''))),
+      albums.map((x) => h('button', { class: a === x ? 'on' : '', tap: () => { album = x.id; draw(); } }, x.name)),
       h('button', { 'aria-label': 'New album', tap: () => newAlbum([]) }, icon('plus')))),
     a ? round('more', () => albumCard(a), { label: 'Album' }) : null,
     photos.length ? btn('Slideshow', () => { grid = false; draw(); }, { soft: true, ic: 'play' }) : null,
@@ -261,16 +268,17 @@ function toAlbum(names) {
     h('div', { class: 'actions' }, btn('Cancel', close, { soft: true })),
   ], { width: 860 });
 }
-/** An album's card: show it on the idle screen, rename, take it away (its photos stay). */
+/** An album's card: whether it shows on the sleep screen and in All, rename, take it away (its photos stay). */
 function albumCard(a) {
   openCard((close) => {
-    const x = albumOf() || a, on = H.slideshow === x.id;
+    const x = albumOf() || a, sleep = x.sleep !== false, inAll = x.all !== false;
+    const show = (k, v) => { if (v) delete x[k]; else x[k] = false; house.showAlbum(x.id, { [k]: v }); sheets.at(-1)?.redraw(); draw(); };
     return [
       h('h2', { class: 'big' }, x.name),
       h('p', { class: 'note' }, `${x.photos.length} ${x.photos.length === 1 ? 'photo' : 'photos'}`),
       x.from ? h('p', { class: 'note small' }, linkedLine(x)) : null,
-      h('div', { class: 'chips wrap' }, chip(on ? 'On the idle screen' : 'Show these on the idle screen', on, () => { H.slideshow = on ? null : x.id; house.setSlideshow(H.slideshow); sheets.at(-1)?.redraw(); draw(); })),
-      h('p', { class: 'note small' }, on ? 'When nobody’s using the display, it shows this album. Tap again for all the photos.' : 'When nobody’s using the display, it shows all the photos.'),
+      h('div', { class: 'chips wrap' }, chip('On the sleep screen', sleep, () => show('sleep', !sleep)), chip('In All photos', inAll, () => show('all', !inAll))),
+      x.app ? h('p', { class: 'note small' }, `Pictures saved in ${x.name} come here.`) : null,
       h('div', { class: 'actions' },
         x.from ? (linkOf(x) ? btn('Stop keeping it here', () => { close(); confirmCard(`Stop keeping ${x.name} here?`, 'Stop', () => { album = null; draw(); phone.stopAlbum(linkOf(x).id); }); }, { soft: true }) : null) : btn('Take the album away', () => { close(); confirmCard(`Take the album ${x.name} away?`, 'Take it away', () => { album = null; H.albums = H.albums.filter((y) => y !== x); draw(); house.removeAlbum(x.id); }, 'Keep it'); }, { soft: true }),
         btn('Rename', () => { close(); ask({ title: 'Rename the album', initial: x.name, onDone: (name) => { x.name = name; draw(); house.renameAlbum(x.id, name); } }); }, { soft: true }),
@@ -278,7 +286,7 @@ function albumCard(a) {
     ];
   }, { width: 860 });
 }
-/** A photo's card: big, its caption (shown with it in the slideshow and on the idle screen), its albums. */
+/** A photo's card: big, its caption (shown with it in the slideshow and on the sleep screen), its albums. */
 function photoCard(p) {
   const field = h('input', { class: 'field', placeholder: 'A caption (optional): who, where, when', enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
   field.value = captionOf(p);

@@ -302,16 +302,18 @@ export const house = {
   removePhoto: (name) => send('/house/photo/remove', { name }),
   /** Put back a photo taken off in the last 30 days (data.removed: their names, newest first). */
   restorePhoto: (name) => send('/house/photo/restore', { name }),
-  /** Albums of their photos (data.albums [{id, name, photos}]): add one (with photos), rename, take one away (the
-   *  photos stay), or put photos in (on) or out (on: false). */
+  /** Albums of their photos (data.albums [{id, name, photos, app?, sleep?, all?}]): add one (with photos), rename, take
+   *  one away (the photos stay), or put photos in (on) or out (on: false). A picture an app saves with addPhoto goes in
+   *  that app's own album by itself. */
   addAlbum: (name, photos = []) => send('/house/photo/album', { add: { name, photos } }),
   renameAlbum: (id, name) => send('/house/photo/album', { rename: { id, name } }),
   removeAlbum: (id) => send('/house/photo/album', { remove: id }),
   inAlbum: (id, photos, on = true) => send('/house/photo/album', { put: { id, photos, on } }),
   /** A line shown with a photo on the idle screen and in the slideshow (data.captions); '' takes it off. */
   caption: (name, text) => send('/house/photo/caption', { name, text }),
-  /** Which album the idle screen shows (an id), or null for all the photos (data.slideshow; data.screensaver: the photos). */
-  setSlideshow: (id) => send('/house/settings', { slideshow: id || null }),
+  /** Where an album's photos show: { sleep: the sleep screen, all: Photos' All } (false leaves them out; an app's own
+   *  album starts off the sleep screen). data.screensaver: the photos the sleep screen shows. */
+  showAlbum: (id, where) => send('/house/photo/album', { show: { id, ...where } }),
   /** Night hours with no photos on the idle screen ("HH:MM"); null: photos all night. */
   setNight: (from, to) => send('/house/settings', { night: from && to ? { from, to } : false }),
 };

@@ -82,7 +82,7 @@ const HOUSE_KEYS = {
   rewards: ['stars', 'rewards', 'asks', 'got', 'family'],
   meals: ['meals', 'favorites', 'mealWork', 'recipes', 'recipeFind', 'mealSlots'],
   events: ['events', 'dayNotes', 'fromApps', 'calendars', 'calendarLock', 'unlockedUntil', 'reminders', 'family'],
-  photos: ['photos', 'removed', 'albums', 'captions', 'slideshow', 'screensaver'],
+  photos: ['photos', 'removed', 'albums', 'captions', 'screensaver'],
 };
 /** GET /house as a plugin's app sees it. */
 export function houseFor(view, rights) {

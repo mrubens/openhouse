@@ -156,7 +156,7 @@ export function albumSync({ photosDir, data, save, fetchImpl = fetch, log = () =
     if (!ID.test(source)) return { error: 'which album?' };
     let s = data.synced[source];
     if (b.gone) {
-      if (s) { for (const g of Object.keys(s.photos)) drop(s, g); data.albums = data.albums.filter((a) => a.id !== s.album); if (data.settings.slideshow === s.album) delete data.settings.slideshow; delete data.synced[source]; save(); }
+      if (s) { for (const g of Object.keys(s.photos)) drop(s, g); data.albums = data.albums.filter((a) => a.id !== s.album); delete data.synced[source]; save(); }
       return { ok: true };
     }
     s ||= data.synced[source] = { kind: 'icloud', album: null, name: '', status: 'new', at: 0, photos: {}, skip: [] };
