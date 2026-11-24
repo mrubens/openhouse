@@ -39,10 +39,30 @@ async function withRemote(d, ctx, f) {
   try { return await f(ws); } finally { await sleep(250); ws.close(); }
 }
 
-async function installed(ws) {
-  ws.send({ method: 'ms.channel.emit', params: { event: 'ed.installedApp.get', to: 'host' } });
-  const m = await ws.next((x) => x?.event === 'ed.installedApp.get', 6000);
-  return (m.data?.data || []).map((a) => ({ id: a.appId, name: a.name }));
+// Samsung's own ids for the streaming apps (the same on every TV). Newer TVs (2022 on, the Frame) don't answer the
+// remote's "which apps are installed", so these are looked up one by one on the TV's web API instead, and opened there.
+const APP_IDS = { YouTube: '111299001912', Netflix: '3201907018807', 'Prime Video': '3201910019365', 'Disney+': '3201901017640',
+  Hulu: '3201601007625', Max: '3202301029760', 'Apple TV': '3201807016597', Spotify: '3201606009684', Peacock: '3202006020991',
+  'YouTube TV': '3201707014489', Tubi: '3201504001965', 'Samsung TV Plus': '3201710015037', 'Pluto TV': '3201808016802',
+  'Paramount+': '3201710014981', Plex: '3201512006963', Twitch: '3202203026841', Sling: '3201804016312', Crunchyroll: '3201906018693' };
+
+/** The apps installed on the TV, {id, name}: its own list when it gives one, else the known apps it has. */
+async function installed(ws, d) {
+  try {
+    ws.send({ method: 'ms.channel.emit', params: { event: 'ed.installedApp.get', to: 'host' } });
+    const m = await ws.next((x) => x?.event === 'ed.installedApp.get', 3000);
+    const list = (m.data?.data || []).map((a) => ({ id: a.appId, name: a.name }));
+    if (list.length) return list;
+  } catch {}
+  const found = await Promise.all(Object.entries(APP_IDS).map(async ([name, id]) => {
+    try { const r = await request(`http://${d.address}:8001/api/v2/applications/${id}`, { ms: 3000 }); const j = JSON.parse(r.text); return j?.id ? { id, name: j.name || name, short: name } : null; } catch { return null; }
+  }));
+  return found.filter(Boolean);
+}
+/** Open an app: on the TV's web API (what newer TVs answer), else through the remote. */
+async function openApp(d, ws, id) {
+  try { const r = await request(`http://${d.address}:8001/api/v2/applications/${id}`, { method: 'POST', ms: 4000 }); if (r.status >= 200 && r.status < 300) return; } catch {}
+  ws.send({ method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: { appId: id, action_type: 'DEEP_LINK' } } });
 }
 
 export default {
@@ -103,16 +123,16 @@ export default {
       params: { button: { type: 'string', enum: Object.keys(KEYS), required: true }, times: { type: 'integer', min: 1, max: 10 } },
       async run(d, p, ctx) { return withRemote(d, ctx, async (ws) => { for (let i = 0; i < (p.times || 1); i++) { press(ws, KEYS[p.button]); await sleep(200); } return `Pressed ${p.button}.`; }); },
     },
-    apps: { says: 'The apps installed on the TV', async run(d, p, ctx) { return withRemote(d, ctx, async (ws) => (await installed(ws)).map((a) => a.name)); } },
+    apps: { says: 'The apps installed on the TV', async run(d, p, ctx) { return withRemote(d, ctx, async (ws) => (await installed(ws, d)).map((a) => a.short || a.name)); } },
     launch: {
       says: 'Open an app on the TV by name (Netflix, YouTube…)', risky: true,
       params: { app: { type: 'string', maxLength: 60, required: true } },
       async run(d, p, ctx) {
         return withRemote(d, ctx, async (ws) => {
-          const list = await installed(ws), q = p.app.toLowerCase();
-          const a = list.find((x) => x.name.toLowerCase() === q) || list.find((x) => x.name.toLowerCase().includes(q));
-          if (!a) throw new Error(`No app called "${p.app}". Installed: ${list.map((x) => x.name).join(', ')}`);
-          ws.send({ method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: { appId: a.id, action_type: 'DEEP_LINK' } } });
+          const list = await installed(ws, d), q = p.app.toLowerCase(), names = (x) => [x.name, x.short].filter(Boolean).map((n) => n.toLowerCase());
+          const a = list.find((x) => names(x).includes(q)) || list.find((x) => names(x).some((n) => n.includes(q) || q.includes(n)));
+          if (!a) throw new Error(`No app called "${p.app}". Installed: ${list.map((x) => x.short || x.name).join(', ')}`);
+          await openApp(d, ws, a.id);
           await sleep(500);
           return `Opened ${a.name}.`;
         });
