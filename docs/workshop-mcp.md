@@ -218,36 +218,27 @@ code for the page. What I found getting the address short:
   so the port stays: `openhouse.local:8788`.
 - Two OpenHouses on one network would both claim the name while their Connect screens are open; the IP line covers that.
 
-### The setup prompt (any AI that can run commands)
+### The setup prompt (any assistant)
 
-The page's main option is a prompt (`setupPrompt` in `bridge/connect-page.js`) to paste into Claude Code, Codex, Cursor,
-claude.ai or ChatGPT. It names no local address, so it works from a chat's cloud sandbox and from a laptop away from
-home as well as on the Wi-Fi:
+The page's main option ("Connect your AI assistant") is one sentence to paste into Claude Code, Codex, claude.ai,
+ChatGPT or another assistant (`setupPrompt` in `bridge/connect-page.js`): add the OpenHouse MCP server at
+`https://cloud.openhouse.computer/mcp` (the cloud's web connector, below), sign in with the code shown, tap Allow on the
+tablet, then read `https://cloud.openhouse.computer/docs` and work out how best to use it. No local address, so it works
+from anywhere. The docs page is the guide for assistants as one Markdown page (openhouse-cloud
+`scripts/guide-docs.ts`, made from `bridge/workshop-guide.js` like the skills: nothing of any household). After the
+guide changes, run `scripts/cloud.sh node scripts/guide-docs.ts`, commit there and deploy.
 
-1. If the AI can't run commands, it says how to turn that on (in ChatGPT, switch the chat to Work) and stops.
-2. It fetches the connector from the cloud (`https://cloud.openhouse.computer/connect/openhouse-mcp.mjs`, the same
-   bundle as `connect/dist/openhouse-mcp.mjs`, served by openhouse-cloud from its `scripts/connect-script.ts`) into
-   `~/.openhouse/` and runs `pair <code> --name "<which app and computer>"`. Pairing tries the cloud's relay first,
-   the way the web connector pairs (the tablet announces its showing code there while "Use it away from home" is on),
-   then this Wi-Fi. Someone taps Allow on the tablet, which shows the name the AI gave.
-3. It registers `node ~/.openhouse/openhouse-mcp.mjs` as a stdio MCP server in whichever app it runs in (the prompt
-   gives Claude Code's, Codex's and Cursor's ways; the model picks).
-4. Until the tools load (a new session, or never in a sandbox), it uses them from the terminal:
-   `openhouse-mcp.mjs tools` and `openhouse-mcp.mjs call <tool> '<json>'` (a picture is saved to a file).
+What it needs and where it stops:
+- The tablet has "Use it away from home" on: the connector reaches it only through the relay. The page says so
+  when it's off, and the Claude app's download (below it) still pairs on the Wi-Fi.
+- Claude Code and Codex add it themselves and sign in through a localhost redirect, which the connector allows; the
+  tablet's Allow names them by the name they registered ("Claude Code on a computer"). claude.ai and ChatGPT can't add
+  a connector from a chat: the person adds it in Settings. Cursor's sign-in returns to a `cursor://` address, which
+  the connector doesn't allow yet.
 
-A computer's welcome (sealed, `bridge/screens.js`) now carries where to find the tablet afterwards: `base`, its home
-address, and `relay`, its relay id (the token comes from the computer's key). So a computer that paired through the
-cloud reaches the tablet on the Wi-Fi when it's there and through the relay otherwise. A tablet without "Use it away
-from home" still pairs a computer on its Wi-Fi; the page says so.
-
-A chat's sandbox is gone after the chat, and the pairing with it (it stays in the tablet's Screens list until removed).
-The lasting way for claude.ai and ChatGPT is the web connector ("claude.ai and ChatGPT" below): the page says so in a
-line and shows its address to copy while the relay is up. After changing `connect/openhouse-mcp.mjs`, run
-`scripts/cloud.sh node scripts/connect-script.ts`, commit there and deploy, so the cloud's copy matches.
-
-Tried (2026-11-24) with a local cloud and bridge: the bundled script paired by code through the relay alone, then
-`tools` and `call get_guide` worked through the relay with no home address. Not tried yet in claude.ai's or
-ChatGPT's own sandboxes, whose network may not allow `cloud.openhouse.computer` or the relay's WebSocket.
+The stdio script can also pair through the relay with the code (`openhouse-mcp.mjs pair <code> --name "<who>"`), and
+use the tools from a terminal (`tools`, `call <tool> '<json>'`): a computer's welcome (sealed, `bridge/screens.js`)
+carries its home address and relay id, so a computer that paired through the cloud reaches the tablet either way.
 
 The page shows the code, so while the Connect screen is open anyone on the home Wi-Fi who opens the page could try
 it. The Allow on the tablet, naming the computer, is still the gate.

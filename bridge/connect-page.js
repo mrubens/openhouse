@@ -2,10 +2,10 @@
 // network by the screens listener (screens.js) only while the tablet's "Connect Claude or ChatGPT" screen is open:
 // the same window as the pairing code. It serves this page and the two downloads, nothing else.
 //
-// GET /                    the page: a prompt to paste into any AI that can run commands (setupPrompt), and the
-//                          Claude Desktop download with the code and three steps
+// GET /                    the page: a prompt to paste into any assistant (setupPrompt: the cloud's connector and
+//                          its docs), and the Claude Desktop download with the code and three steps
 // GET /openhouse.mcpb      the Claude Desktop extension (scripts/build-mcpb.sh, built into the runtime)
-// GET /openhouse-mcp.mjs   the same thing as one script (the prompt fetches it from the cloud instead: SCRIPT_URL)
+// GET /openhouse-mcp.mjs   the same thing as one script
 //
 // While it's open the bridge also answers "openhouse.local" over mDNS with the tablet's own address, so the
 // computer can open http://openhouse.local:8788 (Android apps can't listen on port 80, so the port stays).
@@ -87,39 +87,22 @@ export function responder({ name = HOSTNAME, port = MDNS_PORT, log = (...a) => c
 // ---- the page ----
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-// Where the setup prompt fetches the connector from: the cloud, so it works from a chat's sandbox or a laptop away from
-// home (openhouse-cloud serves connect/dist/openhouse-mcp.mjs there). CONNECT_SCRIPT_URL: another one (trying it).
-export const SCRIPT_URL = process.env.CONNECT_SCRIPT_URL || 'https://cloud.openhouse.computer/connect/openhouse-mcp.mjs';
+// The cloud's MCP connector (openhouse-cloud lambda/connector.ts) and the guide it serves, as a public page. A client
+// that adds the connector signs in by typing the tablet's code on the cloud's page; someone taps Allow on the tablet.
+export const CONNECTOR = process.env.CONNECT_MCP_URL || 'https://cloud.openhouse.computer/mcp';
+export const DOCS = process.env.CONNECT_DOCS_URL || 'https://cloud.openhouse.computer/docs';
 
-/** The prompt to paste into any AI that can run commands: it fetches the connector, pairs with the code through the
- *  cloud (or the Wi-Fi), and adds it to the app it runs in. No local address in it, so it works from anywhere. */
+/** The prompt to paste into any assistant: add the connector, sign in with the code, read the guide, work out the
+ *  rest. No local address in it, so it works from anywhere. */
 export function setupPrompt(code) {
-  const script = '~/.openhouse/openhouse-mcp.mjs';
-  return `Please connect yourself to our OpenHouse, the household's tablet (openhouse.computer), so you can change its tabs, apps and notes when I ask.
-
-This needs a terminal. If you can't run commands here, tell me in one line how to turn that on (in ChatGPT: switch this chat to Work), and stop.
-
-1. Run this. It needs Node.js 22 or newer. It downloads OpenHouse's connector and pairs it with our tablet using the code ${code}, which works for 10 minutes. Put in a name we'll recognize on the tablet, saying which app and computer you are (like "Claude Code on the family laptop"):
-
-curl -fsSL --create-dirs ${SCRIPT_URL} -o ${script} && node ${script} pair ${code} --name "NAME"
-
-When it says so, tell me to tap Allow on the tablet; it waits for that.
-
-2. Add it to the app you're running in as a local (stdio) MCP server named openhouse, for every folder, with the command: node ${script}
-- Claude Code: claude mcp add -s user openhouse -- node ${script}
-- Codex: codex mcp add openhouse -- node ${script}
-- Cursor: under "mcpServers" in ~/.cursor/mcp.json
-- Another app: its own way. In a sandbox that can't add MCP servers, skip this step.
-
-3. Until its tools show up (in a new session, or never in a sandbox), use them from the terminal: "node ${script} tools" lists them and "node ${script} call get_guide '{}'" calls one. Call get_guide first, then tell me in a sentence or two what you can do for our OpenHouse now. If this is a sandbox that's gone after this chat, say so.`;
+  return `Add the OpenHouse MCP server at ${CONNECTOR} (when it asks me to sign in, I'll type the code ${code} from our tablet, then tap Allow there), then read the OpenHouse docs at ${DOCS} and work out how you can best use OpenHouse to help us.`;
 }
 
 export function page({ code, host, relay = null }) {
-  // host: the tablet's name (openhouse.local:8788) for this page's own downloads. The prompt names no address: it
-  // pairs through the cloud while the tablet has "Use it away from home" on (relay), else on this Wi-Fi.
+  // relay: whether the tablet has "Use it away from home" on and connected; the cloud's connector reaches it only then.
   const prompt = setupPrompt(code);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Connect Claude or ChatGPT</title>
+<title>Connect your AI assistant</title>
 <style>
 @font-face { font-family: 'Inter'; src: url('/kit/fonts/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
 :root { --bg: #f5f2ea; --ink: #24282a; --soft: #6b6f70; --line: rgba(36, 40, 42, .12); --tint: #ebe7dd; --accent: #b5562f; }
@@ -142,17 +125,12 @@ ol li { counter-increment: s; display: grid; grid-template-columns: 36px 1fr; ga
 ol li::before { content: counter(s); width: 28px; height: 28px; border-radius: 14px; background: var(--tint); display: grid; place-items: center; font-size: 14px; font-weight: 600; }
 ol li span { color: var(--ink); }
 section { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--line); }
-.row { display: flex; gap: 8px; margin-top: 12px; }
-.row code { flex: 1; min-width: 0; overflow-x: auto; white-space: nowrap; padding: 12px 14px; border-radius: 12px; background: var(--tint); font: 14px/1.5 ui-monospace, 'SF Mono', Menlo, monospace; }
-.row button { flex: none; border: 0; border-radius: 12px; padding: 0 16px; background: var(--tint); color: var(--ink); font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; }
 </style></head><body><main>
-<h1>Connect Claude or ChatGPT</h1>
-<p>Paste this into Claude, ChatGPT, Codex or another AI that can run commands. It sets up OpenHouse and pairs with this tablet: tap Allow here when it asks.</p>
+<h1>Connect your AI assistant</h1>
+<p>Paste this into Claude, ChatGPT, Codex or another assistant. It adds OpenHouse, and asks you for the code and to tap Allow here.</p>
 <div class="prompt" id="prompt">${esc(prompt)}</div>
 <button class="btn" type="button" id="copy">Copy prompt</button>
-<div class="small">The code in it works for 10 minutes.${relay ? '' : ' From claude.ai, ChatGPT, or a computer away from home, first turn on <b>Use it away from home</b> in the tablet’s Cloud settings; without it, only a computer on this Wi-Fi can pair.'}</div>
-<div class="small">In claude.ai and ChatGPT, it lasts only for that chat.${relay?.connector ? ' To keep OpenHouse there, add it as a connector with this address:' : ''}</div>
-${relay?.connector ? `<div class="row"><code>${esc(relay.connector)}</code><button type="button" data-copy>Copy</button></div>` : ''}
+<div class="small">${relay ? 'The code works for 10 minutes.' : 'First turn on <b>Use it away from home</b> in the tablet’s Cloud settings: the assistant reaches the tablet through it. Without it, use the Claude app below, on this Wi-Fi.'} In claude.ai and ChatGPT you add the connector yourself, in Settings; the assistant tells you how.</div>
 <section>
 <h2>The Claude app</h2>
 <p>For the Claude app on a Mac or Windows computer.</p>
@@ -164,7 +142,7 @@ ${relay?.connector ? `<div class="row"><code>${esc(relay.connector)}</code><butt
 <li><span>Tap Allow on the tablet.</span></li>
 </ol>
 </section>
-<p class="small" style="margin-top:48px">This page is on your tablet, only while its Connect Claude or ChatGPT screen is open.</p>
+<p class="small" style="margin-top:48px">This page is on your tablet, only while its Connect screen is open.</p>
 </main><script>
 // One download per visit: a second click (Safari asking to allow downloads makes the first look like nothing happened)
 // would save "openhouse (1).mcpb" next to the first.
@@ -181,7 +159,6 @@ function copy(b, t, label) {
 }
 const c = document.getElementById('copy');
 c.onclick = () => copy(c, document.getElementById('prompt').textContent, 'Copy prompt');
-for (const b of document.querySelectorAll('[data-copy]')) b.onclick = () => copy(b, b.previousElementSibling.textContent, 'Copy');
 </script></body></html>`;
 }
 

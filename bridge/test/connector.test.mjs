@@ -96,7 +96,7 @@ test('signing in is pairing: the code, a yes on the tablet, then tokens', opts, 
   const paired = await call('/oauth/pair', { sid, code: p.code.toLowerCase() });
   assert.equal(paired.asked, true, JSON.stringify(paired));
   const asking = await until(async () => (await get('/screens')).asking.find((a) => a.pair === p.pair), 'the tablet asks');
-  assert.equal(asking.name, 'A test app on this computer');
+  assert.equal(asking.name, 'Claude on a computer');
   assert.equal((await call('/oauth/wait', { sid })).waiting, true);
   await post('/screens/answer', { pair: p.pair, yes: true });
   const w = await until(async () => { const r = await call('/oauth/wait', { sid }); return r.redirect && r; }, 'welcome');
@@ -121,7 +121,7 @@ test('signing in is pairing: the code, a yes on the tablet, then tokens', opts, 
   assert.match(t.access_token, /^oha_/); assert.match(t.refresh_token, /^ohr_/);
   tokens = t;
   // The tablet lists it among its computers.
-  assert.ok((await get('/screens')).screens.some((s) => s.kind === 'computer' && s.name === 'A test app on this computer'));
+  assert.ok((await get('/screens')).screens.some((s) => s.kind === 'computer' && s.name === 'Claude on a computer'));
   // Nothing in the table opens the key without a token.
   const grants = await svc.store.scan('GRANT#');
   assert.ok(grants.every((g) => !JSON.stringify(g).includes(t.access_token.split('.')[1])));
@@ -150,7 +150,7 @@ test('refresh rotates; removing it on the tablet ends it at once', opts, async (
   assert.match(r.access_token, /^oha_/);
   assert.notEqual(r.refresh_token, tokens.refresh_token);
   assert.equal((await mcp(r.access_token, { id: 1, method: 'ping' })).status, 200);
-  for (const c of (await get('/screens')).screens.filter((s) => s.name === 'A test app on this computer')) await post('/screens/revoke', { id: c.id });
+  for (const c of (await get('/screens')).screens.filter((s) => s.name === 'Claude on a computer')) await post('/screens/revoke', { id: c.id });
   await until(async () => (await mcp(r.access_token, { id: 1, method: 'tools/list' })).status === 401, 'refused after removal');
   assert.equal((await mcp(r.access_token, { id: 1, method: 'tools/list' })).status, 401, 'and stays refused');
 });
