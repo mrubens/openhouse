@@ -1,6 +1,6 @@
 # Voice models: the display downloads them
 
-Since set 3 (2026-11-20), the only speech model on the tablet is the wake model ("Opie", `docs/wake-word.md`): about
+Since set 3 (2026-11-20), the only speech model on the tablet is the wake model ("Hey Opie", `docs/wake-word.md`): about
 30 MB with the runtime that runs it. What's said after its name goes to OpenAI's live voice (shell `LiveVoice.kt`); the
 tablet has no speech recognition, speaker model, keyword spotter, voice detector, turn model or speech voices of its own.
 The other speech models are removed. The microphone and the wake model run only while Live voice is
@@ -96,7 +96,10 @@ Set 3 (made 2026-11-20, `scripts/voice-bundle.sh … 3`): the wake model and onn
 pointer goes on a tablet (`node scripts/release.ts --voice ~/.openhouse/voice/3`). Not yet tried on a device:
 onnxruntime-node 1.20.1 in the runtime's Node on linux-arm64 (it runs on the Mac, and its library is the arm64 build).
 
-Set 8 (made 2026-11-24): set 7 with the threshold at 0.99. `openhouse.voiceUrl` points at it.
+Set 9 (made 2026-11-24): round 6's wake model (`opie.onnx`, y2, 4.3 MB), "Hey Opie" only, at 0.98. `openhouse.voiceUrl`
+points at it from 1.0.27.
+
+Set 8 (made 2026-11-24): set 7 with the threshold at 0.99. `openhouse.voiceUrl` pointed at it in 1.0.26.
 
 Set 7 (made 2026-11-24): set 6 with round 5's wake model (`opie.onnx`, f3, 2.5 MB); same threshold, gain and floor.
 No published release points at it.

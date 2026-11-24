@@ -1,8 +1,9 @@
-# The wake word: "Opie"
+# The wake word: "Hey Opie"
 
-Every household wakes the assistant the same way: **"Opie"** or **"Hey Opie"** (or "Hi/Okay Opie"). It isn't a
-setting any more. The household record can still give the assistant another display name, but the word it answers
-to can't change.
+Every household wakes the assistant the same way: **"Hey Opie"**. Since voice set 9 (2026-11-24) "Opie" on its own,
+"Hi Opie" and "Okay Opie" don't wake it: two words are much harder to hear by mistake, and false wakes cost more trust
+than saying "hey". (Before, any of them woke it.) It isn't a setting. The household record can still give the
+assistant another display name, but the words it answers to can't change.
 
 **Now (2026-11-20):** a small wake model listens all the time (`bridge/wake.js`, `models/wake/opie.onnx`), alone: a
 score of at least 0.9 is its name (round 3's model, voice set 4), and the display hands the microphone to OpenAI's live voice, which hears the
@@ -16,9 +17,28 @@ nothing listens, and Settings shows Live voice: Off (Hey Opie only shows while i
 (1.0, 1.6 and 2.2 s in, then at the end) and looked for the ways it writes "Opie". It was slow, it ran Parakeet on
 all the talk in the room, and it missed half the time.
 
+## Results (2026-11-24, round 6: "Hey Opie" only)
+
+Round 6 is on the tablet from voice set 9 (`models/wake/opie.onnx`, y2, 4.3 MB, width 256), at 0.98 with set 6's gain
+and floor. It is round 5 (f3) trained with `hey=1`: the name clips that start with "hey" are the name, and the rest
+("Opie.", "Opie, set a timer", "Hi Opie", "Okay Opie") are near-misses, from every pass. No new audio: the clips keep
+their text. The test set's "Hey Opie" clips, out of 10, and how often its other name clips woke it:
+
+| | up close | kitchen noise | across the room | TV or talk behind | "Opie" or "Hi Opie" woke | false wakes in 12 h | near-misses woke |
+|---|---|---|---|---|---|---|---|
+| round 5 (f3), 0.99 (set 8) | 9.8 | 9.1 | 3.6 | 5.3 | 79% | 5 | 33/384 |
+| **round 6 (y2), 0.98** | **9.4** | **8.4** | **4.1** | **4.8** | **0%** | **1** | **15/384** |
+| round 6, width 192 (y1), 0.98 | 9.3 | 8.5 | 3.9 | 4.9 | 0% | 3 | 16/384 |
+
+On the training run's held-out sound y2 woke 0.07 times an hour (f3: 0.23). Replaying a home's first-day clips, every
+false wake scored 0, every "Hey Opie" still woke, and the wakes said as "Opie" alone (most of the children's) didn't.
+
+- **Train:** `r3 --stage train --names y2:1000:3000:45000:256:b0w+r2+s0w:0:smooth=0:pos_seeds=200:hey=1`.
+- **The bench** keeps each clip's text (`scores.positives[].text`), so "Hey Opie" and the bare name can be scored apart.
+
 ## Results (2026-11-24, round 5: fewer false wakes, more misses)
 
-Round 5 is on the tablet from voice set 8 (`models/wake/opie.onnx`, f3, 2.5 MB, width 192), at 0.99 with set 6's
+Round 5 was on the tablet in voice set 8 (`models/wake/opie.onnx`, f3, 2.5 MB, width 192), at 0.99 with set 6's
 gain and floor (set 7 had it at 0.98; 0.99 hears 9.1 up close and 8.2 in kitchen noise, with about a third fewer
 false wakes again). It aims at false wakes and accepts more misses: a wake that wasn't wanted costs more trust than
 saying the name twice. What changed from round 4:

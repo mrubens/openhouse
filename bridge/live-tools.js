@@ -61,10 +61,10 @@ const MESSAGE_NAME = 'message_family';
 /** A session the wake model opened (/live/setup?how=wake): it's often wrong at home (talk at dinner, the TV), so the
  *  session checks it was spoken to before saying anything (the user, 2026-11-21: the tablet "kept responding when they
  *  weren't talking to it"). */
-export const wakeNote = (name) => `\n\n---\n\nThis conversation opened because the tablet thought it heard your name, ${name}, and it is often wrong: ` +
-  'people talking to each other, someone on a call, a TV or music, and what you hear can be written as your name when it was another word. ' +
+export const wakeNote = (name) => `\n\n---\n\nThis conversation opened because the tablet thought it heard "Hey ${name}", and it is often wrong: ` +
+  `people talking to each other, someone on a call, a TV or music, and what you hear can be written as "Hey ${name}" when it was other words. ` +
   'Before you say anything, decide from what you hear whether someone is asking you something. Answer only a clear, finished request to you, ' +
-  `or your name on its own (then just "Yes?"). Anything else (other talk, a sentence cut off or that sounds said to a person, the TV, nothing) is not for you: ` +
+  `or "Hey ${name}" on its own (then just "Yes?"). Anything else (other talk, a sentence cut off or that sounds said to a person, the TV, nothing) is not for you: ` +
   'call go_away and say nothing at all, not even "Okay". When in doubt, stay silent: being quiet when wanted costs little, talking when not wanted bothers people.';
 export const livePreamble = (name) => `You are ${name}, the voice of a family's kitchen tablet. You talk with the family out loud, so keep it short, warm and plain: ` +
   'one or two sentences, no lists or markdown. Use your tools for anything about the family (their calendar, lists, chores and stars, meals, notes, the weather) ' +

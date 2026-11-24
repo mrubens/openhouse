@@ -1,5 +1,5 @@
 // Listening for its name. The shell streams the microphone here; a small wake model (bridge/voice-worker.js,
-// bridge/wake.js) listens for "Opie" and nothing else: no speech is transcribed, kept or sent anywhere, and no audio is
+// bridge/wake.js) listens for "Hey Opie" and nothing else: no speech is transcribed, kept or sent anywhere, and no audio is
 // stored (except a test recording someone switched on: see `rec` below; the display shows a dot while one runs; and,
 // where a household switched it on, a few seconds around each wake: see `clips` below).
 // When it hears its name, the display hands the microphone to OpenAI's live voice (shell LiveVoice), which hears the
@@ -10,7 +10,7 @@
 // POST /voice/utterance         a recording (16 kHz wav or raw) fed in as if heard; replies {woke, peak} (a test hook)
 // GET  /voice/status            {ready, error, download, listening, wakeOn, ...}
 // POST /voice/reload            the display put (new) models in place: start the listener again on them
-// POST /voice/wake {on}         wake to "Opie", or only to a tap; remembered
+// POST /voice/wake {on}         wake to "Hey Opie", or only to a tap; remembered
 // GET  /voice/wakes?n=          when the wake model fired and how sure it was (no sound or words), with the last hour's
 //                               and day's counts; POST /voice/wakes/clear empties it
 // POST /voice/say {text}        an app's words: the display says them (its live voice, or the tablet's speech engine)
@@ -29,8 +29,8 @@ import { fileURLToPath } from 'node:url';
 import { WAKE_DIR, WAKE_FILES } from './wake.js';
 
 const RATE = 16000;
-// The wake word is the same for every household: "Opie" or "Hey Opie" (docs/wake-word.md).
-export const WAKE_PHRASES = ['opie', 'hey opie', 'hi opie', 'hello opie', 'ok opie', 'okay opie'];
+// The wake word is the same for every household: "Hey Opie" (since voice set 9; "Opie" alone woke it before). docs/wake-word.md
+export const WAKE_PHRASES = ['hey opie'];
 // What the listening used to need, gone from a tablet when it starts (the models of voice sets 1 and 2, and what the
 // bridge kept for them): the speech model, the speaker model, the keyword spotter, the voices, the voice detector, the
 // turn model and sherpa-onnx. Only models/wake/ and onnxruntime-node stay.
@@ -73,7 +73,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
   // How loud speech is at the microphone, kept so the listener doesn't start deaf to quiet speech after a restart.
   const MIC_LEVEL = path.join(DIR, 'voice-mic-level.json');
   const micLevel = () => { try { const j = JSON.parse(fs.readFileSync(MIC_LEVEL, 'utf8')); return typeof j === 'number' ? j : j?.usual ?? null; } catch { return null; } };
-  // Waking to "Opie" is a setting, off until a family switches it on: a tap is how it listens.
+  // Waking to "Hey Opie" is a setting, off until a family switches it on: a tap is how it listens.
   const WAKE_ON = path.join(DIR, 'voice-wake.on');
   let wakeOn = process.env.VOICE_WAKE === '1' || (process.env.VOICE_WAKE !== '0' && fs.existsSync(WAKE_ON));
   // Each time the model fires: when and how sure (nothing heard or said is kept), so false wakes can be counted.
@@ -277,7 +277,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
     // What the old listening was told (a tap, a follow-up, what it's saying, echo cancelling): nothing to do now.
     if (/^\/voice\/(arm|stop|done|mute|quiet|talking|talk-voice|echo|ref(\/\w+)?)$/.test(p)) { json(res, 200, { ok: true }); return true; }
     const b = await body(req);
-    if (p === '/voice/wake' && typeof b.on === 'boolean') { // {"on": true}: wake to "Opie", or only to a tap
+    if (p === '/voice/wake' && typeof b.on === 'boolean') { // {"on": true}: wake to "Hey Opie", or only to a tap
       wakeOn = b.on;
       try { if (wakeOn) fs.writeFileSync(WAKE_ON, 'on\n'); else fs.rmSync(WAKE_ON, { force: true }); } catch {}
       worker?.send({ type: 'wake-on', on: wakeOn }); vlog('wake-word-setting', { on: wakeOn });

@@ -1,6 +1,6 @@
 // The wake word's listener, in a child process so the models never stall the bridge. Audio in (16 kHz mono float),
 // per source; the wake model (bridge/wake.js, models/wake/) scores every 80 ms, and a score of at least
-// the model's own threshold (models/wake/opie.json, 0.9 without one) is "Opie". That's all it does: nothing is transcribed, kept or sent anywhere. What comes
+// the model's own threshold (models/wake/opie.json, 0.9 without one) is "Hey Opie". That's all it does: nothing is transcribed, kept or sent anywhere. What comes
 // after the name is OpenAI's live voice's to hear (shell LiveVoice). docs/wake-word.md
 //
 // In:  {type: 'audio', src, samples?, flush?, ack?, at?}, {type: 'wake-on', on}, {type: 'mic-level', level}
@@ -17,7 +17,7 @@ const port = { post: (m) => process.send(m), on: (f) => process.on('message', f)
 process.on('disconnect', () => process.exit(0));
 const need = createRequire(path.join(dir, 'package.json'));
 const RATE = 16000;
-const WAKE_PHRASES = ['opie', 'hey opie', 'hi opie', 'hello opie', 'ok opie', 'okay opie']; // the same in every home (voice.js WAKE_PHRASES)
+const WAKE_PHRASES = ['hey opie']; // the same in every home (voice.js WAKE_PHRASES)
 // The threshold comes with the model (models/wake/opie.json, from the same voice set), so a tablet never runs one
 // model at another's threshold while a new set downloads: round 4's scores spread up to 1 and it wakes at 0.98, where
 // round 3's would hardly ever. Without the file (voice sets up to 4): 0.9, round 3's. VOICE_WAKE_THRESHOLD overrides

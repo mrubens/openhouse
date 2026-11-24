@@ -2,7 +2,7 @@
 # Download the wake model the display listens with into one folder, for scripts/voice-install.sh and
 # scripts/voice-bundle.sh (docs/wake-word.md). About 4 MB.
 #   wake/melspectrogram.onnx, wake/embedding_model.onnx   openWakeWord's front end (Apache-2.0, its v0.5.1 release)
-#   wake/opie.onnx                                        "Opie" / "Hey Opie" (ours, from this repo: models/wake/)
+#   wake/opie.onnx                                        "Hey Opie" (ours, from this repo: models/wake/)
 # It runs with onnxruntime-node (voice-bundle.sh and voice-install.sh fetch it). There are no other speech models on
 # the tablet: OpenAI's live voice hears what's said after its name.
 # Usage: scripts/voice-models.sh [dir]   (default runtime/voice-models)

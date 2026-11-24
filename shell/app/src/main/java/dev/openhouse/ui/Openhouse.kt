@@ -104,11 +104,11 @@ object Openhouse : AnswerActions {
     /** A text field on the home screen's page (or an app in a tab) has the keyboard (HomeView's editing()). */
     @Volatile var webEditing = false
     /** What's been taken off the home screen (Settings → Off the home screen): put any of it back. */
-    /** The assistant. It wakes to "Opie" or "Hey Opie", the same in every home (docs/wake-word.md). */
+    /** The assistant. It wakes to "Hey Opie", the same in every home (docs/wake-word.md). */
     val assistantName: String get() = "Opie"
     /** How to wake it, for hints. */
     val wakeHint: String get() = "Hey Opie"
-    /** Wake to "Opie", or only to a tap (the default). */
+    /** Wake to "Hey Opie", or only to a tap (the default). */
     fun setWakeWord(on: Boolean) = scope.launch { ui { voice = voice.copy(wakeOn = on) }; post("/voice/wake", JSONObject().put("on", on)); loadVoiceStatus() }
     /** Whether the household is set up yet (no: setup opens by itself, once). */
     var householdSetUp by mutableStateOf(true); private set
@@ -349,7 +349,7 @@ object Openhouse : AnswerActions {
     internal fun loadVoiceStatus(): VoiceStatus? {
         val j = runCatching { JSONObject(get("/voice/status")) }.getOrNull() ?: return null
         val v = VoiceStatus(j.optBoolean("ready"), j.optBoolean("listening"), j.s("error"),
-            j.optJSONArray("wake")?.let { a -> (0 until a.length()).map { a.optString(it) } }?.ifEmpty { null } ?: listOf("opie", "hey opie"), j.optBoolean("wakeOn", false))
+            j.optJSONArray("wake")?.let { a -> (0 until a.length()).map { a.optString(it) } }?.ifEmpty { null } ?: listOf("hey opie"), j.optBoolean("wakeOn", false))
         val log = j.optBoolean("log", false); val rec = j.optBoolean("recording", false)
         ui { voice = v; speechLog = log; if (!rec) recordingUntil = 0 else if (recordingUntil == 0L) recordingUntil = Long.MAX_VALUE }
         return v

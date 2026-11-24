@@ -1,11 +1,11 @@
-// The wake word: "Opie" or "Hey Opie", the same for every household. A small model listens all the time
+// The wake word: "Hey Opie", the same for every household ("Opie" alone doesn't wake it, since voice set 9). A small model listens all the time
 // (bridge/voice-worker.js), and when it fires the display hands the microphone to OpenAI's live voice. It's the only
 // speech model on the tablet. How it was made and how well it does: docs/wake-word.md, scripts/wake/.
 //
 // openWakeWord's front end (Apache-2.0): every 80 ms, 8 new log-mel frames (melspectrogram.onnx) from the newest
 // 110 ms of sound, then one 96-number embedding (embedding_model.onnx) of the last 76 frames. The wake model
 // (opie.onnx, ours: convolutions and a GRU over them) reads the last 16 embeddings (1.28 s) and says how likely it is
-// that "Opie" just ended. This is
+// that "Hey Opie" just ended. This is
 // openWakeWord's own streaming code (AudioFeatures._streaming_features), in JavaScript; the model was trained on the
 // same features made in Python (scripts/wake/features.py), and scripts/wake/check.mjs checks the two agree.
 export const WAKE_DIR = 'wake';

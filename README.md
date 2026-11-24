@@ -49,7 +49,7 @@ The tablet sits in a shared space, so some things are deliberately out of the AI
 - Opie works through a fixed set of household tools (lists, calendar, chores, notes, tabs). It never edits code.
   Only a computer someone has paired can change an app's code.
 - A PIN guards settings, turning on the assistant, pairing a computer, installing apps and leaving kiosk mode.
-- The wake word ("Opie") runs on the tablet. Nothing you say goes anywhere until someone says it.
+- The wake word ("Hey Opie") runs on the tablet. Nothing you say goes anywhere until someone says it.
 
 ## How it works
 

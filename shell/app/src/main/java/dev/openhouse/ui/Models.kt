@@ -70,6 +70,6 @@ data class TurnNote(val id: String, val title: String, val content: String)
 data class Conversation(val id: String?, val turns: List<Turn>)
 data class ConversationInfo(val id: String, val title: String, val updated: Long, val who: String?)
 data class Heard(val who: String?, val text: String, val at: Long)
-data class VoiceStatus(val ready: Boolean, val listening: Boolean, val error: String?, val wake: List<String> = listOf("opie", "hey opie"), val wakeOn: Boolean = false)
+data class VoiceStatus(val ready: Boolean, val listening: Boolean, val error: String?, val wake: List<String> = listOf("hey opie"), val wakeOn: Boolean = false)
 /** A voice the display can speak with: the engine's name for it, and what the picker calls it ("American 2"). */
 data class SpeechVoice(val name: String, val label: String)
