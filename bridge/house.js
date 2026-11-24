@@ -1247,6 +1247,40 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     save(); return { ok: true };
   }
 
+  /** The photos tool (Opie's): what the Photos app's taps do, by the photos' names. */
+  function photosTool(a) {
+    const ok = (x) => ({ content: [{ type: 'text', text: typeof x === 'string' ? x : JSON.stringify(x, null, 1) }] });
+    const no = (x) => ({ content: [{ type: 'text', text: x }], isError: true });
+    const names = arr(a.photos).map((x) => path.basename(String(x || ''))).filter(Boolean);
+    const inAlbums = (n) => data.albums.filter((x) => x.photos.includes(n)).map((x) => x.name);
+    const when = (n) => { try { return localWhen(new Date(fs.statSync(path.join(PHOTOS, n)).mtimeMs).toISOString()); } catch { return null; } };
+    if (a.do === 'list') {
+      const all = photos();
+      return ok({ photos: all.slice(0, 80).map((n) => ({ name: n, when: when(n), ...(data.captions[n] ? { caption: data.captions[n] } : {}), ...(inAlbums(n).length ? { albums: inAlbums(n) } : {}) })), ...(all.length > 80 ? { more: all.length - 80 } : {}),
+        albums: data.albums.map((x) => ({ id: x.id, name: x.name, photos: x.photos.length, ...(x.from ? { from: x.from } : {}), ...(x.sleep === false ? { sleepScreen: false } : {}), ...(x.all === false ? { inAll: false } : {}) })),
+        takenOff: removedPhotos().slice(0, 30) });
+    }
+    if (a.do === 'take_off' || a.do === 'put_back') {
+      if (!names.length) return no('Which photos (their names from list)?');
+      const done = [], failed = [];
+      for (const n of names) { const r = a.do === 'take_off' ? removePhoto(n) : restorePhoto(n); (r.error ? failed : done).push(n); }
+      if (done.length && a.do === 'put_back') changed();
+      return (done.length ? ok : no)(`${a.do === 'take_off' ? 'Taken off' : 'Put back'}: ${done.length}${failed.length ? `; not found: ${failed.join(', ')}` : ''}.`);
+    }
+    if (a.do === 'caption') { if (names.length !== 1) return no('Which one photo (its name from list)?'); const r = caption({ name: names[0], text: a.text || '' }); return r.error ? no(r.error) : ok('Caption saved.'); }
+    if (a.do === 'album') {
+      const b = a.album || {}, q = String(b.album || '').trim();
+      const al = data.albums.find((x) => x.id === q) || data.albums.find((x) => same(x.name, q));
+      if (b.do !== 'add' && !al) return no(`No album ${q ? `called ${q}` : 'given'}. The albums: ${data.albums.map((x) => x.name).join(', ') || 'none'}.`);
+      const r = b.do === 'add' ? changeAlbums({ add: { name: b.name, photos: names } })
+        : b.do === 'rename' ? changeAlbums({ rename: { id: al.id, name: b.name } })
+        : b.do === 'put_in' || b.do === 'take_out' ? changeAlbums({ put: { id: al.id, photos: names, on: b.do === 'put_in' } })
+        : b.do === 'show' ? changeAlbums({ show: { id: al.id, ...(typeof b.sleep === 'boolean' ? { sleep: b.sleep } : {}), ...(typeof b.all === 'boolean' ? { all: b.all } : {}) } })
+        : b.do === 'remove' ? changeAlbums({ remove: al.id }) : { error: 'What to do with the album?' };
+      return r.error ? no(r.error) : ok('Done.');
+    }
+    return no('list, take_off, put_back, caption or album?');
+  }
   function settings(b) {
     if (b.night === false || b.night === null) data.settings.night = false;
     else if (b.night) data.settings.night = { from: hhmm(b.night.from, NIGHT.from), to: hhmm(b.night.to, NIGHT.to) };
@@ -1298,6 +1332,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         edit: { type: 'array', description: 'Change items: the item (its text now), its new text, and whose it is.', items: { type: 'object', properties: { item: { type: 'string' }, text: { type: 'string' }, who: { type: 'string' } }, required: ['item'] } },
         clearChecked: { type: 'boolean', description: 'Take everything checked off the list.' },
         rename: { type: 'string' }, deleteList: { type: 'boolean', description: 'Only if they asked to get rid of the whole list.' },
+        byAisle: { type: 'boolean', description: 'Show it by store section (true) or in the order added (false), as the list\'s card sets it' },
       } } },
     { name: 'change_chores', description: "The family's chores (the Chores app): mark one done or not done (today unless a date), add, change or remove one, or skip one for a day (no stars, not left to do). Chores repeat every day unless they have days. Each chore done earns its person its stars (1 unless set); a chore for anyone (no who) earns them for whoever did it (by).",
       inputSchema: { type: 'object', properties: {
@@ -1346,7 +1381,20 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         remove: { type: 'array', items: { type: 'string' }, description: 'ids of events added on the display (one or more): all of each, every day it repeats' }, date: { type: 'string', description: 'YYYY-MM-DD: only remove that day of a repeating event' },
         countdown: { type: 'object', properties: { id: { type: 'string' }, uid: { type: 'string' }, on: { type: 'boolean' } } },
         remind: { type: 'object', description: 'A reminder on any event, synced ones too: minutes before (0 at the start, -1 none, null the household\'s usual)', properties: { id: { type: 'string' }, uid: { type: 'string' }, minutes: { type: ['number', 'null'] } } },
+        settings: { type: 'object', description: 'The Calendar app\'s own settings, as its bell and its app-notes chips set them: the household\'s usual reminder (minutes before; -1 for none), whether reminders are also said aloud, and how much of each app\'s notes on the calendar\'s days shows (lunch menus, trash day: the week, today only, or off). Pass {} to hear them and the apps.',
+          properties: { remind: { type: 'number' }, remind_aloud: { type: 'boolean' }, app_notes: { type: 'array', items: { type: 'object', required: ['app', 'show'], properties: { app: { type: 'string', description: 'The app\'s id (settings {} lists them)' }, show: { type: 'string', enum: SHOWS } } } } } },
       } } },
+    { name: 'photos', description: "The household's photos (the Photos app, and the slideshow on the sleep screen). list: the photos, newest first (name, when, caption, albums), the albums, and the photos taken off lately. " +
+      'Then, by the photos\' names from list: take_off (kept 30 days and can be put back), put_back one taken off, caption one (empty text takes the caption off), or an album: add one (name, photos), rename it, put_in or take_out photos, ' +
+      'show (whether its photos show on the sleep screen and in All), or remove the album (its photos stay). An album from iCloud is stopped in the Photos app, on its card. Photos are added from a phone (Add photos), not here.',
+      inputSchema: { type: 'object', required: ['do'], properties: {
+        do: { type: 'string', enum: ['list', 'take_off', 'put_back', 'caption', 'album'] },
+        photos: { type: 'array', items: { type: 'string' }, description: 'Photos by their name from list' },
+        text: { type: 'string', description: 'For caption: the line shown with it' },
+        album: { type: 'object', description: 'For album', required: ['do'], properties: {
+          do: { type: 'string', enum: ['add', 'rename', 'put_in', 'take_out', 'show', 'remove'] },
+          album: { type: 'string', description: 'Which album, by its name or id (not for add)' }, name: { type: 'string', description: 'For add and rename: its name' },
+          sleep: { type: 'boolean', description: 'For show: on the sleep screen' }, all: { type: 'boolean', description: 'For show: in Photos\' All' } } } } } },
   ];
   async function call(name, a) {
     const ok = (t) => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t, null, 1) }] });
@@ -1393,7 +1441,22 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       const m = a.meals ? setMeals(a.meals) : { ok: true, did: [] };
       return out({ ...m, did: [...(m.did || []), ...did] });
     }
-    if (name === 'calendar_event') { const r = changeEvents(a); return out(r.event ? { ...r, event: inLocal(r.event) } : r); }
+    if (name === 'calendar_event') {
+      if (a?.settings && typeof a.settings === 'object') {
+        const s = a.settings, b = {};
+        if (s.remind !== undefined) b.remind = s.remind;
+        if (s.remind_aloud !== undefined) b.remindAloud = !!s.remind_aloud;
+        for (const x of objs(s.app_notes)) settings({ fromApp: { app: x.app, show: x.show } });
+        if (Object.keys(b).length) settings(b);
+        const r = data.settings.remind, apps = (() => { try { return notes ? notes.apps() : []; } catch { return []; } })();
+        const said = `Calendar settings: the usual reminder ${r == null ? 'none' : r === 0 ? 'at the start' : `${r} minutes before`}${data.settings.remindAloud ? ', said aloud too' : ''}. ` +
+          (apps.length ? `Apps' notes on the calendar: ${apps.map((x) => `${x.name} (${x.app}): ${x.show}`).join(', ')}.` : 'No app puts notes on the calendar.');
+        const rest = Object.keys(a).filter((k) => k !== 'settings');
+        if (!rest.length) return ok(said);
+      }
+      const r = changeEvents(a); return out(r.event ? { ...r, event: inLocal(r.event) } : r);
+    }
+    if (name === 'photos') return photosTool(a || {});
     return { content: [{ type: 'text', text: `unknown tool ${name}` }], isError: true };
   }
 

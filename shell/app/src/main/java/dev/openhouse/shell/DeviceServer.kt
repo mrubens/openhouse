@@ -201,7 +201,7 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera")
+    private val HOME_PATHS = setOf("/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen")
     private val approveLock = Object()
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
@@ -257,6 +257,20 @@ object DeviceServer {
             }
             // Bluetooth (Bluetooth.kt, docs/bluetooth.md): scanning, pairing after the bridge's yes, GATT and audio.
             "/bt" -> 200 to Bluetooth.handle(b).toString()
+            // Opie's tablet_screen (bridge live-tools.js): the brightness, as Settings' Brightness row sets it (not behind
+            // the PIN there either), and Sleep now, as the moon button does.
+            "/screen" -> {
+                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                when (b.optString("do")) {
+                    "brightness" -> {
+                        val level = Brightness.setNamed(a, b.optString("level")) ?: return 400 to JSONObject().put("error", "A level is one of ${Brightness.names.joinToString(", ")}, or brighter or dimmer.").toString()
+                        handler.post { dev.openhouse.ui.Openhouse.settingsChanged() }
+                        200 to JSONObject().put("brightness", level).toString()
+                    }
+                    "sleep" -> { handler.post { dev.openhouse.ui.Openhouse.sleepNow(); dev.openhouse.ui.Heartbeat.sleep() }; 200 to """{"sleeping":true}""" }
+                    else -> 200 to JSONObject().put("brightness", Brightness.label(a)).toString()
+                }
+            }
             "/say" -> { acc?.status(b.optString("text").take(120)); 200 to "{}" }
             // "Opie, stop" (bridge device-tools.js): what it's doing in an app stops now; the next request starts fresh.
             // OpenHouse back in front (from another Android app), for Opie showing one of its tabs (bridge show_on_screen).

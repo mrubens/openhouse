@@ -28,6 +28,23 @@ object Brightness {
             .setNegativeButton("Close", null).show().also { immersive() }
     }
 
+    /** Opie's brightness tool (DeviceServer /screen): a level by its name as the row shows it ("Automatic", "Low"...),
+     *  or "brighter"/"dimmer" for a step from where it is. What it is afterwards, or null for a name it doesn't know. */
+    fun setNamed(a: Activity, name: String): String? {
+        val n = name.trim().lowercase()
+        val i = LEVELS.indexOfFirst { it.first.lowercase() == n }.takeIf { it >= 0 } ?: run {
+            val now = LEVELS.indexOfFirst { it.first == label(a) }.coerceAtLeast(0)
+            when (n) {
+                "brighter" -> (if (now == 0) 3 else now + 1).coerceAtMost(LEVELS.size - 1)
+                "dimmer" -> (if (now == 0) 1 else now - 1).coerceAtLeast(1)
+                else -> return null
+            }
+        }
+        set(a, LEVELS[i].second)
+        return LEVELS[i].first
+    }
+    val names get() = LEVELS.map { it.first }
+
     private fun set(a: Activity, value: Int) {
         val dpm = a.getSystemService(DevicePolicyManager::class.java)
         val admin = ComponentName(a, AdminReceiver::class.java)

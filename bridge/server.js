@@ -100,6 +100,12 @@ const chat = chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body, bu
   // The family's changes, newest first, and taking back one of them (not just the latest): git revert, so
   // later changes stay. Itself a change, so it can be undone too.
   listChanges: edits.listChanges,
+  // "Undo that" from Opie (undo_change "latest"): the same as POST /undo, the latest change taken back.
+  undoLatest: (turn) => {
+    const r = edits.undoLatest(turn);
+    if (r.ok) { builder.forgetSession(); emit({ type: 'apps' }); setState({ lastChange: r.latest }); }
+    return r;
+  },
   undoChange: (id, turn) => {
     const r = edits.undoChange(id, turn);
     if (r.ok) { emit({ type: 'state', ...events.state }); emit({ type: 'apps' }); }

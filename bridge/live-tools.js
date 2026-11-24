@@ -17,12 +17,16 @@ import path from 'node:path';
 import { forModel, fromModel } from './tool-args.js';
 import { readPage, READ_PAGE_TOOL } from './read-page.js';
 
-/** The home screen's tools a voice may use; nothing that changes the tablet's apps or home screen (but an app's card on Today), or the family's names. */
+/** The home screen's tools a voice may use: what a person can tap on the tablet without the PIN, and asking for what
+ *  needs it (docs/opie-parity.md). Never an app's code (that's a computer's: workshop.js). */
 export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'change_chores', 'change_rewards', 'change_routines', 'set_meals', 'save_recipe', 'keep_shared_photo',
   'calendar_event', 'look_at_notes', 'put_note', 'update_note', 'take_down_note', 'take_down_thing', 'today_card', 'remember_preference', 'forget_preference', 'show_on_map', 'save_place', 'forget_place', 'heartbeat_settings', 'night_hours', 'later', 'later_list',
   // a calendar or an iCloud album by its link (found with a web search, say: a team's schedule): the link goes straight to
   // the shell, and someone says yes on the tablet with the PIN (calendar-links.js), so the voice can offer it, not force it
-  'add_calendar', 'add_photo_album'];
+  'add_calendar', 'add_photo_album',
+  // what the tapping can do too (docs/opie-parity.md): the photos, a flyer sent from a phone, the family list and
+  // where they live (the Family sheet), the tabs and look ("Tabs and look"), and taking a change back when asked
+  'photos', 'flyer_photo', 'update_household', 'set_home', 'put_back', 'list_changes', 'undo_change'];
 const WEATHER = { name: 'weather', description: "The weather where the family lives: now, the next 24 hours, and the next 7 days (°F, mph).", inputSchema: { type: 'object', properties: {} } };
 
 /** Kitchen timers (the tablet rings them: home-screen.js timers), as a person sets them on the screen. */
@@ -63,8 +67,8 @@ export const livePreamble = (name) => `You are ${name}, the voice of a family's 
   'one or two sentences, no lists or markdown. Use your tools for anything about the family (their calendar, lists, chores and stars, meals, notes, the weather) ' +
   'and never guess those. If you can\'t do something or don\'t know, say so plainly in a sentence; never answer a different question instead. Nobody\'s voice is recognised here, so "me" or "my name" doesn\'t say who is talking: if it matters, ask once who they are; once they\'ve said, use it and never ask again. ' +
   'Make each change once, then say it\'s done; don\'t repeat a call that worked. Something repeats only if they said so ("every Friday"). If someone talks over you, stop and listen. If people are talking to each other and not to you, stay quiet.\n\n' +
-  'What follows is how the family\'s assistant works and what this family asked for. Follow it, except the parts about making or changing apps and the home screen, ' +
-  'which aren\'t yours to do.\n\n---\n\n';
+  'What follows is how the family\'s assistant works and what this family asked for. Follow it, except the parts about making or changing an app\'s code, ' +
+  'which isn\'t yours to do (someone does that from their computer); the home screen\'s tabs and look are set_home.\n\n---\n\n';
 
 /** The TV, straight from the voice (no agent turn): devices/index.js tv(). Offered only when there's a TV to control. */
 export const TV_TOOL = { name: 'tv', description: "The family's TV: turn it on or off, pause or play, volume, mute, open an app (Netflix, YouTube...), or what it's showing. Turning it on or opening an app asks the people in the room first.",
@@ -80,6 +84,19 @@ export const BT_TOOL = { name: 'bluetooth', description: "Bluetooth speakers, he
 /** The tablet's volume, straight from the voice: devices/index.js volumeDo (one volume for music, timers and Opie). */
 export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (music, timers and your own voice): louder or quieter (a step), set to a level, mute, or get it. \"Turn it up\", \"too loud\", \"volume to 50\".",
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['louder', 'quieter', 'set', 'mute', 'get'] }, level: { type: 'integer', description: 'For set: 0-100' } } } };
+/** The tablet's own screen, straight from the voice: devices/index.js screenDo (the shell's /screen). Neither is behind
+ *  the PIN on the tablet: Brightness is in Settings' own list, Sleep now is the moon button. */
+export const SCREEN_TOOL = { name: 'tablet_screen', description: "The tablet's screen itself: its brightness (Automatic, Low, Medium, High or Full, or a step brighter or dimmer: \"it's too bright\", \"I can't see the screen\"), " +
+    'or put it to sleep now, dark as at night until someone touches it ("go to sleep", "turn the screen off"). get says the brightness. For when the screen goes dark every night, that is night_hours.',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'brightness', 'sleep'] },
+    level: { type: 'string', enum: ['Automatic', 'Low', 'Medium', 'High', 'Full', 'brighter', 'dimmer'], description: 'For brightness' } } } };
+/** The house's other devices (speakers, streamers, printers...), as Settings' Linked devices buttons work them: devices/index.js devicesDo. */
+export const DEVICES_TOOL = { name: 'home_devices', description: "The house's devices the tablet found on the Wi-Fi and over Bluetooth (speakers, streamers, printers...), as Settings' Linked devices shows them: " +
+    'list them with what each can do, then act: one of a device\'s actions (play, pause, volume_up, set_volume with params {"level": 20}, power_off...), or name one as the family calls it. ' +
+    'Anything that turns on, opens or unlocks something asks the people in the room first. The TV, Bluetooth and the tablet\'s own volume have their own tools.',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['list', 'act', 'name'] },
+    device: { type: 'string', description: 'Which one, by its name or id from list' }, action: { type: 'string', description: 'For act: one of its actions from list' },
+    params: { type: 'object', description: 'For act: the action\'s parameters, if any' }, name: { type: 'string', description: 'For name: what the family calls it (empty: its own name)' } } } };
 /** Ending the conversation when asked: the session ends as soon as its last words have played (live-session.cjs). */
 export const GO_AWAY_TOOL = { name: 'go_away', description: 'End this conversation now, when they want you gone: "go away", "stop", "that\'s all", "never mind", "be quiet", "bye". Just call it: you stop listening at once, and the conversation ends once you have finished speaking.',
   inputSchema: { type: 'object', properties: {} } };
@@ -173,12 +190,13 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const extraTools = () => { try { return extra?.tools() || []; } catch { return []; } };
   const btTools = () => { try { return tvDevices?.bluetoothOn?.() ? [BT_TOOL] : []; } catch { return []; } };
   const volumeTools = () => (tvDevices?.volume ? [VOLUME_TOOL] : []);
+  const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.devices ? [DEVICES_TOOL] : [])] : []);
   const family = () => { try { return (household?.read?.()?.family || []).filter((f) => f?.name); } catch { return []; } };
   const messageTools = () => { const n = [...new Set(family().map((f) => String(f.name)))]; return phones && n.length ? [messageTool(n)] : []; };
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
-    const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name));
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(inSetup() ? [SETUP_TOOL] : [])];
+    const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name) && !(inSetup() && t.name === SETUP_TOOL.name)); // (during setup, its own update_household)
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(inSetup() ? [SETUP_TOOL] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   const setupText = () => !inSetup() ? '' : '\n\n---\n\nThe tablet was just set up, and its setup is on the screen now. The step showing: ' + SETUP_STEPS[setupStep] +
@@ -211,6 +229,8 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     }
     if (name === GO_AWAY_TOOL.name) return { text: 'Ending now. Say nothing more, or just "Okay."', isError: false };
     if (name === 'volume' && tvDevices?.volume) { const r = await tvDevices.volume(args || {}); return { text: r.text, isError: !r.ok }; }
+    if (name === DEVICES_TOOL.name && tvDevices?.devices) { const r = await tvDevices.devices(args || {}); return { text: r.text, isError: !r.ok }; }
+    if (name === SCREEN_TOOL.name && tvDevices?.screen) { const r = await tvDevices.screen(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === 'bluetooth' && tvDevices?.bluetooth) { const r = await tvDevices.bluetooth(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (name === 'tv' && tvDevices) { const r = await tvDevices.tv(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (extra && extraTools().some((t) => t.name === name)) return extra.call(name, args || {});

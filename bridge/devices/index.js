@@ -601,6 +601,25 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     } catch (e) { return { ok: false, text: `Couldn't change the volume: ${e.message}` }; }
   }
   handle.volume = volumeDo;
+  /** The tablet's screen (the voice's "tablet_screen" tool): its brightness as Settings' Brightness row sets it, and
+   *  Sleep now as the moon button does (the shell's /screen). */
+  async function screenDo({ do: what = 'get', level } = {}) {
+    const r = await shell('/screen', { do: what, level: String(level || '') }, 5000);
+    if (!r) return { ok: false, text: 'The screen\'s settings need the tablet (the shell isn\'t answering).' };
+    if (r.error) return { ok: false, text: r.error };
+    if (r.sleeping) return { ok: true, text: 'The screen is going dark now, as at night, until someone touches it (or morning). Say at most "Good night" or "Okay".' };
+    return { ok: true, text: what === 'brightness' ? `Brightness now ${r.brightness}.` : `The brightness is ${r.brightness}.` };
+  }
+  handle.screen = screenDo;
+  /** The voice's "home_devices" tool: what the Linked devices sheet's buttons do (speakers, streamers, printers...),
+   *  for any device; risky actions ask the people in the room first, as there (act's who: 'voice'). */
+  async function devicesDo({ do: what = 'list', device, action, params, name } = {}) {
+    if (what === 'list') { const s = summary(); return { ok: true, text: typeof s === 'string' ? s : JSON.stringify(s) }; }
+    if (what === 'name') return rename(device, name || '');
+    if (!device || !action) return { ok: false, text: 'Which device, and which of its actions (list says them)?' };
+    return act(device, action, params && typeof params === 'object' ? params : {}, { who: 'voice' });
+  }
+  handle.devices = devicesDo;
   handle.bluetooth = bluetoothDo; handle.bluetoothOn = () => !!btState?.supported; // the voice's tool, offered on a tablet with Bluetooth
   handle.mcp = mcp; // the same tools for the agent in its own app, behind its run's key (box.js)
   return handle;

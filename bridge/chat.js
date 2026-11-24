@@ -41,7 +41,7 @@ Don't put notes on the home screen during this, and don't use Suggestions lists.
 const SPOKEN = '\n\n(Said aloud to you, and your answer is spoken: reply like a person talking, in one or two short sentences, ' +
   'with no lists, headings or written phrasing. At most one question back. Put anything longer on a note, or offer to.)';
 
-export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body, building = () => null, edits = null, checkBuild = null, listChanges = () => [], undoChange = null }) {
+export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body, building = () => null, edits = null, checkBuild = null, listChanges = () => [], undoChange = null, undoLatest = null }) {
   const DIR = path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'));
   const WORK = path.join(DIR, 'work'); // the agent's working folder: empty on purpose
   fs.mkdirSync(WORK, { recursive: true });
@@ -98,7 +98,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   // taking back a change, adding a calendar or an album, and ending the conversation. Never an app's files.
   const TYPED = ['update_household', 'set_home', 'today_card', 'move_on_home', 'put_back', 'list_changes', 'undo_change', 'end_conversation', 'add_calendar', 'add_photo_album'];
   const fn = (t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) });
-  const textTools = () => [...live.tools(), ...homeScreen.tools().filter((t) => TYPED.includes(t.name)).map(fn)];
+  const textTools = () => [...live.tools(), ...homeScreen.tools().filter((t) => TYPED.includes(t.name) && !LIVE_TOOLS.includes(t.name)).map(fn)];
   /** One of those, as part of the turn whose home-screen token this is (its notes, its edit lock, end_conversation), else as the voice. */
   async function callText(name, args, token) {
     const run = token ? homeScreen.runOf(token) : null;
@@ -142,6 +142,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
         family: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, note: { type: 'string', description: 'e.g. "age 9", "Mom", "Grandpa, visits Sundays"' }, color: { type: 'string', description: 'Their color everywhere (calendar, chores), as #rrggbb; leave out to keep theirs. Soft, readable on white.' } } } },
         location: { type: 'string', description: 'Zip code or town, for weather and local answers.' },
         chores: { type: 'array', items: { type: 'object', required: ['task'], properties: { who: { type: 'string' }, task: { type: 'string' } } } },
+        taking_off: { type: 'array', items: { type: 'string' }, description: 'With family: the names of anyone they asked to take off the list (anyone else left out of family is refused)' },
       } } },
     { name: 'remember_preference', description: 'Remember something lasting about this household, so you know it in every conversation from now on: a fact ("Leo is allergic to peanuts", "Nana and Papa are Grandma and Grandpa", "soccer is at Fuller Park", "dinner is around 6") or how they like things ("no cooking times on notes", "shorter answers", anything to always or never do). Save one when they say "remember...", or when something they said is clearly lasting and will matter later; not today\'s plans (those go on the calendar or a list), and nothing sensitive (health beyond allergies, money, passwords, arguments) unless they ask. It belongs to the household, not to whoever said it. One short sentence in their terms; say in a few words that you\'ll remember it.', inputSchema: { type: 'object', required: ['preference'], properties: { preference: { type: 'string' } } } },
     { name: 'forget_preference', description: 'Forget something you were asked to remember, or a preference they no longer want ("forget that", "you can forget about..."): pass words from it.', inputSchema: { type: 'object', required: ['preference'], properties: { preference: { type: 'string' } } } },
@@ -152,7 +153,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       inputSchema: { type: 'object', required: ['text'], properties: { text: { type: 'string' } } } },
     { name: 'put_back', description: 'Put back something the family took away: a note they took down (its id, listed with the notes), or an app they took off the Apps tab ("app:<id>")', inputSchema: { type: 'object', required: ['key'], properties: { key: { type: 'string' } } } },
     { name: 'list_changes', description: 'Recent changes to the apps, games and home screen, newest first (id, when, what was asked). For "undo the X change" or "what did we change?".', inputSchema: { type: 'object', properties: {} } },
-    { name: 'undo_change', description: 'Take back one change by its id (from list_changes), keeping the ones made after it. ("undo" alone, the latest, the display does itself.)', inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } },
+    { name: 'undo_change', description: 'Take back a change to the apps, games or the home screen\'s tabs and look when they ask: "latest" for the latest one ("undo that", "put it back how it was"), or one change by its id from list_changes, keeping the ones made after it. Itself a change, so it can be taken back too. (A list item, chore, event or note is put right with its own tool.)', inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } },
     { name: 'end_conversation', description: 'Stop listening after this reply: the conversation is over (they said bye, thanks, that\'s all, never mind, or clearly finished). Say your short goodbye as usual; after it you stop listening until someone wakes you again. Don\'t call it when you just asked them something.', inputSchema: { type: 'object', properties: {} } },
   ], async (name, a, ctx) => {
     const ok = (t) => ({ content: [{ type: 'text', text: t }] });
@@ -173,12 +174,28 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     if (name === 'list_changes') return ok(JSON.stringify(listChanges(), null, 1));
     if (name === 'undo_change') {
       if (!undoChange) return { content: [{ type: 'text', text: 'Not available.' }], isError: true };
-      const r = undoChange(String(a.id || ''), ctx?.turn || null);
+      const id = String(a.id || '').trim();
+      if (id === 'latest') {
+        if (!undoLatest) return { content: [{ type: 'text', text: 'Not available.' }], isError: true };
+        const r = undoLatest(ctx?.turn || null);
+        return r.ok ? ok(`Took back: ${r.undid}`) : { content: [{ type: 'text', text: r.nothing ? 'Nothing to take back.' : r.error }], isError: true };
+      }
+      const r = undoChange(id, ctx?.turn || null);
       return r.ok ? ok(`Took back: ${r.undid}`) : { content: [{ type: 'text', text: r.error }], isError: true };
     }
     if (name === 'end_conversation') { if (ctx) ctx.ended = true; return ok('OK: after your reply you stop listening.'); }
     if (name === 'about_household') return ok(JSON.stringify({ ...board.householdView(), you: nameOf() }, null, 2));
-    if (name === 'update_household') { const h = board.saveHousehold(a); return ok(`Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`); }
+    if (name === 'update_household') {
+      // family replaces the whole list: someone left out by mistake (a list made from memory) would be gone, so
+      // taking anyone off is said in taking_off (household data safety).
+      if (Array.isArray(a.family)) {
+        const was = (board.householdView()?.family || []).map((f) => String(f?.name || '')).filter(Boolean), low = (s) => String(s || '').trim().toLowerCase();
+        const off = new Set((Array.isArray(a.taking_off) ? a.taking_off : []).map(low)), now = new Set(a.family.map((f) => low(f?.name)));
+        const dropped = was.filter((n) => !now.has(low(n)) && !off.has(low(n)));
+        if (dropped.length) return { content: [{ type: 'text', text: `Not saved: this would take ${dropped.join(', ')} off the family list. Pass everyone who stays (about_household), and put anyone they asked to take off in taking_off.` }], isError: true };
+      }
+      const { taking_off, ...rest } = a; a = rest;
+      const h = board.saveHousehold(a); return ok(`Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`); }
     if (name === 'remember_preference') {
       const p = String(a.preference || '').trim().replace(/\s+/g, ' ').slice(0, 200);
       if (!p) return { content: [{ type: 'text', text: 'Nothing to remember.' }], isError: true };
