@@ -582,6 +582,6 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .ambient-r { font-size: calc(var(--u) * 19); padding: calc(var(--u) * 9) calc(var(--u) * 12); }
 .ambient-r > span:first-child { font-size: calc(var(--u) * 18); }
 /* Today's photos: a wide card shows a few side by side (home.jsx PhotoCard) */
-.t-photos { display: flex; gap: 4px; padding: 0; }
+.t-photos { display: flex; flex-direction: row; gap: 4px; padding: 0; }
 .t-tile { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; }
 .t-photo:not(.t-photos) > .t-tile { position: absolute; inset: 0; }

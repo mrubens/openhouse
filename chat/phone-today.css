@@ -178,6 +178,6 @@
 .ptoday .t-agenda { padding: 8px 18px 16px; }
 .ptoday .t-waiting { padding: 20px; gap: 6px; }
 /* Today's photos: a wide card shows a few side by side (home.jsx PhotoCard) */
-.ptoday .t-photos { display: flex; gap: 4px; padding: 0; }
+.ptoday .t-photos { display: flex; flex-direction: row; gap: 4px; padding: 0; }
 .ptoday .t-tile { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; }
 .ptoday .t-photo:not(.t-photos) > .t-tile { position: absolute; inset: 0; }
