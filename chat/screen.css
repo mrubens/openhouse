@@ -557,3 +557,6 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .t-snone { box-sizing: border-box; padding: calc(var(--u) * 11) calc(var(--u) * 16) calc(var(--u) * 12); border-radius: calc(var(--u) * 16); border: calc(var(--u) * 2) dashed var(--h-line); font-size: calc(var(--u) * 20 * var(--s)); line-height: 1.2; color: var(--h-soft); } /* an empty block, the shape of the events' */
 /* Opie's mark only, round, the size of the keyboard button beside it (talk.jsx) */
 .opie-pill{width:46px;padding:0;justify-content:center}
+/* Events waiting to be added (a flyer or an email): a quiet card first on Today (home.jsx) */
+.t-waiting { padding: calc(var(--u) * 22 * var(--s)); gap: calc(var(--u) * 6); }
+.t-waiting .t-big { margin: calc(var(--u) * 4) 0 calc(var(--u) * 6); }

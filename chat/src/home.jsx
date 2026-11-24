@@ -507,6 +507,18 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
   { const byKey = new Map(cards.map((x) => [String(x.key), x]));
     const order = todayOrder(look);
     cards.length = 0; for (const k of order) if (k !== 'calendar' && byKey.has(k)) cards.push(byKey.get(k)); }
+  // Events read from a flyer or an email, waiting for a yes on the Calendar: first, whatever the household's order (it
+  // goes once they're added or put away), so nobody misses them. A tap opens the Calendar, where they're added.
+  const waiting = h.flyer?.state === 'done' ? h.flyer.events || [] : [];
+  if (waiting.length) {
+    const from = waiting.find((e) => e.from)?.from, n = waiting.length;
+    const when = (e) => { const d = new Date(e.allDay ? e.start + 'T12:00' : e.start); return isNaN(d) ? '' : d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }); };
+    cards.unshift(<div key="waiting" {...card('waiting', () => go(kinds.get('calendar') || 'calendar'))}>
+      <div className="h-label">To add to the calendar</div>
+      <div className="t-big">{n === 1 ? '1 event' : `${n} events`}{from ? ` from ${from}` : ''}</div>
+      <div className="t-rows t-gap-s">{waiting.slice(0, 3).map((e, i) => <div key={i} className="t-row"><span className="t-when">{when(e)}</span><span className="h-grow">{plain(e.title)}</span></div>)}</div>
+    </div>);
+  }
   const showCal = kinds.has('calendar') && todayOrder(look).includes('calendar');
   const per = showCal ? 2 : 3, rows = [];
   { let cur = null; for (const x of cards) { if (x.props.wide) { rows.push([x]); cur = null; } else { if (!cur || cur.length >= per) rows.push(cur = []); cur.push(x); } } }

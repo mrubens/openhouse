@@ -17,7 +17,7 @@
 // POST /house/settings         { night: {from: "21:30", to: "06:30"} | false, remind?: minutes | false, remindAloud?: bool }
 //                              (no photos on the idle screen at night; remind: the reminder every timed event gets)
 // POST /house/flyer?name=x.jpg a photo of a flyer or school notice (the body): the assistant reads its events
-//                              into view().flyer { state: "working" | "done" | "error", events?, text? }; nothing is
+//                              into view().flyer { state: "working" | "done" | "error", events?, text? } (waiting events kept through a restart); nothing is
 //                              added until the Calendar app (or the assistant) adds what the family says yes to
 // POST /house/recipe-photo?meal=Tacos  a photo of a recipe (the body): the assistant types it into the recipe box
 // POST /house/recipe-link     {link, meal?} a recipe's page (shared from a phone): read, saved, made into cooking steps
@@ -119,7 +119,10 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   const waiters = new Set();
   const mealWork = {}; // "date|meal" -> { state: "working" | "done" | "error", added?, text? } (not saved)
   let unlockedUntil = 0; // the PIN was given on the display: apps may change the calendar until then
-  let flyer = null; // the latest flyer read: { state, at, events?, text? } (not saved); its photo in FLYERS
+  // The latest flyer or email read: { state, at, events?, text? }; its photo in FLYERS. Events waiting for a yes are
+  // kept (data.flyer) so a restart or an update doesn't lose them; reading one in progress isn't.
+  let flyer = data.flyer?.state === 'done' && data.flyer.events?.length ? data.flyer : null;
+  const keepFlyer = () => { if (flyer?.state === 'done' && flyer.events?.length) data.flyer = flyer; else delete data.flyer; save(); };
   const FLYERS = path.join(DIR, '../flyers');
 
   let rev = 0; // goes up with every save (what's cached from the data is good while it's the same)
@@ -899,7 +902,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
           'When it gives no year, the next time that date comes. A repeating schedule (practices every Tuesday) as each date it lists, at most 12. If it shows no events, or you can\'t see it, reply [].';
         const said = await answer(prompt, 'You read flyers into calendar events for a family. Reply with only a JSON array, nothing else.', photoBytes());
         const evs = flyerEvents(JSON.parse(said.match(/\[[\s\S]*\]/)?.[0] || '[]'));
-        if (flyer === mine) flyer = { state: 'done', at: mine.at, events: evs };
+        if (flyer === mine) { flyer = { state: 'done', at: mine.at, events: evs }; keepFlyer(); }
       } catch (e) { if (flyer === mine) flyer = { state: 'error', at: mine.at, text: String(e.message || e).slice(0, 120) }; }
       changed();
     })();
@@ -937,6 +940,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (evs.length) { // offered on the Calendar app, with any not yet put away
       const was = flyer?.state === 'done' ? flyer.events || [] : [];
       flyer = { state: 'done', at: Date.now(), events: [...was, ...evs.map((e) => ({ ...e, from: str(from, 40) ? `${str(from, 40)}'s email` : 'email' }))].slice(-24) };
+      keepFlyer();
     }
     if (photos.length) save();
     if (photos.length || evs.length) changed();
@@ -1455,7 +1459,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (p === '/house/settings') { send(settings(b)); return true; }
     if (p === '/house/remind') { send(putAway(b.done)); return true; }
     if (p === '/house/thing') { if (!things?.take(b.take)) { json(res, 400, { error: 'Which thing (its id)?' }); return true; } changed(); json(res, 200, { ok: true }); return true; }
-    if (p === '/house/flyer/clear') { flyer = null; changed(); send({ ok: true }); return true; }
+    if (p === '/house/flyer/clear') { flyer = null; keepFlyer(); changed(); send({ ok: true }); return true; }
     if (p === '/house/photo/remove') { send(removePhoto(b.name)); return true; }
     if (p === '/house/photo/album') { send(changeAlbums(b)); return true; }
     if (p === '/house/photo/restore') { send(restorePhoto(b.name)); return true; }
