@@ -27,9 +27,9 @@ fun WebPage(url: String, onClose: () -> Unit) {
     val sameSite = { u: String -> runCatching { java.net.URI(u).let { it.scheme == "https" && (it.host.orEmpty().lowercase().let { h -> h == site || h.endsWith(".$site") }) } }.getOrDefault(false) }
     var view by remember { mutableStateOf<WebView?>(null) }
     DisposableEffect(Unit) { onDispose { view?.apply { stopLoading(); destroy() } } }
-    Column(Modifier.fillMaxSize().background(Door.paper)) {
+    Column(Modifier.fillMaxSize().background(PaperLook.paper)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 36.u, vertical = 20.u), verticalAlignment = Alignment.CenterVertically) {
-            Text(site, style = roundText(26, FontWeight.SemiBold, Door.inkSoft), modifier = Modifier.weight(1f))
+            Text(site, style = roundText(26, FontWeight.SemiBold, PaperLook.inkSoft), modifier = Modifier.weight(1f))
             BigButton("Done") { onClose() }
         }
         AndroidView(modifier = Modifier.fillMaxWidth().weight(1f), factory = { ctx ->
