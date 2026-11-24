@@ -316,7 +316,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     }
     for (const o of st.outbox) if (o.op === 'add' && isOn(st.calendars[o.calendar])) { // not sent yet: shown here meanwhile
       const c = st.calendars[o.calendar];
-      out.push({ ...o.fields, id: `c-${o.calendar}-${o.remote}`, who: o.fields.who || c.who || null, calendar: o.calendar, calendarName: calName(c), color: c.color || null, editable: true, sending: true });
+      out.push({ ...o.fields, id: `c-${o.calendar}-${o.remote}`, who: o.fields.who || c.who || null, calendar: o.calendar, calendarName: calName(c), color: c.color || null, editable: true, ...(o.sent ? {} : { sending: true }) });
     }
     return out;
   }
@@ -390,7 +390,9 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           const a = acc(c.account);
           if (!a || !isOn(c)) continue;
           try {
-            read = null; st.cache[k] = await prov(a).list(a, c, w); delete st.errors[c.account];
+            read = null; const asked = now();
+            st.cache[k] = await prov(a).list(a, c, w); delete st.errors[c.account];
+            st.outbox = st.outbox.filter((o) => !(o.sent && o.calendar === k && o.sent <= asked)); // this read has them
             (st.reads ||= {})[k] = { ...(read || {}), events: Object.keys(st.cache[k]).length, at: now() };
           }
           catch (e) { st.errors[c.account] = e.signin ? 'signin' : str(e.message, 120); if (!e.offline && !e.signin) log(`[calendar-sync] ${a.provider}: ${str(e.message, 80)}`); }
@@ -408,7 +410,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     const [, k, remote] = m, c = st.calendars[k]; if (!c) return null;
     const items = Object.values(st.cache[k] || {}).filter((i) => i.remote === remote);
     const item = (date && items.find((i) => i.ev.date === date)) || items.sort((x, y) => Date.parse(x.ev.start) - Date.parse(y.ev.start))[0] || null;
-    const queued = st.outbox.find((o) => o.op === 'add' && o.calendar === k && o.remote === remote);
+    const queued = st.outbox.find((o) => o.op === 'add' && !o.sent && o.calendar === k && o.remote === remote);
     return { key: k, remote, c, item, queued };
   }
   const isMine = (id) => /^c-[A-Za-z0-9]{8}-/.test(String(id || ''));
@@ -452,7 +454,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
       try {
         await loadAccounts();
         for (const o of [...st.outbox]) {
-          if (!st.outbox.includes(o)) continue;
+          if (!st.outbox.includes(o) || o.sent) continue;
           if (o.next && o.next > now()) continue;
           const c = st.calendars[o.calendar], a = c && acc(c.account);
           if (!a) { if (!c) { st.outbox = st.outbox.filter((x) => x !== o); did = true; } continue; } // its account isn't here now: wait
@@ -471,7 +473,9 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
             if (!e.offline && !e.signin && o.tries >= 6) { st.outbox = st.outbox.filter((x) => x !== o); log(`[calendar-sync] gave up on a change (${str(e.message, 60)})`); }
             continue;
           }
-          st.outbox = st.outbox.filter((x) => x !== o); did = true;
+          // Gone in: still shown as changed until the next read brings it back changed (else it flickers back meanwhile).
+          if (r.conflict || r.gone) st.outbox = st.outbox.filter((x) => x !== o); else { o.sent = now(); delete o.next; }
+          did = true;
           st.sent = [{ op: o.op, at: now(), trail: [...trail], ...(r.already ? { already: true } : {}) }, ...(st.sent || [])].slice(0, 8);
           if (r.conflict || r.gone) { // changed (or deleted) elsewhere first: theirs stays
             st.notes[`c-${o.calendar}-${o.remote}`] = { text: r.gone ? 'Removed on its calendar before this change went in.' : `Changed on ${calName(c)} first, so that change is kept.`, until: now() + 3 * DAY };
@@ -487,7 +491,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   }
 
   function status() {
-    return { at: st.at, waiting: st.outbox.length, sent: st.sent || [], accounts: accounts.map((a) => ({ ...a, error: st.errors[a.id] || null })) };
+    return { at: st.at, waiting: st.outbox.filter((o) => !o.sent).length, sent: st.sent || [], accounts: accounts.map((a) => ({ ...a, error: st.errors[a.id] || null })) };
   }
   function start(onChange) {
     changed = onChange || changed;
