@@ -369,7 +369,8 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
   const h = house || {};
   const kinds = new Map(); for (const t of tabs) { const k = kindOf(t, appBy.get(t.id)); if (k && !kinds.has(k)) kinds.set(k, t.id); }
   const t = new Date(now); t.setHours(0, 0, 0, 0);
-  const EvAv = ({ e, className }) => <Av paint={eventPaint(h, e)} name={eventPeople(h, e)[0]} className={className} />;
+  // whose an event is: a small dot in their color; nothing for the household's own (no icon on every row)
+  const EvDot = ({ e }) => { const p = eventPaint(h, e); return <i className={'t-dot' + (p ? '' : ' none')} style={p ? { background: p } : undefined} />; };
   const card = (kind, open) => ({ role: 'button', tabIndex: 0, className: 't-card t-' + kind, onClick: open || (() => go(kinds.get(kind))) });
 
   // Calendar: what's next, then the rest of its day, then the days after it, grouped by day, as many as fit (a quiet
@@ -488,13 +489,13 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, openApp,
             <div className="t-hero">
               <div className="h-label">{+firstDay === +t ? ['Next', inText(first, now)].filter(Boolean).join(' · ') : dayName(firstDay)}</div>
               <div className="t-next">{plain(first.title)}</div>
-              <div className="t-when-next"><EvAv e={first} className="dark" /><span className="h-grow">{[when(first), eventPeople(h, first).join(' & ') || null, first.place].filter(Boolean).join(' · ')}</span></div>
+              <div className="t-when-next">{eventPaint(h, first) ? <EvDot e={first} /> : null}<span className="h-grow">{[when(first), eventPeople(h, first).join(' & ') || null, first.place].filter(Boolean).join(' · ')}</span></div>
             </div>
             <div className="t-agenda t-fit" ref={calFit}>{byDay.map(([d, l], k) => { // the rest of its day, then each day after it
               const rest = k ? l : l.slice(1);
               return rest.length > 0 && <div key={+d} className="t-daygroup">
                 <div className="h-label" data-fit="label">{k ? dayName(d) : +d === +t ? 'Later today' : 'Then'}</div>
-                {rest.map((e, i) => <div key={i} className="t-ev" data-fit=""><span className="t-when">{when(e)}</span><EvAv e={e} /><span className="h-grow">{plain(e.title)}</span></div>)}
+                {rest.map((e, i) => <div key={i} className="t-ev" data-fit=""><span className="t-when">{when(e)}</span><EvDot e={e} /><span className="h-grow">{plain(e.title)}</span></div>)}
               </div>;
             })}</div>
           </> : <div className="t-empty"><div className="h-label">Calendar</div><div className="t-big t-quiet">Nothing on this week</div></div>}

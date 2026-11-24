@@ -533,3 +533,8 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 /* Dinner on its picture: its words sit over the dish, so the whole card is shaded, darkest at the foot where they are. */
 .t-meals.t-pic-card { justify-content: flex-end; }
 .t-meals.t-pic-card::after { background: linear-gradient(180deg, rgba(10,8,20,.2) 0%, rgba(10,8,20,.45) 40%, rgba(10,8,20,.82) 100%); }
+
+/* An event's person: a dot in their color before its name (the household's own have none). */
+.t-ev { grid-template-columns: calc(var(--u) * 76 * var(--s)) calc(var(--u) * 10) minmax(0, 1fr); }
+.t-dot { width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%; flex: none; }
+.t-dot.none { visibility: hidden; }
