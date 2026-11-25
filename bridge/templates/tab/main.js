@@ -11,7 +11,7 @@ function draw() {
   app.replaceChildren(
     // (h(tag, props, ...children): children are text or other h() elements, never HTML in a string. A title can have
     // a softer second part: h('h1', { class: 'title' }, 'Reading ', h('span', null, 'this week')).)
-    h('div', { class: 'top' }, h('h1', { class: 'title' }, 'NAME')),
+    h('div', { class: 'top' }, h('h1', { class: 'title' }, "NAME")),
     h('div', { class: 'body' },
       h('div', { class: 'panel' }, state.note || 'Nothing yet.')));
 }
