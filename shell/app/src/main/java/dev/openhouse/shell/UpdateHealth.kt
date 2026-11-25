@@ -8,18 +8,22 @@ package dev.openhouse.shell
 //     getting its chance, and again after every restart while the rescue is kept. That time is on the boot clock
 //     (SystemClock.elapsedRealtime), from the install or from the restart, never from the wall clock: a restart in
 //     the window gives the display its five minutes again instead of being judged seconds after boot. While someone
-//     has left kiosk mode (Android settings, Wi-Fi, "Leave kiosk mode") the display isn't judged at all, even across a
-//     restart, and when it's opened again it gets its five minutes from then.
+//     has left kiosk mode (Android settings, Wi-Fi, "Leave kiosk mode") from the new release, the display isn't judged
+//     at all, even across a restart, and when it's opened again it gets its five minutes from then. Kiosk mode left
+//     before the install doesn't count: a release that crashes before it's ever opened is still judged.
 //  2. It can update again: its updater fetches and parses the update manifest, by the same check it makes every day
-//     (Updater.check), tried every ten minutes until it works. Only an answer that arrives and that this release reads
-//     wrongly, or rejects by the checks it applies to every manifest, counts against it, and only when Android says the
-//     network works (validated, so not a captive portal's page). Not reaching the server (offline, DNS, TLS, a
-//     timeout) or any HTTP status other than 200 proves nothing either way: the server, the network or the host's
-//     setup may be the trouble. It goes back when, a day after the install, no try has worked and at least three
-//     counted against it; with fewer, it keeps the rescue and keeps trying, hourly, until one works.
+//     (Updater.check), tried every ten minutes until it works. What counts against it, and only when Android says the
+//     network works (validated, so not a captive portal's page): an answer that arrives and that this release reads
+//     wrongly, or rejects by the checks it applies to every manifest; and a fetch this release itself got wrong (its
+//     own code failing, a request the server calls bad: an HTTP 4xx other than 401, 403, 408 and 429). The rest
+//     proves nothing either way (offline, DNS, TLS, a timeout, a 5xx): the server, the network or the host's setup may
+//     be the trouble. It goes back when, a day after the install, no try has worked and at least three counted
+//     against it; with fewer, it keeps the rescue and keeps trying, hourly, until one works.
 // Even once both are true, the rescue stays staged until a day after the install, then it's thrown away ("settled"),
-// unless a newer release comes first: that brings its own rescue. Going back is tried once: if the rescue install
-// fails, or hasn't finished within an hour, the release stays, the failure goes in the history, and updates go on.
+// unless a newer release comes first: that brings its own rescue. Going back, once begun, goes on until the rescue
+// build takes over: a try cut off by a restart, one that fails, or one that hasn't finished within an hour is tried
+// again (ten minutes after a failure), across restarts, up to RESCUE_TRIES tries. Only after the last of them, or a
+// day after going back began, does the release stay, with the failure in the history, and updates go on.
 
 object UpdateHealth {
     const val KEEP_MS = 24 * 60 * 60_000L
@@ -86,8 +90,46 @@ object UpdateHealth {
     fun failureCounts(badAnswer: Boolean, networkValidated: Boolean): Boolean = badAnswer && networkValidated
 
     /**
-     * Going back was started [sinceMs] ago (wall clock) and the rescue build hasn't taken over: it's taken as failed
-     * after an hour (or when the clock has since been set back by more than that).
+     * Does a manifest that couldn't be fetched at all count against the release? Only what this release got wrong
+     * itself: [ownError], its own code failed (not the network: a programming or configuration error, not an
+     * IOException from the connection), or the server answered [status] 4xx to the request it built, other than
+     * the ones about the tablet's credential (401, 403) or the server's load (408, 429). Not while Android hasn't
+     * validated the network.
+     */
+    fun fetchFailureCounts(status: Int?, ownError: Boolean, networkValidated: Boolean): Boolean =
+        networkValidated && (ownError || (status != null && status in 400..499 && status !in listOf(401, 403, 408, 429)))
+
+    /**
+     * Going back was started [sinceMs] ago (wall clock) and the rescue build hasn't taken over: that try is taken as
+     * over after an hour (or when the clock has since been set back by more than that).
      */
     fun rescueStuck(sinceMs: Long): Boolean = sinceMs >= RESCUE_MS || sinceMs <= -RESCUE_MS
+
+    /** How many times going back is tried before the release stays. */
+    const val RESCUE_TRIES = 5
+    private const val RESCUE_RETRY_MS = 10 * 60_000L
+
+    /** Going back began [sinceMs] ago (wall clock): past a day (or the clock set back as far), it's given up on. */
+    fun rescueAbandoned(sinceMs: Long): Boolean = sinceMs >= KEEP_MS || sinceMs <= -KEEP_MS
+
+    sealed class Rescue {
+        /** Start a try now. */
+        object Try : Rescue()
+        /** Look again in [ms]. */
+        data class Wait(val ms: Long) : Rescue()
+        /** It won't happen: the release stays. */
+        data class GiveUp(val why: String) : Rescue()
+    }
+
+    /**
+     * Going back, once begun. [tries]: tries started so far. [inFlight]: the latest is still going (started this boot,
+     * no failure heard, not stuck), started [sinceStartMs] ago. [sinceFailMs]: since the latest failed, if it did (null
+     * when it was cut off by a restart or ran out its hour: tried again at once).
+     */
+    fun rescue(tries: Int, inFlight: Boolean, sinceStartMs: Long, sinceFailMs: Long?): Rescue = when {
+        inFlight -> Rescue.Wait((RESCUE_MS - sinceStartMs).coerceIn(5_000, RESCUE_MS))
+        tries >= RESCUE_TRIES -> Rescue.GiveUp("it didn't finish in $tries tries")
+        sinceFailMs != null && sinceFailMs in 0 until RESCUE_RETRY_MS -> Rescue.Wait(RESCUE_RETRY_MS - sinceFailMs)
+        else -> Rescue.Try
+    }
 }

@@ -96,18 +96,23 @@ internal object Updater {
         prefs(c).edit().putLong("last_check", now).putLong("next_check", now + DAY).apply()
         if (url.isEmpty()) { status = "Updates are off on this tablet"; proof(c, false, true, "no update URL"); return }
         val cred = cloudCredential(c, url)
-        fun couldnt(e: Exception, badAnswer: Boolean) {
+        fun couldnt(e: Exception, counts: Boolean) {
             prefs(c).edit().putLong("next_check", now + DAY / 24).apply()
             Log.w(TAG, "manifest $url: $e"); status = "Couldn't check for updates (${e.message?.take(80)})"
-            proof(c, false, UpdateHealth.failureCounts(badAnswer, networkValidated(c)), e.toString().take(200))
+            proof(c, false, counts, e.toString().take(200))
         }
-        // Fetching and reading apart: only an answer that came and couldn't be read (or was refused) can count against
-        // a release being watched; not getting one at all (DNS, TLS, a timeout, any HTTP status) can't (UpdateHealth).
+        // Fetching and reading apart: an answer that came and couldn't be read (or was refused) can count against a
+        // release being watched, and so can a fetch this release got wrong itself (its own code failing, not the
+        // connection's; a 4xx to the request it built); not getting one for the network's or the server's reasons
+        // (DNS, TLS, a timeout, a 5xx) can't (UpdateHealth).
         val text = try {
             val ask = Releases.requestUrl(url, installedCode(c), prefs(c).getString("channel", "stable")!!, if (cred == null) deviceId(c) else null)
             fetchText(ask, cred?.let { "Device $it" })
-        } catch (e: Exception) { couldnt(e, badAnswer = false); return }
-        val answer = try { Releases.parseAnswer(text, url) } catch (e: Exception) { couldnt(e, badAnswer = true); return }
+        } catch (e: Exception) {
+            val own = e !is java.io.IOException || e is java.net.UnknownServiceException // (that: its network config refused the request)
+            couldnt(e, UpdateHealth.fetchFailureCounts((e as? HttpStatus)?.code, own, networkValidated(c))); return
+        }
+        val answer = try { Releases.parseAnswer(text, url) } catch (e: Exception) { couldnt(e, UpdateHealth.failureCounts(badAnswer = true, networkValidated(c))); return }
         proof(c, true, false, null)
         answer.checkAgainSeconds?.let { prefs(c).edit().putLong("next_check", now + it * 1000).apply() }
         val r = answer.release ?: run { status = "Up to date"; clearDownloads(c); Log.i(TAG, "checked $url: $status"); return }
@@ -183,7 +188,7 @@ internal object Updater {
             }
             if (h.responseCode in 300..399) {
                 val next = URL(u, h.getHeaderField("Location")); h.disconnect()
-                require(next.protocol == "https" || next.protocol == u.protocol) { "redirected to ${next.protocol}" }
+                if (next.protocol != "https" && next.protocol != u.protocol) throw java.io.IOException("redirected to ${next.protocol}") // the server's doing
                 u = next
             } else {
                 if (h.responseCode != 200) { val code = h.responseCode; h.disconnect(); throw HttpStatus(code) }
@@ -333,11 +338,11 @@ internal object Updater {
             mine == to -> {
                 if (File(dir(c), "healthy").exists()) return
                 UpdateGuard.rescueOver(p)?.let { why ->
-                    // Going back was tried and didn't happen: this release stays, and updates go on as usual (a newer
-                    // release, with its own rescue, is the way forward from here).
+                    // Going back was tried, again and again, and didn't happen (UpdateHealth.rescue): this release stays,
+                    // and updates go on as usual (a newer release, with its own rescue, is the way forward from here).
                     val version = p.optString("version")
                     history(c, "Version $version ${p.optString("why", "didn't start properly")}, but going back to ${p.optString("rescueVersion")} failed ($why), so it stays on $version")
-                    if (p.optBoolean("rescuing")) UpdateCover.down(c) // stuck: the guard never heard back, so the cover may still be up
+                    if (UpdateGuard.goingBack(p)) UpdateCover.down(c) // the guard may have stopped mid-try, with the cover up
                     UpdateGuard.settle(c, p)
                     clearDownloads(c)
                     prefs(c).edit().putLong("next_check", 0).apply()
@@ -345,7 +350,7 @@ internal object Updater {
                     Log.w(TAG, "rescue failed: $why")
                     return
                 }
-                if (p.optBoolean("rescuing")) return
+                if (UpdateGuard.goingBack(p)) return // the guard's, until the rescue takes over or it gives up
                 val version = p.optString("version")
                 if (!UpdateGuard.watch(c, p).upThisBoot) {
                     val bridgeOk = runCatching { dev.openhouse.ui.BridgeClient.getText("$bridge/state", 3000, 5000) }.isSuccess
@@ -385,7 +390,7 @@ internal object Updater {
      */
     private fun proof(c: Context, ok: Boolean, counts: Boolean, why: String?) {
         val p = UpdateGuard.watching(c) ?: return
-        if (p.optBoolean("proven") || p.optBoolean("rescuing")) return
+        if (p.optBoolean("proven") || UpdateGuard.goingBack(p)) return
         val now = System.currentTimeMillis()
         p.put("triedAt", now)
         if (ok) {
