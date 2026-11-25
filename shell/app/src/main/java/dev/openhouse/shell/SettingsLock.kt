@@ -102,10 +102,12 @@ internal class SettingsLock(private val act: MainActivity) {
         val linked = get("/cloud/status")?.optBoolean("linked") == true
         act.runOnUiThread {
             if (linked) return@runOnUiThread PinPrompt.choose(act, act, then = then, back = back)
-            CalmDialog(act).setTitle("Link this tablet first")
-                .setMessage("A PIN chosen now is reset with your Opie account if it's forgotten, so PIN Lock needs this tablet linked to one.")
-                .setPositiveButton("Account") { _, _ -> CloudMenu(act).show() }
-                .setNegativeButton("Back") { _, _ -> back() }.show()
+            // Not linked (set up without an account, as a do-it-yourself tablet may be): the PIN still comes with a
+            // recovery code to keep, its only way back, so say that first rather than refusing a PIN outright.
+            CalmDialog(act).setTitle("Choose a PIN")
+                .setMessage("This tablet isn't linked to an Opie account, so a forgotten PIN can only be reset with the recovery code shown next. Keep it somewhere safe, away from the tablet.")
+                .setPositiveButton("Continue") { _, _ -> PinPrompt.choose(act, act, then = then, back = back) }
+                .setNegativeButton("Link it first") { _, _ -> CloudMenu(act).show() }.show()
             act.immersive()
         }
     }
