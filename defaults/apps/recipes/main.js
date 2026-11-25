@@ -347,13 +347,17 @@ function webFind(q) {
 }
 /** One of the recipes found, saved into the box (made into steps as it goes in) and opened. What the voice says. */
 let chosen = null; // {key, at}: the one picked last, so "let's make it" knows which
-function choose(i) {
+async function choose(i) {
   const r = H?.recipeFind?.results?.[i];
   if (!r) return H?.recipeFind?.results?.length ? `There are only ${H.recipeFind.results.length}.` : 'Nothing has been found yet. Say what to look for.';
   const have = Object.entries(H.recipes || {}).find(([, x]) => x.link === r.url);
   const key = have ? have[0] : r.title.toLowerCase();
   chosen = { key, at: Date.now() };
-  if (!have) house.addRecipeLink(r.url, r.title).then(told);
+  if (!have) {
+    // (Waited for, so a refusal, such as a full recipe box, is what the voice says, not "Saved".)
+    const res = await house.addRecipeLink(r.url, r.title);
+    if (res?.error) { told(res); return res.error; }
+  }
   openWhenThere(key);
   return have ? `${r.title} is already in the recipe box.${cookOf(key) ? ' Say let\'s make it to start.' : ''}` : `Saved ${r.title}. Making the steps now; say let's make it when you're ready.`;
 }

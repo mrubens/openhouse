@@ -22,7 +22,9 @@ jobs:
         with:
           node-version: 22
       # (no dependencies: the bridge has no package-lock.json and nothing to install)
-      - run: npm test
+      # (each file's process is ended when its tests are done, and a stuck test fails after two minutes, so a handle
+      # left open on the runner can't hang the job: it did on the first run, though not on a Mac)
+      - run: node --test --test-force-exit --test-timeout=120000 --test-reporter=spec test/*.test.mjs
         working-directory: bridge
 
   shell:
@@ -35,6 +37,6 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: gradle
-      - uses: android-actions/setup-android@v3
+      # (the runner already has the Android SDK, with ANDROID_HOME set; gradle fetches the platform it needs)
       - run: ./gradlew -q :app:testReleaseUnitTest
         working-directory: shell
