@@ -23,7 +23,7 @@ export function hubRoutes({ DISPLAY, screens, json, CODE = process.env.OPENHOUSE
   function ownerCode() {
     const { code, port, https } = screens.ownerCode();
     const file = path.join(DISPLAY, 'hub-setup.txt');
-    const text = `OpenHouse hub: open ${https ? 'https' : 'http'}://<this machine's address>:${port}/hub/ on a phone or computer and type ${code}\n(it works once, for 24 hours)\n`;
+    const text = `Opie hub: open ${https ? 'https' : 'http'}://<this machine's address>:${port}/hub/ on a phone or computer and type ${code}\n(it works once, for 24 hours)\n`;
     try { fs.writeFileSync(file, text, { mode: 0o600 }); } catch {}
     log(`\n[hub] ----------------------------------------------------------------\n[hub] Set it up: open ${https ? 'https' : 'http'}://<this machine>:${port}/hub/ and type  ${code}\n[hub] ----------------------------------------------------------------\n`);
     return { code, port };

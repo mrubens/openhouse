@@ -123,7 +123,7 @@ function TvPairing({ onJoined, removed }) {
   }, []);
   return (
     <div className="tv-pair">
-      <div className="brand">OpenHouse</div>
+      <div className="brand">Opie</div>
       {step === 'joining' ? <h1>Joining</h1> : <>
         <h1>{removed ? 'This TV was removed. To add it again:' : 'To show the household here:'}</h1>
         <p>On the tablet, open Settings, Screens, Add a screen, A TV, and type</p>
@@ -917,7 +917,7 @@ function TvFrame({ c, onRemoved }) {
   if (!apps) return <div className="pairing"><div className="dots"><i /><i /><i /></div>{!up && <div className="offline" />}</div>;
   if (!app) return (
     <div className="tv-pair">
-      <div className="brand">OpenHouse</div>
+      <div className="brand">Opie</div>
       <h1>Nothing to show on the TV.</h1>
       <p>Ask Opie on the tablet to make a layout for the TV, or to put ours back.</p>
     </div>

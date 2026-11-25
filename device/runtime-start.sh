@@ -19,7 +19,7 @@ if [ ! -d webapp/.git ]; then
   mkdir -p webapp && tar xzf webapp.tgz -C webapp
   (cd webapp && git init -q && git add -A && git commit -qm "Starting point" && git tag -f last-good)
 fi
-# The starting apps (defaults/<id>) are OpenHouse's own plugins now: the bridge puts them in and updates them on
+# The starting apps (defaults/<id>) are Opie's own plugins now: the bridge puts them in and updates them on
 # start-up (bridge/plugins.js syncBuiltins), with the one-time move of webapp/apps into plugins before that.
 # Apps from before apps were web pages, rewritten (defaults/ports, see its README): each swapped in once, and only over
 # the exact source it was ported from (anything else, or anything the family changed since, stays as it is).
@@ -33,7 +33,7 @@ if [ -d ports ]; then
   done
   [ -n "$ported" ] && (cd webapp && for id in $ported; do git add -A "apps/$id"; done && git commit -qm "Moved to web:$ported" && git tag -f last-good)
 fi
-# node_modules built for this runtime (Linux arm64), not copied from elsewhere: from OpenHouse's own package.json and
+# node_modules built for this runtime (Linux arm64), not copied from elsewhere: from Opie's own package.json and
 # lockfile (webapp.tgz), never the ones in webapp/ (a backup's), installed exactly and with no package's scripts run.
 if [ ! -d webapp/node_modules/@esbuild/linux-arm64 ]; then
   t="$D/.npm-build"; rm -rf "$t"; mkdir -p "$t"

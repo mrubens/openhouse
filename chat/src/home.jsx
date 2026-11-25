@@ -739,7 +739,7 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
       {here.length || shell?.plugins ? <div className="h-app-grid">{here.map((a) => (
         <button key={a.id} className={'h-app-tile' + (a.web === false ? ' old' : '')} {...press(a)}><Icon a={a} /><span className="h-app-name">{a.name}</span><span className="h-app-about">{a.about}</span></button>
       ))}
-        {/* OpenHouse's list of plugins (the shell's gallery, as in Settings, Plugins): adding one asks for the PIN */}
+        {/* Opie's list of plugins (the shell's gallery, as in Settings, Plugins): adding one asks for the PIN */}
         {shell?.plugins && <button className="h-app-tile add" onClick={() => shell.plugins()}>
           <span className="h-app-icon letter add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg></span>
           <span className="h-app-name">Add apps</span><span className="h-app-about">Find one, or make your own.</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : 'No other apps yet. Ask Opie to make one.'}</div>}

@@ -66,7 +66,7 @@ class DeviceAccess : AccessibilityService() {
     override fun onDestroy() { buddy?.close(); if (instance === this) instance = null; super.onDestroy() }
 
     // --- web pages ---------------------------------------------------------------
-    // Chromium (OpenHouse's tabs and apps are web pages) builds its pages' accessibility only for a service that asks for
+    // Chromium (Opie's tabs and apps are web pages) builds its pages' accessibility only for a service that asks for
     // more than window changes. Asked for while Opie is using the screen, and back to window changes two minutes after,
     // so other apps aren't sending every event here the rest of the time.
     private val narrow = Runnable { setWide(false) }
@@ -111,12 +111,12 @@ class DeviceAccess : AccessibilityService() {
         for (w in wins) {
             val root = w.root ?: continue
             val pkg = root.packageName?.toString() ?: ""
-            // OpenHouse's own screen (its tabs and apps are web pages, read like any app's, and Settings), except a PIN.
+            // Opie's own screen (its tabs and apps are web pages, read like any app's, and Settings), except a PIN.
             if (hasPin(root)) { sb.append("(A PIN is being asked for: only the people here answer it, never Opie.)\n"); continue }
             if (w.type == AccessibilityWindowInfo.TYPE_SYSTEM && pkg == "com.android.systemui") continue
             // The on-screen keyboard: one line (its keys would fill the list; the type tool types without them).
             if (w.type == AccessibilityWindowInfo.TYPE_INPUT_METHOD) { sb.append("(The keyboard is showing: type text with the type tool, not its keys.)\n"); continue }
-            sb.append("## ").append(if (pkg == packageName) "OpenHouse, its own screen (tabs and apps; show_on_screen changes the tab)" else appLabel(pkg)).append(" (").append(pkg).append(")")
+            sb.append("## ").append(if (pkg == packageName) "Opie's own screen (tabs and apps; show_on_screen changes the tab)" else appLabel(pkg)).append(" (").append(pkg).append(")")
             sb.append('\n')
             fun walk(node: AccessibilityNodeInfo, depth: Int) {
                 if (!node.isVisibleToUser) return
@@ -160,7 +160,7 @@ class DeviceAccess : AccessibilityService() {
         return sb.toString().ifBlank { "(nothing readable on screen)" }
     }
 
-    /** A PIN pad is on screen, in OpenHouse or one of its apps' windows: only a person answers it. */
+    /** A PIN pad is on screen, in Opie or one of its apps' windows: only a person answers it. */
     fun pinShowing(): Boolean = windows.any { w -> w.root?.let { hasPin(it) } == true }
     private fun hasPin(root: AccessibilityNodeInfo) = runCatching { root.findAccessibilityNodeInfosByText(dev.openhouse.ui.PinPad.MARK).any { it.contentDescription?.toString() == dev.openhouse.ui.PinPad.MARK } }.getOrDefault(false)
 

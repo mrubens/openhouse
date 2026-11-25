@@ -36,7 +36,7 @@ import kotlin.concurrent.thread
  * the agent reads. The bridge's calendar-sync.js does the syncing, and every request it makes to Google or iCloud
  * comes through here (DeviceServer /calendar/request): this adds the authorization, and only for that account's own
  * service (Google's Calendar API; the account's CalDAV server). Google: a refresh token from a phone's sign-in
- * through OpenHouse's cloud (/g/start?k=cal); access tokens from the cloud's refresher (through the bridge,
+ * through Opie's cloud (/g/start?k=cal); access tokens from the cloud's refresher (through the bridge,
  * /cloud/google/refresh), kept in memory only. iCloud: the Apple ID and an app-specific password, typed here.
  *
  * Never logged: no token, password, Apple ID or calendar address.
@@ -132,7 +132,7 @@ object CalendarAccounts {
             return j.getString("access_token")
         }
         if (j.optString("error") == "invalid_grant") { tokens.remove(a.id); throw Said("signin") } // signed out at Google: sign in again
-        throw Said(if (j.optString("error") == "unlinked") "The tablet isn't linked to OpenHouse cloud" else "Google isn't reachable right now")
+        throw Said(if (j.optString("error") == "unlinked") "The tablet isn't linked to Opie cloud" else "Google isn't reachable right now")
     }
 
     private fun bridge(): String = runCatching { dev.openhouse.ui.Openhouse.bridgeUrl }.getOrDefault("http://127.0.0.1:8787")
@@ -154,12 +154,12 @@ object CalendarAccounts {
             val cloud = cloudApi()
             main.post {
                 val rows = listOf(
-                    CalmDialog.Row("Google Calendar", if (cloud != null) "Two-way: what's added here shows up in Google too" else "Two-way. Needs the tablet linked to OpenHouse cloud (Settings, Account)"),
+                    CalmDialog.Row("Google Calendar", if (cloud != null) "Two-way: what's added here shows up in Google too" else "Two-way. Needs the tablet linked to Opie cloud (Settings, Account)"),
                     CalmDialog.Row("iCloud", "Two-way, with an app-specific password"),
                     CalmDialog.Row("A calendar's link", "Read only: Outlook, a school or team calendar"))
                 CalmDialog(a).setTitle("Add a calendar").setWidth(860f).setRows(rows) { _, i ->
                     when (i) {
-                        0 -> if (cloud != null) addGoogle(a, cloud, immersive) else CalmDialog(a).setTitle("Link the tablet first").setMessage("Google sign-in goes through OpenHouse cloud: Settings, Account.").setPositiveButton("OK", null).show().also { immersive() }
+                        0 -> if (cloud != null) addGoogle(a, cloud, immersive) else CalmDialog(a).setTitle("Link the tablet first").setMessage("Google sign-in goes through Opie cloud: Settings, Account.").setPositiveButton("OK", null).show().also { immersive() }
                         1 -> addICloud(a, immersive)
                         else -> CalendarLinks.add(a, immersive)
                     }
@@ -219,7 +219,7 @@ object CalendarAccounts {
         }
     }
 
-    /** Google: a phone on the home Wi-Fi signs in (Google won't let a tablet's page do it), through OpenHouse's cloud. */
+    /** Google: a phone on the home Wi-Fi signs in (Google won't let a tablet's page do it), through Opie's cloud. */
     fun addGoogle(a: Activity, cloud: String, immersive: () -> Unit) {
         var dialog: android.app.Dialog? = null
         var got: String? = null

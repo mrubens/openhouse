@@ -8,7 +8,7 @@ A=shell/app/src/main/assets/runtime
 rm -rf "$A"; mkdir -p "$A/bridge/agents" "$A/bridge/public" "$A/bridge/kit/fonts"
 (cd chat && npm run build --silent) # the generated-UI catalog prompt (chat-prompt.md), and the conversation page
 cp bridge/*.js bridge/*.md bridge/package.json "$A/bridge/" # every guide and prompt the bridge reads (AGENT, CHAT, CURATE, DESIGN, NOTES, PLUGINS, WORKSHOP; chat-prompt.md is built just above)
-scripts/build-mcpb.sh >/dev/null # the OpenHouse extension and script the Connect screen serves (connect-page.js)
+scripts/build-mcpb.sh >/dev/null # the Opie extension and script the Connect screen serves (connect-page.js)
 cp -R bridge/public/chat bridge/public/app bridge/public/screen bridge/public/phone bridge/public/connect "$A/bridge/public/"
 cp bridge/agents/*.js "$A/bridge/agents/" # the cloud's text model (cloud.js), none.js, and the stand-ins
 mkdir -p "$A/bridge/house" && cp bridge/house/*.js "$A/bridge/house/" # the household's parts (house.js)

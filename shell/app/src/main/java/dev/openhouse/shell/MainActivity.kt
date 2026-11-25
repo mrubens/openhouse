@@ -35,11 +35,11 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     private lateinit var setupNote: TextView
     private lateinit var setupBar: android.widget.ProgressBar
 
-    /** First run: one step and one bar ("Getting OpenHouse ready"), the name in the corner, nothing technical. */
+    /** First run: one step and one bar ("Getting Opie ready"), the name in the corner, nothing technical. */
     private fun buildSetupLayer() {
         val C = dev.openhouse.ui.Calm
         setupLayer.addView(C.wordmark(this), FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { leftMargin = C.px(this@MainActivity, 56); topMargin = C.px(this@MainActivity, 44) })
-        setupText = C.display(this, "Getting OpenHouse ready")
+        setupText = C.display(this, "Getting Opie ready")
         setupNote = C.lead(this, "This takes a few minutes. Keep the tablet plugged in and on Wi-Fi.")
         setupBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100; isIndeterminate = false
@@ -98,7 +98,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         PinPrompt.watchScreen(this) // the PIN's two-minute grace ends when the screen sleeps
-        // Moving to OpenHouse's IDs (Move.kt): the new display takes over first; the old one, once it has handed over,
+        // Moving to Opie's IDs (Move.kt): the new display takes over first; the old one, once it has handed over,
         // only steps aside.
         if (Move.takeOverNeeded(this)) { startActivity(Intent(this, MoveActivity::class.java)); finish(); return }
         if (Move.handedOver(this)) { Move.stepAside(this); finish(); return }
@@ -210,7 +210,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         settingUp = true
         setupLayer.visibility = View.VISIBLE; setupLayer.bringToFront()
         if (image == null) { setupText.text = "This tablet isn't set up yet"; setupNote.text = "Set it up again from openhouse.computer/setup."; setupBar.visibility = View.GONE; settingUp = false; return }
-        setupText.text = "Getting OpenHouse ready"; setupNote.text = "This takes a few minutes. Keep the tablet plugged in and on Wi-Fi."; setupBar.visibility = View.VISIBLE
+        setupText.text = "Getting Opie ready"; setupNote.text = "This takes a few minutes. Keep the tablet plugged in and on Wi-Fi."; setupBar.visibility = View.VISIBLE
         thread(name = "setup") {
             val ok = Runtime.setup(image, { pct -> main.post { setupBar.progress = pct } }) { why ->
                 Log.w("Setup", "runtime: $why"); main.post { setupText.text = "Still getting ready"; setupNote.text = "Check the Wi-Fi. It tries again in half a minute." }

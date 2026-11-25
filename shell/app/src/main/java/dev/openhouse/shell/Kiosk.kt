@@ -8,7 +8,7 @@ import android.util.Log
 
 /**
  * What the tablet won't do while it's the family's display (device owner): factory reset, start in safe mode (which
- * would open without OpenHouse), add users, install apps from outside the shell, or turn on USB debugging. Someone
+ * would open without Opie), add users, install apps from outside the shell, or turn on USB debugging. Someone
  * leaving kiosk mode (Settings, PIN) lifts them until the display is reopened. USB debugging has its own switch in Settings, so a developer
  * keeps adb: it starts the way the tablet was set up (adb was on: it stays allowed).
  */

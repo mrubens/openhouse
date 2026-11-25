@@ -161,7 +161,7 @@ internal fun WelcomeSheet() {
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         Box(Modifier.fillMaxSize().background(Calm.scrim).clickable(enabled = false) {}, contentAlignment = Alignment.Center) {
             QuietCard(Modifier.width(760.u), padding = PaddingValues(horizontal = 56.u, vertical = 52.u)) {
-                Text("Welcome to OpenHouse", style = calmText(Calm.DISPLAY, FontWeight.Medium))
+                Text("Welcome to Opie", style = calmText(Calm.DISPLAY, FontWeight.Medium))
                 Spacer(Modifier.height(16.u))
                 Text("Say “Hey Opie” or just type, and Opie answers. What you say after “Hey Opie” goes to OpenAI.", style = calmText(Calm.LEAD, color = Calm.soft))
                 Spacer(Modifier.height(40.u))

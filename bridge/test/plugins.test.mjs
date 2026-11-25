@@ -59,7 +59,7 @@ test('what a plugin may hold: flat app folders of plain files, no code for the a
   refuse({ reaches: ['https://evil.example/x'] }, /plain host names/);
   refuse({ extra: (d) => fs.symlinkSync('/etc/passwd', path.join(d, 'apps/twins-chores/x.js')) }, /link/);
   refuse({ extra: (d) => fs.mkdirSync(path.join(d, 'apps/twins-chores/assets')) }, /flat folder/);
-  refuse({ app: 'home' }, /isn't one OpenHouse can use/);
+  refuse({ app: 'home' }, /isn't one Opie can use/);
   refuse({ pkg: { name: 'Bad Name!' } }, /name/);
 });
 

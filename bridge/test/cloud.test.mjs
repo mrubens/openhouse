@@ -1,7 +1,7 @@
 // Backups (backup.js) to the cloud (cloud.js, against the real service code running locally: the cloud repo's lambda/local.ts)
 // and to a USB drive (drive.js, against a stand-in for the shell's drive helper, a folder): link with a code someone
 //  enters on the web, back up, restore, restore on a "new tablet" with the recovery code or the copy kept
-// with OpenHouse, and unlinking from the web.
+// with Opie, and unlinking from the web.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -159,7 +159,7 @@ test('USB drive, no cloud at all: off until chosen, then backs up, keeps a few, 
   assert.equal(fs.statSync(path.join(D, '.backup/key.json')).mode & 0o077, 0);
   await t.call('POST', '/backup/recovery-code/confirmed');
   assert.equal((await t.call('POST', '/backup/dest', { id: 'drive', on: true })).obj.recoveryCode, undefined); // shown once unasked
-  assert.equal((await t.call('POST', '/backup/escrow', { on: true })).code, 400); // the copy with OpenHouse needs the cloud
+  assert.equal((await t.call('POST', '/backup/escrow', { on: true })).code, 400); // the copy with Opie needs the cloud
 
   for (let i = 0; i < KEEP.manual + 2; i++) {
     assert.equal((await t.call('POST', '/backup/now')).obj.started, true);
@@ -225,7 +225,7 @@ test('a code someone claimed links only after a yes at the tablet; a no leaves i
   assert.equal((await t.call('GET', '/cloud/status')).obj.linked, false);
 });
 
-test('cloud and drive together; a new tablet restores with the code; the copy kept with OpenHouse; unlink from the web', { skip: !svc && SKIP }, async () => {
+test('cloud and drive together; a new tablet restores with the code; the copy kept with Opie; unlink from the web', { skip: !svc && SKIP }, async () => {
   await signIn('pat@example.com');
   const D = display(); const t1 = tablet(D);
   const drive = await fakeDrive(D);
@@ -258,7 +258,7 @@ test('cloud and drive together; a new tablet restores with the code; the copy ke
   assert.match(fs.readFileSync(path.join(D2, 'webapp/apps/chores/index.html'), 'utf8'), /MARKER-CHORES/);
   assert.equal((await t2.call('GET', '/backup/recovery-code')).obj.code, code); // the family's code is this tablet's now
 
-  // The copy kept with OpenHouse (off unless asked): with it, a third tablet restores without typing anything.
+  // The copy kept with Opie (off unless asked): with it, a third tablet restores without typing anything.
   assert.equal((await t1.call('GET', '/backup/status')).obj.escrow.on, false);
   assert.equal((await t1.call('POST', '/backup/escrow', { on: true })).code, 200);
   assert.equal((await t1.call('GET', '/backup/status')).obj.escrow.kept, true);
@@ -267,7 +267,7 @@ test('cloud and drive together; a new tablet restores with the code; the copy ke
   await link(t3);
   const r3 = await t3.call('POST', '/backup/restore', { dest: 'cloud', id: cloudItem.id, deviceId: cloudItem.deviceId });
   assert.equal(r3.code, 200, JSON.stringify(r3.obj));
-  // Turned off: OpenHouse's copy goes.
+  // Turned off: Opie's copy goes.
   await t1.call('POST', '/backup/escrow', { on: false });
   assert.equal((await web('/v1/account')).json.escrow.length, 0);
 

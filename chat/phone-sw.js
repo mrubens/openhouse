@@ -23,10 +23,10 @@ self.addEventListener('fetch', (e) => {
   }));
 });
 self.addEventListener('push', (e) => {
-  let m = {}; try { m = e.data.json(); } catch { m = { title: 'OpenHouse', body: e.data?.text() || '' }; }
+  let m = {}; try { m = e.data.json(); } catch { m = { title: 'Opie', body: e.data?.text() || '' }; }
   // open: what a tap opens ('opie:<conversation>': Opie's answer to something shared, to answer back).
   const open = /^opie:[\w-]{1,40}$/.test(String(m.open || '')) ? m.open : '';
-  e.waitUntil(self.registration.showNotification(m.title || 'OpenHouse', { body: m.body || '', tag: m.tag, icon: 'icon.svg', data: { open } }));
+  e.waitUntil(self.registration.showNotification(m.title || 'Opie', { body: m.body || '', tag: m.tag, icon: 'icon.svg', data: { open } }));
 });
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();

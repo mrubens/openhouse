@@ -1,4 +1,4 @@
-# OpenHouse hub under Docker Desktop (a Mac, Windows): a forwarded port instead of the host's network, which on Docker
+# Opie hub under Docker Desktop (a Mac, Windows): a forwarded port instead of the host's network, which on Docker
 # Desktop is a VM's. Phones, computers and the TV reach it; finding devices on the Wi-Fi doesn't work from here.
 #   docker compose -f hub/compose.desktop.yml up -d --build
 services:

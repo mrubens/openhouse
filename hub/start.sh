@@ -24,7 +24,7 @@ cp "$C/device/vite.config.mjs" vite.config.mjs
 [ -f "$C/hub/package.json" ] && node -p "require('$C/hub/package.json').version" > VERSION 2>/dev/null || true
 
 # First run: the starting point for the household's apps, as a git repo (undo is a git revert). Its apps come from
-# defaults/ as OpenHouse's own plugins when the bridge starts (bridge/plugins.js).
+# defaults/ as Opie's own plugins when the bridge starts (bridge/plugins.js).
 if [ ! -d webapp/.git ]; then
   mkdir -p webapp
   (cd "$C/webapp" && tar --exclude=./node_modules --exclude=./dist --exclude=./.git --exclude=./MEMORY.md --exclude=./CLAUDE.md --exclude='./apps/*' -cf - .) | tar -xf - -C webapp

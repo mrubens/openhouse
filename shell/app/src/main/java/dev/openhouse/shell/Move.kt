@@ -1,8 +1,8 @@
 package dev.openhouse.shell
 
-// Moving a tablet from the prototype's package IDs (dev.openhouse.*) to OpenHouse's (computer.openhouse.*) without a
+// Moving a tablet from the prototype's package IDs (dev.openhouse.*) to Opie's (computer.openhouse.*) without a
 // factory reset: the family's data and the tablet's device owner go from the old display to the new one, and then
-// the old apps are removed. docs/self-update.md, "Moving to OpenHouse".
+// the old apps are removed. docs/self-update.md, "Moving to Opie".
 //
 // Android keeps each app's files to itself and never renames a package, so the old display does the handing over:
 //
@@ -322,7 +322,7 @@ class MoveActivity : Activity() {
         super.onCreate(savedInstanceState)
         val text = TextView(this).apply {
             textSize = 30f; setTextColor(Color.rgb(29, 28, 26)); gravity = Gravity.CENTER; setBackgroundColor(Color.rgb(253, 250, 243))
-            text = "Moving to OpenHouse…"
+            text = "Moving to Opie…"
         }
         setContentView(text)
         if (!Move.takeOverNeeded(this)) return done()
@@ -333,7 +333,7 @@ class MoveActivity : Activity() {
             r.exceptionOrNull()?.let { Log.e(Move.TAG, "the move stopped", it) }
             runOnUiThread {
                 if (r.isSuccess) done()
-                else { text.text = "Couldn't move to OpenHouse. The display is as it was."; text.postDelayed({ finish() }, 8000) }
+                else { text.text = "Couldn't move to Opie. The display is as it was."; text.postDelayed({ finish() }, 8000) }
             }
         }
     }

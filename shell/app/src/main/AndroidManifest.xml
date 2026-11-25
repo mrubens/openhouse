@@ -30,7 +30,7 @@
     <!-- testOnly (debug builds only, see build.gradle.kts): lets `dpm remove-active-admin` undo device owner during the prototype. -->
     <application
         android:testOnly="${testOnly}"
-        android:label="OpenHouse"
+        android:label="Opie"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
@@ -58,7 +58,7 @@
         <service
             android:name=".DeviceAccess"
             android:exported="true"
-            android:label="OpenHouse assistant"
+            android:label="Opie assistant"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/device_access" />
@@ -113,7 +113,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <!-- Moving to OpenHouse's package IDs (Move.kt): the new display's screen while it takes over, and the old
+        <!-- Moving to Opie's package IDs (Move.kt): the new display's screen while it takes over, and the old
              display's end of it (answers only the new display, signed with the release key; checked in code). -->
         <activity android:name=".MoveActivity" android:exported="true" android:excludeFromRecents="true"
             android:screenOrientation="sensorLandscape" android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />

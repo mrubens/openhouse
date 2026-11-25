@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 /**
  * The shell's watchdog: keeps the runtime up (Runtime.supervise: the bridge and the dev server, each on its own; one
  * that misses six probes is restarted) and runs the shell's other jobs every 10 s: self-update (Updater, whose guard
- * and health rules are its own), the move to OpenHouse's IDs (Move), the cloud link (CloudSetup), the voice models.
+ * and health rules are its own), the move to Opie's IDs (Move), the cloud link (CloudSetup), the voice models.
  *
  * One per process, not per activity: the display's activity is recreated now and then (Move's abort, a setting), and
  * each recreation used to start one more loop that was never stopped, all of them probing and restarting the bridge at

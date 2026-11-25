@@ -62,7 +62,7 @@ def main():
           'background:#fbf9f5;overflow:hidden}body{display:flex;align-items:center;justify-content:center;gap:44px;'
           'font:600 112px/1 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:-.025em;'
           'color:#2a2826;-webkit-font-smoothing:antialiased}svg{width:176px;height:176px;flex:none}</style></head>'
-          f'<body>{svg("logo.svg")}<span>OpenHouse</span></body></html>')
+          f'<body>{svg("logo.svg")}<span>Opie</span></body></html>')
     out = os.path.join(HERE, 'og.png')
     shoot(og, 1200, 630, out)
     Image.open(out).convert('RGB').save(out, optimize=True)

@@ -1,6 +1,6 @@
 package dev.openhouse.shell
 
-// OpenAI's live voice, OpenHouse cloud's voice (openhouse-cloud/docs/cloud-beta.md), off unless someone turned it on (Settings →
+// OpenAI's live voice, Opie cloud's voice (openhouse-cloud/docs/cloud-beta.md), off unless someone turned it on (Settings →
 // Better voice). After its name is heard on the tablet, a full-duplex session takes the conversation: it listens while
 // it talks, and someone can talk over it. It only listens and speaks. Every request is handed back here (OpenAI's
 // "client delegation") and asked of the family's own assistant as usual; its answer is what the session says.

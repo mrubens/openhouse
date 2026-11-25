@@ -2,7 +2,7 @@
 // chat/live/live-session.cjs, the same copy the tablet's LiveVoice.kt runs; this is its Host, the part the tablet does
 // in Kotlin, with every request sealed to the hub the way the rest of this device's are (screen-client.js):
 //   GET  /live/setup     the household's tools, rules and what was said lately
-//   POST /live/start     the WebRTC offer, through OpenHouse cloud (it holds OpenAI's key): OpenAI's answer back
+//   POST /live/start     the WebRTC offer, through Opie cloud (it holds OpenAI's key): OpenAI's answer back
 //   POST /live/tool      one of the household's tools, run by the hub
 //   POST /live/said      what was heard and said, kept on the hub for half an hour (the next conversation knows it)
 //   POST /live/usage     how long it ran, for the household's allowance

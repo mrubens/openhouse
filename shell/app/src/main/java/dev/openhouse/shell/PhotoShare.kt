@@ -22,14 +22,14 @@ import javax.crypto.spec.GCMParameterSpec
 import kotlin.concurrent.thread
 
 /**
- * "Share to OpenHouse": the household's lasting photo page. One link (a QR code in the Photos app's Add photos,
+ * "Share to Opie": the household's lasting photo page. One link (a QR code in the Photos app's Add photos,
  * Phones) that the household's phones keep: photos sent from it land in Photos, any time, not only while a card is
  * open on the tablet. Off until someone turns it on; "New link" cuts off every phone that has the old one.
  *
  *   On the home Wi-Fi: http://<tablet>:<port>/#<key>, served here ([Handoff] with a lasting key and port; assets/share.html).
  *   With reaching the tablet from away on (Cloud): https://<service>/p/#<key>.<relay>.<token>, the same page from the
  *   cloud, through the relay (which only passes sealed bytes on). That one can be installed, and on Android it's in
- *   the share sheet (Web Share Target): Photos, Share, OpenHouse. docs/photos.md.
+ *   the share sheet (Web Share Target): Photos, Share, Opie. docs/photos.md.
  *
  * The key and the relay token are kept sealed with a Keystore key (no-backup folder), never in the household.
  */
@@ -72,7 +72,7 @@ object PhotoShare {
     }
 
     private fun run(st: State): Handoff? {
-        val info = JSONObject().put("title", "Photos for OpenHouse")
+        val info = JSONObject().put("title", "Photos for Opie")
         val x = Handoff(ctx, info, minutes = 0, page = "share.html", maxBytes = 4_000_000, once = false, fixedKey = st.key, port = st.port,
             onData = { bytes -> if (!dev.openhouse.ui.House.addPhoto(bytes, "phone.jpg")) throw IllegalStateException("the bridge didn't take it") })
         return if (runCatching { x.start() }.getOrDefault(false)) x else null

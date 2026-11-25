@@ -90,7 +90,7 @@ object Bluetooth {
             runCatching { dpm.setPermissionGrantState(admin, ctx.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) }
         }
         val still = need.filter { ctx.checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
-        return if (still.isEmpty()) null else "The tablet hasn't allowed OpenHouse to use Bluetooth (${still.joinToString { it.substringAfterLast('.') }})."
+        return if (still.isEmpty()) null else "The tablet hasn't allowed Opie to use Bluetooth (${still.joinToString { it.substringAfterLast('.') }})."
     }
 
     /** Bluetooth on, or why not. Turning it on is fine: someone asked for a Bluetooth device. */
@@ -259,7 +259,7 @@ object Bluetooth {
         if (d.bondState != BluetoothDevice.BOND_BONDED) return JSONObject().put("unpaired", true)
         val ok = runCatching { d.javaClass.getMethod("removeBond").invoke(d) as Boolean }.getOrDefault(false)
         log("forget ${d.name ?: d.address}: ${if (ok) "done" else "refused"}")
-        return JSONObject().put("unpaired", ok).apply { if (!ok) put("why", "Android didn't let OpenHouse forget it; it can be forgotten in the tablet's Bluetooth settings.") }
+        return JSONObject().put("unpaired", ok).apply { if (!ok) put("why", "Android didn't let Opie forget it; it can be forgotten in the tablet's Bluetooth settings.") }
     }
 
     // --- GATT ---------------------------------------------------------------------------------
@@ -327,7 +327,7 @@ object Bluetooth {
         }
 
         fun write(svc: String, c: String, bytes: ByteArray, response: Boolean) {
-            if (blocked(svc)) throw SecurityException("OpenHouse never writes to that service (firmware updates, security or typing).")
+            if (blocked(svc)) throw SecurityException("Opie never writes to that service (firmware updates, security or typing).")
             val ch = chr(svc, c)
             val type = if (response) BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT else BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
             val started = if (Build.VERSION.SDK_INT >= 33) g?.writeCharacteristic(ch, bytes, type) == BluetoothGatt.GATT_SUCCESS
@@ -373,7 +373,7 @@ object Bluetooth {
         for (i in 0 until steps.length()) {
             val s = steps.getJSONObject(i)
             val w = s.optJSONObject("write") ?: s.optJSONObject("listen") ?: continue
-            if (blocked(w.optString("service"))) return JSONObject().put("error", "OpenHouse never writes to that service (firmware updates, security or typing).")
+            if (blocked(w.optString("service"))) return JSONObject().put("error", "Opie never writes to that service (firmware updates, security or typing).")
         }
         val out = JSONArray()
         Gatt(d).use { g ->
@@ -430,7 +430,7 @@ object Bluetooth {
             val ok = runCatching { BluetoothA2dp::class.java.getMethod(name, BluetoothDevice::class.java).invoke(a2dp, d) as Boolean }
                 .onFailure { Log.w(TAG, "a2dp $name: $it") }.getOrDefault(false)
             log("audio $name ${d.name ?: d.address}: ${if (ok) "asked" else "refused"}")
-            if (!ok) return state().put("error", if (what == "connect") "Android didn't let OpenHouse switch to it directly. Turn the speaker off and on again: a paired speaker connects to the tablet by itself." else "Android didn't let OpenHouse disconnect it. Turning the speaker off sends the sound back to the tablet.")
+            if (!ok) return state().put("error", if (what == "connect") "Android didn't let Opie switch to it directly. Turn the speaker off and on again: a paired speaker connects to the tablet by itself." else "Android didn't let Opie disconnect it. Turning the speaker off sends the sound back to the tablet.")
             val want = if (what == "connect") BluetoothProfile.STATE_CONNECTED else BluetoothProfile.STATE_DISCONNECTED
             repeat(40) { if (a2dp.getConnectionState(d) == want) return state(); Thread.sleep(250) }
             return state().put("error", if (what == "connect") "It didn't connect within 10 seconds (is it on, and near?)." else "It's still connected.")

@@ -1,5 +1,5 @@
 #!/bin/bash
-# The OpenHouse extension for Claude Desktop (dist/openhouse.mcpb) and the npx package's file
+# The Opie extension for Claude Desktop (dist/openhouse.mcpb) and the npx package's file
 # (connect/dist/openhouse-mcp.mjs): connect/openhouse-mcp.mjs bundled with only what it imports (the screen client and
 # cipher from chat/src, bridge/pair-code.js), one file, run by Claude Desktop's own Node. Nothing here is published.
 #   scripts/build-mcpb.sh        then open dist/openhouse.mcpb (Claude Desktop installs it), or: npx ./connect

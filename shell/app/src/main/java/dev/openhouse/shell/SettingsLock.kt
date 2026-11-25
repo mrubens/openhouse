@@ -2,7 +2,7 @@ package dev.openhouse.shell
 
 // The shell's rows of Settings (the list is ui/Sheets.kt, SettingsSheet; docs/settings.md) and the optional lock:
 // off by default, so nothing everyday asks for a PIN. Turned on, it is a PIN (ParentPin), and the rows it locks ask for
-// it before they open. Erasing the tablet, the ways out of OpenHouse, unlinking and restoring need one set first
+// it before they open. Erasing the tablet, the ways out of Opie, unlinking and restoring need one set first
 // (withPinSet); a forgotten PIN is reset with its recovery code (PinPrompt.forgot). The dialogs
 // open over the list, so closing one comes back to it.
 
@@ -24,7 +24,7 @@ internal class SettingsLock(private val act: MainActivity) {
         PinPrompt.ask(act, act, title, ok)
     }
 
-    /** Erasing the tablet, the ways out of OpenHouse (leaving kiosk mode, Android settings, USB debugging, Wi-Fi
+    /** Erasing the tablet, the ways out of Opie (leaving kiosk mode, Android settings, USB debugging, Wi-Fi
      *  settings after the first setup), unlinking and restoring a backup: with the lock on, the PIN (straight on within
      *  the two minutes after it, as when This tablet just asked). With it off, they wait for someone to set a PIN and
      *  keep its recovery code, so taps alone never reach them; once it's chosen, [ok]. [back]: they didn't. */
@@ -63,7 +63,7 @@ internal class SettingsLock(private val act: MainActivity) {
      *  and the waiting app fixes and sends them to the service (bridge/cloud.js sendReport). */
     private fun report() {
         CalmDialog(act).setTitle("Send a report?")
-            .setMessage("It sends this tablet's recent logs to OpenHouse, so we can see what went wrong. They can include things said to Opie and your household's names. We keep them 30 days.")
+            .setMessage("It sends this tablet's recent logs to us, the people who make Opie, so we can see what went wrong. They can include things said to Opie and your household's names. We keep them 30 days.")
             .setPositiveButton("Send") { _, _ ->
                 thread {
                     val log = runCatching { java.lang.Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "5000")).inputStream.bufferedReader().readText() }.getOrDefault("")
@@ -71,7 +71,7 @@ internal class SettingsLock(private val act: MainActivity) {
                     act.runOnUiThread {
                         when {
                             code == 200 -> act.toast("Sent. Thank you")
-                            r?.optString("code") == "unlinked" -> CalmDialog(act).setTitle("Not linked").setMessage("Reports go through your OpenHouse account: link this tablet first, in Settings → Account.").setPositiveButton("OK", null).show()
+                            r?.optString("code") == "unlinked" -> CalmDialog(act).setTitle("Not linked").setMessage("Reports go through your Opie account: link this tablet first, in Settings → Account.").setPositiveButton("OK", null).show()
                             else -> CalmDialog(act).setTitle("Couldn't send it").setMessage(r?.optString("error")?.takeIf { it.isNotBlank() } ?: "The tablet didn't answer. Try again in a minute.").setPositiveButton("OK", null).show()
                         }
                     }
@@ -259,7 +259,7 @@ internal class SettingsLock(private val act: MainActivity) {
         val granted = act.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED
         fun onOff(b: Boolean) = if (b) "On" else "Off"
         fun again() = android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ tablet() }, 350)
-        // A person's own: what Opie may do, ways out of OpenHouse, and what reaches past the tablet (DeviceServer.personOnly).
+        // A person's own: what Opie may do, ways out of Opie, and what reaches past the tablet (DeviceServer.personOnly).
         fun person(what: String, f: () -> Unit): () -> Unit = { if (!DeviceServer.personOnly(what)) f() }
         // A few sections, each row's value at its right, as the main Settings list (docs/ux.md).
         fun head(t: String) = CalmDialog.Row(t, header = true) to {}
@@ -293,7 +293,7 @@ internal class SettingsLock(private val act: MainActivity) {
             },
             CalmDialog.Row("Android settings") to person("Android settings") { withPinSet { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) } },
             CalmDialog.Row("Leave kiosk mode") to person("Leave kiosk mode") { withPinSet {
-                CalmDialog(act).setTitle("Leave kiosk mode?").setMessage("Open OpenHouse from its icon to come back.")
+                CalmDialog(act).setTitle("Leave kiosk mode?").setMessage("Open Opie from its icon to come back.")
                     .setPositiveButton("Leave") { _, _ -> act.leaveKioskForGood() }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
             } },
             // Kiosk mode blocks Android's own factory reset, so this is the way to hand a tablet on (docs/beta.md).

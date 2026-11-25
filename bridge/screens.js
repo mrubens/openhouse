@@ -22,7 +22,7 @@
 //                                  id and one-time key come from it through scrypt (pairingFromCode), so a recorded
 //                                  hello can't be guessed back to the code while the pairing lasts. With {address} (the
 //                                  tablet's own, from the shell): while it lasts, the listener serves the page to add
-//                                  OpenHouse to Claude (connect-page.js, without the code) and the bridge answers
+//                                  Opie to Claude (connect-page.js, without the code) and the bridge answers
 //                                  openhouse.local. extension: the https copy of the Claude app's download, for the
 //                                  tablet's screen to name (null when there's none).
 //   POST /screens/pair/end {pair}  the Connect screen closed: its page and name go now

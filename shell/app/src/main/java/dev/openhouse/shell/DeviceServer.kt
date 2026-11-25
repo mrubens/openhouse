@@ -72,13 +72,13 @@ object DeviceServer {
         "Tell them to type the PIN on the tablet (on the tablet itself, when they're talking from a phone), then look_at_screen: it waits for them, and you carry on from there."
     /** What Opie's tap or typing just opened is the PIN pad (a locked Settings row, say): not a refusal, the person's turn. */
     private const val PIN_NOW = "\n\nThe tablet is asking for the PIN now. Tell them to type it on the tablet (never to you), then look_at_screen: it waits for them."
-    /** A PIN pad is up (in OpenHouse or one of its apps): nothing Opie does lands while it is. Everything else a person
-     *  can tap in OpenHouse, Settings too, Opie can (Settings' rows ask for the PIN themselves when the lock is on). */
+    /** A PIN pad is up (in Opie or one of its apps): nothing Opie does lands while it is. Everything else a person
+     *  can tap in Opie, Settings too, Opie can (Settings' rows ask for the PIN themselves when the lock is on). */
     @Suppress("UNUSED_PARAMETER")
     private fun ownPrivate(acc: DeviceAccess, n: AccessibilityNodeInfo?): Boolean = acc.pinShowing()
 
     // --- for a person -------------------------------------------------------------------------------------------------
-    // The few controls that would widen what Opie may do, take the tablet out of OpenHouse, or say yes to something Opie
+    // The few controls that would widen what Opie may do, take the tablet out of Opie, or say yes to something Opie
     // or a computer asked for: they check [personOnly] and do nothing when Opie's own tap set them off.
     @Volatile private var actedAt = 0L
     @Volatile private var refused: String? = null
@@ -284,7 +284,7 @@ object DeviceServer {
             "/media/still" -> MediaStill.still(ctx, b.optString("path"))
             "/say" -> { acc?.status(b.optString("text").take(120)); 200 to "{}" }
             // "Opie, stop" (bridge device-tools.js): what it's doing in an app stops now; the next request starts fresh.
-            // OpenHouse back in front (from another Android app), for Opie showing one of its tabs (bridge show_on_screen).
+            // Opie back in front (from another Android app), for Opie showing one of its tabs (bridge show_on_screen).
             "/front" -> { handler.post { KioskApps.goHome() }; 200 to "{}" }
             // Opie's look_with_camera (bridge device-tools.js): the tablet asks on screen, and only a person's Allow opens
             // the camera (CameraLook). Back with one picture (base64 JPEG, never written down) or why there's none.
@@ -390,7 +390,7 @@ object DeviceServer {
         if (CameraLook.showing) return text("Not done: the tablet is asking the people here about the camera, and only they answer it. Wait for look_with_camera to finish.", true)
         val acc = DeviceAccess.instance
             ?: return text("Device control is off on this display. It's turned on in Settings, This tablet.", true)
-        // OpenHouse's own screen (its tabs, and its apps open full screen) is Opie's to use with device control on; other
+        // Opie's own screen (its tabs, and its apps open full screen) is Opie's to use with device control on; other
         // Android apps, and opening or installing one, only with "Opie uses apps" on too.
         val fg = acc.foregroundPackage()
         val own = fg == ctx.packageName || fg?.startsWith(AppStubs.PREFIX) == true
@@ -463,7 +463,7 @@ object DeviceServer {
                 val danger = target?.let { risky(it) }
                 val ownScreen = (target?.packageName?.toString() ?: acc.foregroundPackage()).let { it == ctx.packageName || it?.startsWith(AppStubs.PREFIX) == true }
                 if (danger != null && ownScreen) {
-                    // OpenHouse's own (deleting a list, removing an app...): as a person would, after a spoken yes.
+                    // Opie's own (deleting a list, removing an app...): as a person would, after a spoken yes.
                     if (!a.optBoolean("confirmed")) return text("“$danger” is hard to take back. Ask them first in a few words (\"Delete the Groceries list?\"), then tap again with confirmed true once they say yes.", true)
                 } else if (danger != null) {
                     val label = danger
@@ -496,10 +496,10 @@ object DeviceServer {
                 if (!ok) return text("Couldn't type there.", true)
                 if (a.optBoolean("submit")) {
                     val isSearch = Regex("search|find|url", RegexOption.IGNORE_CASE).containsMatchIn(listOfNotNull(node.viewIdResourceName, node.hintText, node.contentDescription).joinToString(" "))
-                    val ownPage = node.packageName?.toString().let { it == ctx.packageName || it?.startsWith(AppStubs.PREFIX) == true } // OpenHouse's own (adding to a list): nothing leaves the house
+                    val ownPage = node.packageName?.toString().let { it == ctx.packageName || it?.startsWith(AppStubs.PREFIX) == true } // Opie's own (adding to a list): nothing leaves the house
                     if (!isSearch && !ownPage) // a message, a review, a form: Opie writes it, the person sends it
                         return text("Typed “${t.take(60)}”, not sent: Opie never sends messages or forms. Tell them it's written and they can send it themselves.", true)
-                    // OpenHouse's own page hears a real Enter (its fields add on keydown; Chromium ignores the accessibility one).
+                    // Opie's own page hears a real Enter (its fields add on keydown; Chromium ignores the accessibility one).
                     val mine = node.packageName?.toString() == ctx.packageName && MainActivity.live != null
                     if (mine) handler.post { MainActivity.live?.window?.decorView?.findFocus()?.let { v ->
                         for (act in listOf(android.view.KeyEvent.ACTION_DOWN, android.view.KeyEvent.ACTION_UP)) v.dispatchKeyEvent(android.view.KeyEvent(act, android.view.KeyEvent.KEYCODE_ENTER)) } }

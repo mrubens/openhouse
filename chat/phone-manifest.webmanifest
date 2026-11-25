@@ -1,6 +1,6 @@
 {
-  "name": "OpenHouse",
-  "short_name": "OpenHouse",
+  "name": "Opie",
+  "short_name": "Opie",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

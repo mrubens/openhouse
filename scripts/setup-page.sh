@@ -14,7 +14,7 @@ cat <<'HTML'
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Set up OpenHouse</title>
+<title>Set up Opie</title>
 <link rel="icon" href="/favicon.ico" sizes="48x48">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -35,16 +35,16 @@ cat <<'HTML'
 </head>
 <body>
 <main>
-<h1>Set up OpenHouse</h1>
+<h1>Set up Opie</h1>
 HTML
-echo "<p class=\"sub\">Turn a tablet into your household's OpenHouse${VERSION:+ (version $VERSION)}.</p>"
+echo "<p class=\"sub\">Turn a tablet into your household's Opie${VERSION:+ (version $VERSION)}.</p>"
 echo '<div class="code">'; cat "$SVG"; echo '</div>'
 cat <<'HTML'
 <ol>
   <li>Start with a new tablet, or reset it to factory settings.</li>
   <li>On the first welcome screen, tap the same spot six times.</li>
   <li>Connect to Wi-Fi if it asks, then scan this code.</li>
-  <li>Tap through Android's screens. "Belongs to an organization" means OpenHouse looks after it. It's still yours.</li>
+  <li>Tap through Android's screens. "Belongs to an organization" means Opie looks after it. It's still yours.</li>
   <li>Wait a few minutes while it gets ready, then tap Turn on Opie.</li>
 </ol>
 <p class="note">This sets up the whole tablet, so use one with nothing else on it.</p>

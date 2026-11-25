@@ -1,9 +1,9 @@
 #!/bin/bash
-# Install OpenHouse as a hub on any Debian or Ubuntu machine, arm64 or x86_64: a Raspberry Pi, a NUC, an old laptop,
+# Install Opie as a hub on any Debian or Ubuntu machine, arm64 or x86_64: a Raspberry Pi, a NUC, an old laptop,
 # Ubuntu under WSL on Windows. docs/hub.md
 #   curl -fsSL https://raw.githubusercontent.com/mrubens/openhouse/main/hub/install.sh | sudo bash
 #   or from a checkout: sudo hub/install.sh
-# Installs git and Node 22, puts OpenHouse in /opt/openhouse (a git checkout, so the settings page can update it),
+# Installs git and Node 22, puts Opie in /opt/openhouse (a git checkout, so the settings page can update it),
 # builds it, and runs it as the openhouse service with its data in /var/lib/openhouse. Run again to repair or update.
 set -euo pipefail
 REPO=${OPENHOUSE_REPO:-https://github.com/mrubens/openhouse.git}
@@ -41,7 +41,7 @@ sudo -u openhouse env HOME="$DATA" PATH="/opt/node/bin:$PATH" bash "$CODE/hub/bu
 
 echo "== the service"
 [ -f /etc/default/openhouse ] || cat > /etc/default/openhouse <<'CONF'
-# OpenHouse hub settings (docs/hub.md). Restart after a change: sudo systemctl restart openhouse
+# Opie hub settings (docs/hub.md). Restart after a change: sudo systemctl restart openhouse
 # Backups to a USB drive or a share mounted here (default: /var/lib/openhouse/backups):
 #OPENHOUSE_BACKUP_DIR=/media/backup
 # https on the home network, for live voice in phone browsers:
@@ -50,7 +50,7 @@ echo "== the service"
 CONF
 cat > /etc/systemd/system/openhouse.service <<UNIT
 [Unit]
-Description=OpenHouse hub
+Description=Opie hub
 After=network-online.target
 Wants=network-online.target
 

@@ -6,7 +6,7 @@
 //   GET  /backup/status                       key, each destination (on, ready, last), what's running
 //   POST /backup/dest {id, on}                a destination on/off; the first one on makes the family's key
 //   GET  /backup/recovery-code                POST /backup/recovery-code/confirmed
-//   POST /backup/escrow {on}                  keep a copy of the code with OpenHouse (cloud only; off unless asked)
+//   POST /backup/escrow {on}                  keep a copy of the code with Opie (cloud only; off unless asked)
 //   POST /backup/now                          to every destination that's on, now
 //   GET  /backup/list                         every backup on every destination that answers
 //   POST /backup/restore {dest, id, deviceId?, recoveryCode?}
@@ -118,7 +118,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
       let k = key(), adopt = null;
       if (!k || k.keyId !== item.keyId) {
         let typed = recoveryCode && keyFromCode(recoveryCode);
-        if (!typed && escrow?.available()) { // a copy kept with OpenHouse, if the family asked for that
+        if (!typed && escrow?.available()) { // a copy kept with Opie, if the family asked for that
           const kept = await escrow.get(item.keyId).catch(() => null);
           if (kept && keyFromCode(kept)?.keyId === item.keyId) { typed = keyFromCode(kept); recoveryCode = kept; }
         }

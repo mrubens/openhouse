@@ -1,5 +1,5 @@
 // Web Push from the tablet itself (docs/phones-and-tv.md): a note for someone reaches their phone without any
-// OpenHouse server. The message is encrypted for that phone (RFC 8291, aes128gcm) and signed with the tablet's own
+// Opie server. The message is encrypted for that phone (RFC 8291, aes128gcm) and signed with the tablet's own
 // key (VAPID, RFC 8292), then posted to the phone's push service (Apple's, Google's or Mozilla's), which sees only
 // that something arrived and how big it is. No packages: Node's crypto.
 //

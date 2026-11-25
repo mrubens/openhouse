@@ -143,8 +143,8 @@ async function fetchSource(src, fetchImpl = fetch, web = {}) {
     if (r.status < 200 || r.status >= 300) throw new Error(`Couldn't get it from ${src.label}: ${r.status}`);
     const buf = r.buf;
     if (buf.length > MAX_BYTES * 2) throw new Error('That plugin is too big.');
-    // From OpenHouse's list (the gallery): only the exact tarball that was reviewed.
-    if (src.sha256 && sha(buf) !== src.sha256) throw new Error(`What ${src.label} sent isn't the version OpenHouse reviewed, so it wasn't added.`);
+    // From Opie's list (the gallery): only the exact tarball that was reviewed.
+    if (src.sha256 && sha(buf) !== src.sha256) throw new Error(`What ${src.label} sent isn't the version that was reviewed for Opie's list, so it wasn't added.`);
     const out = path.join(tmp, 'p'); fs.mkdirSync(out);
     untar(buf, out);
     // npm pack puts everything in package/; GitHub's archives in <repo>-<ref>/
@@ -169,11 +169,11 @@ export function checkPlugin(dir) {
   try { pkg = readJson(path.join(root, 'package.json')); } catch { throw new Error("That isn't a plugin: it has no package.json."); }
   const oh = pkg.openhouse && typeof pkg.openhouse === 'object' ? pkg.openhouse : {};
   const name = String(pkg.name || '').replace(/^@[^/]+\//, '').toLowerCase();
-  if (!ID.test(name)) throw new Error(`Its name ("${String(pkg.name).slice(0, 60)}") isn't one OpenHouse can use: lowercase letters, digits and dashes.`);
+  if (!ID.test(name)) throw new Error(`Its name ("${String(pkg.name).slice(0, 60)}") isn't one Opie can use: lowercase letters, digits and dashes.`);
   const notes = [];
   // Code for the assistant runs with its key: never from a plugin (docs/plugins.md §5).
   const ext = list(pkg.pi?.extensions);
-  if ((ext && ext.length) || (!ext && fs.existsSync(path.join(root, 'extensions')))) throw new Error('It has code for the assistant (pi extensions), which OpenHouse never installs from a plugin.');
+  if ((ext && ext.length) || (!ext && fs.existsSync(path.join(root, 'extensions')))) throw new Error('It has code for the assistant (pi extensions), which Opie never installs from a plugin.');
   if (list(pkg.pi?.skills)?.length || fs.existsSync(path.join(root, 'skills'))) notes.push("Its assistant skills aren't installed yet: only its apps and look.");
   for (const k of ['devices', 'data']) if (oh[k]) notes.push(`Its ${k === 'devices' ? 'device recipes' : 'starting data'} aren't installed yet.`);
 
@@ -184,7 +184,7 @@ export function checkPlugin(dir) {
     const d = inside(root, rel);
     if (!d || !fs.existsSync(d) || !fs.lstatSync(d).isDirectory()) throw new Error(`It names an app at ${rel} that isn't there.`);
     const id = path.basename(d).toLowerCase();
-    if (!ID.test(id) || id === 'home') throw new Error(`An app's folder name ("${path.basename(d)}") isn't one OpenHouse can use.`);
+    if (!ID.test(id) || id === 'home') throw new Error(`An app's folder name ("${path.basename(d)}") isn't one Opie can use.`);
     const files = {};
     for (const f of fs.readdirSync(d)) {
       const p = path.join(d, f), st = fs.lstatSync(p);
@@ -236,7 +236,7 @@ export function checkPlugin(dir) {
   }
   const tabs = (list(oh.tabs) || []).map((t) => (typeof t === 'string' ? { app: t } : t))
     .filter((t) => t && apps.some((a) => a.id === t.app)).map((t) => ({ app: t.app, ...(t.name ? { name: String(t.name).slice(0, 24) } : {}) }));
-  if (!apps.length && !look) throw new Error('It has no apps or look for OpenHouse.');
+  if (!apps.length && !look) throw new Error('It has no apps or look for Opie.');
   let readme = ''; try { readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8').slice(0, 1500); } catch {}
   return { name, title: String(oh.title || (apps.length === 1 ? apps[0].name : name.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase()))).slice(0, 60), version: String(pkg.version || '').slice(0, 20),
     description: String(pkg.description || '').slice(0, 300), readme, apps, look, tabs, notes };
@@ -333,7 +333,7 @@ export function rightsList(apps) {
   if (tv.length) out.push({ kind: 'tv', text: `Shows on the TV${many ? ` (${tv.map((a) => a.name).join(', ')})` : ''}.` });
   return out;
 }
-const rightWords = { lists: 'lists', chores: 'chores', rewards: 'rewards', meals: 'meals', events: 'the calendar', photos: 'photos', family: "the family's names", weather: 'the weather', home: 'the notes on Home', today: 'a line of its own on Home', days: 'notes of its own on the calendar\'s days (lunch, trash day)', 'calendar-events': 'events of its own on the calendar (it can\'t change the family\'s)', 'today-card': 'a card of its own on Home (once you turn it on)', timer: 'timers', say: 'speaking', devices: "the speakers and TVs (it asks before turning one on)", decide: "OpenHouse's cloud for small questions (OpenAI)" };
+const rightWords = { lists: 'lists', chores: 'chores', rewards: 'rewards', meals: 'meals', events: 'the calendar', photos: 'photos', family: "the family's names", weather: 'the weather', home: 'the notes on Home', today: 'a line of its own on Home', days: 'notes of its own on the calendar\'s days (lunch, trash day)', 'calendar-events': 'events of its own on the calendar (it can\'t change the family\'s)', 'today-card': 'a card of its own on Home (once you turn it on)', timer: 'timers', say: 'speaking', devices: "the speakers and TVs (it asks before turning one on)", decide: "Opie's cloud for small questions (OpenAI)" };
 
 /** One line per app of what it may do, in the card's words. */
 export function rightsText(apps) {
@@ -345,7 +345,7 @@ export function rightsText(apps) {
   });
 }
 
-/** OpenHouse's list of plugins it reviewed (the gallery), published next to their tarballs (scripts/plugin-index.mjs). */
+/** Opie's list of plugins it reviewed (the gallery), published next to their tarballs (scripts/plugin-index.mjs). */
 export const CATALOG_URL = 'https://d15yaylh7unz6h.cloudfront.net/releases/plugins/index.json';
 const SHA256 = /^[0-9a-f]{64}$/;
 /**
@@ -376,7 +376,7 @@ export function cleanCatalog(raw, indexUrl = CATALOG_URL, { http = false } = {})
  * in git with the apps (so undo keeps them right) and outside apps/ (so neither the assistant nor a computer writes
  * them; the bridge keeps them):
  *   builtin  ours (defaults/apps): { kind, title, version, apps: { id: { files } }, overriddenBy?, removed? }.
- *            Updated with each OpenHouse release while the household never changed it.
+ *            Updated with each Opie release while the household never changed it.
  *   local    the household's own: { kind, title, created, apps: { id: {} }, overrides? }. Full ("own") rights. Its
  *            version is the count of its changes (git), so the manifest never changes with an edit.
  *   shared   from a link: { kind, title, source, commit, version, installed, apps: { id: { from, name, uses,
@@ -570,7 +570,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     if (!migrated()) return { error: 'not moved to plugins yet' };
     const ship = shipped();
     if (!ship.length) return { added: [], updated: [] };
-    const owner = { id: 'openhouse', kind: 'plugin', who: null, text: 'OpenHouse plugins' };
+    const owner = { id: 'openhouse', kind: 'plugin', who: null, text: 'Opie plugins' };
     if (!edits.tryAcquire(owner, { checkpoint: true })) return { error: edits.busyText() || 'Busy', busy: true };
     const added = [], updated = [];
     try {
@@ -602,7 +602,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
         save(name, e);
         updated.push(`${s.id} ${s.version}`);
       }
-      owner.text = [added.length && `OpenHouse added: ${added.join(', ')}`, updated.length && `OpenHouse updated: ${updated.join(', ')}`].filter(Boolean).join('; ') || 'OpenHouse plugins';
+      owner.text = [added.length && `Opie added: ${added.join(', ')}`, updated.length && `Opie updated: ${updated.join(', ')}`].filter(Boolean).join('; ') || 'Opie plugins';
       cache.stamp = null;
       const c = edits.finish(owner, true, { quiet: true });
       if (c) { log(owner.text); onChange(); }
@@ -696,16 +696,16 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     return r.error ? { ok: false, error: r.error } : { ok: true };
   }
 
-  // ---- OpenHouse's list (the gallery): fetched when someone looks, never on its own ----
+  // ---- Opie's list (the gallery): fetched when someone looks, never on its own ----
   let cat = { at: 0, entries: null };
   async function catalog({ fresh = false } = {}) {
     if (!fresh && cat.entries && Date.now() - cat.at < 10 * 60e3) return cat.entries;
     let r;
-    try { r = await fetchImpl(catalogUrl, { signal: AbortSignal.timeout(15e3), redirect: 'error' }); } catch { throw new Error("Couldn't reach OpenHouse's list of plugins. Check the Wi-Fi and try again."); }
-    if (!r.ok) throw new Error(`OpenHouse's list of plugins didn't come (${r.status}).`);
+    try { r = await fetchImpl(catalogUrl, { signal: AbortSignal.timeout(15e3), redirect: 'error' }); } catch { throw new Error("Couldn't reach Opie's list of plugins. Check the Wi-Fi and try again."); }
+    if (!r.ok) throw new Error(`Opie's list of plugins didn't come (${r.status}).`);
     const text = await r.text();
-    if (text.length > 1e6) throw new Error("OpenHouse's list of plugins is too big.");
-    let raw; try { raw = JSON.parse(text); } catch { throw new Error("OpenHouse's list of plugins isn't readable right now."); }
+    if (text.length > 1e6) throw new Error("Opie's list of plugins is too big.");
+    let raw; try { raw = JSON.parse(text); } catch { throw new Error("Opie's list of plugins isn't readable right now."); }
     cat = { at: Date.now(), entries: cleanCatalog(raw, catalogUrl, { http: local }) };
     return cat.entries;
   }
@@ -715,23 +715,23 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     if (!k || k.length > 80 || /[/:@]/.test(k)) return null;
     return (await catalog()).find((e) => e.name === k || e.title.toLowerCase() === k || e.name === k.replace(/ +/g, '-')) || null;
   }
-  const catalogSource = (c) => ({ kind: 'tar', url: c.tarball, sha256: c.sha256, label: "OpenHouse's plugins", key: `catalog:${c.name}`, catalog: c });
+  const catalogSource = (c) => ({ kind: 'tar', url: c.tarball, sha256: c.sha256, label: "Opie's plugins", key: `catalog:${c.name}`, catalog: c });
   /** Where the household's plugin from the list (or from a link) is now: the source to look at for an update. */
   const sourceOf = (e) => (String(e.source || '').startsWith('catalog:') ? e.source.slice(8) : String(e.source || '').replace(/@[^/]*$/, ''));
 
   // ---- shared: from a link ----
   /**
    * Fetch and check, then throw the files away: what the card says. source: a link, or the name of a plugin on
-   * OpenHouse's list, which is then fetched only from the tarball the list pins, and only if its sha256 matches.
+   * Opie's list, which is then fetched only from the tarball the list pins, and only if its sha256 matches.
    */
   async function inspect(source, opts = {}) {
     let src = parseSource(source, { local: local || opts.local });
     if (!src && !/[/:]/.test(String(source || ''))) { const c = await listed(source); if (c) src = catalogSource(c); }
-    if (!src) throw new Error('That isn\'t a plugin on OpenHouse\'s list or a link one comes from: give a git link (github.com/someone/something, or with @version) or an https link to a .tgz.');
+    if (!src) throw new Error('That isn\'t a plugin on Opie\'s list or a link one comes from: give a git link (github.com/someone/something, or with @version) or an https link to a .tgz.');
     const got = await fetchSource(src, fetchImpl, web);
     try {
       const p = { src, commit: src.catalog?.commit || got.commit, ...(got.sha256 ? { sha256: got.sha256 } : {}), ...checkPlugin(got.dir) };
-      if (src.catalog && p.name !== src.catalog.name) throw new Error(`OpenHouse's list says ${src.catalog.title}, but that tarball holds ${p.name}.`);
+      if (src.catalog && p.name !== src.catalog.name) throw new Error(`Opie's list says ${src.catalog.title}, but that tarball holds ${p.name}.`);
       return p;
     } finally { got.done(); }
   }
@@ -740,8 +740,8 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
    * and last the plugin's own description, marked as its words (it could say anything).
    */
   const summary = (p, { already = true } = {}) => {
-    const lines = [p.src.catalog ? `"${p.title}"${p.version ? ' ' + p.version : ''}, from OpenHouse's list of plugins${p.commit ? ' (' + p.commit.slice(0, 7) + ')' : ''}. Reviewed by OpenHouse.`
-      : `"${p.title}"${p.version ? ' ' + p.version : ''}, from ${p.src.label}${p.commit ? ' (' + p.commit.slice(0, 7) + ')' : ''}. Not reviewed by OpenHouse yet.`];
+    const lines = [p.src.catalog ? `"${p.title}"${p.version ? ' ' + p.version : ''}, from Opie's list of plugins${p.commit ? ' (' + p.commit.slice(0, 7) + ')' : ''}. Reviewed for the list.`
+      : `"${p.title}"${p.version ? ' ' + p.version : ''}, from ${p.src.label}${p.commit ? ' (' + p.commit.slice(0, 7) + ')' : ''}. Not reviewed for Opie's list.`];
     if (p.apps.length) lines.push(`${p.apps.length === 1 ? 'One app' : p.apps.length + ' apps'}${p.apps.length > 1 ? ` (${p.apps.map((a) => a.name).join(', ')})` : ''}. It:`, ...rightsMerged(p.apps).map((l) => '- ' + l));
     if (p.look) lines.push(`- Changes the look: ${lookWords(p.look)}.`);
     if (p.tabs.length) lines.push(`- Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}: ${p.tabs.map((t) => t.name || t.app).join(', ')}.`);
@@ -754,7 +754,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   /** The tablet's card for a plugin (docs/ux.md): where it's from and everything it may do, each as a short line with
    *  its kind (shown in full, never behind More); the version, our notes and its own words behind More. */
   const card = (p, { already = true } = {}) => {
-    const rights = [{ kind: 'from', text: p.src.catalog ? "From OpenHouse's list, reviewed." : `From ${p.src.label}. Not reviewed by OpenHouse.` }];
+    const rights = [{ kind: 'from', text: p.src.catalog ? "From Opie's list, reviewed." : `From ${p.src.label}. Not reviewed for Opie's list.` }];
     if (p.apps.length > 1) rights.push({ kind: 'apps', text: `${p.apps.length} apps: ${p.apps.map((a) => a.name).join(', ')}.` });
     if (p.apps.length) rights.push(...rightsList(p.apps));
     if (p.look) rights.push({ kind: 'look', text: `Changes the look: ${lookWords(p.look)}.` });
@@ -934,7 +934,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     }
     let note = '';
     if (ask.length) {
-      if (!model) return { error: "Putting the two versions together needs OpenHouse's cloud assistant, which isn't set up here. Yours stays as it is.", kept: true };
+      if (!model) return { error: "Putting the two versions together needs Opie's cloud, which isn't set up here. Yours stays as it is.", kept: true };
       const input = ask.map((x) => `=== ${x.id}/${x.f}\n--- base${x.base == null ? ' (not known)' : ''}\n${x.base ?? ''}\n--- yours${x.yours == null ? ' (removed)' : ''}\n${x.yours ?? ''}\n--- theirs${x.theirs == null ? ' (removed)' : ''}\n${x.theirs ?? ''}`).join('\n\n');
       if (input.length > 300e3) return { error: 'The two versions are too far apart to put together here. Yours stays as it is.', kept: true };
       let r;
@@ -998,17 +998,17 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       return { ok: true, removed: e.title || f.name };
     });
   }
-  /** OpenHouse's version of a built-in back in place of the household's (theirs is one undo away), or after it was taken off. */
+  /** Opie's version of a built-in back in place of the household's (theirs is one undo away), or after it was taken off. */
   function reset(name, { who = null, by = null } = {}) {
     const f = find(name);
     if (!f) return { error: `No plugin called ${name} is on this tablet.` };
     const bname = f.e.kind === 'builtin' ? f.name : f.e.overrides;
     const b = bname && f.all[bname];
-    if (!b) return { error: `${f.e.title || f.name} isn't one of OpenHouse's own, so there's no version of ours to go back to.` };
+    if (!b) return { error: `${f.e.title || f.name} isn't one of Opie's own, so there's no version of ours to go back to.` };
     const id = Object.keys(b.apps || {})[0], s = shipped().find((x) => x.id === id);
-    if (!s) return { error: `This tablet doesn't have OpenHouse's ${b.title} to put back.` };
+    if (!s) return { error: `This tablet doesn't have Opie's ${b.title} to put back.` };
     if (!b.overriddenBy && !b.removed && same(filesOf(path.join(appsDir, id)), s.files)) return { ok: true, already: true, title: b.title };
-    return inChange(`Put back OpenHouse's ${b.title}`, who, by, () => {
+    return inChange(`Put back Opie's ${b.title}`, who, by, () => {
       const theirs = b.overriddenBy;
       if (theirs) drop(theirs);
       copyApp(s.dir, id);
@@ -1030,7 +1030,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       if (rv) { skip.add(rv[1]); continue; }
       // Ours (seeding, our updates, the move) aren't the household's changes: taking one back would empty or roll back
       // an app the next start-up puts right again. reset_plugin and remove_plugin are for those.
-      if (skip.has(h) || /^(Starting apps|OpenHouse (added|updated)|Apps (became|back from) plugins|Moved to web)/.test(subj)) continue;
+      if (skip.has(h) || /^(Starting apps|(?:OpenHouse|Opie) (added|updated)|Apps (became|back from) plugins|Moved to web)/.test(subj)) continue;
       return { commit: h, text: subj };
     }
     return null;
@@ -1061,12 +1061,12 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       const ob = e.kind === 'local' && e.overrides ? readAll()[e.overrides] : null;
       const basedOn = e.kind === 'shared' && (apps.some((a) => a.changed) || e.merged) ? `${e.title || name}${e.version ? ' ' + e.version : ''}`
         : ob ? `${ob.title || e.title}${/^\d+\.\d/.test(e.forkedFrom || ob.version || '') ? ' ' + (e.forkedFrom || ob.version) : ''}` : undefined; // ours without a version number: a content hash, not worth saying
-      return { name, kind: e.kind, title: e.title || name, source: e.source || (e.kind === 'builtin' ? 'OpenHouse' : 'made here'), commit: e.commit, version: e.kind === 'local' ? localVersion(e) : e.version,
+      return { name, kind: e.kind, title: e.title || name, source: e.source || (e.kind === 'builtin' ? 'Opie' : 'made here'), commit: e.commit, version: e.kind === 'local' ? localVersion(e) : e.version,
         reviewed: !!e.reviewed, basedOn, skip: e.skip, ...(e.kind === 'shared' ? (() => { const r = rightsList(Object.entries(e.apps || {}).map(([id, a]) => ({ name: a.name || id, uses: a.uses || [], reaches: a.reaches || [], actions: a.actions, checks: a.checks, background: a.background, screens: a.screens }))); return { rights: r.map((x) => x.text), rightsCard: r }; })() : {}),
         latest: e.kind === 'builtin' && ship.get(name) && ship.get(name) !== e.version ? ship.get(name) : undefined, installed: e.installed || e.created, tabs: e.tabs || [], look: !!e.look, state, overrides: e.overrides, overriddenBy: e.overriddenBy, removed: !!e.removed, apps };
     });
   }
-  /** OpenHouse's list, each with whether it's on this tablet (and as what) and whether a newer version is there. */
+  /** Opie's list, each with whether it's on this tablet (and as what) and whether a newer version is there. */
   async function gallery({ fresh = false } = {}) {
     const entries = await catalog({ fresh }), mine = installed().filter((x) => x.kind === 'shared');
     return entries.map((c) => {
@@ -1079,7 +1079,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
    *  whether the household changed it here (then they choose: keep yours, take theirs, or both). */
   async function check(name) {
     const f = find(name);
-    if (!f || f.e.kind !== 'shared') return { error: f ? `${f.e.title || f.name} doesn't come from a link: ${f.e.kind === 'builtin' ? 'OpenHouse updates it' : "it's the household's own"}.` : `No plugin called ${name} is on this tablet.` };
+    if (!f || f.e.kind !== 'shared') return { error: f ? `${f.e.title || f.name} doesn't come from a link: ${f.e.kind === 'builtin' ? 'Opie updates it' : "it's the household's own"}.` : `No plugin called ${name} is on this tablet.` };
     if (String(f.e.source || '').startsWith('catalog:')) await catalog({ fresh: true }); // asked for now: the list as it is now
     const p = await inspect(sourceOf(f.e));
     if (p.name !== f.name.replace(/-\d+$/, '') && p.name !== f.name) return { error: `That link has the ${p.title} plugin now, not ${f.e.title}.` };
@@ -1098,7 +1098,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
   /** The plugins a commit touched, in a line: what done_editing says. */
   function describe(ids) {
     const all = readAll();
-    return [...new Set([...ids].map((id) => ownerOf(id, all)).filter(Boolean).map(({ name, e }) => `${e.title || name} (${e.kind === 'local' ? "the household's own" : e.kind === 'shared' ? 'from a link' : "OpenHouse's"}, version ${e.kind === 'local' ? localVersion(e) : e.version})`))].join(', ');
+    return [...new Set([...ids].map((id) => ownerOf(id, all)).filter(Boolean).map(({ name, e }) => `${e.title || name} (${e.kind === 'local' ? "the household's own" : e.kind === 'shared' ? 'from a link' : "Opie's"}, version ${e.kind === 'local' ? localVersion(e) : e.version})`))].join(', ');
   }
 
   // ---- voice actions: declared by an app (app.json "actions"), done by its page ----
@@ -1180,24 +1180,24 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     const oh = { apps: ids.map((id) => `apps/${id}`) };
     if (look) { const st = homeScreen.style(); out['looks/look.json'] = JSON.stringify(Object.fromEntries(LOOK_KEYS.filter((k) => st[k] !== undefined).map((k) => [k, st[k]])), null, 2) + '\n'; oh.looks = ['looks/look.json']; }
     out['package.json'] = JSON.stringify({ name: pname, version, description: String(description).slice(0, 300), keywords: ['openhouse-plugin', 'pi-package'], openhouse: oh }, null, 2) + '\n';
-    if (!out['README.md']) out['README.md'] = `# ${pname}\n\n${description || 'An OpenHouse plugin.'}\n\nAdd it to an OpenHouse tablet: ask the assistant to "add the plugin from <this repo's link>".\n`;
+    if (!out['README.md']) out['README.md'] = `# ${pname}\n\n${description || 'An Opie plugin.'}\n\nAdd it to an Opie tablet: ask the assistant to "add the plugin from <this repo's link>".\n`;
     return { files: out, warnings: warn.slice(0, 30) };
   }
 
   const images = new Map();
 
   // ---- the tools: the assistant's and a computer's (homeScreen.addTools; the workshop adds export_plugin) ----
-  const SRC = { type: 'string', description: "The name of a plugin on OpenHouse's list (find_plugins), or where it comes from, as the family gave it: a git link (github.com/someone/thing, optionally @version) or an https link to a .tgz." };
+  const SRC = { type: 'string', description: "The name of a plugin on Opie's list (find_plugins), or where it comes from, as the family gave it: a git link (github.com/someone/thing, optionally @version) or an https link to a .tgz." };
   const NAME = { type: 'string', description: 'The plugin\'s name or title, or one of its app ids (list_plugins).' };
   const tools = [
-    { name: 'find_plugins', description: "The plugins OpenHouse has reviewed and lists (its gallery): each with its name, what it does, what it may use, and whether it's on this tablet. For \"what plugins are there?\" or finding one by what it does. Add one with add_plugin and its name.", inputSchema: { type: 'object', properties: {} } },
+    { name: 'find_plugins', description: "The plugins on Opie's reviewed list (its gallery): each with its name, what it does, what it may use, and whether it's on this tablet. For \"what plugins are there?\" or finding one by what it does. Add one with add_plugin and its name.", inputSchema: { type: 'object', properties: {} } },
     { name: 'look_at_plugin', description: "See what a plugin (something another family made: apps, a look) has in it before adding it: its apps, what each may use of the family's things and which sites it may reach. Say it back in a sentence or two, then add it with add_plugin if they want it.", inputSchema: { type: 'object', required: ['source'], properties: { source: SRC } } },
     { name: 'add_plugin', description: 'Add a plugin to this tablet. Someone says yes on the tablet first (with the PIN); this waits for them, up to a minute and a half. Its apps go in Apps, and the tabs it suggests are added unless tabs is false.', inputSchema: { type: 'object', required: ['source'], properties: { source: SRC, tabs: { type: 'boolean', description: 'Add the tabs it suggests (default yes).' } } } },
-    { name: 'update_plugin', description: "Bring a plugin from a link or OpenHouse's list up to its newest version (or source, a pinned version). Someone says yes on the tablet first (with the PIN when it asks for more). If the household changed its app here, it says so: then ask which they want and call again with choice: keep (theirs stays, this update is skipped), theirs (the new version replaces their changes), or both (the new version's changes put onto theirs; if that can't be done cleanly, theirs stays).", inputSchema: { type: 'object', required: ['name'], properties: { name: NAME, source: SRC, choice: { type: 'string', enum: ['keep', 'theirs', 'both'] }, replace: { type: 'boolean', description: 'The same as choice theirs.' } } } },
-    { name: 'list_plugins', description: "Everything that adds apps to this tablet, as plugins: OpenHouse's own (Calendar, Chores…), the household's own (each app made here is one), and ones from a link. Each with its version, where it came from, and whether the household's version is used over ours.", inputSchema: { type: 'object', properties: {} } },
+    { name: 'update_plugin', description: "Bring a plugin from a link or Opie's list up to its newest version (or source, a pinned version). Someone says yes on the tablet first (with the PIN when it asks for more). If the household changed its app here, it says so: then ask which they want and call again with choice: keep (theirs stays, this update is skipped), theirs (the new version replaces their changes), or both (the new version's changes put onto theirs; if that can't be done cleanly, theirs stays).", inputSchema: { type: 'object', required: ['name'], properties: { name: NAME, source: SRC, choice: { type: 'string', enum: ['keep', 'theirs', 'both'] }, replace: { type: 'boolean', description: 'The same as choice theirs.' } } } },
+    { name: 'list_plugins', description: "Everything that adds apps to this tablet, as plugins: Opie's own (Calendar, Chores…), the household's own (each app made here is one), and ones from a link. Each with its version, where it came from, and whether the household's version is used over ours.", inputSchema: { type: 'object', properties: {} } },
     { name: 'remove_plugin', description: 'Take a plugin off this tablet: its apps and the tabs it added. Someone says yes on the tablet first.', inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
     { name: 'undo_plugin', description: 'Take back the latest change to one plugin (one app), keeping later changes to the others. Itself a change, so it can be undone too.', inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
-    { name: 'reset_plugin', description: "Put OpenHouse's own version of a built-in app (Calendar, Chores…) back in place of the household's changed one, or after it was taken off. Their version is one undo away.", inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
+    { name: 'reset_plugin', description: "Put Opie's own version of a built-in app (Calendar, Chores…) back in place of the household's changed one, or after it was taken off. Their version is one undo away.", inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
   ];
   const ok = (t) => ({ content: [{ type: 'text', text: t }] });
   const err = (t) => ({ content: [{ type: 'text', text: t }], isError: true });
@@ -1208,7 +1208,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       if (name === 'look_at_plugin') return ok(asData(summary(await inspect(a.source)), "what a plugin is and may do, made from its own files (its names, descriptions and voice actions are its author's words)")); // to a model: data
       if (name === 'find_plugins') {
         const g = await gallery();
-        return ok(g.length ? g.map((c) => `${c.name} ("${c.title}"${c.version ? ' ' + c.version : ''})${c.installed ? (c.installed.basedOn ? ': on this tablet, changed here' : ': on this tablet') + (c.update ? ', a newer version is out' : '') : ''}: ${c.description} ${c.rights.join(' ')}`).join('\n') : "OpenHouse's list of plugins is empty right now.");
+        return ok(g.length ? g.map((c) => `${c.name} ("${c.title}"${c.version ? ' ' + c.version : ''})${c.installed ? (c.installed.basedOn ? ': on this tablet, changed here' : ': on this tablet') + (c.update ? ', a newer version is out' : '') : ''}: ${c.description} ${c.rights.join(' ')}`).join('\n') : "Opie's list of plugins is empty right now.");
       }
       if (name === 'list_plugins') {
         const all = installed().filter((p) => !p.removed);
@@ -1226,7 +1226,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       }
       if (name === 'update_plugin') {
         const f = find(a.name);
-        if (!f || f.e.kind !== 'shared') return err(f ? `${f.e.title || f.name} doesn't come from a link: ${f.e.kind === 'builtin' ? 'OpenHouse updates it' : "it's the household's own"}.` : `No plugin called ${a.name} is on this tablet.`);
+        if (!f || f.e.kind !== 'shared') return err(f ? `${f.e.title || f.name} doesn't come from a link: ${f.e.kind === 'builtin' ? 'Opie updates it' : "it's the household's own"}.` : `No plugin called ${a.name} is on this tablet.`);
         const c = a.source ? null : await check(f.name);
         if (c?.error) return err(c.error);
         const p = c ? c.p : await inspect(a.source);
@@ -1259,7 +1259,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       if (name === 'undo_plugin') { const r = undoPlugin(a.name, by); return r.error ? err(r.error) : ok(`Took back in ${r.title}: ${r.undid}`); }
       if (name === 'reset_plugin') {
         const r = reset(a.name, { who, by });
-        return r.error ? err(r.error) : ok(r.already ? `${r.title} is already OpenHouse's own.` : `OpenHouse's ${r.title} (${r.version}) is back.`);
+        return r.error ? err(r.error) : ok(r.already ? `${r.title} is already Opie's own.` : `Opie's ${r.title} (${r.version}) is back.`);
       }
     } catch (e) { return err(e.message); }
     return err(`unknown tool ${name}`);
@@ -1280,7 +1280,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     if (req.method === 'GET' && url.pathname === '/plugins') {
       const every = url.searchParams.get('all') === '1';
       let ps = installed({ all: true }).filter((x) => every || x.kind === 'shared' || (x.kind === 'local' && x.overrides));
-      // A newer version on OpenHouse's list, when the list is at hand (it's only fetched when someone opens the gallery).
+      // A newer version on Opie's list, when the list is at hand (it's only fetched when someone opens the gallery).
       if (cat.entries) ps = ps.map((x) => { const c = cat.entries.find((y) => x.source === `catalog:${y.name}`); return c && c.sha256 !== readAll()[x.name]?.sha256 && x.skip !== c.sha256 ? { ...x, update: c.version } : x; });
       json(res, 200, { plugins: ps }); return true;
     }

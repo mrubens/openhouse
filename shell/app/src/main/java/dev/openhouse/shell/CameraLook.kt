@@ -58,7 +58,7 @@ object CameraLook {
             if (!a.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) return Result.No("This tablet has no camera.")
             val got = LinkedBlockingQueue<Result>()
             val main = Handler(Looper.getMainLooper())
-            main.post { runCatching { KioskApps.goHome(); dev.openhouse.ui.Openhouse.touch() } } // OpenHouse in front, awake
+            main.post { runCatching { KioskApps.goHome(); dev.openhouse.ui.Openhouse.touch() } } // Opie in front, awake
             main.postDelayed({
                 runCatching { Sheet(a, why) { got.offer(it) }.show() }.onFailure { Log.w(TAG, "sheet: $it"); got.offer(Result.No("The camera didn't start.")) }
             }, 400)
@@ -130,7 +130,7 @@ object CameraLook {
         fun allow() {
             if (finished || DeviceServer.personOnly("Turning on the camera")) return
             h.removeCallbacksAndMessages(null)
-            if (!granted(a)) { finish(Result.No("The tablet hasn't let OpenHouse use the camera.")); return }
+            if (!granted(a)) { finish(Result.No("The tablet hasn't let Opie use the camera.")); return }
             val c = card()
             val top = K.row(a).apply { gravity = Gravity.CENTER_VERTICAL }
             top.addView(K.text(a, "Camera on", K.LABEL, 600, K.INK), LinearLayout.LayoutParams(0, -2, 1f))

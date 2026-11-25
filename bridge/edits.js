@@ -152,7 +152,7 @@ export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit
 
   /**
    * The holder's changes so far become one commit, with its words. Returns the commit, or null if nothing changed.
-   * quiet: not one of the family's changes (an OpenHouse update of a built-in plugin, the move to plugins): "undo"
+   * quiet: not one of the family's changes (an Opie update of a built-in plugin, the move to plugins): "undo"
    * doesn't take it back, though undo_change and undo_plugin still can.
    */
   function commit(owner, { quiet = false } = {}) {

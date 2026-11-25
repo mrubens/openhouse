@@ -1,7 +1,7 @@
 package dev.openhouse.shell
 
 // Settings → Backups: where backups are kept (the cloud, a USB drive), back up now, restore, the family's
-// recovery code (shown with a QR code, or sent to a phone), and whether OpenHouse keeps a copy of that code (off unless
+// recovery code (shown with a QR code, or sent to a phone), and whether Opie keeps a copy of that code (off unless
 // someone turns it on). The bridge does the work (bridge/backup.js); this is only the dialogs.
 
 import dev.openhouse.ui.Calm
@@ -75,7 +75,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         // Restoring replaces everything here: behind a PIN, set first if there's none (SettingsLock.withPinSet).
         items += CalmDialog.Row("Restore") to { act.lock.withPinSet(back = { show() }) { restoreList() } }
         if (hasKey) items += CalmDialog.Row("Recovery code") to { act.lock.withPin { showCode(first = false) } } // (it also resets a forgotten PIN: PinPrompt.forgot)
-        if (hasKey && escrow.optBoolean("available")) items += CalmDialog.Row("OpenHouse keeps a copy", value = onOff(escrow.optBoolean("on"))) to { escrowAsk(!escrow.optBoolean("on")) }
+        if (hasKey && escrow.optBoolean("available")) items += CalmDialog.Row("A copy in Opie's cloud", value = onOff(escrow.optBoolean("on"))) to { escrowAsk(!escrow.optBoolean("on")) }
         CalmDialog(act).setTitle("Backups").setMessage(text)
             .setRows(items.map { it.first }) { _, i -> items[i].second() }.setNegativeButton("Back") { _, _ -> onBack?.invoke() }.open()
     }
@@ -94,7 +94,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         ui {
             if (r == null || r.has("error")) return@ui say("Backups", r?.optString("error") ?: noBridge)
             val code = r.optString("recoveryCode").takeIf { it.isNotEmpty() && !r.isNull("recoveryCode") }
-            // The copy with OpenHouse is offered once, when the cloud is first turned on (off unless they say yes).
+            // The copy with Opie is offered once, when the cloud is first turned on (off unless they say yes).
             val prefs = act.getSharedPreferences("backup_menu", android.content.Context.MODE_PRIVATE)
             val offer = id == "cloud" && on && !prefs.getBoolean("escrow_offered", false)
             val next: () -> Unit = { if (offer) { prefs.edit().putBoolean("escrow_offered", true).apply(); escrowAsk(true, setup = true) } else { show() } }
@@ -103,7 +103,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         }
     }
 
-    /** The family's recovery code: the only key to the backups, unless they asked OpenHouse to keep a copy. */
+    /** The family's recovery code: the only key to the backups, unless they asked Opie to keep a copy. */
     private fun showCode(first: Boolean, known: String? = null, then: () -> Unit = { show() }): Thread = thread {
         val code = known ?: get("/backup/recovery-code")?.optString("code")
         ui {
@@ -135,24 +135,24 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         d = CalmDialog(act).setTitle("Send to my phone").setView(box).setMore("It goes straight to the phone, sealed. Nothing is sent over the internet.").setPositiveButton("Done") { _, _ -> h.stop(); back() }.setCancelable(false).open()
     }
 
-    /** Keep a copy of the code with OpenHouse: off unless someone says yes here, and it says plainly what that means. */
+    /** Keep a copy of the code with Opie: off unless someone says yes here, and it says plainly what that means. */
     private fun escrowAsk(on: Boolean, setup: Boolean = false) {
         if (!on) {
-            CalmDialog(act).setTitle("Delete OpenHouse's copy of the code?").setMessage("Then only you can open your backups.").setDanger()
+            CalmDialog(act).setTitle("Delete the copy in Opie's cloud?").setMessage("Then only you can open your backups.").setDanger()
                 .setPositiveButton("Delete") { _, _ -> escrowSet(false) }.setNegativeButton("Cancel", null).open()
             return
         }
         // At setup the private choice is the main button; asked from Backups, the one they tapped is.
-        val d = CalmDialog(act).setTitle("Let OpenHouse keep a copy of the code?")
-            .setMessage("Then OpenHouse could open your backups too.")
-            .setMore("If you lose the code and the tablet, OpenHouse could still give your backups back: your apps, chats, household and photos. Most households keep the code themselves. This can change later in Backups.")
+        val d = CalmDialog(act).setTitle("Keep a copy of the code in Opie's cloud?")
+            .setMessage("Then we could open your backups too.")
+            .setMore("If you lose the code and the tablet, we could still give your backups back: your apps, chats, household and photos. Most households keep the code themselves. This can change later in Backups.")
         if (setup) d.setPositiveButton("Just us") { _, _ -> show() }.setNegativeButton("Keep a copy") { _, _ -> escrowSet(true) }
         else d.setPositiveButton("Keep a copy") { _, _ -> escrowSet(true) }.setNegativeButton("Cancel", null)
         d.setCancelable(false).open()
     }
     private fun escrowSet(on: Boolean): Thread = thread {
         val r = post("/backup/escrow", JSONObject().put("on", on))
-        ui { if (r == null || r.has("error")) say("Recovery code", r?.optString("error") ?: noBridge) { show() } else { act.toast(if (on) "OpenHouse keeps a copy of the code" else "OpenHouse's copy deleted"); show() } }
+        ui { if (r == null || r.has("error")) say("Recovery code", r?.optString("error") ?: noBridge) { show() } else { act.toast(if (on) "A copy of the code is in Opie's cloud" else "The copy in Opie's cloud is deleted"); show() } }
     }
 
     private fun backUpNow() = thread {

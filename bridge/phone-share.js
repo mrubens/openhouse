@@ -74,14 +74,14 @@ export function phoneShareRoutes({ screens, json, body, turn, describe, message,
       return r;
     })().catch(() => ({ ok: false, text: 'Opie couldn’t answer that just now.' }));
     // From the iPhone's shortcut (it comes through the cloud: x-openhouse-share-at): "Sent" at once, and Opie's answer
-    // as OpenHouse's own message, whose tap opens that conversation on the phone to answer (a tap on the shortcut's
+    // as Opie's own message, whose tap opens that conversation on the phone to answer (a tap on the shortcut's
     // own notification only opens the Shortcuts app). From the page itself (Android's share sheet), the answer when
     // it comes, in the sheet that's open, within the deadline; later, as a message too.
     const fromShortcut = !!req.headers['x-openhouse-share-at'];
     const tell = (r) => message([s.person], { title: 'Opie', text: r.text || 'Done.', ...(r.id ? { open: `opie:${r.id}` } : {}) });
     if (fromShortcut) {
       const on = phones()[s.person]?.on > 0;
-      json(res, 200, { ok: true, text: on ? 'Sent to Opie. The answer comes as a notification from OpenHouse.' : 'Sent to Opie. The answer will be in OpenHouse on your phone.' });
+      json(res, 200, { ok: true, text: on ? 'Sent to Opie. The answer comes as a notification from Opie.' : 'Sent to Opie. The answer will be in Opie on your phone.' });
       work.then(tell).catch(() => {});
       return true;
     }

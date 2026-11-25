@@ -10,9 +10,9 @@
 # no tablet takes an update again without a reset.
 #
 # --lineage also writes dir/debug-to-release.lineage, which lets a tablet running a debug build of the same package
-# take releases signed with this key (APK Signature Scheme v3 rotation). Not needed for OpenHouse's own package IDs
+# take releases signed with this key (APK Signature Scheme v3 rotation). Not needed for Opie's own package IDs
 # (computer.openhouse.*): no tablet ever ran a debug build under them; the family tablet moves over from the old IDs
-# instead (docs/self-update.md, "Moving to OpenHouse"). The debug key it starts from is ~/.android/debug.keystore
+# instead (docs/self-update.md, "Moving to Opie"). The debug key it starts from is ~/.android/debug.keystore
 # (OPENHOUSE_DEBUG_KS).
 set -eo pipefail
 cd "$(dirname "$0")/.."

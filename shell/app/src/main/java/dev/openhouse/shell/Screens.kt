@@ -55,7 +55,7 @@ internal object Screens {
 
     /** The iPhone app: its QR code to scan with the iPhone's camera. */
     private fun iphoneApp(a: MainActivity, url: String) {
-        val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with your iPhone's camera. It's a beta, through Apple's TestFlight: install TestFlight when it asks, then OpenHouse."), 360) { Handoff.share(a, url) }
+        val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with your iPhone's camera. It's a beta, through Apple's TestFlight: install TestFlight when it asks, then Opie."), 360) { Handoff.share(a, url) }
         CalmDialog(a).setTitle("Get the iPhone app").setView(col).setNegativeButton("Close", null).show().also { a.immersive() }
     }
 
@@ -181,14 +181,14 @@ internal object Screens {
         fun relayConnector() = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/relay")).optString("connector").takeIf { it.startsWith("http") } }.getOrNull()
         var cloudConnector = relayConnector()
         if (turnedOn) for (i in 0 until 8) { if (cloudConnector != null) break; Thread.sleep(500); cloudConnector = relayConnector() }
-        // Or the tablet's own, behind the household's own https address (web-mcp.js): no OpenHouse cloud needed.
+        // Or the tablet's own, behind the household's own https address (web-mcp.js): no Opie cloud needed.
         val ownConnector = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/webmcp")).optString("connector").takeIf { it.startsWith("http") } }.getOrNull()
         val connector = ownConnector ?: cloudConnector
         main.post {
             if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair"); val code = p.optString("code"); val port = p.optInt("port")
             val address = "${ip.hostAddress}:$port"
-            // The page to add OpenHouse to Claude (bridge/connect-page.js), at the bridge's own name when it has one.
+            // The page to add Opie to Claude (bridge/connect-page.js), at the bridge's own name when it has one.
             val named = p.optString("host").takeIf { it.isNotEmpty() && !p.isNull("host") }?.let { "$it:$port" }
             // The Claude app's download over https (the release's copy of the very file this tablet carries). The page is
             // plain http on the Wi-Fi, so this screen, not the page, is where the code and that address are to be trusted.
@@ -233,7 +233,7 @@ internal object Screens {
             // Multicast reaches the bridge's name (openhouse.local) and the Bonjour advert only while this lock is held.
             val wifi = a.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
             val multicast = runCatching { wifi.createMulticastLock("openhouse-connect").apply { setReferenceCounted(false); acquire() } }.getOrNull()
-            val advertised = runCatching { nsd.registerService(android.net.nsd.NsdServiceInfo().apply { serviceName = "OpenHouse"; serviceType = "_openhouse._tcp"; setPort(port) }, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, advert) }.isSuccess
+            val advertised = runCatching { nsd.registerService(android.net.nsd.NsdServiceInfo().apply { serviceName = "Opie"; serviceType = "_openhouse._tcp"; setPort(port) }, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, advert) }.isSuccess
             var open = true
             val d = CalmDialog(a).setTitle("Connect your AI assistant").setWidth(980f).setView(col).setNegativeButton("Cancel", null)
                 .setNeutralButton("Your own address") { _, _ -> ownAddress(a, ownConnector) }
@@ -254,7 +254,7 @@ internal object Screens {
     }
 
     /**
-     * The tablet's own connector (web-mcp.js), for a household with its own networking and no OpenHouse cloud: their
+     * The tablet's own connector (web-mcp.js), for a household with its own networking and no Opie cloud: their
      * https address (a Tailscale Funnel, a tunnel) that reaches this tablet's port 8789. Claude or ChatGPT then adds
      * <address>/mcp as a connector, and signs in with the code, as with the cloud's.
      */
@@ -265,7 +265,7 @@ internal object Screens {
             addView(field)
             // Turning it off is rare: a quiet link here, not a third button (docs/ux.md).
             if (now != null) addView(Calm.quiet(a, "Turn it off") { d?.dismiss(); thread { post("/webmcp", JSONObject().put("on", false)) } }.apply { setPadding(0, 0, 0, 0) }, android.widget.LinearLayout.LayoutParams(-2, -2))
-            addView(Calm.more(a, "If your network gives this tablet an https address of its own (Tailscale Funnel, a Cloudflare tunnel, your own proxy), pointing at port 8789, Claude or ChatGPT can reach it there, with no OpenHouse cloud."))
+            addView(Calm.more(a, "If your network gives this tablet an https address of its own (Tailscale Funnel, a Cloudflare tunnel, your own proxy), pointing at port 8789, Claude or ChatGPT can reach it there, with no Opie cloud."))
         }
         d = CalmDialog(a).setTitle("Your own address").setMessage("An https address that reaches this tablet's port 8789.").setView(col)
             .setPositiveButton("Turn on") { _, _ -> thread {
@@ -286,8 +286,8 @@ internal object Screens {
         }
         if (computer) {
             // The name is the computer's own choice; how it asked isn't, and it could ask only with the code from this screen.
-            CalmDialog(a).setForPerson().setTitle("Let “$name” change this OpenHouse?")
-                .setMessage(when (via) { "cloud" -> "It typed this tablet's code, through OpenHouse's cloud."; "wifi" -> "It typed this tablet's code, on this Wi-Fi."; else -> null })
+            CalmDialog(a).setForPerson().setTitle("Let “$name” change this Opie?")
+                .setMessage(when (via) { "cloud" -> "It typed this tablet's code, through Opie's cloud."; "wifi" -> "It typed this tablet's code, on this Wi-Fi."; else -> null })
                 .setRights(listOf("data" to "The lists, calendar, chores, notes and timers", "devices" to "The speakers and TVs", "apps" to "Makes and changes apps and tabs"))
                 .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
                 .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }

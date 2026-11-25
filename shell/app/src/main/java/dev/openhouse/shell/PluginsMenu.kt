@@ -1,9 +1,9 @@
 package dev.openhouse.shell
 
-// Settings → Plugins (docs/plugins.md §6, §11, §19). What's on the tablet: plugins from OpenHouse's list or a link, and
-// the household's versions of OpenHouse's own apps ("Yours, based on Calendar 1.0"), with Remove, Put ours back, and an
+// Settings → Plugins (docs/plugins.md §6, §11, §19). What's on the tablet: plugins from Opie's list or a link, and
+// the household's versions of Opie's own apps ("Yours, based on Calendar 1.0"), with Remove, Put ours back, and an
 // update's three choices when the household changed one (keep yours, take theirs, or both). "Add a plugin" opens
-// OpenHouse's list (the gallery), with "From a link" for anything else. The bridge does the work (bridge/plugins.js);
+// Opie's list (the gallery), with "From a link" for anything else. The bridge does the work (bridge/plugins.js);
 // this is only the dialogs. Adding gets the tablet's own card, the same one the assistant's add_plugin gets (the
 // bridge asks it through DeviceServer /approve), so what someone says yes to is what goes in.
 
@@ -58,7 +58,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
     private fun standing(p: JSONObject): String {
         p.str("basedOn")?.let { return "Yours, based on $it" }
         val v = p.str("version")?.let { ", version $it" } ?: ""
-        return if (p.optBoolean("reviewed")) "From OpenHouse's list$v" else "From ${p.optString("source").removePrefix("git:")}$v"
+        return if (p.optBoolean("reviewed")) "From Opie's list$v" else "From ${p.optString("source").removePrefix("git:")}$v"
     }
 
     private fun menu(all: List<JSONObject>) {
@@ -73,11 +73,11 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         val title = p.optString("title")
         // The household's version of one of ours: put ours back (theirs stays in the history of changes).
         if (p.optString("kind") == "local") {
-            CalmDialog(act).setTitle(title).setMessage("Yours, based on OpenHouse's ${p.optString("basedOn", title)}.")
+            CalmDialog(act).setTitle(title).setMessage("Yours, based on Opie's ${p.optString("basedOn", title)}.")
                 .setNegativeButton("Back") { _, _ -> home() }
                 .setPositiveButton("Put ours back") { _, _ -> guard { thread {
                     val r = post("/plugins/reset", JSONObject().put("name", p.optString("name")), 30_000)
-                    ui { when { r == null -> say("Plugins", noBridge); r.has("error") -> say("Plugins", r.optString("error")); else -> { act.toast("OpenHouse's $title is back"); act.reloadHome(); home() } } }
+                    ui { when { r == null -> say("Plugins", noBridge); r.has("error") -> say("Plugins", r.optString("error")); else -> { act.toast("Opie's $title is back"); act.reloadHome(); home() } } }
                 } } }.show()
             return
         }
@@ -154,7 +154,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         }
     }
 
-    // ---- the gallery: OpenHouse's list, then a link for anything else ----
+    // ---- the gallery: Opie's list, then a link for anything else ----
     fun gallery() {
         act.toast("Getting the list…")
         thread {
@@ -166,7 +166,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
     }
 
     /**
-     * Two halves (one above the other on a narrow screen): "Find an app", OpenHouse's list with a search box that
+     * Two halves (one above the other on a narrow screen): "Find an app", Opie's list with a search box that
      * filters by name and description as you type (a tap goes on to the card, as before), and "Make your own with AI",
      * a few lines on connecting Claude or ChatGPT from a computer, with a button for that pairing step.
      */
@@ -200,7 +200,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
                 val detail = when { here == null -> e.optString("description"); e.optBoolean("update") -> "On this tablet · a newer version is out"; else -> "On this tablet" }
                 rows.addView(line(e.optString("title"), detail, pics[e.optString("name")]) { if (here != null) installedOne(here.optString("name")) else look(e.optString("name")) })
             }
-            if (shown.isEmpty()) rows.addView(Calm.text(c, error ?: if (list.isEmpty()) "OpenHouse's list is empty right now." else "Nothing called that.", 19f, 400, Calm.SOFT).apply { setPadding(Calm.px(c, 16), Calm.px(c, 16), 0, Calm.px(c, 16)) })
+            if (shown.isEmpty()) rows.addView(Calm.text(c, error ?: if (list.isEmpty()) "Opie's list is empty right now." else "Nothing called that.", 19f, 400, Calm.SOFT).apply { setPadding(Calm.px(c, 16), Calm.px(c, 16), 0, Calm.px(c, 16)) })
             rows.addView(line("From a link", "A git or .tgz link someone shared", null) { askLink() })
         }
         val search = Calm.field(c, "Search", 22f).apply {
@@ -259,7 +259,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             .setPositiveButton("Next") { _, _ -> look(box.text.toString().trim()) }.setNegativeButton("Cancel") { _, _ -> gallery() }.show()
     }
 
-    /** [source]: a link, or the name of a plugin on OpenHouse's list (the bridge fetches only its pinned tarball). The
+    /** [source]: a link, or the name of a plugin on Opie's list (the bridge fetches only its pinned tarball). The
      *  bridge puts up the tablet's own card for it, the one add_plugin gets (its rights, a person's own tap, the PIN
      *  when it's on), made from exactly what it then adds: no card of our own here. */
     private fun look(source: String) {

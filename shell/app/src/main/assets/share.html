@@ -1,13 +1,13 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>OpenHouse</title>
+<title>Opie</title>
 <style>
 :root{--bg:#fbf9f5;--ink:#2a2826;--soft:#6e6a65;--line:#e7e3dc;--tint:#f1eee9;--go:#2a2826;color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 main{max-width:480px;margin:0 auto;padding:28px 20px 48px}
-main::before{content:"OpenHouse";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
+main::before{content:"Opie";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
 h1{font-size:28px;font-weight:600;letter-spacing:-.01em;margin:0 0 20px}
 ol{margin:0 0 8px;padding:0;list-style:none;counter-reset:s}
 ol li{counter-increment:s;position:relative;padding:0 0 14px 40px;color:var(--ink)}
@@ -25,7 +25,7 @@ input[type=file]{padding:18px;border-style:dashed}
 .bar{height:10px;border-radius:5px;background:var(--line);margin-top:18px;overflow:hidden}.bar i{display:block;height:100%;width:0;background:var(--go)}
 </style></head>
 <body><main>
-<h1 id="t">Photos for OpenHouse</h1>
+<h1 id="t">Photos for Opie</h1>
 <div id="f" hidden>
   <p id="ready" hidden></p>
   <label for="pick">Photos</label>
@@ -40,7 +40,7 @@ input[type=file]{padding:18px;border-style:dashed}
 // The household's lasting photo page (PhotoShare.kt): any time, photos from this phone go into the tablet's
 // Photos. Served two ways, the same code:
 //   by the tablet on the home Wi-Fi: http://<tablet>:<port>/#<key>  (bookmark it, or add it to the home screen)
-//   by OpenHouse's cloud, when the household turned on reaching the tablet from away: /p/#<key>.<relay>.<token>,
+//   by Opie's cloud, when the household turned on reaching the tablet from away: /p/#<key>.<relay>.<token>,
 //     through the relay (it can't open what passes). There it can be installed, and on Android it's in the share
 //     sheet (Web Share Target: the service worker, /p/sw.js, keeps what was shared for this page to send).
 // The key is after #, so it never leaves the phone; this page keeps it (localStorage) so it opens again without it.
@@ -165,7 +165,7 @@ const te = new TextEncoder(), td = new TextDecoder();
   if (info.title) $('t').textContent = info.title;
   $('f').hidden = false;
   const ios = /iP(hone|ad|od)/.test(navigator.userAgent), alone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  if (!alone) { $('how').hidden = false; $('how').textContent = ios ? 'Tip: Share, then Add to Home Screen, and this page is one tap away.' : relay ? 'Tip: install this page (the browser’s menu, Add to Home screen). Then Share, OpenHouse sends photos from any app.' : 'Tip: add this page to your home screen, and it’s one tap away when you’re on the home Wi-Fi.'; }
+  if (!alone) { $('how').hidden = false; $('how').textContent = ios ? 'Tip: Share, then Add to Home Screen, and this page is one tap away.' : relay ? 'Tip: install this page (the browser’s menu, Add to Home screen). Then Share, Opie sends photos from any app.' : 'Tip: add this page to your home screen, and it’s one tap away when you’re on the home Wi-Fi.'; }
 
   // Shared from another app (Android's share sheet): the service worker kept them.
   let shared = [];

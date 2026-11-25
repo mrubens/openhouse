@@ -4,7 +4,7 @@
     <!-- The cover watches for the new display (its install time) and opens it: Android hides other apps unless listed. -->
     <queries><package android:name="${displayPkg}" /></queries>
     <application
-        android:label="OpenHouse apps"
+        android:label="Opie apps"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen">
         <!-- Covers the screen while the display updates (CoverActivity.kt). -->

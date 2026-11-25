@@ -1,4 +1,4 @@
-# OpenHouse as a hub (docs/hub.md): the bridge headless on Linux (arm64 or x86_64), phones and computers as its screens.
+# Opie as a hub (docs/hub.md): the bridge headless on Linux (arm64 or x86_64), phones and computers as its screens.
 #   docker build -f hub/Dockerfile -t openhouse-hub .
 #   docker compose -f hub/compose.yml up -d        (then: docker logs openhouse, for the settings code)
 # The household's things live in /data (one volume: back it up, or turn on backups); backups go to /backups.

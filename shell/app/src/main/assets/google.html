@@ -1,13 +1,13 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>OpenHouse</title>
+<title>Opie</title>
 <style>
 :root{--bg:#fbf9f5;--ink:#2a2826;--soft:#6e6a65;--line:#e7e3dc;--tint:#f1eee9;--go:#2a2826;color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 main{max-width:480px;margin:0 auto;padding:28px 20px 48px}
-main::before{content:"OpenHouse";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
+main::before{content:"Opie";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
 h1{font-size:28px;font-weight:600;letter-spacing:-.01em;margin:0 0 20px}
 ol{margin:0 0 8px;padding:0;list-style:none;counter-reset:s}
 ol li{counter-increment:s;position:relative;padding:0 0 14px 40px;color:var(--ink)}
@@ -27,7 +27,7 @@ input[type=file]{padding:18px;border-style:dashed}
 <body><main>
 <h1 id="t">Photos from Google Photos</h1>
 <div id="start" hidden>
-  <p>Sign in to Google and pick the photos for the tablet. OpenHouse sees only the ones you pick, once, and copies them to the tablet.</p>
+  <p>Sign in to Google and pick the photos for the tablet. Opie sees only the ones you pick, once, and copies them to the tablet.</p>
   <button id="go">Sign in to Google</button>
 </div>
 <div id="pick" hidden>
@@ -40,7 +40,7 @@ input[type=file]{padding:18px;border-style:dashed}
 <script>
 // Photos from Google Photos, through Google's Picker API (docs/photos.md), from a phone on the home Wi-Fi. This
 // page is the tablet's (GooglePhotos.kt), opened from its QR code: http://<tablet>:<port>/#<key>.
-//   1. Sign in: the tablet asks OpenHouse's cloud for a one-time link (POST s {start}: the bridge's /cloud/google/start,
+//   1. Sign in: the tablet asks Opie's cloud for a one-time link (POST s {start}: the bridge's /cloud/google/start,
 //      with the tablet's credential, naming this page; the link comes back as info.signin). The phone opens it: the cloud
 //      sends it to Google's consent screen and back here with an access token after # (#g=…; it never leaves the
 //      phone). The key waits in sessionStorage meanwhile.
@@ -106,7 +106,7 @@ const te = new TextEncoder(), td = new TextDecoder();
   if (!i) return say('This link has ended. Start again on the tablet.');
   const cal = i.kind === 'cal';
   if (cal) {
-    document.title = 'OpenHouse: Google Calendar'; $('t').textContent = 'Google Calendar';
+    document.title = 'Opie: Google Calendar'; $('t').textContent = 'Google Calendar';
     $('start').querySelector('p').textContent = 'Sign in to Google so the tablet and Google Calendar show the same events, and what’s added on either shows up on both. The sign-in stays sealed on the tablet.';
   }
   if (!i.cloud) return say('Google isn’t available right now. Try again later.');

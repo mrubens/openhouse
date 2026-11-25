@@ -15,7 +15,7 @@ import kotlin.concurrent.thread
 /**
  * "Add photos from Google": Google Photos through Google's Picker API (docs/photos.md). Behind the PIN, the
  * tablet shows a QR code for its own page (assets/google.html) on the home Wi-Fi; the phone signs in to Google
- * through OpenHouse's cloud (which holds the OAuth client's secret, /g/start) and hands the access token back here,
+ * through Opie's cloud (which holds the OAuth client's secret, /g/start) and hands the access token back here,
  * sealed. Here: a picking session with Google, its link to the phone, and once they've picked, each photo copied
  * straight from Google into the household's photos. The token lives only in this object, in memory, for this one
  * run (an hour at most, no refresh token), and goes when it's done or the card closes.

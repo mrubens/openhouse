@@ -1,6 +1,6 @@
 package dev.openhouse.shell
 
-// Settings → Email (docs/tablet-email.md): the tablet's address at OpenHouse's cloud, who may send to it, mail waiting
+// Settings → Email (docs/tablet-email.md): the tablet's address at Opie's cloud, who may send to it, mail waiting
 // for an Allow, what came in, and the household's own mailbox (MailAccount). The bridge keeps the rules and the mail
 // (bridge/mail.js, GET /mail and its POSTs); the own mailbox's password stays here. Behind the PIN when the lock is on.
 

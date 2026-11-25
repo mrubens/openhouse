@@ -1,7 +1,7 @@
-# The OpenHouse logo
+# The Opie logo
 
 One mark everywhere: a rounded house outline in off-white (`#fbf9f5`) on a dark rounded square (`#2a2826`), no door.
-Beside it, the wordmark is "OpenHouse" in the page's own type (semibold, slightly tight), never an image of text.
+Beside it, the wordmark is "Opie" in the page's own type (semibold, slightly tight), never an image of text.
 
 | File | What it is | Where it's used |
 | --- | --- | --- |

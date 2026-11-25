@@ -16,7 +16,7 @@
 //
 // A check that doesn't fit is left out with the reason (GET /heartbeat lists them). An app from a link (a shared
 // plugin) keeps the checks its card showed, fixed when it was added (plugins.js checksOf); editing its app.json can't
-// add one. The family's own and OpenHouse's apps are read live from app.json.
+// add one. The family's own and Opie's apps are read live from app.json.
 import fs from 'node:fs';
 import path from 'node:path';
 import { dayKey } from './dates.js';

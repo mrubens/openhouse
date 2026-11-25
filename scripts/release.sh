@@ -33,7 +33,7 @@
 #                              gets it, on its standard input: never the builds' environment (gradle, npm and all they
 #                              run); env:NAME is taken out of it
 #   OPENHOUSE_LINEAGE          a lineage file, only for a package that tablets ran debug builds of (release-key.sh
-#                              --lineage); OpenHouse's own IDs have none
+#                              --lineage); Opie's own IDs have none
 set -eo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -44,7 +44,7 @@ VERSION=$1; shift || true
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { sed -n '2,31p' "$0"; exit 1; }
 REF=HEAD RESCUE= RESCUE_VERSION= ROLLOUT=100 MIN= NOTES= OUT= PUBLISH= LOCAL= RUNTIME= SMOKE=
 URL=${OPENHOUSE_UPDATE_URL:-$(sed -n 's/^openhouse.updateUrl=//p' shell/gradle.properties)}
-# Releases are built under OpenHouse's own IDs (openhouse.releaseAppId), whatever openhouse.appId says for debug builds.
+# Releases are built under Opie's own IDs (openhouse.releaseAppId), whatever openhouse.appId says for debug builds.
 APPID=$(sed -n 's/^openhouse.releaseAppId=//p' shell/gradle.properties)
 [ -n "$APPID" ] || { echo "No openhouse.releaseAppId in shell/gradle.properties." >&2; exit 1; }
 while [ $# -gt 0 ]; do
@@ -193,7 +193,7 @@ fi
 # Each published release is tagged on what it was built from, so a later --rescue v$VERSION builds exactly that.
 if [ -z "$LOCAL" ]; then
   SHA=$(git rev-parse "$REF^{commit}")
-  echo "Once it's published, tag it: git tag -a v$VERSION $SHA -m \"OpenHouse $VERSION\" && git push origin v$VERSION"
+  echo "Once it's published, tag it: git tag -a v$VERSION $SHA -m \"Opie $VERSION\" && git push origin v$VERSION"
 fi
 
 if [ "$PUBLISH" = github ]; then

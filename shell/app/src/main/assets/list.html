@@ -1,13 +1,13 @@
 <!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>OpenHouse</title>
+<title>Opie</title>
 <style>
 :root{--bg:#fbf9f5;--ink:#2a2826;--soft:#6e6a65;--line:#e7e3dc;--tint:#f1eee9;--go:#2a2826;color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:18px/1.45 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 main{max-width:480px;margin:0 auto;padding:28px 20px 48px}
-main::before{content:"OpenHouse";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
+main::before{content:"Opie";display:block;font-weight:600;font-size:17px;margin-bottom:40px}
 h1{font-size:28px;font-weight:600;letter-spacing:-.01em;margin:0 0 20px}
 ol{margin:0 0 8px;padding:0;list-style:none;counter-reset:s}
 ol li{counter-increment:s;position:relative;padding:0 0 14px 40px;color:var(--ink)}
@@ -84,7 +84,7 @@ const b64 = { dec: (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g
 const te = new TextEncoder(), td = new TextDecoder();
 (async () => {
   const $ = (id) => document.getElementById(id), say = (t) => { $('m').textContent = t; };
-  // Served by the display on the Wi-Fi: #<key>. Served by OpenHouse's cloud (its address works anywhere, so the page
+  // Served by the display on the Wi-Fi: #<key>. Served by Opie's cloud (its address works anywhere, so the page
   // opens at the store too): #<key>.<relay>.<token>, and a meta tag names the relay; everything then goes through it.
   const cloudRelay = document.querySelector('meta[name="openhouse-relay"]')?.content || '';
   const [k64, rid, rtok] = location.hash.slice(1).split('.');
@@ -95,7 +95,7 @@ const te = new TextEncoder(), td = new TextDecoder();
   else if (cloudRelay) return say('Scan the code on the display again.');
   else history.replaceState(null, '', location.pathname); // the key leaves the address bar (on the cloud's page it stays, so the page reopens)
   // Away from home, when the family turned that on (the display's Cloud settings): the same sealed requests through
-  // OpenHouse's relay, which can't open them (docs/networking.md). The Wi-Fi first; after it misses, the relay for a minute.
+  // Opie's relay, which can't open them (docs/networking.md). The Wi-Fi first; after it misses, the relay for a minute.
   let rready = null, rn = 0, awayUntil = 0, via = 'home';
   const rwait = new Map();
   function rconnect() {

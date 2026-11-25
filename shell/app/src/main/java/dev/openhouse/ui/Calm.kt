@@ -1,6 +1,6 @@
 package dev.openhouse.ui
 
-// OpenHouse's one look for its own screens, native and Compose alike: the home screen's paper, ink and one accent
+// Opie's one look for its own screens, native and Compose alike: the home screen's paper, ink and one accent
 // (chat/src/home.jsx, the "paper" palette), its type (Inter, as bridge/kit/quiet.css), one dark button for the main
 // action and quiet text buttons for the rest. Every screen the shell draws itself takes its colors, sizes and pieces
 // from here, so they can't drift apart again.
@@ -222,7 +222,7 @@ object Calm {
         }.apply { minimumWidth = px(c, size); minimumHeight = px(c, size) }
     }
     /** The name, as the first screens show it in their corner (until there's a logo). */
-    fun wordmark(c: Context) = text(c, "OpenHouse", 22f, 600)
+    fun wordmark(c: Context) = text(c, "Opie", 22f, 600)
 
     /** A ScrollView no taller than [maxPx]. */
     class Capped(c: Context, private val maxPx: Int) : ScrollView(c) {

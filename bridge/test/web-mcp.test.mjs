@@ -1,4 +1,4 @@
-// The tablet's own connector (web-mcp.js, docs/web-chat-building.md "Your own address"): with no OpenHouse cloud, the
+// The tablet's own connector (web-mcp.js, docs/web-chat-building.md "Your own address"): with no Opie cloud, the
 // bridge serves OAuth and MCP itself, for a household's tunnel to make public. Signing in is the tablet's code and a
 // yes on the tablet; then MCP reaches the workshop as that paired computer. The real bridge; a test redirect on
 // localhost stands in for claude.ai's.

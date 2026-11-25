@@ -1,6 +1,6 @@
 package dev.openhouse.shell
 
-// Settings → Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through OpenHouse cloud, off unless someone
+// Settings → Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through Opie cloud, off unless someone
 // turns it on here after reading what goes where. The bridge does the work (bridge/cloud.js, /cloud/voice); the
 // session runs in the shell (LiveVoice). Its name is heard on the tablet; nothing goes out until then.
 
@@ -73,7 +73,7 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
                 // In the first setup, linking waits for its phone-or-computer step (the user: "Don't need to pop the phone
                 // up right away"): ui/Setup.kt asks for it there.
                 !v.optBoolean("linked") && !linkNow -> dev.openhouse.ui.Setup.wantsLink = true
-                !v.optBoolean("linked") -> CloudMenu(act).startLink("Opie's voice comes through your OpenHouse account.") { turnOn() }
+                !v.optBoolean("linked") -> CloudMenu(act).startLink("Opie's voice comes through your Opie account.") { turnOn() }
                 v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> say("This tablet's cloud service doesn't offer it.")
                 else -> set(true)
             }

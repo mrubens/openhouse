@@ -72,7 +72,7 @@ object Runtime {
     @Volatile private var refusedUntil = 0L
     fun setup(imageUrl: String, progress: (Int) -> Unit, failed: (String) -> Unit): Boolean = synchronized(setupLock) { setupOnce(imageUrl, progress, failed) }
 
-    // The family sees one step ("Getting OpenHouse ready") and one bar: the download is most of it (to 85%), then
+    // The family sees one step ("Getting Opie ready") and one bar: the download is most of it (to 85%), then
     // unpacking. (Until 1.0.9 Claude Code was installed after, for the agent's app: no more.)
     private fun setupOnce(imageUrl: String, progress: (Int) -> Unit, failed: (String) -> Unit): Boolean = runCatching {
         // Marked unpacked but not there (that race, or a folder cleared by hand): unpack again.
@@ -80,14 +80,14 @@ object Runtime {
         if (!File(root, ".unpacked").exists()) {
             val tgz = File(ctx.cacheDir, "runtime.tar.gz")
             // One that didn't match is refused for a while: it's the same file again until someone fixes the host.
-            if (System.currentTimeMillis() < refusedUntil) error("the downloaded software didn't match this version of OpenHouse")
+            if (System.currentTimeMillis() < refusedUntil) error("the downloaded software didn't match this version of Opie")
             progress(0)
             download(imageUrl, tgz) { pct -> progress(pct * 85 / 100) }
             // Checked against the SHA-256 this build carries before anything of it is unpacked (Pinned).
             runCatching { Pinned.check("runtime", Pinned.runtime, Pinned.sha256(tgz)) }.onFailure {
                 tgz.delete(); refusedUntil = System.currentTimeMillis() + 15 * 60_000L
                 Log.e(TAG, "runtime refused: ${it.message}")
-                error("the downloaded software didn't match this version of OpenHouse")
+                error("the downloaded software didn't match this version of Opie")
             }
             progress(86)
             val stage = File(ctx.filesDir, "rootfs.new").apply { deleteRecursively(); mkdirs() }

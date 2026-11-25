@@ -14,7 +14,7 @@ import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { Today as TabletToday, lookVars } from './home.jsx';
 import { paletteOf, worldOf } from './look.js';
 
-// Served by OpenHouse's cloud (https, installable, notes by push): everything goes through the relay, and the
+// Served by Opie's cloud (https, installable, notes by push): everything goes through the relay, and the
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
 // It stays in the address so a home-screen copy opens with it (iOS keeps an installed page's storage apart).
 const CLOUD_RELAY = document.querySelector('meta[name="openhouse-relay"]')?.content || '';
@@ -49,7 +49,7 @@ function Join({ onJoined, removed }) {
   async function typed() { setStep('joining'); await new Promise((r) => setTimeout(r, 30)); const via = pairingFromCode(code); if (!via) return setStep('none'); await join(via); }
   return (
     <main className="join">
-      <div className="brand">OpenHouse</div>
+      <div className="brand">Opie</div>
       {step === 'go' && <><h1>{person ? `${person}'s phone` : 'This phone'}</h1><p>The household's day, lists and chores here, and a note when the tablet has one{person ? ` for ${person}` : ''}.</p><button className="go" onClick={() => join()}>Join</button></>}
       {step === 'asked' && <><h1>Waiting</h1><p>{hub ? "Say yes on the hub's settings page." : 'Say yes on the tablet.'}</p></>}
       {step === 'refused' && <><h1>Not this time</h1><p>The tablet said no.</p></>}
@@ -113,7 +113,7 @@ function useHouse(c, onRemoved) {
 }
 
 // ---- the tabs --------------------------------------------------------------------------------------------
-/** A recipe's page shared to OpenHouse from the browser (the manifest's share_target, Android): it opens the Ask
+/** A recipe's page shared to Opie from the browser (the manifest's share_target, Android): it opens the Ask
  *  sheet with the link in it, and a link sent there goes to the household's recipe box (the tablet makes it into steps). */
 const shared = (() => { const q = new URLSearchParams(location.search); const t = String(q.get('text') || '').trim(), u = String(q.get('url') || '').trim(); return [t, u && !t.includes(u) ? u : ''].filter(Boolean).join(' ').slice(0, 4000); })();
 const canAsk = (me) => (me.scopes || []).includes('ask');
@@ -191,7 +191,7 @@ function Ask({ me, c, onClose, convoId = null }) {
       setTurns(ts.filter((x) => x.a || x.q));
     }).catch(() => {});
   }, []);
-  // Shared to OpenHouse from another app (Android's share sheet): it goes to Opie at once, as the iPhone's shortcut does.
+  // Shared to Opie from another app (Android's share sheet): it goes to Opie at once, as the iPhone's shortcut does.
   useEffect(() => { if (!shared) return; history.replaceState(null, '', location.pathname + location.hash); send(shared); }, []);
   useEffect(() => { end.current?.scrollIntoView({ block: 'end' }); }, [turns]);
   const live = turns.at(-1)?.live;
@@ -288,7 +288,7 @@ function SetupFlow({ me, c, h, onDone }) {
   const family = (h.house?.family || []).filter((f) => !mine(me, f.name));
   return (
     <main className="join setup">
-      <div className="brand">OpenHouse</div>
+      <div className="brand">Opie</div>
       <div className="soft step">{i + 1} of {steps.length}</div>
       {steps[i] === 'calendars' && <AddLink c={c} kind="calendar" family={h.house?.family || []} />}
       {steps[i] === 'photos' && <AddLink c={c} kind="album" />}
@@ -338,9 +338,9 @@ function Invite({ c, family }) {
       const away = r.json.page && r.json.relay;
       const url = away ? `${r.json.page}?for=${encodeURIComponent(f.name)}#${r.json.pair}.${r.json.key}.${r.json.relay}`
         : `${location.origin}/phone/?for=${encodeURIComponent(f.name)}#${r.json.pair}.${r.json.key}`;
-      const text = away ? `${f.name}, here's our OpenHouse.` : `${f.name}, here's our OpenHouse. Open it at home, on our Wi-Fi.`;
+      const text = away ? `${f.name}, here's our Opie.` : `${f.name}, here's our Opie. Open it at home, on our Wi-Fi.`;
       setSent({ ...sent, [f.name]: true });
-      if (navigator.share) await navigator.share({ title: 'OpenHouse', text, url }).catch(() => setLink({ who: f.name, url }));
+      if (navigator.share) await navigator.share({ title: 'Opie', text, url }).catch(() => setLink({ who: f.name, url }));
       else setLink({ who: f.name, url });
     } catch {}
   }
@@ -363,7 +363,7 @@ function Apps({ computer }) {
 
 // ---- Send to Opie from an iPhone's share sheet (docs/phones.md; the cloud's send.ts, the bridge's phone-share.js) ----
 /** One row: copy this phone's key, then add the shortcut, which asks for it. Only on the cloud's copy, on an iPhone,
- *  for a phone that may ask Opie, once the service has the signed shortcut. (Android's share sheet already lists OpenHouse.) */
+ *  for a phone that may ask Opie, once the service has the signed shortcut. (Android's share sheet already lists Opie.) */
 const SHORTCUT = document.querySelector('meta[name="openhouse-shortcut"]')?.content || '';
 function SendToOpie({ me, c }) {
   const [key, setKey] = useState(null), [step, setStep] = useState(() => (get('openhouse.phone.shortcut') ? 'done' : 'ask'));
@@ -379,7 +379,7 @@ function SendToOpie({ me, c }) {
   if (step === 'done') return null;
   return (
     <div className="pushrow">
-      {step === 'ask' ? <><span>Send links, photos and words to Opie from any app's share sheet. They go through OpenHouse's cloud on their way home.</span>
+      {step === 'ask' ? <><span>Send links, photos and words to Opie from any app's share sheet. They go through Opie's cloud on their way home.</span>
         <button disabled={!key} onClick={add}>Add Send to Opie</button></>
         : <><span>When it asks for a key, paste. Then Send to Opie is in the share sheet (under More the first time).</span>
           <button onClick={() => setStep('done')}>Done</button></>}
@@ -404,14 +404,14 @@ function AddToHome({ me, onLater }) {
   async function add() { try { installPrompt.prompt(); const r = await installPrompt.userChoice; if (r?.outcome === 'accepted') setAdded(true); } catch {} installPrompt = null; setCan(false); }
   return (
     <main className="join home">
-      <div className="brand">OpenHouse</div>
-      {added ? <><h1>Added</h1><p>Open OpenHouse from your home screen.</p></>
+      <div className="brand">Opie</div>
+      {added ? <><h1>Added</h1><p>Open Opie from your home screen.</p></>
         : <><h1>Put it on your home screen</h1>
           <p>It opens like an app, works away from home, and can tell you when something's for you.</p>
           {can ? <button className="go" onClick={add}>Add to home screen</button>
             : <ol className="steps">
               {ios ? <><li>Tap Share <ShareIcon /></li><li>Tap Add to Home Screen</li></> : <><li>Tap the menu (⋮)</li><li>Tap Add to Home screen</li></>}
-              <li>Open OpenHouse from your home screen</li>
+              <li>Open Opie from your home screen</li>
             </ol>}</>}
       <button className="quiet later" onClick={onLater}>{added ? 'Keep using it here' : 'Not now'}</button>
     </main>
@@ -463,7 +463,7 @@ function Phone({ me, c, onRemoved }) {
   // On the Wi-Fi's page: once it knows the household's installable copy, go there (it works at home too).
   const link = !CLOUD_RELAY && mobile && !setup && cloudLink(me);
   useEffect(() => { if (link) location.replace(link); }, [link]);
-  if (link) return <main className="join"><div className="brand">OpenHouse</div><h1>One moment</h1></main>;
+  if (link) return <main className="join"><div className="brand">Opie</div><h1>One moment</h1></main>;
   if (setup) return <SetupFlow me={me} c={c} h={h} onDone={() => { put(DONE, true); setSetup(false); }} />;
   if (home) return <AddToHome me={me} onLater={() => { put(LATER, true); setHome(false); }} />;
   const ago = h.at ? Math.round((Date.now() - h.at) / 60e3) : null;
@@ -501,7 +501,7 @@ function More({ open, tabs, tab, me, onGo, onClose }) {
     <div className={'more' + (open ? ' open' : '')} aria-hidden={!open}>
       <div className="more-veil" onClick={onClose} />
       <aside className="more-list">
-        <div className="more-head"><div><span className="brand">OpenHouse</span><div className="soft more-foot">{me.person ? `${me.person}'s phone` : 'This phone'}</div></div><button className="quiet" onClick={onClose}>Done</button></div>
+        <div className="more-head"><div><span className="brand">Opie</span><div className="soft more-foot">{me.person ? `${me.person}'s phone` : 'This phone'}</div></div><button className="quiet" onClick={onClose}>Done</button></div>
         {tabs.map((t) => <button key={t.id} className={'more-row' + (tab === t.id ? ' here' : '')} onClick={() => onGo(t.id)}><TabIcon t={t} /><span>{t.name}</span></button>)}
       </aside>
     </div>
@@ -543,7 +543,7 @@ function App() {
     ? client({ id: me.id, key: me.key, relay: me.relay, onlyRelay: true, api: location.origin }) // (the cloud's copy: big replies may come as boxes)
     : client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => { const n = { ...(get(STORE) || me), relay: r || undefined }; put(STORE, n); setMe(n); } })), [me?.id, me?.relay?.token]);
   if (CLOUD_RELAY && !me && invite) return <Join onJoined={(w) => { put(STORE, w); setMe(w); tellApp(w); }} />; // an invite, opened anywhere
-  if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">OpenHouse</div><h1>Not linked to a home yet</h1><p>On the tablet: Settings, Screens, Add a screen, Someone's phone. Scan the code with this phone's camera.</p></main>;
+  if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">Opie</div><h1>Not linked to a home yet</h1><p>On the tablet: Settings, Screens, Add a screen, Someone's phone. Scan the code with this phone's camera.</p></main>;
   if (!c) return <Join removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;
   return <Phone me={me} c={c} onRemoved={() => { put(STORE, null); put(CACHE, null); put(QUEUE, null); setMe(null); setRemoved(true); }} />;
 }

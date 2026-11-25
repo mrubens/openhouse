@@ -1,4 +1,4 @@
-# OpenHouse hub (docs/hub.md). From the repo:  docker compose -f hub/compose.yml up -d --build
+# Opie hub (docs/hub.md). From the repo:  docker compose -f hub/compose.yml up -d --build
 # The settings code:  docker logs openhouse   (or data/hub-setup.txt)
 #
 # Linux: the hub shares the machine's network (network_mode: host), so it finds the TVs, speakers and printers on the

@@ -1,14 +1,14 @@
 #!/bin/bash
 # Boot a release before it goes out: on an emulator, its display APK and then its rescue (installed over it, as a
 # tablet goes back) each install, start, unpack the release's runtime, the bridge answers /state, the home screen's
-# page loads, and nothing of OpenHouse crashes (no FATAL EXCEPTION in logcat). Read-only on the release folder.
+# page loads, and nothing of Opie crashes (no FATAL EXCEPTION in logcat). Read-only on the release folder.
 #
 #   scripts/smoke.sh <release folder> [--serial emulator-NNNN] [--keep]
 #
 #   (no --serial)  a throwaway emulator: a new AVD in a temporary folder (system-images;android-35;google_apis;arm64-v8a,
 #                  as scripts/create-avd.sh), booted with no window on a free port, shut down and deleted after
 #   --serial S     an emulator already running. Only emulator-<port> serials of a running emulator are taken: never a
-#                  physical device. OpenHouse's release apps are uninstalled from it first (its data with them).
+#                  physical device. Opie's release apps are uninstalled from it first (its data with them).
 #   --keep         leave the throwaway emulator running after (it says how to stop it)
 #
 # The runtime is served from the folder over adb reverse (as scripts/tablet-setup.sh does), and updates are pointed at
@@ -127,7 +127,7 @@ a reverse "tcp:$RPORT" "tcp:$RPORT" >/dev/null
 a forward "tcp:$FPORT" tcp:8787 >/dev/null
 
 token() { a shell am broadcast -n "$PKG/dev.openhouse.shell.ConfigReceiver" -a dev.openhouse.shell.CONFIG --ez token true 2>/dev/null | tr -d '\r' | sed -n 's/.*data="\([0-9a-f]*\)".*/\1/p'; }
-crashes() { # FATAL EXCEPTIONs in any of OpenHouse's processes since the log was cleared
+crashes() { # FATAL EXCEPTIONs in any of Opie's processes since the log was cleared
   a logcat -d -b crash -b main 2>/dev/null | tr -d '\r' | grep -A2 'FATAL EXCEPTION' | grep -E "Process: $APPID(\.|,)" | sort -u
 }
 home() { a shell am start -S -a android.intent.action.MAIN -c android.intent.category.HOME -n "$PKG/dev.openhouse.shell.MainActivity" >/dev/null; }

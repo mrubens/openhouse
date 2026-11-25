@@ -152,7 +152,7 @@ chat.homeScreen.addTools(calendar.tools, calendar.call);
 const DEFAULTS = (() => { const d = process.env.DEFAULTS_DIR || path.join(HERE, '../defaults'); return fs.existsSync(path.join(d, 'apps')) ? path.join(d, 'apps') : d; })();
 // "Both" on an update (a shared app the household changed): the cloud's text model puts the two versions together.
 const plugins = pluginsRoutes({ APP_DIR, edits, homeScreen: chat.homeScreen, json, body, approve: shellApprove,
-  ai: async (q) => { if (!cloudRef?.brainOn?.()) throw new Error("OpenHouse's cloud assistant isn't set up"); return cloudRef.ai(q); },
+  ai: async (q) => { if (!cloudRef?.brainOn?.()) throw new Error("Opie's cloud isn't set up"); return cloudRef.ai(q); },
   DATA: path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'), '../appdata'), DEFAULTS, SEEDED: path.join(HERE, '../.defaults-seeded'),
   onChange: () => { emit({ type: 'state', ...events.state }); emit({ type: 'apps' }); },
   household: () => { try { return JSON.parse(fs.readFileSync(path.join(HERE, '../household.json'), 'utf8')); } catch { return {}; } } });
@@ -169,7 +169,7 @@ chat.live.setTv?.(devices);
 let appIds = { at: 0, ids: new Set() };
 chat.notes.setAlive((app) => { if (Date.now() - appIds.at > 2000) appIds = { at: Date.now(), ids: new Set(apps.list().map((a) => a.id)) }; return appIds.ids.has(app); });
 chat.live.setDayNotes?.(() => chat.notes.describe());
-// Opie putting the screen on a tab or one of the household's apps (live-tools.js show_on_screen): OpenHouse to the front
+// Opie putting the screen on a tab or one of the household's apps (live-tools.js show_on_screen): Opie to the front
 // (from another Android app), an app open full screen closed, then the tab, or the app full screen (home-screen.js showApp).
 chat.live.setScreen?.({
   places: () => {
@@ -296,7 +296,7 @@ setInterval(() => { buzz.tick().catch(() => {}); }, 30e3).unref();
 // Someone's own AI app on a computer (Claude, ChatGPT), paired like a screen, changes the apps with the assistant's
 // tools (workshop.js, docs/workshop-mcp.md).
 const workshop = workshopRoutes({ HERE, APP_DIR, homeScreen: chat.homeScreen, edits, reopened, plugins, fixes, approve: shellApprove, events, checkBuild: builder.checkBuild, deviceServer: chat.deviceServer, whoOf: (id) => screens.who(id), live: chat.live, devices, json, body }); // live, devices: the household's tools for a connected agent
-// The tablet's own connector for Claude or ChatGPT, with no OpenHouse cloud: behind the household's own https address
+// The tablet's own connector for Claude or ChatGPT, with no Opie cloud: behind the household's own https address
 // (a Tailscale Funnel, a tunnel), off until someone turns it on (web-mcp.js, docs/web-chat-building.md).
 const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });
 // The hub (hub.js, docs/hub.md): no tablet, its settings in a browser. Off on a tablet.

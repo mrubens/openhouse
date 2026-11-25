@@ -26,7 +26,7 @@ internal object CloudSetup {
         if (trying) return
         trying = true
         try {
-            val (code, r) = post("$bridge/cloud/link/token", JSONObject().put("token", token).put("api", p.getString("cloud_link_api", "") ?: "").put("name", "OpenHouse"))
+            val (code, r) = post("$bridge/cloud/link/token", JSONObject().put("token", token).put("api", p.getString("cloud_link_api", "") ?: "").put("name", "Opie"))
             when {
                 r == null -> {} // the bridge isn't up yet: next time
                 r.optBoolean("linked") -> {

@@ -55,7 +55,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         }
         @JavascriptInterface fun openApp(g: String?, id: String) { if (ok(g)) main.post { o.openApp(id) } }
         @JavascriptInterface fun settings(g: String?) { if (ok(g)) main.post { o.showSettings = true } }
-        /** The Apps tab's "Add apps": OpenHouse's list of plugins (the same as Settings, Plugins); adding asks for the PIN. */
+        /** The Apps tab's "Add apps": Opie's list of plugins (the same as Settings, Plugins); adding asks for the PIN. */
         @JavascriptInterface fun plugins(g: String?) { if (ok(g)) main.post { (act as? MainActivity)?.let { PluginsMenu(it, fromApps = true).gallery() } } }
         @JavascriptInterface fun type(g: String?) { if (ok(g)) main.post { o.openTyping() } } // the sidebar's keyboard button
         @JavascriptInterface fun sleep(g: String?) { if (ok(g)) main.post { o.sleepNow(); dev.openhouse.ui.Heartbeat.sleep() } } // the sidebar's moon
@@ -114,7 +114,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
     }.getOrNull()?.also { icons[pkg] = it }
     private val calls = Calls()
 
-    /** While the page loads (the tablet starting, the bridge restarting): the OpenHouse logo and name on the paper, the
+    /** While the page loads (the tablet starting, the bridge restarting): the Opie logo and name on the paper, the
      *  house breathing slowly so it reads as starting, not stuck. Under the page, which covers it once loaded. */
     private val logo = android.widget.ImageView(act).apply {
         setImageResource(R.drawable.logo)
@@ -127,7 +127,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         val K = dev.openhouse.ui.Calm
         gravity = Gravity.CENTER_HORIZONTAL
         addView(logo, android.widget.LinearLayout.LayoutParams(K.px(act, 148), K.px(act, 148)))
-        addView(K.text(act, "OpenHouse", 34f, 600).apply { letterSpacing = -.01f }, android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = K.px(act, 26) })
+        addView(K.text(act, "Opie", 34f, 600).apply { letterSpacing = -.01f }, android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = K.px(act, 26) })
     }
     private fun loading(on: Boolean) {
         splash.visibility = if (on) View.VISIBLE else View.GONE

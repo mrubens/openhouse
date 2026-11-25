@@ -12,7 +12,7 @@ class PersonCardsTest {
     @Test fun toolsRefusedWhileACardIsUp() {
         assertNull(DeviceRules.whileCard(PersonCards.showing()))
         val a = PersonCards.open("Turn on the TV?")
-        val b = PersonCards.open("Let “Laptop” change this OpenHouse?")
+        val b = PersonCards.open("Let “Laptop” change this Opie?")
         assertNotNull(DeviceRules.whileCard(PersonCards.showing()))
         PersonCards.close(b)
         assertNotNull(DeviceRules.whileCard(PersonCards.showing())) // the first is still up

@@ -1,6 +1,6 @@
 // A hub's settings (docs/hub.md, bridge/hub.js): what the tablet's Settings do, in a browser on a device paired as the
 // hub's settings device (scope 'admin'). The first one types the code the hub printed when it started; it can add more.
-// Every request is sealed to the hub like a screen's (screen-client.js). Here: the household's devices, the OpenHouse
+// Every request is sealed to the hub like a screen's (screen-client.js). Here: the household's devices, the Opie
 // account and live voice, backups, reaching it from away, and updates.
 import { createRoot } from 'react-dom/client';
 import { useEffect, useMemo, useState } from 'react';
@@ -28,7 +28,7 @@ function Join({ onJoined }) {
   }
   return (
     <main className="join">
-      <div className="brand">OpenHouse hub</div>
+      <div className="brand">Opie hub</div>
       <h1>Type the hub's code</h1>
       <p>It's in the hub's log when it starts (<code>docker logs openhouse</code>, or <code>journalctl -u openhouse</code> on a Pi), and in <code>hub-setup.txt</code> in its data folder.</p>
       <form onSubmit={go}>
@@ -88,7 +88,7 @@ function Devices({ c, onRemoved }) {
       {adding?.code ? (
         <div className="card">
           <div className="t">{adding.kind === 'phone' ? `${who}'s phone` : adding.kind === 'admin' ? 'Another settings device' : adding.kind === 'computer' ? "Someone's AI app" : 'A screen or computer'}</div>
-          {adding.kind === 'computer' ? <p>In Claude or ChatGPT's OpenHouse connector (docs/workshop-mcp.md), pair with <b className="mono">{adding.code}</b>.</p> : <>
+          {adding.kind === 'computer' ? <p>In Claude or ChatGPT's Opie connector (docs/workshop-mcp.md), pair with <b className="mono">{adding.code}</b>.</p> : <>
           <p>On it, open <b>{adding.page}</b> and type <b className="mono">{adding.code}</b>, or open this link there:</p>
           <p className="mono small break">{adding.link}</p></>}
           <p className="soft small">For 10 minutes. {adding.kind === 'admin' ? 'It joins as soon as the code is typed.' : 'Then say yes here when it asks.'}</p>
@@ -129,7 +129,7 @@ function Account({ c, onRemoved }) {
   const post = async (p, b, then) => { setErr(''); const r = await c.json('POST', p, b); if (r.status !== 200) setErr(r.json?.error || 'That didn\'t work.'); then(); };
   return (
     <section>
-      <h2>OpenHouse account</h2>
+      <h2>Opie account</h2>
       {!s ? <p className="soft">…</p> : s.linked ? (
         <div className="card"><div className="t">Linked{s.family ? ` to ${s.family.name || 'your family'}` : ''}</div>
           <p className="soft small">Live voice, typed questions, cloud backups and reaching the hub from away go through it.</p>
@@ -154,7 +154,7 @@ function Account({ c, onRemoved }) {
   );
 }
 
-/** Claude and ChatGPT's connector at the household's own https address, with no OpenHouse cloud (web-mcp.js). */
+/** Claude and ChatGPT's connector at the household's own https address, with no Opie cloud (web-mcp.js). */
 function OwnAddress({ c, onRemoved }) {
   const [w, reload] = useGet(c, '/webmcp', 0, onRemoved), [addr, setAddr] = useState('');
   if (!w || w.error) return null;
@@ -209,7 +209,7 @@ function Updates({ c, onRemoved }) {
 function Hub({ me, c, onRemoved }) {
   return (
     <div className="app hub">
-      <header><span className="brand">OpenHouse hub</span><a className="soft" href="/screen/">Home screen</a></header>
+      <header><span className="brand">Opie hub</span><a className="soft" href="/screen/">Home screen</a></header>
       <div className="page">
         {!me.scopes?.includes('admin') ? <p>This device isn't one of the hub's settings devices.</p> : <>
           <Devices c={c} onRemoved={onRemoved} />

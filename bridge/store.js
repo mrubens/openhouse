@@ -49,7 +49,7 @@ function loud(file, msg) {
   said.set(file, t);
   console.error('[store] !!!', msg);
 }
-const newerWhy = (file, v, known) => `${path.basename(file)} was saved by a newer OpenHouse (its version ${v}; this one knows ${known}). It is not saved over until that version is back.`;
+const newerWhy = (file, v, known) => `${path.basename(file)} was saved by a newer version of Opie (its version ${v}; this one knows ${known}). It is not saved over until that version is back.`;
 /** The stored value as this code's shape: "$v" taken out, an older one migrated, a newer one as it is. */
 function shaped(file, value, entry, fromBak) {
   const v = versionOf(value), known = entry?.version || 0;
@@ -179,7 +179,7 @@ export function writeJson(file, value, { bak, mode, space, newline = false } = {
  *  Whoever saves keeps nothing of the change in memory either, so what shows is what's on disk. */
 export function unsaved(e) {
   const why = e?.message || String(e);
-  if (e?.code === 'newer' && !e.unmigrated) return { status: 409, error: `It wasn't saved: this tablet's data is from a newer version of OpenHouse, so update the tablet. (${why})` };
+  if (e?.code === 'newer' && !e.unmigrated) return { status: 409, error: `It wasn't saved: this tablet's data is from a newer version of Opie, so update the tablet. (${why})` };
   if (e?.code === 'newer' || e?.code === 'held') return { status: 409, error: `It wasn't saved: ${why}` };
   return { status: 500, error: `It wasn't saved: ${why}` };
 }

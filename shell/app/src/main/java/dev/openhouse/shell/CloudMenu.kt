@@ -60,7 +60,7 @@ internal class CloudMenu(private val act: MainActivity) {
     /** Link with a code typed on a phone or computer; then [then] (turning on Live voice, from the welcome), or the
      *  Account menu. */
     fun startLink(why: String? = null, then: (() -> Unit)? = null) = thread {
-        val r = post("/cloud/link/start", JSONObject().put("name", "OpenHouse"))
+        val r = post("/cloud/link/start", JSONObject().put("name", "Opie"))
         ui {
             if (r == null || r.has("error")) return@ui say("Link", r?.optString("error")?.ifEmpty { null } ?: noBridge)
             val url = r.optString("url")

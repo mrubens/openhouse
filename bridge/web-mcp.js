@@ -1,4 +1,4 @@
-// The tablet's own connector for Claude, ChatGPT or any AI, with no OpenHouse cloud (docs/web-chat-building.md,
+// The tablet's own connector for Claude, ChatGPT or any AI, with no Opie cloud (docs/web-chat-building.md,
 // "Your own address"): the same OAuth sign-in and MCP as the cloud's connector (openhouse-cloud/lambda/connector.ts), served by
 // the bridge itself on a listener of its own (WEB_MCP_PORT, 8789) that a household's networking makes public over
 // https: a Tailscale Funnel, a Cloudflare Tunnel, or their own address and reverse proxy pointing at the tablet.
@@ -99,14 +99,14 @@ export function webMcpRoutes({ HERE, screens, workshop, json, body, PORT = Numbe
   };
   const page = (res, name, sid) => {
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'referrer-policy': 'no-referrer', 'content-security-policy': "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; frame-ancestors 'none'" });
-    res.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect to OpenHouse</title><style>
+    res.end(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Connect to Opie</title><style>
 :root{--bg:#f6f5f2;--card:#fff;--ink:#1d1d1b;--soft:#6b6a66;--line:#e4e2dc;--bad:#a33a2b;--ok:#2f6b3a}
 @media (prefers-color-scheme:dark){:root{--bg:#161615;--card:#1f1f1e;--ink:#eceae4;--soft:#9b9993;--line:#33322f;--bad:#e0806f;--ok:#8fc79a}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}main{max-width:560px;margin:0 auto;padding:48px 16px}
 h1{font-size:22px;font-weight:600;margin:0 0 4px}p{margin:6px 0;color:var(--soft)}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin:12px 0}
 input{font:inherit;font-size:22px;letter-spacing:.15em;text-transform:uppercase;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
 button{font:inherit;margin-top:10px;padding:10px 16px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--bg)}.msg{min-height:1.5em;margin-top:8px}.bad{color:var(--bad)}.good{color:var(--ok)}
-</style></head><body><main><h1>Connect ${esc(name)} to your OpenHouse</h1>
+</style></head><body><main><h1>Connect ${esc(name)} to your Opie</h1>
 <p>${esc(name)} will be able to use what your household keeps on the tablet (lists, the calendar, chores, notes, timers, the TV), and make and change its apps and home screen. Every change can be undone.</p>
 <div class="card" id="ask"><p><b>On the tablet:</b> the gear, then Screens and computers, then <b>A computer, to change the apps</b>. It shows a code.</p>
 <form id="f"><input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required><button>Connect</button><div class="msg" id="m"></div></form></div>
@@ -134,7 +134,7 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
       const B = base(), resource = `${B}/mcp`;
       if (req.method === 'OPTIONS') return out(res, 204, null, { 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'authorization, content-type, mcp-protocol-version, mcp-session-id' });
       if (req.method === 'GET' && (p === '/.well-known/oauth-protected-resource' || p === '/.well-known/oauth-protected-resource/mcp'))
-        return out(res, 200, { resource, authorization_servers: [B], bearer_methods_supported: ['header'], scopes_supported: ['workshop'], resource_name: 'OpenHouse' });
+        return out(res, 200, { resource, authorization_servers: [B], bearer_methods_supported: ['header'], scopes_supported: ['workshop'], resource_name: 'Opie' });
       if (req.method === 'GET' && (p === '/.well-known/oauth-authorization-server' || p === '/.well-known/openid-configuration'))
         return out(res, 200, { issuer: B, authorization_endpoint: `${B}/oauth/authorize`, token_endpoint: `${B}/oauth/token`, registration_endpoint: `${B}/oauth/register`,
           response_types_supported: ['code'], grant_types_supported: ['authorization_code', 'refresh_token'], code_challenge_methods_supported: ['S256'],
@@ -146,7 +146,7 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
 
       if (req.method === 'POST' && p === '/oauth/register') {
         const b = jsonBody(), redirects = Array.isArray(b.redirect_uris) ? b.redirect_uris.filter((x) => typeof x === 'string' && x.length < 500) : [];
-        if (!redirects.length || redirects.length > 10 || !redirects.every((r) => who(r))) return out(res, 400, { error: 'invalid_redirect_uri', error_description: `OpenHouse connects to ${hosts().join(', ')}.` });
+        if (!redirects.length || redirects.length > 10 || !redirects.every((r) => who(r))) return out(res, 400, { error: 'invalid_redirect_uri', error_description: `Opie connects to ${hosts().join(', ')}.` });
         if (Object.keys(st.clients).length > 200) for (const k of Object.keys(st.clients).slice(0, 50)) delete st.clients[k]; // the oldest go
         const id = `oc_${rnd(18)}`, secret = String(b.token_endpoint_auth_method || 'none') === 'none' ? null : rnd(32);
         st.clients[id] = { redirects, ...(secret ? { secretHash: sha(secret) } : {}), at: new Date(now()).toISOString() }; save();
@@ -155,7 +155,7 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
       }
       if (req.method === 'GET' && p === '/oauth/authorize') {
         const q = url.searchParams, redirect = q.get('redirect_uri') || '', c = await client(q.get('client_id') || '');
-        if (!c || !c.redirects.includes(redirect)) return out(res, 400, { error: 'Add OpenHouse as a connector in Claude or ChatGPT and start again there.' });
+        if (!c || !c.redirects.includes(redirect)) return out(res, 400, { error: 'Add Opie as a connector in Claude or ChatGPT and start again there.' });
         if (q.get('response_type') !== 'code' || q.get('code_challenge_method') !== 'S256' || !/^[A-Za-z0-9_-]{43,128}$/.test(q.get('code_challenge') || '')) {
           res.writeHead(302, { location: `${redirect}${redirect.includes('?') ? '&' : '?'}${new URLSearchParams({ error: 'invalid_request', ...(q.get('state') ? { state: q.get('state') } : {}), iss: B })}` }); return res.end();
         }

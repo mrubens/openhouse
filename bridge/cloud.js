@@ -1,6 +1,6 @@
 // The tablet's side of the cloud service (cloud/ in the repo): linking to a family account and the device
 // credential, plus the cloud as a backup destination (backup.js) and, only if the family asks, a copy of their
-// recovery code kept with OpenHouse. Everything here is off until someone links the tablet (Settings → Account).
+// recovery code kept with Opie. Everything here is off until someone links the tablet (Settings → Account).
 //
 //   GET  /cloud/status[?check=1]     linked?, the family, a link code being shown (check: ask the service first)
 //   POST /cloud/config {api}         the service's address (a self-hosted one, or the emulator's local server)
@@ -18,7 +18,7 @@
 //   POST /cloud/google/refresh {refresh_token}  the shell only: a two-way Google calendar's access token (calendar-sync.js)
 //   POST /cloud/google/start {r, k?}  the shell only: a Google sign-in for its phone page at r (assets/google.html) -> {url}
 //                                    for the phone to open (the cloud's one-time ticket; an older cloud: its /g/start?r= link)
-// Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through OpenHouse cloud, off until someone turns it on (Parent
+// Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through Opie cloud, off until someone turns it on (Parent
 // menu → Better voice). Without it the tablet works by touch and typing; there's no on-device fallback voice.
 //   GET  /cloud/voice[?check=1]      on?, the vendor, this month's use and allowance (check: ask the service)
 //   POST /cloud/voice {on}           turn it on or off here and for the family
@@ -200,8 +200,8 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     },
   };
 
-  // A copy of the family's recovery code kept with OpenHouse: only when they turn it on (backup.js asks first), and the
-  // Settings says plainly that with it on, OpenHouse could open their backups.
+  // A copy of the family's recovery code kept with Opie: only when they turn it on (backup.js asks first), and the
+  // Settings says plainly that with it on, Opie could open their backups.
   const escrow = {
     available: () => !!device(),
     put: (keyId, code) => call('POST', '/v1/escrow', { keyId, code }),
@@ -265,7 +265,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     const b = await body(req);
     switch (p) {
       // The shell, for a two-way Google calendar (CalendarAccounts.kt): a fresh access token for its sealed refresh
-      // token. The cloud adds OpenHouse's client secret and keeps nothing; neither token is kept or logged here.
+      // token. The cloud adds Opie's client secret and keeps nothing; neither token is kept or logged here.
       case '/cloud/google/refresh': {
         const t = String(b.refresh_token || '');
         if (!t || t.length > 2048) { json(res, 400, { error: 'refresh_token' }); return true; }

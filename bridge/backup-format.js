@@ -1,6 +1,6 @@
 // The one backup format, whatever it's kept on (the cloud, a USB drive, later a home computer's shared folder):
 // the family's things packed with tar and encrypted here, on the tablet, with a key made from a recovery code only
-// the family holds (and OpenHouse, only if they asked it to keep a copy).
+// the family holds (and Opie, only if they asked it to keep a copy).
 //
 // File (.backup): "DBK1\n" + a JSON header line {v, keyId, iv, createdAt, entries} + "\n" + ciphertext + the
 // 16-byte AES-256-GCM tag. The header is the GCM additional data, so it can't be changed either. keyId is a hash of

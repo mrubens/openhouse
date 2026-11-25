@@ -1,12 +1,12 @@
 #!/bin/bash
-# Move a tablet from the prototype's package IDs (dev.openhouse.*) to OpenHouse's (computer.openhouse.*), without a
+# Move a tablet from the prototype's package IDs (dev.openhouse.*) to Opie's (computer.openhouse.*), without a
 # factory reset: the family's data, the assistant's sign-in and the tablet's device owner go to the new display, and
-# the old apps are removed a day after the new display has been healthy. docs/self-update.md, "Moving to OpenHouse".
+# the old apps are removed a day after the new display has been healthy. docs/self-update.md, "Moving to Opie".
 #
 #   scripts/move-tablet.sh -s SERIAL --release dist/1.0.0 [--no-backup]
 #
 #   -s SERIAL     the tablet (adb devices): always named, so the move never lands on the wrong device
-#   --release DIR a OpenHouse release from scripts/release.sh (display-<v>.apk and host-<v>.apk, signed with the
+#   --release DIR an Opie release from scripts/release.sh (display-<v>.apk and host-<v>.apk, signed with the
 #                 release key)
 #   --no-backup   skip copying the family's folder to ~/Documents/openhouse-backups first
 #
@@ -84,7 +84,7 @@ else say "2/5 No backup (--no-backup)"; fi
 say "3/5 The old display, with the handover"
 oldDisplay
 
-say "4/5 OpenHouse: the update cover and the display"
+say "4/5 Opie: the update cover and the display"
 A install -r "$HOST" | tail -1
 A install -r "$DISPLAY" | tail -1
 # What tablet-setup.sh gave the old display over adb, which no app can give itself: changing secure settings (device

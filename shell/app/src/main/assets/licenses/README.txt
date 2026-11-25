@@ -1,7 +1,7 @@
 Native programs in this app (lib/arm64-v8a/, from shell/app/src/main/jniLibs/arm64-v8a/ in the source)
 
-These are Termux's builds, as Termux's aarch64 packages ship them. OpenHouse runs proot as a separate
-program (it is executed, not linked into OpenHouse's code); talloc and libandroid-shmem are libraries proot loads.
+These are Termux's builds, as Termux's aarch64 packages ship them. Opie runs proot as a separate
+program (it is executed, not linked into Opie's code); talloc and libandroid-shmem are libraries proot loads.
 Each keeps its own license, whose text is in this folder. The source of each is at the addresses below, with
 Termux's build recipe and patches at https://github.com/termux/termux-packages/tree/master/packages/<package>.
 
