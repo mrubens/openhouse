@@ -7,7 +7,6 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.URI
 import java.net.URL
-import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
@@ -73,7 +72,10 @@ object VoiceModels {
     private fun metered(ctx: Context) = runCatching { ctx.getSystemService(android.net.ConnectivityManager::class.java).isActiveNetworkMetered }.getOrDefault(false)
 
     private fun install(url: String, bridge: String) {
-        val set = parse(fetchText(url), url)
+        // The manifest is checked against the SHA-256 this build carries (Pinned); each file then against the manifest.
+        val manifest = fetchBytes(url)
+        Pinned.check("voice set", Pinned.voice, Pinned.sha256(manifest))
+        val set = parse(String(manifest, Charsets.UTF_8), url)
         val voice = dir().apply { mkdirs() }
         val stage = File(voice, ".download").apply { mkdirs() }
         // What's already down (an earlier try) counts; the rest must fit, with room to spare.
@@ -128,12 +130,13 @@ object VoiceModels {
         }
     }.getOrNull()
 
-    private fun fetchText(url: String): String {
+    private fun fetchBytes(url: String): ByteArray {
         val c = URL(url).openConnection() as HttpURLConnection
         c.connectTimeout = 15000; c.readTimeout = 30000
         try {
             if (c.responseCode != 200) error("${c.responseCode} from $url")
-            return c.inputStream.bufferedReader().readText()
+            if (c.contentLengthLong > 5_000_000L) error("too big for a voice manifest")
+            return c.inputStream.use { it.readBytes() }
         } finally { c.disconnect() }
     }
 
@@ -159,7 +162,7 @@ object VoiceModels {
             } finally { c.disconnect() }
         }
         if (part.length() != f.size) error("${f.path}: ${part.length()} bytes, expected ${f.size}")
-        val sha = part.inputStream().use { i -> val d = MessageDigest.getInstance("SHA-256"); val b = ByteArray(1 shl 16); while (true) { val n = i.read(b); if (n < 0) break; d.update(b, 0, n) }; d.digest().joinToString("") { "%02x".format(it) } }
+        val sha = Pinned.sha256(part)
         if (sha != f.sha256) { onBytes(-f.size); part.delete(); error("${f.path}: checksum didn't match") }
         if (!part.renameTo(out)) error("couldn't keep ${f.path}")
     }

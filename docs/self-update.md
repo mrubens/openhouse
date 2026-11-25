@@ -179,7 +179,19 @@ password and keeps it in the Mac's login keychain (item `roo-home-release-key`),
 for `openhouse.releaseCert`. Keep the key file and the password in the password manager as well; lose the key and no
 tablet takes an update again without being reset. `release.sh` reads `OPENHOUSE_RELEASE_KS`,
 `OPENHOUSE_RELEASE_ALIAS`, `OPENHOUSE_RELEASE_KS_PASS` (apksigner's `pass:`/`env:`/`file:` forms; by default the
-keychain item, else it asks).
+keychain item, else it asks). Signing is its own step after each build: gradle makes unsigned APKs, and only
+`apksigner` gets the password, on its standard input, so nothing the builds run (gradle plugins, npm packages) can
+read it from the environment.
+
+### What a release may unpack
+
+A release carries the SHA-256 of the Linux runtime it sets a tablet up with and of its voice set's `voice.json`
+(`openhouse.runtimeSha256`, `openhouse.voiceSha256` in `shell/gradle.properties`; `Pinned.kt`). The display checks
+the downloaded `runtime.tar.gz` before unpacking it and the voice manifest before reading it; one that doesn't match
+is deleted and not used, and it tries again later. Whatever `runtime_url` or `voice_url` the QR code or adb gives, only
+those files go on. Debug builds carry neither and take what they're given (`tablet-setup.sh`'s runtime from the computer).
+`release.sh --runtime <runtime.tar.gz>` builds with that file's hash and copies it into the release folder (a
+`runtime.tar.gz` already there is used the same way); a new runtime's hash goes in `gradle.properties` too.
 
 No lineage for OpenHouse's IDs: no tablet ever ran a debug build under `computer.openhouse.*`, so releases are signed with
 the release key alone (v2 and v3), and nothing signed with a debug key can pass as ours. `release-key.sh --lineage`

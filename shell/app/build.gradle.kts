@@ -34,12 +34,30 @@ android {
         buildConfigField("String", "MOVE_TO", "\"${(findProperty("openhouse.moveTo") as String?).orEmpty()}\"")
         buildConfigField("String", "RELEASE_CERT", "\"${(findProperty("openhouse.releaseCert") as String?).orEmpty().lowercase().replace(":", "")}\"")
     }
+    // What a release may download and run, by SHA-256 (Pinned.kt): the Linux runtime and the voice set's voice.json,
+    // from shell/gradle.properties (scripts/release.sh checks them, and passes a new runtime's). Debug builds carry
+    // none and take whatever runtime or voice set they're given.
+    fun pin(name: String): String {
+        val v = (findProperty(name) as String?).orEmpty().trim().lowercase()
+        require(v.isEmpty() || Regex("^[0-9a-f]{64}$").matches(v)) { "$name isn't a SHA-256: $v" }
+        return v
+    }
+    val runtimePin = pin("openhouse.runtimeSha256")
+    val voicePin = pin("openhouse.voiceSha256")
     buildTypes {
         // testOnly lets `dpm remove-active-admin` undo device owner on a tablet set up over USB. A release can't be
         // testOnly: Android won't install one from the display's own installer (self-update) or from a QR code.
-        debug { manifestPlaceholders["testOnly"] = "true" }
+        debug {
+            manifestPlaceholders["testOnly"] = "true"
+            buildConfigField("String", "RUNTIME_SHA256", "\"\"")
+            buildConfigField("String", "VOICE_SHA256", "\"\"")
+        }
         // Unsigned: scripts/release.sh signs it with the release key (and the lineage from the debug key).
-        release { isMinifyEnabled = false; signingConfig = null; manifestPlaceholders["testOnly"] = "false" }
+        release {
+            isMinifyEnabled = false; signingConfig = null; manifestPlaceholders["testOnly"] = "false"
+            buildConfigField("String", "RUNTIME_SHA256", "\"$runtimePin\"")
+            buildConfigField("String", "VOICE_SHA256", "\"$voicePin\"")
+        }
     }
     lint { checkReleaseBuilds = false }
     testOptions { unitTests.isReturnDefaultValues = true }
@@ -76,6 +94,19 @@ android.sourceSets.getByName("main").assets.srcDir(hostAssets)
 android.sourceSets.getByName("main").assets.srcDir("../../chat/live")
 tasks.matching { it.name.startsWith("merge") && it.name.endsWith("Assets") }.configureEach { dependsOn(copyStub, copyHost) }
 tasks.matching { it.name.startsWith("lintVital") || it.name.startsWith("generate") && it.name.endsWith("LintModel") }.configureEach { dependsOn(copyStub, copyHost) }
+
+// A release without its checksums could never set a tablet up (or get its voice set): it isn't built.
+val releasePins = Triple(
+    (findProperty("openhouse.runtimeSha256") as String?).orEmpty(),
+    (findProperty("openhouse.voiceUrl") as String?).orEmpty(),
+    (findProperty("openhouse.voiceSha256") as String?).orEmpty())
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    doFirst {
+        val (runtime, voiceUrl, voice) = releasePins
+        require(runtime.isNotBlank()) { "a release needs openhouse.runtimeSha256 (shell/gradle.properties)" }
+        require(voiceUrl.isBlank() || voice.isNotBlank()) { "a release with openhouse.voiceUrl needs openhouse.voiceSha256" }
+    }
+}
 
 dependencies {
     implementation("com.android.tools.build:apksig:8.7.3") // signs each family app's installed APK on the device (AppStubs)

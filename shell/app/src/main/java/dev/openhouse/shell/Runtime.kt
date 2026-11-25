@@ -69,6 +69,7 @@ object Runtime {
     // One setup at a time: the display can be recreated mid-setup (a setting sent to it, an update), and two at once
     // left an empty rootfs marked unpacked (one deleted the folder the other had just marked), which never recovered.
     private val setupLock = Any()
+    @Volatile private var refusedUntil = 0L
     fun setup(imageUrl: String, progress: (Int) -> Unit, failed: (String) -> Unit): Boolean = synchronized(setupLock) { setupOnce(imageUrl, progress, failed) }
 
     // The family sees one step ("Getting OpenHouse ready") and one bar: the download is most of it (to 85%), then
@@ -78,8 +79,16 @@ object Runtime {
         if (File(root, ".unpacked").exists() && !File(root, "usr/bin/env").exists()) File(root, ".unpacked").delete()
         if (!File(root, ".unpacked").exists()) {
             val tgz = File(ctx.cacheDir, "runtime.tar.gz")
+            // One that didn't match is refused for a while: it's the same file again until someone fixes the host.
+            if (System.currentTimeMillis() < refusedUntil) error("the downloaded software didn't match this version of OpenHouse")
             progress(0)
             download(imageUrl, tgz) { pct -> progress(pct * 85 / 100) }
+            // Checked against the SHA-256 this build carries before anything of it is unpacked (Pinned).
+            runCatching { Pinned.check("runtime", Pinned.runtime, Pinned.sha256(tgz)) }.onFailure {
+                tgz.delete(); refusedUntil = System.currentTimeMillis() + 15 * 60_000L
+                Log.e(TAG, "runtime refused: ${it.message}")
+                error("the downloaded software didn't match this version of OpenHouse")
+            }
             progress(86)
             val stage = File(ctx.filesDir, "rootfs.new").apply { deleteRecursively(); mkdirs() }
             val p = ProcessBuilder("/system/bin/tar", "xzf", tgz.path, "-C", stage.path).redirectErrorStream(true).start()
