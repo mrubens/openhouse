@@ -25,7 +25,7 @@ import kotlin.concurrent.thread
  *  - the family's apps opened inside the display (AppHost; usually they open as their own Android apps instead);
  *  - the overlay (ui/Overlay.kt: the assistant's note, what it hears, typing, sheets);
  *  - the first-time setup screen, and the timers' pills (shown over apps).
- * It also starts the runtime (Runtime: the bridge, the dev server for the family's apps, the agent), keeps it running, sets the tablet
+ * It also starts the runtime (Runtime: the bridge, the dev server for the family's apps, the agent) and the watchdog that keeps it running (Watchdog: one per process, not per activity), sets the tablet
  * up as a kiosk (DeviceOwner) and holds the shell's rows of Settings and the optional lock (SettingsLock).
  */
 class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivity: Compose views need its lifecycle owners
@@ -62,7 +62,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
      * sets them (ConfigReceiver, tablet-setup.sh).
      */
     private var uiUrl = if (BuildConfig.DEBUG) "http://10.0.2.2:5173/" else "http://127.0.0.1:5173/"
-    internal var bridge = if (BuildConfig.DEBUG) "http://10.0.2.2:8787" else "http://127.0.0.1:8787"
+    internal var bridge = DEFAULT_BRIDGE
     // The microphone, streamed to the bridge on this device. Audio source MIC: on the Tab S10 FE it was
     // ~40x louder than VOICE_COMMUNICATION and ~2x VOICE_RECOGNITION, and caught the wake words.
     // ConfigReceiver's `mic` overrides it (see Voice.kt for the level log).
@@ -83,7 +83,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     })
     // On by default, except on the emulator, where opening the Mac's microphone hangs it (test there
     // by feeding recordings to /voice/utterance instead).
-    internal val listenOn get() = getSharedPreferences("shell", MODE_PRIVATE).getBoolean("listen", android.os.Build.HARDWARE != "ranchu")
+    internal val listenOn get() = listenOn(this)
     private lateinit var timers: Timers
     private lateinit var home: HomeView
     private lateinit var apps: AppHost
@@ -153,7 +153,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
         home.layer.visibility = View.VISIBLE; home.start()
         timers.showPills(false) // the home screen draws the timers itself; the pills are for over apps
-        main.postDelayed(::watchdog, 15000)
+        Watchdog.start(this) // once per process: an activity recreated keeps the one that's running
 
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         else startVoice()
@@ -174,7 +174,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
     /** The microphone runs only while it's switched on and the live voice is on: without the live voice nothing would
      *  hear the request, so nothing listens for the name either (the user, 2026-11-20: "Why wake word with no live voice?"). */
-    internal fun micWanted() = listenOn && LiveVoice.chosen
+    internal fun micWanted() = micWanted(this)
     private fun startVoice() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
         voice.enabled = micWanted()
@@ -195,10 +195,10 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
     // --- the runtime (the bridge, the dev server, the agent) -------------------------------------
     private var settingUp = false
-    private fun onDevice() = Regex("^https?://(127\\.0\\.0\\.1|localhost)[:/]").containsMatchIn(bridge)
+    private fun onDevice() = onDevice(bridge)
 
-    /** Start whatever of the runtime isn't running (idempotent); the first time, set it up. */
-    private fun startServices() {
+    /** Start whatever of the runtime isn't running (idempotent); the first time, set it up (Watchdog asks too). */
+    internal fun startServices() {
         if (!onDevice()) return
         if (Runtime.ready()) { Runtime.startServices(); return }
         firstTimeSetup(getSharedPreferences("shell", MODE_PRIVATE).getString("runtime_url", null))
@@ -223,26 +223,20 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         }
     }
 
-    /** This keeps the servers up, each on its own (HomeView reloads the home screen when the bridge is back). */
-    private fun watchdog() {
-        if (Move.handedOver(this)) { Move.stepAside(this); finish(); return }
+    /**
+     * Each watchdog tick (Watchdog: the servers, updates and the move run there, once per process), on the main thread:
+     * what only the display's window can do.
+     */
+    internal fun watchTick(moving: Boolean) {
+        if (isFinishing || isDestroyed) return
         if (Move.toPkg != null) Move.offer(this) // under the old ID: open the new display once it's installed
-        if (Move.prefs(this).getBoolean("moving", false)) { main.postDelayed(::watchdog, 10000); return } // its runtime stays stopped
+        if (moving) return
         // Just moved: the display can come to the front a moment before the tablet is handed to it, too early for kiosk
         // mode (onResume); for the first minutes after, it goes into kiosk mode once it's the owner.
         if (Move.fromPkg != null && !kioskPaused && hasWindowFocus() &&
             System.currentTimeMillis() - Move.prefs(this).getLong("owner_at", 0L) < 10 * 60_000L &&
             getSystemService(android.app.ActivityManager::class.java).lockTaskModeState == android.app.ActivityManager.LOCK_TASK_MODE_NONE)
             DeviceOwner.enterKiosk(this, false)
-        if (onDevice()) thread {
-            val answers = runCatching { dev.openhouse.ui.BridgeClient.getText("$bridge/state", 3000, 5000) }.isSuccess
-            if (Runtime.ready()) { Runtime.supervise(); OldAgent.retire(this, answers); if (micWanted()) VoiceModels.ensure(this, bridge); CloudSetup.tick(this) } else if (!answers) main.post { startServices() }
-        }
-        thread(name = "updater") {
-            Updater.tick(this, bridge) // self-update: checks, installs when quiet, health after one
-            if (Move.fromPkg != null) Move.tick(this, Updater.homeLoaded && runCatching { dev.openhouse.ui.BridgeClient.getText("$bridge/state", 3000, 5000) }.isSuccess)
-        }
-        main.postDelayed(::watchdog, 10000)
     }
 
     // --- kiosk and the lock -------------------------------------------------------------------
@@ -439,6 +433,15 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         val web = android.webkit.WebView(this).apply {
             settings.javaScriptEnabled = true; settings.mediaPlaybackRequiresUserGesture = false; settings.domStorageEnabled = true
             setBackgroundColor(Color.BLACK)
+            webViewClient = object : android.webkit.WebViewClient() {
+                override fun shouldOverrideUrlLoading(v: android.webkit.WebView, r: android.webkit.WebResourceRequest) = r.isForMainFrame // the player never leaves for YouTube's site
+                // Its renderer went (the app's one, shared with the home screen): answered, so the app lives on; the video closes.
+                override fun onRenderProcessGone(v: android.webkit.WebView, d: android.webkit.RenderProcessGoneDetail?): Boolean {
+                    RendererGone.drop(TAG, "the video", v, d)
+                    if (player === box) { root.removeView(box); player = null }
+                    return true
+                }
+            }
             loadDataWithBaseURL("https://www.youtube-nocookie.com", """<html><body style="margin:0;background:#000">
                 <iframe style="border:0;width:100vw;height:100vh" src="https://www.youtube-nocookie.com/embed/$id?autoplay=1&rel=0&playsinline=1"
                 allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></body></html>""", "text/html", "utf-8", null)
@@ -474,10 +477,26 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         }.also { runCatching { cm.registerDefaultNetworkCallback(it) } }
     }
 
-    override fun onDestroy() { netWatch?.let { runCatching { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(it) } }; if (live === this) live = null; voice.stop(); home.destroy(); super.onDestroy() }
+    // (The watchdog isn't stopped here: it's the process's, and the next activity uses the same one. What this one had
+    // waiting on the main thread goes with it.)
+    override fun onDestroy() {
+        main.removeCallbacksAndMessages(null)
+        netWatch?.let { runCatching { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(it) } }
+        if (live === this) live = null
+        voice.stop()
+        if (::home.isInitialized) home.destroy() // (not made when onCreate stepped aside for the move)
+        super.onDestroy()
+    }
 
     companion object {
         const val TAG = "Shell"
+        private val DEFAULT_BRIDGE = if (BuildConfig.DEBUG) "http://10.0.2.2:8787" else "http://127.0.0.1:8787"
+        /** The bridge this display talks to: adb's (ConfigReceiver) or the default. */
+        fun bridgeUrl(shellPrefs: android.content.SharedPreferences) = shellPrefs.getString("bridge", null) ?: DEFAULT_BRIDGE
+        /** The bridge runs on this tablet (so the shell runs and watches it). */
+        fun onDevice(bridge: String) = Regex("^https?://(127\\.0\\.0\\.1|localhost)[:/]").containsMatchIn(bridge)
+        fun listenOn(c: android.content.Context) = c.getSharedPreferences("shell", android.content.Context.MODE_PRIVATE).getBoolean("listen", android.os.Build.HARDWARE != "ranchu")
+        fun micWanted(c: android.content.Context) = listenOn(c) && LiveVoice.chosen
         const val HOST_PKG = BuildConfig.HOST_PKG
         /** The display, while it's running (ConfigReceiver tells it about new settings). */
         @Volatile var live: MainActivity? = null

@@ -144,7 +144,28 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
     }
 
     /** The activity is going: the page stops too (else it keeps running, hidden, polling and placing things). */
-    fun destroy() { breathe.cancel(); web?.let { it.stopLoading(); it.loadUrl("about:blank"); it.destroy() }; web = null }
+    fun destroy() {
+        gone = true; main.removeCallbacks(again); main.removeCallbacks(remake)
+        breathe.cancel(); web?.let { it.stopLoading(); it.loadUrl("about:blank"); it.destroy() }; web = null
+    }
+    private var gone = false
+
+    /** The page's renderer went (RendererGone): a new web view, after a wait if it keeps going, with the logo meanwhile. */
+    private fun rendererGone(w: WebView, d: android.webkit.RenderProcessGoneDetail?) {
+        if (web !== w) { RendererGone.drop(TAG, "an old home screen view", w, d); return }
+        RendererGone.drop(TAG, "the home screen", w, d)
+        web = null; o.webEditing = false // (no field of the page has the keyboard now)
+        main.removeCallbacks(again)
+        loading(true)
+        val wait = backoff.next(System.currentTimeMillis())
+        if (wait > 0) Log.w(TAG, "the home screen's renderer went again soon after: back in ${wait / 1000} s")
+        main.removeCallbacks(remake); main.postDelayed(remake, wait)
+    }
+    private val remake = Runnable {
+        if (gone || web != null) return@Runnable
+        layer.addView(make(), 1, FrameLayout.LayoutParams(-1, -1))
+        load()
+    }
 
     /** Settings: load the home screen again. */
     fun reload() = load()
@@ -190,8 +211,14 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
             override fun onPageFinished(v: WebView, url: String?) { if (!failed && ours(url)) { v.visibility = View.VISIBLE; loading(false); Updater.homeLoaded = true; (act as? MainActivity)?.lock?.syncCalendar() } } // (syncCalendar: the bridge answers now)
             override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) { if (r.isForMainFrame) retry(e.description.toString()) }
             override fun onReceivedHttpError(v: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) { if (r.isForMainFrame) retry("HTTP ${e.statusCode}") }
+            // Answered, always: else Android ends the whole app with the renderer (the shell, the bridge, the microphone).
+            override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail?): Boolean { rendererGone(v, d); return true }
         }
     }
 
-    companion object { const val TAG = "HomeView" }
+    companion object {
+        const val TAG = "HomeView"
+        /** For the process, not this view: a display recreated in a crash loop doesn't start the wait over. */
+        private val backoff = RenderBackoff()
+    }
 }

@@ -43,6 +43,14 @@ fun WebPage(url: String, onClose: () -> Unit) {
                 settings.javaScriptCanOpenWindowsAutomatically = false
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = !sameSite(r.url.toString())
+                    // Its renderer went (the app's one, shared with the home screen): answered, so the app lives on; the
+                    // page closes (dev.openhouse.shell.RendererGone).
+                    override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail?): Boolean {
+                        android.util.Log.e("WebPage", "$site: the page's renderer went (${if (d?.didCrash() == true) "crashed" else "stopped by the system"})")
+                        if (view === v) view = null
+                        runCatching { (v.parent as? android.view.ViewGroup)?.removeView(v); v.destroy() }
+                        onClose(); return true
+                    }
                 }
                 setDownloadListener { _, _, _, _, _ -> } // (nothing downloads)
                 loadUrl(url)

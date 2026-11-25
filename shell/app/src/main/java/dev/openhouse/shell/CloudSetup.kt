@@ -17,22 +17,22 @@ internal object CloudSetup {
     @Volatile private var trying = false
     @Volatile private var voiceCheckedAt = 0L
 
-    /** From the watchdog's thread once the runtime is ready (MainActivity). */
-    fun tick(act: MainActivity) {
+    /** From the watchdog's thread once the runtime is ready (Watchdog). */
+    fun tick(c: Context, bridge: String) {
         val now = System.currentTimeMillis()
-        if (now - voiceCheckedAt > 60_000) { voiceCheckedAt = now; refreshVoice(act.bridge) }
-        val p = act.getSharedPreferences("shell", Context.MODE_PRIVATE)
+        if (now - voiceCheckedAt > 60_000) { voiceCheckedAt = now; refreshVoice(bridge) }
+        val p = c.getSharedPreferences("shell", Context.MODE_PRIVATE)
         val token = p.getString("cloud_link_token", null) ?: return
         if (trying) return
         trying = true
         try {
-            val (code, r) = post("${act.bridge}/cloud/link/token", JSONObject().put("token", token).put("api", p.getString("cloud_link_api", "") ?: "").put("name", "OpenHouse"))
+            val (code, r) = post("$bridge/cloud/link/token", JSONObject().put("token", token).put("api", p.getString("cloud_link_api", "") ?: "").put("name", "OpenHouse"))
             when {
                 r == null -> {} // the bridge isn't up yet: next time
                 r.optBoolean("linked") -> {
                     p.edit().remove("cloud_link_token").remove("cloud_link_api").apply()
                     Log.i("CloudSetup", "linked with the setup code")
-                    act.runOnUiThread { act.toast("Linked to ${r.optString("family").ifEmpty { "your family" }}") }
+                    MainActivity.live?.let { act -> act.runOnUiThread { act.toast("Linked to ${r.optString("family").ifEmpty { "your family" }}") } }
                 }
                 // Used, expired, or not one: no use trying again. (No answer from the service: keep it and try later.)
                 code == 400 && r.optString("code") in setOf("http400", "http404") -> {

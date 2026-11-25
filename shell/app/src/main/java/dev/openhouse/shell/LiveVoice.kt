@@ -132,6 +132,15 @@ internal object LiveVoice {
                 if (r.origin.toString().startsWith(ORIGIN.trimEnd('/')) && PermissionRequest.RESOURCE_AUDIO_CAPTURE in r.resources) r.grant(arrayOf(PermissionRequest.RESOURCE_AUDIO_CAPTURE)) else r.deny()
             }
         }
+        // Its renderer going (it's the app's one renderer, shared with the home screen) must not end the app: the session
+        // ends (RendererGone), and the next wake word opens a new one.
+        w.webViewClient = object : android.webkit.WebViewClient() {
+            override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail?): Boolean {
+                RendererGone.drop(TAG, "the live voice", v, d)
+                if (web === v) end("its page's renderer went", dead = true)
+                return true
+            }
+        }
         w.addJavascriptInterface(Host(), "Host")
         a.root.addView(w, FrameLayout.LayoutParams(1, 1))
         web = w
@@ -169,7 +178,8 @@ internal object LiveVoice {
         }
     }
 
-    private fun end(why: String) = main.post {
+    /** [dead]: its page's renderer went, so the view is destroyed already and nothing more is said to it. */
+    private fun end(why: String, dead: Boolean = false) = main.post {
         val w = web ?: return@post
         if (Buddy.working()) Buddy.stopWorking() // told to stop (or tapped) while it used an app: that stops too
         val wasReady = ready
@@ -180,8 +190,10 @@ internal object LiveVoice {
         if (!wasReady && why != "microphone turned off" && why != "tapped away") trouble("The live voice couldn't connect. Try again in a moment.")
         Log.i(TAG, "ended ($why) after ${(System.currentTimeMillis() - startedAt) / 1000} s")
         Openhouse.vlog("live-ended", "$why after ${(System.currentTimeMillis() - startedAt) / 1000} s") // the speech log outlives logcat
-        w.evaluateJavascript("stop()", null)
-        main.postDelayed({ runCatching { (w.parent as? android.view.ViewGroup)?.removeView(w); w.destroy() } }, 500)
+        if (!dead) {
+            w.evaluateJavascript("stop()", null)
+            main.postDelayed({ runCatching { (w.parent as? android.view.ViewGroup)?.removeView(w); w.destroy() } }, 500)
+        }
         act?.let { volumeOut(it); watchMode(it, false); val ma = it; main.postDelayed({ if (web == null) callMode(ma, false) }, 600) } // (after its WebRTC has let go)
         act?.micPaused(false)
     }
