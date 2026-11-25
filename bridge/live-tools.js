@@ -17,7 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { forModel, fromModel } from './tool-args.js';
 import { readPage, READ_PAGE_TOOL } from './read-page.js';
-import { asData } from './as-data.js';
+import { asData, cutData } from './as-data.js';
 
 /** The home screen's tools a voice may use: what a person can tap on the tablet without the PIN, and asking for what
  *  needs it (docs/opie-parity.md). Never an app's code directly (make_app asks the builder; a computer: workshop.js). */
@@ -124,7 +124,7 @@ export function recentTalk({ keepMs = 30 * 60e3, max = 60, clock = () => Date.no
       prune();
       const t = clock();
       if (items.some((x) => x.role === role && x.text === text && t - x.at < 60e3)) return; // (a request handed on to a typed turn: once)
-      const x = { at: t, role, text: text.slice(0, role === 'tool' ? 400 : 2000), ...(name ? { name: String(name).slice(0, 64) } : {}) };
+      const x = { at: t, role, text: cutData(text, role === 'tool' ? 400 : 2000), ...(name ? { name: String(name).slice(0, 64) } : {}) };
       items.push(x);
       try { onAdd?.(x); } catch {}
     },
@@ -201,7 +201,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   let extra = null, tvDevices = null, device = null, screen = null, phones = null; // screen: {places(), show(id)} (server.js); phones: screens.js phones(), message()
   const screenTools = () => { try { const p = screen?.places() || []; return p.length ? [screenTool(p)] : []; } catch { return []; } }; // device: Opie using the tablet's other apps (device-tools.js)
   const deviceTools = () => { try { return device?.tools() || []; } catch { return []; } };
-  const tvTools = () => { try { const names = tvDevices?.tvs() || []; return names.length ? [{ ...TV_TOOL, description: TV_TOOL.description + ` The TVs: ${names.join(', ')}.` }] : []; } catch { return []; } };
+  const tvTools = () => { try { const names = tvDevices?.tvs() || []; return names.length ? [{ ...TV_TOOL, description: TV_TOOL.description + `\n${asData(names.map((n) => String(n).replace(/\s+/g, ' ').slice(0, 60)).join(', '), "the TVs' names, as the TVs give them unless the family named them", { max: 600 })}` }] : []; } catch { return []; } }; // (a TV names itself on the network: data)
   const extraTools = () => { try { return extra?.tools() || []; } catch { return []; } };
   const btTools = () => { try { return tvDevices?.bluetoothOn?.() ? [BT_TOOL] : []; } catch { return []; } };
   const volumeTools = () => (tvDevices?.volume ? [VOLUME_TOOL] : []);

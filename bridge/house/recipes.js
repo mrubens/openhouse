@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { cookSource, readRecipeLink, cookPrompt, COOK_SYSTEM, parseCook, cookAsNotes, youtube, findPrompt, FIND_SYSTEM, parseFound, withPictures } from '../cooking.js';
 import { ROOM, str, keepLines, must } from './util.js';
+import { asData } from '../as-data.js';
 
 export default function (house) {
   const { data, save, changed, mealWork, FLYERS } = house;
@@ -202,7 +203,8 @@ export default function (house) {
     mealWork.link = { state: 'working' }; changed();
     (async () => {
       try {
-        const said = await house.answer(`Someone typed this to add a recipe to their family's recipe box:\n\n${text}\n\n` +
+        // (typed on the tablet, or sent by an app: an app's words are data)
+        const said = await house.answer(`Someone typed this to add a recipe to their family's recipe box:\n\n${asData(text, 'what was typed or sent by an app', { max: 20000 })}\n\n` +
           'If it is a recipe (its ingredients or steps), reply {"name": "the dish\'s name", "pasted": true}. If it is an idea or a dish\'s name, ' +
           'reply {"name": "the dish\'s name", "find": "what to search the web for to find one good recipe for it"}. Reply with only the JSON.',
           'You add recipes to a family\'s recipe box. Reply with only JSON. Use no tools.');
