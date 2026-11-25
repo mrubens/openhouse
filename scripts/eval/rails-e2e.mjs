@@ -35,13 +35,19 @@ const cloud = http.createServer(async (req, res) => {
     res.writeHead(r?.ok ? 200 : 502, { 'content-type': 'application/json' }); res.end(JSON.stringify({ answers: j.answers || [] })); return;
   }
   if (req.method !== 'POST' || req.url !== '/v1/ai/respond') { res.writeHead(404, { 'content-type': 'application/json' }); res.end('{"error":"not here"}'); return; }
-  const body = { model: MODEL, instructions: b.instructions, input: b.input, tools: b.tools, store: false, include: ['reasoning.encrypted_content'], max_output_tokens: 16000, ...(MODEL.includes('terra') ? { reasoning: { effort: 'none' } } : {}) };
+  // A reviewer's call (rails.js secondLook, role review) on REVIEW_MODEL, else the builder's model.
+  const model = b.role === 'review' && process.env.REVIEW_MODEL ? process.env.REVIEW_MODEL : MODEL;
+  if (b.role === 'review') usage.reviews = (usage.reviews || 0) + 1;
+  const body = { model, instructions: b.instructions, input: b.input, tools: b.tools, store: false, include: ['reasoning.encrypted_content'], max_output_tokens: 16000, ...(model.includes('terra') ? { reasoning: { effort: 'none' } } : {}) };
+  const t0 = Date.now();
   for (let tries = 0; ; tries++) {
     const r = await fetch('https://api.openai.com/v1/responses', { method: 'POST', headers: { authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(300e3) }).catch((e) => ({ ok: false, status: 0, json: async () => ({ error: { message: e.message } }) }));
     const j = await r.json().catch(() => ({}));
     if (!r.ok && (r.status === 429 || r.status >= 500 || r.status === 0) && tries < 4) { await new Promise((s) => setTimeout(s, 5000 * (tries + 1))); continue; }
     if (!r.ok) { res.writeHead(502, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: j.error?.message || `openai ${r.status}` })); return; }
     const u = j.usage || {};
+    usage.slowestMs = Math.max(usage.slowestMs || 0, Date.now() - t0); // (the service's HTTP API stops a call at 30 s)
+    if (model !== MODEL) { usage.rIn = (usage.rIn || 0) + (u.input_tokens || 0); usage.rCached = (usage.rCached || 0) + (u.input_tokens_details?.cached_tokens || 0); usage.rOut = (usage.rOut || 0) + (u.output_tokens || 0); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ output: j.output || [], usage: { input_tokens: u.input_tokens, output_tokens: u.output_tokens, cached_tokens: u.input_tokens_details?.cached_tokens || 0 } })); return; }
     usage.input += u.input_tokens || 0; usage.cached += u.input_tokens_details?.cached_tokens || 0; usage.output += u.output_tokens || 0; usage.calls++;
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify({ output: j.output || [], usage: { input_tokens: u.input_tokens, output_tokens: u.output_tokens, cached_tokens: u.input_tokens_details?.cached_tokens || 0 } }));
@@ -76,7 +82,8 @@ if (LOOK) {
   await new Promise((r) => device.listen(0, '127.0.0.1', r));
   fs.writeFileSync(DEVICE_CONFIG, JSON.stringify({ mcpServers: { device: { url: `http://127.0.0.1:${device.address().port}/mcp`, headers: { Authorization: 'Bearer eval' } } } }));
 }
-const cents = (u) => { const p = PRICE[MODEL]; return ((u.input - u.cached) * p.in + u.cached * p.cached + u.output * p.out) / 1e6; };
+const cents = (u) => { const p = PRICE[MODEL], q = PRICE[process.env.REVIEW_MODEL || MODEL];
+  return ((u.input - u.cached) * p.in + u.cached * p.cached + u.output * p.out + ((u.rIn || 0) - (u.rCached || 0)) * q.in + (u.rCached || 0) * q.cached + (u.rOut || 0) * q.out) / 1e6; };
 let spent = (() => { try { return fs.readFileSync(path.join(OUT, 'results.jsonl'), 'utf8').split('\n').filter(Boolean).reduce((s, l) => s + JSON.parse(l).cents, 0); } catch { return 0; } })();
 
 /** Until the builder is idle again after working: { ok (it kept a change), text (its last words, from /state) }. */
@@ -108,7 +115,7 @@ for (const pr of PROMPTS.filter((p) => (TYPED || !p.event) && (!ONLY || ONLY.has
   const sec = Math.round((Date.now() - t0) / 1000);
   const changed = git('diff', '--name-only', base, 'HEAD').split('\n').filter(Boolean);
   const apps = [...new Set(changed.map((f) => f.match(/^apps\/([^/]+)\//)?.[1]).filter((a) => a && a !== 'home'))];
-  const dir = path.join(OUT, `${TYPED ? 'typed' : 'rails'}${LOOK ? '+look' : ''}`, MODEL, pr.id); fs.mkdirSync(dir, { recursive: true });
+  const dir = path.join(OUT, `${TYPED ? 'typed' : 'rails'}${LOOK ? '+look' : ''}${process.env.REVIEW_MODEL ? '+review' : ''}`, MODEL, pr.id); fs.mkdirSync(dir, { recursive: true });
   const checks = {};
   for (const app of apps) {
     if (!fs.existsSync(path.join(APP_DIR, 'apps', app))) continue;
@@ -118,8 +125,8 @@ for (const pr of PROMPTS.filter((p) => (TYPED || !p.event) && (!ONLY || ONLY.has
   }
   const limited = changed.some((f) => f.startsWith('plugins/')) && /"limited":\s*true/.test(execFileSync('git', ['-C', APP_DIR, 'show', 'HEAD', '--', 'plugins'], { encoding: 'utf8' }));
   const builds = pr.event ? !apps.length : !!done?.ok && apps.length > 0 && Object.values(checks).every((c) => !c.errs.length) && (pr.kind !== 'edit' || apps.includes(pr.app));
-  const label = `${TYPED ? 'typed' : 'rails'}${LOOK ? '+look' : ''}`;
-  const row = { variant: label, answer, route: decisions[0] || null, model: MODEL, id: pr.id, kind: pr.kind, builds, ok: !!done?.ok, text: done?.text || '(no answer)', steps: usage.calls, tokens: { input: usage.input, cached: usage.cached, output: usage.output }, cents: +cents(usage).toFixed(3), sec, apps, limited, checks, cards, looks };
+  const label = `${TYPED ? 'typed' : 'rails'}${LOOK ? '+look' : ''}${process.env.REVIEW_MODEL ? `+review-${process.env.REVIEW_MODEL.includes('terra') ? 'terra' : 'luna'}` : ''}`;
+  const row = { variant: label, answer, route: decisions[0] || null, model: MODEL, id: pr.id, kind: pr.kind, builds, ok: !!done?.ok, text: done?.text || '(no answer)', steps: usage.calls, tokens: { input: usage.input, cached: usage.cached, output: usage.output }, cents: +cents(usage).toFixed(3), sec, slowestCallS: +((usage.slowestMs || 0) / 1000).toFixed(1), reviews: usage.reviews || 0, apps, limited, checks, cards, looks };
   spent += row.cents;
   fs.appendFileSync(path.join(OUT, 'results.jsonl'), JSON.stringify(row) + '\n');
   console.log(`${label} ${MODEL} ${pr.id}: ${builds ? 'BUILDS' : 'fails'} ${row.ok ? '' : `(${row.text.slice(0, 80)}) `}${TYPED ? `route ${decisions[0]?.choice ?? '-'} ${decisions[0]?.confidence ?? ''} answer "${String(answer || '').slice(0, 70)}" ` : ''}calls ${usage.calls}${LOOK ? ` looks ${looks}` : ''} ${row.cents.toFixed(2)}c ${sec}s apps ${apps.join(',') || '-'}${limited ? ' limited' : ''}${Object.values(checks).some((c) => c.errs.length) ? ' errs: ' + Object.values(checks).flatMap((c) => c.errs).slice(0, 2).join(' | ') : ''}  [total ${spent.toFixed(1)}c]`);

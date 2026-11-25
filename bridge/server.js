@@ -228,7 +228,9 @@ import('./maps.js').then((m) => m.useMapCloud({ suggest: (q, near) => cloud.plac
 // Making and changing apps on the tablet itself, on rails (rails.js, docs/building-on-the-tablet.md): the same model, in the
 // builder (builder.js), each one a change a parent says yes to. BUILD_HERE=off leaves it to a computer (the workshop).
 const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
-  ai: (q) => cloud.ai(q), APP_DIR, checkBuild: builder.checkBuild, approve: shellApprove,
+  ai: (q) => cloud.ai(q), APP_DIR,
+  // A second look at the code before it's done (role review: the service's own model today; it may pick another).
+  review: process.env.BUILD_REVIEW === 'off' ? null : (q) => cloud.ai({ ...q, role: 'review' }), checkBuild: builder.checkBuild, approve: shellApprove,
   madeHere: (id, o) => plugins.madeHere(id, o), limited: (id) => plugins.limited(id),
   guide: () => workshopGuide({ read: (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } }, homeNow: () => '', log: () => {} }).guide('apps'),
   // The tablet's screen (Device control on): the app being made is on it (the shell opens it as it's written).

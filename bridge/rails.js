@@ -36,10 +36,11 @@ Never write outside the app, never use alert/confirm/prompt, never load anything
  * deps: { ai(q) -> Responses output (cloud.js ai), APP_DIR, guide() (how apps are made: the workshop's "apps" guide), checkBuild(app) (builder.js: what the page threw),
  * look() -> MCP content of the tablet's screen or null (Device control off), approve(title, detail, pin, extra)
  * (server.js shellApprove: true, false, or null with no shell), madeHere(id, {uses}) and limited(id) (plugins.js),
- * show(app) (puts the app on the screen, so its errors are reported), log }.
+ * show(app) (puts the app on the screen, so its errors are reported), review(q) (optional: a second model's look at the
+ * code before it's done, the same call as ai; null for none), log }.
  */
 export function rails(deps) {
-  const { ai, APP_DIR, guide = () => '', checkBuild = async () => ({ ok: true }), look = async () => null, approve = async () => null, madeHere = () => false, limited = () => false, show = () => {}, log = (...a) => console.log('[rails]', ...a) } = deps;
+  const { ai, review = null, APP_DIR, guide = () => '', checkBuild = async () => ({ ok: true }), look = async () => null, approve = async () => null, madeHere = () => false, limited = () => false, show = () => {}, log = (...a) => console.log('[rails]', ...a) } = deps;
   const appsDir = path.join(APP_DIR, 'apps');
   const sessions = new Map(); // a run's conversation, for the builder's "fix what the page threw" round (resume)
 
@@ -115,6 +116,22 @@ export function rails(deps) {
     if (isLimited) madeHere(s.target, { uses: asks });
     sessions.delete(id);
     return { ok: true, checked: true, text: s.summary || `${name} is ready.`, usage: s.usage, model: 'cloud', app: s.target };
+  }
+
+  /** The reviewer's findings for the app this request made or changed: up to 5 lines, [] for none. */
+  async function secondLook(s, asked) {
+    const dir = path.join(appsDir, s.target), tpl = s.fresh ? path.join(HERE, 'templates', s.kind) : null;
+    const files = fs.readdirSync(dir).filter((f) => /\.(js|css|html|json)$/.test(f) && !(tpl && fs.existsSync(path.join(tpl, f)) && f !== 'main.js' && f !== 'app.css' && f !== 'app.json'))
+      .map((f) => `---- ${f}\n${fs.readFileSync(path.join(dir, f), 'utf8').slice(0, 60e3)}`).join('\n\n');
+    const tools = [{ type: 'function', name: 'report', description: 'Your findings: each a concrete bug, in a line, with where it is. An empty list when there are none.',
+      parameters: { type: 'object', required: ['bugs'], properties: { bugs: { type: 'array', items: { type: 'string' } } } } }];
+    const instructions = `You check a small web app made for a household's kitchen tablet, before it goes in. Report only bugs that would stop it doing what was asked or break it: state that should be kept but isn't saved with the kit's store or isn't loaded back; something a person can't do on a touch screen (keys only, targets too small to tap); a game that can't be won, lost or restarted, or whose loop stops; wrong date or number logic; errors it will throw; for a change to an app, anything it broke there. Not style or taste. At most 5, the worst first. Call report once.${s.fresh && s.kind === 'game' ? ' The game runs on game.js, a tested engine (not shown): trust it.' : ''}`;
+    const r = await review({ instructions, input: [{ role: 'user', content: `What was asked: "${String(asked || '').slice(0, 500)}"\n\nThe app's files:\n${files}` }], tools });
+    const u = r.usage || {};
+    s.usage.input_tokens += u.input_tokens || 0; s.usage.output_tokens += u.output_tokens || 0; s.usage.cached_tokens += u.cached_tokens || 0;
+    const call = (r.output || []).find((o) => o.type === 'function_call' && o.name === 'report');
+    let bugs = []; try { bugs = JSON.parse(call?.arguments || '{}').bugs || []; } catch {}
+    return bugs.filter((b) => typeof b === 'string' && b.trim()).slice(0, 5).map((b) => b.trim().slice(0, 300));
   }
 
   /** One tool call, in this request's session [s]. Resolves { text, error?, content? }. */
@@ -215,6 +232,13 @@ export function rails(deps) {
         if (!s.target) return err('Nothing was made: call start first.');
         const problems = await staticCheck(appsDir, s.target);
         if (problems.length) return err(`Not yet: fix these first.\n${problems.join('\n')}`);
+        // A second look at the code, once, before it's done: what a picture can't show (state that isn't saved, a game
+        // that can't end, input that can't work on a touch screen). Its findings go back to the builder to fix.
+        if (review && !s.reviewed) {
+          s.reviewed = true;
+          const bugs = await secondLook(s, asked).catch(() => []);
+          if (bugs.length) return err(`Not yet: a second look at the code found these. Fix the real ones (read the file first), check_build, then done again.\n${bugs.map((b) => `- ${b}`).join('\n')}`);
+        }
         s.summary = String(a.summary || '').replace(/\s+/g, ' ').trim().slice(0, 300);
         return { text: 'Done.' };
       }

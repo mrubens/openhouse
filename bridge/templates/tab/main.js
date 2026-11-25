@@ -8,7 +8,8 @@ const save = async () => { const r = await store.set('state', state); if (r?.ok 
 
 function draw() {
   app.replaceChildren(
-    h('div', { class: 'top' }, h('h1', { class: 'title' }, 'NAME')),
+    // (h(tag, props, ...children): children are text or other h() elements, never HTML in a string)
+    h('div', { class: 'top' }, h('h1', { class: 'title' }, 'NAME ', h('span', null, 'a soft second part'))),
     h('div', { class: 'body' },
       h('div', { class: 'panel' }, state.note || 'Nothing yet.')));
 }
