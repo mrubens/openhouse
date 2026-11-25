@@ -175,7 +175,8 @@ async function follow() {
 }
 const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4']; // only until /house says (it gives each person's own)
 const photos = new Map(), thumbs = new Map();
-const pad = (n) => String(n).padStart(2, '0');
+/** Two digits: pad(7) is "07". */
+export const pad = (n) => String(n).padStart(2, '0');
 const iso = (d, allDay) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}` + (allDay ? '' : `T${pad(d.getHours())}:${pad(d.getMinutes())}:00`);
 
 /** Thumbs are made four at a time, in the order asked for, so each shows as soon as it's ready instead of all at the end. */
@@ -613,6 +614,14 @@ export function press(el, tap, hold) {
   // A keyboard (the cover) works it too: Enter or Space taps.
   if (tap) el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el && !el.disabled) { e.preventDefault(); tap(e); } });
 }
+
+/** A day as "YYYY-MM-DD", in the tablet's own time (local, not UTC). */
+export const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+/** The Date of a day's key, at noon local (so an hour's change either way is still that day). */
+export const dateOf = (key) => { const [y, m, d] = String(key).split('-').map(Number); return new Date(y, m - 1, d, 12); };
+/** The key n days from a day's key (n may be negative). Counted from noon, so a change to or from daylight saving
+ *  time never skips or repeats a day. */
+export const addDays = (key, n) => { const d = dateOf(key); d.setDate(d.getDate() + n); return dayKey(d); };
 
 /** Which version of the kit this is (an app's app.json "kit"). */
 export const version = 1;

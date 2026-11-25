@@ -152,6 +152,10 @@ reject.
 | `shell.canOpenApps`, `shell.app` | | Whether `openApp` works; this app's id |
 | `h(tag, props?, ...children)` | `props`: `class`, `html`, `on…` listeners, `tap`/`hold` (a `press`), any other attribute (`true`: present; `null`/`false`: left out); children: nodes, text, arrays | A new element (not a promise). An element with a `tap` that isn't a button or input also takes the keyboard's focus, as a button |
 | `press(el, tap, hold?)` | a tap (finger up without moving) and a hold (about half a second) | Nothing; Enter or Space taps too |
+| `pad(n)` | a number | Two digits: `"07"` (not a promise) |
+| `dayKey(d?)` | a Date (now) | `"YYYY-MM-DD"` in the tablet's own time, as `house.dayKey` |
+| `dateOf(key)` | `"YYYY-MM-DD"` | A Date at noon local that day |
+| `addDays(key, n)` | `"YYYY-MM-DD"`, days (may be negative) | The key `n` days on; counted from noon, so daylight saving time never skips or repeats a day |
 | `version` | | `1` |
 
 What a plugin's app may call follows its `app.json` `"uses"` (`docs/plugins.md`); a call it may not make is a failure
