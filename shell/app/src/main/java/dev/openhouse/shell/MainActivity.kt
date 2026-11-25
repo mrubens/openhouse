@@ -79,7 +79,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         // which Android requires to be free of gain control and noise suppression. `--ei micPlain N` (adb) overrides.
         getSharedPreferences("shell", MODE_PRIVATE).getInt("micPlain", -1).takeIf { it >= 0 }
             ?: if ((getSystemService(AUDIO_SERVICE) as android.media.AudioManager).getProperty(android.media.AudioManager.PROPERTY_SUPPORT_AUDIO_SOURCE_UNPROCESSED) == "true") MediaRecorder.AudioSource.UNPROCESSED else MediaRecorder.AudioSource.VOICE_RECOGNITION
-    })
+    }, { getSharedPreferences("shell", MODE_PRIVATE).getString("micFx", null) ?: Voice.DEFAULT_FX })
     // On by default, except on the emulator, where opening the Mac's microphone hangs it (test there
     // by feeding recordings to /voice/utterance instead).
     internal val listenOn get() = listenOn(this)
