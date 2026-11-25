@@ -139,7 +139,9 @@ export const setLocation = (place) => call('/household/location', { location: St
 export const map = {
   get: () => call('/map'),
   turnOn: (on = true) => call('/map/on', { on }),
-  save: (name, address, home = false) => call('/map/place', { name, address, home }),
+  save: (name, address, home = false, placeId = '') => call('/map/place', { name, address, home, ...(placeId ? { placeId } : {}) }),
+  /** Addresses for what's typed so far, nearest home first ([{id, text}]; none on a tablet without the cloud). save() takes a picked one's id. */
+  suggest: (q) => call(`/map/suggest?q=${encodeURIComponent(q)}`).then((r) => r?.suggestions || []).catch(() => []),
   remove: (name) => call('/map/place/remove', { name }),
   route: (lat, lon) => call(`/map/route?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`),
   clear: () => call('/map/clear', {}),

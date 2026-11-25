@@ -17,6 +17,10 @@ const str = (v, n = 120) => String(v ?? '').trim().slice(0, n);
 const key = (s) => str(s, 200).toLowerCase().replace(/\s+/g, ' ');
 const round = (n, d = 5) => Math.round(n * 10 ** d) / 10 ** d;
 
+let cloudPlaces = null;
+/** The cloud's address suggestions (server.js, once the cloud is there): { suggest(q, near) -> [{id, text}], place(id) -> {lat, lon, label} }. */
+export function useMapCloud(p) { cloudPlaces = p; }
+
 export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = null, hasApp = () => true, fetchImpl = (...a) => fetch(...a), now = () => Date.now(), gap = 1100 }) {
   const HOUSE = path.join(DIR, '../household.json'), CACHE = path.join(DIR, 'maps.json');
   const read = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
@@ -144,11 +148,13 @@ export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = n
   }
 
   /** Save a place (or Home's street address): found once, kept with its name. */
-  async function savePlace({ name, address, home: isHome = false }) {
+  async function savePlace({ name, address, home: isHome = false, placeId = '' }) {
     name = isHome ? 'Home' : str(name, 40); address = str(address || name, 160);
     if (!name || !address) throw new Error('A place needs a name and an address.');
     if (!isOn()) throw new Error(OFF);
-    const g = await find(address, isHome ? { near: null } : {});
+    // A suggestion they picked (its place from the cloud), else the address looked up by its words.
+    const picked = placeId && cloudPlaces ? await cloudPlaces.place(str(placeId, 2000)).catch(() => null) : null;
+    const g = picked && Number.isFinite(picked.lat) ? { lat: round(picked.lat), lon: round(picked.lon) } : await find(address, isHome ? { near: null } : {});
     if (!g) throw new Error(`Couldn't find ${address} on the map. Try a street address.`);
     const rest = places().filter((p) => (isHome ? !p.home : p.home || key(p.name) !== key(name)));
     const p = { name, address, lat: g.lat, lon: g.lon, ...(isHome ? { home: true } : {}) };
@@ -214,10 +220,17 @@ export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = n
         const h = await home(), d = h && await drive(h, to);
         json(res, 200, d ? { minutes: d.minutes, miles: d.miles, line: d.line } : { error: h ? 'no route' : 'no home' }); return true;
       }
+      if (req.method === 'GET' && p === '/map/suggest') { // addresses as they type (the cloud's; none without it)
+        const q = str(url.searchParams.get('q'), 200);
+        if (!cloudPlaces || q.length < 3) { json(res, 200, { suggestions: [] }); return true; }
+        const h = await home({ look: false }).catch(() => null);
+        const list = await cloudPlaces.suggest(q, h && Number.isFinite(h.lat) ? { lat: h.lat, lon: h.lon } : null).catch(() => []);
+        json(res, 200, { suggestions: list.slice(0, 5) }); return true;
+      }
       if (req.method !== 'POST') return false;
       const b = await body(req);
       if (p === '/map/on') { board.saveHousehold({ maps: b.on !== false }, { quiet: true }); json(res, 200, { ok: true, on: b.on !== false }); return true; }
-      if (p === '/map/place') { json(res, 200, { ok: true, place: await savePlace(b) }); return true; }
+      if (p === '/map/place') { json(res, 200, { ok: true, place: await savePlace({ name: b.name, address: b.address, home: b.home, placeId: b.placeId }) }); return true; }
       if (p === '/map/place/remove') { json(res, 200, { ok: forgetPlace(b.name) }); return true; }
       if (p === '/map/clear') { cache.shown = null; keep(); json(res, 200, { ok: true }); return true; }
     } catch (e) { json(res, 200, { error: String(e.message || e) }); return true; }

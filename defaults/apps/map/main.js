@@ -201,18 +201,33 @@ function sheet({ home = false } = {}) {
   el.innerHTML = `<form class="sheet"><h2>${home ? "Home's address" : 'Add a place'}</h2>
     ${home ? '' : '<input class="field" name="name" autocomplete="off" placeholder="Name, like School or Grandma\'s">'}
     <input class="field" name="address" autocomplete="off" placeholder="Street address, town">
+    <div class="sugs"></div>
     <div class="msg"></div><div class="btns"><button class="btn soft" type="button" data-x>Cancel</button><button class="btn">Save</button></div></form>`;
   document.body.appendChild(el);
   const f = el.querySelector('form'), msg = el.querySelector('.msg');
   el.onclick = (e) => { if (e.target === el || e.target.hasAttribute('data-x')) el.remove(); };
   (f.name || f.address).focus();
+  // Addresses as they type (the cloud's suggestions, nearest home first): a tap fills the box, and its place is the one saved.
+  const sugs = el.querySelector('.sugs');
+  let picked = null, asked = 0, timer = 0;
+  f.address.addEventListener('input', () => {
+    picked = null; clearTimeout(timer);
+    const q = f.address.value.trim();
+    if (q.length < 3) { sugs.replaceChildren(); return; }
+    timer = setTimeout(async () => {
+      const mine = ++asked, list = await places.suggest(q);
+      if (mine !== asked) return; // (a newer one is on its way)
+      sugs.replaceChildren(...list.map((x) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'sug'; b.textContent = x.text;
+        b.onclick = () => { f.address.value = x.text; picked = x; sugs.replaceChildren(); f.address.focus(); }; return b; }));
+    }, 250);
+  });
   f.onsubmit = async (e) => {
     e.preventDefault();
     const name = home ? 'Home' : f.name.value.trim(), address = f.address.value.trim();
     if (!name || !address) { msg.textContent = home ? 'An address, please.' : 'A name and an address, please.'; return; }
     msg.textContent = 'Finding it…';
     try {
-      const r = await places.save(name, address, home);
+      const r = await places.save(name, address, home, picked && picked.text === address ? picked.id : '');
       if (r?.error) { msg.textContent = r.error; return; }
       el.remove(); await refresh(); pick(home ? { kind: 'home', id: 'home' } : { kind: 'place', id: r.place.name }); fit();
     } catch { msg.textContent = "That didn't save. Try again."; }
