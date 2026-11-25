@@ -48,7 +48,7 @@ export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = n
   }
   /** A place by its words, from what's been found before or Nominatim (near home when there is one). null: not found. */
   async function find(q, { look = true, near } = {}) {
-    const k = key(q);
+    const k = key(q) && 'v2:' + key(q); // (v2: picked nearest home; earlier answers took the first match, a namesake town far away)
     if (!k) return null;
     const had = cache.geo[k];
     if (had) return had;
@@ -62,8 +62,12 @@ export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = n
     const tries = [[words, ''], ...(words.includes(',') ? [[words.replace(/,/g, ' '), '']] : []), ...(h && first !== words ? [[first, '&bounded=1']] : [])];
     let g = null;
     for (const [w, bound] of tries) {
-      const r = await polite(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&addressdetails=0&q=${encodeURIComponent(w)}${box}${box && bound}`);
-      if (Array.isArray(r) && r[0]) { g = { lat: round(Number(r[0].lat)), lon: round(Number(r[0].lon)), label: str(r[0].display_name, 200).replace(/(^|, )(\d+[a-z]?), /i, '$1$2 ') } /* "801, SW 10th Ave" → "801 SW 10th Ave" */; break; }
+      // Several matches, and the one nearest home: the first match alone can be a namesake ("Ridge Road, Chelsea" is in
+      // Alabama too, and Nominatim doesn't read a state's abbreviation), and the viewbox only leans its order.
+      const r = await polite(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=${h ? 8 : 1}&addressdetails=0&q=${encodeURIComponent(w)}${box}${box && bound}`);
+      const far = (x) => (h ? (Number(x.lat) - h.lat) ** 2 + ((Number(x.lon) - h.lon) * Math.cos(h.lat * Math.PI / 180)) ** 2 : 0);
+      const best = Array.isArray(r) && r.length ? r.reduce((a, b) => (far(b) < far(a) ? b : a)) : null;
+      if (best) { g = { lat: round(Number(best.lat)), lon: round(Number(best.lon)), label: str(best.display_name, 200).replace(/(^|, )(\d+[a-z]?), /i, '$1$2 ') } /* "801, SW 10th Ave" → "801 SW 10th Ave" */; break; }
     }
     cache.geo[k] = g;
     if (!g) cache.geoMiss = { ...(cache.geoMiss || {}), [k]: now() };
