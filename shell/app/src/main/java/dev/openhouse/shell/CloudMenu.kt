@@ -62,7 +62,12 @@ internal class CloudMenu(private val act: MainActivity) {
     fun startLink(why: String? = null, then: (() -> Unit)? = null) = thread {
         val r = post("/cloud/link/start", JSONObject().put("name", "Opie"))
         ui {
-            if (r == null || r.has("error")) return@ui say("Link", r?.optString("error")?.ifEmpty { null } ?: noBridge)
+            // The service's own words only as the details: they're for us, not the household.
+            if (r == null || r.has("error")) return@ui run {
+                CalmDialog(act).setTitle("Couldn't link")
+                    .setMessage(if (r == null) noBridge else "The tablet couldn't reach your Opie account just now. Check the Wi-Fi and try again in a minute.")
+                    .setMore(r?.optString("error")?.ifEmpty { null }).setPositiveButton("Close", null).open()
+            }
             val url = r.optString("url")
             val host = runCatching { java.net.URL(url).let { it.host + (if (it.port > 0) ":${it.port}" else "") } }.getOrDefault(url)
             val box = Calm.column(act)
@@ -87,7 +92,9 @@ internal class CloudMenu(private val act: MainActivity) {
         }
     }
 
-    private fun done(s: JSONObject, then: (() -> Unit)?) { act.toast("Linked to ${s.optString("family")}"); if (then != null) then() else linked(s) }
+    /** Linked: [then], or the Account menu. Either way the voice is looked at at once (CloudSetup.autoVoice): on by
+     *  itself if this household said yes to it and its account has it. */
+    private fun done(s: JSONObject, then: (() -> Unit)?) { act.toast("Linked to ${s.optString("family")}"); CloudSetup.voiceSoon(); if (then != null) then() else linked(s) }
 
     /** Someone entered the code: link to their account? A person's own yes, by hand (a person card; Opie's tap on it
      *  does nothing). No, or closing it, tells the cloud no. */
@@ -142,8 +149,15 @@ internal class CloudMenu(private val act: MainActivity) {
         }
     }
 
-    /** Behind a PIN, set first if there's none (SettingsLock.withPinSet): unlinked, the account's way back in goes. */
+    /** Behind a PIN, set first if there's none (SettingsLock.withPinSet): unlinked, the account's way back in goes. A
+     *  PIN chosen while linked has no recovery code (the account resets it: PinPrompt.choose), so one is shown and
+     *  kept first, since unlinked it's the way back in. */
     private fun unlink() = act.lock.withPinSet(back = { show() }) {
+        if (!ParentPin.hasRecovery(act)) PinPrompt.showCode(act, RecoveryCode.new(), keep = { ParentPin.setRecovery(act, it); unlinkNow() }, back = { show() })
+        else unlinkNow()
+    }
+
+    private fun unlinkNow() {
         CalmDialog(act).setTitle("Unlink this tablet?").setMessage("Its backups stay in the account.")
             .setPositiveButton("Unlink") { _, _ -> thread { val r = post("/cloud/unlink"); ui { if (r?.optBoolean("ok") == true) act.toast("Unlinked") else say("Unlink", r?.optString("error") ?: noBridge) } } }
             .setNegativeButton("Cancel", null).open()

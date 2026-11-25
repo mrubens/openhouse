@@ -2,9 +2,10 @@ package dev.openhouse.ui
 
 // The first setup, right after the welcome (docs/onboarding.md): who lives here, where (a street address guessed from
 // where the tablet is), then carrying on from a phone or a computer, where calendars, photos, invites for the family
-// and making apps are done (the phone page's own setup, chat/src/phone.jsx). One step on screen at a time, each with
-// Skip and Next. With Opie on, it asks each step out loud, and what's said fills in the fields here as it's saved (the
-// bridge's /setup/step tells the live voice which step is showing, and lends it update_household).
+// and making apps are done (the phone page's own setup, chat/src/phone.jsx), and last a PIN for settings and
+// approvals (PIN Lock, which can be skipped). One step on screen at a time, each with Skip and Next. With Opie on, it
+// asks each step out loud, and what's said fills in the fields here as it's saved (the bridge's /setup/step tells the
+// live voice which step is showing, and lends it update_household).
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,12 +34,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object Setup {
-    val STEPS = listOf("people", "place", "devices")
+    val STEPS = listOf("people", "place", "devices", "pin")
 
     private var greeted = false
     /** Bumped when the bridge has an answer Opie heard (GET /setup/wait): the step reads what's saved at once. */
     var tick by mutableStateOf(0)
-    /** Turn on Opie was chosen but the tablet isn't linked yet: the phone-or-computer step asks for it (not before). */
+    /** Turn on Opie was chosen but the tablet isn't linked yet: the phone-or-computer step asks for it (not before),
+     *  each time it shows, until it's linked (CloudVoiceMenu.turnOn clears it then). */
     @Volatile var wantsLink = false
     /** Where the tablet is, guessed once ({address, town, zip}), for the place step and Opie's question. */
     @Volatile var guess: JSONObject? = null
@@ -94,8 +96,12 @@ private fun getJson(path: String): JSONObject? = runCatching { JSONObject(Bridge
 internal fun SetupSheet() {
     val step = Openhouse.setupStep ?: return
     val opie = Openhouse.host.hasAssistant()
-    val title = when (step) { "people" -> "Who lives here?"; "place" -> "Where do you live?"; else -> "Carry on from your phone or computer" }
+    val title = when (step) { "people" -> "Who lives here?"; "place" -> "Where do you live?"; "pin" -> "Choose a PIN"; else -> "Carry on from your phone or computer" }
     val last = step == Setup.STEPS.last()
+    // The PIN step: its own button chooses one (SettingsLock "setupPin"), and the setup ends once it's kept; Skip, or
+    // Done if one is already set.
+    val pinSet = remember(Openhouse.settingsV) { Openhouse.host.locked() }
+    val choosePin = step == "pin" && !pinSet
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later
     // Answers Opie heard (the bridge reads them: live-tools.js setupHeard), as they come: the step shows them, and Opie
     // says them back in a few words.
@@ -124,11 +130,12 @@ internal fun SetupSheet() {
                 }
                 Spacer(Modifier.height(12.u))
                 Text(title, style = calmText(Calm.DISPLAY, FontWeight.Medium))
-                if (opie && step != "devices") Text("Tell Opie, or type it.", style = calmText(Calm.LEAD, color = Calm.soft))
+                if (opie && step != "devices" && step != "pin") Text("Tell Opie, or type it.", style = calmText(Calm.LEAD, color = Calm.soft))
                 Spacer(Modifier.height(28.u))
                 when (step) {
                     "people" -> PeopleStep { save[0] = it }
                     "place" -> PlaceStep { save[0] = it }
+                    "pin" -> PinStep(pinSet)
                     else -> DevicesStep()
                 }
                 Spacer(Modifier.height(36.u))
@@ -137,15 +144,27 @@ internal fun SetupSheet() {
                         Text("Back", style = calmText(21, FontWeight.Medium, Calm.soft))
                     }
                     Spacer(Modifier.weight(1f))
-                    if (!last) Box(Modifier.clip(RoundedCornerShape(99.u)).clickable { Setup.next() }.padding(horizontal = 20.u, vertical = 18.u)) {
+                    if (!last || choosePin) Box(Modifier.clip(RoundedCornerShape(99.u)).clickable { Setup.next() }.padding(horizontal = 20.u, vertical = 18.u)) {
                         Text("Skip", style = calmText(21, FontWeight.Medium, Calm.soft))
                     }
-                    Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { save[0](); Setup.next() }.padding(horizontal = 36.u, vertical = 18.u)) {
-                        Text(if (last) "Done" else "Next", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
+                    Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }.padding(horizontal = 36.u, vertical = 18.u)) {
+                        Text(if (choosePin) "Choose a PIN" else if (last) "Done" else "Next", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
                     }
                 }
             }
         }
+    }
+}
+
+/** The last step: a PIN, so Settings and saying yes to new apps are for the people who know it. Skipping leaves the
+ *  lock off (PIN Lock in Settings turns it on later). */
+@Composable
+private fun PinStep(set: Boolean) {
+    Column(verticalArrangement = Arrangement.spacedBy(14.u)) {
+        Text("For grown-ups: settings and approvals.", style = calmText(Calm.LEAD))
+        Text(if (set) "PIN Lock is on. Settings and approving new apps ask for the PIN."
+            else "With a PIN, only someone who knows it can change Settings or approve a new app. Without one, anyone at the tablet can. You can set it later in Settings, PIN Lock.",
+            style = calmText(19, color = Calm.soft))
     }
 }
 
@@ -238,7 +257,9 @@ private fun DevicesStep() {
         val kidOrPet = { n: String -> Regex("^\\d{1,2}$").matches(n.trim()) || Regex("\\b(dog|cat|pet|fish|bird|hamster|rabbit)\\b", RegexOption.IGNORE_CASE).containsMatchIn(n) }
         names = h?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty().filter { !kidOrPet(it.optString("note")) }.map { it.optString("name") }
         who = names.firstOrNull() ?: "Me"
-        if (Setup.wantsLink) { Setup.wantsLink = false; o.host.setting("linkForOpie") } // linking for Opie, now that they're here with a phone
+        // Linking for Opie, now that they're here with a phone. Kept until it's linked: closed, or the account not
+        // reached, it asks again the next time this step shows (and a yes made here turns Opie on whenever it links).
+        if (Setup.wantsLink) o.host.setting("linkForOpie")
     }
     var used by remember { mutableStateOf(0) } // devices joined with a code from here: each code works once, so a new one
     LaunchedEffect(who, used) { val w = who ?: return@LaunchedEffect; pair = null; pair = withContext(Dispatchers.IO) { o.host.setupPair(w) } }

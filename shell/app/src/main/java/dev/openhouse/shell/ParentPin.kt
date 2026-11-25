@@ -13,8 +13,9 @@ import javax.crypto.spec.PBEKeySpec
  * Kept as a salted PBKDF2 hash, not the digits. Wrong guesses lock it for a while (30 s after five, doubling
  * up to 15 minutes), so a child can't just try them all on the keypad. Its length is kept too, so the on-screen pad
  * (PinPad) checks it on the last digit without an OK; a PIN set before that is learned the first time it's right.
- * A right PIN opens ParentGrace: two minutes without asking again. A PIN chosen on the tablet comes with a recovery
- * code (RecoveryCode), kept as a hash too, for "Forgot PIN?" (PinPrompt.forgot).
+ * A right PIN opens ParentGrace: two minutes without asking again. A PIN chosen on an unlinked tablet comes with a
+ * recovery code (RecoveryCode), kept as a hash too, for "Forgot PIN?" (PinPrompt.forgot); on a linked one the account
+ * resets it, and a code is made before unlinking (CloudMenu.unlink).
  */
 object ParentPin {
     private const val ITER = 20_000

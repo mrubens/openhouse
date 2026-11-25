@@ -55,6 +55,8 @@ internal class SettingsLock(private val act: MainActivity) {
             "photoPhones" -> act.sharePhotos()
             "computer" -> withPin { Screens.computer(act) }
             "linkForOpie" -> CloudVoiceMenu(act).turnOn(linkNow = true) // the setup's phone step, when Turn on Opie needs the account
+            // The setup's last step: PIN Lock on, as from its row (with a recovery code unless linked), then the setup ends.
+            "setupPin" -> if (on) dev.openhouse.ui.Setup.next() else PinPrompt.choose(act, act, then = { changed(); dev.openhouse.ui.Setup.next() })
             "reloadHome" -> act.reloadHome()
         }
     }
