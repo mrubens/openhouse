@@ -13,7 +13,8 @@ import javax.crypto.spec.PBEKeySpec
  * Kept as a salted PBKDF2 hash, not the digits. Wrong guesses lock it for a while (30 s after five, doubling
  * up to 15 minutes), so a child can't just try them all on the keypad. Its length is kept too, so the on-screen pad
  * (PinPad) checks it on the last digit without an OK; a PIN set before that is learned the first time it's right.
- * A right PIN opens ParentGrace: two minutes without asking again.
+ * A right PIN opens ParentGrace: two minutes without asking again. A PIN chosen on the tablet comes with a recovery
+ * code (RecoveryCode), kept as a hash too, for "Forgot PIN?" (PinPrompt.forgot).
  */
 object ParentPin {
     private const val ITER = 20_000
@@ -24,14 +25,37 @@ object ParentPin {
 
     fun isSet(c: Context): Boolean { migrate(c); return prefs(c).contains("pin_hash") }
 
-    fun set(c: Context, pin: String) {
+    /** A new PIN, with the [recovery] code that was shown for it (RecoveryCode; null, as over adb: none, and an old
+     *  one stops working). */
+    fun set(c: Context, pin: String, recovery: String? = null) {
         require(valid(pin))
         val salt = ByteArray(16).also { SecureRandom().nextBytes(it) }
         prefs(c).edit().putString("pin_hash", hex(hash(pin, salt))).putString("pin_salt", hex(salt))
-            .putInt("pin_len", pin.length).remove("pin").putInt("pin_fails", 0).putLong("pin_locked_until", 0).apply()
+            .putInt("pin_len", pin.length).remove("pin").putInt("pin_fails", 0).putLong("pin_locked_until", 0).commit()
+        setRecovery(c, recovery)
     }
 
-    fun clear(c: Context) { prefs(c).edit().remove("pin").remove("pin_hash").remove("pin_salt").remove("pin_len").apply(); ParentGrace.close() }
+    fun clear(c: Context) { prefs(c).edit().remove("pin").remove("pin_hash").remove("pin_salt").remove("pin_len").remove("pin_rec_hash").remove("pin_rec_salt").apply(); ParentGrace.close() }
+
+    // --- the recovery code (RecoveryCode; docs/settings.md, "Forgot the PIN") ------------------------------------
+    /** Keep [code]'s hash (the code itself is only ever on screen); null forgets it. */
+    fun setRecovery(c: Context, code: String?) {
+        val salt = RecoveryCode.newSalt()
+        val h = code?.let { RecoveryCode.hash(it, salt) }
+        val e = prefs(c).edit()
+        if (h == null) e.remove("pin_rec_hash").remove("pin_rec_salt") else e.putString("pin_rec_hash", hex(h)).putString("pin_rec_salt", hex(salt))
+        e.commit()
+    }
+
+    /** A recovery code was made for this PIN (a PIN from before them, or set over adb, has none). */
+    fun hasRecovery(c: Context) = prefs(c).contains("pin_rec_hash")
+
+    /** Is [typed] the PIN's recovery code? (80 random bits: guessing isn't worth counting.) */
+    fun checkRecovery(c: Context, typed: String): Boolean {
+        val p = prefs(c)
+        val h = p.getString("pin_rec_hash", null) ?: return false
+        return RecoveryCode.matches(typed, unhex(p.getString("pin_rec_salt", "")!!), unhex(h))
+    }
 
     /** How many digits the PIN has, when known (null: a PIN from before lengths were kept, until it's next right). */
     fun length(c: Context): Int? { migrate(c); return prefs(c).getInt("pin_len", 0).takeIf { valid("0".repeat(it)) } }

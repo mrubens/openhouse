@@ -17,7 +17,7 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 | What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
 | Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add and Remove |
 | Account | the family's name, or Off | link or unlink, Backups (the cloud or a USB drive), reach from away | yes |
-| Advanced | | Lock and updates (PIN Lock, Updates, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
+| Advanced | | Lock and updates (PIN Lock, PIN recovery code, Updates, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
 
 "Tabs and look" stays its own button beside the gear (and holding a tab): it is the home screen's, already has no
 text, and is used more than any of the above.
@@ -87,11 +87,33 @@ One switch, PIN Lock: Off or On.
   settings, an app store or a system app, adding an Android app) still ask "Is this OK?" with a Yes, so nobody
   leaves by accident, but anyone can say yes. In This tablet, erasing the tablet, leaving kiosk mode, Android
   settings, turning on USB debugging and turning on device control (which opens Android's settings) ask someone to set
-  a PIN first, so taps alone never reach them; once it's chosen they go on as with the lock on.
-- **On:** turning it on chooses a PIN (typed twice). Rows marked with a small lock ask for it, then stay open for two
-  minutes as before. The same PIN is the yes on the "Is this OK?" card for the
-  ways out above, for adding apps, for a reward that needs a yes, and for changing the calendar.
-- Turning it off asks for the PIN, then forgets it.
+  a PIN first, so taps alone never reach them; once it's chosen they go on as with the lock on. So do Account's
+  Unlink this tablet, Backups' Restore, and the Wi-Fi button (on the "Not on Wi-Fi" note), which opens Android's
+  Wi-Fi settings outside kiosk mode. The Wi-Fi button is open only during the first setup, before the household is
+  saved (the welcome screen's Join Wi-Fi, a tablet arriving from somewhere else), when there's no PIN to ask for yet.
+- **On:** turning it on chooses a PIN (typed twice), then shows its recovery code (below). Rows marked with a small
+  lock ask for it, then stay open for two minutes as before. The same PIN is the yes on the "Is this OK?" card for the
+  ways out above, for adding apps, for a reward that needs a yes, and for changing the calendar. Those ways out ask
+  for it again, unless it was typed in the last two minutes.
+- Turning it off asks for the PIN, then forgets it and its recovery code.
+
+### Forgot the PIN
+
+Choosing a PIN on the tablet, from PIN Lock or from "Set a PIN first", ends with its **recovery code**: 16 characters
+(XXXX-XXXX-XXXX-XXXX, the same alphabet as the backups' code: no I, L, O or U). Nothing is saved until someone taps
+"I've kept it", so a PIN never exists without its code having been shown; the card can't be swiped away, and Cancel
+leaves no PIN at all. The tablet keeps only a salted PBKDF2 hash of the code, as it does for the PIN.
+
+"Forgot PIN?" under the PIN pad takes that code, or the backups' recovery code (Account, Backups), and then a new
+PIN, which comes with a new code. So if a child sets a PIN to lock someone out, whoever kept the backups' code still
+gets back in. Advanced, PIN recovery code (after the PIN) makes a new one; the old one stops working. A PIN set
+before recovery codes, or over adb, has none ("None" on that row) until one is made. The backups' code in Backups
+needs the PIN to be shown, since it resets the PIN too.
+
+Not yet: resetting the PIN through the family's account. The link flow's poll only says the claiming family's name
+(not which family), so the tablet can't tell its own account from one made with the same name. It needs a cloud
+route that checks the family itself, such as a code shown on the tablet that a signed-in member of the same family
+enters on the account page, with the tablet polling for that approval under its device credential.
 
 Locked rows: Voice, Screens and computers, Account, Backups, Plugins, Updates, This tablet, and Calendars. Not locked: what a household uses every day (Hey Opie, the voice, Family's names
 and chores, night hours, devices, looking after things, putting things back).

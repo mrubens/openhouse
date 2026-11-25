@@ -72,8 +72,9 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         }
         if (drive?.optBoolean("on") == true) items += CalmDialog.Row("Change the USB drive") to { chooseDrive() }
         if (on.isNotEmpty()) items += CalmDialog.Row("Back up now") to { backUpNow() }
-        items += CalmDialog.Row("Restore") to { restoreList() }
-        if (hasKey) items += CalmDialog.Row("Recovery code") to { showCode(first = false) }
+        // Restoring replaces everything here: behind a PIN, set first if there's none (SettingsLock.withPinSet).
+        items += CalmDialog.Row("Restore") to { act.lock.withPinSet(back = { show() }) { restoreList() } }
+        if (hasKey) items += CalmDialog.Row("Recovery code") to { act.lock.withPin { showCode(first = false) } } // (it also resets a forgotten PIN: PinPrompt.forgot)
         if (hasKey && escrow.optBoolean("available")) items += CalmDialog.Row("OpenHouse keeps a copy", value = onOff(escrow.optBoolean("on"))) to { escrowAsk(!escrow.optBoolean("on")) }
         CalmDialog(act).setTitle("Backups").setMessage(text)
             .setRows(items.map { it.first }) { _, i -> items[i].second() }.setNegativeButton("Back") { _, _ -> onBack?.invoke() }.open()
