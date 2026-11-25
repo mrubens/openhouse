@@ -43,6 +43,7 @@ class AppWindow private constructor(private val act: Activity, private val shell
         private const val TAG = "AppWindow"
         /** Called by the stub (dev.openhouse.stub.StubActivity) from its onCreate. */
         @JvmStatic fun attach(act: Activity, shell: Context, id: String) { AppWindow(act, shell, id).start() }
+        private val backoff = RenderBackoff() // (for the stub's process: RendererGone)
     }
 
     private val main = Handler(Looper.getMainLooper())
@@ -92,7 +93,14 @@ class AppWindow private constructor(private val act: Activity, private val shell
         val w = appView(act, id, key, ui, calls,
             onError = { report(it, "The app hit an error") },
             onLoadFailed = { report(it, "The app didn't load"); main.postDelayed({ web?.reload() }, 3000) },
-            onStarted = { if (key != null) banner.visibility = View.GONE })
+            onStarted = { if (key != null) banner.visibility = View.GONE },
+            // Its renderer went (the view is dropped already: RendererGone): the page again, after a wait if it keeps going.
+            onRendererGone = { gone ->
+                if (web === gone) web = null
+                val wait = backoff.next(System.currentTimeMillis())
+                if (wait > 0) Log.w(TAG, "$id: its renderer went again soon after: back in ${wait / 1000} s")
+                main.postDelayed({ if (web == null) open(key) }, wait)
+            })
         content.removeAllViews()
         content.addView(w, FrameLayout.LayoutParams(-1, -1))
         web = w

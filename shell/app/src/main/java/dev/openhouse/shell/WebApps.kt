@@ -52,10 +52,11 @@ private fun refused() = android.webkit.WebResourceResponse("text/plain", "utf-8"
  * timers and speaking; apps.js), handed to the page as `window.OpenhouseApp`. Only pages from the app's own origin get
  * it, and the view never leaves for another site. A shared app's view loads nothing but its own origin and the hosts
  * its card granted (under the dev server's CSP, a second wall), and can't ask for a phone card. Errors it throws go to
- * [onError].
+ * [onError]. Its renderer going (out of memory) is answered here, so it never ends the app; the view is dropped and
+ * [onRendererGone] gets it, to make a new one (RendererGone).
  */
 @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")
-internal fun appView(ctx: Context, id: String, key: AppKey?, ui: String, calls: AppCalls, onError: (String) -> Unit, onLoadFailed: (String) -> Unit, onStarted: () -> Unit) = WebView(ctx).apply {
+internal fun appView(ctx: Context, id: String, key: AppKey?, ui: String, calls: AppCalls, onError: (String) -> Unit, onLoadFailed: (String) -> Unit, onStarted: () -> Unit, onRendererGone: (WebView) -> Unit) = WebView(ctx).apply {
     val shared = key?.shared == true
     val origin = appOrigin(ui, id, shared)
     val ownHost = android.net.Uri.parse(origin).host ?: ""
@@ -94,6 +95,9 @@ internal fun appView(ctx: Context, id: String, key: AppKey?, ui: String, calls: 
         override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) { if (r.isForMainFrame) { failed = true; v.visibility = View.INVISIBLE; onLoadFailed("page failed to load: ${e.description}") } }
         override fun onPageStarted(v: WebView, url: String?, b: android.graphics.Bitmap?) { failed = false; here = url?.startsWith("$origin/apps/$id/") == true; onStarted() }
         override fun onPageFinished(v: WebView, url: String?) { if (!failed) v.visibility = View.VISIBLE }
+        override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail?): Boolean {
+            here = false; RendererGone.drop("App", id, v, d); onRendererGone(v); return true
+        }
     }
 }
 

@@ -50,24 +50,37 @@ internal class AppHost(private val act: Activity, private val bridge: () -> Stri
     /** Open a family app: in its own window, else here. [onShown]: it's on screen here (bring the overlay above it). */
     fun open(id: String, onShown: () -> Unit) { if (!openStub(id, onShown)) openHere(id, onShown) }
 
+    private var opening = 0 // which openHere the page being made is for (one closed or reopened meanwhile isn't made)
+
     private fun openHere(id: String, onShown: () -> Unit) {
         if (appId == id) return
         destroy(); appId = id
+        val n = ++opening
         layer.visibility = View.VISIBLE
         layer.bringToFront(); onShown()
         thread {
             val key = appKey(bridge(), id)
             main.post {
-                if (appId != id) return@post
+                if (appId != id || opening != n) return@post
                 val w = appView(act, id, key, uiUrl(), object : AppCalls {
                     override fun phone(kind: String, arg: String) {} // phone pages open from an app's own window
                     override fun close() { this@AppHost.close() }
-                }, onError = { error(id, it) }, onLoadFailed = { error(id, it) }, onStarted = { banner.visibility = View.GONE })
+                }, onError = { error(id, it) }, onLoadFailed = { error(id, it) }, onStarted = { banner.visibility = View.GONE },
+                    onRendererGone = { gone -> rendererGone(gone, id, n, onShown) })
                 layer.addView(w, 0, FrameLayout.LayoutParams(-1, -1))
                 web = w
                 w.loadUrl(appOrigin(uiUrl(), id, key?.shared == true) + "/apps/$id/")
             }
         }
+    }
+
+    /** The app's renderer went (its view is already dropped: RendererGone): the same app again, after a wait if it keeps going. */
+    private fun rendererGone(w: WebView, id: String, n: Int, onShown: () -> Unit) {
+        if (web === w) web = null
+        if (appId != id || opening != n) return
+        val wait = backoff.next(System.currentTimeMillis())
+        if (wait > 0) Log.w(TAG, "app $id: its renderer went again soon after: back in ${wait / 1000} s")
+        main.postDelayed({ if (appId == id && opening == n) { appId = null; openHere(id, onShown) } }, wait)
     }
 
     /**
@@ -123,5 +136,8 @@ internal class AppHost(private val act: Activity, private val bridge: () -> Stri
         reportAppError(bridge(), id, msg)
     }
 
-    companion object { const val TAG = "Shell" }
+    companion object {
+        const val TAG = "Shell"
+        private val backoff = RenderBackoff() // (for the process: RendererGone)
+    }
 }
