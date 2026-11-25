@@ -22,6 +22,23 @@ import { newRecoveryCode, keyFromCode, normalCode, encryptFile, decryptFile, pac
 
 export const KEEP = { nightly: 7, manual: 5 };
 
+/**
+ * One thing a restore unpacked, made plain before it's put in place: whatever isn't a plain file or folder (a link,
+ * a pipe, a device) is left out, as are node_modules folders and every .git below the thing's own top. Returns
+ * whether the thing itself is still there (false when it was itself a link or the like).
+ */
+export function plain(p, top = true) {
+  let st; try { st = fs.lstatSync(p); } catch { return false; }
+  if (st.isFile()) return true;
+  if (!st.isDirectory()) { fs.rmSync(p, { force: true }); return false; }
+  for (const e of fs.readdirSync(p, { withFileTypes: true })) {
+    const q = path.join(p, e.name);
+    if (e.name === 'node_modules' || (e.name === '.git' && !top)) fs.rmSync(q, { recursive: true, force: true });
+    else plain(q, false);
+  }
+  return true;
+}
+
 export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = null, busy = () => false, exit = () => process.exit(0), now = Date.now, tick = 15 * 60e3, videoBudget = VIDEO_BUDGET }) {
   const DIR = path.join(DISPLAY, '.backup'); // never in a backup (not in INCLUDE)
   const TMP = path.join(DIR, 'tmp');
@@ -137,8 +154,10 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
       await run('tar', ['-xzf', tgz, '-C', out, '--no-same-owner']);
       fs.rmSync(tgz, { force: true });
       // Only what a backup may hold; what is there now is kept aside in .backup/before-restore until the next one.
-      const entries = (header.entries || []).filter((e) => INCLUDE.includes(e) && fs.existsSync(path.join(out, e)));
-      for (const e of entries) quietRepo(path.join(out, e)); // a repo that comes back (webapp/) runs nothing of its own
+      // Only plain files and folders come back, with no node_modules (the next start installs them) and no repo inside
+      // another; and a repo that comes back (webapp/) runs nothing of its own.
+      const entries = (header.entries || []).filter((e) => INCLUDE.includes(e) && plain(path.join(out, e)));
+      for (const e of entries) quietRepo(path.join(out, e));
       if (!entries.length) throw new Error('the backup is empty');
       job.step = 'putting back';
       // From here until the bridge starts again, nothing saves over what comes back from what it still holds in

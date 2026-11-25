@@ -11,7 +11,7 @@
 // the lock (HEAD stays). Only the watchdog's explicit /restore resets.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 
@@ -33,26 +33,35 @@ const POINTERS = ['commondir', 'gitdir', 'objects/info/alternates', 'objects/inf
 const DROP = ['hooks', 'config.worktree', 'info/attributes', 'worktrees', 'modules', 'branches', 'remotes', 'sequencer', 'rebase-merge',
   'rebase-apply', 'MERGE_HEAD', 'MERGE_MSG', 'MERGE_MODE', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'index.lock'];
 
-function hasLink(dir) {
+/** Anything in dir that isn't a plain file or folder: a link, a pipe, a socket, a device. */
+function hasOdd(dir) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (e.isSymbolicLink()) return true;
-    if (e.isDirectory() && hasLink(path.join(dir, e.name))) return true;
+    if (e.isDirectory()) { if (hasOdd(path.join(dir, e.name))) return true; } else if (!e.isFile()) return true;
   }
   return false;
+}
+/** Every repo inside this one (a .git below its top, folder or file) taken out: its files stay, as plain files. */
+function dropNested(dir, top = true) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.name === '.git') { if (!top) fs.rmSync(p, { recursive: true, force: true }); continue; }
+    if (e.isDirectory()) dropNested(p, false);
+  }
 }
 
 /**
  * A repo that came from somewhere else (a backup being restored), made so that nothing of its own runs: a fresh
- * config holding only how it is stored, with hooks pointed nowhere, and the rest of DROP gone. A .git that isn't a
- * plain folder (a file pointing elsewhere, a link), holds a link or points outside itself, or that git can't read
- * after that, is replaced by a new repo of the files as they are (the history of the changes doesn't come back).
- * Returns false when there's no .git at all.
+ * config holding only how it is stored, with hooks pointed nowhere, and the rest of DROP gone; a repo inside it is
+ * taken out (its files stay). A .git that isn't a plain folder (a file pointing elsewhere, a link), holds anything
+ * but plain files and folders or points outside itself, or that git can't read after that, is replaced by a new repo
+ * of the files as they are (the history of the changes doesn't come back). Returns false when there's no .git at all.
  */
 export function quietRepo(repo) {
+  try { dropNested(repo); } catch {}
   const dotGit = path.join(repo, '.git');
   let st; try { st = fs.lstatSync(dotGit); } catch { return false; }
   const g = (...a) => execFileSync('git', [...GIT_SAFE, '-c', 'user.name=display', '-c', 'user.email=display@local', ...a], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-  let fresh = !st.isDirectory() || hasLink(dotGit) || POINTERS.some((p) => fs.existsSync(path.join(dotGit, p)));
+  let fresh = !st.isDirectory() || hasOdd(dotGit) || POINTERS.some((p) => fs.existsSync(path.join(dotGit, p)));
   const keep = {};
   if (!fresh) {
     const cfg = path.join(dotGit, 'config');
@@ -109,7 +118,10 @@ export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit
     if (e.commit || !e.base) return e;
     try { const c = git('rev-list', '--reverse', '--ancestry-path', `${e.base}..HEAD`).split('\n')[0]; return c ? { commit: c, text: e.text, who: e.who || null } : null; } catch { return null; }
   }).filter(Boolean);
-  const saveStack = () => { try { writeJson(UNDO_FILE, stack); } catch {} };
+  // null when saved, else what to say (store.js unsaved). A change is in git either way; the list here only says which
+  // to take back. Undo checks first that the list can be saved, so it never takes a change back that the list on disk
+  // would still offer after a restart.
+  const saveStack = () => { try { writeJson(UNDO_FILE, stack); return null; } catch (e) { console.error('[edits] undo list not saved:', e.message); return unsaved(e).error; } };
 
   // ---- the lock ----
   let holder = null; // { id, kind, who, text, base }
@@ -251,11 +263,13 @@ export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit
     /** "Undo": the latest change (that is still there), reverted. */
     undoLatest(by = null) {
       return withLock(by, () => {
+        { const no = saveStack(); if (no) return { ok: false, error: no }; }
         // A change nobody saved yet (a turn that just ended, its edits not committed): that is the latest one, so it's
         // the one "undo" means, not the change before it. Saved first, so it can be taken back like any other.
         if (holder?.kind === 'undo' && dirty()) { snapshot('A change not yet saved'); stack.push({ commit: git('rev-parse', 'HEAD'), text: 'the latest change', who: null }); saveStack(); }
         while (stack.length) {
-          const last = stack.pop(); saveStack();
+          const last = stack.pop();
+          { const no = saveStack(); if (no) { stack.push(last); return { ok: false, error: no }; } }
           if (!exists(last.commit) || !inHistory(last.commit)) continue;
           const r = revert(last.commit, by);
           if (!r.ok) { stack.push(last); saveStack(); return r; }
@@ -271,6 +285,7 @@ export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit
       return withLock(by, () => {
         let sha; try { sha = git('rev-parse', '--verify', `${id}^{commit}`); } catch { return { ok: false, error: `No change ${id}.` }; }
         if (!inHistory(sha)) return { ok: false, error: `Change ${id} isn't part of the apps now.` };
+        { const no = saveStack(); if (no) return { ok: false, error: no }; }
         const r = revert(sha, by);
         if (!r.ok) return r;
         stack = stack.filter((e) => e.commit !== sha);
