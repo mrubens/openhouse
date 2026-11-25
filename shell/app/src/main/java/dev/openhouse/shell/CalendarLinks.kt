@@ -111,20 +111,26 @@ object CalendarLinks {
     fun label(who: String) = if (who.isBlank()) "A calendar" else "$who's calendar"
 
     // --- reading the calendars -----------------------------------------------------------------
-    fun sync() {
-        if (stopped || running) return
-        running = true
+    /** What each calendar said at the last read (by id), so a change made here (its color) shows at once, without reading them all again. */
+    private val lastIcs = java.util.concurrent.ConcurrentHashMap<String, String>()
+
+    /** [fresh] false: send what was read last time with the links' settings as they are now (a color just chosen). */
+    fun sync(fresh: Boolean = true) {
+        if (stopped || (running && fresh)) return
+        if (fresh) running = true
         thread(name = "calendars") {
             try {
-                claim()
+                if (fresh) claim()
                 val feeds = JSONArray()
                 for (l in list()) feeds.put(JSONObject().put("id", l.id).put("who", l.who).put("name", l.name).put("only", l.only).put("tone", l.tone).apply {
-                    runCatching { put("ics", fetch(l.url)) }.onFailure { put("error", (it as? Said)?.message ?: "Couldn't read it") /* other messages can hold the link */ }
+                    val kept = lastIcs[l.id]
+                    if (!fresh && kept != null) put("ics", kept)
+                    else runCatching { put("ics", fetch(l.url).also { lastIcs[l.id] = it }) }.onFailure { put("error", (it as? Said)?.message ?: "Couldn't read it") /* other messages can hold the link */ }
                 })
                 val ok = post("/calendar/feeds", JSONObject().put("feeds", feeds)) != null
                 Log.i(TAG, "${feeds.length()} calendar(s) ${if (ok) "sent" else "not sent (bridge not up)"}")
                 if (!ok) main.postDelayed(::sync, 60_000)
-            } finally { running = false }
+            } finally { if (fresh) running = false }
         }
     }
 

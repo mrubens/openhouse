@@ -310,7 +310,7 @@ object CalendarAccounts {
                         line(title, Calm.text(a, l.only.takeIf { it.isNotBlank() }?.let { "Only $it" } ?: "Read only", 17f, 400, Calm.SOFT), l.tone.takeIf { it.startsWith("#") }, null) {
                             shown?.dismiss()
                             CalmDialog(a).setTitle(title).setItems(arrayOf("Color", "Remove")) { _, i ->
-                                if (i == 0) palette(a, title, l.tone.takeIf { it.startsWith("#") }, immersive, { again() }) { t -> thread { CalendarLinks.setTone(l.id, t ?: ""); CalendarLinks.sync(); main.post { again() } } }
+                                if (i == 0) palette(a, title, l.tone.takeIf { it.startsWith("#") }, immersive, { again() }) { t -> thread { CalendarLinks.setTone(l.id, t ?: ""); CalendarLinks.sync(fresh = false); main.post { again() } } }
                                 else CalmDialog(a).setTitle("Remove $title?").setDanger()
                                     .setPositiveButton("Remove") { _, _ -> thread { CalendarLinks.remove(l.id); CalendarLinks.sync(); main.post { again() } } }
                                     .setNegativeButton("Cancel") { _, _ -> again() }.show().also { immersive() }
