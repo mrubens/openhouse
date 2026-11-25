@@ -12,6 +12,7 @@ scripts/build-mcpb.sh >/dev/null # the Opie extension and script the Connect scr
 cp -R bridge/public/chat bridge/public/app bridge/public/screen bridge/public/phone bridge/public/connect "$A/bridge/public/"
 cp bridge/agents/*.js "$A/bridge/agents/" # the cloud's text model (cloud.js), none.js, and the stand-ins
 mkdir -p "$A/bridge/house" && cp bridge/house/*.js "$A/bridge/house/" # the household's parts (house.js)
+mkdir -p "$A/bridge/templates" && cp -R bridge/templates/game bridge/templates/tab "$A/bridge/templates/" # what the tablet's builder starts a new app from (rails.js)
 mkdir -p "$A/bridge/devices/drivers" && cp bridge/devices/*.js bridge/devices/oui.txt.gz "$A/bridge/devices/" && cp bridge/devices/drivers/*.js "$A/bridge/devices/drivers/"
 cp device/runtime-start.sh "$A/start.sh"
 cp bridge/kit/*.js bridge/kit/*.css "$A/bridge/kit/" && cp shell/app/src/main/assets/fonts/* "$A/bridge/kit/fonts/" # the apps' kit and the display's fonts
