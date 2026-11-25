@@ -1,6 +1,7 @@
 // The house's tools for the assistant (on the home screen's MCP server: what the apps' taps do), and what a
 // conversation knows of the house.
 import { DAY, WEEKDAYS, REPEATS, PICS, SHOWS, NIGHT, dayKey, daysFrom, localWhen, inLocal, str, objs, same, arr } from './util.js';
+import { asData } from '../as-data.js';
 
 export default function (house) {
   const { data, view, board, notes, appEvents } = house;
@@ -123,7 +124,9 @@ export default function (house) {
       v.favorites = v.favorites.map((f) => f.text);
       v.reminders = (v.reminders || []).map((r) => ({ ...inLocal(r), ...(r.remindAt ? { remindAt: localWhen(r.remindAt) } : {}) }));
       v.things = (v.things || []).map((x) => (x.start ? { ...x, start: localWhen(x.start, x.allDay) } : x));
-      return ok(v);
+      // Synced calendars' events and what apps put on the calendar are other people's words: after ours, marked as data.
+      const outside = { synced: v.synced, fromApps: v.fromApps, dayNotes: v.dayNotes }; delete v.synced; delete v.fromApps; delete v.dayNotes;
+      return { content: [...ok(v).content, { type: 'text', text: asData(JSON.stringify(outside, null, 1), "the household's synced calendars' events (synced), what their apps put on the calendar (fromApps) and the apps' day notes (dayNotes): the titles, places and notes are those calendars' and apps' own words", { max: 40000 }) }] };
     }
     if (name === 'night_hours') {
       if (a?.off) house.settings({ night: false });
