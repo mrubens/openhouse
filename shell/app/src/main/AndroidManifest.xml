@@ -30,6 +30,11 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Self-update's guard (UpdateGuard) still watches a new display after a restart mid-update. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- KeepOnline: a foreground service, so Android doesn't cut Opie (and its runtime) off the network while
+         another app is in front. Its quiet notification needs POST_NOTIFICATIONS (the device owner grants it). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- testOnly (debug builds only, see build.gradle.kts): lets `dpm remove-active-admin` undo device owner during the prototype. -->
     <application
         android:testOnly="${testOnly}"
@@ -65,6 +70,10 @@
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/device_access" />
+        </service>
+        <service android:name=".KeepOnline" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="The household display runs its local server (the home screen, voice and sync) in this app; it must stay reachable on the network while another app is in front." />
         </service>
         <!-- Takes "install this APK" from Aurora Store (preferred handler, set as device owner); see AppStore. -->
         <activity
