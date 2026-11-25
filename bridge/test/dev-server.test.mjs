@@ -51,3 +51,15 @@ test('a website the household approved for a shared app is in its CSP; one it on
   fs.writeFileSync(path.join(root, 'plugins/bus.json'), JSON.stringify({ kind: 'shared', apps: { bus: { uses: [], reaches: [], setupReaches: [{ key: 'transit-feed', why: 'x' }] } } }));
   assert.match(hit('bus.localhost:5173', '/apps/bus/main.js').csp, /connect-src 'self';/);
 });
+
+test('an app made on the tablet is served on its own origin, under its CSP, with only the sites its card granted', () => {
+  fs.mkdirSync(path.join(root, 'plugins'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'plugins/streak.json'), JSON.stringify({ kind: 'local', apps: { streak: { limited: true, uses: [], reaches: ['api.example.org'] } } }));
+  fs.writeFileSync(path.join(root, 'plugins/drawing.json'), JSON.stringify({ kind: 'local', apps: { drawing: {} } }));
+  const own = hit('streak.localhost:5173', '/apps/streak/main.js');
+  assert.equal(own.code, 'next');
+  assert.match(own.csp, /connect-src 'self' https:\/\/api\.example\.org;/);
+  assert.notEqual(hit('127.0.0.1:5173', '/apps/streak/main.js').code, 'next', 'not on the main origin');
+  assert.equal(hit('127.0.0.1:5173', '/apps/drawing/main.js').code, 'next', "the household's own app as it was");
+  assert.notEqual(hit('drawing.localhost:5173', '/apps/drawing/main.js').code, 'next');
+});
