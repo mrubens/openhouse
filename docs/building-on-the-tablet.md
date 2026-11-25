@@ -58,8 +58,28 @@ it's ready for the card, the tablet says so (`rails.js say`). If the build doesn
 6. **Each step under 30 seconds.** The service stops a model call at 30 s (its HTTP API), so a long file is written
    in parts (`write_file`, then `add_to_file`, about 9,000 characters a step).
 7. **A budget**: 40 model calls, and a stop when it makes the same call four times.
-8. **A grown-up's yes.** The approval card ("Put Dino Eggs in Apps?", with the PIN) says who asked, what was made, and
-   what it may use and which websites it may reach. A no, or no answer, puts everything back.
+8. **A grown-up's yes** (below).
+
+While a new app is being made its page shows one quiet line, "Making Dino Eggs…", not the template or a page half
+written: the templates' `index.html` asks the kit (`beingMade`, the bridge's state `making`), which rails sets at
+`start` and clears once `check_build` first passes. From then on the family (and `look_at_tablet`) see it as it is.
+
+## A grown-up's yes
+
+The card ("Put Dino Eggs in Apps?") says what the app is in one plain line (the builder's `done` summary, "Dino Eggs:
+catch the falling eggs before they crack", never the reviewer's notes about a fix), who asked and what they said, and
+what it may use and which websites it may reach. Asked aloud, the tablet says when the card is up. Its yes always takes the PIN, whether or not the lock is on: a child can't put an app in. A tablet
+with no PIN yet asks whoever is there to choose one on the card (the PIN, then its recovery code), and comes back to it.
+
+- **No** ("Don't put it in") puts everything back.
+- **Nobody answers** in 3 minutes, or **Not now**: nothing is lost. The change is set aside as a commit under
+  `refs/opie/waiting/<id>` in the apps' repo (not their history; `bridge/build-waits.js`, listed in
+  `waiting-builds.json`), the files are put back so nothing else waits on it, and any app open on screen for it is
+  closed (the `gone` event). Home shows "Dino Eggs is waiting for a grown-up" first among its things; a tap there (or
+  Opie's `ask_grownup_again`) puts the change back in, opens the app behind the card and asks again.
+- One nobody answers for a day is put back for good, with a line on Home saying so.
+- The bridge asks, and only the card's answer counts: `POST /build/open` only puts the card up again. With no screen
+  to ask (a hub, or a bridge on a laptop) nothing goes in and nothing is granted.
 
 ## What an app made here may do
 
@@ -77,6 +97,19 @@ A new app made on the tablet is the household's own plugin, but limited like one
 A change to one of OpenHouse's apps or the household's own keeps that app's rights as they were. The change can't
 widen them (point 3 above).
 
+While it's being made, and until the yes, nothing of it runs with more than that:
+
+- A new app is marked limited, with nothing granted, at `start`, before its first file is written (rails.js
+  `register`, plugins.js `madeHere`), so it's on its own origin from its first paint and reads the family's things
+  as empty. The yes grants what the card said; a no takes the mark back with the files.
+- A change to an app with its own rights (ours, the household's) is never written into that app: it's made in a
+  draft, `apps/<id>--draft`, a copy limited the same way, which is what shows on screen. The yes swaps the draft in
+  (build-waits.js `promote`) and takes the draft's mark away; a no or a day drops it.
+- The tablet's page server serves a limited app made here on its own origin, as one from a link
+  (`device/vite.config.mjs` grants).
+- A build the bridge stopped in the middle of (an update, a crash) is put back on the next start
+  (`building.json`, build-waits.js `putBackUnfinished`), before anything could take it in as a checkpoint.
+
 `bridge/test/rails.test.mjs` checks this: writes outside the app, out by `..`, into folders, over the template's page
 or the engine, and `uses` or `reaches` it can't have (a `*.` name, a URL, an address, too many) are all refused.
 The new app gets only the things and websites the card granted, even if its `app.json` later says otherwise. A no
@@ -93,8 +126,8 @@ bridge's environment) leaves making apps to a computer, as before.
 
 - A setting for it (it's on whenever the cloud assistant is), and a per-day cap on builds.
 - Granting an app made here more later (a list it should use) from Settings, rather than by asking for it again.
-- The approval card is the general one. It could show the app running behind it, so whoever says yes sees what
-  they're putting in.
+- The approval card is the general one. As the build ends the app is open behind it, and when it's asked again from
+  Home the app opens behind it too; the card itself doesn't show it.
 - The cloud's 30 s limit per call is tight for Luna (17–26 s for a whole game file before writing in parts) and
   rules out Terra. Builds would be safer on a route without it (a Lambda function URL, or a streamed answer).
 - Undo of a build works as for any change. A failed build tells the family it didn't work in one plain sentence.

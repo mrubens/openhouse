@@ -679,6 +679,15 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     save(name, all[name]); cache.stamp = null;
     return true;
   }
+  /** A limited app made on the tablet taken off the registry (a change's draft, once it's swapped in: rails.js). */
+  function unmake(id) {
+    const all = readAll(), o = ownerOf(id, all);
+    if (!o || o.e.kind !== 'local' || !o.e.apps[id]?.limited) return false;
+    delete o.e.apps[id];
+    if (Object.keys(o.e.apps).length) save(o.name, o.e); else drop(o.name);
+    cache.stamp = null;
+    return true;
+  }
   /** Whether an app is one made on the tablet, with only what it was granted. */
   const limited = (id) => { const o = ownerOf(id); return !!(o?.e.kind === 'local' && o.e.apps[id]?.limited); };
 
@@ -1366,5 +1375,5 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     return false;
   }
 
-  return { handle, tools, call, card, rightsOf, frozenOf, madeHere, limited, askReach, forgetReach, inspect, put, update, merge, keepOurs, gallery, check, remove, reset, undoPlugin, installed, describe, exportFiles, summary, reconcile, migrate, unmigrate, syncBuiltins, start, readAll, ownerOf: (id) => ownerOf(id), checksOf, reachesOf, voiceTools, callVoice, DIR, MARK };
+  return { handle, tools, call, card, rightsOf, frozenOf, madeHere, unmake, limited, askReach, forgetReach, inspect, put, update, merge, keepOurs, gallery, check, remove, reset, undoPlugin, installed, describe, exportFiles, summary, reconcile, migrate, unmigrate, syncBuiltins, start, readAll, ownerOf: (id) => ownerOf(id), checksOf, reachesOf, voiceTools, callVoice, DIR, MARK };
 }

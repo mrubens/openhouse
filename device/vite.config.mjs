@@ -28,7 +28,8 @@ const kitOutside = { name: 'kit-outside', enforce: 'pre', resolveId(id) { if (id
 // path that isn't plainly written (//, /./, ..., encoded slashes or dots, /@fs/).
 let granted = { stamp: null, apps: new Map() };
 function grants(root) {
-  // webapp/plugins/<name>.json, one per plugin; only the ones from a link ("kind": "shared", or none: v1's) are bound.
+  // webapp/plugins/<name>.json, one per plugin; the ones from a link ("kind": "shared", or none: v1's) are bound, and so is an
+  // app made on the tablet ("local", the app marked "limited": bridge/plugins.js madeHere), with only what its card granted.
   // Before the move to plugins: v1's one webapp/plugins.json.
   const dir = path.join(root, 'plugins'), legacy = path.join(root, 'plugins.json');
   let files = [];
@@ -41,8 +42,9 @@ function grants(root) {
       try {
         const v = JSON.parse(fs.readFileSync(f, 'utf8'));
         for (const p of f === legacy ? Object.values(v) : [v]) {
-          if (p?.kind && p.kind !== 'shared') continue;
-          for (const [app, a] of Object.entries(p?.apps || {})) apps.set(app, [...(a.reaches || []), ...(a.chosen || []).map((c) => c?.host)].filter((h) => typeof h === 'string').filter((h) => /^(\*\.)?[a-z0-9.-]+(:\d+)?$/.test(h)).map((h) => `https://${h}`));
+          const local = p?.kind === 'local';
+          if (p?.kind && p.kind !== 'shared' && !local) continue;
+          for (const [app, a] of Object.entries(p?.apps || {})) if (!local || a?.limited === true) apps.set(app, [...(a.reaches || []), ...(a.chosen || []).map((c) => c?.host)].filter((h) => typeof h === 'string').filter((h) => /^(\*\.)?[a-z0-9.-]+(:\d+)?$/.test(h)).map((h) => `https://${h}`));
         }
       } catch {}
     }

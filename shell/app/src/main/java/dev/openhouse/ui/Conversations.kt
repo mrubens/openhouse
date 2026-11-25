@@ -335,6 +335,9 @@ internal object Turns {
             "edit" -> { val app = ev.s("app"); if (b != null) o.build = b.copy(app = app ?: b.app)
                 if (app != null && app != "home" && o.openAppId != app && !ev.optBoolean("inTab")) o.openApp(app) } // watch it appear (in its tab, if it's showing there)
             "apps" -> o.appsChanged()
+            // An app made on the tablet put back (a no, a failed build, or set aside to wait for a grown-up's yes): its
+            // page is gone, so it isn't left open on nothing (a black screen until the home screen restarted).
+            "gone" -> { val app = ev.s("app"); if (app != null && o.openAppId == app) o.host.closeApp(); o.appsChanged() }
             "home" -> { if (o.openAppId != null) o.host.closeApp(); o.showSettings = false } // a paired computer or Opie put the home screen back (workshop.js, show_on_screen); a PIN or question over it stays
             "done" -> if (b != null) {
                 o.build = b.copy(done = true, ok = ev.optBoolean("ok"), summary = ev.optString("text"), endedAt = System.currentTimeMillis(), live = null)

@@ -27,6 +27,7 @@ import { authorized, loopbackHost } from './auth.js';
 import { eventStream } from './events.js';
 import { isTab, homePath } from './home-screen.js';
 import { builderRoutes } from './builder.js';
+import { putBackUnfinished } from './build-waits.js';
 import { screensRoutes } from './screens.js';
 import { appsRoutes, onScreen, appAllowed, houseFor } from './apps.js';
 import { appFetch, reachMatches, recipeLinkRefused } from './app-web.js';
@@ -110,9 +111,15 @@ const git = edits.git;
 // can take it. Each of those checkpoints what nobody holds, which would commit the open change's files as
 // "checkpoint": no longer undoable and left out of list_changes. The plugins' step then finds the lock busy and runs
 // again once the change is done (plugins.js start). The workshop itself (workshopRoutes, below) adopts these.
+// First of all: a build the bridge stopped in the middle of is put back, before anything could checkpoint it (build-waits.js).
+putBackUnfinished({ HERE, edits });
 const reopened = reopenChanges({ HERE, edits });
 edits.watch();
-const builder = builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json });
+// An app made here goes in on a grown-up's yes on the tablet's card, always with the PIN (grownup: a tablet with no PIN
+// asks someone to choose one there); no answer keeps it waiting, on Home (build-waits.js). shellAsk, plugins, chat: below.
+const builder = builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json,
+  ask: (card) => shellAsk(card), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), unmake: (id) => plugins.unmake(id), say: (t) => chat.voice.say(t),
+  line: (text) => chat.things.put({ text, minutes: 12 * 60, by: 'builder' }), changed: () => chat.house?.changed?.() });
 
 const devices = devicesRoutes({ HERE, json, body }); // first: it sets HOME_MCP_* for the agents
 const chat = chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body, building: () => events.state,
@@ -143,6 +150,14 @@ process.env.OPENHOUSE_APP_DIR = APP_DIR;
 const apps = appsRoutes({ HERE, APP_DIR, json });
 // Plugins (plugins.js, docs/plugins.md): apps and a look another family made, added as one change after someone's
 // yes on the tablet's card. An app from a plugin gets only what its plugin was granted (rightsOf, below).
+/** The card for an app made here (builder.js): 'yes', 'no' (someone said no), 'later' (nobody answered, Not now, or the
+ *  display couldn't show it), or null with no shell to ask (a laptop). It's up for 3 minutes, longer while someone
+ *  chooses a PIN there. */
+const shellAsk = async ({ title, detail, yes, rights, pin, grownup }) => {
+  const r = await toShell('/approve', { title, detail, yes, rights, pin, grownup, later: true, no: "Don't put it in", waitMs: 180e3 }, { ms: 15 * 60e3 });
+  if (!r) return null;
+  return r.ok && r.body?.yes === true ? 'yes' : r.ok && r.body?.answered === true ? 'no' : 'later';
+};
 const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger } (docs/ux.md) // true, false, or null when there's no shell to ask (a laptop)
   const r = await toShell('/approve', { ...extra, title, detail, pin }, { ms: 100e3 });
   return r && r.ok && r.body?.yes === true;
@@ -194,6 +209,7 @@ const HB_DIR = path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'))
 const fixes = fixQueue({ DIR: HB_DIR });
 chat.homeScreen.addTools(fixes.tools, fixes.call);
 chat.things.setFixes(() => fixes.open()); // a broken app waiting for its fix shows on Home (things.js)
+chat.things.setWaits(() => builder.waits.waiting()); // and an app made here waiting for a grown-up's yes
 const checksFromApps = appChecks({ APP_DIR, readData: dataReader(path.resolve(HB_DIR, '../appdata')), houseView: () => chat.house.view(),
   houseKeysOf: (app) => { const r = plugins.rightsOf(app); return r ? new Set(Object.keys(houseFor(chat.house.view(), r))) : null; },
   fixedChecks: (app) => plugins.checksOf(app) });
@@ -242,8 +258,8 @@ import('./maps.js').then((m) => m.useMapCloud({ suggest: (q, near) => cloud.plac
 const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
   ai: (q) => cloud.ai(q), APP_DIR,
   // A second look at the code before it's done (role review: the service's own model today; it may pick another).
-  review: process.env.BUILD_REVIEW === 'off' ? null : (q) => cloud.ai({ ...q, role: 'review' }), checkBuild: builder.checkBuild, approve: shellApprove,
-  madeHere: (id, o) => plugins.madeHere(id, o), limited: (id) => plugins.limited(id), say: (t) => chat.voice.say(t),
+  review: process.env.BUILD_REVIEW === 'off' ? null : (q) => cloud.ai({ ...q, role: 'review' }), checkBuild: builder.checkBuild,
+  limited: (id) => plugins.limited(id), register: (id) => plugins.madeHere(id, {}), making: (app) => setState({ making: app }), say: (t) => chat.voice.say(t),
   guide: () => workshopGuide({ read: (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } }, homeNow: () => '', log: () => {} }).guide('apps'),
   // The tablet's screen (Device control on): the app being made is on it (the shell opens it as it's written).
   look: Object.assign(async () => {
@@ -254,7 +270,7 @@ const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
 }) : null;
 import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud.decide, tools: chat.textTools, callTool: chat.callText, instructions: chat.textInstructions,
   rails: buildHere, build: buildHere ? (text, o = {}) => builder.request(text, o.who || null, { app: o.app || null, ...(o.context ? { context: o.context } : {}) }) : null }));
-if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, { spoken: !o.phone })); // the voice's make_app (on the tablet: it says how it went)
+if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, { spoken: !o.phone }), builder.waits); // the voice's make_app (on the tablet: it says how it went), and a waiting one's card again
 // A hub (docs/hub.md) has no shell to own a USB drive: its backups go to a folder instead (a mounted drive, a share, a volume).
 const localDest = isHub() ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
 backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest], escrow: cloud.escrow, busy: () => !!edits.holder() });
