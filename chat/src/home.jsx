@@ -744,7 +744,7 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
     : <span className="h-app-icon letter">{a.name[0].toUpperCase()}</span>;
   return (
     <div className="h-apps">
-      <div className="h-head"><h1 className="h-title">Apps <span>made for this house</span></h1></div>
+      <div className="h-head"><h1 className="h-title">Apps</h1></div>
       {/* Each app a white panel: its icon large, its name and what it says of itself under. */}
       {here.length || shell?.plugins ? <div className="h-app-grid">{here.map((a) => (
         <button key={a.id} className={'h-app-tile' + (a.web === false ? ' old' : '')} {...press(a)}><Icon a={a} /><span className="h-app-name">{a.name}</span><span className="h-app-about">{a.about}</span></button>
