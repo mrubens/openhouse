@@ -36,7 +36,6 @@ internal class SettingsLock(private val act: MainActivity) {
             "memory" -> memory()
             "brightness" -> Brightness.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "time" -> withPin { Clock.choose(act, act::immersive) { Openhouse.settingsChanged() } }
-            "iphoneApp" -> thread { values()["iphoneApp"]?.let { u -> act.runOnUiThread { iphoneApp(u) } } }
             "addCalendar" -> act.addCalendar() // the setup's steps (ui/Setup.kt)
             "addAlbum" -> act.addAlbum()
             "photoPhones" -> act.sharePhotos()
@@ -44,13 +43,6 @@ internal class SettingsLock(private val act: MainActivity) {
             "linkForOpie" -> CloudVoiceMenu(act).turnOn(linkNow = true) // the setup's phone step, when Turn on Opie needs the account
             "reloadHome" -> act.reloadHome()
         }
-    }
-
-    /** The iPhone app (a cloud-linked tablet; the cloud gives the link): its QR code to scan with the iPhone's camera. */
-    private fun iphoneApp(url: String) {
-        val qr = android.widget.ImageView(act).apply { setImageBitmap(Handoff.qr(url, 520)) }
-        val col = dev.openhouse.ui.Calm.qr(act, qr, dev.openhouse.ui.Calm.caption(act, "Scan with your iPhone's camera. It's a beta, through Apple's TestFlight: install TestFlight when it asks, then OpenHouse."), 360) { Handoff.share(act, url) }
-        CalmDialog(act).setTitle("Get the iPhone app").setView(col).setNegativeButton("Close", null).show().also { act.immersive() }
     }
 
     /** Send a report (docs/beta.md): after a yes, the shell's own log goes to the bridge, which adds the runtime's logs
@@ -116,7 +108,7 @@ internal class SettingsLock(private val act: MainActivity) {
         m["voice"] = if (!LiveVoice.chosen) "Off" else when (VoiceModels.describe()?.substringBefore(" ")) {
             "Getting", "Putting" -> "Getting ready"; "The" -> "Waits for Wi-Fi"; "Couldn't" -> "Not ready yet"; else -> name }
         get("/screens")?.optJSONArray("screens")?.let { m["screens"] = count(it.length()) }
-        get("/cloud/status")?.let { m["account"] = if (it.optBoolean("linked")) it.optString("family").ifEmpty { "Linked" } else "Off"; it.optString("iphoneApp").takeIf { u -> u.startsWith("https://") }?.let { u -> m["iphoneApp"] = u } }
+        get("/cloud/status")?.let { m["account"] = if (it.optBoolean("linked")) it.optString("family").ifEmpty { "Linked" } else "Off" }
         get("/mail")?.let { e -> // Email: how many wait for an Allow, else whether mail comes in at all
             val held = e.optJSONArray("held")?.length() ?: 0
             m["email"] = if (held > 0) "$held waiting" else if (e.optJSONObject("cloud")?.optBoolean("on") == true || e.optBoolean("own")) "On" else "Off"

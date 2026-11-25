@@ -24,8 +24,22 @@ internal object Screens {
 
     /** Linked devices' Add (ui/Devices.kt): which kind, then its own way of joining. */
     fun addMenu(a: MainActivity) {
-        CalmDialog(a).setTitle("Add a device").setItems(arrayOf("A tablet, iPad or frame", "A TV", "Someone's phone", "A computer, to change the apps")) { _, i -> when (i) { 0 -> add(a); 1 -> tv(a); 2 -> phone(a); else -> computer(a) } }
-            .setNegativeButton("Cancel", null).show().also { a.immersive() }
+        // A cloud-linked tablet also offers the iPhone app (the link the cloud gives: the TestFlight beta for now).
+        thread {
+            val app = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/cloud/status")).optString("iphoneApp") }.getOrNull()?.takeIf { it.startsWith("https://") }
+            main.post {
+                val rows = listOfNotNull("A tablet, iPad or frame", "A TV", "Someone's phone", app?.let { "The iPhone app" }, "A computer, to change the apps")
+                CalmDialog(a).setTitle("Add a device").setItems(rows.toTypedArray()) { _, i ->
+                    when (rows[i]) { rows[0] -> add(a); rows[1] -> tv(a); rows[2] -> phone(a); "The iPhone app" -> iphoneApp(a, app!!); else -> computer(a) } }
+                    .setNegativeButton("Cancel", null).show().also { a.immersive() }
+            }
+        }
+    }
+
+    /** The iPhone app: its QR code to scan with the iPhone's camera. */
+    private fun iphoneApp(a: MainActivity, url: String) {
+        val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with your iPhone's camera. It's a beta, through Apple's TestFlight: install TestFlight when it asks, then OpenHouse."), 360) { Handoff.share(a, url) }
+        CalmDialog(a).setTitle("Get the iPhone app").setView(col).setNegativeButton("Close", null).show().also { a.immersive() }
     }
 
     /** Linked devices' Remove for one (its id): asks first. */

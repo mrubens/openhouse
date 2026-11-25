@@ -98,7 +98,6 @@ internal fun SettingsSheet() {
                     SettingsRow("Time", vals["time"], locked, shell("time"))
                     SettingsRow("Email", vals["email"], locked, shell("email"))
                     SettingsRow("Account", vals["account"], locked, shell("account"))
-                    if (vals["iphoneApp"] != null) SettingsRow("iPhone app", null, onClick = shell("iphoneApp")) // a cloud-linked tablet: the beta's link, as a QR code
                     SettingsRow("Advanced", null, locked, shell("tablet"))
                 }
             }
