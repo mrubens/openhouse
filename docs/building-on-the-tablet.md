@@ -29,7 +29,10 @@ back when a run fails or is cancelled. The builder's agent is `agents/cloud.js r
    platforms, hit tests, touch buttons that hold, keys, particles, beeps, a Play again card), and writes only
    `main.js` on top of it.
 3. **Its own files only.** Writes go into the started app's folder, flat, `.js .css .html .json .svg`, 200 KB each, a
-   dozen files. A change can't touch what an app may do in `app.json` (`uses`, `reaches`, `background`, `screens`…).
+   dozen files. A change can't touch what an app may do in `app.json` (`uses`, `reaches`, `background`, `screens`…),
+   except that an app made here may *ask*: groups of the family's things in `uses`, and up to four exact websites in
+   `reaches` (`"api.weather.gov"`: no `https://`, path, port or `*.`), which it reads with the kit's `web.get` /
+   `web.json`. Asking grants nothing; the card does.
 4. **Checked before it's done.** `check_build` and `done` run the workshop's file checks (`bridge/app-check.js`: every
    script parses, what `index.html` loads is there), what the page threw on the tablet, and slips that load fine (a
    regex with a doubled backslash, which the eval found in an edit that read as done). With Device control on
@@ -42,7 +45,7 @@ back when a run fails or is cancelled. The builder's agent is `agents/cloud.js r
    in parts (`write_file`, then `add_to_file`, about 9,000 characters a step).
 7. **A budget**: 40 model calls, and a stop when it makes the same call four times.
 8. **A grown-up's yes.** The approval card ("Put Dino Eggs in Apps?", with the PIN) says who asked, what was made, and
-   what it may use. A no, or no answer, puts everything back.
+   what it may use and which websites it may reach. A no, or no answer, puts everything back.
 
 ## What an app made here may do
 
@@ -51,7 +54,9 @@ A new app made on the tablet is the household's own plugin, but limited like one
 
 - **None of the family's things** unless its `app.json` asked for some in `uses` and the card showed it. The card's
   yes grants exactly those, and nothing else later: the registry decides, not the app's own file.
-- **No websites**, whatever its `app.json` says (`reachesOf` is empty).
+- **Only the websites the card named.** The yes grants exactly the hosts the card showed, through the bridge
+  (`app-web.js`: https GETs, never the home network). A later change may ask for more, on a new card; its `app.json`
+  saying more on its own changes nothing (`reachesOf` reads the registry).
 - **Its own origin** (`<id>.localhost`), like any app from a link, so its key works only from there.
 - Its own saved things (`store`), the house's basics, and errors reported: the basics every app has.
 
@@ -59,9 +64,10 @@ A change to one of OpenHouse's apps or the household's own keeps that app's righ
 widen them (point 3 above).
 
 `bridge/test/rails.test.mjs` checks this: writes outside the app, out by `..`, into folders, over the template's page
-or the engine, and `reaches` or `uses` it can't have are all refused. The new app gets only what the card granted
-and no websites, even if its `app.json` later says otherwise. A no on the card keeps nothing, and a change to the
-household's app leaves its rights alone.
+or the engine, and `uses` or `reaches` it can't have (a `*.` name, a URL, an address, too many) are all refused.
+The new app gets only the things and websites the card granted, even if its `app.json` later says otherwise. A no
+on the card keeps nothing (nor the websites a later change asked for), and a change to the household's app can't add
+any to it.
 
 ## Cost and limits
 

@@ -3,18 +3,20 @@
 // this is the agent it runs. What keeps a small model on track:
 //   - One app per request, named first (start): a new game or tab begins from a tested template (templates/), whose
 //     index.html (and a game's engine, game.js) stay as they are; a change is to one app that's there.
-//   - Its files only: writes go into that app's folder, flat, text, small; app.json can't change what an app may reach.
+//   - Its files only: writes go into that app's folder, flat, text, small. app.json can't change what an app may do,
+//     except that an app made here may ask for groups of the family's things and a few exact websites ("reaches"),
+//     which the card shows.
 //   - Checked before it's done: each script parses, what index.html loads is there, and (on the tablet) what the page
 //     threw; with Device control on, it can look at the screen.
 //   - A parent's yes on the tablet before it goes in (the approval card, with the PIN). A new app gets none of the
-//     family's things and no websites unless the card said so (plugins.js madeHere): it runs like one from a link.
+//     family's things and no websites but those the card named (plugins.js madeHere): it runs like one from a link.
 //   - A step budget and a stop when it repeats itself.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { staticCheck } from './app-check.js';
 import { USES } from './apps.js';
-import { rightsList } from './plugins.js';
+import { rightsList, reachOk, MAX_REACH } from './plugins.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
@@ -34,7 +36,8 @@ const RULES = `You make and change the household's apps on their kitchen tablet,
 4. The app's own things (what someone typed, ticked or scored) are saved with the kit's store (store.get / store.set), never only in memory. A tab follows "How a tab should look" in the guide, including "Not the generic look": no grid of cards with big numbers and a pill button; pick the form that fits (a timeline for a plan, a strip of days for a streak, rows for a list), fill it with the household's real names, dates and tasks, fit its box with nothing cut off, and work on a phone. A game can be bold, with a drawn world and big touch targets.
 5. Write in parts: at most about 200 lines (9,000 characters) in one write_file; write the first part, then add_to_file the next ones.
 6. check_build after writing, and fix what it finds${'${LOOK}'}. If what you see is a grid of boxes, rework it. Then done, with one plain sentence for the family about what you made (not how).
-Never write outside the app, never use alert/confirm/prompt, never load anything from the internet.`;
+7. To read something on the web (a public API, a feed), ask for it: put its exact host in app.json "reaches" (["api.example.com"], at most ${MAX_REACH}, no "*."), and read it with the kit's web.get(url) / web.json(url) (https GETs only, through the tablet). A grown-up sees the hosts on the card and says yes or no; ask only for what the app needs, and make it still work, saying so plainly, when a site can't be reached.
+Never write outside the app, never use alert/confirm/prompt, never load scripts, styles or pictures from the internet (no <script src="https://...">, no fetch to other sites).`;
 
 /**
  * deps: { ai(q) -> Responses output (cloud.js ai), APP_DIR, guide() (how apps are made: the workshop's "apps" guide), checkBuild(app) (builder.js: what the page threw),
@@ -113,15 +116,26 @@ export function rails(deps) {
     const meta = metaOf(fs.readFileSync(path.join(appsDir, s.target, 'app.json'), 'utf8')) || {};
     const asks = (Array.isArray(meta.uses) ? meta.uses : []).filter((u) => USES.includes(u));
     const isLimited = s.fresh || limited(s.target);
+    const hosts = isLimited ? hostsOf(meta) : [];
     const name = String(meta.name || appName(s.target)).slice(0, 40);
     const yes = await approve(s.fresh ? `Put ${name} in Apps?` : `Put in the change to ${name}?`,
       `${who ? `${who} asked` : 'Asked'}: "${String(asked || '').slice(0, 200)}". ${String(s.summary || '').slice(0, 300)}`, true,
-      { yes: 'Put it in', ...(isLimited ? { rights: rightsList([{ name, uses: asks, reaches: [] }]) } : {}) });
+      { yes: 'Put it in', ...(isLimited ? { rights: rightsList([{ name, uses: asks, reaches: hosts }]) } : {}) });
     if (yes === false) return { ok: false, text: `${name} wasn't put in: nobody said yes on the tablet.`, usage: s.usage };
-    if (isLimited) madeHere(s.target, { uses: asks });
+    if (isLimited) madeHere(s.target, { uses: asks, reaches: hosts });
     sessions.delete(id);
     return { ok: true, checked: true, text: s.summary || `${name} is ready.`, usage: s.usage, model: 'cloud', app: s.target };
   }
+
+  /** Why app.json's "reaches" can't be asked for as it is, or null: exact hosts ("api.example.com"), a few. */
+  function reachProblem(r) {
+    if (r === undefined) return null;
+    if (!Array.isArray(r) || r.some((h) => typeof h !== 'string')) return 'reaches: a list of hosts, like ["api.example.com"].';
+    if (r.length > MAX_REACH) return `reaches: at most ${MAX_REACH} sites; ask only for what the app needs.`;
+    const bad = r.find((h) => h.startsWith('*.') || /[/:]/.test(h) || !reachOk(h.toLowerCase()));
+    return bad ? `reaches: "${bad}" isn't a host on its own: just the name, like "api.example.com" (no https://, path, port or "*.").` : null;
+  }
+  const hostsOf = (meta) => (reachProblem(meta.reaches) ? [] : (meta.reaches || []).map((h) => h.toLowerCase()));
 
   /** Things that parse and load but are almost always a slip: a regex literal with \\d, \\s or \\w in it (an escape
    *  doubled on the way through a tool call: it matches a backslash, not a digit). [] for none. */
@@ -228,9 +242,12 @@ export function rails(deps) {
         if (f.name === 'app.json') {
           const m = metaOf(next), old = metaOf(was || '{}') || {};
           if (!m) return err('app.json must be a JSON object ({"name": ..., "kit": 1, ...}).');
-          // What an app may do isn't the builder's to change: a new app may ask for groups (the card shows them), never websites.
+          // What an app may do isn't the builder's to change: an app made here may ask for groups and exact websites (the
+          // card shows them and a parent's yes grants them: madeHere); the household's own and ours keep theirs as they were.
+          const asking = s.fresh || limited(s.target);
           for (const k of GUARDED) {
-            if (s.fresh && k === 'uses') { if (m.uses !== undefined && !(Array.isArray(m.uses) && m.uses.every((u) => USES.includes(u)))) return err(`uses: some of ${USES.join(', ')}; the card asks a parent.`); continue; }
+            if (asking && k === 'uses') { if (m.uses !== undefined && !(Array.isArray(m.uses) && m.uses.every((u) => USES.includes(u)))) return err(`uses: some of ${USES.join(', ')}; the card asks a parent.`); continue; }
+            if (asking && k === 'reaches') { const bad = reachProblem(m.reaches); if (bad) return err(bad); continue; }
             if (JSON.stringify(m[k]) !== JSON.stringify(old[k])) return err(`app.json's "${k}" stays as it was: what an app may do is the family's to grant, not part of this change.`);
           }
         }

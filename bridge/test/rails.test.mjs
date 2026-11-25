@@ -1,5 +1,6 @@
 // Apps made on the tablet (rails.js): the model writes only into the one app it started, can't change what an app
-// may reach, and a new app goes in only with a parent's yes, with none of the family's things and no websites.
+// may reach, and a new app goes in only with a parent's yes, with only the family's things and the exact websites its
+// card named.
 //   cd bridge && npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -32,7 +33,7 @@ function setup() {
   return { APP_DIR, edits, pl };
 }
 
-test('made on the tablet: only its own app, nothing about what it may reach, and none of the family\'s things', async () => {
+test('made on the tablet: only its own app, and only the family\'s things and exact websites its card granted', async () => {
   const { APP_DIR, edits, pl } = setup();
   const asked = [];
   const outside = [
@@ -42,7 +43,10 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
     ['write_file', { path: '../../etc/x.js', content: 'x' }],
     ['write_file', { path: 'apps/dino/index.html', content: '<script src="https://evil.example/x.js"></script>' }], // the template's page
     ['write_file', { path: 'apps/dino/game.js', content: 'x' }], // the engine
-    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['evil.example'] }) }],
+    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['*.evil.example'] }) }], // any name under a site
+    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['https://evil.example/x'] }) }],
+    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['192.168.1.1'] }) }], // the home network
+    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['a.example', 'b.example', 'c.example', 'd.example', 'e.example'] }) }],
     ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', uses: ['settings'] }) }],
   ];
   const b = rails({
@@ -51,7 +55,7 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
       [['start', { kind: 'game', app: 'dino', name: 'Dino Eggs' }]],
       outside,
       [['write_file', { path: 'apps/dino/main.js', content: 'import { start } from "./game.js";\nstart({ setup() {} });\n' }],
-        ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino Eggs', kit: 1, uses: ['lists'] }) }]],
+        ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino Eggs', kit: 1, uses: ['lists'], reaches: ['api.weather.gov'] }) }]],
       [['done', { summary: 'A dinosaur catches eggs.' }]],
     ]),
     approve: async (title, detail, pin, extra) => { asked.push({ title, pin, extra }); return true; },
@@ -68,17 +72,28 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
   assert.equal(fs.readFileSync(path.join(APP_DIR, 'apps/dino/game.js'), 'utf8'), fs.readFileSync(new URL('../templates/game/game.js', import.meta.url), 'utf8'));
   // A parent's yes, with the PIN, on a card that says what it may use; then it's limited to that
   assert.equal(asked.length, 1); assert.equal(asked[0].pin, true);
-  assert.ok(asked[0].extra.rights.some((x) => x.kind === 'offline'));
+  assert.ok(asked[0].extra.rights.some((x) => x.kind === 'web' && x.text.includes('api.weather.gov')));
   edits.finish(owner, true);
   assert.deepEqual([...pl.rightsOf('dino')], ['lists']);
-  assert.deepEqual(pl.reachesOf('dino'), []);
+  assert.deepEqual(pl.reachesOf('dino'), ['api.weather.gov']);
+  assert.deepEqual(pl.frozenOf('dino').reaches, ['api.weather.gov']);
   assert.equal(appAllowed('POST', '/house/event', pl.rightsOf('dino')), false);
   assert.equal(appAllowed('POST', '/house/settings', pl.rightsOf('dino')), false);
   assert.equal(pl.rightsOf('chores'), null); // the household's own app keeps its own rights
   // Its app.json saying otherwise later changes nothing: what it may reach is the plugin registry's, not its own file's
   fs.writeFileSync(path.join(APP_DIR, 'apps/dino/app.json'), JSON.stringify({ name: 'Dino', reaches: ['evil.example'], uses: ['settings', 'events'] }));
-  assert.deepEqual(pl.reachesOf('dino'), []);
+  assert.deepEqual(pl.reachesOf('dino'), ['api.weather.gov']);
   assert.deepEqual([...pl.rightsOf('dino')], ['lists']);
+  // A no on a later change's card grants none of the sites it asked for
+  const later = rails({ APP_DIR, ai: scripted([
+    [['start', { kind: 'change', app: 'dino' }]],
+    [['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino Eggs', kit: 1, uses: ['lists'], reaches: ['api.weather.gov', 'evil.example'] }) }]],
+    [['done', { summary: 'Weather eggs.' }]]]), approve: async () => false, madeHere: (id, o) => pl.madeHere(id, o), limited: (id) => pl.limited(id) });
+  const o2 = { kind: 'build', who: 'Leo', text: 'more' };
+  assert.ok(await edits.acquire(o2, {}));
+  assert.equal((await later.run({ prompt: 'more', owner: o2 })).ok, false);
+  edits.finish(o2, false);
+  assert.deepEqual(pl.reachesOf('dino'), ['api.weather.gov']);
 });
 
 test('made on the tablet: a no on the card keeps nothing; a change to the household\'s app keeps its rights as they were', async () => {
