@@ -42,7 +42,7 @@ class ConfigReceiver : BroadcastReceiver() {
         intent.getStringExtra("voice_url")?.let { if (it.isEmpty() || it.startsWith("http")) e.putString("voice_url", it) } // "" for the build's own
         if (intent.hasExtra("mic")) e.putInt("mic", intent.getIntExtra("mic", 7))
         // As the setup QR would (Provisioning): link with this setup code once the runtime is up (an emulator has no QR setup).
-        intent.getStringExtra("cloud_link_token")?.takeIf { CloudSetup.TOKEN.matches(it) }?.let { e.putString("cloud_link_token", it) }
+        intent.getStringExtra("cloud_link_token")?.takeIf { CloudSetup.TOKEN.matches(it) }?.let { e.putString("cloud_link_token", it); CloudSetup.linkSoon(); android.util.Log.i("CloudSetup", "setup code saved (adb)") }
         intent.getStringExtra("cloud_link_api")?.takeIf { it.startsWith("https://") || it.startsWith("http://10.0.2.2:") }?.let { e.putString("cloud_link_api", it) }
         intent.getStringExtra("micFx")?.let { e.putString("micFx", it) } // the platform effects listening adds: agc, ns, aec, comma-separated ("" none)
         if (intent.hasExtra("micPlain")) e.putInt("micPlain", intent.getIntExtra("micPlain", -1)) // the source while the bridge cancels echo (-1: the plainest the device has)

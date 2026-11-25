@@ -81,12 +81,24 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
 
   // --- linking -------------------------------------------------------------------------------------------------
   /** A setup token from the family's account page (in the setup QR, or from the computer's extension). */
+  // The error's code says whether trying again could help: 'refused' only when the service itself said the code is
+  // used, expired or gone (its own 404 with an error, not a gateway's), so the shell drops it; anything else
+  // ('offline', 'http429', 'http5xx', …) and the shell keeps the code and tries again later. Never logs the code.
   async function linkToken(token, apiAddr, name) {
     const base = (apiAddr || api()).replace(/\/+$/, '');
-    if (!okApi(base)) throw new Error('https only');
-    if (!/^lhs_[A-Za-z0-9_-]{20,}$/.test(token)) throw new Error('That isn\'t a setup code.');
-    const r = await request(base + '/v1/link/redeem', { method: 'POST', body: JSON.stringify({ token, name }) });
-    if (r.status !== 200 || r.json?.status !== 'linked') throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}` });
+    if (!okApi(base)) throw Object.assign(new Error('https only'), { code: 'address' });
+    if (!/^lhs_[A-Za-z0-9_-]{20,}$/.test(token)) throw Object.assign(new Error('That isn\'t a setup code.'), { code: 'refused' });
+    const host = base.replace(/^https?:\/\//, '');
+    const r = await request(base + '/v1/link/redeem', { method: 'POST', body: JSON.stringify({ token, name }) }).catch((e) => {
+      console.log(`[cloud] setup code: ${host} not reached (${String(e.code || e.message).slice(0, 60)})`);
+      throw Object.assign(new Error(`The service couldn't be reached: ${e.message}`), { code: 'offline' });
+    });
+    if (r.status !== 200 || r.json?.status !== 'linked') {
+      const refused = r.status === 404 && typeof r.json?.error === 'string';
+      console.log(`[cloud] setup code: ${host} answered ${r.status}${refused ? ' (used, expired or not one)' : ''}`);
+      throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: refused ? 'refused' : `http${r.status}` });
+    }
+    console.log(`[cloud] setup code: linked through ${host}`);
     if (base !== defaultApi) write('config.json', { api: base });
     write('device.json', { api: base, deviceId: r.json.deviceId, credential: r.json.credential, family: r.json.family?.name || '', name: r.json.name, linkedAt: iso(), rotatedAt: iso(), via: 'setup' });
     setState({ unlinkedAt: null, unlinkedWhy: null, unlinkedHere: null });

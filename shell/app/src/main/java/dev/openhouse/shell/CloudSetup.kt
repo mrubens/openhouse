@@ -35,26 +35,54 @@ internal object CloudSetup {
         if (now - voiceCheckedAt > 60_000) { voiceCheckedAt = now; refreshVoice(c, bridge) }
         val p = c.getSharedPreferences("shell", Context.MODE_PRIVATE)
         val token = p.getString("cloud_link_token", null) ?: return
-        if (trying) return
+        if (trying || now < nextLinkAt) return
         trying = true
         try {
-            val (code, r) = post("$bridge/cloud/link/token", JSONObject().put("token", token).put("api", p.getString("cloud_link_api", "") ?: "").put("name", "Opie"))
-            when {
-                r == null -> {} // the bridge isn't up yet: next time
-                r.optBoolean("linked") -> {
-                    p.edit().remove("cloud_link_token").remove("cloud_link_api").apply()
-                    Log.i("CloudSetup", "linked with the setup code")
+            tries++
+            val (code, r) = post("$bridge/cloud/link/token", JSONObject().put("token", token).put("api", p.getString("cloud_link_api", "") ?: "").put("name", "Opie"), 45_000) // (longer than the bridge's own 30 s with the service)
+            when (linkOutcome(code, r)) {
+                Link.LINKED -> {
+                    forget(p)
+                    Log.i(TAG, "setup code: linked on try $tries")
+                    tries = 0; nextLinkAt = 0
                     voiceSoon()
-                    MainActivity.live?.let { act -> act.runOnUiThread { act.toast("Linked to ${r.optString("family").ifEmpty { "your family" }}") } }
+                    MainActivity.live?.let { act -> act.runOnUiThread { act.toast("Linked to ${r?.optString("family")?.ifEmpty { null } ?: "your family"}") } }
                 }
-                // Used, expired, or not one: no use trying again. (No answer from the service: keep it and try later.)
-                code == 400 && r.optString("code") in setOf("http400", "http404") -> {
-                    p.edit().remove("cloud_link_token").remove("cloud_link_api").apply()
-                    Log.w("CloudSetup", "setup code refused: ${r.optString("error")}")
+                // The service itself said it's used, expired or not one: no use trying again.
+                Link.REFUSED -> { forget(p); Log.w(TAG, "setup code: refused by the service on try $tries (${r?.optString("error")?.take(120)}); dropped"); tries = 0 }
+                // Anything else (the bridge not up yet, no network, the service busy or down, a timeout): keep it, and
+                // try again a little later each time, up to every five minutes, until it links.
+                Link.AGAIN -> {
+                    val wait = retryWaitMs(tries)
+                    nextLinkAt = System.currentTimeMillis() + wait
+                    val why = if (r == null) "the bridge didn't answer" else "${r.optString("code").ifEmpty { "http$code" }}: ${r.optString("error").take(120)}"
+                    Log.w(TAG, "setup code: not linked on try $tries ($why); kept, again in ${wait / 1000} s")
                 }
             }
         } finally { trying = false }
     }
+
+    private const val TAG = "CloudSetup"
+    @Volatile private var tries = 0
+    @Volatile private var nextLinkAt = 0L
+    private fun forget(p: android.content.SharedPreferences) { p.edit().remove("cloud_link_token").remove("cloud_link_api").commit() }
+
+    /** A new setup code came in (ConfigReceiver, Provisioning): try it at the next tick. */
+    fun linkSoon() { tries = 0; nextLinkAt = 0 }
+
+    enum class Link { LINKED, REFUSED, AGAIN }
+
+    /** What the bridge's answer to /cloud/link/token means for the setup code: dropped only once linked, or when the
+     *  service itself refused it (the bridge's code "refused": used, expired, or not one). Everything else keeps it. */
+    fun linkOutcome(status: Int, r: JSONObject?): Link = when {
+        r == null -> Link.AGAIN
+        status == 200 && r.optBoolean("linked") -> Link.LINKED
+        status == 400 && r.optString("code") == "refused" -> Link.REFUSED
+        else -> Link.AGAIN
+    }
+
+    /** 10 s, 20 s, 40 s… up to five minutes between tries (the service allows a few redeems an hour from one address). */
+    fun retryWaitMs(tries: Int): Long = minOf(300_000L, 10_000L shl (tries - 1).coerceIn(0, 5))
 
 
     fun refreshVoice(c: Context, bridge: String) {

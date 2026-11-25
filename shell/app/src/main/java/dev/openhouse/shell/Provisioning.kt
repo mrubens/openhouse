@@ -35,7 +35,7 @@ class ProvisioningActivity : Activity() {
         x?.getString("runtime_url")?.takeIf { it.startsWith("https://") }?.let { e.putString("runtime_url", it) }
         x?.getString("voice_url")?.takeIf { it.startsWith("https://") }?.let { e.putString("voice_url", it) } // the listening models, when not the build's own
         // A setup code made on the family's account page (openhouse-cloud/docs/cloud-beta.md): the tablet links itself once it's up (CloudSetup).
-        x?.getString("cloud_link_token")?.takeIf { CloudSetup.TOKEN.matches(it) }?.let { e.putString("cloud_link_token", it) }
+        x?.getString("cloud_link_token")?.takeIf { CloudSetup.TOKEN.matches(it) }?.let { e.putString("cloud_link_token", it); android.util.Log.i("CloudSetup", "setup code saved (setup QR)") }
         x?.getString("cloud_api")?.takeIf { it.startsWith("https://") }?.let { e.putString("cloud_link_api", it) }
         e.commit()
         x?.getString("update_url")?.takeIf { it.startsWith("https://") }?.let { Updater.configure(this, it, null, null) }

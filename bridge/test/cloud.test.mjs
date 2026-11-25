@@ -225,6 +225,21 @@ test('a code someone claimed links only after a yes at the tablet; a no leaves i
   assert.equal((await t.call('GET', '/cloud/status')).obj.linked, false);
 });
 
+test('a setup code: kept when the service is out of reach, links once it answers, and only the service refusing it says drop it', { skip: !svc && SKIP }, async () => {
+  await signIn('alex@example.com');
+  const { token } = (await web('/v1/account/setup', {})).json;
+  const t = tablet(display());
+  const api = svc.url.replace('localhost', '127.0.0.1');
+  // Nothing listening there: the shell keeps the code (anything but 'refused') and tries again.
+  const away = await t.call('POST', '/cloud/link/token', { token, api: 'http://127.0.0.1:9', name: 'Opie' });
+  assert.equal(away.code, 400); assert.notEqual(away.obj.code, 'refused');
+  const ok = await t.call('POST', '/cloud/link/token', { token, api, name: 'Opie' });
+  assert.equal(ok.code, 200); assert.equal(ok.obj.linked, true);
+  // Used now: the service says so, and that's the one answer the shell drops it for.
+  const again = await t.call('POST', '/cloud/link/token', { token, api, name: 'Opie' });
+  assert.equal(again.code, 400); assert.equal(again.obj.code, 'refused');
+});
+
 test('cloud and drive together; a new tablet restores with the code; the copy kept with Opie; unlink from the web', { skip: !svc && SKIP }, async () => {
   await signIn('pat@example.com');
   const D = display(); const t1 = tablet(D);
