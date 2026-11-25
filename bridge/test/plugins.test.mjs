@@ -73,6 +73,10 @@ test('an app from a plugin: only the groups it was granted, and only its part of
   const view = { v: 3, today: 'd', family: [{ name: 'Maya' }], chores: [1], stars: {}, lists: [2], events: [3], photos: [4], flyer: 'x' };
   assert.deepEqual(Object.keys(houseFor(view, r)).sort(), ['chores', 'family', 'stars', 'today', 'v']);
   assert.deepEqual(Object.keys(houseFor(view, new Set())).sort(), ['today', 'v']);
+  // a meal's groceries are the list's words: not for a meals-only app
+  const mw = { v: 1, mealWork: { '2026-11-25|dinner': { state: 'done', added: ['Tortillas'] } } };
+  assert.equal(houseFor(mw, new Set(['meals'])).mealWork['2026-11-25|dinner'].added, undefined);
+  assert.deepEqual(houseFor(mw, new Set(['meals', 'lists'])).mealWork['2026-11-25|dinner'].added, ['Tortillas']);
 });
 
 test('the assistant\'s add_plugin: a yes on the card first, then one change that undo takes back', async () => {
