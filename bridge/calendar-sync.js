@@ -398,11 +398,16 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     delete st.errors[accountId]; save(); changed(); return { ok: true };
   }
 
+  /** What a read can change that anyone sees (events, errors, changes waiting, accounts, each calendar's counts, the
+   *  notes still showing), as one string. */
+  const shown = () => JSON.stringify([st.cache, st.errors, st.outbox, accounts, Object.entries(st.reads || {}).map(([k, { at, ...r }]) => [k, r]),
+    Object.keys(st.notes).filter((n) => st.notes[n].until > now())]);
   // ---- reading ----------------------------------------------------------------------------------------------
   function pull() {
     if (pulling) return pulling;
     pulling = (async () => {
       try {
+        const before = shown();
         await loadAccounts();
         const w = window();
         for (const [k, c] of Object.entries(st.calendars)) {
@@ -416,7 +421,8 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           }
           catch (e) { st.errors[c.account] = e.signin ? 'signin' : str(e.message, 120); if (!e.offline && !e.signin) log(`[calendar-sync] ${a.provider}: ${str(e.message, 80)}`); }
         }
-        st.at = now(); save(); changed();
+        st.at = now(); save();
+        if (shown() !== before) changed(); // a read that brought nothing new doesn't make every screen fetch the house again
       } finally { pulling = null; }
     })();
     return pulling;

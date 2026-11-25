@@ -20,7 +20,7 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import net from 'node:net';
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { cleanLook, DEFAULT_TABS, isTab } from './home-screen.js';
 import { USES } from './apps.js';
 import { validateChecks } from './heartbeat-checks.js';
@@ -49,19 +49,24 @@ export function parseSource(s, { local = false } = {}) {
   // A folder in a repo, as its web page shows it: github.com/u/r/tree/<ref>/plugins/x (GitLab: /-/tree/; Codeberg: /src/branch/).
   const sub = src.match(/^(?:git:|https:\/\/)?([a-z0-9.-]+\.[a-z]{2,})\/([\w.-]+\/[\w.-]+?)(?:\.git)?\/(?:-\/)?(?:tree|src\/branch|src\/commit)\/([\w.-]{1,100})\/([\w.-]+(?:\/[\w.-]+){0,9})\/?$/i);
   if (sub) {
-    if (!HOST.test(sub[1].toLowerCase()) || sub[4].split('/').some((p) => p === '.' || p === '..')) return null;
+    if (!HOST.test(sub[1].toLowerCase()) || sub[3].startsWith('-') || sub[4].split('/').some((p) => p === '.' || p === '..')) return null;
     const where = `${sub[1].toLowerCase()}/${sub[2]}`;
     return { kind: 'git', url: `https://${where}.git`, ref: sub[3], sub: sub[4], label: `${where}/${sub[4]}`, key: src.replace(/^(git:|https:\/\/)/, '').replace(/\/$/, '') };
   }
   const m = src.match(/^(?:git:|https:\/\/)?([a-z0-9.-]+\.[a-z]{2,})\/([\w.-]+(?:\/[\w.-]+)+?)(?:\.git)?(?:@([\w./-]{1,100}))?\/?$/i);
-  if (!m || !HOST.test(m[1].toLowerCase())) return null;
+  if (!m || !HOST.test(m[1].toLowerCase()) || m[3]?.startsWith('-')) return null; // a ref is never an option to git
   const where = `${m[1].toLowerCase()}/${m[2]}`;
   return { kind: 'git', url: `https://${where}.git`, ref: m[3] || null, label: where, key: `git:${where}` };
 }
 
+/** A git or tar run, off the event loop (a slow fetch mustn't stall the bridge: the shell restarts one that stops answering). */
 function run(cmd, args, opts = {}) {
-  return execFileSync(cmd, args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 90e3,
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: 'true' }, ...opts }).trim();
+  return new Promise((resolve, reject) => {
+    execFile(cmd, args, { encoding: 'utf8', timeout: 90e3, maxBuffer: 1e7,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ASKPASS: 'true' }, ...opts }, (e, stdout, stderr) => {
+      if (e) { e.stdout = stdout; e.stderr = stderr; reject(e); } else resolve(String(stdout).trim());
+    }).stdin?.end();
+  });
 }
 
 /** The plugin's files in a folder of their own (to be thrown away). { dir, commit, done() } */
@@ -72,17 +77,17 @@ async function fetchSource(src, fetchImpl = fetch) {
   try {
     if (src.kind === 'git') {
       const g = (...a) => run('git', ['-c', 'protocol.allow=never', '-c', 'protocol.https.allow=always', '-c', 'core.hooksPath=/dev/null', '-c', 'core.symlinks=false', ...a], { cwd: tmp });
-      g('init', '-q');
+      await g('init', '-q');
       if (src.sub) { // a folder in a bigger repo: only that folder's files are fetched
-        g('config', 'core.sparseCheckout', 'true');
+        await g('config', 'core.sparseCheckout', 'true');
         fs.mkdirSync(path.join(tmp, '.git', 'info'), { recursive: true });
         fs.writeFileSync(path.join(tmp, '.git', 'info', 'sparse-checkout'), `/${src.sub}/\n`);
-        g('remote', 'add', 'origin', src.url);
+        await g('remote', 'add', 'origin', src.url);
       }
-      try { g('fetch', '-q', '--depth', '1', ...(src.sub ? ['--filter=blob:none', 'origin'] : [src.url]), src.ref || 'HEAD'); }
+      try { await g('fetch', '-q', '--depth', '1', ...(src.sub ? ['--filter=blob:none', 'origin'] : [src.url]), src.ref || 'HEAD'); }
       catch (e) { throw new Error(`Couldn't get it from ${src.label}${src.ref ? ' at ' + src.ref : ''}: ${String(e.stderr || e.message).split('\n').filter(Boolean).at(-1)?.slice(0, 200)}`); }
-      g('checkout', '-q', 'FETCH_HEAD');
-      const commit = g('rev-parse', 'HEAD');
+      await g('checkout', '-q', 'FETCH_HEAD');
+      const commit = await g('rev-parse', 'HEAD');
       fs.rmSync(path.join(tmp, '.git'), { recursive: true, force: true });
       if (src.sub) {
         const d = inside(tmp, src.sub);
@@ -99,7 +104,7 @@ async function fetchSource(src, fetchImpl = fetch) {
     if (src.sha256 && sha(buf) !== src.sha256) throw new Error(`What ${src.label} sent isn't the version OpenHouse reviewed, so it wasn't added.`);
     fs.writeFileSync(path.join(tmp, 'p.tgz'), buf);
     const out = path.join(tmp, 'p'); fs.mkdirSync(out);
-    run('tar', ['-xzf', path.join(tmp, 'p.tgz'), '-C', out, '--no-same-owner', '--no-same-permissions']);
+    await run('tar', ['-xzf', path.join(tmp, 'p.tgz'), '-C', out, '--no-same-owner', '--no-same-permissions']);
     // npm pack puts everything in package/; GitHub's archives in <repo>-<ref>/
     const top = fs.readdirSync(out);
     const dir = top.length === 1 && fs.statSync(path.join(out, top[0])).isDirectory() ? path.join(out, top[0]) : out;

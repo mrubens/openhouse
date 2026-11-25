@@ -13,7 +13,7 @@ import { DEVICE_NAMES } from './device-tools.js';
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { insideApps } from './inside-apps.js';
 import { showingTab, isTab } from './home-screen.js';
@@ -172,12 +172,22 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
     const tab = isTab(app) ? app : 'apps';
     if (showingTab() !== tab) homeScreen.showTab(tab);
   }
+  /** node --check on one script, off the event loop: { status, stderr } (status 0 when it parses). */
+  const syntaxCheck = (input) => new Promise((resolve) => {
+    let stderr = '', p;
+    try { p = spawn(process.execPath, ['--input-type=module', '--check'], { stdio: ['pipe', 'ignore', 'pipe'], timeout: 10e3 }); }
+    catch { resolve({ status: null, stderr }); return; } // as before: a check that can't run (or times out) isn't an error
+    p.stderr.setEncoding('utf8').on('data', (d) => { stderr += d; });
+    p.on('error', () => resolve({ status: null, stderr }));
+    p.on('close', (code) => resolve({ status: code, stderr }));
+    p.stdin.on('error', () => {}).end(input);
+  });
   /** An app checked without running it: each script parses, and the files index.html loads exist. */
-  function staticCheck(app) {
+  async function staticCheck(app) {
     const dir = path.join(appsDir, app), out = [];
     if (!fs.existsSync(path.join(dir, 'index.html'))) return [`apps/${app}/index.html is missing.`];
     for (const f of fs.readdirSync(dir).filter((x) => /\.m?js$/.test(x))) {
-      const r = spawnSync(process.execPath, ['--input-type=module', '--check'], { input: fs.readFileSync(path.join(dir, f)), encoding: 'utf8', timeout: 10e3 });
+      const r = await syntaxCheck(fs.readFileSync(path.join(dir, f)));
       if (r.status) out.push(`${f}: ${String(r.stderr).split('\n').filter((l) => !/^\s+at /.test(l) && /Error|^\s*\^|:\d+/.test(l)).slice(0, 4).join(' | ').replace(/\[stdin\]/g, f)}`);
     }
     const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
@@ -288,7 +298,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
         if (!ID.test(app)) return err('Which app (its id)?');
         // Its page reports errors only while it's open: open it (or reload its tab), then give it a moment.
         if (!isTab(app)) { // not running on the tablet (a computer never opens apps full screen): check it as files
-          const found = staticCheck(app);
+          const found = await staticCheck(app);
           if (found.length) return err(`Errors:\n${found.join('\n')}`);
           const r = await checkBuild(app);
           if (!r.ok) return err(`Errors:\n${r.errors}`);

@@ -10,6 +10,7 @@
 // takes either back.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Widget } from './home-widgets.jsx';
+import { useNow } from './now.js';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { PALETTES, WHITE, paletteOf, worldOf } from './look.js';
@@ -45,9 +46,9 @@ const Av = ({ paint, name, className = '' }) => (paint
 
 /** The battery, a quiet line in the rail, only when it matters: unplugged, low, or plugged in and not charging (a weak
  *  port). A plugged-in tablet that's charging and not low shows nothing. Asked of the shell every 30 seconds. */
-function BatteryLine({ shell, now }) {
+function BatteryLine({ shell }) {
   const [b, setB] = useState(null);
-  const tick = Math.floor(now / 30000);
+  const tick = Math.floor(useNow(30000) / 30000);
   useEffect(() => { if (shell?.battery) setB(shell.battery()); }, [tick, shell]);
   if (!b || b.level < 0) return null;
   const stuck = b.plugged && !b.charging && b.level < 100;
@@ -59,7 +60,27 @@ function BatteryLine({ shell, now }) {
   </div>;
 }
 
-export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, PhotoShow, Gear }) {
+/** The rail's time and date: drawn again each minute, by itself. */
+function RailClock({ shell }) {
+  const d = new Date(useNow(60e3));
+  return <>
+    <div className="h-time">{railTime(d, shell?.clock24?.())}</div>
+    <div className="h-day">{d.toLocaleDateString([], { weekday: 'long' })}</div>
+    <div className="h-day h-date">{d.toLocaleDateString([], { day: 'numeric', month: 'long' })}</div>
+  </>;
+}
+/** A timer's time left ("4:05"), drawn again each second by itself. */
+function TimeLeft({ t }) {
+  const now = useNow(1000);
+  return t.endAt <= now ? '0:00' : clock(Math.ceil((t.endAt - now) / 1000));
+}
+/** "−1 min", off once less than a minute is left. */
+function LessMinute({ t, onClick }) {
+  const now = useNow(1000);
+  return <button onClick={onClick} disabled={t.endAt <= now + 60e3}>−1 min</button>;
+}
+
+export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoShow, Gear }) {
   const { homeScreen, house, weather, apps, appsLoaded } = brain;
   const st = homeScreen?.style || {};
   const appBy = useMemo(() => new Map(apps.map((a) => [a.id, a])), [apps]);
@@ -115,22 +136,19 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
   // one that isn't a tab (a new app goes there first). No words: the family sees where, and it stops when it's done.
   const busy = homeScreen?.computer?.apps || [];
   const making = (id) => busy.includes(id) || (id === 'apps' && busy.some((a) => !tabs.some((t) => t.id === a)));
-  const d = new Date(now);
   const timers = homeScreen?.timers || [];
   return (
     <div className={'home' + (st.density === 'snug' ? ' snug' : '') + (st.type === 'hand' ? ' hand-type' : '') + (st.backdrop === 'photos' ? ' over-photos' : '') + (st.palette === 'dusk' ? ' dark' : '')} data-tab={cur} style={lookVars(st, worldTab(tabs.find((t) => t.id === cur), appBy))}>
-      {st.backdrop === 'photos' && <Backdrop c={c} names={house?.screensaver || house?.photos || []} now={now} usePhoto={usePhoto} />}
+      {st.backdrop === 'photos' && <Backdrop c={c} names={house?.screensaver || house?.photos || []} usePhoto={usePhoto} />}
       <aside className="h-rail">
-        <div className="h-time">{railTime(d, shell?.clock24?.())}</div>
-        <div className="h-day">{d.toLocaleDateString([], { weekday: 'long' })}</div>
-        <div className="h-day h-date">{d.toLocaleDateString([], { day: 'numeric', month: 'long' })}</div>
+        <RailClock shell={shell} />
         {weather && !weather.error && <div className="h-wx"><span className="h-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(weather.code, weather.isDay !== false) }} />{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}
         {/* Tap a timer to change or clear it (a small sheet over the screen). */}
-        {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b>{t.endAt <= now ? '0:00' : clock(Math.ceil((t.endAt - now) / 1000))}</b></button>)}
+        {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b><TimeLeft t={t} /></b></button>)}
         <nav className="h-tabs">
           {tabs.map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '') + (making(t.id) ? ' making' : '')} {...hold(t.id)}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
         </nav>
-        <BatteryLine shell={shell} now={now} />
+        <BatteryLine shell={shell} />
         <div className="h-tools">
           {/* On the display there's no assistant button (say "Hey Opie" or just type; the shell shows it only while it's
               busy, Overlay.kt). On another screen this page has its own, which opens the asking panel. */}
@@ -145,10 +163,10 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
       <main className="h-sheet">
         {tabs.filter((t) => seen.has(t.id) || t.id === cur).map((t) => (
           <section key={t.id} className="h-page" hidden={t.id !== cur}>
-            {t.id === 'today' ? <Today c={c} house={house} now={now} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} />
+            {t.id === 'today' ? <Today c={c} house={house} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} />
               : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} />
               : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} add={addIn?.id === t.id ? addIn.at : 0} addExtra={addIn?.id === t.id ? addIn.extra : ''} />
-              : <div className="h-widget"><Widget id={t.id} app={appBy.get(t.id)} w={4} h={4} house={house} c={c} now={now} Photo={(p) => <PhotoShow c={c} {...p} />}
+              : <div className="h-widget"><Widget id={t.id} app={appBy.get(t.id)} w={4} h={4} house={house} c={c} Photo={(p) => <PhotoShow c={c} {...p} />}
                 content={homeScreen?.widgets?.content?.[t.id] ? (homeScreen.widgets.content[t.id].shapes?.['4x4'] || homeScreen.widgets.content[t.id].content || '') : null} /></div>}
           </section>
         ))}
@@ -162,9 +180,9 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
         <div className="h-veil" onClick={() => setTimerOpen(null)}>
           <div className="h-timer-card" onClick={(e) => e.stopPropagation()}>
             <div className="h-timer-name">{t.label}</div>
-            <div className="h-timer-left">{t.endAt <= now ? '0:00' : clock(Math.ceil((t.endAt - now) / 1000))}</div>
+            <div className="h-timer-left"><TimeLeft t={t} /></div>
             <div className="h-timer-do">
-              <button onClick={() => moveTimer(t, -60)} disabled={t.endAt <= now + 60e3}>−1 min</button>
+              <LessMinute t={t} onClick={() => moveTimer(t, -60)} />
               <button onClick={() => moveTimer(t, 60)}>+1 min</button>
               <button onClick={() => moveTimer(t, 300)}>+5 min</button>
             </div>
@@ -180,7 +198,8 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
 }
 
 /** The family's photos behind everything, one every 5 minutes, crossfading. */
-function Backdrop({ c, names, now, usePhoto }) {
+function Backdrop({ c, names, usePhoto }) {
+  const now = useNow(300e3);
   const name = names.length ? names[Math.floor(now / 300e3) % names.length] : null;
   const src = usePhoto(c, name);
   const [shown, setShown] = useState([]);
@@ -409,7 +428,9 @@ function DishPic({ house, name }) {
 const Check = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
 
 /** Today (also on someone's phone, phone.jsx, in one column). */
-export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = go, openApp, shell, usePhoto, look, appsV }) {
+export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, addTo = go, openApp, shell, usePhoto, look, appsV }) {
+  // The time: the phone's own (phone.jsx), else the page's, drawn again each minute (not each second: Today is big).
+  const clockNow = useNow(60e3), now = given ?? clockNow;
   const h = house || {};
   const kinds = new Map(); for (const t of tabs) { const k = kindOf(t, appBy.get(t.id)); if (k && !kinds.has(k)) kinds.set(k, t.id); }
   const t = new Date(now); t.setHours(0, 0, 0, 0);

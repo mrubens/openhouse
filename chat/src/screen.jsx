@@ -16,6 +16,7 @@ import { pair, client, Removed } from './screen-client.js';
 import { AnswerBody, Display, page as answerPage } from './answer.jsx';
 import { Widget, Fit, IconFill, U } from './home-widgets.jsx';
 import { Home as HomeTabs, appOrigin, Clip, useClipUrl } from './home.jsx';
+import { useNow } from './now.js';
 import { pairingFromCode, cleanCode } from './scrypt.js';
 import { icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 
@@ -192,12 +193,12 @@ const personColor = (house, who) => { const i = (house?.family || []).findIndex(
 const eventPaint = (house, e) => { const cs = [e?.who, ...(e?.also || [])].map((n) => n && personColor(house, n)).filter(Boolean); return cs.length > 1 ? `linear-gradient(135deg, ${cs.map((c, i) => `${c} ${i * 100 / cs.length}% ${(i + 1) * 100 / cs.length}%`).join(', ')})` : cs[0] || null; };
 
 /** The family's own small clock (their home style: clock "compact"). */
-function CompactClock({ now }) {
-  const d = new Date(now);
+function CompactClock() {
+  const d = new Date(useNow(60e3));
   return <div className="tile compact-clock"><div className="time">{d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div><div className="date">{d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</div></div>;
 }
-function Clock({ now, w }) {
-  const d = new Date(now);
+function Clock({ w }) {
+  const d = new Date(useNow(60e3));
   return <div className="tile clock"><div className="time">{hm(d)}</div>{w > 1 && <div className="date">{d.toLocaleDateString([], { weekday: 'long' })}</div>}</div>;
 }
 const SKY_WORDS = (code) => code === 0 ? 'Clear sky' : code === 1 ? 'Mostly clear' : code === 2 ? 'Partly cloudy' : code === 3 ? 'Overcast' : [45, 48].includes(code) ? 'Fog'
@@ -267,7 +268,8 @@ function AppIcon({ app, id, name, old, img }) {
 }
 
 /** The family's photos, one at a time, edge to edge (the Photos widget). */
-function PhotoShow({ c, names, now, seconds = 15 }) {
+function PhotoShow({ c, names, seconds = 15 }) {
+  const now = useNow(seconds * 1000);
   const name = names.length ? names[Math.floor(now / (seconds * 1000)) % names.length] : null;
   const src = usePhoto(c, name);
   return <div className="tile photo">{src ? <img src={src} alt="" draggable={false} /> : null}</div>;
@@ -365,7 +367,8 @@ function LiveWidget({ c, app, w, h }) {
     </div>
   );
 }
-function Timer({ t, now }) {
+function Timer({ t }) {
+  const now = useNow(1000);
   const left = Math.max(0, Math.ceil((t.endAt - now) / 1000)), ringing = left === 0;
   useEffect(() => { if (ringing && now - t.endAt < 5 * 60e3) beep(); }, [ringing && Math.floor(now / 1000)]);
   const frac = t.total ? Math.min(1, left / t.total) : 0;
@@ -420,7 +423,8 @@ function itemsOf(homeScreen, present) {
 }
 const defaultShape = (key, homeScreen) => key === 'clock' ? '2x1' : key === 'weather' ? '2x2' : key === 'whiteboard' ? '2x2' : key.startsWith('app:') ? (homeScreen.widgets?.builtin?.[key.slice(4)] || (homeScreen.widgets?.content?.[key.slice(4)] ? '2x2' : '1x1')) : '1x1';
 
-function NotesGrid({ c, brain, now, onAsk, idle, embedded = false }) {
+function NotesGrid({ c, brain, onAsk, idle, embedded = false }) {
+  const now = useNow(1000); // (no longer shown: Home)
   const { setHomeScreen, house, weather, apps, board } = brain;
   // A move made here is drawn at once and held until the brain's home screen has it (its version), so a late or stale answer
   // can't pull it back; if the brain then has it somewhere else, the brain wins.
@@ -635,10 +639,10 @@ function NotesGrid({ c, brain, now, onAsk, idle, embedded = false }) {
 
   function draw(it, w, h) {
     if (notes.has(it.key)) return <Note n={{ ...notes.get(it.key), size: `${w}x${h}` }} house={house} />;
-    if (it.key === 'clock') return homeScreen?.style?.clock === 'compact' ? <CompactClock now={now} /> : <Clock now={now} w={w} />;
+    if (it.key === 'clock') return homeScreen?.style?.clock === 'compact' ? <CompactClock /> : <Clock w={w} />;
     if (it.key === 'weather') return <Weather weather={weather} w={w} h={h} family={homeScreen?.style?.weather === 'family'} />;
     if (it.key === 'whiteboard') return <Whiteboard c={c} v={homeScreen?.sketch} />;
-    if (it.key.startsWith('timer:')) { const t = timers.find((x) => 'timer:' + x.endAt === it.key); return t ? <Timer t={t} now={now} /> : null; }
+    if (it.key.startsWith('timer:')) { const t = timers.find((x) => 'timer:' + x.endAt === it.key); return t ? <Timer t={t} /> : null; }
     if (it.key.startsWith('app:android:')) return <AppIcon id={it.key.slice(4)} name={androidBy.get(it.key.slice(4))?.name} img={androidBy.get(it.key.slice(4))?.icon} />;
     if (it.key.startsWith('app:')) {
       const id = it.key.slice(4), wid = own[id], app = appBy.get(id);
@@ -662,13 +666,13 @@ function NotesGrid({ c, brain, now, onAsk, idle, embedded = false }) {
     let b = 0; const a = requestAnimationFrame(() => { b = requestAnimationFrame(() => setSettle(null)); }); // painted once where it was let go, then eased home
     return () => { cancelAnimationFrame(a); cancelAnimationFrame(b); };
   }, [settle]);
-  if (idle) return <Ambient c={c} house={house} apps={apps} board={board} timers={timers} weather={brain.weather} now={now} />;
+  if (idle) return <Ambient c={c} house={house} apps={apps} board={board} timers={timers} weather={brain.weather} />;
   // The dragged thing stays drawn on whichever page is showing.
   const shown = items.filter((i) => i.page === page || i.key === drag?.key);
   const note = open && notes.get(open);
   return (
     <div className={'screen' + (homeScreen?.style?.scenery?.length ? ' scenic' : '')} style={homeScreen?.style?.door ? { '--surface': homeScreen.style.door } : undefined}>
-      {homeScreen?.style?.scenery?.length > 0 && <Scenery urls={homeScreen.style.scenery} now={now} />}
+      {homeScreen?.style?.scenery?.length > 0 && <Scenery urls={homeScreen.style.scenery} />}
       <div className="notes-grid" ref={area} onPointerDown={swipe} onPointerDownCapture={(e) => { if (secondFinger(e)) e.stopPropagation(); }}>
         <div className="grid" ref={gridRef} style={{ width: cw * G.COLS, height: ch * G.ROWS, left: 40 * u, top: 24 * u }}>
           {shown.map((it) => {
@@ -705,7 +709,8 @@ function NotesGrid({ c, brain, now, onAsk, idle, embedded = false }) {
 }
 
 /** The family's pictures behind the home screen (their home style: scenery), one every 5 minutes, crossfading. */
-function Scenery({ urls, now }) {
+function Scenery({ urls }) {
+  const now = useNow(300e3);
   const i = Math.floor(now / 300e3) % urls.length;
   const [shown, setShown] = useState([urls[i]]);
   useEffect(() => { const img = new Image(); img.onload = () => setShown((s) => [s[s.length - 1], urls[i]].filter((u, k, a) => a.indexOf(u) === k).slice(-2)); img.src = urls[i]; }, [urls[i]]);
@@ -713,7 +718,8 @@ function Scenery({ urls, now }) {
 }
 
 /** When nobody has touched the display for a while: the family's photos (if an app asks for them, not at night), the time, the day's headline and timers. */
-function Ambient({ c, house, apps, board, timers, weather, now }) {
+function Ambient({ c, house, apps, board, timers, weather }) {
+  const now = useNow(1000); // its timers count down each second; the rest of the screen isn't drawn again for them
   const wantsPhotos = apps.some((a) => a.meta?.screensaver);
   const night = isNight(house?.night, now); // night hours only: the moon's "Sleep now" is this same screen, photos and all (the user)
   // At night the backlight goes right down too (the shell), and comes back when someone touches it.
@@ -829,15 +835,16 @@ function Ask({ c, onClose, first = '' }) {
 
 // ---- the home screen: tabs (home.jsx). The board above (NotesGrid) is no longer shown; its notes are on Home. ---------
 function Home(props) {
-  const { c, brain, now } = props;
+  const { c, brain } = props;
   return <HomeTabs {...props} shell={shell}
-    ambient={<Ambient c={c} house={brain.house} apps={brain.apps} board={brain.board} timers={brain.homeScreen?.timers || []} weather={brain.weather} now={now} />}
+    ambient={<Ambient c={c} house={brain.house} apps={brain.apps} board={brain.board} timers={brain.homeScreen?.timers || []} weather={brain.weather} />}
     usePhoto={usePhoto} PhotoShow={PhotoShow} Gear={Gear} />;
 }
 
 /** Reminders due now ("Swim in 15 minutes") on a screen that isn't the display (there the shell shows them, over
  *  any app). Put away on one screen, they go on all of them. */
-function Reminders({ c, house, now }) {
+function Reminders({ c, house }) {
+  const now = useNow(1000);
   const [away, setAway] = useState(() => new Set());
   const due = (house?.reminders || []).filter((r) => !away.has(r.key)).slice(0, 3);
   if (!due.length) return null;
@@ -854,13 +861,14 @@ function Reminders({ c, house, now }) {
 function App() {
   const [me, setMe] = useState(() => (shell ? { display: true } : load())), [removed, setRemoved] = useState(false), [asking, setAsking] = useState(false);
   const c = useMemo(() => (shell ? displayClient() : me && client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => keep({ ...(load() || me), relay: r || undefined }) })), [me]);
-  const [now, setNow] = useState(Date.now());
+  // Whether the display has rested (the shell says), asked each second; the time is each part's own (now.js), so the
+  // page isn't drawn again every second.
   const [idle, setIdle] = useState(false);
-  useEffect(() => { const t = setInterval(() => { setNow(Date.now()); if (shell?.idle) setIdle(!!shell.idle()); }, 1000); return () => clearInterval(t); }, []);
+  useEffect(() => { if (!shell?.idle) return; const t = setInterval(() => setIdle(!!shell.idle()), 1000); return () => clearInterval(t); }, []);
   if (!c) return <Pairing removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;
   const gone = () => { keep(null); setMe(null); setRemoved(true); };
   if ((TV || me?.kind === 'tv') && !shell) return <TvFrame c={c} onRemoved={gone} />;
-  return <Joined c={c} scopes={me?.scopes} now={now} idle={idle} asking={asking} setAsking={setAsking} onRemoved={gone} />;
+  return <Joined c={c} scopes={me?.scopes} idle={idle} asking={asking} setAsking={setAsking} onRemoved={gone} />;
 }
 
 /**
@@ -921,7 +929,7 @@ function TvFrame({ c, onRemoved }) {
   );
 }
 
-function Joined({ c, scopes, now, idle, asking, setAsking, onRemoved }) {
+function Joined({ c, scopes, idle, asking, setAsking, onRemoved }) {
   const brain = useBrain(c, onRemoved);
   // A note's Timer button starts a timer for the whole house; on the display, its Video plays full screen.
   Display.startTimer = (label, seconds) => c.json('POST', '/home/timer', { start: { label, seconds } }).catch(() => {});
@@ -931,9 +939,9 @@ function Joined({ c, scopes, now, idle, asking, setAsking, onRemoved }) {
   answerPage.ask = (q) => { if (shell?.ask) shell.ask(q); else setAsking(q); };
   return (
     <>
-      {brain.homeScreen ? <Home c={c} brain={brain} now={now} idle={idle} onAsk={(text) => setAsking(typeof text === 'string' ? text : true)} /> : <div className="pairing"><div className="dots"><i /><i /><i /></div></div>}
+      {brain.homeScreen ? <Home c={c} brain={brain} idle={idle} onAsk={(text) => setAsking(typeof text === 'string' ? text : true)} /> : <div className="pairing"><div className="dots"><i /><i /><i /></div></div>}
       {!brain.up && <div className="offline" />}
-      {!shell && <Reminders c={c} house={brain.house} now={now} />}
+      {!shell && <Reminders c={c} house={brain.house} />}
       {asking && <Ask c={c} first={typeof asking === 'string' ? asking : ''} onClose={() => setAsking(false)} />}
       {!shell && !asking && <Talk c={c} scopes={scopes} />}
     </>

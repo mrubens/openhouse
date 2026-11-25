@@ -4,6 +4,7 @@
 // Sizes are in u (one pixel of a 1536-wide screen: the --u variable), like the display's.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AnswerBody } from './answer.jsx';
+import { useNow } from './now.js';
 
 export const U = (n) => `calc(var(--wu, var(--u)) * ${n})`; // --wu: a widget on half the page draws everything bigger
 const COLORS = { calendar: '#3F76DB', chores: '#4FA877', meals: '#D95740', lists: '#E6B04A', photos: '#8A5CC9' };
@@ -62,7 +63,8 @@ export function IconFill({ app, id }) {
   return <div className="w-iconfill">{svg ? <img src={svg} alt="" draggable={false} /> : <Line size={30}>{app?.meta?.name || id}</Line>}</div>;
 }
 
-export function Widget({ id, app, w, h, house, c, now, content, Photo }) {
+export function Widget({ id, app, w, h, house, c, now: given, content, Photo }) {
+  const clockNow = useNow(60e3), now = given ?? clockNow; // a day's things: drawn again each minute, not each second
   if (content != null) return <AgentWidget app={app} id={id} content={content} />;
   const big = h >= 4;
   const props = { id, app, w, h, house: house || {}, c, now, big };
@@ -70,7 +72,7 @@ export function Widget({ id, app, w, h, house, c, now, content, Photo }) {
   if (id === 'chores') return <Chores {...props} />;
   if (id === 'lists') return <Lists {...props} />;
   if (id === 'meals') return <Meals {...props} />;
-  if (id === 'photos') return (house?.photos || []).length ? <Photo names={house.screensaver || house.photos} now={now} seconds={w * h >= 8 ? 10 : 15} /> : <Tile id="photos" big={big}><IconFill app={app} id={id} /></Tile>;
+  if (id === 'photos') return (house?.photos || []).length ? <Photo names={house.screensaver || house.photos} seconds={w * h >= 8 ? 10 : 15} /> : <Tile id="photos" big={big}><IconFill app={app} id={id} /></Tile>;
   return <Tile id={id} big={big}><IconFill app={app} id={id} /></Tile>;
 }
 
