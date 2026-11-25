@@ -37,6 +37,7 @@ import { appChecks, dataReader } from './heartbeat-checks.js';
 import { fixQueue } from './heartbeat-fixes.js';
 import { snapshot } from './heartbeat-review.js';
 import { laterRoutes } from './later.js';
+import { unsaved } from './store.js';
 import { cloudRoutes, noteError } from './cloud.js';
 import { lanTls } from './lan-tls.js';
 import { relayRoutes } from './relay.js';
@@ -385,8 +386,11 @@ async function appCall(req, res, url, app) {
   }
   if (url.pathname === '/today/line') {
     const b = await body(req);
-    if (b.off || !String(b.text || '').trim()) { chat.things.takeApp(app); return json(res, 200, { ok: true }); }
-    const r = chat.things.putApp(app, { text: b.text, until: b.until, sleep: b.sleep });
+    let r;
+    try {
+      if (b.off || !String(b.text || '').trim()) { chat.things.takeApp(app); return json(res, 200, { ok: true }); }
+      r = chat.things.putApp(app, { text: b.text, until: b.until, sleep: b.sleep });
+    } catch (e) { if (!e?.unsaved) throw e; const u = unsaved(e); return json(res, u.status, { error: u.error }); } // (not saved: not shown either)
     return r ? json(res, 200, { ok: true, text: r.item.text, until: r.item.until }) : json(res, 400, { error: 'Say what it is.' });
   }
   if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => (v?.same === true ? { v: v.v, same: true } : houseFor(v, rights))), url); // (nothing changed: only that)

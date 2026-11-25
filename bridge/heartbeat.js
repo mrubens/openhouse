@@ -21,7 +21,7 @@
 //
 // file: heartbeat.json next to the chats.
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import { questions, judgeInput, verdicts, writeNote, decideCost, WORTH } from './heartbeat-judge.js';
@@ -212,7 +212,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
       const r = await homeScreen.call('take_down_note', { id }, { by: 'assistant', who: null, quiet: true, allow: new Set(['take_down_note']) }).catch(() => null); // (notes from before the things)
       if (r && !r.isError) down.push({ id, key });
     }
-    const settled = asleep() === 'sleep' || !things ? 0 : things.settle(keys);
+    let settled = 0; try { settled = asleep() === 'sleep' || !things ? 0 : things.settle(keys); } catch (e) { console.error('[heartbeat] settle', e.message); }
     for (let i = 0; i < settled; i++) down.push({ thing: true });
     if (down.length) {
       st.log = [{ at: now(), level: st.level, path: 'code', saw: down.map((x) => x.key || 'thing'), did: `Took down ${down.length === 1 ? (down[0].thing ? 'a thing on Home' : 'a note') : `${down.length} ${down.every((x) => x.thing) ? 'things on Home' : 'notes'}`} about something that's sorted`, notes: [], ok: true, cost: 0 }, ...st.log].slice(0, 50);
@@ -282,7 +282,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
       // it"), while its fix waits (things.js shows the fix) or, with none queued, while it's failing.
       if (f.kind === 'crash' && things) {
         const name = f.text.match(/^The (.*?) app/)?.[1] || f.app;
-        if (!queued) things.put({ kind: 'broken', text: name, app: f.app, key: f.key });
+        if (!queued) { try { things.put({ kind: 'broken', text: name, app: f.app, key: f.key }); } catch (e) { console.error('[heartbeat] Home', e.message); } }
         done.push({ key: f.key, did: queued ? `queued ${fixed.id}` : `${name} has a problem, on Home`, v });
         continue;
       }
@@ -402,17 +402,22 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
   const view = () => { const via = pathNow(); return { level: st.level, levels: LEVELS, every: st.every || 60, prompt: st.prompt || REVIEW_RULES, ownPrompt: !!st.prompt, path: via, findings: st.findings.map(({ key, kind, text }) => ({ key, kind, text, seen: !!st.handled[key] })), log: st.log.slice(0, 20), today: today(), caps: { ...JUDGE_CAPS, reviewsPerDay: REVIEW_CAPS.perDay, reviewCost: REVIEW_CAPS.cost }, asleep: asleep(), last: st.last,
     fixes: fixes ? fixes.open().map(({ id, app, name, status, at }) => ({ id, app, name, status, at })) : [], checkProblems: (() => { try { return checkProblems(); } catch { return {}; } })() }; };
 
-  /** How often and what for: {every, prompt} (prompt "" or null: ours). An error's text, or null. */
+  /** How often and what for: {every, prompt} (prompt "" or null: ours), level, sleepUntil. { error, status }, or null. */
   function setSettings(b) {
-    if (b.every != null) { if (!EVERY.includes(Number(b.every))) return `every: ${EVERY.join(', ')} minutes`; st.every = Number(b.every); }
+    const was = { every: st.every, prompt: st.prompt, level: st.level, sleepUntil: st.sleepUntil };
+    const back = (error, status = 400) => { Object.assign(st, was); return { error, status }; };
+    if (b.every != null) { if (!EVERY.includes(Number(b.every))) return back(`every: ${EVERY.join(', ')} minutes`); st.every = Number(b.every); }
     if (b.prompt !== undefined) { const t = String(b.prompt ?? '').trim().slice(0, 6000); st.prompt = t && t !== REVIEW_RULES.trim() ? t : null; }
-    if (b.level != null) { if (!LEVELS.includes(b.level)) return `level: ${LEVELS.join(', ')}`; st.level = b.level; }
-    save(); return null;
+    if (b.level != null) { if (!LEVELS.includes(b.level)) return back(`level: ${LEVELS.join(', ')}`); st.level = b.level; }
+    if (b.sleepUntil != null) st.sleepUntil = b.sleepUntil;
+    // Saved before it counts: a heartbeat.json a newer release saved (store.js never writes over it) keeps what was.
+    try { writeJson(FILE, st); } catch (e) { console.error('[heartbeat]', e.message); const u = unsaved(e); return back(u.error, u.status); }
+    onChange(); return null;
   }
   const said = () => `Check-ins: ${st.level === 'off' ? 'off' : `every ${st.every || 60} minutes, level ${st.level}`}; prompt: ${st.prompt ? 'their own' : 'ours'}.\n\nThe prompt now:\n${st.prompt || REVIEW_RULES}`;
   homeScreen?.addTools?.([SETTINGS_TOOL], async (name, a) => {
     const e = setSettings({ ...(a?.every != null ? { every: a.every } : {}), ...(a?.reset_prompt ? { prompt: '' } : a?.prompt != null ? { prompt: a.prompt } : {}), ...(a?.level ? { level: a.level } : {}) });
-    return { content: [{ type: 'text', text: e || said() }], isError: !!e };
+    return { content: [{ type: 'text', text: e ? e.error : said() }], isError: !!e };
   });
 
   async function handle(req, res, url) {
@@ -423,13 +428,13 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
     const b = await body(req);
     if (p === '/heartbeat/level') {
       if (!LEVELS.includes(b.level)) { json(res, 400, { error: `level: ${LEVELS.join(', ')}` }); return true; }
-      st.level = b.level; save(); json(res, 200, view()); return true;
+      const e = setSettings({ level: b.level }); json(res, e ? e.status : 200, e ? { error: e.error } : view()); return true;
     }
-    if (p === '/heartbeat/settings') { const e = setSettings(b); json(res, e ? 400 : 200, e ? { error: e } : view()); return true; }
+    if (p === '/heartbeat/settings') { const e = setSettings({ every: b.every, prompt: b.prompt, level: b.level }); json(res, e ? e.status : 200, e ? { error: e.error } : view()); return true; }
     if (p === '/heartbeat/run') { const r = await beat({ force: true }); json(res, 200, { ...view(), result: r }); return true; }
     if (p === '/heartbeat/sleep') {
       const until = Number(b.until) || (() => { const n = nightHours(), d = new Date(now()), m = n?.to ? mins(n.to) : 390; d.setHours(Math.floor(m / 60), m % 60, 0, 0); if (+d <= now()) d.setDate(d.getDate() + 1); return +d; })();
-      st.sleepUntil = until; save(); json(res, 200, view()); return true;
+      const e = setSettings({ sleepUntil: until }); json(res, e ? e.status : 200, e ? { error: e.error } : view()); return true;
     }
     return false;
   }

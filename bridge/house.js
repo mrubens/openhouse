@@ -50,7 +50,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import { AISLES, PEOPLE, aisleOf, dayKey, daysFrom, MEDIA, VIDEO, MAX_VIDEO, DAY, NIGHT, SHOWS, str } from './house/util.js';
 import assistantPart from './house/assistant.js';
@@ -112,9 +112,19 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   const FLYERS = path.join(DIR, '../flyers');
 
   let rev = 0; // goes up with every save (what's cached from the data is good while it's the same)
+  // The data as it is on disk (last read or saved). A save that throws (a house.json a newer release saved, which
+  // store.js never writes over; a restore holding it; a full disk) puts memory back to it, so nothing shows that a
+  // restart would lose, and the throw (marked unsaved) reaches the tap or the tool that made the change.
+  let kept = null;
   function save() {
     rev++;
-    writeJson(FILE, data);
+    try { writeJson(FILE, data); }
+    catch (e) {
+      if (kept) { for (const k of Object.keys(data)) delete data[k]; Object.assign(data, structuredClone(kept)); }
+      changed();
+      throw Object.assign(e, { unsaved: true });
+    }
+    kept = structuredClone(data);
     changed();
   }
   function changed() {
@@ -169,6 +179,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     Object.assign(house, part(house));
 
   async function handle(req, res, url) {
+    try { return await handleNow(req, res, url); }
+    catch (e) {
+      if (!e?.unsaved || res.headersSent) throw e;
+      const r = unsaved(e);
+      json(res, r.status, { error: r.error, house: view() }); return true;
+    }
+  }
+  async function handleNow(req, res, url) {
     const p = url.pathname;
     if (p !== '/house' && !p.startsWith('/house/')) return false; // not /household
     // An app asking: on the tablet (x-openhouse-app) or in its frame on a phone or other screen (x-openhouse-screen-app).
@@ -281,8 +299,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   setInterval(tick, 30e3).unref?.();
   // Asks left from before a restart: nobody is looking at a card for them any more (the kid asks again).
   data.asks = [];
-  for (const k of ['call', 'context', 'settings', 'putAway', 'addFlyer', 'readEmail', 'addRecipePhoto', 'prepareCook', 'addRecipeLink', 'findRecipes',
+  kept = structuredClone(data);
+  for (const k of ['context', 'settings', 'putAway', 'addFlyer', 'readEmail', 'addRecipePhoto', 'prepareCook', 'addRecipeLink', 'findRecipes',
     'changeAlbums', 'caption', 'addPhoto', 'serveVideo', 'stills', 'removePhoto', 'restorePhoto', 'albums']) handle[k] = house[k];
+  // A tool whose change wasn't saved says so (isError, with why), as a tap is told: never "Done" for what a restart loses.
+  handle.call = async (...a) => {
+    try { return await house.call(...a); }
+    catch (e) { if (!e?.unsaved) throw e; return { content: [{ type: 'text', text: unsaved(e).error }], isError: true }; }
+  };
   handle.tools = house.TOOLS;
   handle.view = view;
   handle.changed = changed;

@@ -98,10 +98,25 @@ test('a store saved by a newer release is never saved over by this one', async (
     assert.ok(!('$v' in readJson(f, {})), 'readers never see the stamp');
     assert.throws(() => writeJson(f, { items: [] }), (e) => e.code === 'newer');
     // The store's own code saving (it keeps going on what it holds in memory): the file stays as the newer one left it.
+    // What wasn't saved is said to fail (never "Set"), and isn't held in memory either (it would be gone at a restart).
     const later = laterRoutes({ DIR, every: 0 });
-    await later.call('later', { kind: 'say', what: 'Feed the cat, Leo.', in_minutes: 60 });
+    const r = await later.call('later', { kind: 'say', what: 'Feed the cat, Leo.', in_minutes: 60 });
+    assert.equal(r.isError, true);
+    assert.equal(later.items().length, 0);
     assert.equal(fs.readFileSync(f, 'utf8'), newer);
     assert.ok(!fs.existsSync(f + '.bak'));
+    // house.json the same: a tap on a list (POST /house/list) and Opie's change_list both fail, and the list stays as it was.
+    const hf = path.join(root, 'house.json'), houseNewer = JSON.stringify({ $v: 999, lists: [{ id: 'groceries', name: 'Groceries', items: [{ id: 'i1', text: 'Milk' }] }] });
+    fs.writeFileSync(hf, houseNewer);
+    let out = null;
+    const board = { householdView: () => ({ family, chores: [], calendars: [] }), calendarEvents: () => [] };
+    const h = houseRoutes({ DIR, json: (res, code, obj) => { out = { code, obj }; }, body: async () => ({ list: 'groceries', add: ['Eggs'] }), board });
+    await h({ method: 'POST', headers: {} }, {}, new URL('http://x/house/list'));
+    assert.ok(out.code >= 400, `a tap is told it failed (${out.code})`);
+    const t = await h.call('change_list', { list: 'groceries', add: ['Bread'] });
+    assert.equal(t.isError, true);
+    assert.deepEqual(h.view().lists.find((l) => l.id === 'groceries').items.map((i) => i.text), ['Milk']);
+    assert.equal(fs.readFileSync(hf, 'utf8'), houseNewer);
     // An unstamped file (every file before versions) is version 0: read and saved as before.
     const g = registered('things', path.join(root, 'things.json'));
     fs.writeFileSync(g, JSON.stringify({ items: [1] }));
