@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { initRepo, editLock } from '../edits.js';
-import { checkPlugin, parseSource, pluginsRoutes, cleanCatalog } from '../plugins.js';
+import { checkPlugin, parseSource, pluginsRoutes, cleanCatalog, cleanActions, rightsList, ACTION_LIMITS } from '../plugins.js';
 import crypto from 'node:crypto';
 import { appAllowed, houseFor } from '../apps.js';
 import { reachMatches, appFetch, pinnedFetch } from '../app-web.js';
@@ -293,4 +293,17 @@ test('both versions put together: the household\'s changes and theirs, and never
 test('the web through the tablet as bytes: the same hosts only', async () => {
   const r = await appFetch('bytes-app', 'https://elsewhere.example/feed.pb', ['feed.example.org'], { binary: true, lookup: async () => [{ address: '93.184.216.34', family: 4 }], fetch: async () => { throw new Error('not reached'); } });
   assert.equal(r.status, 403);
+});
+
+test('a voice action over the limits is refused, and the card shows every word the voice is told', () => {
+  const L = ACTION_LIMITS, act = (over) => [{ name: 'add', description: 'Add one.', parameters: { properties: { item: { type: 'string', description: 'The item' } } }, ...over }];
+  assert.throws(() => cleanActions(act({ description: 'x'.repeat(L.description + 1) })));
+  assert.throws(() => cleanActions(act({ parameters: { properties: { item: { type: 'string', description: 'x'.repeat(L.parameter + 1) } } } })));
+  assert.throws(() => cleanActions(act({ parameters: { properties: { item: { type: 'string', enum: Array.from({ length: L.choices + 1 }, (_, i) => 'c' + i) } } } })));
+  assert.throws(() => cleanActions(act({ parameters: { properties: Object.fromEntries(Array.from({ length: L.parameters + 1 }, (_, i) => ['p' + i, { type: 'string' }])) } })));
+  assert.throws(() => cleanActions(act({ reply: 'x'.repeat(L.reply + 1) })));
+  assert.throws(() => cleanActions(Array.from({ length: L.actions + 1 }, (_, i) => ({ name: 'a' + i, description: 'One.' }))));
+  const actions = cleanActions([{ name: 'add_thing', description: 'Add a thing to the box.', parameters: { properties: { item: { type: 'string', description: 'Which thing Maya wants' }, size: { type: 'string', enum: ['small', 'big'] } } } }]);
+  const card = rightsList([{ name: 'Box', uses: [], reaches: [], actions }]).filter((r) => r.kind === 'voice').map((r) => r.text).join('\n');
+  for (const w of ['Add a thing to the box', 'add_thing', 'item', 'Which thing Maya wants', 'size', 'small', 'big']) assert.ok(card.includes(w), w);
 });

@@ -482,9 +482,13 @@ An app can offer the voice something to do, in its `app.json`:
 
 What's allowed in an action:
 - Flat parameters only (string, number, integer or boolean, with an optional `enum`), and names OpenAI accepts.
-  `cleanActions` checks them; there's no cap of ours on how many (only OpenAI's own rules apply).
-- For a shared app, the actions are fixed when it is added: the card lists them ("the voice can ask it to: …") and
-  they are stored in its manifest. Editing it can't add any.
+  `cleanActions` checks them.
+- Short, because all of it is what the voice model is told (`ACTION_LIMITS` in `bridge/plugins.js`): at most 16
+  actions, a description up to 600 characters, 8 parameters, 200 characters for each parameter's description, 20
+  choices of up to 60 characters in an `enum`, and a `reply` up to 300. One over is refused, never cut.
+- For a shared app, the actions are fixed when it is added: the card lists each one with all of its words (its
+  description, its name, and each parameter's name, description and choices: `actionWords`), and they are stored in
+  its manifest. Editing it can't add any.
 - A built-in or local app's actions are read from its `app.json` as it is now.
 
 How an action runs:
@@ -731,7 +735,9 @@ An audit showed a shared app could escape its card. Fixed:
   `uses`, `reaches`, actions and checks. An update asks again, with the PIN, for any new right, host, voice action,
   check, app, background or TV. (An update never adds tabs or a look.)
 - **The web through the bridge** connects to the address it checked (`app-web.js` `pinnedFetch`): no DNS rebinding.
-- **A shared app's answer to a voice action** reaches the voice model quoted, short and marked as the app's words.
+- **What an app says back to a voice action** (its `reply` or its page's answer) reaches the voice model as data,
+  between `<data>` tags it can't close (`bridge/as-data.js`), as a read page, a recipe's page and an email do; a shared
+  app's is also kept short.
 
 Tests: `bridge/test/dev-server.test.mjs` (paths, hosts, CSP, files), `apps.test.mjs` (keys and origins),
 `plugins.test.mjs` (the pinned address).
