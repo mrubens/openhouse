@@ -7,16 +7,35 @@
 //
 // file: waiting-builds.json beside undo.json: [{ id, commit, at, who, text, card }]
 import fs from 'node:fs';
+import path from 'node:path';
 
 const DAY = 864e5;
 
+// A build under way is marked on disk (building.json beside undo.json) from when it holds the lock until it's done: a
+// bridge stopped in between (an update, a crash) finds the mark on its next start and puts the half-made change back,
+// before anything else could take it in as "checkpoint" (the household's own, with every right and no card).
+const markOf = (HERE) => path.join(HERE, 'building.json');
+export function markBuilding(HERE, owner) { try { fs.writeFileSync(markOf(HERE), JSON.stringify({ base: owner.base, text: String(owner.text || '').slice(0, 200), at: Date.now() })); } catch {} }
+export function unmarkBuilding(HERE) { try { fs.rmSync(markOf(HERE), { force: true }); } catch {} }
+/** On start-up, first: a build the bridge stopped in the middle of is put back. True when there was one. */
+export function putBackUnfinished({ HERE, edits, log = (...a) => console.log('[builder]', ...a) }) {
+  let m; try { m = JSON.parse(fs.readFileSync(markOf(HERE), 'utf8')); } catch { return false; }
+  const owner = { id: 'unfinished-build', kind: 'build', who: null, text: m?.text || 'an unfinished build' };
+  if (edits.tryAcquire(owner, { checkpoint: false })) {
+    try { edits.discard(owner); log(`put back a build the bridge stopped in the middle of: "${owner.text.slice(0, 60)}"`); }
+    finally { edits.release(owner); }
+  }
+  unmarkBuilding(HERE);
+  return true;
+}
+
 /**
- * edits: the edit lock (edits.js). ask(card) -> 'yes' | 'no' | 'later' | null (server.js shellAsk; null: no shell to ask,
- * a laptop). grant(card): what a yes grants (plugins.js madeHere for a new app), before the commit, so both land
- * together. landed(rec): after it's committed (builder.js: the request log). emit: the screens' events.
+ * edits: the edit lock (edits.js). ask(card) -> 'yes' | 'no' | 'later' | null (server.js shellAsk; null: no screen to
+ * ask, a hub: that's a no). grant(card): what a yes grants (plugins.js madeHere), before the commit, so both land
+ * together. unmake(id): a change's draft off the registry once it's swapped in (plugins.js unmake). landed(rec): after it's committed (builder.js: the request log). emit: the screens' events.
  * line(text): one line on Home (things.js put). changed(): what's waiting changed (Home reads it again: house.js changed).
  */
-export function buildWaits({ FILE, edits, ask = async () => 'later', grant = () => {}, landed = () => {}, emit = () => {}, line = () => {}, changed = () => {}, now = () => Date.now(), log = (...a) => console.log('[waits]', ...a) }) {
+export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', grant = () => {}, unmake = () => {}, landed = () => {}, emit = () => {}, line = () => {}, changed = () => {}, now = () => Date.now(), log = (...a) => console.log('[waits]', ...a) }) {
   const git = edits.git;
   let list = (() => { try { const l = JSON.parse(fs.readFileSync(FILE, 'utf8')); return Array.isArray(l) ? l.filter((w) => w && /^[0-9a-f]{40}$/.test(w.commit || '') && w.card?.app) : []; } catch { return []; } })();
   const save = () => { try { fs.writeFileSync(FILE, JSON.stringify(list, null, 1)); } catch (e) { log('not saved:', e.message); } try { changed(); } catch {} };
@@ -27,8 +46,22 @@ export function buildWaits({ FILE, edits, ask = async () => 'later', grant = () 
   async function decide(owner, card) {
     let a;
     try { a = await ask({ ...card, pin: true, grownup: true }); } catch (e) { log('card:', e.message); a = 'later'; }
-    if (a === 'yes' || a === null) { if (card.limited) grant(card); return 'yes'; } // (null: no shell here to ask, as before)
-    return a === 'no' ? 'no' : 'later';
+    if (a === 'yes') {
+      if (card.draft) promote(card); // a change made in a draft: swapped in now, the draft's entry gone
+      if (card.limited) grant(card);
+      return 'yes';
+    }
+    // null: no screen here to ask a grown-up (a hub, a bridge on a laptop): nothing goes in, nothing is granted.
+    return a === 'later' ? 'later' : 'no';
+  }
+
+  /** A change made in a draft copy (rails.js): its files take the app's place, and the draft goes. */
+  function promote(card) {
+    const apps = path.join(APP_DIR, 'apps'), from = path.join(apps, card.draft), to = path.join(apps, card.app);
+    if (!fs.existsSync(from)) throw new Error(`${card.draft} isn't there`);
+    fs.rmSync(to, { recursive: true, force: true });
+    fs.renameSync(from, to);
+    unmake(card.draft);
   }
 
   /** Keep the holder's change aside (a commit nothing points to but its ref) and put the files back. */
@@ -70,6 +103,7 @@ export function buildWaits({ FILE, edits, ask = async () => 'later', grant = () 
     const owner = { id: `wait-${w.id}`, kind: 'build', who: w.who, text: w.text };
     try {
       if (!(await edits.acquire(owner, { timeoutMs, checkpoint: true }))) return { ok: false, error: edits.busyText() || 'Busy with another change.' };
+      markBuilding(path.dirname(FILE), owner);
       let answer = 'later';
       try {
         if (!apply(w)) {
@@ -78,20 +112,22 @@ export function buildWaits({ FILE, edits, ask = async () => 'later', grant = () 
           emit({ type: 'gone', app: w.card.app, fresh: !!w.card.fresh }); emit({ type: 'apps' });
           return { ok: false, error: `${w.card.name} couldn't be put back in: the apps changed since. Ask for it again.` };
         }
-        emit({ type: 'edit', app: w.card.app, text: `apps/${w.card.app}/` }); // the app shows behind its card
+        const shownApp = w.card.draft || w.card.app; // (a change made in a draft: the draft, limited, is what shows)
+        emit({ type: 'edit', app: shownApp, text: `apps/${shownApp}/` }); // the app shows behind its card
         answer = await decide(owner, w.card);
         if (answer === 'yes') {
           edits.commit(owner);
           drop(w); landed(w);
+          if (w.card.draft) emit({ type: 'gone', app: w.card.draft }); // (swapped in: the draft's page is gone)
           emit({ type: 'apps' });
           emit({ type: 'done', ok: true, changed: true, text: w.card.fresh ? `${w.card.name} is in Apps.` : `The change to ${w.card.name} is in.` });
         } else {
           edits.discard(owner);
           if (answer === 'no') drop(w);
-          if (w.card.fresh) emit({ type: 'gone', app: w.card.app, fresh: true });
+          if (w.card.fresh || w.card.draft) emit({ type: 'gone', app: w.card.draft || w.card.app, fresh: true });
           emit({ type: 'waiting', id: w.id, app: w.card.app, name: w.card.name, gone: answer === 'no' });
         }
-      } finally { if (answer !== 'yes') edits.discard(owner); edits.release(owner); }
+      } finally { if (answer !== 'yes') edits.discard(owner); unmarkBuilding(path.dirname(FILE)); edits.release(owner); }
       return { ok: true, answer };
     } finally { opening.delete(w.id); }
   }

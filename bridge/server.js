@@ -26,6 +26,7 @@ import { authorized, loopbackHost } from './auth.js';
 import { eventStream } from './events.js';
 import { isTab, homePath } from './home-screen.js';
 import { builderRoutes } from './builder.js';
+import { putBackUnfinished } from './build-waits.js';
 import { screensRoutes } from './screens.js';
 import { appsRoutes, onScreen, appAllowed, houseFor } from './apps.js';
 import { appFetch, reachMatches, recipeLinkRefused } from './app-web.js';
@@ -109,12 +110,14 @@ const git = edits.git;
 // can take it. Each of those checkpoints what nobody holds, which would commit the open change's files as
 // "checkpoint": no longer undoable and left out of list_changes. The plugins' step then finds the lock busy and runs
 // again once the change is done (plugins.js start). The workshop itself (workshopRoutes, below) adopts these.
+// First of all: a build the bridge stopped in the middle of is put back, before anything could checkpoint it (build-waits.js).
+putBackUnfinished({ HERE, edits });
 const reopened = reopenChanges({ HERE, edits });
 edits.watch();
 // An app made here goes in on a grown-up's yes on the tablet's card, always with the PIN (grownup: a tablet with no PIN
 // asks someone to choose one there); no answer keeps it waiting, on Home (build-waits.js). shellAsk, plugins, chat: below.
 const builder = builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json,
-  ask: (card) => shellAsk(card), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), say: (t) => chat.voice.say(t),
+  ask: (card) => shellAsk(card), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), unmake: (id) => plugins.unmake(id), say: (t) => chat.voice.say(t),
   line: (text) => chat.things.put({ text, minutes: 12 * 60, by: 'builder' }), changed: () => chat.house?.changed?.() });
 
 const devices = devicesRoutes({ HERE, json, body }); // first: it sets HOME_MCP_* for the agents
@@ -255,7 +258,7 @@ const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
   ai: (q) => cloud.ai(q), APP_DIR,
   // A second look at the code before it's done (role review: the service's own model today; it may pick another).
   review: process.env.BUILD_REVIEW === 'off' ? null : (q) => cloud.ai({ ...q, role: 'review' }), checkBuild: builder.checkBuild,
-  limited: (id) => plugins.limited(id), making: (app) => setState({ making: app }), say: (t) => chat.voice.say(t),
+  limited: (id) => plugins.limited(id), register: (id) => plugins.madeHere(id, {}), making: (app) => setState({ making: app }), say: (t) => chat.voice.say(t),
   guide: () => workshopGuide({ read: (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } }, homeNow: () => '', log: () => {} }).guide('apps'),
   // The tablet's screen (Device control on): the app being made is on it (the shell opens it as it's written).
   look: Object.assign(async () => {

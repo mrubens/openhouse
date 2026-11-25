@@ -97,6 +97,19 @@ A new app made on the tablet is the household's own plugin, but limited like one
 A change to one of OpenHouse's apps or the household's own keeps that app's rights as they were. The change can't
 widen them (point 3 above).
 
+While it's being made, and until the yes, nothing of it runs with more than that:
+
+- A new app is marked limited, with nothing granted, at `start`, before its first file is written (rails.js
+  `register`, plugins.js `madeHere`), so it's on its own origin from its first paint and reads the family's things
+  as empty. The yes grants what the card said; a no takes the mark back with the files.
+- A change to an app with its own rights (ours, the household's) is never written into that app: it's made in a
+  draft, `apps/<id>--draft`, a copy limited the same way, which is what shows on screen. The yes swaps the draft in
+  (build-waits.js `promote`) and takes the draft's mark away; a no or a day drops it.
+- The tablet's page server serves a limited app made here on its own origin, as one from a link
+  (`device/vite.config.mjs` grants).
+- A build the bridge stopped in the middle of (an update, a crash) is put back on the next start
+  (`building.json`, build-waits.js `putBackUnfinished`), before anything could take it in as a checkpoint.
+
 `bridge/test/rails.test.mjs` checks this: writes outside the app, out by `..`, into folders, over the template's page
 or the engine, and `uses` or `reaches` it can't have (a `*.` name, a URL, an address, too many) are all refused.
 The new app gets only the things and websites the card granted, even if its `app.json` later says otherwise. A no

@@ -18,13 +18,13 @@ import { requestApp, showingTab } from './home-screen.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { dayKey } from './dates.js';
-import { buildWaits } from './build-waits.js';
+import { buildWaits, markBuilding, unmarkBuilding } from './build-waits.js';
 
 /** ask(card): the tablet's card (server.js shellAsk); grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home;
  *  say(text): said aloud on the tablet (a request asked aloud hears that it's ready for the card). */
-export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, line = () => {}, changed = () => {}, say = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
+export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
-  const waits = buildWaits({ FILE: WAITS_FILE, edits, ask: (c) => ask(c), grant: (c) => grant(c), line: (t) => line(t), changed: () => changed(), emit,
+  const waits = buildWaits({ FILE: WAITS_FILE, APP_DIR, edits, ask: (c) => ask(c), grant: (c) => grant(c), unmake: (id) => unmake(id), line: (t) => line(t), changed: () => changed(), emit,
     landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} } });
   /** A new app put back (a no, a failed run, one set aside to wait): the screens close it, so none is left on a page that's gone. */
   const closeGone = (apps) => { for (const app of apps || []) if (!fs.existsSync(path.join(APP_DIR, 'apps', app))) emit({ type: 'gone', app }); };
@@ -158,12 +158,14 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       if (edits.holder() && edits.holder() !== owner) emit({ type: 'log', kind: 'info', text: edits.busyText(), friendly: 'Waiting for the change before this one' });
       if (!(await edits.acquire(owner, { signal: owner.abort.signal, checkpoint: true }))) return; // cancelled while waiting
       events.state.base = owner.base;
+      markBuilding(HERE, owner); // (put back on the next start if the bridge stops before it's done: build-waits.js)
       ok = await runBuild(owner, text, who, ctx, startedAt);
     } finally {
       // A run that failed, was cancelled or threw puts back what it changed; one that worked is committed already.
       if (!ok) edits.discard(owner);
       closeGone(owner.apps);
       if (events.state.making) setState({ making: null });
+      unmarkBuilding(HERE);
       edits.release(owner);
       if (run === owner) { run = null; abort = null; }
     }
