@@ -16,3 +16,7 @@ export function useNow(step = 1000) {
   useSyncExternalStore(subscribe, () => { if (!timer) current = Date.now(); return Math.floor(current / step); });
   return current;
 }
+
+/** Midnight to 4am: still last night to the people up, so "today" and "tomorrow" would read a day off. Screens use
+ *  the weekday's name instead ("Wednesday", "Thursday") until 4. */
+export const smallHours = (now) => new Date(now).getHours() < 4;

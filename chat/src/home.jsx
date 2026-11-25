@@ -10,7 +10,7 @@
 // takes either back.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Widget } from './home-widgets.jsx';
-import { useNow } from './now.js';
+import { useNow, smallHours } from './now.js';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { PALETTES, WHITE, paletteOf, worldOf } from './look.js';
@@ -342,6 +342,7 @@ export function countdowns(house, now) {
 export function untilText(start, now) {
   const a = new Date(now); a.setHours(0, 0, 0, 0); const b = new Date(start); b.setHours(0, 0, 0, 0);
   const d = Math.round((b - a) / 864e5);
+  if (d <= 1 && smallHours(now)) return `on ${b.toLocaleDateString('en-US', { weekday: 'long' })}`; // (not "today" or "tomorrow" in the small hours)
   return d <= 0 ? 'today' : d === 1 ? 'tomorrow' : d < 21 ? `in ${d} days` : d < 70 ? `in ${Math.round(d / 7)} weeks` : `in ${Math.round(d / 30)} months`;
 }
 
@@ -453,7 +454,8 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
     .sort((a, b) => (dayOf(a) - dayOf(b)) || (b.allDay - a.allDay) || (new Date(a.start) - new Date(b.start)));
   const byDay = []; for (const e of upcoming) { const d = dayOf(e); if (+byDay.at(-1)?.[0] !== +d) byDay.push([d, []]); byDay.at(-1)[1].push(e); }
   const first = upcoming[0], firstDay = first && dayOf(first);
-  const dayName = (d) => (+d === +t ? 'Today' : +d === +tomorrow ? 'Tomorrow' : d - t < 7 * 864e5 ? weekday(d, true) : d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }));
+  const small = smallHours(now); // (midnight to 4: the weekday's name, not Today or Tomorrow)
+  const dayName = (d) => (!small && +d === +t ? 'Today' : !small && +d === +tomorrow ? 'Tomorrow' : d - t < 7 * 864e5 ? weekday(d, true) : d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' }));
   const todays = byDay[0] && +byDay[0][0] === +t ? byDay[0][1] : [];
   // What the household's apps put on the day (a school lunch, trash day): today's, and tomorrow's once today's events
   // are over or it's evening.
@@ -511,7 +513,7 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
       <span key={p} role="button" className="t-pick" aria-label={'Have ' + p + ' tonight'} onClick={(e) => plan(e, p)}><DishPic house={h} name={p} /><b>{p}</b></span>))}</div>}
     {(tonight || !picks.length) && <div className="t-fit" ref={mealFit}>
       {coming.length > 0 && <div className="t-rows t-gap-s">{coming.map((d) => <div key={+d} className="t-row" data-fit="">
-        <span className="t-when">{+d === +tomorrow ? 'Tomorrow' : weekday(d)}</span><span className="h-grow">{dinner(d)}</span>
+        <span className="t-when">{+d === +tomorrow && !small ? 'Tomorrow' : weekday(d)}</span><span className="h-grow">{dinner(d)}</span>
       </div>)}</div>}
     </div>}
   </div>);
@@ -581,14 +583,14 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
         <div {...card('calendar')}>
           <div className="t-top t-cal-label"><div className="h-label">Calendar</div><span className="t-n t-add" role="button" onClick={(e) => { e.stopPropagation(); addTo(kinds.get('calendar')); }}>+ Add</span></div>
           {first ? <>
-            <div className="t-agenda t-fit" ref={calFit}>{!todays.length && <div className="t-daygroup t-sday"><div className="t-sdate" data-fit="label"><small>Today</small><b>{t.getDate()}</b></div><div className="t-sthings"><div className="t-snone" data-fit="">Nothing today</div></div></div>}
+            <div className="t-agenda t-fit" ref={calFit}>{!todays.length && <div className="t-daygroup t-sday"><div className="t-sdate" data-fit="label"><small>{small ? weekday(t, true).slice(0, 3) : 'Today'}</small><b>{t.getDate()}</b></div><div className="t-sthings"><div className="t-snone" data-fit="">Nothing today</div></div></div>}
               {(() => { let left = AGENDA; return byDay.map(([d, l], k) => { // each day from now, AGENDA events at most
               const rest = l.slice(0, Math.max(0, left)); left -= rest.length; // (the first one like the rest: no big card of its own)
               // as a schedule: the day's weekday and date in a column, its things beside them (all-day ones as slim
               // pills, the others as soft blocks tinted with their person's color, the time under the title)
               const tintOf = (e) => { const c = eventPeople(h, e).map((n) => personColor(h, n))[0] || e.color; return c ? { background: `color-mix(in srgb, ${c} 24%, var(--h-sheet))` } : undefined; };
               return rest.length > 0 && <div key={+d} className="t-daygroup t-sday">
-                <div className="t-sdate" data-fit="label"><small>{+d === +t ? 'Today' : weekday(d, true).slice(0, 3)}</small><b>{d.getDate()}</b></div>
+                <div className="t-sdate" data-fit="label"><small>{+d === +t && !small ? 'Today' : weekday(d, true).slice(0, 3)}</small><b>{d.getDate()}</b></div>
                 <div className="t-sthings">{rest.map((e, i) => e.allDay
                   ? <div key={i} className="t-spill" data-fit="" style={tintOf(e)}>{plain(e.title)}{e.part ? ` (${e.part})` : ''}</div>
                   : <div key={i} className="t-sev" data-fit="" style={tintOf(e)}><span className="t-sev-t">{plain(e.title)}</span><span className="t-when">{when(e)}</span></div>)}</div>

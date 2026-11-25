@@ -16,7 +16,7 @@ import { pair, client, Removed } from './screen-client.js';
 import { AnswerBody, Display, page as answerPage } from './answer.jsx';
 import { Widget, Fit, IconFill, U } from './home-widgets.jsx';
 import { Home as HomeTabs, appOrigin, Clip, useClipUrl } from './home.jsx';
-import { useNow } from './now.js';
+import { useNow, smallHours } from './now.js';
 import { pairingFromCode, cleanCode } from './scrypt.js';
 import { icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 
@@ -739,6 +739,7 @@ function Ambient({ c, house, apps, board, timers, weather }) {
   const midday = (x) => { const t = new Date(x); t.setHours(12, 0, 0, 0); return +t; };
   const allDay = evs.filter((e) => e.allDay && Date.parse(e.start) <= midday(showDay) && (e.end ? Date.parse(e.end) : Date.parse(e.start) + 864e5) > midday(showDay)).map((e) => e.title).slice(0, 2);
   const tmr = showDay !== d.toDateString();
+  const tmrWord = smallHours(d) ? new Date(showDay).toLocaleDateString('en-US', { weekday: 'long' }) : 'Tomorrow'; // (midnight to 4: still last night, so its name)
   const nextWhen = (e) => { const s = new Date(e.start); return `${hm(s)}${s.getHours() < 12 ? ' AM' : ' PM'}${isPerson(e.who) ? ' · ' + e.who : ''}`; };
   const next = coming[0];
   // The weather under the date: now, and the rest of today, or tomorrow's from the evening on (by the clock, not the events:
@@ -772,11 +773,11 @@ function Ambient({ c, house, apps, board, timers, weather }) {
         {sky && <div className="w"><span style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: weatherIcon(w.code, w.isDay !== false) }} />{sky}</div>}</div>
       {(next || lines.length > 0) && <div className="ambient-side">
         {next && <div className="ambient-next">
-          <div className="ambient-day">{tmr ? 'Tomorrow' : mins != null && mins < 60 ? `Next · in ${Math.max(1, mins)} ${mins <= 1 ? 'minute' : 'minutes'}` : 'Next'}</div>
+          <div className="ambient-day">{tmr ? tmrWord : mins != null && mins < 60 ? `Next · in ${Math.max(1, mins)} ${mins <= 1 ? 'minute' : 'minutes'}` : 'Next'}</div>
           <h2>{next.title}</h2><div className="t">{nextWhen(next)}</div>
         </div>}
         {lines.length > 0 && <div className="ambient-rows">
-          {tmr && !next && allDay.length > 0 && <div className="ambient-day">Tomorrow</div>}
+          {tmr && !next && allDay.length > 0 && <div className="ambient-day">{tmrWord}</div>}
           {lines.map((l) => (l.one != null ? <div key={l.k} className="ambient-r one"><span>{l.one}</span></div>
             : <div key={l.k} className="ambient-r"><span>{l.when}</span><Mark e={l.e} /><span>{l.text}</span></div>))}
         </div>}
