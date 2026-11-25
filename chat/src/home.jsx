@@ -202,6 +202,9 @@ export function appOrigin(shell, app) {
  * app from a link) a phone card or opening another app. A shared app may open only itself.
  */
 function useAppFrame(frame, shell, app, key, { onPhone, onOpen } = {}) {
+  // The callbacks through refs: they're new on every draw (the clock draws the screen each second), and listening again
+  // each time said "not typing" to the shell a second after a field got the keyboard (keys went to Opie, the user).
+  const cb = useRef({}); cb.current = { onPhone, onOpen };
   useEffect(() => {
     if (!app || !shell?.ui) return;
     const origin = appOrigin(shell, app);
@@ -211,12 +214,12 @@ function useAppFrame(frame, shell, app, key, { onPhone, onOpen } = {}) {
       const m = e.data;
       if (m.openhouse === 'hello') { if (key) e.source.postMessage({ openhouse: 'key', key }, origin); }
       else if (m.openhouse === 'editing') { typing = !!m.on; shell.editing?.(typing); }
-      else if (m.openhouse === 'phone') { if (!app.shared) onPhone?.(String(m.kind || ''), String(m.arg || '')); }
-      else if (m.openhouse === 'open' && /^[\w.-]{1,60}$/.test(String(m.app || ''))) { if (!app.shared || m.app === app.id) onOpen?.(String(m.app)); }
+      else if (m.openhouse === 'phone') { if (!app.shared) cb.current.onPhone?.(String(m.kind || ''), String(m.arg || '')); }
+      else if (m.openhouse === 'open' && /^[\w.-]{1,60}$/.test(String(m.app || ''))) { if (!app.shared || m.app === app.id) cb.current.onOpen?.(String(m.app)); }
     };
     addEventListener('message', on);
     return () => { removeEventListener('message', on); if (typing) shell.editing?.(false); };
-  }, [shell, app?.id, app?.shared, key, onPhone, onOpen]);
+  }, [shell, app?.id, app?.shared, key]);
 }
 
 /** One of the family's apps, running in the sheet (its own page and kit, given its key and the look). */
