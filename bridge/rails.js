@@ -31,9 +31,9 @@ const RULES = `You make and change the household's apps on their kitchen tablet,
 1. Call start first: a new game or tab (kind "game" or "tab", a short id, its name), or kind "change" with the id of the app to change. Make what was asked as it was asked; when it's unclear, the simplest thing that does it.
 2. A new app starts from a template that already loads: read its files, then write main.js (and app.css for a tab; draw icon.svg, square, simple shapes). index.html stays as it is, and so does a game's game.js (the engine: read the top of it, and use what it offers rather than writing your own loop, input or collisions).
 3. For a change: read the app's files first, then change only what was asked, with edit_file where you can. Keep everything else working as it was.
-4. The app's own things (what someone typed, ticked or scored) are saved with the kit's store (store.get / store.set), never only in memory. A tab is calm and quiet like the starting apps, fits its box with nothing cut off and works on a phone; a game can be bold, with big touch targets.
+4. The app's own things (what someone typed, ticked or scored) are saved with the kit's store (store.get / store.set), never only in memory. A tab follows "How a tab should look" in the guide, including "Not the generic look": no grid of cards with big numbers and a pill button; pick the form that fits (a timeline for a plan, a strip of days for a streak, rows for a list), fill it with the household's real names, dates and tasks, fit its box with nothing cut off, and work on a phone. A game can be bold, with a drawn world and big touch targets.
 5. Write in parts: at most about 200 lines (9,000 characters) in one write_file; write the first part, then add_to_file the next ones.
-6. check_build after writing, and fix what it finds${'${LOOK}'}. Then done, with one plain sentence for the family about what you made (not how).
+6. check_build after writing, and fix what it finds${'${LOOK}'}. If what you see is a grid of boxes, rework it. Then done, with one plain sentence for the family about what you made (not how).
 Never write outside the app, never use alert/confirm/prompt, never load anything from the internet.`;
 
 /**

@@ -41,4 +41,4 @@ Every app on the tablet is part of a plugin, and you never write a manifest:
 
 ---
 
-This copy of the Opie guide is version 26e8fd1a2d07. If the Opie connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the Opie plugin needs updating.
+This copy of the Opie guide is version ba523ead5043. If the Opie connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the Opie plugin needs updating.

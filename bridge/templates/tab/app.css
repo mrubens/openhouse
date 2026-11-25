@@ -2,4 +2,5 @@
    the household's palette: var(--bg), var(--card), var(--ink), var(--fg2), var(--tint), var(--hair), var(--accent),
    var(--shadow), corners var(--r-panel). The quiet kit's pieces: .top, .title, .btn, .btn.soft, .chip, .q-rows, .q-check. */
 .body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: calc(16 * var(--u)); }
-.panel { background: var(--card); border-radius: var(--r-panel); box-shadow: var(--shadow); padding: calc(24 * var(--u)) calc(28 * var(--u)); }
+/* One surface for the whole tab, not a card per item: lay what's inside out as rows, a timeline or a strip (DESIGN.md). */
+.panel { background: var(--card); border-radius: var(--r-panel); padding: calc(24 * var(--u)) calc(28 * var(--u)); }
