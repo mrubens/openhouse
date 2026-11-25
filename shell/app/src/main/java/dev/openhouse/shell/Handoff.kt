@@ -78,8 +78,11 @@ class Handoff(
 
     fun start(): Boolean {
         val ip = lanAddress(ctx) ?: return false
-        val s = (if (port > 0) runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(ip, port), 8) } }.getOrNull() else null)
-            ?: runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(ip, 0), 8) } }.getOrNull() ?: return false
+        // On an emulator, also reachable through adb (`adb forward`), whose connections arrive on the loopback: a computer
+        // stands in for the phone there. A real tablet listens only on its home network address.
+        val on: java.net.InetAddress = if (android.os.Build.HARDWARE == "ranchu") java.net.InetAddress.getByName("0.0.0.0") else ip
+        val s = (if (port > 0) runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(on, port), 8) } }.getOrNull() else null)
+            ?: runCatching { ServerSocket().apply { reuseAddress = true; bind(InetSocketAddress(on, 0), 8) } }.getOrNull() ?: return false
         server = s
         url = "http://${ip.hostAddress}:${s.localPort}/#" + b64(key)
         Log.i(TAG, "listening for ${minutes} min") // not the address or key
