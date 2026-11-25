@@ -1,7 +1,7 @@
 // The family's things (house.js) through the assistant's tools: rewards need a yes, a locked calendar, and no
 // duplicate events. Runs house.js on its own, with a stand-in household, in a temp folder.
 //   node --test bridge/test/*.test.mjs   (or: cd bridge && npm test)
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -189,4 +189,44 @@ test('a full list refuses the add, with a reason for the tap and for Opie, and d
   const items = JSON.parse((await h.call('family_things', {})).content[0].text).lists.find((l) => l.name === 'Groceries').items;
   assert.equal(items.length, ROOM.listItems);
   assert.equal(items[0].text, 'Thing 0', 'the oldest is still there');
+});
+
+test('a screen that keeps its view (/house/wait?same=1) still gets a full view when a reminder comes due, and when the day turns', async () => {
+  const t0 = new Date(2026, 11, 7, 23, 50).getTime(); // 11:50 PM here
+  mock.timers.enable({ apis: ['Date', 'setTimeout', 'setInterval'], now: t0 });
+  try {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x'); fs.mkdirSync(DIR);
+    // A synced event a quarter of an hour and a bit away: with the usual 15-minute reminder, due 45 s from now.
+    const swim = { uid: 'k:swim', title: 'Swim', start: new Date(t0 + 15 * 60e3 + 45e3).toISOString(), end: new Date(t0 + 75 * 60e3).toISOString(), who: 'Maya' };
+    const board = { householdView: () => ({ family: [{ name: 'Maya' }], chores: [{ who: 'Maya', task: 'Feed the cat' }], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => [swim] };
+    let next = {};
+    const h = houseRoutes({ DIR, json: (res, code, obj) => { res.out = obj; }, body: async () => next, board });
+    const ask = async (method, p, b = {}) => { next = b; const res = {}; await h({ method, headers: {}, on: () => {} }, res, new URL('http://x' + p)); return res; };
+    await ask('POST', '/house/settings', { remind: 15 });
+    await ask('POST', '/house/chore', { done: { who: 'Maya', task: 'Feed the cat' } });
+    /** Waits as a screen that keeps its view does, again after each "same", until a full view comes. */
+    async function waitForView(v) {
+      for (let i = 0; i < 40; i++) {
+        const res = await ask('GET', `/house/wait?v=${v}&same=1`);
+        while (!res.out) mock.timers.tick(5e3);
+        if (!res.out.same) return res.out;
+        v = res.out.v;
+      }
+      assert.fail('no view came');
+    }
+    let view = (await ask('GET', '/house')).out;
+    assert.equal(view.reminders.length, 0);
+    assert.equal(view.chores[0].done, true);
+    const today = view.today;
+
+    view = await waitForView(view.v);
+    assert.equal(view.reminders.length, 1, 'the reminder came due');
+    assert.equal(view.reminders[0].title, 'Swim');
+    assert.ok(Date.now() - t0 < 2 * 60e3, 'within a tick or so of coming due');
+
+    for (let i = 0; i < 40 && view.today === today; i++) view = await waitForView(view.v);
+    assert.notEqual(view.today, today, 'the day turned');
+    assert.equal(view.chores[0].done, false, 'yesterday\'s tick is not today\'s');
+    assert.ok(Date.now() - t0 < 11 * 60e3, 'soon after midnight');
+  } finally { mock.timers.reset(); }
 });

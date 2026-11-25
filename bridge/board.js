@@ -37,7 +37,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   const save = (b) => writeJson(BOARD, b);
   let curating = false, lastError = null;
   // The family's calendars, read by the shell, which keeps their links (calendar.js).
-  const cal = calendars({ DIR });
+  const cal = calendars({ DIR, onChange: () => handle.onCalendar?.() }); // (a read, or a calendar kept in part judged again: every screen)
   // Two-way calendars (Google, iCloud): the shell holds the sign-ins and makes the requests (calendar-sync.js).
   const sync = calendarSync({ FILE: registered('calendar-sync', path.join(DIR, '../calendar-sync.json')), shell: (p, b) => shellCall(p, b, { timeoutMs: 60e3 }),
     family: () => (read(HOUSE, {}).family || []).map((f) => f.name).filter(Boolean) });
@@ -89,6 +89,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       if (h.routines.length > ROOM.routines) throw full(`There's room for ${ROOM.routines} routines. Take one off first.`);
     }
     writeJson(HOUSE, h, { space: 2 });
+    handle.onCalendar?.(); // every screen: the family, their chores and the events kept there are in the view
     if (!quiet) curate('household'); // a chore ticked on or off isn't worth a curation
     return h;
   }

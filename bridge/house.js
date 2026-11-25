@@ -259,9 +259,26 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     return false;
   }
 
-  // Routines come and go with the clock: tell the apps when one starts or ends.
-  let wasActive = '';
-  setInterval(() => { const now = data.checklists.filter((c) => house.activeNow(c)).map((c) => c.id).join(','); if (now !== wasActive) { wasActive = now; changed(); } }, 30e3).unref?.();
+  // What changes with the clock alone, with no save: the day (chores, streaks, "today"), the reminders due (their chime
+  // and card come only from the view), the things on Home and their words, a synced event's note running out, routines
+  // starting or ending, the PIN's few minutes running out. A screen waiting with same=1 keeps its view, so each time any of these differs, every screen is told.
+  function clockNow() {
+    const outer = seen;
+    seen ||= {};
+    try {
+      const events = house.events(), reminders = house.reminders(Date.now(), events);
+      let strip = []; try { strip = things ? things.strip({ events, reminders }).map((x) => `${x.id} ${x.text}`) : []; } catch {} // ("Swim in 9 minutes")
+      return JSON.stringify([dayKey(), reminders.map((r) => r.key), strip, events.filter((e) => e.note).map((e) => e.id), data.checklists.filter((c) => house.activeNow(c)).map((c) => c.id),
+        house.unlocked() > Date.now(), !['off', 'none'].includes(agentName()) && !!currentAgent]);
+    } finally { seen = outer; }
+  }
+  let clock = '';
+  try { clock = clockNow(); } catch (e) { console.error('[house] clock', e.message); }
+  function tick() {
+    let now; try { now = clockNow(); } catch (e) { console.error('[house] clock', e.message); return; }
+    if (now !== clock) { clock = now; changed(); }
+  }
+  setInterval(tick, 30e3).unref?.();
   // Asks left from before a restart: nobody is looking at a card for them any more (the kid asks again).
   data.asks = [];
   for (const k of ['call', 'context', 'settings', 'putAway', 'addFlyer', 'readEmail', 'addRecipePhoto', 'prepareCook', 'addRecipeLink', 'findRecipes',
@@ -269,10 +286,11 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   handle.tools = house.TOOLS;
   handle.view = view;
   handle.changed = changed;
+  handle.tick = tick; // (tests: what the 30 s clock does)
   handle.events = () => house.events(); // the calendar as screens get it (tests)
   handle.reminders = (now) => house.reminders(now); // the reminders due now (phone-buzz.js: they buzz the phones of the people on them)
   handle.night = () => (data.settings.night === false ? null : data.settings.night || { from: '21:30', to: '06:30' });
   handle.localEvents = () => [...data.events.flatMap((e) => house.occurrences(e, Date.now() - 35 * DAY, Date.now() + 70 * DAY)), ...appEvents()];
-  board.onCalendar = () => changed(); // a two-way calendar was read or sent to (calendar-sync.js)
+  board.onCalendar = () => changed(); // a two-way calendar was read or sent to (calendar-sync.js), a link calendar read, the household saved
   return handle;
 }

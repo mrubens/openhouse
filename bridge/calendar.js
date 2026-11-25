@@ -3,7 +3,7 @@
 // bridge never has it: the shell keeps the links (CalendarLinks.kt, out of the agent's reach), reads them
 // every 15 minutes and posts what they say here. This keeps the next two weeks of events and whose they are.
 //
-//   calendars({ DIR }) -> { events(), labels(), status(), setFeeds(feeds) }
+//   calendars({ DIR, onChange }) -> { events(), labels(), status(), setFeeds(feeds) }
 //     feeds: [{ id, who, name?, only?, ics?, error? }]   (from the shell: POST /calendar/feeds)
 //     only: which of a calendar's events to keep, in the words they used ("home games"): each event is judged once by
 //     the cloud's decision model (useCalendarDecide), never by matching words; until judged an event isn't shown.
@@ -19,7 +19,7 @@ let decideFn = null;
 /** The judge for calendars kept only in part: (input, questions) -> {answers} (the cloud's /v1/decide). */
 export function useCalendarDecide(f) { decideFn = f; }
 
-export function calendars({ DIR }) {
+export function calendars({ DIR, onChange = () => {} }) {
   const CACHE = registered('calendar', path.join(DIR, '../calendar.json'));
   const empty = { events: [], at: 0, errors: {}, labels: [] };
   let cache = { ...empty, ...readJson(CACHE, {}, { bak: false }) }; // (read again from the calendars: no .bak)
@@ -75,9 +75,12 @@ export function calendars({ DIR }) {
     }
     if (pending.size) judge(pending);
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
+    const was = JSON.stringify([cache.events, cache.labels, cache.errors]);
     cache = { events, at: Date.now(), errors, labels };
     try { writeJson(CACHE, cache, { bak: false }); } catch {}
     console.log(`[calendar] ${events.length} events from ${labels.length} calendar(s)${Object.keys(errors).length ? `; ${Object.keys(errors).length} couldn't be read` : ''}`);
+    // (a read that brought nothing new doesn't make every screen fetch the house again)
+    if (JSON.stringify([events, labels, errors]) !== was) try { onChange(); } catch (e) { console.error('[calendar]', e.message); }
     return status();
   }
   const status = () => ({ at: cache.at, count: cache.events.length, errors: cache.errors });
