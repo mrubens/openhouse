@@ -67,6 +67,7 @@ internal object DeviceOwner {
     /** Lock task mode on, unless someone left kiosk mode for now. */
     fun enterKiosk(a: Activity, paused: Boolean) {
         if (!isOwner(a) || paused) return
+        UpdateGuard.kioskBack(a) // an update being watched gets its health time again from now
         backFromOut(a)
         Kiosk.apply(a)
         val am = a.getSystemService(android.app.ActivityManager::class.java)
@@ -110,7 +111,7 @@ internal object DeviceOwner {
     }
 
     /** Someone leaves kiosk mode until the display is reopened (Home): restrictions off too. */
-    fun leaveKiosk(a: Activity) { runCatching { a.stopLockTask() }; Kiosk.lift(a) }
+    fun leaveKiosk(a: Activity) { runCatching { a.stopLockTask() }; Kiosk.lift(a); if (isOwner(a)) UpdateGuard.kioskLeft(a) } // an update being watched isn't judged meanwhile
 
     /**
      * When the display is updated it's gone for a second or two and Android shows the tablet's own home

@@ -26,7 +26,14 @@ import java.io.File
 class UpdateGuard : BroadcastReceiver() {
     override fun onReceive(c: Context, intent: Intent) {
         when (intent.action) {
-            RESULT -> Log.i(TAG, "rescue install: ${intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -99)} ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}")
+            RESULT -> {
+                val st = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -99)
+                val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                Log.i(TAG, "rescue install: $st $msg")
+                // Success replaces this app (the rescue build takes over); waiting on a person can't happen for an
+                // owner, and if it does the hour runs out (UpdateHealth.rescueStuck). Anything else: it failed.
+                if (st != PackageInstaller.STATUS_SUCCESS && st != PackageInstaller.STATUS_PENDING_USER_ACTION) rescueFailed(c, "the install failed (${msg ?: st})")
+            }
             Intent.ACTION_MY_PACKAGE_REPLACED, Intent.ACTION_BOOT_COMPLETED -> {
                 if (intent.action == Intent.ACTION_BOOT_COMPLETED) booted(c)
                 val p = watching(c) ?: return
@@ -48,12 +55,43 @@ class UpdateGuard : BroadcastReceiver() {
         /** Android's count of this tablet's starts: tells one boot's clock from the next. -1 if it isn't there. */
         fun bootCount(c: Context) = Settings.Global.getInt(c.contentResolver, Settings.Global.BOOT_COUNT, -1)
 
-        /** The update being watched: the one installed now, not yet settled. */
+        /** The update being watched: the one installed now, not yet settled, and not one whose going back failed. */
         fun watching(c: Context): JSONObject? {
             val p = pending(c) ?: return null
-            if (code(c) != p.optLong("to") || File(dir(c), "healthy").exists()) return null
+            if (code(c) != p.optLong("to") || File(dir(c), "healthy").exists() || rescueOver(p) != null) return null
             return p
         }
+
+        /**
+         * Going back was tried and won't happen: why (the install failed, or it hasn't finished within the hour).
+         * Null while it hasn't been tried or is still going. The display notes it and stops watching (Updater).
+         */
+        fun rescueOver(p: JSONObject): String? {
+            p.optString("rescueFailed").takeIf { it.isNotEmpty() }?.let { return it }
+            if (p.optBoolean("rescuing") && UpdateHealth.rescueStuck(System.currentTimeMillis() - p.optLong("rescuedAt", 0))) return "it didn't finish within an hour"
+            return null
+        }
+
+        /** The rescue install failed: say so in pending.json for the display, and take the cover down. */
+        private fun rescueFailed(c: Context, why: String) {
+            pending(c)?.takeIf { it.optBoolean("rescuing") }?.let { write(c, it.put("rescuing", false).put("rescueFailed", why)) }
+            cancel(c)
+            UpdateCover.down(c)
+            Log.w(TAG, "going back failed: $why")
+        }
+
+        // Kiosk mode left (DeviceOwner.leaveKiosk) and back (enterKiosk), for this process to see: kiosk.json in the
+        // updates folder. While it's left the display isn't judged (UpdateHealth.judge); once it's back it has its
+        // health time from then.
+        fun kioskLeft(c: Context) = writeKiosk(c, true)
+        fun kioskBack(c: Context) { if (kiosk(c)?.optBoolean("left") == true) writeKiosk(c, false) }
+        private fun kiosk(c: Context) = runCatching { JSONObject(File(dir(c), "kiosk.json").readText()) }.getOrNull()
+        private fun writeKiosk(c: Context, left: Boolean) = runCatching {
+            dir(c).mkdirs()
+            val t = File(dir(c), "kiosk.json.tmp")
+            t.writeText(JSONObject().put("left", left).put("boot", bootCount(c)).put("elapsed", SystemClock.elapsedRealtime()).toString())
+            if (!t.renameTo(File(dir(c), "kiosk.json"))) t.delete()
+        }.onFailure { Log.w(TAG, "kiosk.json: $it") }
 
         /** Written whole (through a temporary file): the display and this process both read it. */
         fun write(c: Context, p: JSONObject) {
@@ -87,14 +125,19 @@ class UpdateGuard : BroadcastReceiver() {
                     else el - booted(c) // installed before a restart: since this boot was first seen
                 else -> minOf(el - booted(c), now - p.optLong("at", now)) // written by a release from before the boot clock
             }
+            val k = kiosk(c)
+            val kioskLeft = k?.optBoolean("left") == true
+            // Back in kiosk mode this boot: its time starts again then.
+            val back = k?.takeIf { !kioskLeft && boot >= 0 && it.optInt("boot", -2) == boot }?.let { el - it.optLong("elapsed") }
             return UpdateHealth.Watch(
                 hasRescue = p.optLong("rescueCode", 0) > 0,
                 healthMs = p.optInt("healthS", 300) * 1000L,
-                startedMs = started.coerceAtLeast(0),
+                startedMs = (if (back != null) minOf(started, back) else started).coerceAtLeast(0),
                 upThisBoot = p.has("upBoot") && p.getInt("upBoot") == boot,
                 proven = p.optBoolean("proven"),
                 failures = p.optInt("failures", 0),
                 sinceInstallMs = (now - p.optLong("at", now)).coerceAtLeast(0),
+                kioskLeft = kioskLeft,
             )
         }
 
@@ -139,7 +182,7 @@ class UpdateGuard : BroadcastReceiver() {
             val ok = staged >= 0 && runCatching { pi.openSession(staged).use { it.commit(sender) }; true }.onFailure { Log.w(TAG, "staged session $staged: $it") }.getOrDefault(false)
             if (ok) return
             val f = File(dir(c), "rescue.apk")
-            if (!f.exists()) { Log.w(TAG, "no rescue build on the tablet"); UpdateCover.down(c); return }
+            if (!f.exists()) { rescueFailed(c, "there's no rescue build on the tablet"); return }
             runCatching {
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
                     setAppPackageName(c.packageName)
@@ -147,7 +190,7 @@ class UpdateGuard : BroadcastReceiver() {
                 }
                 val id = pi.createSession(params)
                 pi.openSession(id).use { s -> f.inputStream().use { i -> s.openWrite("base.apk", 0, f.length()).use { o -> i.copyTo(o, 1 shl 16); s.fsync(o) } }; s.commit(sender) }
-            }.onFailure { Log.w(TAG, "rescue from file: $it"); UpdateCover.down(c) }
+            }.onFailure { rescueFailed(c, "couldn't install it from the file ($it)") }
         }
     }
 }
