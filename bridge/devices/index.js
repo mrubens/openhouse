@@ -19,6 +19,7 @@ import { fileURLToPath } from 'node:url';
 import * as find from './discover.js';
 import { pins as netPins } from './net.js';
 import { shellJson } from '../shell-call.js';
+import { asData } from '../as-data.js';
 import * as R from './recipe.js';
 import roku from './drivers/roku.js';
 import samsung from './drivers/samsung.js';
@@ -410,6 +411,8 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   }
 
   // --- words for people and for the agent ---
+  // A device's name, model and records are its own words (or whoever set it up), read off the network: marked as data.
+  const OWN_WORDS = "the devices found, with their names, models and records as the devices give them (or the names the family gave them)";
   const ago = (iso) => { const m = Math.round((Date.now() - Date.parse(iso)) / 60000); return m < 2 ? 'just now' : m < 90 ? `${m} min ago` : m < 2880 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
   function summary(kind) {
     if (!db.scannedAt) return 'Nothing found yet: the network has not been scanned. Use scan.';
@@ -421,7 +424,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
         `${d.self ? ' (this display)' : ''}\n  ${acts.length ? 'can: ' + acts.map((a) => a.name + (a.risky ? '*' : '')).join(', ') : 'no control yet'}` +
         `${d.notes?.length ? `\n  ${d.notes.join(' ')}` : ''}`;
     };
-    return `Scanned ${ago(db.scannedAt)}. ${list.length} devices (* = asks the people here first):\n${list.map(line).join('\n')}`;
+    return `Scanned ${ago(db.scannedAt)}. ${list.length} devices (* = asks the people here first):\n${list.length ? asData(list.map(line).join('\n'), OWN_WORDS, { max: 30000 }) : ''}`;
   }
   async function info(q) {
     const d = lookup(q);
@@ -429,7 +432,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     if (d.transport === 'bluetooth') return btInfo(d);
     const acts = actionsOf(d).map((a) => `- ${a.name}${a.risky ? ' (asks first)' : ''}: ${a.says}${Object.keys(a.params).length ? `; params ${JSON.stringify(a.params)}` : ''}`);
     const ev = d.evidence || {};
-    return [
+    return asData([
       `${d.customName || d.name} (${d.id})`, `kind ${d.kind}; maker ${d.maker || '?'}; model ${d.model || '?'}; address ${d.address}; MAC ${d.mac || 'unknown'}${d.vendor ? ` (${d.vendor})` : ''}`,
       d.hostname && `name at the router: ${d.hostname}`, d.driver ? `driver: ${d.driver}` : d.recipe ? `recipe: ${d.recipe}` : 'no driver or recipe',
       `open ports: ${ev.ports?.map((p) => `${p} (${find.PORTS[p] || '?'})`).join(', ') || 'none found'}`,
@@ -437,7 +440,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       ev.ssdp?.length && `UPnP:\n${ev.ssdp.map((s) => `  ${s.location} server "${s.server}"${s.desc ? ` ${JSON.stringify({ ...s.desc, services: s.desc.services?.slice(0, 12) })}` : ''}`).join('\n')}`,
       acts.length ? `actions:\n${acts.join('\n')}` : null,
       d.notes?.length && `notes: ${d.notes.join(' ')}`,
-    ].filter(Boolean).join('\n');
+    ].filter(Boolean).join('\n'), OWN_WORDS, { max: 30000 });
   }
 
   /** A Bluetooth device, for writing its recipe: what it advertised and, for a BLE one, the services inside it. */
@@ -446,7 +449,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     let tree = b.gatt, why = null;
     if (!tree && ['le', 'dual'].includes(b.type) && d.present) { try { tree = await lookInside(d, ctxFor(d)); } catch (e) { why = e.message; } }
     const acts = actionsOf(d).map((a) => `- ${a.name}${a.risky ? ' (asks first)' : ''}: ${a.says}${Object.keys(a.params).length ? `; params ${JSON.stringify(a.params)}` : ''}`);
-    return [
+    return asData([
       `${d.customName || d.name} (${d.id})`, `Bluetooth ${b.type || '?'}; kind ${d.kind}; maker ${d.maker || '?'}; address ${d.mac}; ${b.bonded ? 'paired' : 'not paired'}${b.connected ? ', connected for audio' : ''}${b.rssi != null ? `; signal ${b.rssi} dBm` : ''}`,
       b.audio && `plays audio (${b.audio})`, b.makers?.length && `maker ids in its advertisement: ${b.makers.join(', ')}`,
       d.recipe ? `recipe: ${d.recipe}` : 'no recipe',
@@ -454,7 +457,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       tree?.length ? `inside (GATT):\n${tree.map((s) => `  service ${s.uuid}${s.blocked ? ' (off limits: never written to)' : ''}\n${(s.characteristics || []).map((c) => `    ${c.uuid} ${c.can.join(' ')}`).join('\n')}`).join('\n')}`
         : why ? `couldn't look inside: ${why}` : ['le', 'dual'].includes(b.type) ? null : 'a classic Bluetooth device: it has no GATT services to write a recipe for',
       acts.length ? `actions:\n${acts.join('\n')}` : null,
-    ].filter(Boolean).join('\n');
+    ].filter(Boolean).join('\n'), OWN_WORDS, { max: 30000 });
   }
 
   // --- Bluetooth, in a few words (the voice's "bluetooth" tool) ---
@@ -464,7 +467,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     if (what === 'list' || what === 'scan') {
       if (what === 'scan' || !db.scannedAt) await scan().catch(() => {});
       const l = ble();
-      return { ok: true, text: l.length ? l.map((x) => `${x.customName || x.name} (${x.kind}, ${x.evidence?.bt?.bonded ? 'paired' : 'not paired'}): ${actionsOf(x).map((a) => a.name).join(', ')}`).join('\n') : 'No Bluetooth devices nearby. A speaker needs to be on and in pairing mode to be found.' };
+      return { ok: true, text: l.length ? asData(l.map((x) => `${x.customName || x.name} (${x.kind}, ${x.evidence?.bt?.bonded ? 'paired' : 'not paired'}): ${actionsOf(x).map((a) => a.name).join(', ')}`).join('\n'), OWN_WORDS, { max: 8000 }) : 'No Bluetooth devices nearby. A speaker needs to be on and in pairing mode to be found.' };
     }
     const action = BT_DO[what];
     if (!action) return { ok: false, text: `The bluetooth tool can: list, scan, ${Object.keys(BT_DO).join(', ')}.` };
@@ -493,7 +496,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   async function tool(name, a) {
     switch (name) {
       case 'list_devices': return summary(a.kind);
-      case 'scan': { const before = new Set(db.devices.filter((d) => d.present).map((d) => d.id)); await scan(); const added = db.devices.filter((d) => d.present && !before.has(d.id)); return (added.length && before.size ? `New: ${added.map((d) => d.name).join(', ')}\n` : '') + summary(); }
+      case 'scan': { const before = new Set(db.devices.filter((d) => d.present).map((d) => d.id)); await scan(); const added = db.devices.filter((d) => d.present && !before.has(d.id)); return (added.length && before.size ? `New: ${asData(added.map((d) => d.name).join(', '), OWN_WORDS, { max: 2000 })}\n` : '') + summary(); }
       case 'device_action': { const r = await act(a.device, a.action, a.params || {}); return { text: r.text, error: !r.ok }; }
       case 'device_info': return await info(a.device);
       case 'save_recipe': { const r = saveRecipe(a.recipe, a.device); return { text: r.text, error: !r.ok }; }

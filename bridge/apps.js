@@ -92,7 +92,10 @@ const HOUSE_KEYS = {
 export function houseFor(view, rights) {
   if (!rights || !view || typeof view !== 'object') return view;
   const keys = new Set(['basics', ...rights].flatMap((g) => HOUSE_KEYS[g] || []));
-  return Object.fromEntries(Object.entries(view).filter(([k]) => keys.has(k)));
+  const out = Object.fromEntries(Object.entries(view).filter(([k]) => keys.has(k)));
+  // A meal's groceries (mealWork's "added") are the grocery list's words: only for an app whose card covers lists.
+  if (out.mealWork && typeof out.mealWork === 'object' && !rights.has('lists')) out.mealWork = Object.fromEntries(Object.entries(out.mealWork).map(([k, w]) => [k, w && typeof w === 'object' ? (({ added, ...r }) => r)(w) : w]));
+  return out;
 }
 
 const TYPES = { '.js': 'text/javascript', '.css': 'text/css', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.txt': 'text/plain' };

@@ -1,5 +1,6 @@
 // The meal plan (the Meals app): what's for each meal, favorites, which meals are planned, and a meal's groceries.
 import { validDay, str, same, arr, must } from './util.js';
+import { asData } from '../as-data.js';
 
 export default function (house) {
   const { data, save, prune, changed, mealWork } = house;
@@ -49,11 +50,12 @@ export default function (house) {
     (async () => {
       try {
         const groceries = house.findList('Groceries', true), open = groceries.items.filter((i) => !i.done).map((i) => i.text);
-        const prompt = `What groceries does a family need to make "${text}" (${meal})? Already on the grocery list: ${open.join(', ') || 'nothing'}.\n` +
+        // The meal's name, the list and the recipe may be an app's words (or a recipe page's): marked as data.
+        const prompt = `What groceries does a family need to make the ${meal} below? The meal, what's already on the grocery list and their recipe for it, if any:\n` +
+          `${asData(JSON.stringify({ meal: text, onTheList: open, recipe: data.recipes[text.toLowerCase()]?.notes || null }, null, 1), "the planned meal, the grocery list and the meal's recipe, in the words of whoever wrote them (the household's apps, a recipe's page)", { max: 8000 })}\n` +
           'Reply with only a JSON array of short item names, like ["Tortillas", "Ground beef", "Shredded cheese"]. Leave out what is already on the list and pantry staples (salt, pepper, oil, flour, sugar, spices). At most 10.';
         const sys = 'You turn a planned meal into the few groceries to buy for it. Reply with only a JSON array of strings, nothing else. Use no tools.';
-        const recipe = data.recipes[text.toLowerCase()]?.notes;
-        const said = await house.answer(recipe ? `${prompt}\nTheir recipe for it:\n${recipe}` : prompt, sys);
+        const said = await house.answer(prompt, sys);
         const items = JSON.parse(said.match(/\[[\s\S]*\]/)?.[0] || '[]').map((x) => str(x, 40)).filter(Boolean).slice(0, 12);
         const fresh = items.filter((t) => !groceries.items.some((i) => !i.done && same(i.text, t)));
         if (fresh.length) must(house.changeList({ list: 'Groceries', add: fresh }));

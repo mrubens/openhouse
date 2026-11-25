@@ -443,9 +443,14 @@ async function appCall(req, res, url, app) {
   }
   // A recipe from a link is read by the tablet and given back: for a shared app, only from hosts it reaches (its card says
   // which); the body, read here once, is passed on as it came.
+  // What a shared app sets going stays within its card: the groceries a meal needs go on a list (its card must cover
+  // lists), and finding a recipe searches the web and reads what it finds (any host, none of them on its card).
+  if (rights && req.method === 'POST' && url.pathname === '/house/meal/ingredients' && !rights.has('lists')) return json(res, 403, { error: "This app doesn't change lists." });
   if (rights && req.method === 'POST' && /^\/house\/(recipe-link|meal)$/.test(url.pathname)) {
     const b = await body(req), no = recipeLinkRefused(url.pathname, b, plugins.reachesOf(app));
     if (no) return json(res, 403, no);
+    const typed = String(b?.addText ?? '').trim();
+    if (url.pathname === '/house/meal' && (String(b?.find ?? '').trim() || (typed && !/^\S+\.\S+$/.test(typed)))) return json(res, 403, { error: "This app doesn't search the web." });
     return route(Object.assign(Readable.from([JSON.stringify(b)]), { method: req.method, url: req.url, headers: req.headers, socket: req.socket }), houseCut(res, rights), url);
   }
   if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => (v?.same === true ? { v: v.v, same: true } : houseFor(v, rights))), url); // (nothing changed: only that)

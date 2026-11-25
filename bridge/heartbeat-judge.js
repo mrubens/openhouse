@@ -5,6 +5,8 @@
 // judge: { decide(input, questions) -> {answers}, ai({instructions, input, tools}) -> {output, usage} } — OpenAI
 // Decisions (gpt-6-luna) and the text model, through our cloud (cloud.js) or, later, the household's own key (the shell).
 
+import { asData } from './as-data.js';
+
 // gpt-6-luna, per million tokens (openhouse-cloud/docs/cloud-beta.md): Decisions are input only; the text model is $0.10 in, $0.50 out.
 export const PRICE = { decideIn: 0.10, aiIn: 0.10, aiOut: 0.50 };
 export const decideCost = (input, questions) => ((String(input).length + JSON.stringify(questions).length) / 4) * PRICE.decideIn / 1e6;
@@ -33,11 +35,13 @@ export function questions(findings, people = []) {
   return qs;
 }
 
+const FOUND = "what the screen's checks found, with apps' and calendars' own error text in it";
+
 /** What the decision model is shown: the time, the household, the notes now, and the findings, numbered. */
 export function judgeInput({ findings, when, household = '', notes = '' }) {
   return `It is ${when}. A household's kitchen screen checked on things and found what's listed below.\n\n` +
     `The household:\n${String(household).slice(0, 3000)}\n\n${String(notes).slice(0, 2000)}\n\n` +
-    `Found:\n${findings.map((f, i) => `${i + 1}. [${f.kind}] ${f.text}`).join('\n')}`;
+    `Found:\n${asData(findings.map((f, i) => `${i + 1}. [${f.kind}] ${f.text}`).join('\n'), FOUND, { max: 8000 })}`;
 }
 
 /** The answers, per finding: { worth, act, actSure, for }. */
@@ -66,7 +70,7 @@ const textOf = (out) => (out || []).filter((o) => o.type === 'message').flatMap(
 export async function writeNote({ ai, finding, verdict, level, fixQueued = false, rules = '', tools, callTool, when }) {
   const instructions = NOTE_RULES + (rules ? `\n\n---\n\n${rules}` : '');
   const input = [{ role: 'user', content: `It is ${when}. Your level is "${level}"${level === 'notice' ? ' (new lines only)' : ' (lines, and taking down your own)'}.\n\n` +
-    `Found: [${finding.kind}] ${finding.text}${verdict?.for ? `\nIt's for: ${verdict.for}` : ''}${verdict?.act === 'tidy' ? '\nA line on Home may already be about this: change it rather than add one.' : ''}` }];
+    `Found:\n${asData(`[${finding.kind}] ${finding.text}`, FOUND, { max: 2000 })}${verdict?.for ? `\nIt's for: ${verdict.for}` : ''}${verdict?.act === 'tidy' ? '\nA line on Home may already be about this: change it rather than add one.' : ''}` }];
   let cost = 0, steps = 0;
   for (; steps < STEPS; steps++) {
     let r;

@@ -6,6 +6,7 @@
 // The instant findings (an app crashing, a calendar that stopped syncing) don't wait for it: the decision model judges
 // those as soon as a check fires (heartbeat-judge.js), on the standard tier.
 import { dayKey as day } from './dates.js';
+import { asData } from './as-data.js';
 
 // gpt-6-luna per million tokens (OpenAI's pricing page, 2026-11-20, short context): standard $0.10 in, $0.01 cached,
 // $0.50 out; Flex half that. A Flex request OpenAI can't take answers 429 and costs nothing: that hour is skipped.
@@ -47,13 +48,15 @@ export function snapshot({ hv = {}, notes = '', findings = [], household = '', n
   const chores = (() => { try { return JSON.stringify(hv.chores).slice(0, 800); } catch { return ''; } })();
   const meal = (d) => { const m = hv.meals?.[d] || {}; return (hv.mealSlots || ['dinner']).map((s) => `${s}: ${cut(m[s], 40) || 'not planned'}`).join('; '); };
   return `It is ${when}.\n\nThe household:\n${cut(household, 1500)}\n\n` +
-    `Calendar, today and tomorrow:\n${ev.join('\n') || '- nothing'}\n\n` +
+    // Events come from synced calendars and the household's apps as well as from here, and the things on Home and the
+    // checks' findings carry apps' own words (an error's text): all of it is marked as data, so none reads as a request.
+    `Calendar, today and tomorrow:\n${ev.length ? asData(ev.join('\n'), "the calendar's events, with titles in the words of whoever put them there (synced calendars, the household's apps)", { max: 6000 }) : '- nothing'}\n\n` +
     `Lists (still to do):\n${lists.join('\n') || '- nothing'}\n\n` +
     (chores && chores !== '[]' && chores !== '{}' ? `Chores: ${chores}\n\n` : '') +
     `Meals: today ${meal(today)}. Tomorrow ${meal(tmw)}.\n\n` +
     `${String(notes).slice(0, 2500)}` +
-    (hv.things ? `\n\nThe things on Home (one line each, ids for take_down_thing):\n${hv.things.map((x) => `- ${x.id} [${x.kind}] ${x.text}`).join('\n') || '- none'}` : '') +
-    (findings ? `\n\nFound by the screen's checks, not looked at yet:\n${findings.map((f) => `- [${f.kind}] ${f.text}`).join('\n') || '- nothing'}` : '');
+    (hv.things ? `\n\nThe things on Home (one line each, ids for take_down_thing):\n${hv.things.length ? asData(hv.things.map((x) => `- ${x.id} [${x.kind}] ${cut(x.text, 200)}`).join('\n'), "the things on Home, in the words of whoever put them there (the household's apps, synced calendars)", { max: 6000 }) : '- none'}` : '') +
+    (findings ? `\n\nFound by the screen's checks, not looked at yet:\n${findings.length ? asData(findings.map((f) => `- [${f.kind}] ${f.text}`).join('\n'), "what the screen's checks found, with apps' and calendars' own error text in it", { max: 6000 }) : '- nothing'}` : '');
 }
 
 const textOf = (out) => (out || []).filter((o) => o.type === 'message').flatMap((o) => o.content || []).filter((c) => c.type === 'output_text').map((c) => c.text).join('');
