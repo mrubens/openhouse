@@ -121,6 +121,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     const now = events.state.request;
     const note = now ? `This was asked while the tablet was making: "${String(now).slice(0, 300)}". If that made or changed an app, this is most likely a change to that same app, as it is now.` : '';
     waiting.push({ text, who, ctx: { ...ctx, context: [ctx.context, note].filter(Boolean).join('\n\n') || null } });
+    queued();
     return { ok: true, queued: waiting.length };
   }
   function begin(text, who, ctx) {
@@ -128,8 +129,10 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       console.error(e);
       emit({ type: 'done', ok: false, text: e.message });
       setState({ state: 'idle', request: null, base: null });
-    }).finally(() => { const w = events.state.state !== 'working' && waiting.shift(); if (w) setImmediate(() => begin(w.text, w.who, w.ctx)); });
+    }).finally(() => { const w = events.state.state !== 'working' && waiting.shift(); if (w) { queued(); setImmediate(() => begin(w.text, w.who, w.ctx)); } });
   }
+  /** What waits, for the screens' "then: …" (the shell's build chip). */
+  const queued = () => emit({ type: 'queue', waiting: waiting.map((w) => w.text) });
   async function startRun(text, who, ctx = {}) {
     if (events.state.state === 'working') throw new Error('busy');
     abort = new AbortController();
@@ -309,7 +312,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       }
       case '/cancel': {
         if (events.state.state !== 'working') return json(res, 409, { error: 'not running' });
-        waiting.length = 0; // (what was waiting for it goes too)
+        waiting.length = 0; queued(); // (what was waiting for it goes too)
         abort?.abort();
         if (run) edits.discard(run); // now, so it's back at once (again when the agent has stopped)
         emit({ type: 'done', ok: false, text: 'Cancelled' });

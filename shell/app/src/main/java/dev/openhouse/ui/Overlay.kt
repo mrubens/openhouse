@@ -118,6 +118,9 @@ fun ShellOverlay() {
             AnimatedVisibility(engaged || dev.openhouse.shell.assistantEngaged(o.now), Modifier.align(Alignment.BottomCenter).padding(bottom = 10.u), enter = fadeIn(), exit = fadeOut()) {
                 MicButton(engaged)
             }
+            // An app being made: a quiet chip in the corner, not the face (it's at rest; the tablet says when it's ready).
+            if (!o.dark && !o.sleeping && !o.showConversation && o.typing == null)
+                BuildChip(Modifier.align(Alignment.BottomEnd).padding(end = 24.u, bottom = 24.u))
             // Typing: a tap anywhere outside the box puts it away (so does a tap on the assistant).
             if (o.typing != null) Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { o.closeTyping() })
             AnimatedVisibility(o.typing != null, Modifier.align(Alignment.BottomCenter).padding(horizontal = 260.u), enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut() + slideOutVertically { it / 2 }) {
@@ -317,6 +320,32 @@ private fun MicButton(on: Boolean, dark: Boolean = false, onTap: () -> Unit) {
             drawArc(ink, 0f, 180f, false, topLeft = androidx.compose.ui.geometry.Offset(w * .18f, h * .22f), size = androidx.compose.ui.geometry.Size(w * .64f, h * .56f),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
             drawLine(ink, androidx.compose.ui.geometry.Offset(w * .5f, h * .78f), androidx.compose.ui.geometry.Offset(w * .5f, h * .95f), stroke, androidx.compose.ui.graphics.StrokeCap.Round)
+        }
+    }
+}
+
+/**
+ * An app being made or changed (the builder: make_app, a typed request, the Apps sheet), and what waits after it: a
+ * quiet chip on the home screen and over apps (Buddy.kt), not the assistant's face, which has gone back to rest. Its
+ * line fills slowly with the time a build usually takes. A tap opens what's being made (or what's in flight).
+ */
+@Composable
+fun BuildChip(modifier: Modifier = Modifier) {
+    val o = Openhouse
+    val b = o.build?.takeIf { !it.done } ?: return
+    val name = b.app?.let { id -> o.apps.firstOrNull { it.id == id }?.name ?: id.replace('-', ' ').replaceFirstChar { it.uppercase() } }
+    val then = o.buildQueue.firstOrNull()
+    val shape = RoundedCornerShape(18.u)
+    val part = ((o.now - b.startedAt) / 90_000f).coerceIn(0.04f, 0.92f) // most builds take a minute or two
+    val shown by animateFloatAsState(part, label = "made")
+    Column(modifier.widthIn(min = 260.u, max = 420.u).shadow(10.u, shape).clip(shape).background(Color.White)
+        .clickable { if (b.app != null && o.openAppId != b.app) o.openApp(b.app) else o.showJobs = true }
+        .padding(start = 20.u, end = 20.u, top = 12.u, bottom = 12.u), verticalArrangement = Arrangement.spacedBy(6.u)) {
+        Text(if (name != null) "Making $name…" else "Making it…", style = quietText(17, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(listOfNotNull(b.live ?: b.stage, then?.let { "then: $it" + if (o.buildQueue.size > 1) " and ${o.buildQueue.size - 1} more" else "" }).joinToString(" · "),
+            style = quietText(14, color = PaperLook.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box(Modifier.fillMaxWidth().height(3.u).clip(RoundedCornerShape(2.u)).background(PaperLook.ink.copy(alpha = .08f))) {
+            Box(Modifier.fillMaxWidth(shown).fillMaxHeight().background(PaperLook.ink.copy(alpha = .45f)))
         }
     }
 }

@@ -164,8 +164,21 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
     ).apply { gravity = Gravity.BOTTOM or Gravity.START; x = 40; y = 80 }
     private var wordsAdded = false
 
+    /** An app being made (dev.openhouse.ui.BuildChip): its quiet chip in the bottom corner, over whatever app is open. */
+    private val chip = ComposeView(svc).apply {
+        setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner)
+        setContent { CompositionLocalProvider(LocalU provides LocalConfiguration.current.screenWidthDp / 1536f) { dev.openhouse.ui.BuildChip(Modifier.padding(12.u)) } }
+    }
+    private val chipLp = WindowManager.LayoutParams(
+        WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+        PixelFormat.TRANSLUCENT,
+    ).apply { gravity = Gravity.BOTTOM or Gravity.END }
+    private var chipAdded = false
 
-    fun close() { if (Buddy.window === this) Buddy.window = null; anim?.cancel(); if (added) runCatching { wm.removeView(view) }; added = false; if (wordsAdded) runCatching { wm.removeView(words) }; wordsAdded = false }
+
+    fun close() { if (Buddy.window === this) Buddy.window = null; anim?.cancel(); if (added) runCatching { wm.removeView(view) }; added = false; if (wordsAdded) runCatching { wm.removeView(words) }; wordsAdded = false; if (chipAdded) runCatching { wm.removeView(chip) }; chipAdded = false }
 
     fun refresh() {
         val want = !Buddy.shellOnTop && !Buddy.covering
@@ -175,6 +188,8 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
         } else if (!want && added) { runCatching { wm.removeView(view) }; added = false }
         if (want && !wordsAdded) { wordsLp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; wordsLp.x = 0; wordsLp.y = (20 * unit()).toInt(); runCatching { wm.addView(words, wordsLp); wordsAdded = true } } // their words: along the bottom, centred
         else if (!want && wordsAdded) { runCatching { wm.removeView(words) }; wordsAdded = false }
+        if (want && !chipAdded) { chipLp.x = (12 * unit()).toInt(); chipLp.y = (12 * unit()).toInt(); runCatching { wm.addView(chip, chipLp); chipAdded = true } }
+        else if (!want && chipAdded) { runCatching { wm.removeView(chip) }; chipAdded = false }
     }
 
     private fun screen() = wm.currentWindowMetrics.bounds

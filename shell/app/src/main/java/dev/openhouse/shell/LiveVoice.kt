@@ -350,10 +350,6 @@ internal object LiveVoice {
         }
         /** Seconds of quiet, with nothing in the works, before it ends. */
         @JavascriptInterface fun idle() = idleS
-        /** An app being made or changed (make_app: the builder, bridge/builder.js): what to say now and then while it
-         *  stays for it, or "" for none. Not while its card waits for a tap: the bridge says it's ready, and then it goes. */
-        @JavascriptInterface fun building(): String =
-            if (Openhouse.build?.done == false && !ApprovalCard.open) "Still making it." else ""
     }
 
     // The session's page: chat/live/live-session.cjs, the one copy the tablet and every browser run (a phone or laptop

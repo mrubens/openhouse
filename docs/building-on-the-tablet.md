@@ -22,10 +22,11 @@ One build runs at a time. A request made while one is being made ("and make the 
 its turn and runs right after it, as its own change with its own card, told what was being made so it lands in the
 same app. Up to three wait; `/cancel` clears them with the run. Opie calls `make_app` once for each change asked for.
 
-Asked aloud, the conversation stays while the app is being made (`chat/live/live-session.cjs`, `Host.building`): it
-says "Still making it." now and then, because OpenAI ends a session after 60 s with nothing said, for up to four
-minutes. When the app is ready for the card, the tablet says so (`rails.js say`), and the conversation ends as usual
-while the card waits for a tap. If the build doesn't work, the tablet says why.
+Asked aloud, Opie says once that it's making it and that the tablet will say when it's ready, and the conversation
+ends as usual. While it works, a quiet chip in the bottom corner, on the home screen and over apps, says what's
+being made ("Making Reading Streak…"), what it's doing, and what waits after it ("then: …"). Its line fills with
+the time a build usually takes, and a tap opens what's being made (`BuildChip`, `Overlay.kt` and `Buddy.kt`). When
+it's ready for the card, the tablet says so (`rails.js say`). If the build doesn't work, the tablet says why.
 
 ## The rails (`bridge/rails.js`)
 

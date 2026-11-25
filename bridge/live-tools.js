@@ -275,8 +275,9 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === MESSAGE_NAME && phones) return sendMessage(args || {}, ctx.phone?.person || null);
     if (name === MAKE_APP_TOOL.name && builds) {
       const r = await builds(String(args?.what || ''), ctx.phone?.person || null, { phone: !!ctx.phone }).catch(() => ({ ok: false }));
-      return r.queued ? { text: `Queued: the tablet makes it right after what it's making now${r.queued > 1 ? ` (${r.queued - 1} more before it)` : ''}, then a grown-up says yes there. Tell them it's next; you'll stay until it's ready.`, isError: false }
-        : r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them it opens on the tablet when it\'s ready and a grown-up says yes there; you\'ll stay until it\'s ready.', isError: false }
+      // Said once, then the conversation ends as usual: the tablet shows it being made and says when it's ready.
+      return r.queued ? { text: `Queued: the tablet makes it right after what it's making now${r.queued > 1 ? ` (${r.queued - 1} more before it)` : ''}. Tell them in one short sentence that it's next and the tablet will say when it's ready; don't wait for it.`, isError: false }
+        : r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them in one short sentence that you\'re making it and the tablet will say when it\'s ready for a grown-up\'s yes; don\'t wait for it.', isError: false }
         : { text: r.busy ? 'The tablet already has a few things waiting to be made: tell them to ask again once those are done.' : 'Making apps on the tablet isn\'t on: someone does it from their computer (Settings, then Screens and computers).', isError: true };
     }
     if (name === SETUP_TOOL.name && inSetup()) {

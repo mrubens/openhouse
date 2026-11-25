@@ -322,6 +322,7 @@ internal object Turns {
         when (ev.optString("type")) {
             "state" -> if (ev.optString("state") == "working" && (b == null || b.done)) o.build = Build(ev.optString("request"), ev.s("who"), ev.optLong("startedAt", System.currentTimeMillis()))
             "ack" -> o.build = Build(ev.optString("text"), ev.s("who"), System.currentTimeMillis())
+            "queue" -> o.buildQueue = ev.optJSONArray("waiting")?.let { a -> List(a.length()) { a.optString(it) } }.orEmpty()
             "phase" -> if (b != null) stages[ev.optString("name")]?.let { o.build = b.copy(stage = it) }
             "delta" -> if (b != null && b.plan == null) o.build = b.copy(plan = firstSentence(ev.optString("text")))
             "log" -> if (b != null && ev.optString("kind") == "tool") {
