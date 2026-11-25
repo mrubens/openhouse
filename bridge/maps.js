@@ -60,14 +60,21 @@ export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = n
     // then the name alone close to home.
     const words = str(q, 200), first = words.split(',')[0].trim();
     const tries = [[words, ''], ...(words.includes(',') ? [[words.replace(/,/g, ' '), '']] : []), ...(h && first !== words ? [[first, '&bounded=1']] : [])];
+    let far = () => 0;
     let g = null;
     for (const [w, bound] of tries) {
       // Several matches, and the one nearest home: the first match alone can be a namesake ("Ridge Road, Chelsea" is in
       // Alabama too, and Nominatim doesn't read a state's abbreviation), and the viewbox only leans its order.
       const r = await polite(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=${h ? 8 : 1}&addressdetails=0&q=${encodeURIComponent(w)}${box}${box && bound}`);
-      const far = (x) => (h ? (Number(x.lat) - h.lat) ** 2 + ((Number(x.lon) - h.lon) * Math.cos(h.lat * Math.PI / 180)) ** 2 : 0);
+      far = (x) => (h ? (Number(x.lat) - h.lat) ** 2 + ((Number(x.lon) - h.lon) * Math.cos(h.lat * Math.PI / 180)) ** 2 : 0);
       const best = Array.isArray(r) && r.length ? r.reduce((a, b) => (far(b) < far(a) ? b : a)) : null;
-      if (best) { g = { lat: round(Number(best.lat)), lon: round(Number(best.lon)), label: str(best.display_name, 200).replace(/(^|, )(\d+[a-z]?), /i, '$1$2 ') } /* "801, SW 10th Ave" → "801 SW 10th Ave" */; break; }
+      if (!best) continue;
+      const found = { lat: round(Number(best.lat)), lon: round(Number(best.lon)), label: str(best.display_name, 200).replace(/(^|, )(\d+[a-z]?), /i, '$1$2 ') }; // "801, SW 10th Ave" → "801 SW 10th Ave"
+      // Far from home (over ~150 km) is kept only if nothing nearer turns up: a rural address OpenStreetMap files under its
+      // township ("Sylvan Township", not "Chelsea") matched a namesake town in another state, and the next try, the
+      // street alone near home, finds it.
+      if (h && far(best) > (150 / 111) ** 2) { g ||= found; continue; }
+      g = found; break;
     }
     cache.geo[k] = g;
     if (!g) cache.geoMiss = { ...(cache.geoMiss || {}), [k]: now() };
