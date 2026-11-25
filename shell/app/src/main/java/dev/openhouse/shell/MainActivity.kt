@@ -269,7 +269,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         Runtime.setSafeMode(on)
         if (on) thread { dev.openhouse.ui.BridgeClient.post("$bridge/cancel") }
     }
-    internal fun reloadHome() = home.reload()
+    internal fun reloadHome(first: Boolean = false) = home.reload(first)
     internal fun toast(t: String) = android.widget.Toast.makeText(this, t, android.widget.Toast.LENGTH_SHORT).show()
 
     override fun onResume() {

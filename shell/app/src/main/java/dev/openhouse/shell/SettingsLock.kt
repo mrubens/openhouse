@@ -59,6 +59,7 @@ internal class SettingsLock(private val act: MainActivity) {
             // step is showing: anywhere else a first PIN is firstPin's.
             "setupPin" -> if (on) dev.openhouse.ui.Setup.next() else if (Openhouse.setupStep == "pin") PinPrompt.choose(act, act, then = { changed(); dev.openhouse.ui.Setup.next() })
             "reloadHome" -> act.reloadHome()
+            "reloadHomeFirst" -> act.reloadHome(first = true) // the setup's end: on Home, whichever tab showed during it
         }
     }
 

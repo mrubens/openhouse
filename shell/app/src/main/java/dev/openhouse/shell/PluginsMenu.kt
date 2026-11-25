@@ -30,12 +30,12 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             o.openTyping(note = note, seed = "Make ")
         }
 
-        /** An app to ask for, in the household's own names: the children's (an age for a note), else anyone's
-         *  (chat/src/home.jsx makeExample says the same on the Apps tab and the phone). */
+        /** An app to ask for, in the children's names (an age under 18 for a note); with none known to be children, a
+         *  neutral one, never a name that might be a grown-up's (chat/src/home.jsx makeExample says the same on the
+         *  Apps tab and the phone). */
         fun example(family: List<JSONObject>): String {
-            val people = family.filter { !Regex("\\b(dog|cat|pet|fish|bird|hamster|rabbit)\\b", RegexOption.IGNORE_CASE).containsMatchIn(it.optString("note")) && it.optString("name").isNotBlank() }
-            val kids = people.filter { it.optString("note").trim().toIntOrNull()?.let { n -> n < 18 } == true && it.optString("note").trim().length <= 2 }
-            val names = (kids.ifEmpty { people }).take(2).map { it.optString("name") }
+            val kids = family.filter { it.optString("name").isNotBlank() && it.optString("note").trim().let { n -> n.length in 1..2 && n.all { ch -> ch.isDigit() } && n.toInt() < 18 } }
+            val names = kids.take(2).map { it.optString("name").trim() }
             return if (names.isEmpty()) "Make a countdown to our next trip" else "Make a reading streak for ${names.joinToString(" and ")}"
         }
     }
