@@ -9,8 +9,8 @@ import org.junit.Test
 class UpdateHealthTest {
     private val min = 60_000L
     private val hour = 60 * min
-    private fun w(up: Boolean = true, started: Long = 0, proven: Boolean = false, failures: Int = 0, since: Long = 0, rescue: Boolean = true) =
-        UpdateHealth.Watch(hasRescue = rescue, healthMs = 5 * min, startedMs = started, upThisBoot = up, proven = proven, failures = failures, sinceInstallMs = since)
+    private fun w(up: Boolean = true, started: Long = 0, proven: Boolean = false, failures: Int = 0, since: Long = 0, rescue: Boolean = true, kioskLeft: Boolean = false) =
+        UpdateHealth.Watch(hasRescue = rescue, healthMs = 5 * min, startedMs = started, upThisBoot = up, proven = proven, failures = failures, sinceInstallMs = since, kioskLeft = kioskLeft)
     private fun goesBack(v: Verdict) = v is Verdict.GoBack
 
     @Test fun notUpGoesBackOnlyAfterItsTimeOnTheBootClock() {
@@ -32,12 +32,25 @@ class UpdateHealthTest {
         assertTrue(goesBack(UpdateHealth.judge(w(failures = UpdateHealth.MIN_FAILURES, since = day))))
         assertFalse(goesBack(UpdateHealth.judge(w(failures = 0, since = 3 * day)))) // offline the whole time: keep waiting
         assertFalse(goesBack(UpdateHealth.judge(w(failures = 10, proven = true, since = day))))
-        // Only failures with a working network, and not the server's own trouble, count.
-        assertFalse(UpdateHealth.failureCounts(null, networkValidated = false))
-        assertFalse(UpdateHealth.failureCounts(404, networkValidated = false))
-        assertFalse(UpdateHealth.failureCounts(503, networkValidated = true))
-        assertFalse(UpdateHealth.failureCounts(429, networkValidated = true))
-        assertTrue(UpdateHealth.failureCounts(404, networkValidated = true))
-        assertTrue(UpdateHealth.failureCounts(null, networkValidated = true)) // no answer, or one that didn't parse
+        // Only an answer that arrived and couldn't be read as a manifest counts, and only on a validated network:
+        // not reaching the server at all (DNS, TLS, any HTTP status) proves nothing.
+        assertTrue(UpdateHealth.failureCounts(badAnswer = true, networkValidated = true))
+        assertFalse(UpdateHealth.failureCounts(badAnswer = true, networkValidated = false)) // a captive portal's page
+        assertFalse(UpdateHealth.failureCounts(badAnswer = false, networkValidated = true))
+        assertFalse(UpdateHealth.failureCounts(badAnswer = false, networkValidated = false))
+    }
+
+    @Test fun notJudgedWhileKioskModeIsLeft() {
+        // Out of kiosk (Android settings, "Leave kiosk mode", a restart meanwhile): never goes back for it.
+        assertEquals(Verdict.Wait(5 * min), UpdateHealth.judge(w(up = false, started = 2 * hour, kioskLeft = true)))
+        assertEquals(Verdict.Wait(5 * min), UpdateHealth.judge(w(failures = 10, since = UpdateHealth.KEEP_MS, kioskLeft = true)))
+        assertEquals(Verdict.Settle, UpdateHealth.judge(w(proven = true, since = UpdateHealth.KEEP_MS, kioskLeft = true))) // a good one still settles
+    }
+
+    @Test fun aStuckRescueExpiresAfterAnHour() {
+        assertFalse(UpdateHealth.rescueStuck(10 * min))
+        assertTrue(UpdateHealth.rescueStuck(UpdateHealth.RESCUE_MS))
+        assertFalse(UpdateHealth.rescueStuck(-10_000)) // the clock set back a little: still going
+        assertTrue(UpdateHealth.rescueStuck(-2 * hour))
     }
 }

@@ -129,16 +129,26 @@ again. It goes back when:
 - the new display hasn't come up within five minutes, crashed or not. That's on the boot clock
   (`SystemClock.elapsedRealtime`), from the install, or from the start of this boot after a restart, and it has to
   come up again after every restart while the rescue is kept. A restart in the window gives it its five minutes
-  again instead of a judgment seconds after boot.
+  again instead of a judgment seconds after boot. While someone has left kiosk mode (Android settings, Wi-Fi,
+  *Leave kiosk mode*) it isn't judged at all, even across a restart: the display writes `files/updates/kiosk.json`
+  when kiosk mode is left and again when it's back, and from then it has its five minutes again.
 - a day after the install, none of its manifest checks has worked and at least three counted against it. A check
-  counts only when Android has validated the network and the server isn't the trouble (no 5xx or 429): a tablet
-  that's offline, or a server that's down, proves nothing, so the rescue stays and it keeps trying hourly.
+  counts only when an answer arrived (HTTP 200) and the release couldn't read it as a manifest or refused it by the
+  checks it applies to every manifest, and only when Android has validated the network (so not a captive portal's
+  page). Not getting an answer at all (offline, DNS, TLS, a timeout) or getting any other HTTP status proves nothing,
+  since the network, the server or the host's setup may be the trouble: the rescue stays and it keeps trying hourly.
+  So a release whose updater can't reach the host at all is never sent back for it; it waits for one that can.
 
 To go back it puts the cover up and commits the staged session (or installs `rescue.apk` from the file if the session
 is gone). The rescue build starts,
 remembers that release failed here and never tries it again, and Settings says *Version 0.4.0 didn't start
 properly, so this tablet went back to 0.3.0*. The next release (0.5.0 = 50000) is above the rescue build (40001), so it
 updates as usual.
+
+Going back is tried once. If the rescue install fails (its result says so, or there's no rescue build to install), or
+it hasn't finished an hour after it started, the release stays: the display notes it in the history (*Version 0.4.0
+didn't start properly, but going back to 0.3.0 failed (…), so it stays on 0.4.0*), throws the rescue away, takes the
+cover down and checks for updates again as usual, so a newer release can still come.
 
 A tablet that skipped releases goes back to the release before the broken one, not to the one it had. That's a
 version other tablets are running.

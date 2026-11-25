@@ -96,15 +96,18 @@ internal object Updater {
         prefs(c).edit().putLong("last_check", now).putLong("next_check", now + DAY).apply()
         if (url.isEmpty()) { status = "Updates are off on this tablet"; proof(c, false, true, "no update URL"); return }
         val cred = cloudCredential(c, url)
-        val answer = try {
-            val ask = Releases.requestUrl(url, installedCode(c), prefs(c).getString("channel", "stable")!!, if (cred == null) deviceId(c) else null)
-            Releases.parseAnswer(fetchText(ask, cred?.let { "Device $it" }), url)
-        } catch (e: Exception) {
+        fun couldnt(e: Exception, badAnswer: Boolean) {
             prefs(c).edit().putLong("next_check", now + DAY / 24).apply()
             Log.w(TAG, "manifest $url: $e"); status = "Couldn't check for updates (${e.message?.take(80)})"
-            proof(c, false, UpdateHealth.failureCounts((e as? HttpStatus)?.code, networkValidated(c)), e.toString().take(200))
-            return
+            proof(c, false, UpdateHealth.failureCounts(badAnswer, networkValidated(c)), e.toString().take(200))
         }
+        // Fetching and reading apart: only an answer that came and couldn't be read (or was refused) can count against
+        // a release being watched; not getting one at all (DNS, TLS, a timeout, any HTTP status) can't (UpdateHealth).
+        val text = try {
+            val ask = Releases.requestUrl(url, installedCode(c), prefs(c).getString("channel", "stable")!!, if (cred == null) deviceId(c) else null)
+            fetchText(ask, cred?.let { "Device $it" })
+        } catch (e: Exception) { couldnt(e, badAnswer = false); return }
+        val answer = try { Releases.parseAnswer(text, url) } catch (e: Exception) { couldnt(e, badAnswer = true); return }
         proof(c, true, false, null)
         answer.checkAgainSeconds?.let { prefs(c).edit().putLong("next_check", now + it * 1000).apply() }
         val r = answer.release ?: run { status = "Up to date"; clearDownloads(c); Log.i(TAG, "checked $url: $status"); return }
@@ -190,7 +193,7 @@ internal object Updater {
         throw java.io.IOException("too many redirects")
     }
 
-    /** The server answered, but not with the file: which answer (UpdateHealth.failureCounts tells the server's trouble from ours). */
+    /** The server answered, but not with the file: which answer. */
     class HttpStatus(val code: Int) : java.io.IOException("HTTP $code")
 
     /** Android has checked this network reaches the internet (not offline, not behind a sign-in page). */
@@ -328,7 +331,21 @@ internal object Updater {
         val to = p.getLong("to")
         when {
             mine == to -> {
-                if (File(dir(c), "healthy").exists() || p.optBoolean("rescuing")) return
+                if (File(dir(c), "healthy").exists()) return
+                UpdateGuard.rescueOver(p)?.let { why ->
+                    // Going back was tried and didn't happen: this release stays, and updates go on as usual (a newer
+                    // release, with its own rescue, is the way forward from here).
+                    val version = p.optString("version")
+                    history(c, "Version $version ${p.optString("why", "didn't start properly")}, but going back to ${p.optString("rescueVersion")} failed ($why), so it stays on $version")
+                    if (p.optBoolean("rescuing")) UpdateCover.down(c) // stuck: the guard never heard back, so the cover may still be up
+                    UpdateGuard.settle(c, p)
+                    clearDownloads(c)
+                    prefs(c).edit().putLong("next_check", 0).apply()
+                    status = "Version $version is running; going back to ${p.optString("rescueVersion")} didn't work"
+                    Log.w(TAG, "rescue failed: $why")
+                    return
+                }
+                if (p.optBoolean("rescuing")) return
                 val version = p.optString("version")
                 if (!UpdateGuard.watch(c, p).upThisBoot) {
                     val bridgeOk = runCatching { dev.openhouse.ui.BridgeClient.getText("$bridge/state", 3000, 5000) }.isSuccess
