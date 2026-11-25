@@ -31,7 +31,9 @@ internal object Screens {
     fun tellAddress(c: android.content.Context) = thread {
         val ip = Handoff.lanAddress(c)?.hostAddress ?: return@thread
         if (ip == told) return@thread
-        if (post("/screens/address", JSONObject().put("address", ip)) != null) told = ip
+        // (Early at start-up the bridge's connection isn't set up yet: a throw here would take the whole app down. The
+        // next network change or start tries again.)
+        if (runCatching { post("/screens/address", JSONObject().put("address", ip)) }.getOrNull() != null) told = ip
     }
 
     private fun get(a: MainActivity): JSONObject? = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/screens")) }.getOrNull()
