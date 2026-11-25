@@ -18,6 +18,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import * as find from './discover.js';
 import { pins as netPins } from './net.js';
+import { shellJson } from '../shell-call.js';
 import * as R from './recipe.js';
 import roku from './drivers/roku.js';
 import samsung from './drivers/samsung.js';
@@ -106,12 +107,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   process.env.HOME_MCP_CONFIG = MCP_FILE; process.env.HOME_MCP_URL = mcpUrl; process.env.HOME_MCP_TOKEN = token;
 
   // The shell: its "Is this OK?" card, its status pill, and the Wi-Fi multicast lock.
-  const shellCfg = () => { try { const d = JSON.parse(fs.readFileSync(process.env.DEVICE_MCP_CONFIG, 'utf8')).mcpServers.device; return { base: d.url.replace(/\/mcp$/, ''), auth: d.headers.Authorization }; } catch { return null; } };
-  async function shell(p, b, ms = 3000) {
-    const s = shellCfg();
-    if (!s) return null;
-    try { const r = await fetch(s.base + p, { method: 'POST', headers: { authorization: s.auth, 'content-type': 'application/json' }, body: JSON.stringify(b), signal: AbortSignal.timeout(ms) }); return r.ok ? await r.json() : null; } catch { return null; }
-  }
+  const shell = (p, b, ms = 3000) => shellJson(p, b, ms);
   const approve = async (title, detail, extra = {}) => (await shell('/approve', { ...extra, title, detail }, 100_000))?.yes === true;
   const say = (text) => { log(text); shell('/say', { text }); };
   const bt = btClient(shell);
