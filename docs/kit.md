@@ -1,7 +1,7 @@
-# The kit, version 1
+# The kit
 
-The JavaScript every app imports to reach the household's things: `bridge/kit/openhouse.js`, served to apps by the
-bridge (`bridge/apps.js`, `bridge/kit-version.js`).
+The JavaScript every app imports to reach the household's things, served to apps by the bridge (`bridge/apps.js`,
+`bridge/kit-version.js`): version 2 is `bridge/kit/openhouse-v2.js`, version 1 `bridge/kit/openhouse.js`.
 
 ```js
 import { house, store, timer, say, phone, shell } from '/kit/openhouse.js';
@@ -9,16 +9,21 @@ import { house, store, timer, say, phone, shell } from '/kit/openhouse.js';
 
 ## Versions
 
-- An app says which version it was made for in its `app.json`: `"kit": 1`. The bridge then serves version 1 at
-  `/kit/openhouse.js` for that app's pages, whatever the newest version is. `/kit/v1/openhouse.js` names it outright.
-- An app that names no version gets the newest at `/kit/openhouse.js` (today that is version 1).
-- Version 1 is frozen: functions may be added to it and bugs fixed, but nothing in this list changes its arguments
-  or what it resolves to. A change that would break an app made for version 1 goes in version 2, a file of its own
-  (`bridge/kit/openhouse-v2.js`, listed in `KIT_VERSIONS`), and version 1 keeps being served.
+- An app says which version it was made for in its `app.json`: `"kit": 2` for a new app. The bridge then serves that
+  version at `/kit/openhouse.js` for that app's pages, whatever the newest version is. `/kit/v1/openhouse.js` and
+  `/kit/v2/openhouse.js` name one outright.
+- An app that names no version gets version 1 at `/kit/openhouse.js`: the kit as it was before versions, which the
+  apps made then expect. One that names a version newer than the tablet has gets the newest there.
+- The two differ only in how a change fails (below). Everything else in this page is the same in both.
+- A version is frozen: functions may be added to it and bugs fixed, but nothing in this list changes its arguments
+  or what it resolves to. A change that would break an app made for a version goes in the next one, a file of its own
+  (`bridge/kit/openhouse-v3.js`, listed in `KIT_VERSIONS`), and the older ones keep being served.
 - On a phone, the app's bundle carries the version its `app.json` names (`bridge/screens.js` `appFileList`).
 - `version` (exported) is the version the page got.
 
 ## Failures
+
+### Version 2
 
 **Every change resolves and never rejects.** It resolves to the bridge's answer (usually `{ok: true, …}`), or, when
 the change didn't happen, to
@@ -34,6 +39,20 @@ the change didn't happen, to
 Test `r?.ok === false` for a failure, and show `r.error` when there is one. A change with nothing to send (blank text
 to `addItem`, `addList`, `renameList`, `addChore`, `addEvent`, `addReward`) resolves `null` and asks nothing.
 `devices.do` also has `text` and `limited` (below). On a TV every change resolves `{ok: false, status: 403}`.
+
+### Version 1
+
+A change fails in one of these ways, by which it is:
+
+- The `house.*` changes, `timer.start`, `timer.cancel` and `handsFree` resolve `{ error }` when the change didn't
+  happen (`error`: the bridge's reason in words to show, or `null`). Test `r?.error !== undefined`. With blank text
+  (`addItem`, `addList`, `renameList`, `addChore`, `addEvent`, `addReward`) they ask nothing and give back that blank
+  (not a promise).
+- `store.set`, `house.addPhoto`, `setLocation`, `map.turnOn`, `map.save`, `map.remove` and `map.clear` **reject**
+  when they fail: `await` them in a `try`, or `.catch`.
+- `house.addAlbumLink`, `reach.ask` and `reach.forget` resolve `{ error }` (`reach`: `{ ok: false, error }`).
+- `days.set`, `events.set`, `today.show`, `today.clear` and `say` never reject and tell nothing of a failure.
+- `devices.do` resolves `{ ok: false, text, limited }`.
 
 Reads differ by what they read, and are listed with each one: some resolve `null` or `[]` when they can't, some
 reject.
@@ -105,7 +124,7 @@ reject.
 | `house.showAlbum(id, {sleep?, all?})` | | change |
 | `house.setNight(from, to)` | `"HH:MM"` each; null for none | change |
 
-"change" means the failure rule above.
+"change" means the failure rule above for the version the app got.
 
 ## Everything else
 
@@ -156,7 +175,7 @@ reject.
 | `dayKey(d?)` | a Date (now) | `"YYYY-MM-DD"` in the tablet's own time, as `house.dayKey` |
 | `dateOf(key)` | `"YYYY-MM-DD"` | A Date at noon local that day |
 | `addDays(key, n)` | `"YYYY-MM-DD"`, days (may be negative) | The key `n` days on; counted from noon, so daylight saving time never skips or repeats a day |
-| `version` | | `1` |
+| `version` | | `1` or `2` |
 
 What a plugin's app may call follows its `app.json` `"uses"` (`docs/plugins.md`); a call it may not make is a failure
 with status 403.

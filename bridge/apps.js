@@ -18,8 +18,8 @@
 // POST /appdata/import?app=<id>  (the display only) what an app saved before it was a web page, handed over once by its
 //                                old window: {files: {name: text}, prefs: {file: {key: value}}}, kept as legacy.json
 // GET /kit/<file>                the kit: openhouse.js, openhouse.css, fonts (no key: plain code and fonts)
-// GET /kit/v1/openhouse.js       the kit's version 1 by name; /kit/openhouse.js is the one the app's app.json "kit"
-//                                names (the page asking, by its address), else the newest (kit-version.js, docs/kit.md)
+// GET /kit/v1/openhouse.js       the kit's version 1 by name (v2 too); /kit/openhouse.js is the one the app's app.json "kit"
+//                                names (the page asking, by its address), else version 1 (kit-version.js, docs/kit.md)
 import fs from 'node:fs';
 import { kitFile } from './kit-version.js';
 import { writeFileAtomic } from './store.js';

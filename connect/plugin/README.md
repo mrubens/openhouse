@@ -1,7 +1,7 @@
 # The OpenHouse plugin
 
 Made by `scripts/build-plugin.mjs` from the tablet's guide (`bridge/workshop-guide.js`); don't edit it by hand.
-Guide version b99689307304. How it works: [docs/workshop-mcp.md](../../docs/workshop-mcp.md).
+Guide version 862a16609b60. How it works: [docs/workshop-mcp.md](../../docs/workshop-mcp.md).
 
 Claude Code (which also gets these skills from the connector itself, so it needs this only for the connector):
 

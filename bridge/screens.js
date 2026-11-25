@@ -95,7 +95,7 @@ const RULES = [
   // hub printed when it started (someone with the hub's console), and to devices that one adds as admins.
   ['admin', 'GET', /^\/(screens|cloud\/status|cloud\/voice|backup\/status|backup\/list|backup\/recovery-code|relay|hub)$/],
   ['admin', 'POST', /^\/screens\/(pair|pair\/end|answer|revoke)$/],
-  ['admin', 'POST', /^\/cloud\/(link\/start|link\/cancel|unlink|voice|voice\/name)$/],
+  ['admin', 'POST', /^\/cloud\/(link\/start|link\/confirm|link\/cancel|unlink|voice|voice\/name)$/],
   ['admin', 'POST', /^\/backup\/(dest|now|restore|escrow|recovery-code\/confirmed)$/],
   ['admin', 'POST', /^\/(relay|hub\/update|webmcp)$/], ['admin', 'GET', /^\/webmcp$/], // the connector at the household's own address (web-mcp.js)
 ];

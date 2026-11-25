@@ -6,6 +6,7 @@ import crypto from 'node:crypto';
 import { albumSync } from '../photo-albums.js';
 import { stillMaker } from '../stills.js';
 import { DAY, VIDEO, MEDIA, MAX_VIDEO, MAX_PICTURE, videoKind, localWhen, str, same, arr } from './util.js';
+import { asData } from '../as-data.js';
 
 export default function (house) {
   const { data, save, changed, appName, PHOTOS } = house;
@@ -212,9 +213,13 @@ export default function (house) {
     const when = (n) => { try { return localWhen(new Date(fs.statSync(path.join(PHOTOS, n)).mtimeMs).toISOString()); } catch { return null; } };
     if (a.do === 'list') {
       const all = photos();
-      return ok({ photos: all.slice(0, 80).map((n) => ({ name: n, when: when(n), ...(data.captions[n] ? { caption: data.captions[n] } : {}), ...(inAlbums(n).length ? { albums: inAlbums(n) } : {}) })), ...(all.length > 80 ? { more: all.length - 80 } : {}),
+      // Captions come from shared albums and apps as well as the household: after the list, marked as data.
+      const shown = all.slice(0, 80), caps = Object.fromEntries(shown.filter((n) => data.captions[n]).map((n) => [n, data.captions[n]]));
+      const r = ok({ photos: shown.map((n) => ({ name: n, when: when(n), ...(inAlbums(n).length ? { albums: inAlbums(n) } : {}) })), ...(all.length > 80 ? { more: all.length - 80 } : {}),
         albums: data.albums.map((x) => ({ id: x.id, name: x.name, photos: x.photos.length, ...(x.from ? { from: x.from } : {}), ...(x.sleep === false ? { sleepScreen: false } : {}), ...(x.all === false ? { inAll: false } : {}) })),
         takenOff: removedPhotos().slice(0, 30) });
+      if (Object.keys(caps).length) r.content.push({ type: 'text', text: asData(JSON.stringify(caps, null, 1), "the photos' captions, by name (a shared album's or an app's words as often as the household's)") });
+      return r;
     }
     if (a.do === 'take_off' || a.do === 'put_back') {
       if (!names.length) return no('Which photos (their names from list)?');

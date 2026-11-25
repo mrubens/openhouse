@@ -321,7 +321,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   function handsFree() {
     let hf = null; try { hf = homeScreen.handsFree?.(); } catch {}
     if (!hf) return { text: '', listen: 0 };
-    return { listen: hf.listen, text: '\n\n---\n\nThey are using an app hands-free right now. What it says:\n' + hf.note +
+    return { listen: hf.listen, text: '\n\n---\n\nThey are using an app hands-free right now. What it says:\n' + asData(hf.note, `what the app in use (${hf.app}) says is on its screen`, { max: 1500 }) +
       '\nWhile this lasts, short things said without your name ("next", "back", "again", "how much salt?", "pause") are for you: ' +
       'do them with that app\'s tools and say what the tool answers, as it is. Stay quiet for anything else said in the room.' };
   }

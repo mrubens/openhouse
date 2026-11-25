@@ -30,8 +30,9 @@ Every app on the tablet is part of a plugin, and you never write a manifest:
 - `export_plugin` with `plugin` (its name from `list_plugins`) shares one as it is, or with `apps` (and `look`) makes
   one plugin of several of the household's apps. It returns the files of a plugin folder (`package.json`,
   `README.md`, `apps/<id>/...`) for you to write into a folder on this computer.
-- Each app's `app.json` should say `"kit": 1` (the kit it was made for), so a newer kit on another tablet doesn't
-  break it. Add it to the files if it's missing.
+- Each app's `app.json` should say the kit it was made for (`"kit": 2` for one written now), so a newer kit on
+  another tablet doesn't break it. If it's missing, the app was made for version 1 (that's what it gets): add
+  `"kit": 1`, unless you also move its code to version 2's checks (`docs/kit.md`).
 - Read its warnings: lines with this household's names or town in them. Ask the person, and make them general before
   it goes anywhere.
 - Put it in a git repo of the person's own only if they ask. Nothing is published from the tablet. Another tablet adds
@@ -40,4 +41,4 @@ Every app on the tablet is part of a plugin, and you never write a manifest:
 
 ---
 
-This copy of the OpenHouse guide is version b99689307304. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.
+This copy of the OpenHouse guide is version 862a16609b60. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.

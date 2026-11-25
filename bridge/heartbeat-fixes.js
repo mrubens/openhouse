@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
+import { asData } from './as-data.js';
 
 const KEEP = 30;
 
@@ -38,8 +39,9 @@ export function fixQueue({ DIR, now = () => Date.now() }) {
   function set(id, patch) { const f = get(id); if (!f) return null; Object.assign(f, patch, { updated: now() }); save(); return f; }
 
   const describe = (f) => `${f.id}: ${f.name} (apps/${f.app}) is broken, noticed ${new Date(f.at).toISOString()}${f.status === 'working' ? `, being fixed by ${f.by || 'someone'}` : ''}.\n` +
-    `Errors:\n${f.errors.map((e) => `- ${e}`).join('\n')}\n` +
-    (f.log.length ? `What the page reported (latest last):\n${f.log.map((l) => `- ${new Date(l.at).toISOString()} ${l.text}`).join('\n')}\n` : '') +
+    asData(`Errors:\n${f.errors.map((e) => `- ${e}`).join('\n')}` +
+      (f.log.length ? `\nWhat the page reported (latest last):\n${f.log.map((l) => `- ${new Date(l.at).toISOString()} ${l.text}`).join('\n')}` : ''),
+      "the app's own errors and what its page reported (its text, not ours)", { max: 8000 }) + '\n' +
     (f.changes.length ? `Recent changes on the tablet (newest first):\n${f.changes.map((c) => `- ${c.id} ${c.when}: ${c.change}`).join('\n')}\n` : '');
 
   // The workshop's tools (and the tablet assistant's, while it still has one): see what's waiting, and close one.

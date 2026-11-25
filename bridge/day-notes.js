@@ -16,6 +16,7 @@ import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import { dayKey } from './dates.js';
+import { asData } from './as-data.js';
 
 const DAY = 864e5, PER_APP = 120, EVENTS_PER_APP = 200;
 const plain = (t, n) => String(t ?? '').replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}‍️⃣]/gu, '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -130,7 +131,7 @@ export function dayNotes({ DIR, now = () => Date.now(), onChange = () => {} }) {
   function describe(days = 7) {
     const b = byDay(), out = [];
     for (let i = 0; i < days; i++) { const k = dayKey(new Date(now() + i * DAY)); for (const x of b[k] || []) out.push(`${k}: ${x.label}: ${x.text}${x.who ? ` (${x.who})` : ''} [from ${x.name}]`); }
-    return out.join('\n');
+    return out.length ? asData(out.join('\n'), "the household's apps' notes on the calendar's days, a line each, in the apps' own words") : '';
   }
   return { put, putEvents, drop, apps, byDay, events, describe, setAlive: (f) => { alive = f; }, setPrefs: (p) => { prefs = { ...prefs, ...p }; } };
 }
