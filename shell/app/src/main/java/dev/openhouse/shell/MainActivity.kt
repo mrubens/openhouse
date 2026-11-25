@@ -209,7 +209,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         if (settingUp) return
         settingUp = true
         setupLayer.visibility = View.VISIBLE; setupLayer.bringToFront()
-        if (image == null) { setupText.text = "This tablet isn't set up yet"; setupNote.text = "Set it up again from openhouse.computer/setup."; setupBar.visibility = View.GONE; settingUp = false; return }
+        if (image == null) { setupText.text = "This tablet isn't set up yet"; setupNote.text = "Set it up again from opie.house/setup."; setupBar.visibility = View.GONE; settingUp = false; return }
         setupText.text = "Getting Opie ready"; setupNote.text = "This takes a few minutes. Keep the tablet plugged in and on Wi-Fi."; setupBar.visibility = View.VISIBLE
         thread(name = "setup") {
             val ok = Runtime.setup(image, { pct -> main.post { setupBar.progress = pct } }) { why ->

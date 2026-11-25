@@ -2,7 +2,7 @@
   "mcpServers": {
     "openhouse": {
       "type": "http",
-      "url": "https://cloud.openhouse.computer/mcp"
+      "url": "https://cloud.opie.house/mcp"
     }
   }
 }

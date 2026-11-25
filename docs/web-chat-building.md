@@ -1,7 +1,7 @@
 # Changing Opie from claude.ai or ChatGPT (the web connector)
 
 Status (2026-11-20): **works with the real claude.ai** on a real tablet (1.0.9-local.11): sign-in with the
-tablet's code and Allow, then tool calls through the relay. Deployed at `https://cloud.openhouse.computer/mcp`. The
+tablet's code and Allow, then tool calls through the relay. Deployed at `https://cloud.opie.house/mcp`. The
 first try failed because the relay passed a reply's pieces on out of order (see "Lessons" below); that's fixed.
 ChatGPT works too (signed in through its client-ID metadata document, answered from the tablet in a chat). Still to try: the Claude phone app. The cloud's log of that try
 had one `resources/list` time out after 25 s, cause not known yet, and Claude probing `server/discover`, which the
@@ -35,7 +35,7 @@ connector address next to the usual code:
 **In Claude** (claude.ai, or the Claude desktop app; any plan, and Free allows one custom connector):
 
 1. Settings → Connectors (Customize → Connectors) → **Add custom connector**. Name: Opie. URL:
-   `https://cloud.openhouse.computer/mcp`. Add, then **Connect**.
+   `https://cloud.opie.house/mcp`. Add, then **Connect**.
 2. A page from Opie opens: "Connect Claude to your Opie". Type the code the tablet shows and press Connect.
 3. The tablet asks **Let "Claude" use this Opie?** Tap **Allow**. The page says "Connected" and goes back to
    Claude.
@@ -49,7 +49,7 @@ haven't checked whether it can be added from the phone app.
 **In ChatGPT** (chatgpt.com; works on a real account, 2026-11-20):
 
 1. **chatgpt.com/plugins** → **Add** (top right) → **Add custom MCP server**. Name: Opie. URL:
-   `https://cloud.openhouse.computer/mcp`. Authentication: OAuth. There was no developer-mode switch to turn on
+   `https://cloud.opie.house/mcp`. Authentication: OAuth. There was no developer-mode switch to turn on
    first on the account tried (a "Work" profile).
 2. Steps 2 and 3 above: the code, then **Allow** on the tablet, which names "ChatGPT".
 3. In a chat, pick Opie and ask. ChatGPT asks before each tool that changes something; "Remember" holds for the

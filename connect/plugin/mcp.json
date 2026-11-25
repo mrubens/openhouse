@@ -3,7 +3,7 @@
   "mcpServers": {
     "openhouse": {
       "type": "streamable-http",
-      "url": "https://cloud.openhouse.computer/mcp",
+      "url": "https://cloud.opie.house/mcp",
       "extensions": {
         "com.openai": {
           "auth": {

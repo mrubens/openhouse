@@ -82,4 +82,4 @@ household's tablet; we don't ask children for any information.
 
 ## Changes and contact
 
-If this changes, the new version goes here with its date. Questions: privacy@openhouse.computer.
+If this changes, the new version goes here with its date. Questions: privacy@opie.house.

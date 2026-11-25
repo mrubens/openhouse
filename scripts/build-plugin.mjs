@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The Opie plugin for ChatGPT and the Claude apps (docs/workshop-mcp.md, "The Opie plugin"), made from the
 // workshop's guide (bridge/workshop-guide.js), the same source as get_guide and the skills the connector serves:
-//   connect/plugin/                       the plugin: skills/<name>/..., the connector (cloud.openhouse.computer/mcp)
+//   connect/plugin/                       the plugin: skills/<name>/..., the connector (cloud.opie.house/mcp)
 //     .claude-plugin/plugin.json          Claude's manifest            .mcp.json   Claude's connector
 //     plugin.json                         OpenAI's portable manifest   mcp.json    OpenAI's connector
 //   .claude-plugin/marketplace.json       the repo as a marketplace for Claude (and OpenAI's Claude-compatible reading)
@@ -22,7 +22,7 @@ const g = workshopGuide({ read, homeNow: () => { throw new Error('the plugin nev
 
 const NAME = 'openhouse';
 const VERSION = `1.0.0+${g.version()}`;
-const CONNECTOR = 'https://cloud.openhouse.computer/mcp';
+const CONNECTOR = 'https://cloud.opie.house/mcp';
 const DESCRIPTION = "Change your household's Opie from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.";
 const REPO = 'https://github.com/mrubens/openhouse';
 const author = { name: 'Opie', url: 'https://openhouse.computer' };

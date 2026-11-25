@@ -94,8 +94,8 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 // The cloud's MCP connector (openhouse-cloud lambda/connector.ts) and the guide it serves, as a public page. A client
 // that adds the connector signs in by typing the tablet's code on the cloud's page; someone taps Allow on the tablet.
-export const CONNECTOR = process.env.CONNECT_MCP_URL || 'https://cloud.openhouse.computer/mcp';
-export const DOCS = process.env.CONNECT_DOCS_URL || 'https://cloud.openhouse.computer/docs';
+export const CONNECTOR = process.env.CONNECT_MCP_URL || 'https://cloud.opie.house/mcp';
+export const DOCS = process.env.CONNECT_DOCS_URL || 'https://cloud.opie.house/docs';
 
 /** The prompt to paste into any assistant: add the connector, sign in with the code, read the guide, work out the
  *  rest. No local address in it, so it works from anywhere; no code either (it's on the tablet's screen). */

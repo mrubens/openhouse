@@ -357,7 +357,7 @@ function Apps({ computer }) {
   return <>
     <h1>Make your own apps</h1>
     <p>Connect Claude or ChatGPT{computer ? ' on this computer' : ' on your computer'}, then ask it for a game, a tracker or a new tab.</p>
-    <a className="go" href="https://openhouse.computer" target="_blank" rel="noreferrer">How to connect</a>
+    <a className="go" href="https://opie.house" target="_blank" rel="noreferrer">How to connect</a>
   </>;
 }
 

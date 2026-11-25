@@ -165,7 +165,7 @@ also ship as a plugin that bundles them with the connector. The split:
 `scripts/build-plugin.mjs` writes it from `bridge/workshop-guide.js` (`--check` says whether what's committed is
 current): `connect/plugin/` holds `skills/<name>/` (the same files as `skill://<name>/`), Claude's
 `.claude-plugin/plugin.json` and `.mcp.json`, and OpenAI's portable `plugin.json` and `mcp.json`. Both connectors are
-the cloud's `https://cloud.openhouse.computer/mcp`, the same address for every household, with OAuth (OpenAI's with
+the cloud's `https://cloud.opie.house/mcp`, the same address for every household, with OAuth (OpenAI's with
 dynamic client registration), so nothing in the plugin is a household's. The repo is the marketplace for both:
 `.claude-plugin/marketplace.json` (Claude, and OpenAI's Claude-compatible reading) and `.agents/plugins/marketplace.json`
 (ChatGPT and Codex), each listing `./connect/plugin`. Formats from code.claude.com/docs/en/plugins-reference and
@@ -232,8 +232,8 @@ code for the page. What I found getting the address short:
 
 The page's main option ("Connect your AI assistant") is one sentence to paste into Claude Code, Codex, claude.ai,
 ChatGPT or another assistant (`setupPrompt` in `bridge/connect-page.js`): add the Opie MCP server at
-`https://cloud.openhouse.computer/mcp` (the cloud's web connector, below), sign in with the code shown, tap Allow on the
-tablet, then read `https://cloud.openhouse.computer/docs` and work out how best to use it. No local address, so it works
+`https://cloud.opie.house/mcp` (the cloud's web connector, below), sign in with the code shown, tap Allow on the
+tablet, then read `https://cloud.opie.house/docs` and work out how best to use it. No local address, so it works
 from anywhere. The docs page is the guide for assistants as one Markdown page (openhouse-cloud
 `scripts/guide-docs.ts`, made from `bridge/workshop-guide.js` like the skills: nothing of any household). After the
 guide changes, run `scripts/cloud.sh node scripts/guide-docs.ts`, commit there and deploy.
