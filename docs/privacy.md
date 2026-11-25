@@ -1,7 +1,7 @@
 # Privacy
 
 The privacy policy for Opie: the tablet, the iPhone app and the hosted cloud. The page people read is the cloud's
-copy at openhouse.computer/privacy (`openhouse-cloud/lambda/privacy.ts`); keep the two the same. Draft of 2026-11-24,
+copy at openhouse.computer/privacy (`openhouse-cloud/lambda/privacy.ts`); keep the two the same. Draft of 2026-11-25,
 not yet published.
 
 ---
@@ -59,11 +59,21 @@ Everything here starts only when the household links its tablet to an account.
 
 The service runs on Amazon Web Services in the United States. Only the people who run Opie can reach it.
 
+## Companies that help run it
+
+- **Amazon Web Services** (United States): hosting, storage of encrypted backups, receiving email to the tablet, and
+  address suggestions as someone types one on the map.
+- **OpenAI**: the cloud assistant (typed and spoken) and making apps on the tablet, when the household uses it.
+- **Resend**: sends the sign-in emails.
+- **Apple**: delivers iPhone notifications, which carry only a sealed note.
+- **Let's Encrypt**: issues the certificate that lets the household's phones reach the tablet securely at home. It
+  sees only the tablet's random name, never the household's.
+
 ## Deleting
 
 Remove a phone on the tablet (Settings, Screens) and it can no longer reach the household; deleting the app removes
 its pairing from the phone. Delete the account on the account page and we delete the account, its tablets, backups,
-mail waiting for the tablet and any copy of the recovery code. Its email address is never given to anyone else. The household's things on the tablet are the household's to keep or erase.
+mail waiting for the tablet and any copy of the recovery code. The database's own restore copies, kept for disaster recovery, age out within 35 days. Its email address is never given to anyone else. The household's things on the tablet are the household's to keep or erase.
 
 ## Children
 
