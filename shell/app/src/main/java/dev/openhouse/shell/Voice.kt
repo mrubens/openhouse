@@ -21,6 +21,8 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
     fun restart() { restartReq = true }
     @Volatile private var restartReq = false
     @Volatile var paused = false
+    /** The screen is off (the cover closed, or the power button): the microphone is let go until it's on again. */
+    @Volatile var screenOff = false
     /** The microphone is open here (an AudioRecord exists). */
     @Volatile var holding = false; private set
     private val lock = Object()
@@ -61,7 +63,7 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
         val min = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
         val buf = ByteArray(3200) // 100 ms
         while (running) {
-            if (!enabled || paused) { sleep(500); continue }
+            if (!enabled || paused || screenOff) { sleep(500); continue }
             var rec: AudioRecord? = null
             var conn: HttpURLConnection? = null
             try {
@@ -91,7 +93,7 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
                 Log.i(TAG, "listening (source $src, effects: ${if (plain) "none, the bridge cancels echo" else fx.joinToString { it.javaClass.simpleName }})")
                 val stamp = android.media.AudioTimestamp(); var total = 0L
                 var peak = 0; var sum = 0.0; var count = 0; var lastLog = System.currentTimeMillis()
-                while (running && enabled && !paused && !restartReq) {
+                while (running && enabled && !paused && !screenOff && !restartReq) {
                     val n = rec.read(buf, 0, buf.size)
                     if (n > 0) {
                         // Where the microphone is, for echo cancelling: how many samples so far, and when the last was captured

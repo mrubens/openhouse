@@ -182,8 +182,22 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     /** The microphone runs only while it's switched on and the live voice is on: without the live voice nothing would
      *  hear the request, so nothing listens for the name either (the user, 2026-11-20: "Why wake word with no live voice?"). */
     internal fun micWanted() = micWanted(this)
+    // Closed (the cover over the screen, or the power button): nothing listens, and a conversation going ends.
+    private var screenWatch: android.content.BroadcastReceiver? = null
+    private fun watchScreen() {
+        if (screenWatch != null) return
+        voice.screenOff = !getSystemService(android.os.PowerManager::class.java).isInteractive
+        screenWatch = object : android.content.BroadcastReceiver() {
+            override fun onReceive(c: android.content.Context, i: Intent) {
+                voice.screenOff = i.action == Intent.ACTION_SCREEN_OFF
+                if (voice.screenOff) LiveVoice.stopNow()
+            }
+        }
+        registerReceiver(screenWatch, android.content.IntentFilter().apply { addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON) })
+    }
     private fun startVoice() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
+        watchScreen()
         voice.enabled = micWanted()
         voice.start()
     }
@@ -521,6 +535,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         main.removeCallbacksAndMessages(null)
         netWatch?.let { runCatching { getSystemService(android.net.ConnectivityManager::class.java).unregisterNetworkCallback(it) } }
         if (live === this) live = null
+        screenWatch?.let { runCatching { unregisterReceiver(it) } }
         voice.stop()
         if (::home.isInitialized) home.destroy() // (not made when onCreate stepped aside for the move)
         super.onDestroy()
