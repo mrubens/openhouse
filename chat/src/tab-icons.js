@@ -97,4 +97,4 @@ export const TAB_ICONS = {
 };
 export const TAB_ICON_NAMES = Object.keys(TAB_ICONS);
 /** The starting tabs, and the ones the bridge makes. */
-export const TAB_ICON_BY_ID = { today: "sun", calendar: "calendar-blank", weather: "cloud-sun", map: "map-pin", chores: "list-checks", lists: "list-bullets", meals: "fork-knife", recipes: "cooking-pot", photos: "image", whiteboard: "pencil-simple", tv: "television-simple", apps: "squares-four" };
+export const TAB_ICON_BY_ID = { today: "house", calendar: "calendar-blank", weather: "cloud-sun", map: "map-pin", chores: "list-checks", lists: "list-bullets", meals: "fork-knife", recipes: "cooking-pot", photos: "image", whiteboard: "pencil-simple", tv: "television-simple", apps: "squares-four" };
