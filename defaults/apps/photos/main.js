@@ -189,7 +189,16 @@ function empty() {
     h('span', { class: 'mark' }, icon('picture')),
     h('h1', null, 'No photos yet'),
     h('p', null, 'Photos added to the display show here, and when nobody’s using it.'),
-    btn('Add photos', addPhotos, { ic: 'plus' }));
+    btn('Add photos', addPhotos, { ic: 'plus' }),
+    unread());
+}
+/** Linked albums that have never read (no album here yet, so nothing else shows them): why, and a way to take each off. */
+function unread() {
+  const stuck = (H?.linked || []).filter((l) => l.status === 'error' && !(H.albums || []).some((a) => a.id === l.album));
+  if (!stuck.length || !phone.stopAlbum) return null;
+  return h('div', { class: 'unread' }, stuck.map((l) => h('div', { class: 'unread-row' },
+    h('p', { class: 'note small' }, `An iCloud album can’t be read: ${(l.error || 'couldn’t read the album').replace(/^\p{Lu}(?!\p{Lu})/u, (c) => c.toLowerCase()).replace(/\.$/, '')}.`),
+    btn('Remove', () => confirmCard('Remove this album link?', 'Remove', () => { H.linked = H.linked.filter((x) => x !== l); draw(); phone.stopAlbum(l.id); }), { soft: true }))));
 }
 
 /** Choosing several photos to take off: the names picked (null when not choosing). */
@@ -237,6 +246,7 @@ function gridView(photos) {
   }
   return h('div', { class: 'grid-screen' + (picking ? ' picking' : '') }, top,
     !photos.length ? h('p', { class: 'note' }, 'Nothing in this album yet. Tap a photo in All to put it in, or Choose several there.') : null,
+    !a && !picking ? unread() : null,
     h('div', { class: 'grid-scroll vscroll', 'data-keep': 'grid' }, h('div', { class: 'mos' }, tiles)));
 }
 /** The mosaic's tiles, in turn: b and b2 big (three across, two down), w wide (two across), s small. */

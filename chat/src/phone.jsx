@@ -322,7 +322,8 @@ function AddLink({ c, kind, family = [] }) {
     <p>{how.help}</p>
     <input value={link} onChange={(e) => { setLink(e.target.value); setState(null); }} placeholder={how.hint} inputMode="url" autoCapitalize="off" autoComplete="off" />
     {kind === 'calendar' && family.length > 0 && <div className="chips">{family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || ''))).map((f) => <button key={f.name} className={'chip' + (who === f.name ? ' on' : '')} onClick={() => setWho(who === f.name ? '' : f.name)}>{f.name}</button>)}</div>}
-    <button className="go" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>Add</button>
+    {/* The tablet reads the link once before keeping it: "Added" only when it read, else what went wrong. */}
+    <button className="go" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>{state === 'sending' ? (kind === 'album' ? 'Looking at it…' : 'Reading it…') : 'Add'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}
     {added.map((a, k) => <p key={k} className="soft">Added: {a}</p>)}
   </>;

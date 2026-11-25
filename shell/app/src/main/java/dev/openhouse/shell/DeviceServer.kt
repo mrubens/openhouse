@@ -246,6 +246,8 @@ object DeviceServer {
             "/calendar" -> {
                 val url = CalendarLinks.clean(b.optString("url")) ?: return 400 to """{"error":"That isn't a calendar link (an https:// or webcal:// address ending in .ics, usually)."}"""
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                // Read once first: a link that doesn't read is said so here, and never kept or counted.
+                CalendarLinks.check(url)?.let { return 400 to JSONObject().put("error", it).toString() }
                 val got = java.util.concurrent.LinkedBlockingQueue<Boolean>()
                 handler.post { a.offerCalendar(b.optString("who").trim().take(40), url, b.optString("from").take(40), { got.offer(it) }, trusted = b.optBoolean("trusted"), name = b.optString("name").trim().take(60), only = b.optString("only").trim().take(200)) }
                 val yes = got.poll(100, java.util.concurrent.TimeUnit.SECONDS) ?: false
@@ -259,6 +261,7 @@ object DeviceServer {
             "/album" -> {
                 val url = AlbumLink.clean(b.optString("url")) ?: return 400 to """{"error":"That isn't an iCloud shared album link (https://www.icloud.com/sharedalbum/#... or https://photos.icloud.com/shared/album/...). In the album's sharing settings, turn on its public link (Public Website) and copy it."}"""
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                PhotoAlbums.check(url)?.let { return 400 to JSONObject().put("error", it).toString() } // as a calendar's
                 val got = java.util.concurrent.LinkedBlockingQueue<Boolean>()
                 handler.post { a.offerAlbum(url, b.optString("from").take(40), { got.offer(it) }, trusted = b.optBoolean("trusted")) }
                 val yes = got.poll(100, java.util.concurrent.TimeUnit.SECONDS) ?: false
