@@ -200,10 +200,10 @@ object AppStore {
         val pkg = info?.packageName ?: files.firstNotNullOfOrNull { pm.getPackageArchiveInfo(it.path, 0)?.packageName }
         val name = info?.applicationInfo?.let { it.sourceDir = base.path; it.publicSourceDir = base.path; it.loadLabel(pm).toString() } ?: pkg ?: "this app"
         Log.i(TAG, "received ${files.size} file(s) for $pkg ($name)")
-        val acc = DeviceAccess.instance
-        // A yes to install_app covers what Aurora then hands over for that package; anything else asks again.
+        // A yes to install_app covers what Aurora then hands over for that package; anything else asks again (the
+        // shell's own card, with or without Device control).
         val ok = pkg != null && ((isApproved(pkg) && source == AURORA) ||
-            (acc != null && acc.approve("Add $name?", "", parent = ParentPin.isSet(ctx), yes = "Add", rights = listOf("from" to from(source)), more = pkg)))
+            ApprovalCard.ask("Add $name?", "", parent = ParentPin.isSet(ctx), yes = "Add", rights = listOf("from" to from(source)), more = pkg))
         if (!ok) {
             files.forEach { it.delete() }
             finish(pkg, false, if (pkg == null) "Those files weren't an app." else "Nobody said yes, so $name wasn't added.")
