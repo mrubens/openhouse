@@ -23,7 +23,7 @@ function line() {
   const text = near() && !doneToday() ? `Bedtime at ${hm(bedtime())}: tap to start the bedtime scene` : '';
   if (text === lineFor) return;
   lineFor = text;
-  if (text) today.show(text, new Date(bedtime().getTime() + 90 * 60e3), { sleep: false }); else today.clear(); // a button to press: Today only, not the sleep screen
+  if (text) today.show(text, new Date(bedtime().getTime() + 90 * 60e3), { sleep: false }); else today.clear(); // a button to press: Home only, not the sleep screen
 }
 
 async function run() {

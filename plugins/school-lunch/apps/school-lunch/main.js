@@ -1,5 +1,5 @@
 // School lunch: each kid's school lunch menu for the week, from Nutrislice (the link the household pastes per kid), with
-// today marked. Kids at the same school share one row. Today's lunch shows on Today through the calendar's day notes (kit days.set),
+// today marked. Kids at the same school share one row. Today's lunch shows on Home through the calendar's day notes (kit days.set),
 // and the voice can ask for any day's (app.json "lunch" and "week"). The menus are fetched through the tablet (kit
 // web.json: Nutrislice's API doesn't let other pages read it), this week and next, once a day and when it's opened,
 // and kept in the app's own store so it works offline.
@@ -90,10 +90,10 @@ async function menuOn(g, d) {
   return daysOf(g.key)[d] || null;
 }
 
-// ---- the line on Today ----
+// ---- the line on Home ----
 let lineFor = null;
-// Today's lunch is on Today through the calendar (Today's calendar card shows the day's notes), so this app's own line
-// on Today, from before, is taken down once and not put up again.
+// Today's lunch is on Home through the calendar (Today's calendar card shows the day's notes), so this app's own line
+// on Home, from before, is taken down once and not put up again.
 let cleared = false;
 function todayLine() { if (!cleared) { cleared = true; today.clear(); } }
 // ---- on the calendar: each school day's lunch, a note on that day (kit days.set), the next two weeks. A note, not an
@@ -269,7 +269,7 @@ async function answerWeek({ who, next }) {
     return null;
   });
   refresh();
-  // once a day (and at midnight the line on Today moves on), while the page is open or kept as a tab
+  // once a day (and at midnight the line on Home moves on), while the page is open or kept as a tab
   setInterval(() => { refresh(); todayLine(); }, 10 * 60e3);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 })();

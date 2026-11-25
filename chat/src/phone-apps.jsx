@@ -36,7 +36,7 @@ export function phoneTabs(style, apps) {
   return (style?.tabs || DEFAULT_TABS.map((id) => ({ id })))
     .map((t) => (typeof t === 'string' ? { id: t } : t)).map((t) => (t.id === 'board' ? { ...t, id: 'apps' } : t))
     .filter((t) => t.id === 'today' || t.id === 'apps' || by.has(t.id) || !apps)
-    .map((t) => ({ id: t.id, name: t.name || (t.id === 'today' ? 'Today' : t.id === 'apps' ? 'Apps' : by.get(t.id)?.name || t.id), app: by.get(t.id) || null }));
+    .map((t) => ({ id: t.id, name: t.name || (t.id === 'today' ? 'Home' : t.id === 'apps' ? 'Apps' : by.get(t.id)?.name || t.id), app: by.get(t.id) || null }));
 }
 
 // ---- the apps' files, kept on the phone by version (IndexedDB: the Wi-Fi page is plain http, so no Cache Storage) ----

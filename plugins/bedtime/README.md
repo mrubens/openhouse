@@ -6,7 +6,7 @@ One tap at bedtime.
   (turn down to a volume, pause, turn off, dim), and the bedtime routine from Chores (make one there first, in
   Routines).
 - **At bedtime:** from 15 minutes before, Today shows "Bedtime at 7:30: tap to start the bedtime scene" (tap opens
-  Bedtime), and the small card for Today, if it's on, has a Start bedtime button. "Start bedtime" to the voice works
+  Bedtime), and the small card for Home, if it's on, has a Start bedtime button. "Start bedtime" to the voice works
   too. Nothing changes until someone says yes.
 - **The scene:** each device through the tablet's own drivers. The first time this app controls a device, the tablet
   asks the people there ("Let Bedtime control the Living Room speaker?"); anything that turns something on asks every
@@ -18,7 +18,7 @@ One tap at bedtime.
 
 - the family's names
 - chores (to show and tick the bedtime routine)
-- a line of its own on Today
-- a card of its own on Today
+- a line of its own on Home
+- a card of its own on Home
 - the home's speakers and TVs (it asks here before turning anything on)
 - it can't reach the internet

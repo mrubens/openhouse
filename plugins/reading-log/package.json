@@ -1,7 +1,7 @@
 {
   "name": "reading-log",
-  "version": "1.0.1",
-  "description": "Minutes read by each reader, logged by voice or by tap: streaks, the week as a chart (on Today too), and optional stars through Chores.",
+  "version": "1.0.2",
+  "description": "Minutes read by each reader, logged by voice or by tap: streaks, the week as a chart (on Home too), and optional stars through Chores.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",
   "openhouse": { "apps": ["apps/reading-log"], "made": "2026-11-23" }

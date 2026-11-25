@@ -53,7 +53,7 @@ function setup({ events = [], errors = [], level, decide = says(), ai = writes({
     appErrors: () => state.errors,
     now: () => clock, freeBytes: () => 50e9, every: 0, judge, fixes, things, extraChecks, review });
   if (level) hb.state.level = level;
-  const shown = () => things.all({}).map((x) => x.text); // the things on Today
+  const shown = () => things.all({}).map((x) => x.text); // the things on Home
   const notes = () => homeScreen.describe().split('\n').filter((l) => l.startsWith('- n-'));
   return { hb, homeScreen, notes, shown, things, decided, fixes, state, root, later: (ms) => { clock += ms; }, set: (t) => { clock = t; } };
 }

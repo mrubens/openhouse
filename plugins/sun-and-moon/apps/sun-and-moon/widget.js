@@ -1,4 +1,4 @@
-// Sun and moon's card on Today: the sunset (or the sunrise, before it), and the moon.
+// Sun and moon's card on Home: the sunset (or the sunrise, before it), and the moon.
 import { weather } from '/kit/openhouse.js';
 import { h, hm, put } from './ui.js';
 import { moon } from './sky.js';

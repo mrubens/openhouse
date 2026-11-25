@@ -28,7 +28,7 @@
 // POST /house/unlock           {}  the display only, after the PIN: apps may change the calendar for 5 minutes
 //   view(): calendarLock, unlockedUntil (ms; 0 when locked or no lock)
 // POST /house/remind           { done: key }  a reminder put away, on every screen (its key from view().reminders)
-// POST /house/thing            { take: id }  one of the things on Today taken down (view().things: things.js)
+// POST /house/thing            { take: id }  one of the things on Home taken down (view().things: things.js)
 // GET  /house/photo/<name>     one of the family's photos (files in display/photos/)
 // POST /house/photo?name=x.jpg the image itself as the body (the phone upload page); x.mp4 / x.mov: a video (MAX_VIDEO)
 // GET  /house/photo/<video>    its still (stills.js); ?play=1: {url} for <video src>, /house/video/<name>?t=… (serveVideo)
@@ -116,7 +116,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   data.mealCounts ||= {}; // "tacos": { text, n, last }
   data.settings ||= {};
   // What the household's apps put on the calendar (day-notes.js): how each shows ('week': the Calendar's week and Today;
-  // 'today': Today only, where a new one starts, so the week never changes without someone choosing; 'off'), and their order.
+  // 'today': Home only, where a new one starts, so the week never changes without someone choosing; 'off'), and their order.
   const SHOWS = ['week', 'today', 'off'];
   notes?.setPrefs({ show: (app) => (SHOWS.includes(data.settings.fromApps?.[app]) ? data.settings.fromApps[app] : 'today'), order: () => data.settings.fromAppsOrder || [] });
   const appEvents = () => { try { return notes ? notes.events() : []; } catch (e) { console.error('[day-notes]', e); return []; } };
@@ -346,7 +346,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       checklists: checklists(), meals: data.meals, favorites: favorites(), mealWork, recipes: data.recipes, recipeFind, mealSlots: data.mealSlots,
       events: events(), dayNotes: (() => { try { return notes ? notes.byDay() : {}; } catch { return {}; } })(), fromApps: (() => { try { return notes ? notes.apps() : []; } catch { return []; } })(), photos: photos(), calendars: (h.calendars || []).length + (board.sync?.calendars().filter((c) => c.mode !== 'off').length || 0),
       calendarTargets: board.sync?.targets() || [], // two-way calendars new events can go into (calendar-sync.js)
-      things: (() => { try { return things ? things.strip({ events: events(), reminders: reminders() }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Today)
+      things: (() => { try { return things ? things.strip({ events: events(), reminders: reminders() }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Home)
       night: data.settings.night === false ? null : data.settings.night || NIGHT,
       reminders: reminders(), flyer, calendarLock: !!data.settings.calendarLock, unlockedUntil: unlockedUntil > Date.now() ? unlockedUntil : 0,
       removed: removedPhotos(), albums: data.albums, linked: albums.view(), captions: data.captions, screensaver: screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
@@ -1122,7 +1122,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       Object.assign(ev, f); save();
       return { ok: true, event: ev };
     }
-    if (a.countdown) { // a synced event (by its uid), or one added here (by id): count down to it on Today and the idle screen
+    if (a.countdown) { // a synced event (by its uid), or one added here (by id): count down to it on Home and the idle screen
       const { uid, id, on = true } = a.countdown;
       const ev = id && data.events.find((e) => e.id === id);
       if (ev) { if (on) ev.countdown = true; else delete ev.countdown; save(); return { ok: true }; }

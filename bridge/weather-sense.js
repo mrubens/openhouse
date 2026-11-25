@@ -1,5 +1,5 @@
 // Weather sense: at most two short lines that tie the forecast to the household's plans ("Rain all day Thursday:
-// Thanksgiving at 4:30, leave a little early"), shown on the Weather tab and the Today card (GET /weather's `sense`).
+// Thanksgiving at 4:30, leave a little early"), shown on the Weather tab and the Home card (GET /weather's `sense`).
 // The cloud's text model writes them on OpenAI's Flex tier, never per view: once after 6 AM, once after noon, and when
 // the forecast or the next days' plans change (at most every two hours, a few times a day), never in night hours.
 // It gets the forecast and the next three days' events in the household's own clock, and the people; it decides what's

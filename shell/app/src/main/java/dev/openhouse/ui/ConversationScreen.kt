@@ -103,8 +103,8 @@ internal fun ConversationScreen() {
                                 if (!t.live && t.ok && !o.onboarding) Row(Modifier.padding(top = 12.u), horizontalArrangement = Arrangement.spacedBy(10.u)) {
                                     val q = turns.getOrNull(i - 1)?.text ?: ""
                                     val onHome = t.notes.firstOrNull { n -> o.note(n.id) != null }
-                                    if (onHome != null) Chip(if (o.note(onHome.id)?.keep == true) "Kept on Today" else "Keep it on Today") { o.keepNote(onHome.id) }
-                                    else if (t.notes.isNotEmpty() || Answers.hasUi(t.text)) Chip("Put it on Today") { o.pinFromConversation(q, t.notes.firstOrNull()?.content ?: t.text) }
+                                    if (onHome != null) Chip(if (o.note(onHome.id)?.keep == true) "Kept on Home" else "Keep it on Home") { o.keepNote(onHome.id) }
+                                    else if (t.notes.isNotEmpty() || Answers.hasUi(t.text)) Chip("Put it on Home") { o.pinFromConversation(q, t.notes.firstOrNull()?.content ?: t.text) }
                                     if (t.notes.isNotEmpty() || Answers.hasUi(t.text)) Chip("Make it an app") { o.makeApp("Make an app from this: $q") }
                                 }
                                 if (t.live) Row(Modifier.padding(top = 12.u)) { StopButton { o.stopAnswer() } }
@@ -132,7 +132,7 @@ internal fun FullNote(n: HomeNote) {
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.u)) {
                     Text(n.title, style = roundText(40, FontWeight.ExtraBold), maxLines = 2, modifier = Modifier.weight(1f))
-                    Chip(if (n.keep) "Kept on Today" else "Keep it") { o.keepNote(n.id, !n.keep) }
+                    Chip(if (n.keep) "Kept on Home" else "Keep it") { o.keepNote(n.id, !n.keep) }
                     n.conversation?.let { c -> Chip("Conversation") { o.closeNote(); o.openConversation(c) } }
                     Chip("Take it down") { o.takeDown(n.id) }
                     Chip("Close") { o.closeNote() }

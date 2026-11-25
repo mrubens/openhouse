@@ -1,6 +1,6 @@
 // Laundry: says when the wash is done. With a smart plug the tablet can read (a device whose state reports its power),
 // it watches the washer's or dryer's power and knows by itself: running, then done (watch.js). Without one, "the
-// washer's on" (or a tap) starts a timer for the usual cycle. Either way, when it's done: a line on Today, and the
+// washer's on" (or a tap) starts a timer for the usual cycle. Either way, when it's done: a line on Home, and the
 // tablet says so out loud. Runs in the background.
 import { store, today, devices, say, timer, onAction } from '/kit/openhouse.js';
 import { h, sheet, field, hm, put, whenShown } from './ui.js';
@@ -68,7 +68,7 @@ async function openSetup() {
   const row = (m) => h('div', { class: 'pair' }, field(m === 'washer' ? 'Washer’s plug' : 'Dryer’s plug', h('select', { class: 'field', onchange: (e) => { s[m].plug = e.target.value || null; } },
     [h('option', { value: '' }, 'None (a timer)'), ...plugs.map((p) => h('option', { value: p.id, selected: p.id === s[m].plug }, p.name))])),
     field('Usual cycle, minutes', h('input', { class: 'field', type: 'number', min: '10', max: '240', value: String(s[m].minutes), oninput: (e) => { s[m].minutes = Math.max(10, Math.min(240, Number(e.target.value) || 55)); } })));
-  const aloud = h('select', { class: 'field' }, h('option', { value: 'yes', selected: s.aloud }, 'Say it out loud too'), h('option', { value: 'no', selected: !s.aloud }, 'Only on Today'));
+  const aloud = h('select', { class: 'field' }, h('option', { value: 'yes', selected: s.aloud }, 'Say it out loud too'), h('option', { value: 'no', selected: !s.aloud }, 'Only on Home'));
   sheet('Plugs and times', [row('washer'), row('dryer'), field('When it’s done', aloud),
     h('p', { class: 'hint' }, plugs.length ? 'A plug is watched for its power: running once it uses more than a few watts for two minutes, done once it’s used almost nothing for four.' : 'No smart plug that reports power yet, so both use a timer.')], [
     { text: 'Cancel', soft: true, tap: (c) => c() },

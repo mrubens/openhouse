@@ -152,7 +152,7 @@ export function checkPlugin(dir) {
     const uses = list(meta.uses) || [];
     const bad = uses.filter((u) => !USES.includes(u));
     if (bad.length) throw new Error(`The app in ${rel} asks for ${bad.join(', ')}, which apps can't have. They can use: ${USES.join(', ')}.`);
-    if (meta.today && files['widget.html'] && !uses.includes('today-card')) notes.push(`${rel} has a card for Today, but it shows only with "today-card" in its "uses".`);
+    if (meta.today && files['widget.html'] && !uses.includes('today-card')) notes.push(`${rel} has a card for Home, but it shows only with "today-card" in its "uses".`);
     // A reach is a host, or a website the household picks when it sets the app up ({setup, why}: a transit agency's
     // feed): no host until someone says yes on the tablet's card for one (askReach), shown on this card as just that.
     const setupReaches = (list(meta.reaches) || []).filter((h) => h && typeof h === 'object').slice(0, 2).map((h) => ({ key: String(h.setup || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30) || 'site', why: String(h.why || '').replace(/\s+/g, ' ').trim().slice(0, 120) }));
@@ -264,7 +264,7 @@ export function rightsList(apps) {
   if (tv.length) out.push({ kind: 'tv', text: `Shows on the TV${many ? ` (${tv.map((a) => a.name).join(', ')})` : ''}.` });
   return out;
 }
-const rightWords = { lists: 'lists', chores: 'chores', rewards: 'rewards', meals: 'meals', events: 'the calendar', photos: 'photos', family: "the family's names", weather: 'the weather', home: 'the notes on Today', today: 'a line of its own on Today', days: 'notes of its own on the calendar\'s days (lunch, trash day)', 'calendar-events': 'events of its own on the calendar (it can\'t change the family\'s)', 'today-card': 'a card of its own on Today (once you turn it on)', timer: 'timers', say: 'speaking', devices: "the speakers and TVs (it asks before turning one on)", decide: "OpenHouse's cloud for small questions (OpenAI)" };
+const rightWords = { lists: 'lists', chores: 'chores', rewards: 'rewards', meals: 'meals', events: 'the calendar', photos: 'photos', family: "the family's names", weather: 'the weather', home: 'the notes on Home', today: 'a line of its own on Home', days: 'notes of its own on the calendar\'s days (lunch, trash day)', 'calendar-events': 'events of its own on the calendar (it can\'t change the family\'s)', 'today-card': 'a card of its own on Home (once you turn it on)', timer: 'timers', say: 'speaking', devices: "the speakers and TVs (it asks before turning one on)", decide: "OpenHouse's cloud for small questions (OpenAI)" };
 
 /** One line per app of what it may do, in the card's words. */
 export function rightsText(apps) {

@@ -119,7 +119,7 @@ test('the assistant\'s add_plugin: a yes on the card first, then one change that
   assert.deepEqual([...pl.rightsOf('twins-chores-2')], ['chores', 'rewards']);
 });
 
-test('an app reaching the web through the tablet: only its own hosts, never the home network; and only its own line on Today', async () => {
+test('an app reaching the web through the tablet: only its own hosts, never the home network; and only its own line on Home', async () => {
   // sources: a folder in a repo, as its web page shows it
   assert.deepEqual(parseSource('github.com/fam/things/tree/main/plugins/lunch'), { kind: 'git', url: 'https://github.com/fam/things.git', ref: 'main', sub: 'plugins/lunch', label: 'github.com/fam/things/plugins/lunch', key: 'github.com/fam/things/tree/main/plugins/lunch' });
   assert.equal(parseSource('github.com/fam/things/tree/main/../../etc'), null);

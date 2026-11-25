@@ -1,4 +1,4 @@
-// Word puzzle's card on Today: today's mixed-up letters, or the word once it's solved.
+// Word puzzle's card on Home: today's mixed-up letters, or the word once it's solved.
 import { store } from '/kit/openhouse.js';
 import { h, dayKey, put } from './ui.js';
 import { puzzleFor } from './words.js';

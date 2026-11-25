@@ -10,7 +10,7 @@ Each kid's school lunch menu for the week, for schools that post their menus on 
 - **Today:** on school days, the Lunch card has the day's main dish and the other choice, each with Nutrislice's photo
   of it where there is one (a dish without one is just its name). Nothing on days with no menu.
 - **The calendar:** each school day's lunch is a note on that day ("Lunch · Popcorn Chicken or Vegan Chic'n
-  Nuggets"), not an event: on Today's calendar card, and on the Calendar's week if the household chooses (Calendar,
+  Nuggets"), not an event: on Home's calendar card, and on the Calendar's week if the household chooses (Calendar,
   From apps).
 - **The voice:** "what's for lunch tomorrow?", "what's Maya having on Tuesday?", "what are the lunches this week?".
 
@@ -21,7 +21,7 @@ about the household is sent: each address has only the district, the school and 
 ## What it asks for
 
 - the family's names (to pick each kid)
-- a line of its own on Today
+- a line of its own on Home
 - notes of its own on the calendar's days
 - reaching `*.api.nutrislice.com`, and `client-food-images.nutrislice.com` for the dishes' photos
 

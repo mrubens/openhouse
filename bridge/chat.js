@@ -1,6 +1,6 @@
 // Conversations: the family talks to the assistant (typed here; out loud, OpenAI's live voice in the shell). A turn is
 // the cloud's text model with the household's tools (agents/cloud.js, textTools below): lists, calendar, chores, meals,
-// notes on Today, the home screen's tabs and look, undo. Making or changing an app is a computer's (workshop.js).
+// notes on Home, the home screen's tabs and look, undo. Making or changing an app is a computer's (workshop.js).
 //
 // POST /chat {id?, text, who?}   one turn; the response streams NDJSON events:
 //   {type:'start', id} {type:'status', text} {type:'delta', text} {type:'message', text} {type:'done', ok, text}
@@ -57,7 +57,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const board = boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen });
   const weather = weatherRoutes({ json, household: () => board.householdView() });
   // The family's lists, chore checkmarks, meals and own events, for the starting apps and the assistant (house.js).
-  // The things on Today (things.js): reminders due, the heartbeat's suggestions, countdowns, a broken app; Opie takes one down.
+  // The things on Home (things.js): reminders due, the heartbeat's suggestions, countdowns, a broken app; Opie takes one down.
   let house = null;
   const things = thingStore({ DIR, onChange: () => house?.changed() });
   // What apps put on the calendar's days (day-notes.js): a school lunch, a pickup day.
@@ -224,13 +224,13 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     return `\n\n(Making apps: nothing in progress.${b.lastChange ? ` Last finished: "${String(b.lastChange).slice(0, 200)}".` : ''})`;
   }
 
-  /** The home screen as it is: its tabs (and which one is showing), and the notes on Today. */
+  /** The home screen as it is: its tabs (and which one is showing), and the notes on Home. */
   function homeLine() {
     const st = homeScreen.style(), tabs = (st.tabs || ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'].map((id) => ({ id }))).map((t) => t.id);
     const now = showingTab();
-    const here = now === 'today' ? ' They are looking at the Today tab.' : now === 'apps' || now === 'board' ? ' They are looking at the Apps tab.' : '';
-    return `\n\n(The home screen right now: tabs ${tabs.join(', ')}${st.tabs ? '' : ' (the usual set)'}; look: ${st.palette}, ${st.type} type, ${st.density}${st.backdrop === 'photos' ? ', photos behind' : ''}${st.cards?.length ? `; app cards on Today: ${st.cards.join(', ')}` : ''}.${here} ` +
-      `Tabs (add, remove, reorder, rename) and the look ("make it warmer") are one set_home call: no files, no start_editing, no check_build. Apps that aren't tabs are in the Apps tab. An app's own card on Today (a remote, a score): today_card.\n${homeScreen.describe()})`;
+    const here = now === 'today' ? ' They are looking at the Home tab.' : now === 'apps' || now === 'board' ? ' They are looking at the Apps tab.' : '';
+    return `\n\n(The home screen right now: tabs ${tabs.join(', ')}${st.tabs ? '' : ' (the usual set)'}; look: ${st.palette}, ${st.type} type, ${st.density}${st.backdrop === 'photos' ? ', photos behind' : ''}${st.cards?.length ? `; app cards on Home: ${st.cards.join(', ')}` : ''}.${here} ` +
+      `Tabs (add, remove, reorder, rename) and the look ("make it warmer") are one set_home call: no files, no start_editing, no check_build. Apps that aren't tabs are in the Apps tab. An app's own card on Home (a remote, a score): today_card.\n${homeScreen.describe()})`;
   }
 
   /** The app or game open on the screen while they talk: questions are about it, and changes are to it. */

@@ -12,7 +12,7 @@ household that has School lunch can have both while it moves over.
   there every day are listed once.
 - **Today:** the day's main dish and the other choice on the Lunch card, each with its photo where Nutrislice has one.
 - **The calendar:** each school day's menu is a note on that day ("Lunch · Popcorn Chicken or Vegan Chic'n Nuggets"):
-  on Today's calendar card, and on the Calendar's week if the household chooses (Calendar, From apps).
+  on Home's calendar card, and on the Calendar's week if the household chooses (Calendar, From apps).
 - **The voice:** "what's for lunch tomorrow?", "what's Sam having for breakfast on Tuesday?", "what are the lunches
   this week?".
 
@@ -23,6 +23,6 @@ menu and the date.
 ## What it asks for
 
 - the family's names (to pick each kid)
-- a line of its own on Today
+- a line of its own on Home
 - notes of its own on the calendar's days
 - reaching `*.api.nutrislice.com`, and `client-food-images.nutrislice.com` for the dishes' photos

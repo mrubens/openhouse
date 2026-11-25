@@ -724,7 +724,7 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
   const clipUrl = useClipUrl(c, /\.(mp4|mov|m4v)$/i.test(shown || '') ? shown : null); // a video plays silently over its still (the user)
   const d = new Date(now);
   // The rest of today (once today is done, tomorrow's): its all-day things on one line, then the next few events, the
-  // same size, each with its time; and the things on Today (a reminder, a suggestion, a countdown). Readable from across the room.
+  // same size, each with its time; and the things on Home (a reminder, a suggestion, a countdown). Readable from across the room.
   const evs = house?.events || [], dayOf = (t) => new Date(t).toDateString(), isPerson = (n) => (house?.family || []).some((p) => p.name === n);
   const timed = evs.filter((e) => !e.allDay && Date.parse(e.start) > now).sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
   const tomorrow = new Date(d); tomorrow.setDate(d.getDate() + 1);
@@ -745,7 +745,7 @@ function Ambient({ c, house, apps, board, timers, weather, now }) {
     wd?.rain >= 30 && `rain ${wd.rain}%`].filter(Boolean).join(' · ');
   const counting = (house?.things || []).filter((x) => !x.sleepOff && !(x.start && coming.some((e) => x.title === e.title && Date.parse(x.start) === Date.parse(e.start)))); // (not an event shown already)
   // The apps' day notes ("School lunch → Beef Taco Meat") aren't here (the user: they don't belong, and under a
-  // Tomorrow card today's read as tomorrow's); they're on Today and the Calendar.
+  // Tomorrow card today's read as tomorrow's); they're on Home and the Calendar.
   // What's next on its own card (its day above it when that's tomorrow), then a line each: the events after it, what
   // they're counting down to, timers. A line is its time or label, a round mark, the words.
   const rest = coming.slice(1), initial = (e) => (isPerson(e.who) ? e.who.trim()[0].toUpperCase() : '');
@@ -827,7 +827,7 @@ function Ask({ c, onClose, first = '' }) {
   );
 }
 
-// ---- the home screen: tabs (home.jsx). The board above (NotesGrid) is no longer shown; its notes are on Today. ---------
+// ---- the home screen: tabs (home.jsx). The board above (NotesGrid) is no longer shown; its notes are on Home. ---------
 function Home(props) {
   const { c, brain, now } = props;
   return <HomeTabs {...props} shell={shell}

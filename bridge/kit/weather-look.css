@@ -1,4 +1,4 @@
-/* The weather's look (weather-look.js): the Weather tab and the Weather card on Today. Sizes are in --wu (one unit of
+/* The weather's look (weather-look.js): the Weather tab and the Weather card on Home. Sizes are in --wu (one unit of
    the 1302-wide design): the tab sets it from its width, Today uses its own --u.  */
 .wx { --fg: #fff; --fg2: rgba(255,255,255,.76); --fg3: rgba(255,255,255,.5); --glass: rgba(15,40,80,.18); --hair: rgba(255,255,255,.22); --wet: #cfe9ff;
   position: relative; color: var(--fg); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
@@ -106,7 +106,7 @@
 .wx.narrow .tiles { grid-template-rows: calc(176 * var(--wu)) calc(128 * var(--wu)) calc(128 * var(--wu)); gap: calc(12 * var(--wu)); }
 .wx.narrow .moon { left: auto; right: 9%; top: 3%; width: calc(22 * var(--wu)); }
 
-/* ---- the Weather card on Today ---- */
+/* ---- the Weather card on Home ---- */
 .wx.wcard { --wu: var(--u, 1px); overflow: hidden; padding: calc(24 * var(--wu)) calc(26 * var(--wu)); display: flex; flex-direction: column; }
 .wcard > :not(.sky) { position: relative; }
 .wcard .place { font-size: calc(12.5 * var(--wu)); letter-spacing: .12em; }
@@ -134,7 +134,7 @@
 /* On the tablet's Today the grid sets the card's height: when a row's worth is too short for the days under the hours
    (a photo card makes three rows), they go, so nothing is cut off. (Not on a phone: there the content sets the height.) */
 .h-today .wcard.cell { container-type: size; }
-/* wider than tall (a short row on Today): everything tighter so the next two days still fit (the user wants them) */
+/* wider than tall (a short row on Home): everything tighter so the next two days still fit (the user wants them) */
 @container (min-aspect-ratio: 1/1) {
   .wcard.cell .wc-temp { font-size: calc(64 * var(--wu)); }
   .wcard.cell .wc-now { margin-top: calc(2 * var(--wu)); }

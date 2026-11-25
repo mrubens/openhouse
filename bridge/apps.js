@@ -9,7 +9,7 @@
 // tools, the household's settings or screens.
 //
 // GET /apps                      [{id, meta: app.json, icon (svg), web, widget, today}], the home style and apps for screens left out
-//                                (today: "small" or "wide", the card it offers on Today: a widget.html and app.json
+//                                (today: "small" or "wide", the card it offers on Home: a widget.html and app.json
 //                                "today": {"size"}; a plugin's app only with "today-card" granted)
 // GET /apps/key?app=<id>         that app's key (the display only)
 // GET|POST /appdata/<name>       an app's own saved things (a drawing in progress, progress in a game), kept by the
@@ -43,13 +43,13 @@ const APP_GROUPS = {
   timer: [['POST', /^\/home\/timer$/], ['GET', /^\/home\/timer$/]], // start and stop the kitchen timers, and see which are running
   say: [['POST', /^\/(voice\/say|home\/handsfree)$/]], // speaking, and being used hands-free (the voice listens longer)
   decide: [['POST', /^\/cloud\/decide$/]], // OpenAI Decisions through the family's account: counts against its allowance
-  today: [['POST', /^\/today\/line$/]], // its own one line on Today, with an until (things.js putApp)
+  today: [['POST', /^\/today\/line$/]], // its own one line on Home, with an until (things.js putApp)
   days: [['POST', /^\/calendar\/days$/]], // its own notes on the calendar's days (day-notes.js)
   'calendar-events': [['POST', /^\/calendar\/events$/]], // its own events on the calendar, read-only there (day-notes.js); not the family's
   // The home's speakers and TVs, through the bridge's own drivers, under the same asks as Opie (devices/index.js forApp):
   // list, a device's state, an action. Never the devices' addresses, scanning, recipes or pairing.
   devices: [['POST', /^\/apps\/devices(\/(get|do))?$/]],
-  'today-card': [], // its widget.html as a card of its own on Today, once the household turns it on (list: today)
+  'today-card': [], // its widget.html as a card of its own on Home, once the household turns it on (list: today)
   // The family's own apps only: the house's settings, handing something to a phone, the scanned flyer.
   own: [['POST', /^\/house\/(settings|share|flyer\/clear)$/], ['POST', /^\/household\/location$/],
     ['GET', /^\/map(\/route)?$/], ['POST', /^\/map\/(on|place|place\/remove|clear)$/], // the Map (maps.js)
@@ -111,7 +111,7 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
   const keyOf = (id) => crypto.createHmac('sha256', secret).update('app:' + id).digest('base64url');
   const same = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length === y.length && crypto.timingSafeEqual(x, y); };
 
-  let rightsOf = () => null; // plugins.js rightsOf (server.js): a plugin's app offers a Today card only if it was granted one
+  let rightsOf = () => null; // plugins.js rightsOf (server.js): a plugin's app offers a Home card only if it was granted one
   // plugins.js frozenOf: what a shared app's card fixed of its app.json ({background, screens, tablet}), never read live.
   let frozenOf = () => null;
   const todayOf = (id, meta, widget) => { const t = meta.today; if (!widget || !t || typeof t !== 'object') return null; const r = rightsOf(id); return r && !r.has('today-card') ? null : t.size === 'wide' ? 'wide' : 'small'; };

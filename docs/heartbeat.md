@@ -7,8 +7,8 @@ hasn't needed it:
 - **Checks** stay on the tablet, as code, and apps (plugins included) can declare their own, as data.
 - **Judgment** goes to a decision model: OpenAI's Decisions API with `gpt-6-luna`, through our cloud
   (`POST /v1/decide`), or later the household's own key.
-- **Things on Today, not notes** (since 1.0.12): a cheap text model puts one short line on Today's strip. Each line
-  has its own end and comes down once what it's about is sorted, in plain code. See "Things on Today" below.
+- **Things on Home, not notes** (since 1.0.12): a cheap text model puts one short line on Home's strip. Each line
+  has its own end and comes down once what it's about is sorted, in plain code. See "Things on Home" below.
 - **Fixing an app** goes to whoever builds. The fix waits for the household's Claude or Codex in the workshop, goes in
   behind the PIN card, and is one undo.
 - **The hourly review:** once an hour in waking hours, the text model (on OpenAI's Flex tier) looks at today and
@@ -28,10 +28,10 @@ Code:
 Tests: `bridge/test/heartbeat-judge.test.mjs` covers the judge's path, app checks, the fix queue and the workshop,
 with the decision and text models stubbed. `bridge/test/heartbeat.test.mjs` covers the checks and the agent's path.
 
-## Things on Today (since 1.0.12)
+## Things on Home (since 1.0.12)
 
 Reminders and suggestions belong with the countdown, and should disappear when they're no longer relevant. So the heartbeat no longer writes notes. It writes **things**, one line
-each, on a short strip where the countdown was: under the calendar on Today (beside the title when there's no
+each, on a short strip where the countdown was: under the calendar on Home (beside the title when there's no
 Calendar tab), and on the resting screen. At most 3 show, most urgent first. `bridge/things.js`, `things.json` next
 to the chats.
 
@@ -108,7 +108,7 @@ itself, so nothing from a plugin ever runs as code.
 
 A thing the heartbeat put up about a finding comes down by itself once the finding goes away: the clash was moved,
 the app works again, dinner got planned. This happens at **Tidy up** and above, only for its own (`things.settle`), and
-is logged as "Took down a thing on Today about something that's sorted". Each also has its `until`, so it ends anyway.
+is logged as "Took down a thing on Home about something that's sorted". Each also has its `until`, so it ends anyway.
 
 ## 3. Judging: the decision model
 
@@ -131,7 +131,7 @@ typed questions for each:
 | `act_<n>`: what would help most? | choice | `notice` (a new note), `tidy` (update the note that's already about it), `fix` (an app's code needs fixing) |
 | `for_<n>`: who is it for? | choice | each household member by name, `household` or `everyone` (left out when the household has no names) |
 
-The input also holds the time, the household (`board.household()`) and the notes on Today now.
+The input also holds the time, the household (`board.household()`) and the notes on Home now.
 
 **What the level allows**, whatever the model says:
 - `fix` becomes a waiting fix only at **Fix things**, and only for a crash. Otherwise it's a note.
@@ -145,7 +145,7 @@ A judged finding isn't judged again. One that goes away and comes back is new.
 - Later: the household's own OpenAI key, which the shell holds (`/openai/decide` and `/openai/respond` in
   openhouse-cloud/docs/cloud-beta.md). It plugs into the same `{ ready, decide, ai }`. Not built.
 
-## 4. A line on Today: the text model
+## 4. A line on Home: the text model
 
 For each finding worth it (but a crash: that line is written in code), `writeNote` (heartbeat-judge.js) runs the
 cloud's text model (`POST /v1/ai/respond`, `gpt-6-luna`).
@@ -191,10 +191,10 @@ cloud's text model looks at the day. Code: `bridge/heartbeat-review.js`, `review
 - **When:** at most once an hour, in waking hours, never at night, in Sleep now, or while someone's using the tablet (a
   conversation, a change being made). Off means off. At most 16 a day and $0.05 a day.
 - **What it sees:** a compact snapshot. That's the time, the household, today's and tomorrow's calendar, the lists'
-  open items, chores, today's and tomorrow's meals, the notes and the things on Today, and whatever the checks found that nobody has
+  open items, chores, today's and tomorrow's meals, the notes and the things on Home, and whatever the checks found that nobody has
   looked at yet.
 - **What it may do:** at most one small thing, or nothing (the rules say most hours it's nothing). It can put up a
-  line on Today (`show_thing`), take down one of its own, or (at Fix things, for an app the checks found crashing) `queue_fix`,
+  line on Home (`show_thing`), take down one of its own, or (at Fix things, for an app the checks found crashing) `queue_fix`,
   which waits for whoever builds. A second write is refused in code.
 - **Its tools:** what the level allows (show_thing, family_things, about_household; take_down_thing at Tidy up),
   plus `queue_fix`. The voice's writing tools (lists, calendar, chores,
@@ -237,7 +237,7 @@ Its level, how often the review runs (30, 60, 120 or 240 minutes) and its prompt
 | Level | Checks | It may |
 |---|---|---|
 | **Off** | don't run | nothing |
-| **Notice only** | run | a quiet note on Today about a problem |
+| **Notice only** | run | a quiet note on Home about a problem |
 | **Tidy up** (default) | run | that, plus nudges (dinner, morning), updating its notes, and taking them down once sorted |
 | **Fix things** | run | that, plus fixing a broken app: queued for whoever builds (judge path), or by the agent (fallback) |
 
@@ -290,6 +290,6 @@ The skip reasons are `off`, `night`, `sleep`, `in use`, `cap`, `rate` (judge), `
 
 1. **A fix on the agent path has no PIN card**, because nobody is there in the background. Should Fix things on the
    fallback queue too, instead of fixing? That would make every fix wait for a person.
-2. **Showing waiting fixes on the tablet:** a line on Today since 1.0.12. A row in Settings too? Not built;
+2. **Showing waiting fixes on the tablet:** a line on Home since 1.0.12. A row in Settings too? Not built;
    `GET /heartbeat` has `fixes`.
 3. **Four levels or three?** Still open.

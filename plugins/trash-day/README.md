@@ -13,15 +13,15 @@ Which night the bins go out.
   before: "Trash and recycling out tonight" (on the sleep screen too, until the truck comes). For a later one, the
   morning of: "Trash out by 1:00 PM". Then, once it's been (from noon), "Bring the bins back in" until 9 PM, unless
   that's turned off. An x on the line takes it down. A holiday that moves the pickup moves these too. There's a small
-  card for Today as well, with the next pickup.
+  card for Home as well, with the next pickup.
 - **The voice:** "when's trash day?", "is it recycling week?", "when does yard waste go out?".
 
 Nothing is sent anywhere with the schedule; with a city calendar, its link is read twice a day.
 
 ## What it asks for
 
-- a line of its own on Today
+- a line of its own on Home
 - notes of its own on the calendar's days
-- a card of its own on Today
+- a card of its own on Home
 - reaching the calendar hosts a city pickup calendar can be on: `api.recollect.net`, `recollect.a.ssl.fastly.net`,
   `calendar.google.com`, `*.icloud.com`, `outlook.office365.com`, `outlook.live.com`

@@ -15,8 +15,8 @@ export const STEPS = 4; // the text model's steps for one note
 
 // What each kind of action needs the switch to be at.
 export const ACTS = [
-  { value: 'notice', description: 'Tell the household: one short line on Today (a reminder or a suggestion)' },
-  { value: 'tidy', description: 'A line already on Today is about this: change it (or take it down if it is sorted) instead of adding one' },
+  { value: 'notice', description: 'Tell the household: one short line on Home (a reminder or a suggestion)' },
+  { value: 'tidy', description: 'A line already on Home is about this: change it (or take it down if it is sorted) instead of adding one' },
   { value: 'fix', description: "One of the household's apps is broken and its code needs fixing" },
 ];
 
@@ -25,7 +25,7 @@ export function questions(findings, people = []) {
   const qs = [];
   findings.forEach((f, i) => {
     const n = i + 1;
-    qs.push({ type: 'predicate', name: `worth_${n}`, instructions: `Finding ${n}: is it worth doing something about now, for a household that wants a calm screen? Yes for a real problem or a useful nudge. No if it's trivial, already sorted, or something on Today already says it.` });
+    qs.push({ type: 'predicate', name: `worth_${n}`, instructions: `Finding ${n}: is it worth doing something about now, for a household that wants a calm screen? Yes for a real problem or a useful nudge. No if it's trivial, already sorted, or something on Home already says it.` });
     qs.push({ type: 'choice', name: `act_${n}`, instructions: `Finding ${n}: what would help most?`, choices: ACTS });
     if (people.length) qs.push({ type: 'choice', name: `for_${n}`, instructions: `Finding ${n}: who is it for?`,
       choices: [...people.map((p) => ({ value: p, description: `${p} (it's about them, or they'd sort it)` })), { value: 'household', description: 'Whoever looks after the tablet (a setting, the tablet, a link to check)' }, { value: 'everyone', description: 'The whole household' }] });
@@ -51,9 +51,9 @@ export function verdicts(findings, answers = []) {
 }
 
 // What the text model is told. The same notes rules as the assistant (NOTES.md and the family's preferences follow).
-export const NOTE_RULES = `You look after a household's screen in the background. Nobody asked anything and nobody is watching; nothing you write is said aloud. The screen's own checks found one thing worth a line on Today, the short strip everyone sees. Do exactly one small thing with your tools, then reply with one line saying what you did, or NOTHING.
+export const NOTE_RULES = `You look after a household's screen in the background. Nobody asked anything and nobody is watching; nothing you write is said aloud. The screen's own checks found one thing worth a line on Home, the short strip everyone sees. Do exactly one small thing with your tools, then reply with one line saying what you did, or NOTHING.
 
-- Read the things on Today first (below). Never put up a line that says what one already says: put up the same words changed instead (it replaces yours).
+- Read the things on Home first (below). Never put up a line that says what one already says: put up the same words changed instead (it replaces yours).
 - A line (show_thing): at most about eight plain words, a reminder or a suggestion ("Leave by 4:50 for Ducks at MSU"). People's names, not pronouns. No emoji. "until" is when its moment passes; it also comes down by itself once what it's about is sorted. Give it what a tap does: "open" its tab (meals, calendar, map...) or "ask" Opie something that settles it.
 - By kind: [sync] a calendar's link needs checking in Settings. [morning] only if there's something to get ready ("Pack Leo's swim bag"). [storage] storage is nearly full. [app] what the app's check says, plainly.`;
 
@@ -66,7 +66,7 @@ const textOf = (out) => (out || []).filter((o) => o.type === 'message').flatMap(
 export async function writeNote({ ai, finding, verdict, level, fixQueued = false, rules = '', tools, callTool, when }) {
   const instructions = NOTE_RULES + (rules ? `\n\n---\n\n${rules}` : '');
   const input = [{ role: 'user', content: `It is ${when}. Your level is "${level}"${level === 'notice' ? ' (new lines only)' : ' (lines, and taking down your own)'}.\n\n` +
-    `Found: [${finding.kind}] ${finding.text}${verdict?.for ? `\nIt's for: ${verdict.for}` : ''}${verdict?.act === 'tidy' ? '\nA line on Today may already be about this: change it rather than add one.' : ''}` }];
+    `Found: [${finding.kind}] ${finding.text}${verdict?.for ? `\nIt's for: ${verdict.for}` : ''}${verdict?.act === 'tidy' ? '\nA line on Home may already be about this: change it rather than add one.' : ''}` }];
   let cost = 0, steps = 0;
   for (; steps < STEPS; steps++) {
     let r;

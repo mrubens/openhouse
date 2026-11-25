@@ -1,4 +1,4 @@
-// The weather's look, shared by the Weather tab (defaults/apps/weather) and the Weather card on Today (chat/src/home.jsx):
+// The weather's look, shared by the Weather tab (defaults/apps/weather) and the Weather card on Home (chat/src/home.jsx):
 // a sky that follows the time and the conditions, quiet line icons, the hours on a temperature curve, the week's
 // low-to-high bars on one cold-to-warm scale, a sun arc, and the model's lines (GET /weather's `sense`). Plain HTML
 // strings from the /weather shape; the styles are weather-look.css, sized in --wu (the tab: its width / 1302; Today: --u).
@@ -167,7 +167,7 @@ export function tab(w, { now = new Date(), night = false, nh = 12 } = {}) {
     </section></div>` };
 }
 
-/** The Weather card on Today: 'cell' (one cell), 'tall' (two rows) or 'wide' (two columns). */
+/** The Weather card on Home: 'cell' (one cell), 'tall' (two rows) or 'wide' (two columns). */
 export function card(w, size = 'cell', { now = new Date(), night = false } = {}) {
   const kind = skyOf(w, +now, night), sense = (w.sense || []).length > 0;
   const head = `<div class="place">${esc(w.place || 'Weather')}</div><div class="wc-now"><div class="wc-temp">${num(w.temp)}°</div><div class="wc-words"><b>${esc(w.condition || '')}</b><span>H ${num(w.high)}°&ensp;L ${num(w.low)}°</span></div></div>`;

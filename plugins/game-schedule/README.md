@@ -16,7 +16,7 @@ household's own apps, not a plugin's. A league's web page (no calendar link) isn
 ## What it asks for
 
 - the family's names (whose team)
-- a line of its own on Today
+- a line of its own on Home
 - events of its own on the calendar (it can't change the family's)
 - reaching the team apps' calendar hosts: `calendar.google.com`, `*.teamsnap.com`, `*.gc.com`, `*.sportsengine.com`,
   `*.leagueapps.com`, `*.icloud.com`, `outlook.office365.com`, `outlook.live.com`, `*.teamapp.com`,

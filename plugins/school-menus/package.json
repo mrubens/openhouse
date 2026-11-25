@@ -1,6 +1,6 @@
 {
   "name": "school-menus",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Any Nutrislice school's lunch (and breakfast) menu, found in the app by district and school: each school day's on the calendar, and any day's from the voice. The shareable version of School lunch.",
   "keywords": [
     "openhouse-plugin"

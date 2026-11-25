@@ -1,7 +1,7 @@
 // Word puzzle: a word a day, its letters mixed up, and a clue. The kids work it out on the page or ask Opie for hints
 // (app.json "hint"), each one giving a little more: what kind of thing it is, the clue, the first letter, the last.
 // Opie gets the guess as a word (app.json "guess") and the page checks it. Today's hints and whether it's solved are
-// kept for the household (store "today"), so the card on Today and the voice agree.
+// kept for the household (store "today"), so the card on Home and the voice agree.
 import { store, onAction } from '/kit/openhouse.js';
 import { h, dayKey, put, whenShown } from './ui.js';
 import { puzzleFor } from './words.js';

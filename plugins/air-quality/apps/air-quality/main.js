@@ -1,4 +1,4 @@
-// Air quality: the air outside by the US Air Quality Index, and a line on Today only on a bad day ("Air quality:
+// Air quality: the air outside by the US Air Quality Index, and a line on Home only on a bad day ("Air quality:
 // unhealthy for sensitive groups this afternoon"). Where home is comes from the tablet's weather; the forecast from
 // Open-Meteo (air.js). Runs in the background. The voice can ask (app.json "air").
 import { weather, store, today, web, onAction } from '/kit/openhouse.js';
@@ -59,7 +59,7 @@ function draw() {
 function openSettings() {
   const pick = h('select', { class: 'field' }, [[50, 'Moderate or worse (over 50)'], [100, 'Unhealthy for sensitive groups or worse (over 100)'], [150, 'Unhealthy or worse (over 150)']]
     .map(([v, t]) => h('option', { value: v, selected: v === settings.above }, t)));
-  sheet('When to show it on Today', [field('A line on Today when the air is', pick)], [
+  sheet('When to show it on Home', [field('A line on Home when the air is', pick)], [
     { text: 'Cancel', soft: true, tap: (c) => c() },
     { text: 'Save', tap: async (c) => { settings = { above: Number(pick.value) }; await store.set('settings', settings); c(); lineFor = null; line(); draw(); } }]);
 }

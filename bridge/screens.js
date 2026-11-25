@@ -60,7 +60,7 @@ const RULES = [
   ['door', 'GET', /^\/screens\/apps$/], // the apps for this kind of screen (a TV's layout, a phone's tabs)
   ['door', 'GET', /^\/screens\/app-files$/], // one app's files, for a phone's frame (appFiles)
   ['arrange', 'POST', /^\/home\/(arrange|place|remove|putback|keep|touch|timer|sketch)$/],
-  ['arrange', 'POST', /^\/house\/(list|chore|remind|thing)$/], // the widgets' own taps: a grocery ticked, a chore done, a reminder or a thing on Today put away
+  ['arrange', 'POST', /^\/house\/(list|chore|remind|thing)$/], // the widgets' own taps: a grocery ticked, a chore done, a reminder or a thing on Home put away
   ['ask', 'POST', /^\/chat(\/stop|\/warm)?$/],
   ['ask', 'GET', /^\/chats\/[\w-]{1,40}$/],
   ['ask', 'POST', /^\/house\/recipe-link$/], // a recipe's link shared from a phone (the Recipes app)

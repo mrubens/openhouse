@@ -14,7 +14,7 @@ Tablets that already chose their tabs keep them; Recipes is in their Apps.
   - `video`: a YouTube link, from the page or the link itself.
 - **Ways in:**
   - A link: typed in Recipes, or shared from a grown-up's phone. On Android the phone page takes a share
-    (`share_target`); on any phone there's a link field on Today. The route is `POST /house/recipe-link`, allowed for
+    (`share_target`); on any phone there's a link field on Home. The route is `POST /house/recipe-link`, allowed for
     the `ask` scope only, so not from kids' phones.
   - A photo of a cookbook page (the existing `phone.recipe`).
   - Typed or pasted.

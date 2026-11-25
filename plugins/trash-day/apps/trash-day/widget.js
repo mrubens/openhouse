@@ -1,4 +1,4 @@
-// Trash day's card on Today: the next pickup, big, and what goes out.
+// Trash day's card on Home: the next pickup, big, and what goes out.
 import { store } from '/kit/openhouse.js';
 import { h, dayKey, whenDay, monthDay, put } from './ui.js';
 import { pickups, fromCalendar, what } from './pickup.js';

@@ -13,7 +13,7 @@ description: "How apps are made on OpenHouse, before making or changing one: eve
 
 
 ## Note or app?
-- Something to read or keep (a recipe, a plan, a list for today): a note, on Today.
+- Something to read or keep (a recipe, a plan, a list for today): a note, on Home.
 - Something that has to keep changing by itself (a countdown, a live chart): an app, in Apps, and in the sidebar if
   they say yes when you ask.
 - Anything you open and use or play (a game, a quiz, a drawing pad, a tool): an **app** (below). It runs full
@@ -80,7 +80,7 @@ A page in `apps/<id>/` (id: lowercase, hyphens, e.g. `star-catcher`), served by 
 save. `check_build` reports errors the page throws while it's open.
 - Files (flat, no subfolders): `app.json` `{"name": "Marble Run", "tabIcon": "game-controller"}`, `icon.svg` (see "Icons"), `index.html`,
   `main.js` (more `.js` and `.css` files next to it are fine). A new app: write them all first, so it appears right away; then improve it.
-- A card of its own on Today (a remote, a score): `widget.html` (a small page with the kit, like `index.html`; it sits
+- A card of its own on Home (a remote, a score): `widget.html` (a small page with the kit, like `index.html`; it sits
   on the card's color, with about 22 px at the sides) and `"today": {"size": "small"}` (or `"wide"`) in `app.json`. It
   shows once someone turns it on (`today_card`; ask in one short line before you do).
 - A tab gets a small icon beside its name: `"tabIcon"` in `app.json`, one of (nothing else draws):

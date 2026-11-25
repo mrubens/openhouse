@@ -33,7 +33,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | --- | --- | --- |
 | Open a tab or app | yes | show_on_screen |
 | Tabs: add, remove, order, rename; the look (palette, colours, type, density, photo backdrop) | **new** | set_home (it was typed-only; "Tabs and look" has no PIN) |
-| Today's cards: order, on or off (Tabs and look) | **new** | set_home today (the order and which show), today_card (an app's own card) |
+| Home's cards: order, on or off (Tabs and look) | **new** | set_home today (the order and which show), today_card (an app's own card) |
 | Timers: start, +/− minutes, clear | yes | timer (a changed time is cancel and start) |
 | Today's lines (things): take one down | yes | take_down_thing |
 | Notes: open, take down | yes | look_at_notes, take_down_note; put_note and update_note too |

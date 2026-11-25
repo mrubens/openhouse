@@ -1,4 +1,4 @@
-// Bus times' card on Today: the next buses at the stop, in minutes, from what the app last heard from the agency
+// Bus times' card on Home: the next buses at the stop, in minutes, from what the app last heard from the agency
 // (it asks each minute in the hours chosen, or while it's open).
 import { store } from '/kit/openhouse.js';
 import { h, put } from './ui.js';

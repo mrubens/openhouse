@@ -58,7 +58,7 @@ struct OpenHouseApp: App {
   func removed() { PairingStore.save(nil); pairing = nil; url = nil; WidgetCenter.shared.reloadAllTimelines() }
 
   /// openhouse://tab/<tab> from a widget: today, or one of the household's apps on the phone's bar (its id, as lists);
-  /// the page goes to Today when there's no such tab.
+  /// the page goes to Home when there's no such tab.
   func open(_ u: URL) {
     guard u.scheme == "openhouse" else { return }
     if u.host == "tab", let tab = u.pathComponents.last, tab.range(of: #"^[\w-]{1,40}$"#, options: .regularExpression) != nil {

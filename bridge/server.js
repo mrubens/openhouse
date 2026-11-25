@@ -136,7 +136,7 @@ const plugins = pluginsRoutes({ APP_DIR, edits, homeScreen: chat.homeScreen, jso
   onChange: () => { emit({ type: 'state', ...events.state }); emit({ type: 'apps' }); },
   household: () => { try { return JSON.parse(fs.readFileSync(path.join(HERE, '../household.json'), 'utf8')); } catch { return {}; } } });
 chat.homeScreen.addTools(plugins.tools, plugins.call);
-// An app's card on Today (its widget.html): a plugin's app only with "today-card" granted; the household turns each on (home-screen.js today_card).
+// An app's card on Home (its widget.html): a plugin's app only with "today-card" granted; the household turns each on (home-screen.js today_card).
 apps.setRightsOf(plugins.rightsOf); apps.setFrozenOf(plugins.frozenOf);
 chat.homeScreen.setCardApps(() => apps.list().filter((a) => a.today).map((a) => ({ id: a.id, name: a.meta?.name || a.id })));
 plugins.start();
@@ -153,7 +153,7 @@ chat.live.setDayNotes?.(() => chat.notes.describe());
 chat.live.setScreen?.({
   places: () => {
     const all = apps.list().filter((a) => a.web);
-    return [{ id: 'today', name: 'Today', tab: true }, ...all.map((a) => ({ id: a.id, name: a.meta?.name || a.id, tab: isTab(a.id) })), { id: 'apps', name: 'Apps (every app, and the Android apps added)', tab: true }];
+    return [{ id: 'today', name: 'Home', tab: true }, ...all.map((a) => ({ id: a.id, name: a.meta?.name || a.id, tab: isTab(a.id) })), { id: 'apps', name: 'Apps (every app, and the Android apps added)', tab: true }];
   },
   show: async (id) => {
     const d = chat.deviceServer();
@@ -169,7 +169,7 @@ chat.live.setScreen?.({
 const HB_DIR = path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'));
 const fixes = fixQueue({ DIR: HB_DIR });
 chat.homeScreen.addTools(fixes.tools, fixes.call);
-chat.things.setFixes(() => fixes.open()); // a broken app waiting for its fix shows on Today (things.js)
+chat.things.setFixes(() => fixes.open()); // a broken app waiting for its fix shows on Home (things.js)
 const checksFromApps = appChecks({ APP_DIR, readData: dataReader(path.resolve(HB_DIR, '../appdata')), houseView: () => chat.house.view(),
   houseKeysOf: (app) => { const r = plugins.rightsOf(app); return r ? new Set(Object.keys(houseFor(chat.house.view(), r))) : null; },
   fixedChecks: (app) => plugins.checksOf(app) });
@@ -182,7 +182,7 @@ const hb = heartbeat({ judge: { name: 'cloud', ready: () => !!cloudRef?.liveOn?.
   every: process.env.HEARTBEAT === 'off' ? 0 : 5 * 60e3 });
 chat.hooks.onTurn = hb.awake;
 // Follow-ups for later (later.js): "remind Maya at 4, out loud", "check at 5 whether the package came and tell me".
-// Said with the kit's say (never at night or after Sleep now) and a line on Today; a "do" one runs the cloud's text
+// Said with the kit's say (never at night or after Sleep now) and a line on Home; a "do" one runs the cloud's text
 // model with the voice's tools, as the heartbeat's review does.
 const later = laterRoutes({ DIR: HB_DIR, say: (t) => chat.voice.say(t), things: chat.things, night: () => chat.house.night(),
   asleep: () => (hb.state.sleepUntil || 0) > Date.now(), talk: chat.live.talk, live: chat.live,
@@ -341,7 +341,7 @@ function onlyThe(res, fn) {
 async function appCall(req, res, url, app) {
   const rights = plugins.rightsOf(app); // null: the family's own app
   if (url.pathname.startsWith('/appdata/')) { try { await apps.handle(req, res, url, app); } catch (e) { if (!res.headersSent) json(res, 500, { error: e.message }); } return; }
-  // The web through the bridge, only the hosts the app reaches (app-web.js); its own one line on Today (things.js).
+  // The web through the bridge, only the hosts the app reaches (app-web.js); its own one line on Home (things.js).
   // A website it chooses at setup (a shared app whose card said so): the tablet's card with the PIN, then the plugin's manifest.
   if (url.pathname === '/apps/reach') { const b = await body(req); const r = await plugins.askReach(app, b.host, b.key || null); return json(res, 200, r); }
   if (url.pathname === '/apps/reach/forget') { const b = await body(req); return json(res, 200, plugins.forgetReach(app, b.host)); }

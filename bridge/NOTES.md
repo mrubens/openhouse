@@ -1,6 +1,6 @@
 THE FEEL OF A NOTE (read this before you put one up)
 
-Notes show on the Today tab, under the day: a title and its first words, read at a glance from across the room.
+Notes show on the Home tab, under the day: a title and its first words, read at a glance from across the room.
 A tap opens the whole note in a calm card. Think of a note someone left on the counter, not a web page.
 
 ON TODAY, LESS IS THE WHOLE POINT

@@ -85,7 +85,7 @@ All paths are under the display folder (`files/display/` in the shell).
 
 | Piece | Where it lives | Made by | Undo | In backups | Shareable as is? |
 |---|---|---|---|---|---|
-| **An app** | `webapp/apps/<id>/`: flat files `app.json` (`{"name"}`, optional `screensaver`, `tabIcon`: chat/src/tab-icons.js, `today`: §15), `icon.svg`, `index.html`, `main.js`, more js/css, optional `widget.html` (its card on Today, §15) | the assistant, the builder, the workshop MCP `write_file` | git, one commit per change (`bridge/edits.js`) | yes | **Yes.** It's a folder, and the family's data isn't in it (next row) |
+| **An app** | `webapp/apps/<id>/`: flat files `app.json` (`{"name"}`, optional `screensaver`, `tabIcon`: chat/src/tab-icons.js, `today`: §15), `icon.svg`, `index.html`, `main.js`, more js/css, optional `widget.html` (its card on Home, §15) | the assistant, the builder, the workshop MCP `write_file` | git, one commit per change (`bridge/edits.js`) | yes | **Yes.** It's a folder, and the family's data isn't in it (next row) |
 | The app's data | lists, chores, meals, events, rewards in `house.json` (`bridge/house.js`); app-private data in `appdata/<id>/*.json` | the app, through `/kit/openhouse.js` | no | yes | No. It is the family's |
 | **Tabs and look** | `webapp/apps/home/style.json`: `tabs`, `palette` (paper/linen/sage/mist/dusk), `colors {bg, sheet, ink, accent}`, `type` (clean/serif/round/hand), `density`, `backdrop` | `set_home`, the Tabs and look sheet (`setLook`) | git | yes | **Yes**, the look keys. The tabs are a suggestion (they name the family's own apps) |
 | Notes, widgets, timers | `chats/door.json` (its first name) | the assistant, the family | trash and `put_back` | yes | No, these are this week's |
@@ -324,7 +324,7 @@ There is no `npm install` and nothing runs.
 - **Pinned, never automatic.**
   - Once a day the bridge asks each plugin's source for its newest tag or commit: `git ls-remote`, or the index.
   - If there's a newer one, Settings row says "Update available". Optionally, the heartbeat can put one quiet
-    note a week on Today.
+    note a week on Home.
 - **Updating is the same card again**, with what changed: files, and any new `uses` or `reaches`, called out ("now
   also wants to reach api.example.com"). New rights always need the PIN.
 - **The family's version wins** (the starting apps' rule).
@@ -554,18 +554,18 @@ stay as they are). Each is skipped where there's no such backup. The tablet itse
 - **Looks and widgets as plugins of their own:** a look still comes in with a shared plugin, or is a setting. A
   widget is still part of its app.
 
-## 12. A line on Today, the web through the tablet, a plugin in a folder (2026-11-21)
+## 12. A line on Home, the web through the tablet, a plugin in a folder (2026-11-21)
 
 Built for the School lunch plugin (`plugins/school-lunch/`), and usable by any app:
 
-- **A line of its own on Today** (kit `today.show(text, until)`, `today.clear()`; `POST /today/line`). One per app,
+- **A line of its own on Home** (kit `today.show(text, until)`, `today.clear()`; `POST /today/line`). One per app,
   plain words up to 80 characters, shown with the reminders and suggestions (things.js, kind `app`) until `until` (10
   minutes to a day ahead). Showing again replaces only that app's line; a tap opens its tab; a person's x or Opie's
   `take_down_thing` takes it down, and the same words don't come back until they change. A plugin's app needs
-  `"today"` in `uses` (the card says "a line of its own on Today").
+  `"today"` in `uses` (the card says "a line of its own on Home").
   The line is on the sleep screen too, under the events; `today.show(text, until, { sleep: false })` keeps it to
   Today (a busy or live line). Calendar notes (`days.set`) for today are on the sleep screen as well, tomorrow's from
-  6 PM. Today cards (`widget.html`) are not: the sleep screen stays plain lines.
+  6 PM. Home cards (`widget.html`) are not: the sleep screen stays plain lines.
 - **The web through the tablet** (kit `web.get(url)`, `web.json(url)`; `POST /apps/fetch`, `bridge/app-web.js`), for
   a site that doesn't let other pages read it (no CORS), like Nutrislice's menu API. Only https GETs to the hosts in the
   app's `reaches` (as the card granted, for a shared app; its `app.json` for ours and the household's), never the home
@@ -578,7 +578,7 @@ Built for the School lunch plugin (`plugins/school-lunch/`), and usable by any a
 
 **School lunch:** `github.com/mrubens/openhouse/tree/main/plugins/school-lunch`. Each kid's name (from the family) and
 Nutrislice menu link; the week's lunches per school, today marked; "Lunch: Popcorn Chicken · Beef Taco Meat tomorrow"
-on Today on school days; voice actions `lunch {date?, who?}` and `week {who?, next?}`. Its page does all of it, so the
+on Home on school days; voice actions `lunch {date?, who?}` and `week {who?, next?}`. Its page does all of it, so the
 line and the daily refresh happen while the page runs (as a tab once seen, or open).
 
 ## 13. Things apps put on the calendar (2026-11-22)
@@ -593,19 +593,19 @@ that app's whole set of that kind; never synced; gone with the app):
   household's order, the next thing after the day's events. The Calendar's week shows the whole text with one or two
   notes and each one's short words with more, never cut; Today (under its calendar card), the day view (beside the
   hours, after the all-day things) and the list show the whole text; the month none. A tap shows all of it, the day,
-  "From <app>", where that app's notes show (Week and Today, Today only, Nowhere) and Open <app> (kit `shell.openApp`).
+  "From <app>", where that app's notes show (Week and Home, Home only, Nowhere) and Open <app> (kit `shell.openApp`).
 - **Events** (kit `events.set(list)`, `POST /calendar/events`, `uses` `"calendar-events"`): someone has to be
   somewhere, or the day changes shape. `{date or start, end?, allDay?, title, place?, who?}`. Merged into the house's
   events (Calendar, Today, Opie) exactly like the family's, read-only, "From <app>", no reminders.
 - **The household chooses** (Calendar, From apps; `POST /house/settings {fromApp: {app, show}}` and
-  `{fromAppsOrder}`, kept in house.json's settings): Week and Today, Today only (where a new app starts, so the week
+  `{fromAppsOrder}`, kept in house.json's settings): Week and Home, Home only (where a new app starts, so the week
   never changes on its own) or Off (its events too), and the order. `view().fromApps` lists the apps.
 
 ## 14. The home's speakers and TVs (2026-11-22)
 
 An app can control the devices the tablet already controls (Sonos, Roku, Samsung and LG TVs, Xbox, Bluetooth
 speakers, a recipe's device), through the same drivers and the same asks as Opie (`bridge/devices/index.js`
-`forApp`). A remote for the Sonos on Today is the first use.
+`forApp`). A remote for the Sonos on Home is the first use.
 
 - **Kit** `devices.list({state?})`, `devices.get(id)`, `devices.do(id, action, args?)`; `POST /apps/devices`,
   `/apps/devices/get`, `/apps/devices/do`; `uses` `"devices"` (the card says "the home's speakers and TVs (it asks
@@ -623,7 +623,7 @@ speakers, a recipe's device), through the same drivers and the same asks as Opie
   and the display itself aren't listed.
 - **Limits:** 60 changes and 120 reads a minute per app (then 429, `{ok: false, limited: true}`).
 
-## 15. A card of its own on Today (2026-11-22)
+## 15. A card of its own on Home (2026-11-22)
 
 For an app that's most useful at a glance or a tap (a remote for the speakers, a score, the next bus):
 
@@ -635,13 +635,13 @@ For an app that's most useful at a glance or a tap (a remote for the speakers, a
   in its address, so the kit works there with what the app was granted. Its address says `?today=small` or `wide`.
   The page sits on the card's tint (`bg`), keeps about 22 px at the sides, and takes its own taps; a tap on blank space
   does nothing. Kit `shell.openApp(id)` works from it too.
-- **The household turns it on**: none show until someone does, in "Tabs and look" (Cards on Today: add, order, take
-  off) or by holding the app in Apps (Add to Today). Opie, the text assistant and the workshop use `today_card`
+- **The household turns it on**: none show until someone does, in "Tabs and look" (Cards on Home: add, order, take
+  off) or by holding the app in Apps (Add to Home). Opie, the text assistant and the workshop use `today_card`
   (`{app, on, position}`; with no app it lists what's on and what could be). Kept as `cards` (app ids, in order) in
   `apps/home/style.json` with the tabs and the look (`POST /home/look {cards}`), so undo takes it back.
-- **On Today** the chosen cards come after the weather, chores, dinner and groceries and before the notes and the photo,
+- **On Home** the chosen cards come after the weather, chores, dinner and groceries and before the notes and the photo,
   in the household's order, three rows at most; a wide card that doesn't fit the rest of a row starts the next one.
-- **A plugin's app needs `"today-card"` in `uses`** (the card says "a card of its own on Today"); without it the app
+- **A plugin's app needs `"today-card"` in `uses`** (the card says "a card of its own on Home"); without it the app
   offers no card, and exporting or installing one notes it. The household's own apps and ours don't need it.
 
 ## 16. Example plugins (2026-11-23)
@@ -658,7 +658,7 @@ household sets up. `scripts/plugin-tarballs.sh` makes their tarballs (package/ a
 from the Mobility Database's catalog or pasted, its stops read from its GTFS zip (`web.bytes`). Left out: **library
 books** (no common catalog API that works without someone's sign-in).
 
-The worked examples: **Reading log** (voice actions with structured arguments, a chart on a wide Today card, stars
+The worked examples: **Reading log** (voice actions with structured arguments, a chart on a wide Home card, stars
 through Chores), **Pantry** (small judgments with `decide`, dinner into Meals) and **Bedtime** (devices through the
 kit's asks, a Today line and card, routines from Chores).
 
@@ -673,7 +673,7 @@ What building them taught, for anyone making one:
   second or two once it has started; its first start after an install can take longer than the wait.
 - **Wait long enough** (`"wait"`) for anything the answer fetches: 15 to 25 seconds in the examples.
 - `replaceChildren(null)` prints "null": the examples' `put()` leaves out nulls.
-- **A card on Today is as tall as it needs**, so size its type by the card's width, not its height (`card.css`).
+- **A card on Home is as tall as it needs**, so size its type by the card's width, not its height (`card.css`).
 - **A calendar note can carry photos** (`pics: [{text, image}]`, up to 4, each image from a host the app reaches):
   Today's note card shows them small beside their names. School lunch and School food send the day's dishes.
 
@@ -683,7 +683,7 @@ now lists them once a couple of seconds).
 
 Found on the release emulator, not changed here:
 - Removing a plugin leaves its app data (`appdata/<id>`, which the kit says survives a reinstall; a re-add picks it up),
-  its Android app shell (`computer.openhouse.app.<id>`), and its line on Today until that line's own time runs out.
+  its Android app shell (`computer.openhouse.app.<id>`), and its line on Home until that line's own time runs out.
 - An app's window keeps the key it got when it started; after the bridge restarts without it, its calls are
   "unauthorized" until the window is closed for good.
 - Settings, Plugins: the rights are shown as group names ("uses today, today-card"), unlike the install card's words;

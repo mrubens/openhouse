@@ -8,7 +8,7 @@ watching the tablet while you work: it shows your change being made.
 
 ## How to work
 - Tabs and the look ("move photos first", "make it warmer", "take out meals"): one `set_home` call. No files.
-- Notes on Today, lists, chores, meals, events: the note and household tools. No files.
+- Notes on Home, lists, chores, meals, events: the note and household tools. No files.
 - An app (new or changed), in this order:
   1. The `apps` skill (or `get_guide` with `topic: "apps"`): how apps are made here (calm everyday tools that fit a tab, games, the kit for
      the family's data, icons) and the quiet kit's CSS.

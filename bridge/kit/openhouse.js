@@ -10,7 +10,7 @@
 // losing any of it. The app's page runs in the shell's web view, which hands it a key that only opens these routes.
 const host = window.OpenhouseApp; // the shell's web view (absent in a desktop browser: then nothing reaches the bridge)
 const APP = host?.app?.() || location.pathname.split('/')[2] || '';
-// In its own window the shell hands the app its key. In a frame of the home page (a tab, a card on Today) the page
+// In its own window the shell hands the app its key. In a frame of the home page (a tab, a card on Home) the page
 // around it does, by message, only to this app's own origin: never in the address, where another page could read it.
 let KEY = host?.key?.() || '';
 const keyReady = KEY || window.parent === window || new URLSearchParams(location.hash.slice(1)).get('screen') === '1' ? Promise.resolve() : new Promise((done) => {
@@ -250,7 +250,7 @@ export const house = {
   /** The reminder every timed event gets (minutes before, or null for none; data.remind), and whether the display
    *  says reminders out loud as well as showing them (data.remindAloud). */
   /** How an app's things on the calendar show (data.fromApps [{app, name, show, notes, events}], in order): 'week' (the
-   *  Calendar's week and Today), 'today' (Today only, where a new one starts) or 'off'. order: the apps' ids, first first. */
+   *  Calendar's week and Today), 'today' (Home only, where a new one starts) or 'off'. order: the apps' ids, first first. */
   showFromApp: (app, show) => send('/house/settings', { fromApp: { app, show } }),
   orderFromApps: (ids) => send('/house/settings', { fromAppsOrder: ids }),
   setReminders: ({ remind, aloud } = {}) => send('/house/settings', { ...(remind !== undefined ? { remind: remind == null ? false : remind } : {}), ...(aloud !== undefined ? { remindAloud: !!aloud } : {}) }),
@@ -392,7 +392,7 @@ export function onAction(handler, every = 2000) {
  * characters ("Popcorn Chicken"), text: all of it ("Popcorn Chicken or Vegan Chic'n Nuggets"), who?: a family name, pics?: up to 4
  * [{text, image?}], what it's made of with a photo each (https, from a host in the app's "reaches"): Today's card shows
  * them as small photos beside their names}].
- * A day's notes are one outlined card after its events: in the Calendar's week (when the household chose Week and Today
+ * A day's notes are one outlined card after its events: in the Calendar's week (when the household chose Week and Home
  * for the app) the whole text, or with three or more the short words; Today and the day and list views the whole text. ({date, text: "Lunch: Popcorn Chicken"} still works: the label is what's
  * before the colon, else the app's name.) An app from a plugin needs "days" in its app.json "uses".
  *
@@ -408,11 +408,11 @@ export const days = { set: (list) => call('/calendar/days', { days: Array.isArra
 export const events = { set: (list) => call('/calendar/events', { events: Array.isArray(list) ? list : [] }).catch((e) => console.warn(e.message)) };
 
 /**
- * One short line of this app's own on Today, with the reminders and suggestions ("Lunch: Popcorn Chicken · Tacos
+ * One short line of this app's own on Home, with the reminders and suggestions ("Lunch: Popcorn Chicken · Tacos
  * tomorrow"): plain words, up to 80 characters, until a time (a Date or ms; 10 minutes to a day from now, 3 hours if
  * not given). Showing again replaces it; a tap opens the app's tab; a person's x (or Opie) takes it down, and the same
  * words don't come back. clear() takes it down. An app from a plugin needs "today" in its app.json "uses".
- * The line is on the sleep screen too, under the events; { sleep: false } keeps it to Today (a busy or live line).
+ * The line is on the sleep screen too, under the events; { sleep: false } keeps it to Home (a busy or live line).
  */
 export const today = {
   show: (text, until = null, { sleep } = {}) => call('/today/line', { text: String(text || ''), until: until instanceof Date ? until.getTime() : until, ...(sleep === false ? { sleep: false } : {}) }).catch((e) => console.warn(e.message)),

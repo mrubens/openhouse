@@ -35,7 +35,7 @@ it is free and on the tablet.
 | Colour per person | Chosen per person | One palette everywhere; each person's colour picked in Settings › Family | Done |
 | Add on screen | Yes | Any day, time to the quarter hour, how long, whose, repeat and until when (incl. end of the school year), place, notes, countdown | Done |
 | Edit on screen | Yes | Change any event added on the display | Done |
-| Countdowns | Any event, on the screensaver | Any event, synced ones too; on Today and the idle screen | Done |
+| Countdowns | Any event, on the screensaver | Any event, synced ones too; on Home and the idle screen | Done |
 | Reminders | Per event, a tone | A usual one for every timed event (the bell in Calendar) and each event's own, synced ones too; a card over any app with a chime, put away on every screen; said aloud if wanted; quiet at night | Done |
 | Details | Notes, place | Notes, place (synced events' notes too) | Done |
 | PIN lock for changes | Optional | Optional (Settings): the Calendar app asks for the PIN, then changes are open for 5 minutes; the bridge enforces it | Done |

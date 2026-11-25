@@ -17,5 +17,5 @@ about a kilometer, to Open-Meteo's air-quality forecast every half hour while th
 ## What it asks for
 
 - the weather (for where home is)
-- a line of its own on Today
+- a line of its own on Home
 - reaching `air-quality-api.open-meteo.com` and `geocoding-api.open-meteo.com`

@@ -1,13 +1,13 @@
 // What the household's apps put on the calendar, two kinds, and the app says which:
 //  - day notes: a fact about a day with no time (a school lunch, trash day, books due, whose turn it is): {date, label
 //    ("Lunch"), short ("Popcorn Chicken"), text (the whole of it), who?}, one per app a day (per person). Quiet, not
-//    events: one outlined card a day after its events in the Calendar's week and on Today, the full text in the day and list views.
+//    events: one outlined card a day after its events in the Calendar's week and on Home, the full text in the day and list views.
 //    Optional pics: [{text, image?}], up to 4 things a note is made of (the day's dishes), each with a photo from a host
 //    the app reaches (put's imageOk): Today shows them as small photos beside their names.
 //  - events: someone has to be somewhere, or the day changes shape (a game, a half day, no school): {date or start,
 //    end?, allDay?, title, place?, who?}, shown exactly like the family's other events, read-only, "From <app>".
 // Each app's set of each kind is replaced whole each time it sends one. Never synced to Google or iCloud; gone when the
-// app is. Whether and where each app's show (Week and Today, Today only, Off) and their order are the household's
+// app is. Whether and where each app's show (Week and Home, Home only, Off) and their order are the household's
 // settings (house.js), handed in with setPrefs.
 //
 // file: day-notes.json next to the chats: { byApp: { [app]: { name, at, items: [note], events: [event] } }, first: { [app]: ms } }

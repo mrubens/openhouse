@@ -1,4 +1,4 @@
-// Bedtime's card on Today: a button to start the scene, and once it's run, that it's done.
+// Bedtime's card on Home: a button to start the scene, and once it's run, that it's done.
 import { store, devices } from '/kit/openhouse.js';
 import { runScene } from './scene.js';
 import { h, hm, at, dayKey, put } from './ui.js';

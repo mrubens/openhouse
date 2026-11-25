@@ -7,7 +7,7 @@ Says when the wash (or the dryer) is done.
   than a few watts for two minutes, done once it's used almost nothing for four.
 - **Without one:** tap Started, or tell Opie "the washer's on" ("I started the dryer, 70 minutes"): a timer for the
   usual cycle.
-- **When it's done:** a line on Today ("The wash is done (4:12)") for three hours or until Emptied, and the tablet says
+- **When it's done:** a line on Home ("The wash is done (4:12)") for three hours or until Emptied, and the tablet says
   so out loud (turn that off in Plugs and times).
 - **The voice:** "the washer's on", "is the laundry done?", "I emptied the dryer".
 
@@ -17,7 +17,7 @@ by timer, and starts watching as soon as a plug that reports power is added.
 ## What it asks for
 
 - the home's speakers and TVs (to read a plug's power; it never turns anything on or off)
-- a line of its own on Today
+- a line of its own on Home
 - speaking
 - timers
 - it can't reach the internet

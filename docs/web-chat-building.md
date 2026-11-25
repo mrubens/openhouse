@@ -15,7 +15,7 @@ need no Claude Code, no Codex, no computer set up and no file to install.
 
 And beyond building: any agent can use the house day to day, and be more of someone's interface to it. A
 long-running cloud agent with memory, present on all of someone's devices, connects the same way, and can do anything you could say to the tablet's voice: add
-milk, set a pasta timer, put a note on Today, check the weather, turn off the TV.
+milk, set a pasta timer, put a note on Home, check the weather, turn off the TV.
 
 Today that takes Claude Desktop, Claude Code or Codex on a computer on the home Wi-Fi ([workshop-mcp.md](workshop-mcp.md)).
 Those connect through a local MCP that pairs and seals. claude.ai and ChatGPT can't run a local program. Their
@@ -112,7 +112,7 @@ so whatever you could say to Opie, an agent can do:
 | The household | `about_household`, `family_things` (lists, chores, meals, events at a glance), `remember_preference`, `forget_preference` | reads are read-only |
 | Lists, chores and stars, routines, meals | `change_list`, `change_chores`, `change_rewards`, `change_routines`, `set_meals` | writes |
 | The calendar | `calendar_event` (add, change, remove; reminders go with events) | write |
-| Notes on Today | `look_at_notes`, `put_note`, `update_note`, `take_down_note`, `put_back` | take down: destructive |
+| Notes on Home | `look_at_notes`, `put_note`, `update_note`, `take_down_note`, `put_back` | take down: destructive |
 | Timers | `timer` (start "Pasta" 10 minutes, list, cancel); the tablet rings them | write |
 | The weather | `weather` | read-only |
 | The TV | `tv` (on, off, pause, volume, open an app), when there's a TV | open world |
@@ -121,7 +121,7 @@ so whatever you could say to Opie, an agent can do:
 | Seeing it | `look_at_tablet`, `show_on_tablet`, `get_guide` | read-only |
 
 Actions that turn something on, open something or buy something ask the people in the room first, as they do for the
-voice. Separate reminders don't exist yet: a reminder is a calendar event's, or a note on Today.
+voice. Separate reminders don't exist yet: a reminder is a calendar event's, or a note on Home.
 
 **One kind of yes.** We tried two (2026-11-20): "Just the household" or "Everything", chosen at Allow. It was
 confusing, so there's one plain Allow: a connection can use the

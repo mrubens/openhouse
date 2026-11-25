@@ -1,5 +1,5 @@
 // Bus times: when the next buses really come to the household's stop, from their transit agency's own live feed
-// (GTFS-realtime), on Today only in the hours they choose ("School bus: 4 at 7:42, then 104 at 7:58"), on a card, and
+// (GTFS-realtime), on Home only in the hours they choose ("School bus: 4 at 7:42, then 104 at 7:58"), on a card, and
 // from the voice. Any agency: picked from the Mobility Database's catalog (agencies.json) or by pasting its feed's
 // address. Its website is one the household approves on the tablet's card when they set it up (kit reach.ask); the
 // stops' names come from the agency's timetable (a GTFS zip, from the catalog's copy or the agency's own).
@@ -47,7 +47,7 @@ function draw() {
   const top = h('div', { class: 'top' }, h('h1', { class: 'title' }, 'Bus times'), h('button', { class: 'btn soft', tap: openSetup }, setup ? 'Stop and hours' : 'Set up'));
   if (!setup) {
     put($app, top, h('div', { class: 'empty' },
-      h('p', { class: 'lead' }, 'When the next bus really comes, on Today, just when you need it.'),
+      h('p', { class: 'lead' }, 'When the next bus really comes, on Home, just when you need it.'),
       h('p', { class: 'soft' }, 'Pick your transit agency and your stop, and the hours to watch it (school mornings, say). In those hours Today shows the next buses, live from the agency.'),
       h('button', { class: 'btn', tap: openSetup }, 'Set up')));
     return;
@@ -59,7 +59,7 @@ function draw() {
       return h('div', { class: 'line' }, h('span', { class: 'rt' }, routeName(b.route)), h('span', { class: 'grow' }), h('span', { class: 'mins' }, m ? `${m} min` : 'Now'), h('span', { class: 'side' }, hm(b.at))); }))
       : h('p', { class: 'soft' }, problem || (buses ? 'No buses coming to this stop right now.' : 'Asking your agency…')),
     needsYes ? h('button', { class: 'btn', tap: async () => { const r = await reach.ask(hostOf(setup.agency.rt)); if (r.ok) { needsYes = false; refresh(); } } }, 'Ask the tablet again') : null,
-    h('p', { class: 'soft' }, `On Today ${setup.days.map((d) => DAYS[d]).join(', ')}, ${hm(atTime(setup.from))} to ${hm(atTime(setup.to))}${setup.routes?.length ? `, ${setup.routes.map(routeName).join(', ')} only` : ''}.`)),
+    h('p', { class: 'soft' }, `On Home ${setup.days.map((d) => DAYS[d]).join(', ')}, ${hm(atTime(setup.from))} to ${hm(atTime(setup.to))}${setup.routes?.length ? `, ${setup.routes.map(routeName).join(', ')} only` : ''}.`)),
   h('div', { class: 'foot' }, `Live from ${setup.agency.name}${at ? `, ${hm(at)}` : ''}.`));
 }
 
@@ -132,8 +132,8 @@ async function openSetup() {
     h('div', { class: 'pair' }, field('API key', key), field('Its name in the address', keyName)),
     h('div', { class: 'actions' }, h('button', { class: 'btn soft', tap: go }, setup ? 'Check the agency again' : 'Use this agency')), msg,
     field('Your stop', stopQ), stopHits,
-    h('div', { class: 'pair' }, field('On Today from', from), field('Until', to)), field('Days', days),
-    field('Called', label, 'The start of the line on Today: “School bus: 4 at 7:42”.'),
+    h('div', { class: 'pair' }, field('On Home from', from), field('Until', to)), field('Days', days),
+    field('Called', label, 'The start of the line on Home: “School bus: 4 at 7:42”.'),
     setup ? h('button', { class: 'btn soft', tap: async () => { await reach.forget(hostOf(setup.agency.rt)); setup = null; await store.set('setup', null); document.querySelector('.scrim')?.remove(); lineFor = null; today.clear(); draw(); } }, 'Stop watching a stop') : null);
   if (s.agency) { rt.value = s.agency.rt; zip.value = s.agency.zip || ''; }
   sheet('Bus times', [step], [

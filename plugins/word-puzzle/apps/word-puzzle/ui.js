@@ -1,5 +1,5 @@
 // Small helpers for the page: making elements, dates in the household's own time, and one sheet at a time.
-// No kit here, so the same file works in the app and its card on Today.
+// No kit here, so the same file works in the app and its card on Home.
 
 /** h('div', {class, tap, oninput, ...attrs}, ...children) */
 export function h(tag, props, ...kids) {

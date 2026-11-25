@@ -1,6 +1,6 @@
 // Game days: each team's games from its calendar link, on the family's calendar as events of this app's own
 // (kit events.set: read-only there, "From Game days"), with the kid's name and the place; and on a game day a line
-// on Today with when to leave ("Sam's soccer: leave by 5:35 for 6:00 at Lincoln Park"), from the drive time the
+// on Home with when to leave ("Sam's soccer: leave by 5:35 for 6:00 at Lincoln Park"), from the drive time the
 // household gives each team. The voice answers "when's the next game?". Runs in the background, reading the feeds a
 // few times a day.
 import { house, store, today, events, web, onAction } from '/kit/openhouse.js';

@@ -1,4 +1,4 @@
-// Reading log's card on Today: this week, a row of small bars for each reader, and today's minutes.
+// Reading log's card on Home: this week, a row of small bars for each reader, and today's minutes.
 import { house, store } from '/kit/openhouse.js';
 import { h, dayKey, weekday, put } from './ui.js';
 import { minutesOn, weekOf, streak } from './log.js';

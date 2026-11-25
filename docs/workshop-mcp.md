@@ -89,7 +89,7 @@ The new ones exist only because the desktop has no turn and no file system on th
 The MCP `initialize` reply carries short instructions: what OpenHouse is, that a family is watching, and to call
 `get_guide` before changing anything. `get_guide` comes in two parts, so moving a tab doesn't mean reading the whole
 rulebook: by default the computer's own guide (`bridge/WORKSHOP.md`: how to work, its rules), the home screen as it is
-now, how to change it and how notes on Today read (`bridge/NOTES.md`); with `topic: "apps"`, how apps are made and the
+now, how to change it and how notes on Home read (`bridge/NOTES.md`); with `topic: "apps"`, how apps are made and the
 quiet kit (`bridge/kit/quiet.css`). Both come from the tablet assistant's own rules (`bridge/AGENT.md`), by section,
 leaving out what only applies on the tablet (its reply rules, its other apps and devices, the code layout it sees) and
 the Edit tool a computer doesn't have; `start_editing` reminds a computer that hasn't read the apps part yet. The
@@ -109,7 +109,7 @@ modelcontextprotocol.io/extensions/skills) and Claude Code's "Use skills from MC
 | --- | --- | --- |
 | `working-here` | How to work from a computer, the rules, changing the home screen (`WORKSHOP.md`, `AGENT.md` sections) | `start` |
 | `apps` | How apps are made (`AGENT.md` sections), with `references/quiet.css` and `references/design.md` | `apps` |
-| `notes` | How notes on Today read (`NOTES.md`) | `notes` |
+| `notes` | How notes on Home read (`NOTES.md`) | `notes` |
 | `plugins` | Finding, adding, sharing plugins (`PLUGINS.md`) | `plugins` |
 | `design` | How a tab should look (`DESIGN.md`) | `design` |
 

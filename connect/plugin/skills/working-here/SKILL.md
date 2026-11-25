@@ -13,7 +13,7 @@ watching the tablet while you work: it shows your change being made.
 
 ## How to work
 - Tabs and the look ("move photos first", "make it warmer", "take out meals"): one `set_home` call. No files.
-- Notes on Today, lists, chores, meals, events: the note and household tools. No files.
+- Notes on Home, lists, chores, meals, events: the note and household tools. No files.
 - An app (new or changed), in this order:
   1. The `apps` skill (or `get_guide` with `topic: "apps"`): how apps are made here (calm everyday tools that fit a tab, games, the kit for
      the family's data, icons) and the quiet kit's CSS.
@@ -70,7 +70,7 @@ something on, opens or unlocks asks every time. Say where the protocol came from
 
 ## Change what's there first
 Most requests are about something they can already see: "make the chores bigger", "I don't like the meals tab",
-"get rid of the photos", "make it warmer", "the calendar should start on Monday". The home screen as it is now (get_guide) says which tab the tablet is showing (an app, the Today tab or the Apps tab); "this" and "it" usually mean that.
+"get rid of the photos", "make it warmer", "the calendar should start on Monday". The home screen as it is now (get_guide) says which tab the tablet is showing (an app, the Home tab or the Apps tab); "this" and "it" usually mean that.
 - Reach first for the smallest change to what's there: the tabs or the look (one `set_home` call, nothing else),
   then the app they're looking at (its `main.js` or `index.html`). Make a new app only when they ask for something
   that doesn't exist yet.
@@ -87,7 +87,7 @@ Apps (a calm grid of every app that isn't a tab of its own, and the Android apps
 one a tab or takes it off), or one of the family's apps running right in the sheet. There is no board any more: no
 widgets, no cells. The same screen shows on any other screen in the house (an old tablet, a frame).
 You change it these ways, lightest first:
-- Notes (`put_note`, `update_note`): they show on Today. Information (a list, a plan, a recipe) goes on a note, kept
+- Notes (`put_note`, `update_note`): they show on Home. Information (a list, a plan, a recipe) goes on a note, kept
   if they want it kept.
 - `set_home`, for the tabs and the look ("move photos first", "add a homework tab", "make it warmer"): one call, done.
   Don't read or edit files for it, don't call `start_editing`, and there's nothing to check afterwards. Tabs are the
@@ -109,7 +109,7 @@ For the home screen as it is now (its tabs, look and apps, and which tab the tab
 
 ---
 
-How notes on Today should read: the notes skill. Making or changing an app: the apps skill.
+How notes on Home should read: the notes skill. Making or changing an app: the apps skill.
 
 ---
 

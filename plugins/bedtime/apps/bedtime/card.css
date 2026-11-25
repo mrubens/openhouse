@@ -1,4 +1,4 @@
-/* A card on Today: the page sits on the card's tint and keeps about 22 px at the sides (the frame is the card's
+/* A card on Home: the page sits on the card's tint and keeps about 22 px at the sides (the frame is the card's
    width plus those). Sizes follow the card's width (c = 1/420 of it, up to a small card's), since Today makes a card as tall as it needs. */
 :root { --c: calc(min(100vw, 680px) / 420); }
 * { box-sizing: border-box; }

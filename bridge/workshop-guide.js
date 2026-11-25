@@ -32,9 +32,9 @@ export function workshopGuide({ read, homeNow }) {
       skill: 'working-here',
       description: "How to work on this household's OpenHouse tablet from a computer: which tools to use, in what order, for the tabs and look, notes, an app, waiting fixes, undo and devices, and the rules. Load before changing anything on the OpenHouse.",
       body: () => [read('WORKSHOP.md'), '# Changing the home screen\n\n' + agentSections(HOME_SECTIONS), NOW,
-        'How notes on Today should read: the notes skill. Making or changing an app: the apps skill.'].join('\n\n---\n\n'),
+        'How notes on Home should read: the notes skill. Making or changing an app: the apps skill.'].join('\n\n---\n\n'),
       guide: () => [read('WORKSHOP.md'), '# The home screen right now\n\n' + homeNow(), '# Changing the home screen\n\n' + agentSections(HOME_SECTIONS),
-        '# Notes on Today\n\n' + read('NOTES.md')].join('\n\n---\n\n'),
+        '# Notes on Home\n\n' + read('NOTES.md')].join('\n\n---\n\n'),
     },
     apps: {
       skill: 'apps',
@@ -48,7 +48,7 @@ export function workshopGuide({ read, homeNow }) {
     },
     notes: {
       skill: 'notes',
-      description: 'How a note on the OpenHouse Today tab should read (title, first line, what to leave out), before putting one up or changing one.',
+      description: 'How a note on the OpenHouse Home tab should read (title, first line, what to leave out), before putting one up or changing one.',
       body: () => read('NOTES.md'),
     },
     plugins: {

@@ -1,5 +1,5 @@
 // Follow-ups for later: Opie saying or doing something at a time it was asked to, once or repeating.
-//   "Remind Maya at 4 to practice piano, out loud."          kind say: at 4 the tablet says it, and it's a line on Today
+//   "Remind Maya at 4 to practice piano, out loud."          kind say: at 4 the tablet says it, and it's a line on Home
 //   "In 20 minutes, ask if the oven's off."                    kind say (the session listens a moment after, as always)
 //   "Check at 5 whether the package came, and tell me."        kind do: at 5 the text model does it with the household's
 //                                                              tools (as the heartbeat's review runs it), then says it
@@ -7,7 +7,7 @@
 //                                                              FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR, said back in plain words
 //
 // Speaking is the kit's say (voice.js /voice/say: the tablet's voice, or a short live session opened to say it), never
-// in the night hours or after Sleep now: then it's only the line on Today. A line stays until it's taken down, or two hours.
+// in the night hours or after Sleep now: then it's only the line on Home. A line stays until it's taken down, or two hours.
 // They fire within about 20 seconds of their time. One that's due when the bridge starts (the tablet was off) fires
 // once if it's less than an hour late; later than that it's dropped (a repeating one just waits for its next time).
 //
@@ -48,7 +48,7 @@ export function parseWhen(when, inMinutes, now) {
 
 export const LATER_TOOL = { name: 'later', description: 'Say or do something at a later time, once or repeating: "remind Maya at 4 to practice piano, out loud", ' +
     '"in 20 minutes ask if the oven\'s off", "check at 5 whether the package came and tell me", "every weekday at 7:30 tell the kids to get their shoes on". ' +
-    'kind "say": then the tablet says `what` aloud, word for word, and shows it on Today. kind "do": then you do `what` with your tools (look something up, check the calendar, the weather, a device) and say what you found. ' +
+    'kind "say": then the tablet says `what` aloud, word for word, and shows it on Home. kind "do": then you do `what` with your tools (look something up, check the calendar, the weather, a device) and say what you found. ' +
     'Give `when` (a local time) or `in_minutes`. Give `repeat` only when they asked for it to repeat. For a reminder before an event on the calendar, use calendar_event\'s remind instead; for a countdown that rings, the timer.',
   inputSchema: { type: 'object', required: ['kind', 'what'], properties: {
     kind: { type: 'string', enum: ['say', 'do'] },
@@ -105,7 +105,7 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
     }
     if (st.items.length >= MAX) return { error: `That's ${MAX} set already: cancel some first (later_list).` };
     st.items.push(item); st.items.sort((p, q) => p.at - q.at); save();
-    const hush = kind === 'say' && quiet(item.at) ? ' That falls in the night hours, so it will only be on Today, not said aloud.' : '';
+    const hush = kind === 'say' && quiet(item.at) ? ' That falls in the night hours, so it will only be on Home, not said aloud.' : '';
     return { item, text: `Set (${describe(item, t)}).${hush}` };
   }
   function cancel(id) {
@@ -116,7 +116,7 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
     return x;
   }
 
-  /** Its time came: said (unless it's quiet) and a line on Today; or done by the text model, then the same with its answer. */
+  /** Its time came: said (unless it's quiet) and a line on Home; or done by the text model, then the same with its answer. */
   async function fire(x, t) {
     let words = x.what;
     if (x.kind === 'do') words = await doIt(x, t);
@@ -126,7 +126,7 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
     const hushed = quiet(t);
     if (!hushed) { try { say(words); } catch (e) { console.error('[later] say', e.message); } }
     try { talk?.add('assistant', words); } catch {} // (so "yes, it's off" after it has something to answer)
-    console.log(`[later] ${x.id} ${x.kind}${hushed ? ' (quiet: on Today only)' : ''}: ${words.slice(0, 120)}`);
+    console.log(`[later] ${x.id} ${x.kind}${hushed ? ' (quiet: on Home only)' : ''}: ${words.slice(0, 120)}`);
   }
   async function doIt(x, t) {
     const sorry = `I couldn't do what you asked for ${hm(t)}: ${x.what}`;

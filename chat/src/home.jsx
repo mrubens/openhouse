@@ -66,7 +66,7 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
   const tabs = useMemo(() => (st.tabs || DEFAULT_TABS.map((id) => ({ id })))
     .map((t) => (t.id === 'board' ? { ...t, id: 'apps' } : t)) // the board this used to be (home-screen.js cleanLook does it too)
     .filter((t) => t.id === 'today' || t.id === 'apps' || appBy.has(t.id) || !appsLoaded), [st.tabs, appBy, appsLoaded]);
-  const nameOf = (t) => t.name || (t.id === 'today' ? 'Today' : t.id === 'apps' ? 'Apps' : appBy.get(t.id)?.meta?.name || t.id);
+  const nameOf = (t) => t.name || (t.id === 'today' ? 'Home' : t.id === 'apps' ? 'Apps' : appBy.get(t.id)?.meta?.name || t.id);
   // Its icon: the app's own pick ("tabIcon" in its app.json), else a starting tab's; none leaves the space, so names line up.
   const iconOf = (t) => TAB_ICONS[appBy.get(t.id)?.meta?.tabIcon] || TAB_ICONS[TAB_ICON_BY_ID[t.id]] || null;
   const [want, setWant] = useState(() => store.get('openhouse.tab') || 'today');
@@ -77,7 +77,7 @@ export function Home({ c, brain, now, idle, onAsk, shell, ambient, usePhoto, Pho
   useEffect(() => { if (shell && cur) c.json('POST', '/home/showing', { tab: cur }).catch(() => {}); }, [cur]);
   const go = (id) => { setWant(id); store.set('openhouse.tab', id); };
   // An app asking for another (the Calendar's "Open School lunch"): its tab, else full screen.
-  // "+ Add" on a Today card that opens its tab's own add (Calendar's new event): the app is told in its address, once.
+  // "+ Add" on a Home card that opens its tab's own add (Calendar's new event): the app is told in its address, once.
   const [addIn, setAddIn] = useState(null);
   const addTo = (id, extra = '') => { setAddIn({ id, at: Date.now(), extra }); go(id); }; // extra: more for its address (Photos: photo=<name>)
   const openApp = (id) => { if (tabs.some((t) => t.id === id)) go(id); else if (appBy.has(id)) shell?.openApp(id); };
@@ -239,7 +239,7 @@ function AppFrame({ c, shell, app, look, v, onOpen, add = 0, addExtra = '' }) {
     return () => { off = true; };
   }, [c, app?.id]);
   if (!app) return null;
-  const hash = lookHash(look, shell, null, app) + (add ? `&add=${add}${addExtra ? '&' + addExtra : ''}` : ''); // add: open its add (a Today card's + Add), or what extra says (a photo)
+  const hash = lookHash(look, shell, null, app) + (add ? `&add=${add}${addExtra ? '&' + addExtra : ''}` : ''); // add: open its add (a Home card's + Add), or what extra says (a photo)
   return key && <iframe ref={frame} key={shownV + hash} className="h-app" title={app.meta?.name || app.id} sandbox="allow-scripts allow-same-origin allow-forms" src={`${appOrigin(shell, app)}/apps/${app.id}/index.html#${hash}`} />;
 }
 
@@ -250,7 +250,7 @@ function lookHash(look, shell, paper, app) {
   return new URLSearchParams({ bg: paper ? paper(p) : worldOf(look, app?.id), panel: p.sheet, ink: p.ink, accent: p.accent, face: look?.type || 'clean', ...(look?.palette === 'dusk' ? { dark: '1' } : {}), ...(shell?.phone && !app?.shared ? { phone: '1' } : {}) });
 }
 /**
- * An app's own card on Today: its widget.html running in a card like the others ("today": {"size": "small" | "wide"}
+ * An app's own card on Home: its widget.html running in a card like the others ("today": {"size": "small" | "wide"}
  * in its app.json), with its key, so the kit works there as in the app. The widget takes its own taps; the app's name
  * above it opens the app. Shown only once the household turned it on (style.json cards).
  */
@@ -272,7 +272,7 @@ function AppCard({ c, shell, app, look, v, openApp, style }) {
   </div>;
 }
 
-/** One of the apps' notes on the day (a school lunch, trash day), as a card on Today. With photos of its things (the
+/** One of the apps' notes on the day (a school lunch, trash day), as a card on Home. With photos of its things (the
  *  day's lunch dishes) it's a picture card: the first dish large, the others small at its corner. Without, a small
  *  panel under the calendar's: its label above, the words below. A tap opens it: all of it, where it's from, where
  *  that app's notes show, and opening the app. */
@@ -299,7 +299,7 @@ function DayNote({ c, house, n, day, openApp, style }) {
         <div className="t-nk">{label(' · ')} · {day.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
         <h2>{plain(n.text)}</h2>
         <div className="t-nfrom">From {n.name || n.app}</div>
-        <div className="t-nshow"><span>Show</span>{[['week', 'Week and Today'], ['today', 'Today only'], ['off', 'Nowhere']].map(([k, l]) => (
+        <div className="t-nshow"><span>Show</span>{[['week', 'Week and Home'], ['today', 'Home only'], ['off', 'Nowhere']].map(([k, l]) => (
           <button key={k} className={'h-chip' + (showNow === k ? ' on' : '')} onClick={() => setShow(k)}>{l}</button>))}</div>
         <div className="t-nacts"><button className="h-chip" onClick={() => { setOpen(false); openApp(n.app); }}>Open {n.name || n.app}</button>
           <button className="h-chip on" onClick={() => setOpen(false)}>Done</button></div>
@@ -338,7 +338,7 @@ const worldTab = (t, appBy) => (t ? kindOf(t, appBy.get(t.id)) || t.id : null);
 // Titles from synced calendars can carry emoji ("🤸 Gymnastics"); the home screen draws no emoji as icons, so they go.
 const plain = (t) => String(t || '').replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}‍️⃣]/gu, '').replace(/\s+/g, ' ').trim() || t;
 
-/** A box on a Today card that shows as many of its [data-fit] parts as fit, in order (more events, the next days'
+/** A box on a Home card that shows as many of its [data-fit] parts as fit, in order (more events, the next days'
  *  weather), the rest left out, and never a day's label without its first row. Measured, so it follows the card. */
 function useFit() {
   const ref = useRef(null);
@@ -357,7 +357,7 @@ function useFit() {
   return ref;
 }
 
-/** Today's own cards, in their usual order; an app's card ("app:<id>") goes before the photos. */
+/** Home's own cards, in their usual order; an app's card ("app:<id>") goes before the photos. */
 export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'meals', 'lists', 'chores', 'notes', 'photos'];
 export const TODAY_NAMES = { calendar: 'Calendar', weather: 'Weather', lunch: 'App notes with a photo', meals: 'Dinner', lists: 'Groceries', chores: 'Chores', notes: 'Notes', photos: 'Photos' };
 /** The cards Today shows, in order: the look's choice (look.today), with the apps' cards that are on (look.cards). */
@@ -418,7 +418,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
   const card = (kind, open) => ({ role: 'button', tabIndex: 0, className: 't-card t-' + kind, onClick: open || (() => go(kinds.get(kind))) });
 
   // Calendar, as a schedule under its label: each day from today with its events, as many as fit in the column (three
-  // weeks at most); under it, the things on Today.
+  // weeks at most); under it, the things on Home.
   const tomorrow = new Date(+t + 864e5), weekOut = new Date(+t + 21 * 864e5), AGENDA = 30; // (as many as fit fill the column: t-fit)
   // An all-day thing over several days (a school break) is on each of its days, from today.
   const key = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -519,7 +519,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
       </div>); })}</div> : <div className="t-line">{routine.steps?.length || 0} steps</div>}
   </div>);
   // The apps' own cards the household turned on, in their order, before the notes and the photo (wide: a row of its own).
-  if (notes.length) cards.push(<NotesCard key="notes" c={c} notes={notes} reminders={[]} />); // (reminders due are things on Today)
+  if (notes.length) cards.push(<NotesCard key="notes" c={c} notes={notes} reminders={[]} />); // (reminders due are things on Home)
   if (shell?.ui) for (const id of look?.cards || []) { const a = appBy.get(id); if (a?.today) cards.push(<AppCard key={'app:' + id} c={c} shell={shell} app={a} look={look} v={appsV[id] || 0} openApp={openApp} wide={a.today === 'wide'} />); }
   if (kinds.has('photos') && photos.length) cards.push(<PhotoCard key="photos" c={c} names={photos} captions={h.captions} now={now} usePhoto={usePhoto} {...card('photos')} onOpen={(name) => addTo(kinds.get('photos'), 'photo=' + encodeURIComponent(name))} />);
   // Laid out in rows, three at most: two to a row beside the calendar (three without it), a wide card a row of its own;
@@ -582,7 +582,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
   );
 }
 
-/** The things on Today (the bridge's things.js): a reminder due, a suggestion, a countdown, a broken app; one line
+/** The things on Home (the bridge's things.js): a reminder due, a suggestion, a countdown, a broken app; one line
  *  each, at most three, most urgent first, each gone once it no longer matters. A tap does what it's about: its tab
  *  (go), or asks Opie (ask); its x takes it down. */
 export function Things({ c, things, className = 't-things', go, tabs, ask }) {
@@ -722,7 +722,7 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
           <div className="h-menu-head"><Icon a={menu} /><span>{menu.name}</span></div>
           {menu.old ? <div className="h-soft">This one can't open yet. Ask Opie to remake it.</div> : <>
             {menu.web && <button className="h-menu-row" onClick={() => toTab(menu)}>Make it a tab</button>}
-            {menu.today && <button className="h-menu-row" onClick={() => toToday(menu, !isOn(menu))}>{isOn(menu) ? 'Take it off Today' : 'Add to Today'}</button>}
+            {menu.today && <button className="h-menu-row" onClick={() => toToday(menu, !isOn(menu))}>{isOn(menu) ? 'Take it off Home' : 'Add to Home'}</button>}
             <button className="h-menu-row" onClick={() => hide(menu, true)}>Take it off Apps</button></>}
           <button className="h-menu-row soft" onClick={() => setMenu(null)}>{menu.old ? 'Close' : 'Cancel'}</button>
         </div>
@@ -744,10 +744,10 @@ function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
   const more = [{ id: 'today' }, { id: 'apps' }, ...apps.filter((a) => a.web !== false).map((a) => ({ id: a.id }))].filter((t) => !shown.has(t.id));
   const moved = (list, i, by) => { const l = [...list]; const [x] = l.splice(i, 1); l.splice(Math.max(0, Math.min(l.length, i + by)), 0, x); return l; };
   const move = (i, by) => save({ tabs: moved(mine.tabs, i, by) });
-  // The apps' own cards on Today: the ones on, in order, and the others that offer one.
+  // The apps' own cards on Home: the ones on, in order, and the others that offer one.
   const offers = apps.filter((a) => a.today), cardName = (id) => offers.find((a) => a.id === id)?.meta?.name || id;
   const onCards = mine.cards.filter((id) => offers.some((a) => a.id === id)), offCards = offers.filter((a) => !onCards.includes(a.id));
-  // Today's cards, its own and the apps': the ones showing, in order, then the rest to add back.
+  // Home's cards, its own and the apps': the ones showing, in order, then the rest to add back.
   const order = todayOrder(mine).filter((k) => !k.startsWith('app:') || onCards.includes(k.slice(4)));
   const offToday = TODAY_CARDS.filter((k) => !order.includes(k));
   const todayName = (k) => (k.startsWith('app:') ? cardName(k.slice(4)) : TODAY_NAMES[k]);
@@ -768,13 +768,13 @@ function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
           {more.length > 0 && <div className="h-chips">{more.map((t) => <button key={t.id} className="h-chip" onClick={() => save({ tabs: [...mine.tabs, t] })}>+ {nameOf(t)}</button>)}</div>}
         </div>
         <div className="h-arr-col">
-          <div className="h-label">On Today</div>
+          <div className="h-label">On Home</div>
           {order.map((k, i) => (
             <div key={k} className="h-arr-row">
               <span className="h-grow">{todayName(k)}</span>
               <button className="h-mini" disabled={i === 0} onClick={() => setToday(moved(order, i, -1))} aria-label="Up"><Chevron up /></button>
               <button className="h-mini" disabled={i === order.length - 1} onClick={() => setToday(moved(order, i, 1))} aria-label="Down"><Chevron /></button>
-              <button className="h-mini" onClick={() => setToday(order.filter((x) => x !== k))} aria-label="Take off Today"><Cross /></button>
+              <button className="h-mini" onClick={() => setToday(order.filter((x) => x !== k))} aria-label="Take off Home"><Cross /></button>
             </div>
           ))}
           {(offToday.length > 0 || offCards.length > 0) && <div className="h-chips">

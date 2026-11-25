@@ -41,7 +41,7 @@ const MAX_JUDGED = 8; // findings in one judgment
 const RANK = { off: 0, notice: 1, tidy: 2, fix: 3 };
 const HOUR = 3600e3, DAY = 24 * HOUR;
 // What a background turn may call, by level (home-screen.js refuses the rest; box.js refuses the device and home tools).
-// It writes the things on Today (things.js), not notes: a line with its own end, gone once it no longer matters.
+// It writes the things on Home (things.js), not notes: a line with its own end, gone once it no longer matters.
 export const TOOLS = {
   notice: ['show_thing', 'family_things', 'about_household'],
   tidy: ['take_down_thing'],
@@ -177,9 +177,9 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
     return null;
   }
 
-  /** The notes and the things on Today, for a model. */
+  /** The notes and the things on Home, for a model. */
   const onToday = (hv) => [homeScreen.describe(), things ? things.describe(hv) : ''].filter(Boolean).join('\n\n');
-  /** A background run's tools: the household's read tools (the home screen's) and the things on Today, by level. */
+  /** A background run's tools: the household's read tools (the home screen's) and the things on Home, by level. */
   const bgTools = (allow) => [...homeScreen.tools().filter((t) => allow.has(t.name) && !THING_TOOLS.has(t.name)), ...(things ? things.tools.filter((t) => allow.has(t.name)) : [])]
     .map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   /** A model's arguments with what a strict call filled in taken out (tool-args.js). */
@@ -188,7 +188,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
   function thingCall(name, args, ctx, key, put) {
     if (!things) return { text: 'Not here.', isError: true };
     if (!ctx.allow.has(name)) return { text: `Not at this level: ${name}.`, isError: true };
-    if (name === 'show_thing' && ctx.notesLeft <= 0) return { text: 'No more things on Today today: that\'s enough for one day.', isError: true };
+    if (name === 'show_thing' && ctx.notesLeft <= 0) return { text: 'No more things on Home today: that\'s enough for one day.', isError: true };
     let hv = {}; try { hv = house.view(); } catch {}
     const r = things.call(name, args, { by: 'heartbeat', key, house: hv });
     const text = (r?.content || []).map((c) => c.text || '').join('\n');
@@ -214,7 +214,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
     const settled = asleep() === 'sleep' || !things ? 0 : things.settle(keys);
     for (let i = 0; i < settled; i++) down.push({ thing: true });
     if (down.length) {
-      st.log = [{ at: now(), level: st.level, path: 'code', saw: down.map((x) => x.key || 'thing'), did: `Took down ${down.length === 1 ? (down[0].thing ? 'a thing on Today' : 'a note') : `${down.length} ${down.every((x) => x.thing) ? 'things on Today' : 'notes'}`} about something that's sorted`, notes: [], ok: true, cost: 0 }, ...st.log].slice(0, 50);
+      st.log = [{ at: now(), level: st.level, path: 'code', saw: down.map((x) => x.key || 'thing'), did: `Took down ${down.length === 1 ? (down[0].thing ? 'a thing on Home' : 'a note') : `${down.length} ${down.every((x) => x.thing) ? 'things on Home' : 'notes'}`} about something that's sorted`, notes: [], ok: true, cost: 0 }, ...st.log].slice(0, 50);
       save();
     }
     return down;
@@ -277,12 +277,12 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
         fixed = r.fix; queued = true;
         if (!r.fresh) { done.push({ key: f.key, did: `already waiting (${r.fix.id})`, v }); continue; }
       }
-      // A broken app: one line on Today, in code, no text model ("Drawing has a problem: ask Claude or ChatGPT to fix
+      // A broken app: one line on Home, in code, no text model ("Drawing has a problem: ask Claude or ChatGPT to fix
       // it"), while its fix waits (things.js shows the fix) or, with none queued, while it's failing.
       if (f.kind === 'crash' && things) {
         const name = f.text.match(/^The (.*?) app/)?.[1] || f.app;
         if (!queued) things.put({ kind: 'broken', text: name, app: f.app, key: f.key });
-        done.push({ key: f.key, did: queued ? `queued ${fixed.id}` : `${name} has a problem, on Today`, v });
+        done.push({ key: f.key, did: queued ? `queued ${fixed.id}` : `${name} has a problem, on Home`, v });
         continue;
       }
       if (ctx.notesLeft <= 0 && v.act !== 'tidy') { done.push({ key: f.key, did: queued ? `queued ${fixed.id}` : 'no notes left today', v }); continue; }
@@ -303,7 +303,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
       if (put.length && put[put.length - 1].note) st.notesFor[f.key] = put[put.length - 1].id;
       notes.push(...put);
       const said = String(w.said || '').replace(/^DID:\s*/i, '');
-      done.push({ key: f.key, did: !w.ok ? `couldn't write (${w.error})` : put.length ? said || 'put a thing on Today' : /^NOTHING\b/i.test(said) || !said ? (queued ? `queued ${fixed.id}` : 'nothing') : said, v });
+      done.push({ key: f.key, did: !w.ok ? `couldn't write (${w.error})` : put.length ? said || 'put a thing on Home' : /^NOTHING\b/i.test(said) || !said ? (queued ? `queued ${fixed.id}` : 'nothing') : said, v });
     }
     st.day.runs += runs;
     st.day.notes = Math.max(st.day.notes, JUDGE_CAPS.notes - ctx.notesLeft);
@@ -366,7 +366,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
     st.day.notes = Math.max(st.day.notes, JUDGE_CAPS.notes - ctx.notesLeft);
     if (r.ok) for (const f of list) st.handled[f.key] ??= t0;
     const said = String(r.said || '').replace(/^DID:\s*/i, '');
-    const did = !r.ok ? null : fixed ? `A fix for ${fixed.name} is waiting for whoever builds` : r.wrote ? said || 'put a thing on Today' : null;
+    const did = !r.ok ? null : fixed ? `A fix for ${fixed.name} is waiting for whoever builds` : r.wrote ? said || 'put a thing on Home' : null;
     const entry = { at: t0, level: lv, path: 'review', saw: list.map((f) => f.text.slice(0, 200)), did, notes: put, ...(fixed ? { fix: fixed.id } : {}),
       ok: r.ok, ...(r.ok ? {} : { skipped: r.error === 'flex_unavailable' || /429/.test(String(r.error)) ? 'flex busy' : String(r.error).slice(0, 60) }),
       tier: r.tier, tokens: r.tokens, cost: Math.round(r.cost * 1e6) / 1e6 };

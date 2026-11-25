@@ -183,7 +183,7 @@ function bars(first, n, keep = () => true) {
 }
 /** A bar's words: its title, after its start time when it isn't all day (a sleepover from 5 PM to 10 AM). Whose it is is its color. */
 /** What the household's apps put on a day (a school lunch, trash day): notes, not events (bridge day-notes.js), in the
- *  household's order. week: only the apps chosen for the week (Week and Today); else every one not turned off. */
+ *  household's order. week: only the apps chosen for the week (Week and Home); else every one not turned off. */
 const notesOn = (day, week = false) => (H?.dayNotes?.[house.dayKey(new Date(day))] || []).filter((x) => (week ? x.show === 'week' : x.show !== 'off'));
 /** A note's label: "Lunch", and whose with their color ("Lunch · ● June") when it's one person's. */
 const noteLabel = (x, sep = ' ') => [x.label, x.who ? [sep, isPerson(x.who) ? h('span', { class: 'nkid', style: `background:${house.color(x.who)}` }) : null, x.who] : null];
@@ -214,7 +214,7 @@ function openNote(x, day) {
       h('h2', null, choices(x.text)),
       h('p', { class: 'from' }, `From ${name}`),
       h('div', { class: 'show' }, h('span', { class: 'label' }, 'Show'),
-        [['week', 'Week and Today'], ['today', 'Today only'], ['off', 'Nowhere']].map(([k, l]) => chip(l, show === k, () => setShow(x.app, k)))),
+        [['week', 'Week and Home'], ['today', 'Home only'], ['off', 'Nowhere']].map(([k, l]) => chip(l, show === k, () => setShow(x.app, k)))),
       h('div', { class: 'actions' },
         shell.canOpenApps ? btn(`Open ${name}`, () => { close(); shell.openApp(x.app); }, { soft: true }) : null,
         btn('Done', close)),
@@ -224,14 +224,14 @@ function openNote(x, day) {
 }
 
 /** The apps that put things on the calendar: how each shows, and their order. */
-const SHOWS = [['week', 'Week and Today'], ['today', 'Today only'], ['off', 'Off']];
+const SHOWS = [['week', 'Week and Home'], ['today', 'Home only'], ['off', 'Off']];
 function fromAppsCard() {
   openCard((close) => {
     const list = H.fromApps || [];
     const move = (i, by) => { const ids = list.map((a) => a.app); const [a] = ids.splice(i, 1); ids.splice(i + by, 0, a); H.fromApps = ids.map((id) => list.find((x) => x.app === id)); house.orderFromApps(ids); draw(); };
     return [
       h('h2', null, 'From apps'),
-      h('p', { class: 'line light' }, 'What the household’s apps put on the calendar. Their notes (a school lunch, trash day) show on Today, and on the week if you choose.'),
+      h('p', { class: 'line light' }, 'What the household’s apps put on the calendar. Their notes (a school lunch, trash day) show on Home, and on the week if you choose.'),
       ...(list.length ? list : [null]).map((a, i) => a && h('div', { class: 'app-row' },
         h('span', { class: 'app-name' }, a.name),
         h('div', { class: 'chips' }, (a.notes ? SHOWS : [['today', 'On'], ['off', 'Off']]).map(([k, l]) => chip(l, a.notes ? a.show === k : (a.show === 'off') === (k === 'off'), () => setShow(a.app, k)))),
@@ -283,7 +283,7 @@ function screen() {
       round('plus', () => guard(() => { const d = view === 'day' ? oneDay : today; eventForm(null, d, startFor(d)); }), { dark: true, label: 'Add' })),
     view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? schedule(today, AGENDA_DAYS, today)
       : view === 'day' ? dayView(oneDay, today) : small ? [strip(from, today, today, openDay), dayList(from, DAYS, today, true)] : weekView(from, today),
-    // (a phone has less of a top row: its tools are down here, and Today only once they've stepped away)
+    // (a phone has less of a top row: its tools are down here, and Home only once they've stepped away)
     h('div', { class: 'foot' },
       small && step?.away ? chip('Today', false, set(step.home)) : null,
       small ? tools : null,

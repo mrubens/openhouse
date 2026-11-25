@@ -1,5 +1,5 @@
 // Reading log: minutes read, by each reader, said to the voice ("Maya read 20 minutes") or tapped in. Streaks of days
-// with the household's daily goal, the week as a chart (here and on a card on Today), and, if the household turns it
+// with the household's daily goal, the week as a chart (here and on a card on Home), and, if the household turns it
 // on, a star for each day someone reaches the goal: a "Reading" chore in Chores that ticks itself, so the stars are
 // the Chores app's own and add up toward the same rewards.
 //
