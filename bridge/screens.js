@@ -47,6 +47,7 @@ import https from 'node:https';
 import fs from 'node:fs';
 import { guarded } from './guarded.js';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
@@ -219,7 +220,7 @@ export const frameHeaders = (host, reaches = '') => ({
  */
 export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
   // (no .bak: a phone taken off must not come back from an older copy)
-  const state = readJson(FILE, null, { bak: false }) || { lan: false, screens: [] };
+  const state = readJson(registered('screens', FILE), null, { bak: false }) || { lan: false, screens: [] };
   state.screens ||= [];
   state.invites ||= []; // [{pair, key, person, grownup, until}]: links sent to the family from the setup phone, a week each
   const write = () => writeJson(FILE, state, { bak: false, mode: 0o600 });
@@ -573,7 +574,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   }
 
   // ---- phones: notes for their person, by Web Push from the tablet itself (web-push.js) ----
-  const PUSH_FILE = path.join(path.dirname(FILE), 'push.json');
+  const PUSH_FILE = registered('push', path.join(path.dirname(FILE), 'push.json'));
   let vapid = null;
   const vapidKeys = () => (vapid ||= push.keys(PUSH_FILE));
   /** GET/POST /phone/push, from a paired phone (its id comes with the opened request): the key, or its push address.

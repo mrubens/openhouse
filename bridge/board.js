@@ -18,6 +18,7 @@
 // files: board.json (the last curation) and household.json (family, calendar, chores, location), next to the chats.
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import { calendars } from './calendar.js';
 import { calendarSync } from './calendar-sync.js';
@@ -29,8 +30,8 @@ export const ROOM = { family: 20, chores: 100, places: 40, routines: 20 };
 const full = (text) => Object.assign(new Error(text), { code: 'full', status: 400 });
 
 export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen }) {
-  const BOARD = path.join(DIR, 'board.json');
-  const HOUSE = path.join(DIR, '../household.json');
+  const BOARD = registered('board', path.join(DIR, 'board.json'));
+  const HOUSE = registered('household', path.join(DIR, '../household.json'));
   const read = (f, d) => readJson(f, d); // an unreadable file reads as its .bak, never as empty (store.js)
   const load = () => ({ assistant: null, ...read(BOARD, {}) });
   const save = (b) => writeJson(BOARD, b);
@@ -38,7 +39,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   // The family's calendars, read by the shell, which keeps their links (calendar.js).
   const cal = calendars({ DIR });
   // Two-way calendars (Google, iCloud): the shell holds the sign-ins and makes the requests (calendar-sync.js).
-  const sync = calendarSync({ FILE: path.join(DIR, '../calendar-sync.json'), shell: (p, b) => shellCall(p, b, { timeoutMs: 60e3 }),
+  const sync = calendarSync({ FILE: registered('calendar-sync', path.join(DIR, '../calendar-sync.json')), shell: (p, b) => shellCall(p, b, { timeoutMs: 60e3 }),
     family: () => (read(HOUSE, {}).family || []).map((f) => f.name).filter(Boolean) });
   const withoutLinks = ({ calendars: _, ...h }) => h; // links saved here before they moved to the shell
 

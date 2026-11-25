@@ -12,6 +12,7 @@
 import * as G from './grid.js';
 import fs from 'node:fs';
 import { readJson, writeJson, writeFileAtomic } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { weatherRoutes } from './weather.js';
@@ -81,7 +82,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   // The household and the assistant's own name, as tools: "call yourself Hazel", "Maya turned 10", and the
   // onboarding chat that sets the family up by talking.
   // This family's own preferences (how they like notes, answers, the home screen), on top of NOTES.md's defaults.
-  const PREFS = path.join(DIR, '../preferences.md');
+  const PREFS = registered('preferences', path.join(DIR, '../preferences.md'));
   const readPrefs = () => { try { return fs.readFileSync(PREFS, 'utf8').split('\n').map((l) => l.replace(/^[-*]\s*/, '').trim()).filter(Boolean); } catch { return []; } };
   // The household's quick tools for OpenAI's live voice (live-tools.js); typed turns get those and a few more (textTools).
   // What it remembers (docs/assistant.md "Memory"): what they asked it to remember or told it that lasts (preferences.md),

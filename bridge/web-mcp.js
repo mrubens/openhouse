@@ -21,6 +21,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import { guarded } from './guarded.js';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { pairingFromCode } from './pair-code.js';
@@ -36,7 +37,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 export const okUrl = (u) => /^https:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(String(u || ''));
 
 export function webMcpRoutes({ HERE, screens, workshop, json, body, PORT = Number(process.env.WEB_MCP_PORT || 8789), HOST = process.env.WEB_MCP_HOST || '0.0.0.0', FILE = path.join(HERE, 'web-mcp.json'), now = Date.now, fetchFn = fetch }) {
-  const st = readJson(FILE, null, { bak: false }) || {}; // (no .bak: a grant taken back must not come back)
+  const st = readJson(registered('web-mcp', FILE), null, { bak: false }) || {}; // (no .bak: a grant taken back must not come back)
   st.clients ||= {}; st.grants ||= {};
   const save = () => writeJson(FILE, st, { bak: false, mode: 0o600 });
   const secs = () => Math.floor(now() / 1000);

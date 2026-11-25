@@ -10,6 +10,7 @@
 //   events: [{ who, title, start (ISO), end?, allDay, place?, notes?, uid? }]
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 
 const DAY = 86400e3;
@@ -19,13 +20,13 @@ let decideFn = null;
 export function useCalendarDecide(f) { decideFn = f; }
 
 export function calendars({ DIR }) {
-  const CACHE = path.join(DIR, '../calendar.json');
+  const CACHE = registered('calendar', path.join(DIR, '../calendar.json'));
   const empty = { events: [], at: 0, errors: {}, labels: [] };
   let cache = { ...empty, ...readJson(CACHE, {}, { bak: false }) }; // (read again from the calendars: no .bak)
   // Errors from before the links moved to the shell were keyed by the start of the link.
   if (Object.keys(cache.errors || {}).some((k) => /^(https?|webcals?):/i.test(k))) cache.errors = {};
   // Verdicts for calendars kept only in part: { [only]: { [title + place]: true | false } }.
-  const ONLY = path.join(DIR, '../calendar-only.json');
+  const ONLY = registered('calendar-only', path.join(DIR, '../calendar-only.json'));
   let verdicts = readJson(ONLY, {}, { bak: false }) || {};
   let lastFeeds = null, judging = false;
   const keyOf = (e) => `${e.title || ''}\u0000${e.place || ''}`;

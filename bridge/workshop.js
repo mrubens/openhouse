@@ -12,6 +12,7 @@
 import { DEVICE_NAMES } from './device-tools.js';
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { insideApps } from './inside-apps.js';
@@ -43,7 +44,7 @@ const SKILLS_EXT = 'io.modelcontextprotocol/skills';
  * left out of list_changes). workshopRoutes picks these up; [{ key, x, turn }].
  */
 export function reopenChanges({ HERE, edits, log = (...a) => console.log('[workshop]', ...a) }) {
-  const saved = readJson(path.join(HERE, 'workshop-open.json'), null);
+  const saved = readJson(registered('workshop-open', path.join(HERE, 'workshop-open.json')), null);
   const out = [];
   if (saved && typeof saved === 'object') for (const [key, x] of Object.entries(saved)) {
     const turn = { id: `w${Date.now()}-${key}`, kind: 'chat', who: x.name, text: x.what, conversation: null, started: x.started || Date.now() };
@@ -58,7 +59,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
   const guided = new Set(); // computers that read how apps are made (get_guide topic apps)
   // Open changes, kept on disk so one survives the bridge restarting (an update installed mid-change): its files are
   // still there, uncommitted, and stay its change.
-  const OPEN_FILE = path.join(HERE, 'workshop-open.json');
+  const OPEN_FILE = registered('workshop-open', path.join(HERE, 'workshop-open.json'));
   const keep = () => {
     const out = {}; for (const [k, c] of open) out[k] = { what: c.what, name: c.name, before: [...c.before], fresh: [...c.fresh], started: c.turn.started, fix: c.fix || null };
     try { writeJson(OPEN_FILE, out); } catch {}

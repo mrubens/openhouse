@@ -9,6 +9,7 @@
 //   tools: show_on_map, save_place, forget_place (home-screen tools; the live voice and typed turns have them)
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 
 const UA = 'OpenHouse/1 (+https://openhouse.computer)';
@@ -23,7 +24,7 @@ let cloudPlaces = null;
 export function useMapCloud(p) { cloudPlaces = p; }
 
 export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = null, hasApp = () => true, fetchImpl = (...a) => fetch(...a), now = () => Date.now(), gap = 1100 }) {
-  const HOUSE = path.join(DIR, '../household.json'), CACHE = path.join(DIR, 'maps.json');
+  const HOUSE = registered('household', path.join(DIR, '../household.json')), CACHE = registered('maps', path.join(DIR, 'maps.json'));
   const read = (f, d) => readJson(f, d, { bak: f === HOUSE }); // (the household's .bak is board.js's; maps.json is a cache)
   const cache = { geo: {}, routes: {}, shown: null, ...read(CACHE, {}) };
   const keep = () => { try { writeJson(CACHE, cache, { bak: false }); } catch {} };

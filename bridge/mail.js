@@ -13,6 +13,7 @@
 // display/mail/ (a week at most); the mail key in display/.cloud/mail-key.json (0600, never in a backup).
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { newMailKey, open, senderHash } from './mail-seal.js';
@@ -28,7 +29,7 @@ const videoType = (a) => VIDEO[a.type] || (a.type === 'application/octet-stream'
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 
 export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = null, now = Date.now, every = 5 * 60e3, log = (m) => console.log(m) }) {
-  const FILE = path.join(DISPLAY, 'mail.json'), DIR = path.join(DISPLAY, 'mail'), KEY = path.join(DISPLAY, '.cloud', 'mail-key.json');
+  const FILE = registered('mail', path.join(DISPLAY, 'mail.json')), DIR = path.join(DISPLAY, 'mail'), KEY = registered('mail-key', path.join(DISPLAY, '.cloud', 'mail-key.json'));
   let st;
   st = readJson(FILE, null) || {};
   st.senders ||= []; st.held ||= []; st.recent ||= []; st.notes ||= []; st.counts ||= {};

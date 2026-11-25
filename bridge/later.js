@@ -14,6 +14,7 @@
 // file: later.json next to the chats: { items: [{id, kind, what, at, rule?, start?, fired?, made}] } (at: its next time)
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import { isNight } from './heartbeat.js';
 import { runReview } from './heartbeat-review.js';
@@ -77,7 +78,7 @@ const DO_RULES = 'Earlier, someone in the household asked you to do something at
  */
 export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, things = null, night = () => null, asleep = () => false,
   talk = null, ai = null, live = null, picture = () => '', every = 20e3, onChange = () => {} }) {
-  const FILE = path.join(DIR, '../later.json');
+  const FILE = registered('later', path.join(DIR, '../later.json'));
   let st = { items: [] };
   st = { ...st, ...readJson(FILE, {}) };
   st.items = (st.items || []).filter((x) => x && x.id && x.at);

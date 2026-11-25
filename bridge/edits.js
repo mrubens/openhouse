@@ -12,6 +12,7 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 
 export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit = null, log = (...a) => console.log('[edits]', ...a) }) {
@@ -35,7 +36,7 @@ export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit
   const inHistory = (sha) => { try { git('merge-base', '--is-ancestor', sha, 'HEAD'); return true; } catch { return false; } };
 
   // ---- the undo stack: the family's latest changes, newest last. Kept on disk for "undo" after a restart. ----
-  let stack = (() => { const s = readJson(UNDO_FILE, []); return Array.isArray(s) ? s : []; })();
+  let stack = (() => { const s = readJson(registered('undo', UNDO_FILE), []); return Array.isArray(s) ? s : []; })();
   // Older entries kept the commit *before* the change ({ base }): the change is the next commit after it.
   stack = stack.map((e) => {
     if (e.commit || !e.base) return e;

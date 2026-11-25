@@ -22,6 +22,7 @@
 // file: heartbeat.json next to the chats.
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import { questions, judgeInput, verdicts, writeNote, decideCost, WORTH } from './heartbeat-judge.js';
 import { REVIEW_RULES, snapshot, runReview } from './heartbeat-review.js';
@@ -118,7 +119,7 @@ export function storage(free) {
 export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () => [], edits = null, busy = () => false,
   now = () => Date.now(), freeBytes = null, logTurn = null, every = 5 * 60e3, json = null, body = null, onChange = () => {},
   judge = null, fixes = null, things = null, extraChecks = null, checkProblems = () => ({}), changesOf = () => [], review = true }) {
-  const FILE = path.join(DIR, '../heartbeat.json');
+  const FILE = registered('heartbeat', path.join(DIR, '../heartbeat.json'));
   const read = () => readJson(FILE, {});
   const st = { level: DEFAULT_LEVEL, handled: {}, log: [], day: null, sleepUntil: 0, lastCheckIn: 0, lastReview: 0, last: null, findings: [], notesFor: {}, judgedAt: [], ...read() };
   st.notesFor ||= {}; st.judgedAt ||= [];
