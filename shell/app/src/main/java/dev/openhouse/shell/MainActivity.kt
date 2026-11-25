@@ -375,13 +375,20 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         // Android's Wi-Fi settings leave kiosk mode (Home brings it back), so after the first setup they're behind the
         // same rule as the other ways out (SettingsLock.withPinSet). Before it (no household saved yet: the welcome
         // screen's Join Wi-Fi, a tablet arriving from elsewhere), there's no PIN to ask for and they open as they are.
+        // Joining a network needs no PIN: after the first setup it's Opie's own Join Wi-Fi (WifiJoin), whose Wi-Fi
+        // settings button (saved networks, forgetting one) is under the rule.
         override fun wifi() {
             thread {
                 val firstSetup = runCatching { !JSONObject(dev.openhouse.ui.BridgeClient.getText("$bridge/household", 1500, 3000)).optBoolean("setup", true) }
                     .getOrDefault(dev.openhouse.ui.Openhouse.showWelcome)
                 main.post {
                     val open = { leaveKiosk(); startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)) }
-                    if (firstSetup) lock.withPin { open() } else lock.withPinSet(back = {}) { open() }
+                    val settings = { lock.withPinSet(back = {}) { open() } }
+                    when {
+                        firstSetup -> lock.withPin { open() }
+                        DeviceOwner.isOwner(this@MainActivity) -> WifiJoin.show(this@MainActivity, settings)
+                        else -> settings()
+                    }
                 }
             }
         }
