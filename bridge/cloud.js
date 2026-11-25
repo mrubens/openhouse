@@ -221,13 +221,17 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     if (check && device()) { try { svc = lastVoiceStatus = await call('GET', '/v1/voice'); } catch {} }
     if (svc && svc.on === false && mine.on) { write('voice.json', { ...mine, on: false, offAt: iso(), offWhy: 'family' }); mine.on = false; } // turned off from the web
     const over = svc?.used && svc?.limits && svc.used.cents >= svc.limits.cents ? 'month' : null;
+    // offWhy: why it went off here when it wasn't this tablet's own Off ("family": from the web). The shell turning it
+    // on by itself (CloudSetup.autoVoice) reads it, so it never undoes an Off said somewhere else.
     return { linked: !!device(), on: liveOn(), provider: 'openai-live', vendor: svc?.vendor || mine.vendor || null, available: svc ? !!svc.available : null,
+      offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null,
       over, used: svc?.used || null, limits: svc?.limits || null, using: voice.used(), voiceName: mine.voiceName || 'marin' };
   }
   async function voiceSet(on) {
     if (on && !device()) throw new Error('Link the tablet to an account first (Settings → Account).');
     if (device()) { try { lastVoiceStatus = await call('POST', '/v1/voice/setting', { on }); } catch (e) { if (on) throw e; } }
-    write('voice.json', { ...(read('voice.json') || {}), on, provider: 'openai-live', vendor: lastVoiceStatus?.vendor || null, at: iso() }); // (keeps the chosen voice)
+    const { offWhy, offAt, ...was } = read('voice.json') || {}; // (an Off from the web is answered by this one)
+    write('voice.json', { ...was, on, provider: 'openai-live', vendor: lastVoiceStatus?.vendor || null, at: iso() }); // (keeps the chosen voice)
     return voiceStatus(false);
   }
 

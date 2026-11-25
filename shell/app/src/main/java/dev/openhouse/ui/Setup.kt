@@ -38,7 +38,8 @@ internal object Setup {
     private var greeted = false
     /** Bumped when the bridge has an answer Opie heard (GET /setup/wait): the step reads what's saved at once. */
     var tick by mutableStateOf(0)
-    /** Turn on Opie was chosen but the tablet isn't linked yet: the phone-or-computer step asks for it (not before). */
+    /** Turn on Opie was chosen but the tablet isn't linked yet: the phone-or-computer step asks for it (not before),
+     *  each time it shows, until it's linked (CloudVoiceMenu.turnOn clears it then). */
     @Volatile var wantsLink = false
     /** Where the tablet is, guessed once ({address, town, zip}), for the place step and Opie's question. */
     @Volatile var guess: JSONObject? = null
@@ -238,7 +239,9 @@ private fun DevicesStep() {
         val kidOrPet = { n: String -> Regex("^\\d{1,2}$").matches(n.trim()) || Regex("\\b(dog|cat|pet|fish|bird|hamster|rabbit)\\b", RegexOption.IGNORE_CASE).containsMatchIn(n) }
         names = h?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty().filter { !kidOrPet(it.optString("note")) }.map { it.optString("name") }
         who = names.firstOrNull() ?: "Me"
-        if (Setup.wantsLink) { Setup.wantsLink = false; o.host.setting("linkForOpie") } // linking for Opie, now that they're here with a phone
+        // Linking for Opie, now that they're here with a phone. Kept until it's linked: closed, or the account not
+        // reached, it asks again the next time this step shows (and a yes made here turns Opie on whenever it links).
+        if (Setup.wantsLink) o.host.setting("linkForOpie")
     }
     var used by remember { mutableStateOf(0) } // devices joined with a code from here: each code works once, so a new one
     LaunchedEffect(who, used) { val w = who ?: return@LaunchedEffect; pair = null; pair = withContext(Dispatchers.IO) { o.host.setupPair(w) } }
