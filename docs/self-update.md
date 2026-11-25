@@ -130,14 +130,16 @@ again. It goes back when:
   (`SystemClock.elapsedRealtime`), from the install, or from the start of this boot after a restart, and it has to
   come up again after every restart while the rescue is kept. A restart in the window gives it its five minutes
   again instead of a judgment seconds after boot. While someone has left kiosk mode (Android settings, Wi-Fi,
-  *Leave kiosk mode*) it isn't judged at all, even across a restart: the display writes `files/updates/kiosk.json`
-  when kiosk mode is left and again when it's back, and from then it has its five minutes again.
+  *Leave kiosk mode*) from the new release, it isn't judged at all, even across a restart: the display writes
+  `files/updates/kiosk.json` (with its version code) when kiosk mode is left and again when it's back, and from then
+  it has its five minutes again. Kiosk mode left before the install doesn't count, so a release that crashes before
+  it's ever opened is still judged.
 - a day after the install, none of its manifest checks has worked and at least three counted against it. A check
-  counts only when an answer arrived (HTTP 200) and the release couldn't read it as a manifest or refused it by the
-  checks it applies to every manifest, and only when Android has validated the network (so not a captive portal's
-  page). Not getting an answer at all (offline, DNS, TLS, a timeout) or getting any other HTTP status proves nothing,
+  counts only when Android has validated the network (so not a captive portal's page), and either an answer arrived
+  (HTTP 200) and the release couldn't read it as a manifest or refused it by the checks it applies to every manifest,
+  or the release got the fetch wrong itself: its own code failed (not the connection), or the server answered a 4xx
+  to the request it built (not 401, 403, 408 or 429). The rest (offline, DNS, TLS, a timeout, a 5xx) proves nothing,
   since the network, the server or the host's setup may be the trouble: the rescue stays and it keeps trying hourly.
-  So a release whose updater can't reach the host at all is never sent back for it; it waits for one that can.
 
 To go back it puts the cover up and commits the staged session (or installs `rescue.apk` from the file if the session
 is gone). The rescue build starts,
@@ -145,10 +147,13 @@ remembers that release failed here and never tries it again, and Settings says *
 properly, so this tablet went back to 0.3.0*. The next release (0.5.0 = 50000) is above the rescue build (40001), so it
 updates as usual.
 
-Going back is tried once. If the rescue install fails (its result says so, or there's no rescue build to install), or
-it hasn't finished an hour after it started, the release stays: the display notes it in the history (*Version 0.4.0
-didn't start properly, but going back to 0.3.0 failed (…), so it stays on 0.4.0*), throws the rescue away, takes the
-cover down and checks for updates again as usual, so a newer release can still come.
+Going back, once begun, goes on until the rescue build takes over. A try that a restart cuts off (the tablet switched
+off under the blank cover), or that hasn't finished an hour after it started, is tried again at once; one whose
+install fails, ten minutes later; tries after the first install `rescue.apk` from the file. Meanwhile the display
+leaves it to the guard (no health checks, no settling). Only after five tries (`UpdateHealth.RESCUE_TRIES`), or a day
+after going back began, or with no rescue build to install, does the release stay: the display notes it in the
+history (*Version 0.4.0 didn't start properly, but going back to 0.3.0 failed (…), so it stays on 0.4.0*), throws the
+rescue away, takes the cover down and checks for updates again as usual, so a newer release can still come.
 
 A tablet that skipped releases goes back to the release before the broken one, not to the one it had. That's a
 version other tablets are running.

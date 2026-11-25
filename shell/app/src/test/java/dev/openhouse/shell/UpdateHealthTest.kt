@@ -53,4 +53,26 @@ class UpdateHealthTest {
         assertFalse(UpdateHealth.rescueStuck(-10_000)) // the clock set back a little: still going
         assertTrue(UpdateHealth.rescueStuck(-2 * hour))
     }
+
+    @Test fun goingBackIsTriedAgainUntilItsTriesRunOut() {
+        val R = UpdateHealth.Rescue.Try
+        assertEquals(R, UpdateHealth.rescue(tries = 0, inFlight = false, sinceStartMs = 0, sinceFailMs = null))
+        assertTrue(UpdateHealth.rescue(1, inFlight = true, sinceStartMs = 10 * min, sinceFailMs = null) is UpdateHealth.Rescue.Wait) // still going
+        // Cut off by a restart, or no result within its hour: tried again at once; a failed one, after a wait.
+        assertEquals(R, UpdateHealth.rescue(1, inFlight = false, sinceStartMs = 2 * min, sinceFailMs = null))
+        assertTrue(UpdateHealth.rescue(1, inFlight = false, sinceStartMs = 2 * min, sinceFailMs = min) is UpdateHealth.Rescue.Wait)
+        assertEquals(R, UpdateHealth.rescue(2, inFlight = false, sinceStartMs = hour, sinceFailMs = hour))
+        assertTrue(UpdateHealth.rescue(UpdateHealth.RESCUE_TRIES, inFlight = false, sinceStartMs = hour, sinceFailMs = null) is UpdateHealth.Rescue.GiveUp)
+        assertFalse(UpdateHealth.rescueAbandoned(6 * hour))
+        assertTrue(UpdateHealth.rescueAbandoned(UpdateHealth.KEEP_MS))
+    }
+
+    @Test fun aReleaseThatCantFetchAtAllCountsOnlyForItsOwnFault() {
+        assertTrue(UpdateHealth.fetchFailureCounts(status = null, ownError = true, networkValidated = true))
+        assertTrue(UpdateHealth.fetchFailureCounts(status = 404, ownError = false, networkValidated = true))
+        assertFalse(UpdateHealth.fetchFailureCounts(status = 503, ownError = false, networkValidated = true))
+        assertFalse(UpdateHealth.fetchFailureCounts(status = 401, ownError = false, networkValidated = true))
+        assertFalse(UpdateHealth.fetchFailureCounts(status = null, ownError = false, networkValidated = true)) // a timeout, DNS
+        assertFalse(UpdateHealth.fetchFailureCounts(status = null, ownError = true, networkValidated = false))
+    }
 }

@@ -88,9 +88,16 @@ One switch, PIN Lock: Off or On.
   leaves by accident, but anyone can say yes. In This tablet, erasing the tablet, leaving kiosk mode, Android
   settings, turning on USB debugging and turning on device control (which opens Android's settings) ask someone to set
   a PIN first, so taps alone never reach them; once it's chosen they go on as with the lock on. So do Account's
-  Unlink this tablet, Backups' Restore, and the Wi-Fi button (on the "Not on Wi-Fi" note), which opens Android's
-  Wi-Fi settings outside kiosk mode. The Wi-Fi button is open only during the first setup, before the household is
-  saved (the welcome screen's Join Wi-Fi, a tablet arriving from somewhere else), when there's no PIN to ask for yet.
+  Unlink this tablet, Backups' Restore and Recovery code, and Android's Wi-Fi settings outside kiosk mode.
+- **Wi-Fi:** the Wi-Fi button (on the "Not on Wi-Fi" note) joins a network with no PIN: Opie's own Join Wi-Fi lists
+  the networks nearby (or takes one by name) and asks for its password, all inside kiosk mode. Its Wi-Fi settings
+  button, Android's own (saved networks, forgetting one, and a tap from the rest of Android's settings), is a way out
+  as above. During the first setup, before the household is saved (the welcome screen's Join Wi-Fi, a tablet arriving
+  from somewhere else), the button opens Android's Wi-Fi settings, since there's no PIN to ask for yet.
+- **The first PIN:** chosen in the first setup's last step (Choose a PIN), or later from PIN Lock or "Set a PIN
+  first" only on a tablet linked to an account, which can reset it if it's forgotten. On an unlinked tablet, anyone
+  at it could choose one and tap past its recovery code, locking everyone else out of Account, Erase and Android's
+  settings, so those say to link the tablet first (Account).
 - **On:** turning it on chooses a PIN (typed twice), then shows its recovery code (below). Rows marked with a small
   lock ask for it, then stay open for two minutes as before. The same PIN is the yes on the "Is this OK?" card for the
   ways out above, for adding apps, for a reward that needs a yes, and for changing the calendar. Those ways out ask
@@ -99,7 +106,7 @@ One switch, PIN Lock: Off or On.
 
 ### Forgot the PIN
 
-Choosing a PIN on the tablet, from PIN Lock or from "Set a PIN first", ends with its **recovery code**: 16 characters
+Choosing a PIN on an unlinked tablet (the first setup's step, or a new one after Forgot PIN?) ends with its **recovery code**: 16 characters
 (XXXX-XXXX-XXXX-XXXX, the same alphabet as the backups' code: no I, L, O or U). Nothing is saved until someone taps
 "I've kept it", so a PIN never exists without its code having been shown; the card can't be swiped away, and Cancel
 leaves no PIN at all. The tablet keeps only a salted PBKDF2 hash of the code, as it does for the PIN. A tablet

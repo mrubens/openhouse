@@ -26,13 +26,13 @@ internal class SettingsLock(private val act: MainActivity) {
 
     /** Erasing the tablet, the ways out of Opie (leaving kiosk mode, Android settings, USB debugging, Wi-Fi
      *  settings after the first setup), unlinking and restoring a backup: with the lock on, the PIN (straight on within
-     *  the two minutes after it, as when This tablet just asked). With it off, they wait for someone to set a PIN and
-     *  keep its recovery code, so taps alone never reach them; once it's chosen, [ok]. [back]: they didn't. */
+     *  the two minutes after it, as when This tablet just asked). With it off, they wait for someone to set a PIN
+     *  (firstPin), so taps alone never reach them; once it's chosen, [ok]. [back]: they didn't. */
     fun withPinSet(back: () -> Unit = { tablet() }, ok: () -> Unit) {
         if (on) return PinPrompt.ask(act, act, "PIN", ok, cancelled = back)
         CalmDialog(act).setTitle("Set a PIN first")
             .setMessage("This needs PIN Lock on, so only someone who knows the PIN can do it.")
-            .setPositiveButton("Set a PIN") { _, _ -> PinPrompt.choose(act, act, then = { changed(); ok() }, back = back) }
+            .setPositiveButton("Set a PIN") { _, _ -> firstPin(then = { changed(); ok() }, back = back) }
             .setNegativeButton("Cancel") { _, _ -> back() }.show()
     }
 
@@ -55,8 +55,9 @@ internal class SettingsLock(private val act: MainActivity) {
             "photoPhones" -> act.sharePhotos()
             "computer" -> withPin { Screens.computer(act) }
             "linkForOpie" -> CloudVoiceMenu(act).turnOn(linkNow = true) // the setup's phone step, when Turn on Opie needs the account
-            // The setup's last step: PIN Lock on, as from its row (with a recovery code unless linked), then the setup ends.
-            "setupPin" -> if (on) dev.openhouse.ui.Setup.next() else PinPrompt.choose(act, act, then = { changed(); dev.openhouse.ui.Setup.next() })
+            // The setup's last step: PIN Lock on (with a recovery code unless linked), then the setup ends. Only while that
+            // step is showing: anywhere else a first PIN is firstPin's.
+            "setupPin" -> if (on) dev.openhouse.ui.Setup.next() else if (Openhouse.setupStep == "pin") PinPrompt.choose(act, act, then = { changed(); dev.openhouse.ui.Setup.next() })
             "reloadHome" -> act.reloadHome()
         }
     }
@@ -89,7 +90,25 @@ internal class SettingsLock(private val act: MainActivity) {
 
     // --- the lock ------------------------------------------------------------------------------------------------
 
-    private fun turnOn() = PinPrompt.choose(act, act, then = { changed(); tablet() }, back = { tablet() })
+    private fun turnOn() = firstPin(then = { changed(); tablet() }, back = { tablet() })
+
+    /**
+     * A first PIN, outside the setup's own step: only on a tablet linked to an account, whose Reset with your account
+     * gets a grown-up back in (PinPrompt.forgot). On an unlinked tablet anyone at it could choose one and tap past its
+     * recovery code, keeping everyone else out of Account, Erase and Android's settings, so it asks to link first.
+     * Changing or resetting a PIN that's set is PinPrompt's, as before.
+     */
+    private fun firstPin(then: () -> Unit, back: () -> Unit) = thread {
+        val linked = get("/cloud/status")?.optBoolean("linked") == true
+        act.runOnUiThread {
+            if (linked) return@runOnUiThread PinPrompt.choose(act, act, then = then, back = back)
+            CalmDialog(act).setTitle("Link this tablet first")
+                .setMessage("A PIN chosen now is reset with your Opie account if it's forgotten, so PIN Lock needs this tablet linked to one.")
+                .setPositiveButton("Account") { _, _ -> CloudMenu(act).show() }
+                .setNegativeButton("Back") { _, _ -> back() }.show()
+            act.immersive()
+        }
+    }
 
     private fun turnOff() = PinPrompt.ask(act, act, "Turn off the lock", { ParentPin.clear(act); changed(); tablet() })
 

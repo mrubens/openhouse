@@ -74,7 +74,8 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         if (on.isNotEmpty()) items += CalmDialog.Row("Back up now") to { backUpNow() }
         // Restoring replaces everything here: behind a PIN, set first if there's none (SettingsLock.withPinSet).
         items += CalmDialog.Row("Restore") to { act.lock.withPinSet(back = { show() }) { restoreList() } }
-        if (hasKey) items += CalmDialog.Row("Recovery code") to { act.lock.withPin { showCode(first = false) } } // (it also resets a forgotten PIN: PinPrompt.forgot)
+        // It also resets a forgotten PIN (PinPrompt.forgot), so it's shown only after the PIN: with none set, one first.
+        if (hasKey) items += CalmDialog.Row("Recovery code") to { act.lock.withPinSet(back = { show() }) { showCode(first = false) } }
         if (hasKey && escrow.optBoolean("available")) items += CalmDialog.Row("A copy in Opie's cloud", value = onOff(escrow.optBoolean("on"))) to { escrowAsk(!escrow.optBoolean("on")) }
         CalmDialog(act).setTitle("Backups").setMessage(text)
             .setRows(items.map { it.first }) { _, i -> items[i].second() }.setNegativeButton("Back") { _, _ -> onBack?.invoke() }.open()

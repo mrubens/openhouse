@@ -50,22 +50,27 @@ fi
 # unpacked from an older image too, for the space.
 rm -rf /opt/pi /opt/searxng /usr/local/bin/pi /usr/local/bin/openhouse-pi /root/.pi /root/.local/share/claude /root/.local/bin/claude /usr/local/bin/claude .searxng-secret searxng.log 2>/dev/null
 if ! up 8787/state; then
-  # A bridge from an earlier start that is still running but holds no port (connection refused, not just slow) after
-  # two minutes never got to serving: stop it and its voice worker (its process group) before starting another, so
-  # two never run side by side. One that's still starting up, or listening but busy, is left alone.
+  # bridge.pid is written by the bridge itself as it starts (bridge/pid-file.js), so it's node's own id (its process
+  # group too: setsid) and the file's age is how long that bridge has run. One that's still running but holds no port
+  # (connection refused, not just slow) after two minutes never got to serving: stop it and its voice worker (its
+  # process group) and start another. One that's still starting up, or listening but busy, is left alone, and no
+  # second one starts beside it.
   curl -s -m 2 -o /dev/null "http://127.0.0.1:8787/state"; refused=$?
   old=$(cat bridge.pid 2>/dev/null)
-  if [ "$refused" = 7 ] && [ -n "$old" ] && tr '\0' ' ' < "/proc/$old/cmdline" 2>/dev/null | grep -q 'node server.js' \
-     && [ $(( $(date +%s) - $(stat -c %Y bridge.pid) )) -gt 120 ]; then
+  running() { [ -n "$old" ] && tr '\0' ' ' < "/proc/$old/cmdline" 2>/dev/null | grep -q 'node server.js'; }
+  if running && [ "$refused" = 7 ] && [ $(( $(date +%s) - $(stat -c %Y bridge.pid) )) -gt 120 ]; then
     echo "$(date '+%F %T') stopping bridge $old (running, not listening)"
     kill -TERM -- "-$old" 2>/dev/null || kill -TERM "$old" 2>/dev/null
     for i in $(seq 1 10); do kill -0 "$old" 2>/dev/null || break; sleep 0.5; done
     kill -KILL -- "-$old" 2>/dev/null; kill -KILL "$old" 2>/dev/null
   fi
-  # The assistant is the cloud's (bridge/agents/cloud.js); AGENT in ./env only for a stand-in. setsid makes node its
-  # own process group, so $! (env, which becomes node) is the bridge and its group.
-  (cd bridge && env ${AGENT:+AGENT=$AGENT} DEVICE_MCP_CONFIG=$(dirname "$D")/device-mcp.json \
-    setsid nohup node server.js < /dev/null >> ../bridge.log 2>&1 9>&- & echo $! > ../bridge.pid) 9>&-
+  if running; then
+    echo "$(date '+%F %T') bridge $old is still starting or busy: left alone"
+  else
+    # The assistant is the cloud's (bridge/agents/cloud.js); AGENT in ./env only for a stand-in.
+    (cd bridge && env ${AGENT:+AGENT=$AGENT} DEVICE_MCP_CONFIG=$(dirname "$D")/device-mcp.json BRIDGE_PID_FILE="$D/bridge.pid" \
+      setsid nohup node server.js < /dev/null >> ../bridge.log 2>&1 9>&- &) 9>&-
+  fi
 fi
 for i in $(seq 1 60); do up 5173 && up 8787/state && { echo "$(date '+%F %T') up"; exit 0; }; sleep 0.5; done
 echo "$(date '+%F %T') timed out"; exit 1

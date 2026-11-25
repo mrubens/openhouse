@@ -31,13 +31,14 @@ class UpdateGuard : BroadcastReceiver() {
                 val msg = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                 Log.i(TAG, "rescue install: $st $msg")
                 // Success replaces this app (the rescue build takes over); waiting on a person can't happen for an
-                // owner, and if it does the hour runs out (UpdateHealth.rescueStuck). Anything else: it failed.
-                if (st != PackageInstaller.STATUS_SUCCESS && st != PackageInstaller.STATUS_PENDING_USER_ACTION) rescueFailed(c, "the install failed (${msg ?: st})")
+                // owner, and if it does the hour runs out (UpdateHealth.rescueStuck). Anything else: that try failed.
+                if (st != PackageInstaller.STATUS_SUCCESS && st != PackageInstaller.STATUS_PENDING_USER_ACTION) tryFailed(c, "the install failed (${msg ?: st})")
             }
             Intent.ACTION_MY_PACKAGE_REPLACED, Intent.ACTION_BOOT_COMPLETED -> {
                 if (intent.action == Intent.ACTION_BOOT_COMPLETED) booted(c)
                 val p = watching(c) ?: return
-                val v = UpdateHealth.judge(watch(c, p))
+                // Going back, once begun, carries on after a restart (a try cut off by it is tried again).
+                val v = if (goingBack(p)) UpdateHealth.Verdict.Wait(30_000) else UpdateHealth.judge(watch(c, p))
                 val after = (v as? UpdateHealth.Verdict.Wait)?.ms?.coerceAtLeast(5_000) ?: 5_000
                 schedule(c, after)
                 Log.i(TAG, "watching version ${p.optString("version")}: looking again in ${after / 1000} s")
@@ -62,34 +63,49 @@ class UpdateGuard : BroadcastReceiver() {
             return p
         }
 
+        /** Going back has begun (it goes on until the rescue build takes over or it's given up: UpdateHealth.rescue). */
+        fun goingBack(p: JSONObject) = p.optBoolean("rescuing") || p.optInt("rescueTries", 0) > 0
+
         /**
-         * Going back was tried and won't happen: why (the install failed, or it hasn't finished within the hour).
-         * Null while it hasn't been tried or is still going. The display notes it and stops watching (Updater).
+         * Going back was tried and won't happen: why (its tries ran out, there's nothing to install, or a day passed
+         * since it began). Null while it hasn't begun or is still going. The display notes it and stops watching
+         * (Updater).
          */
         fun rescueOver(p: JSONObject): String? {
             p.optString("rescueFailed").takeIf { it.isNotEmpty() }?.let { return it }
-            if (p.optBoolean("rescuing") && UpdateHealth.rescueStuck(System.currentTimeMillis() - p.optLong("rescuedAt", 0))) return "it didn't finish within an hour"
+            val began = p.optLong("rescueBegan", p.optLong("rescuedAt", 0))
+            if (goingBack(p) && UpdateHealth.rescueAbandoned(System.currentTimeMillis() - began)) return "it didn't finish within a day"
             return null
         }
 
-        /** The rescue install failed: say so in pending.json for the display, and take the cover down. */
+        /** Going back won't happen: say so in pending.json for the display, and take the cover down. */
         private fun rescueFailed(c: Context, why: String) {
-            pending(c)?.takeIf { it.optBoolean("rescuing") }?.let { write(c, it.put("rescuing", false).put("rescueFailed", why)) }
+            pending(c)?.let { write(c, it.put("rescuing", false).put("rescueFailed", why)) }
             cancel(c)
             UpdateCover.down(c)
             Log.w(TAG, "going back failed: $why")
         }
 
+        /** One try failed (its install's result): take the cover down; the next try comes after a wait (judge). */
+        private fun tryFailed(c: Context, why: String) {
+            val p = pending(c)?.takeIf { it.optBoolean("rescuing") } ?: return
+            write(c, p.put("rescuing", false).put("rescueFailedAt", System.currentTimeMillis()).put("rescueError", why))
+            UpdateCover.down(c)
+            Log.w(TAG, "going back, try ${p.optInt("rescueTries", 1)}: $why")
+            judge(c)
+        }
+
         // Kiosk mode left (DeviceOwner.leaveKiosk) and back (enterKiosk), for this process to see: kiosk.json in the
-        // updates folder. While it's left the display isn't judged (UpdateHealth.judge); once it's back it has its
-        // health time from then.
+        // updates folder, with the release that left it. While the release being watched has left it, the display
+        // isn't judged (UpdateHealth.judge); once it's back it has its health time from then. Left by the release from
+        // before the install doesn't count: the new one may never get as far as opening and coming back to it.
         fun kioskLeft(c: Context) = writeKiosk(c, true)
         fun kioskBack(c: Context) { if (kiosk(c)?.optBoolean("left") == true) writeKiosk(c, false) }
         private fun kiosk(c: Context) = runCatching { JSONObject(File(dir(c), "kiosk.json").readText()) }.getOrNull()
         private fun writeKiosk(c: Context, left: Boolean) = runCatching {
             dir(c).mkdirs()
             val t = File(dir(c), "kiosk.json.tmp")
-            t.writeText(JSONObject().put("left", left).put("boot", bootCount(c)).put("elapsed", SystemClock.elapsedRealtime()).toString())
+            t.writeText(JSONObject().put("left", left).put("code", code(c)).put("boot", bootCount(c)).put("elapsed", SystemClock.elapsedRealtime()).toString())
             if (!t.renameTo(File(dir(c), "kiosk.json"))) t.delete()
         }.onFailure { Log.w(TAG, "kiosk.json: $it") }
 
@@ -126,7 +142,7 @@ class UpdateGuard : BroadcastReceiver() {
                 else -> minOf(el - booted(c), now - p.optLong("at", now)) // written by a release from before the boot clock
             }
             val k = kiosk(c)
-            val kioskLeft = k?.optBoolean("left") == true
+            val kioskLeft = k?.optBoolean("left") == true && k.optLong("code", -1) == p.optLong("to") // by this release
             // Back in kiosk mode this boot: its time starts again then.
             val back = k?.takeIf { !kioskLeft && boot >= 0 && it.optInt("boot", -2) == boot }?.let { el - it.optLong("elapsed") }
             return UpdateHealth.Watch(
@@ -159,9 +175,10 @@ class UpdateGuard : BroadcastReceiver() {
             Log.i(TAG, "version ${p.optString("version")} settled: its rescue build is thrown away")
         }
 
-        /** Time to look: wait more, settle, or go back to the rescue build. */
+        /** Time to look: wait more, settle, or go back to the rescue build (and, once going back, carry on with it). */
         fun judge(c: Context) {
             val p = watching(c) ?: return
+            if (goingBack(p)) return goBack(c, p, p.optString("why", "didn't start properly"))
             when (val v = UpdateHealth.judge(watch(c, p))) {
                 is UpdateHealth.Verdict.Wait -> schedule(c, v.ms.coerceAtLeast(5_000))
                 UpdateHealth.Verdict.Settle -> settle(c, p)
@@ -169,17 +186,33 @@ class UpdateGuard : BroadcastReceiver() {
             }
         }
 
-        /** Commit the staged rescue build (or, if the session was lost, install it from the file). */
+        /**
+         * Going back: a try now, or a look later while one is going or after one failed (UpdateHealth.rescue). The
+         * first try commits the staged rescue build; later ones (the session used or lost) install it from the file.
+         */
         private fun goBack(c: Context, p: JSONObject, why: String) {
             if (p.optLong("rescueCode", 0) <= 0) { Log.w(TAG, "version ${p.optString("version")} $why and there's no rescue build to go back to"); return }
-            if (p.optBoolean("rescuing")) { Log.w(TAG, "already went back once: not again"); return }
-            write(c, p.put("rescuing", true).put("rescuedAt", System.currentTimeMillis()).put("why", why))
-            Log.w(TAG, "version ${p.optString("version")} $why: going back to ${p.optString("rescueVersion")}")
+            val now = System.currentTimeMillis()
+            val boot = bootCount(c)
+            val tries = p.optInt("rescueTries", if (p.optBoolean("rescuing")) 1 else 0)
+            val started = p.optLong("rescuedAt", now)
+            val thisBoot = boot >= 0 && p.optInt("rescueBoot", -2) == boot
+            val inFlight = p.optBoolean("rescuing") && thisBoot && !UpdateHealth.rescueStuck(now - started)
+            val failedAt = p.optLong("rescueFailedAt", 0).takeIf { it > 0 && !p.optBoolean("rescuing") }
+            when (val step = UpdateHealth.rescue(tries, inFlight, now - started, failedAt?.let { now - it })) {
+                is UpdateHealth.Rescue.Wait -> return schedule(c, step.ms)
+                is UpdateHealth.Rescue.GiveUp -> return rescueFailed(c, p.optString("rescueError").ifEmpty { null }?.let { "${step.why}; the last: $it" } ?: step.why)
+                UpdateHealth.Rescue.Try -> {}
+            }
+            write(c, p.put("rescuing", true).put("rescuedAt", now).put("rescueBoot", boot).put("rescueTries", tries + 1)
+                .put("rescueBegan", p.optLong("rescueBegan", now)).put("why", why))
+            schedule(c, UpdateHealth.RESCUE_MS) // looked at again if this try never finishes
+            Log.w(TAG, "version ${p.optString("version")} $why: going back to ${p.optString("rescueVersion")} (try ${tries + 1})")
             UpdateCover.up(c, face = false)
             val pi = c.packageManager.packageInstaller
             val sender = PendingIntent.getBroadcast(c, 0, Intent(RESULT).setPackage(c.packageName), PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE).intentSender
             val staged = p.optInt("session", -1)
-            val ok = staged >= 0 && runCatching { pi.openSession(staged).use { it.commit(sender) }; true }.onFailure { Log.w(TAG, "staged session $staged: $it") }.getOrDefault(false)
+            val ok = tries == 0 && staged >= 0 && runCatching { pi.openSession(staged).use { it.commit(sender) }; true }.onFailure { Log.w(TAG, "staged session $staged: $it") }.getOrDefault(false)
             if (ok) return
             val f = File(dir(c), "rescue.apk")
             if (!f.exists()) { rescueFailed(c, "there's no rescue build on the tablet"); return }
@@ -190,7 +223,7 @@ class UpdateGuard : BroadcastReceiver() {
                 }
                 val id = pi.createSession(params)
                 pi.openSession(id).use { s -> f.inputStream().use { i -> s.openWrite("base.apk", 0, f.length()).use { o -> i.copyTo(o, 1 shl 16); s.fsync(o) } }; s.commit(sender) }
-            }.onFailure { rescueFailed(c, "couldn't install it from the file ($it)") }
+            }.onFailure { tryFailed(c, "couldn't install it from the file ($it)") }
         }
     }
 }
