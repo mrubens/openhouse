@@ -25,7 +25,7 @@ import { buildWaits, markBuilding, unmarkBuilding } from './build-waits.js';
  *  tell(conversation, text): a typed request's conversation hears, in writing, that it didn't work (chat.js tell). */
 export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, tell = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
-  const waits = buildWaits({ FILE: WAITS_FILE, APP_DIR, edits, ask: (c) => ask(c), grant: (c) => grant(c), unmake: (id) => unmake(id), line: (t) => line(t), changed: () => changed(), emit,
+  const waits = buildWaits({ FILE: WAITS_FILE, APP_DIR, edits, ask: async (c) => { const a = await ask(c); if (a === 'yes') for (const id of [c.app, c.draft]) if (id) appErrors.delete(id); return a; }, // (what it threw while being made doesn't count against it once it's in) grant: (c) => grant(c), unmake: (id) => unmake(id), line: (t) => line(t), changed: () => changed(), emit,
     landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} } });
   /** A new app put back (a no, a failed run, one set aside to wait): the screens close it, so none is left on a page that's gone. */
   const closeGone = (apps) => { for (const app of apps || []) if (!fs.existsSync(path.join(APP_DIR, 'apps', app))) emit({ type: 'gone', app }); };
