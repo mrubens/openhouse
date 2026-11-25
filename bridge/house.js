@@ -51,6 +51,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import { AISLES, PEOPLE, aisleOf, dayKey, daysFrom, MEDIA, VIDEO, MAX_VIDEO, DAY, NIGHT, SHOWS, str } from './house/util.js';
 import assistantPart from './house/assistant.js';
 import listsPart from './house/lists.js';
@@ -68,7 +69,7 @@ import toolsPart from './house/tools.js';
 export { ROOM, PEOPLE, VIDEO, MAX_VIDEO, videoKind, PICS, AISLES, aisleOf } from './house/util.js';
 
 export function houseRoutes({ DIR, json, body, board, homeScreen = null, currentAgent = null, agentName = () => 'off', WORK = DIR, things = null, notes = null, appName = (id) => id }) {
-  const FILE = path.join(DIR, '../house.json');
+  const FILE = registered('house', path.join(DIR, '../house.json'));
   const PHOTOS = path.join(DIR, '../photos');
   try { fs.mkdirSync(PHOTOS, { recursive: true }); } catch {}
   let data = readJson(FILE, null) || {};

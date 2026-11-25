@@ -148,7 +148,7 @@ function useBrain(c, onRemoved) {
     const follow = async (p, set) => { // the brain answers when it changes (25 s at most)
       let v = -1;
       while (!stop) {
-        try { const r = await c.json('GET', v < 0 ? p : `${p}/wait?v=${v}`); if (r.status !== 200) throw new Error(); v = r.json.v; set(r.json); setUp(true); }
+        try { const r = await c.json('GET', v < 0 ? p : `${p}/wait?v=${v}${p === '/house' ? '&same=1' : ''}`); if (r.status !== 200) throw new Error(); v = r.json.v; if (!r.json.same) set(r.json); setUp(true); }
         catch (e) { guard(e); if (!stop) await new Promise((r) => setTimeout(r, 3000)); }
       }
     };
