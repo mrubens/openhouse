@@ -153,6 +153,11 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   // ---- dates (the display's own time zone) ----
   const pad = (n) => String(n).padStart(2, '0');
   const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  /** n days from d by the calendar, at noon (not n × 24 hours: around a DST change that skips or repeats a day). */
+  const daysFrom = (n, d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12);
+  /** The midnight n days after d's day (an all-day event's end: a day with a DST change is 23 or 25 hours). */
+  const midnightAfter = (d, n = 1) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const wholeDays = (ms) => Math.max(1, Math.round(ms / DAY));
   // For a model: a time in the household's clock with its offset ("2026-11-22T13:00-05:00"); the stored UTC one
   // ("…T18:00:00.000Z") reads as 6 PM for a 1 PM practice. An all-day one is its day (an end: the last day it's on).
   const localWhen = (s, allDay, end = false) => {
@@ -166,7 +171,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   const hhmm = (s, d) => (/^\d{1,2}:\d{2}$/.test(String(s || '')) ? String(s).padStart(5, '0') : d);
   const minutes = (s) => +s.slice(0, 2) * 60 + +s.slice(3, 5);
   function prune() { // keep two months of checkmarks and meals
-    const cut = dayKey(new Date(Date.now() - 60 * DAY));
+    const cut = dayKey(daysFrom(-60));
     for (const k of Object.keys(data.done)) if (k < cut) delete data.done[k];
     for (const k of Object.keys(data.skipped)) if (k < cut) delete data.skipped[k];
     for (const k of Object.keys(data.by)) if (k < cut) delete data.by[k];
@@ -191,7 +196,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
    *  was last done (after: the day it's done, and until it's due again, it isn't up). */
   const todayIs = (c, d = new Date()) => {
     if (c.every >= 2) {
-      if (c.after) { for (let i = 1; i < c.every; i++) if (doneOn(c, new Date(d.getTime() - i * DAY))) return false; return true; }
+      if (c.after) { for (let i = 1; i < c.every; i++) if (doneOn(c, daysFrom(-i, d))) return false; return true; }
       const n = daysBetween(c.since ? new Date(c.since + 'T12:00') : d, d);
       return n >= 0 && n % c.every === 0;
     }
@@ -201,14 +206,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   function lateBy(c) {
     if (!c.keep || !(c.days?.length || (c.every >= 2 && !c.after)) || todayIs(c)) return 0;
     for (let i = 1; i <= Math.max(14, c.every || 0); i++) {
-      const d = new Date(Date.now() - i * DAY);
+      const d = daysFrom(-i);
       if ((data.done[dayKey(d)] || []).includes(choreKey(c)) || (data.skipped[dayKey(d)] || []).includes(choreKey(c))) return 0;
       if (todayIs(c, d)) return i;
     }
     return 0;
   }
   function chores() {
-    const today = dayKey(), week = [...Array(7)].map((_, i) => dayKey(new Date(Date.now() - i * DAY)));
+    const today = dayKey(), week = [...Array(7)].map((_, i) => dayKey(daysFrom(-i)));
     return (household().chores || []).map((c) => {
       const late = lateBy(c), done = (data.done[today] || []).includes(choreKey(c));
       return {
@@ -229,7 +234,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       const mine = list.filter((c) => same(c.who, who) && !c.after); // (after-done ones have no fixed day)
       let n = 0;
       for (let i = 0; i <= 60; i++) {
-        const d = new Date(Date.now() - i * DAY), k = dayKey(d), due = mine.filter((c) => todayIs(c, d));
+        const d = daysFrom(-i), k = dayKey(d), due = mine.filter((c) => todayIs(c, d));
         if (!due.length) continue;
         const all = due.every((c) => (data.done[k] || []).includes(choreKey(c)) || (data.skipped[k] || []).includes(choreKey(c)));
         if (all) n++; else if (i > 0) break;
@@ -248,6 +253,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   function occurrences(e, from, to) {
     if (!e.repeat) return [e];
     const s = new Date(e.start), dur = new Date(e.end || e.start) - s, out = [];
+    const endOf = (d) => (e.allDay ? midnightAfter(d, wholeDays(dur)) : new Date(d.getTime() + dur));
     const until = e.until ? new Date(e.until + 'T23:59:59') : null, skip = new Set(e.skip || []);
     // Start near `from`, not at the first time it came up (a weekly event from years ago).
     const step = { daily: 1, weekdays: 1, weekly: 7, biweekly: 14 }[e.repeat];
@@ -261,8 +267,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       else if (e.repeat === 'yearly') { d.setFullYear(s.getFullYear() + i); if (d.getMonth() !== s.getMonth()) continue; }
       if (d >= to || (until && d > until)) break;
       if (e.repeat === 'weekdays' && (d.getDay() === 0 || d.getDay() === 6)) continue;
-      if (d.getTime() + dur < from || skip.has(dayKey(d))) continue;
-      out.push({ ...e, start: d.toISOString(), end: new Date(d.getTime() + dur).toISOString(), date: dayKey(d) });
+      if (endOf(d) < from || skip.has(dayKey(d))) continue;
+      out.push({ ...e, start: d.toISOString(), end: endOf(d).toISOString(), date: dayKey(d) });
     }
     return out;
   }
@@ -1014,8 +1020,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     const s = allDay ? (dateOnly ? new Date(String(startIn) + 'T00:00:00') : new Date(start.getFullYear(), start.getMonth(), start.getDate())) : start;
     // The end: as given; else as long as it was (when it moved); else an hour, or the day.
     const dur = was.start && was.end ? new Date(was.end) - new Date(was.start) : null;
-    let end = e.end && !isNaN(new Date(e.end)) ? new Date(e.end) : dur && allDay === !!was.allDay ? new Date(s.getTime() + dur) : allDay ? new Date(s.getTime() + DAY) : new Date(s.getTime() + 3600e3);
-    if (end <= s) end = allDay ? new Date(s.getTime() + DAY) : new Date(s.getTime() + 3600e3);
+    let end = e.end && !isNaN(new Date(e.end)) ? new Date(e.end) : dur && allDay === !!was.allDay ? (allDay ? midnightAfter(s, wholeDays(dur)) : new Date(s.getTime() + dur)) : allDay ? midnightAfter(s) : new Date(s.getTime() + 3600e3);
+    if (end <= s) end = allDay ? midnightAfter(s) : new Date(s.getTime() + 3600e3);
     const repeat = e.repeat !== undefined ? (REPEATS.includes(e.repeat) ? e.repeat : null) : was.repeat || null;
     const until = e.until !== undefined ? (validDay(e.until) ? e.until : null) : was.until || null;
     const pick = (k, n) => (e[k] !== undefined ? str(e[k], n) : was[k] || '');
@@ -1379,7 +1385,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   function context() {
     const today = dayKey(), lines = [];
     for (const l of data.lists) { const open = l.items.filter((i) => !i.done); lines.push(`- ${l.name}: ${open.map((i) => i.text).join(', ') || 'empty'}`); }
-    const meals = [...Array(7)].map((_, i) => { const k = dayKey(new Date(Date.now() + i * DAY)); const m = data.meals[k]; return m ? `${i === 0 ? 'today' : new Date(k + 'T12:00').toLocaleDateString('en-US', { weekday: 'short' })} ${Object.entries(m).map(([a, b]) => `${a}: ${b}`).join(', ')}` : null; }).filter(Boolean);
+    const meals = [...Array(7)].map((_, i) => { const k = dayKey(daysFrom(i)); const m = data.meals[k]; return m ? `${i === 0 ? 'today' : new Date(k + 'T12:00').toLocaleDateString('en-US', { weekday: 'short' })} ${Object.entries(m).map(([a, b]) => `${a}: ${b}`).join(', ')}` : null; }).filter(Boolean);
     const ch = chores().filter((c) => c.today), done = ch.filter((c) => c.done);
     const st = Object.entries(starsView()).filter(([, n]) => n > 0);
     return [
@@ -1504,7 +1510,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       v.calendars = board.sync?.targets().map((t) => ({ key: t.key, name: t.name, ...(t.who ? { who: t.who } : {}), ...(t.default ? { default: true } : {}) })) || [];
       v.synced = board.calendarEvents().filter((e) => new Date(e.end || e.start) > Date.now() - DAY && new Date(e.start) < soon).slice(0, 80)
         .map((e) => ({ title: e.title, start: localWhen(e.start, e.allDay), ...(e.allDay ? { allDay: true } : {}), who: e.who || null, ...(e.place ? { place: e.place } : {}), ...(e.uid ? { uid: e.uid } : {}), ...(e.editable ? { id: e.id, editable: true, calendar: e.calendarName, ...(e.date ? { date: e.date } : {}), ...(e.repeat ? { repeat: e.repeat } : {}) } : {}), ...(e.uid && data.countdowns.includes(e.uid) ? { countdown: true } : {}), ...(e.uid && data.reminds[e.uid] !== undefined ? { remind: data.reminds[e.uid] } : {}) }));
-      v.meals = Object.fromEntries(Object.entries(v.meals).filter(([k]) => k >= dayKey(new Date(Date.now() - 2 * DAY))));
+      v.meals = Object.fromEntries(Object.entries(v.meals).filter(([k]) => k >= dayKey(daysFrom(-2))));
       v.lists = v.lists.map((l) => ({ name: l.name, items: l.items.map((i) => ({ text: i.text, ...(i.who ? { who: i.who } : {}), ...(i.done ? { done: true } : {}) })) }));
       v.favorites = v.favorites.map((f) => f.text);
       v.reminders = (v.reminders || []).map((r) => ({ ...inLocal(r), ...(r.remindAt ? { remindAt: localWhen(r.remindAt) } : {}) }));

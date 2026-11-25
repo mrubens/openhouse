@@ -121,12 +121,16 @@ export function parse(text, from, to) {
     const dur = v.DTEND ? when(v.DTEND).t - s.t : v.DURATION ? duration(v.DURATION.value) : s.allDay ? DAY : 0;
     const ex = new Set((v.EXDATE || []).map((x) => when(x).t));
     const starts = v.RRULE && !v['RECURRENCE-ID'] ? expand(s, v.RRULE.value, from - dur, to) : [s.t];
+    // An all-day one ends a number of days later, at that midnight (a day with a DST change isn't 24 hours).
+    const days = s.allDay ? Math.max(1, Math.round(dur / DAY)) : 0;
+    const endOf = (t) => { if (!days) return t + dur; const d = new Date(t); return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days).getTime(); };
     for (const t of starts) {
       if (ex.has(t) || (v.RRULE && moved.has(`${v.UID?.value}|${t}`))) continue;
-      if (t + dur < from || t > to) continue;
+      const end = endOf(t);
+      if (end < from || t > to) continue;
       out.push({
         title: unescape(v.SUMMARY?.value) || 'Busy', start: new Date(t).toISOString(),
-        ...(dur ? { end: new Date(t + dur).toISOString() } : {}), allDay: s.allDay,
+        ...(end > t ? { end: new Date(end).toISOString() } : {}), allDay: s.allDay,
         ...(v.LOCATION?.value ? { place: unescape(v.LOCATION.value).slice(0, 80) } : {}),
         ...(v.DESCRIPTION?.value ? { notes: unescape(v.DESCRIPTION.value).slice(0, 400) } : {}),
         // Which event this is, the same at every sync (a countdown on it, say): its UID and, for a repeat, the day.
