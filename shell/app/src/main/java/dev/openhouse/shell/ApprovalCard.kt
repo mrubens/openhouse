@@ -47,6 +47,22 @@ object ApprovalCard {
         else -> null
     }
 
+    /**
+     * The card's words as they're shown: no characters that reorder or hide text (bidi controls, zero-width ones, other
+     * controls), and on one line where it's one line (the title, each thing it may do). Words that run on can't push
+     * what it may do out of sight. [lines]: the text keeps its line breaks, one at a time. Plain Kotlin, for tests.
+     */
+    fun plain(s: String, lines: Boolean = false): String {
+        val kept = s.replace(Regex("[\\u200B-\\u200F\\u202A-\\u202E\\u2060-\\u206F\\uFEFF\\u061C\\u180E]"), "")
+            .replace(Regex("\\r\\n?|[\\u2028\\u2029\\u0085\\u000B\\u000C]"), "\n")
+            .replace(Regex("[\\p{Cc}&&[^\\n]]"), " ")
+        return if (lines) kept.split('\n').map { it.replace(Regex("\\s+"), " ").trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+        else kept.replace(Regex("\\s+"), " ").trim()
+    }
+
+    /** How long a card's yes waits after the card is up before it takes a tap (a tap meant for what was there before). */
+    const val YES_AFTER_MS = 800L
+
     /** Where a card goes up and comes down. */
     private class Host(val c: Context, val show: (View) -> Unit, val hide: (View) -> Unit)
 
@@ -95,7 +111,13 @@ object ApprovalCard {
      */
     fun answer(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false, yes: String = "Allow",
                rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false,
-               grownUp: Boolean = false, later: Boolean = false, no: String? = null): Answer = synchronized(ASKING) {
+               grownUp: Boolean = false, later: Boolean = false, no: String? = null): Answer =
+        shown(plain(title), plain(detail, lines = true), timeoutMs, parent, plain(yes).ifEmpty { "Allow" },
+            rights.map { (k, t) -> plain(k) to plain(t) }, more?.let { plain(it, lines = true) }, danger, grownUp, later, no?.let { plain(it) })
+
+    private fun shown(title: String, detail: String, timeoutMs: Long, parent: Boolean, yes: String,
+                      rights: List<Pair<String, String>>, more: String?, danger: Boolean,
+                      grownUp: Boolean, later: Boolean, no: String?): Answer = synchronized(ASKING) {
         val host = DeviceAccess.instance?.let { acc -> Host(acc, acc::showOverlay, acc::hideOverlay) }
             ?: MainActivity.live?.let(::displayHost)
             ?: return Answer.NONE.also { Log.i(TAG, "nowhere to ask \"$title\"") }
@@ -119,7 +141,7 @@ object ApprovalCard {
             col.addView(K.title(c, title))
             if (detail.isNotBlank()) col.addView(K.text(c, detail, K.BODY, 400, K.SOFT).apply {
                 setPadding(0, K.px(c, 12), 0, 0)
-                maxHeight = K.px(c, 300)
+                maxHeight = K.px(c, 200) // (a few lines; the rest scrolls, and what it may do stays in sight below)
                 movementMethod = android.text.method.ScrollingMovementMethod() // (no scrollbar: a TextView made in code has no drawable for one, and asking for it crashes)
             })
             // All of them, scrolling when there are many: never cut. At most 330 dp tall, so the PIN and buttons fit.
@@ -133,6 +155,9 @@ object ApprovalCard {
                 if (later) row.addView(K.quiet(c, no ?: "No") { answer(Answer.NO) })
                 row.addView(K.quiet(c, "Not now") { answer(if (later) Answer.NONE else Answer.NO) })
             }
+            // Its yes takes no tap in the first moment it's up, nor one through something drawn over it.
+            val liveAt = android.os.SystemClock.uptimeMillis() + YES_AFTER_MS
+            fun ready() = android.os.SystemClock.uptimeMillis() >= liveAt
             val noPinYet = grownUp && !ParentPin.isSet(c)
             val needPin = (parent || grownUp) && ParentPin.isSet(c) && !ParentGrace.isOpen()
             if (noPinYet) { // a grown-up's yes needs a PIN, and there's none yet: choosing one is the first step
@@ -140,26 +165,27 @@ object ApprovalCard {
                 quiet()
                 var byHand: () -> Boolean = { false }
                 row.addView(K.primary(c, "Choose a PIN") {
-                    if (!byHand()) return@primary
+                    if (!ready() || !byHand()) return@primary
                     val act = MainActivity.live ?: return@primary
                     choosing.set(true); hide()
                     if (!act.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) KioskApps.goHome()
                     val back = { choosing.set(false); if (done.count > 0L) put() }
                     PinPrompt.choose(act, act, then = back, back = back)
-                }.also { byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
+                }.also { it.filterTouchesWhenObscured = true; byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
             } else if (needPin) { // a yes: the PIN is the yes
                 col.addView(K.text(c, "Type the PIN to ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(c, 20), 0, 0) })
                 val pad = dev.openhouse.ui.PinPad(c, ParentPin.length(c)) { p, entry ->
                     if (ParentPin.check(c, entry)) answer(Answer.YES) else PinPrompt.showLock(p, c, "Wrong PIN")
                 }
                 PinPrompt.showLock(pad, c, null)
+                pad.filterTouchesWhenObscured = true
                 col.addView(pad, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(c, 8) })
                 quiet()
             } else {
                 quiet()
                 var byHand: () -> Boolean = { false }
-                row.addView((if (danger) K::danger else K::primary)(c, yes) { if (byHand()) answer(Answer.YES) }
-                    .also { byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
+                row.addView((if (danger) K::danger else K::primary)(c, yes) { if (ready() && byHand()) answer(Answer.YES) }
+                    .also { it.filterTouchesWhenObscured = true; byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
             }
             col.addView(row)
             val dim = android.widget.FrameLayout(c).apply {

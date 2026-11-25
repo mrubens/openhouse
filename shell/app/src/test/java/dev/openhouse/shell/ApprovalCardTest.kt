@@ -1,6 +1,9 @@
 package dev.openhouse.shell
 
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -21,5 +24,16 @@ class ApprovalCardTest {
         assertNotNull(ApprovalCard.tooLong("Add?", "", null, List(ApprovalCard.Limits.RIGHTS + 1) { "data" to "Uses lists." }))
         assertNotNull(ApprovalCard.tooLong("Add?", "x".repeat(ApprovalCard.Limits.DETAIL + 1), null, emptyList()))
         assertNotNull(ApprovalCard.tooLong("Add?", "", "x".repeat(ApprovalCard.Limits.MORE + 1), emptyList()))
+    }
+
+    // A name can't push what the card says it may do out of sight, or reorder or hide its words.
+    @Test fun wordsOnTheCardStayInPlace() {
+        val name = "Dino" + "\n".repeat(40) + "‮evil‬​ Eggs\u0007"
+        val one = ApprovalCard.plain(name)
+        assertFalse(one.any { it == '\n' || it == '‮' || it == '‬' || it == '​' || it == ' ' || it.isISOControl() })
+        assertTrue(one.startsWith("Dino") && one.contains("evil") && one.contains("Eggs"))
+        val text = ApprovalCard.plain("A line\n\n\n\n\nand the next⁦ one", lines = true)
+        assertEquals(2, text.lines().size)
+        assertFalse(text.contains('⁦'))
     }
 }
