@@ -31,6 +31,10 @@ and https only (plain http only from a tester's computer: 10.0.2.2, localhost), 
   `https://d15yaylh7unz6h.cloudfront.net/releases/voice/1/voice.json`), or `voice_url` from the QR code's admin extras
   or over adb (`ConfigReceiver --es voice_url …`, `""` for the build's own; `--ez voice_get true` to get it now). A new
   set is a new version in `gradle.properties`, carried by a release.
+- Which files: a release carries `voice.json`'s SHA-256 (`openhouse.voiceSha256` next to `openhouse.voiceUrl`,
+  `Pinned.kt`) and takes only that manifest, wherever `voice_url` points; every file is then checked against it. A new
+  set changes both lines (`shasum -a 256 voice.json`); `release.sh` fetches the URL and refuses to build when they
+  don't match. Debug builds carry no checksum and take any set.
 - When: the watchdog asks every 10 s once the runtime is set up, the microphone is on and so is Live voice; turning
   either on asks at once. It runs in its own thread, so first run never waits. Only on an unmetered network. After a failure it tries
   again in 10 min, then 20, 40… up to 6 h.
