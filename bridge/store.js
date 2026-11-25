@@ -167,9 +167,19 @@ export function writeJson(file, value, { bak, mode, space, newline = false } = {
   bak ??= entry?.bak ?? true;
   if (entry) {
     const known = entry.version || 0, why = refused(file, entry);
-    if (why) { loud(file, `refused a save to ${file}: ${why}`); throw Object.assign(new Error(why), { code: 'newer' }); }
+    if (why) { loud(file, `refused a save to ${file}: ${why}`); throw Object.assign(new Error(why), { code: 'newer', ...(unmigrated.get(file) === why ? { unmigrated: true } : {}) }); }
     if (known > 0 && value && typeof value === 'object' && !Array.isArray(value)) value = { [V]: known, ...unstamp(value) };
   }
   writeFileAtomic(file, JSON.stringify(value, null, space) + (newline ? '\n' : ''), { bak, mode, json: true });
   if (entry) versions.set(file, { at: stamp(file), v: versionOf(value) });
+}
+
+/** What a tap or a tool is told when a save threw, as { status, error }: 409 when it was refused on purpose (a file a
+ *  newer release saved, one that couldn't be brought up to date, one held during a restore), 500 when the disk failed.
+ *  Whoever saves keeps nothing of the change in memory either, so what shows is what's on disk. */
+export function unsaved(e) {
+  const why = e?.message || String(e);
+  if (e?.code === 'newer' && !e.unmigrated) return { status: 409, error: `It wasn't saved: this tablet's data is from a newer version of OpenHouse, so update the tablet. (${why})` };
+  if (e?.code === 'newer' || e?.code === 'held') return { status: 409, error: `It wasn't saved: ${why}` };
+  return { status: 500, error: `It wasn't saved: ${why}` };
 }

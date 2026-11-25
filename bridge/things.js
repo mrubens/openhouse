@@ -12,7 +12,7 @@
 //
 // file: things.json next to the chats: { items: [{id, kind, text, until, key?, app?, open?, ask?, by, at}], gone: {id: at} }
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 
@@ -36,7 +36,14 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
   const FILE = registered('things', path.join(DIR, '../things.json'));
   let st = { items: [], gone: {} };
   st = { ...st, ...readJson(FILE, {}) };
-  const save = () => { try { writeJson(FILE, st); } catch (e) { console.error('[things]', e.message); } onChange(); };
+  // A change is saved before it counts: one that doesn't save (things.json saved by a newer release, which store.js never
+  // writes over; a full disk) is taken back in memory, and the throw (marked unsaved) reaches the tap, the app or the tool.
+  const save = (before) => {
+    try { writeJson(FILE, st); }
+    catch (e) { if (before) st = before; console.error('[things]', e.message); throw Object.assign(e, { unsaved: true }); }
+    onChange();
+  };
+  const copy = () => structuredClone(st);
   let fixesOf = () => [], putAway = () => {};
 
   /** The stored ones still current (the past ones go). */
@@ -44,7 +51,7 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     const t = now(), before = st.items.length;
     st.items = st.items.filter((x) => x.until > t);
     for (const [id, at] of Object.entries(st.gone)) if (at < t - 30 * DAY) delete st.gone[id];
-    if (st.items.length !== before) save();
+    if (st.items.length !== before) { try { save(); } catch {} } // (the past ones go from memory anyway: they'd go at a restart too)
     return st.items;
   }
 
@@ -55,12 +62,12 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     let end = Number(until) || Date.parse(until) || (Number(minutes) ? t + Number(minutes) * MIN : t + 3 * HOUR);
     end = Math.min(Math.max(end, t + 10 * MIN), t + (kind === 'broken' ? 3 * DAY : DAY));
     const same = (x) => (key && x.key === key) || x.text.toLowerCase() === words.toLowerCase() || (app && x.app === app && x.kind === kind);
-    const was = live().find(same);
-    const item = { id: was?.id || `t-${t.toString(36)}${Math.random().toString(36).slice(2, 5)}`, kind, text: words, until: end, ...(key ? { key } : {}), ...(app ? { app } : {}), ...(tabId(open) ? { open: tabId(open) } : {}), ...(askText(ask) ? { ask: askText(ask) } : {}), by, at: t };
-    st.items = [item, ...st.items.filter((x) => x !== was)].slice(0, 20);
+    const prev = live().find(same), before = copy();
+    const item = { id: prev?.id || `t-${t.toString(36)}${Math.random().toString(36).slice(2, 5)}`, kind, text: words, until: end, ...(key ? { key } : {}), ...(app ? { app } : {}), ...(tabId(open) ? { open: tabId(open) } : {}), ...(askText(ask) ? { ask: askText(ask) } : {}), by, at: t };
+    st.items = [item, ...st.items.filter((x) => x !== prev)].slice(0, 20);
     delete st.gone[item.id];
-    save();
-    return { item, fresh: !was };
+    save(before);
+    return { item, fresh: !prev };
   }
 
   /**
@@ -77,37 +84,38 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     const was = live().find((x) => x.kind === 'app' && x.app === app);
     const quiet = sleep === false; // kept off the sleep screen (kit today.show(text, until, { sleep: false }))
     if (was && was.text === words && was.until === end && !!was.sleepOff === quiet) return { item: was, fresh: false };
+    const before = copy();
     const item = { id: was?.id || `t-${t.toString(36)}${Math.random().toString(36).slice(2, 5)}`, kind: 'app', text: words, until: end, app, open: tabId(app), by: `app:${app}`, at: t, ...(quiet ? { sleepOff: true } : {}) };
     st.items = [item, ...st.items.filter((x) => x !== was)].slice(0, 20);
     if (was && st.gone[item.id] && was.text !== words) delete st.gone[item.id]; // (new words come back after an x; the same ones stay down)
-    save();
+    save(before);
     return { item, fresh: !was };
   }
   /** The app's own line taken down (kit today.clear). */
   function takeApp(app) {
-    const before = st.items.length;
+    const kept = copy(), before = st.items.length;
     st.items = st.items.filter((x) => !(x.kind === 'app' && x.app === app));
-    if (st.items.length !== before) save();
+    if (st.items.length !== before) save(kept);
     return before !== st.items.length;
   }
 
   /** Taken down (Opie when asked, a tap): a stored one goes; a countdown, reminder or broken app is hidden from here. */
   function take(id) {
-    const s = String(id || '');
+    const s = String(id || ''), before = copy();
     const was = st.items.find((x) => x.id === s);
     if (was?.kind === 'app') st.gone[s] = now(); // kept, hidden: the app putting the same words up again doesn't bring it back
     else if (was) st.items = st.items.filter((x) => x !== was);
     else if (s.startsWith('rem-')) { try { putAway(s.slice(4)); } catch {} st.gone[s] = now(); } // (put away on every screen, as "Got it")
     else if (/^(cd|rem|fix|t)-/.test(s)) st.gone[s] = now();
     else return false;
-    save();
+    save(before);
     return true;
   }
   /** The ones a finding put up, whose finding went away (the clash got sorted, dinner got planned): no AI. */
   function settle(keys) {
-    const before = st.items.length;
+    const kept = copy(), before = st.items.length;
     st.items = st.items.filter((x) => !x.key || x.by !== 'heartbeat' || keys.has(x.key));
-    if (st.items.length !== before) { save(); return before - st.items.length; }
+    if (st.items.length !== before) { save(kept); return before - st.items.length; }
     return 0;
   }
 
@@ -150,7 +158,7 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     const ok = (t) => ({ content: [{ type: 'text', text: t }] }), err = (t) => ({ content: [{ type: 'text', text: t }], isError: true });
     if (name === 'show_thing') {
       if (ctx.by !== 'heartbeat') return err('Only the background check-ins put things on Home.');
-      const r = put({ text: a.text, until: a.until, open: a.open, ask: a.ask, key: ctx.key || null });
+      let r; try { r = put({ text: a.text, until: a.until, open: a.open, ask: a.ask, key: ctx.key || null }); } catch (e) { return err(unsaved(e).error); }
       return r ? ok(`${r.fresh ? 'Put up' : 'Changed'} ${r.item.id}: ${r.item.text} (until ${hm(r.item.until)})`) : err('Say what it is.');
     }
     if (name === 'take_down_thing') {
@@ -160,7 +168,7 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
       if (!x && list.length === 1 && /^(it|that|this|the one)?$/i.test(w)) x = list[0];
       if (!x) return err(list.length ? `Which one? ${list.map((y) => `${y.id}: ${y.text}`).join('; ')}` : 'Nothing is on Home.');
       if (ctx.by === 'heartbeat' && !st.items.some((y) => y.id === x.id && y.by === 'heartbeat')) return err('Only your own.');
-      take(x.id);
+      try { take(x.id); } catch (e) { return err(unsaved(e).error); }
       return ok(`Took down: ${x.text}`);
     }
     return err(`unknown tool ${name}`);

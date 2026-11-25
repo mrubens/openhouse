@@ -13,7 +13,7 @@
 //
 // file: later.json next to the chats: { items: [{id, kind, what, at, rule?, start?, fired?, made}] } (at: its next time)
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import { isNight } from './heartbeat.js';
@@ -83,7 +83,13 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
   st.items = (st.items || []).filter((x) => x && x.id && x.at);
   for (const x of st.items) if (x.repeat && !x.rule) { x.rule = fromOld(x.repeat, x.dow); x.start = x.at; x.fired = 0; delete x.repeat; delete x.time; delete x.dow; } // (kept before rules)
   const ruleOf = (x) => (x.rule ? parseRule(x.rule) : null);
-  const save = () => { try { writeJson(FILE, st); } catch (e) { console.error('[later]', e.message); } onChange(); };
+  // A change is saved before it counts: one that doesn't save (later.json saved by a newer release, which store.js never
+  // writes over; a full disk) is taken back in memory (before), and the throw reaches whoever asked (never "Set" for it).
+  const save = (before) => {
+    try { writeJson(FILE, st); }
+    catch (e) { if (before) st = before; console.error('[later]', e.message); throw e; }
+    onChange();
+  };
   const quiet = (t) => { try { return !!asleep() || isNight(night(), new Date(t)); } catch { return false; } };
   const repeatWords = (x) => { const r = ruleOf(x); return r && !r.error ? ruleWords(r, x.start) : ''; };
   const describe = (x, t = now()) => `${x.id}: ${x.kind === 'say' ? `say "${x.what}"` : `do: ${x.what}`}, ${x.rule ? `${repeatWords(x)} (next: ${whenText(x.at, t)})` : whenText(x.at, t)}`;
@@ -105,14 +111,17 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
       Object.assign(item, { rule: r.text, start: at, fired: 0, at: first });
     }
     if (st.items.length >= MAX) return { error: `That's ${MAX} set already: cancel some first (later_list).` };
-    st.items.push(item); st.items.sort((p, q) => p.at - q.at); save();
+    const before = structuredClone(st);
+    st.items.push(item); st.items.sort((p, q) => p.at - q.at);
+    try { save(before); } catch (e) { return { error: unsaved(e).error, unsaved: true }; }
     const hush = kind === 'say' && quiet(item.at) ? ' That falls in the night hours, so it will only be on Home, not said aloud.' : '';
     return { item, text: `Set (${describe(item, t)}).${hush}` };
   }
   function cancel(id) {
     const s = String(id || '').trim(), x = st.items.find((y) => y.id === s);
     if (!x) return null;
-    st.items = st.items.filter((y) => y !== x); save();
+    const before = structuredClone(st);
+    st.items = st.items.filter((y) => y !== x); save(before); // (throws when it isn't saved: still set, then)
     try { things?.take(things.items().find((y) => y.key === `later:${x.id}`)?.id); } catch {}
     return x;
   }
@@ -158,7 +167,8 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
         const r = ruleOf(x), next = r && !r.error ? nextAfter(r, x.start, t, (x.fired = (x.fired || 0) + 1)) : null;
         if (next != null) x.at = next; else st.items = st.items.filter((y) => y !== x); // (once, or a repeat that's over)
       }
-      st.items.sort((p, q) => p.at - q.at); save(); // (moved on before running: a crash mid-way never says it twice)
+      st.items.sort((p, q) => p.at - q.at); // (moved on before running: a crash mid-way never says it twice)
+      try { save(); } catch {} // (not saved: kept moved on in memory all the same, so it isn't said every 20 s)
       for (const { x, was } of due) {
         if (t - was > LATE) { console.log(`[later] ${x.id} dropped: due ${hm(was)}, over an hour ago`); continue; }
         await fire(x, t).catch((e) => console.error('[later] fire', e));
@@ -175,7 +185,7 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
     const ok = (t) => ({ content: [{ type: 'text', text: t }] }), err = (t) => ({ content: [{ type: 'text', text: t }], isError: true });
     if (name === LATER_TOOL.name) { const r = add(a || {}); return r.error ? err(r.error) : ok(r.text); }
     if (name === LIST_TOOL.name) {
-      if (a?.cancel) { const x = cancel(a.cancel); return x ? ok(`Cancelled: ${x.kind === 'say' ? `"${x.what}"` : x.what}${x.rule ? ` (${repeatWords(x)})` : ''}.`) : err(`No ${a.cancel}. ${list()}`); }
+      if (a?.cancel) { let x; try { x = cancel(a.cancel); } catch (e) { return err(unsaved(e).error); } return x ? ok(`Cancelled: ${x.kind === 'say' ? `"${x.what}"` : x.what}${x.rule ? ` (${repeatWords(x)})` : ''}.`) : err(`No ${a.cancel}. ${list()}`); }
       return ok(list());
     }
     return err(`unknown tool ${name}`);
