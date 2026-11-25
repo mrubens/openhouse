@@ -35,6 +35,12 @@ object Kiosk {
     fun setDebugging(c: Context, allowed: Boolean) {
         prefs(c).edit().putBoolean("debugging", allowed).apply()
         set(c, UserManager.DISALLOW_DEBUGGING_FEATURES, !allowed)
+        // Allowing it isn't enough: Android's own USB debugging (and Developer options, which it lives under) comes on
+        // too, so a computer can connect without a trip through Android's settings. Off leaves them as they are.
+        if (allowed && owner(c)) {
+            runCatching { dpm(c).setGlobalSetting(admin(c), android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, "1") }
+            runCatching { dpm(c).setGlobalSetting(admin(c), android.provider.Settings.Global.ADB_ENABLED, "1") }
+        }
     }
 
     /** Kiosk mode on: the restrictions on. */
