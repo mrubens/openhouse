@@ -14,6 +14,10 @@ tablet before anything goes in. Bigger or open-ended work stays with someone's o
 - **Voice**: Opie's `make_app` tool (`bridge/live-tools.js`), with what was asked in their words.
 - **The shell**: as before, `POST /request {text, app}` (the open app, so "make this bigger" means it).
 
+Where people find it: the Apps tab's "Make an app" tile and the Add apps sheet's "Make your own" panel (both open the
+typing box with "Make " typed and an example in the household's names, `PluginsMenu.makeApp`), and the phone setup's
+last step. Each leads with asking Opie and keeps the computer's connector (cloud.opie.house/mcp) for bigger work.
+
 All three reach the builder (`bridge/builder.js`), which takes the edit lock, shows the work on the tablet (the
 shell's build line, and the app opens as it's written), commits one change that undo takes back, and puts everything
 back when a run fails or is cancelled. The builder's agent is `agents/cloud.js run`, which is `bridge/rails.js`.

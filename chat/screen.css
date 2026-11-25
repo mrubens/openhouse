@@ -257,6 +257,7 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .h-app-tile.add { background: transparent; box-shadow: none; border: 2px dashed color-mix(in srgb, var(--h-ink) 22%, transparent); }
 .h-app-tile.add .h-app-name { white-space: normal; overflow-wrap: anywhere; } /* never cut: it wraps instead */
 .h-app-tile.add .h-app-about { display: none; } /* (a tile like the others: its icon and name) */
+.h-app-tile.add.make .h-app-about { display: -webkit-box; } /* (except Make an app: what to ask for) */
 .h-apps > .h-soft { padding: 0 calc(var(--u) * 10); font-size: calc(var(--u) * 19); }
 .h-menu { width: calc(var(--u) * 420); background: var(--h-sheet); border-radius: calc(var(--u) * 30); box-shadow: var(--h-lift); padding: calc(var(--u) * 26) calc(var(--u) * 28) calc(var(--u) * 18); }
 .h-menu-head { display: flex; align-items: center; gap: calc(var(--u) * 16); font-size: calc(var(--u) * 24); font-weight: 700; letter-spacing: -.02em; margin-bottom: calc(var(--u) * 14); }
