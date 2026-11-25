@@ -158,22 +158,14 @@ export function recentTalk({ keepMs = 30 * 60e3, max = 60, clock = () => Date.no
 }
 
 
-/** The first setup on the tablet's screen (the shell's SetupSheet, POST /setup/step): what each step asks, for the voice.
- *  Opie fills in what's said, and the screen shows it; the screen moves on when they tap Next. */
+/** The first setup on the tablet's screen (the shell's SetupSheet, POST /setup/step). It's quiet, typed and tapped,
+ *  until its last step, the only one with a voice: talking to Opie, where they've just turned the voice on and try it. */
 export const SETUP_STEPS = {
-  people: 'Who lives here. Save names (and, for children, ages; pets count too) with update_household as you hear them, passing everyone so far each time. Don\'t assume there are children.',
-  place: 'Where they live. The screen may show a guess at their street address (below). They can say it\'s right, correct it, or give just a town or zip code (any is fine; a street address helps with directions). Save a street address with update_household {home_address}, a town or zip with {location}.',
-  devices: 'Carrying on from their phone or computer: they scan the code on the screen, or type it on a computer. Calendars, photos and inviting the family are done there. Help only if asked.',
-  pin: 'The last step: a PIN for settings and approvals, which they can skip. A person types it on the tablet\'s keypad; never ask anyone to say a PIN aloud (you never see or hear it). Help only if asked.',
+  voice: 'The setup\'s last step, Talk to Opie: they have just turned your voice on and are trying it, perhaps with "what\'s the weather?". Answer as you always would, briefly. Never ask for a PIN aloud (you never see or hear it).',
 };
-const SETUP_TOOL = { name: 'update_household', description: 'Save who lives here and where. family replaces the whole list, so pass everyone so far; location is a town or zip code. Only what they said.',
-  inputSchema: { type: 'object', properties: { family: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, note: { type: 'string', description: 'an age for a child, or a role: "9", "Mom", "the dog"' } } } }, location: { type: 'string', description: 'a town or a zip code' }, home_address: { type: 'string', description: 'their street address, as they said it' } } } };
 
 export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '', assistantName = () => 'Opie', now = () => '', json, body, talk = recentTalk(), household = null }) {
-  let setupStep = null, setupAt = 0, setupGuess = '', setupHome = '';
-  // What was heard during setup is read here too (the live voice's own model hands plain answers like "Ana and Ben" to
-  // nobody: it only delegates requests): the text model pulls the step's answer out, it's saved, and the setup screen,
-  // waiting on GET /setup/wait, shows it at once and has Opie say it back in a few words.
+  let setupStep = null, setupAt = 0;
   // Whether to stop listening is a small yes-or-no model's call (the cloud's decide, about a hundred-thousandth of a
   // cent each), given the whole conversation: never a list of words.
   let decide = null, convoStart = 0; // convoStart: when this conversation began (its /live/setup)
@@ -195,9 +187,6 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   // go_away tool would end it, so after each thing heard /live/said answers {end: true} when it should stop.
   const shouldStop = () => judge(`Should ${assistantName()}, the household's voice assistant, stop listening and end this conversation now, given what the person said last? ` +
     'Yes if they are done with it: dismissing it, telling it to go away or hang up, or saying goodbye to it. No if they still want something from it, or are asking it to stop or end something else (a timer, the music, a list).', 0.7);
-  let ai = null, setupV = 0, setupSaid = '';
-  const setupWaiters = new Set();
-  const bump = (said = '') => { setupV++; setupSaid = said; for (const w of setupWaiters) w(); setupWaiters.clear(); }; // the step the setup screen shows (null when it isn't up), since when, the address it guessed, and one Opie heard
   const inSetup = () => setupStep && household && Date.now() - setupAt < 30 * 60e3;
   // Voice actions the apps declare (plugins.js voiceTools/callVoice), set once the plugins are up: data only, each one
   // done by its app's own page.
@@ -216,13 +205,11 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const messageTools = () => { const n = [...new Set(family().map((f) => String(f.name)))]; return phones && n.length ? [messageTool(n)] : []; };
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
-    const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name) && !(inSetup() && t.name === SETUP_TOOL.name)); // (during setup, its own update_household)
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds && !inSetup() ? [MAKE_APP_TOOL, ...waitTools()] : []), ...(inSetup() ? [SETUP_TOOL] : [])];
+    const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name));
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds && !inSetup() ? [MAKE_APP_TOOL, ...waitTools()] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
-  const setupText = () => !inSetup() ? '' : '\n\n---\n\nThe tablet was just set up, and its setup is on the screen now. The step showing: ' + SETUP_STEPS[setupStep] +
-    (setupStep === 'place' && setupGuess ? `\nThe guess on the screen: ${setupGuess}` : '') +
-    '\nNever read out or describe what the screen shows; they can see it. If they answer it, save it, then say only a few words ("Got it: Ana and Ben."). Don\'t ask anything else, and don\'t say what\'s next: the screen moves on when they tap Next.';
+  const setupText = () => !inSetup() ? '' : '\n\n---\n\nThe tablet was just set up, and its setup is on the screen now. ' + SETUP_STEPS[setupStep];
   const instructions = () => livePreamble(assistantName(), !!builds) + read('CHAT.md') + (device?.rules() || '') + prefsBlock() + setupText();
   /** One tool, as the assistant would call it (outside any conversation's turn). */
   const lately = []; // [{at, key}]: the calls of the last minute, to stop the same one being made over and over
@@ -297,12 +284,6 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
         : r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them in one short sentence that you\'re making it and it\'ll show here when it\'s ready; promise nothing more (it can still fail), and don\'t wait for it.', isError: false }
         : { text: r.busy ? 'The tablet already has a few things waiting to be made: tell them to ask again once those are done.' : 'Making apps on the tablet isn\'t on: someone does it from their computer (Settings, then Screens and computers).', isError: true };
     }
-    if (name === SETUP_TOOL.name && inSetup()) {
-      const b = {}; if (Array.isArray(args?.family)) b.family = args.family; if (typeof args?.location === 'string') b.location = args.location;
-      if (typeof args?.home_address === 'string' && args.home_address.trim()) setupHome = args.home_address.trim().slice(0, 160); // the screen shows it, and saves it on Next (Home on the Map)
-      let h; try { h = household.save(b); } catch (e) { return { text: `Not saved: ${e.message}`, isError: true }; }
-      bump(); return { text: `Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`, isError: false };
-    }
     if (!LIVE_TOOLS.includes(name)) return { text: `${name} isn't one of this voice's tools.`, isError: true };
     const r = await homeScreen.call(name, args || {}, { by: 'assistant', who: null, conversation: 'live', touched: null });
     return { text: (r?.content || []).map((c) => c.text || '').join('\n').slice(0, 8000), isError: !!r?.isError };
@@ -358,45 +339,10 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   }
   /** Someone said something (by voice or typed): "Opie, stop" stops what it's doing in an app at once; anything else is a new request. */
   function heard(text) { try { return device?.heard(text) || false; } catch { return false; } }
-  /** During setup, something heard: the step's answer in it, if any, saved, and the screen told (with a few words to say back). */
-  async function setupHeard(text) {
-    if (!ai || !household || !text.trim() || !['people', 'place'].includes(setupStep)) return;
-    const step = setupStep, now = household.read?.() || {};
-    const ask = step === 'people'
-      ? `They were asked who lives in their home. Who's saved so far: ${JSON.stringify((now.family || []).map((f) => ({ name: f.name, note: f.note || '' })))}.\nThey just said: "${text.slice(0, 600)}"\n` +
-        'If that names people (or pets) who live there, or changes one, reply with JSON {"family": [{"name", "note"}], "say": "..."}: the whole list now (everyone so far, plus or changed by what they said; note: a child\'s age like "9", a role like "Mom", or "the dog"), and "say": two or three spoken words back, like "Got it." (the screen shows the names). Otherwise reply {}.'
-      : `They were asked where they live.${setupGuess ? ` The screen shows a guess: "${setupGuess}".` : ''}\nThey just said: "${text.slice(0, 600)}"\n` +
-        'Reply with JSON: {"home_address": "..."} for a street address they gave, {"location": "..."} for just a town or a zip code, {"confirm": true} if they said the guess is right, else {}. Add "say": a few spoken words back, like "Got it."';
-    const r = await ai({ instructions: 'You fill in a form from what someone said aloud. Reply with JSON only.', input: [{ role: 'user', content: ask }] });
-    const out = (r?.output || []).filter((o) => o.type === 'message').flatMap((o) => o.content || []).map((c) => c.text || '').join('');
-    let j = {}; try { j = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1)); } catch { return; }
-    if (setupStep !== step) return; // moved on meanwhile
-    const b = {};
-    if (Array.isArray(j.family) && j.family.length) b.family = j.family.filter((f) => f?.name).map((f) => ({ name: String(f.name).slice(0, 40), note: String(f.note || '').slice(0, 40) }));
-    if (typeof j.location === 'string' && j.location.trim()) b.location = j.location.trim();
-    if (typeof j.home_address === 'string' && j.home_address.trim()) setupHome = j.home_address.trim().slice(0, 160);
-    else if (j.confirm && setupGuess) setupHome = setupGuess;
-    if (!b.family && !b.location && !setupHome) return;
-    if (b.family || b.location) try { household.save(b); } catch (e) { console.log('[setup] not saved:', e.message); }
-    bump(typeof j.say === 'string' ? j.say.slice(0, 120) : '');
-  }
-
   async function handle(req, res, url) {
     if (req.method === 'POST' && url.pathname === '/setup/step') { // the display only (its secret), like every route here
       const b = await body(req); const s = String(b.step || ''); setupStep = SETUP_STEPS[s] ? s : null; setupAt = Date.now();
-      setupGuess = String(b.guess || '').slice(0, 160); if (!setupStep) setupHome = '';
       json(res, 200, { ok: true, step: setupStep }); return true;
-    }
-    if (req.method === 'GET' && url.pathname === '/setup/wait') { // the setup screen: back as soon as an answer comes in (or 25 s)
-      const v = Number(url.searchParams.get('v') ?? -1);
-      const reply = () => json(res, 200, { v: setupV, step: inSetup() ? setupStep : null, home_address: setupHome, said: setupSaid });
-      if (v !== setupV) return reply(), true;
-      const t = setTimeout(() => { setupWaiters.delete(done); reply(); }, 25e3);
-      const done = () => { clearTimeout(t); reply(); };
-      setupWaiters.add(done); req.on('close', () => { clearTimeout(t); setupWaiters.delete(done); });
-      return true;
-    }
-    if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, { step: inSetup() ? setupStep : null, home_address: setupHome }); return true;
     }
     if (req.method === 'GET' && url.pathname === '/live/setup') {
       convoStart = Date.now(); // a conversation begins (what it's given as earlier talk stays earlier)
@@ -406,9 +352,9 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       const b = await body(req), role = String(b.role || '');
       if (role === 'tool') { if (b.text === 'web search') talk.add('tool', 'searched the web', 'web search'); } // (the household's tools are kept with what they found, in callTool)
       else {
-        if (role === 'user') { heard(b.text); if (inSetup()) setupHeard(String(b.text || '')).catch((e) => console.error('[setup]', e.message)); }
+        if (role === 'user') heard(b.text);
         talk.add(role, b.text);
-        const end = role === 'user' && !inSetup() ? (await shouldStop()) === true : false;
+        const end = role === 'user' ? (await shouldStop()) === true : false;
         if (end) talk.add('tool', 'ended the conversation: they wanted it over', 'go_away');
         json(res, 200, { ok: true, ...(end ? { end: true } : {}) }); return true;
       }
@@ -434,5 +380,5 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   }
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
-  return Object.assign(handle, { useAi: (f) => { ai = f; }, useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device });
+  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device });
 }

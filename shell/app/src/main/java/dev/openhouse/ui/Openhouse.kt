@@ -49,8 +49,15 @@ interface Host {
     fun wifi() {}
     /** With the lock on, the PIN, then [ok]; with it off, straight to [ok]. */
     fun withPin(title: String, ok: () -> Unit) { ok() }
-    /** Turn the assistant on (Settings → Voice: OpenAI through the family's account); Openhouse.assistantReady() after. */
-    fun setUpAssistant() {}
+    /** The setup's last step, Talk to Opie (Setup.kt VoiceStep): [action] "on" ([voice] chosen, then the live voice and
+     *  Hey Opie on: a person's tap, behind the PIN when the lock is on), "off" (Not now: it stays off, not turned on by
+     *  itself later), "sample" (on already: [voice] chosen, and Opie says a line in it), "link" (link the tablet to an
+     *  account). [done] gets "on", "notYet" (the household doesn't have the voice yet), or what went wrong, to show. */
+    fun setupVoice(action: String, voice: String = "", done: (String) -> Unit = {}) {}
+    /** OpenAI's live voices: API name to how it sounds ("Gleam · North American, feminine"). */
+    fun voices(): List<Pair<String, String>> = emptyList()
+    /** The welcome or the setup came or went: the microphone follows (none until the setup's voice step: Setup.hushed). */
+    fun micFollow() {}
     /** The assistant is on (OpenAI's live voice and text model, through the family's account). */
     fun hasAssistant(): Boolean = true
     /** Settings → Voice (no PIN): which of OpenAI's voices it speaks with; it says hello in the new one. */
@@ -123,25 +130,22 @@ object Openhouse : AnswerActions {
     private suspend fun checkHousehold() {
         var h = loadHousehold()
         while (h == null) { delay(3000); h = loadHousehold() } // the bridge may still be starting
-        if (!h.optBoolean("setup", true)) ui { householdSetUp = false; showWelcome = true }
+        if (!h.optBoolean("setup", true)) ui { householdSetUp = false; showWelcome = true; host.micFollow() }
     }
 
     // ---- the first screen (a new tablet) ----
-    /** Welcome: what this is, then the assistant or a look around. The assistant is optional. */
+    /** Welcome: what this is, then the setup. Quiet, like the setup: the voice is its last step (Setup.kt). */
     var showWelcome by mutableStateOf(false); private set
-    /** Welcome → "Turn on Opie": the setup's steps, and Opie turning on over them (linking first if need be); it
-     *  joins in, out loud, once it's on (Setup.opieOn). */
-    fun welcomeAssistant() { showWelcome = false; Setup.start(); if (!host.hasAssistant()) host.setUpAssistant() }
-    /** Welcome → "Without Opie": the same steps, by touch. */
-    fun welcomeLater() { showWelcome = false; Setup.start() }
+    /** Welcome → "Get started": the setup's steps, by touch and typing. */
+    fun welcomeStart() { showWelcome = false; Setup.start() }
     /** The setup's step on screen (Setup.kt), or null. */
     var setupStep by mutableStateOf<String?>(null); internal set
     /** The setup finished or was left: the home screen as it comes, not asked again. */
     fun householdDone() = ui { householdSetUp = true }
-    /** The assistant was turned on (from the welcome screen or Settings). In the setup, it joins in; new here
-     *  otherwise, the setup starts with it. */
+    /** The assistant was turned on (Settings, or the setup's last step). New here (nobody saved yet, outside the
+     *  setup), the setup starts. */
     fun assistantReady() = scope.launch {
-        if (setupStep != null) { ui { Setup.opieOn() }; return@launch }
+        if (setupStep != null || showWelcome) return@launch
         val h = loadHousehold() ?: return@launch
         val met = (h.optJSONArray("family")?.length() ?: 0) > 0
         if (!met) ui { householdSetUp = false; Setup.start() }

@@ -7,46 +7,60 @@ On the tablet:
 1. **Setup page** (updates.openhouse.computer/setup, `scripts/setup-page.sh`): reset the tablet, tap the welcome
    screen six times, scan the code, tap through Android's screens.
 2. **Getting Opie ready**: the runtime downloads (a few minutes).
-3. **Welcome**: one line ("Say “Hey Opie” or just type, and Opie answers. What you say after “Hey Opie” goes to
-   OpenAI.") and **Turn on Opie** or **Without Opie**. The answer is kept (`OpieChoice`): a Turn on Opie that can't
-   finish yet (not linked, or the household's account doesn't have the voice yet) finishes by itself later.
-4. **Setup** (`ui/Setup.kt`), one step at a time, each with Back, Skip and Next, and Later to leave it:
+3. **Welcome**: one line (who lives here, calendars and photos, Opie's voice last) and **Get started**.
+4. **Setup** (`ui/Setup.kt`), one step at a time, each with Back, Skip and Next, and Later to leave it. It's quiet
+   until its last step (since 2026-11-25; the owner, after trying the spoken setup on a real tablet: "leave the voice
+   control out of the setup and add it as the last step"): nothing is said aloud, nothing listens, and everything is
+   tapped and typed. `Setup.hushed` keeps the microphone, the wake word and the live voice off while the welcome or a
+   step before the voice step shows (`MainActivity.micWanted`, `LiveVoice`, `Speech.say`).
    1. **Who lives here**: names, and an age or role.
    2. **Where do you live**: a street address by default, guessed from where the tablet is (Android's location and
       geocoder, only with location on), or just the town or the zip code. The address is kept with the household
       (`address`: Opie's for directions and the like, and the Map's once it's on; the Map looks it up then, not
       before); the town or zip is the weather's.
-   3. **Connect your phone or computer to Opie** (to use it on the go, bring in calendars and albums, and use their own AI to change it): whose it is, then a code. A phone scans it; a computer goes to
+   3. **Do you have a family calendar?** Google, iCloud, Outlook, Another link, or Start one here, each with what to
+      do in a few numbered lines and the tablet's own screen for it: Google signs in through the account
+      (`CalendarAccounts`, two-way) on a linked tablet, else its Secret address in iCal format, pasted
+      (`CalendarLinks`, read once before it's kept, or sent from a phone); iCloud signs in with an app-specific
+      password (two-way); Outlook and the rest are a link. What's been added shows below as it comes in.
+   4. **Put your photos on the tablet?** An iCloud shared album's link (`PhotoAlbums`), Google Photos' picker on a
+      linked tablet (`GooglePhotos`), or From a phone (the lasting share code, `PhotoShare`). The albums and photos
+      that came in show below, the newest as small pictures.
+   5. **Connect your phone or computer to Opie** (to use it on the go, add more calendars and albums and invite the
+      family, and use their own AI to change it): whose it is, then a code. A phone scans it; a computer goes to
       openhouse.local:8788/phone and types it. Either joins at once as that person's, with the `setup` scope (no
-      Allow: the code was only on the tablet). Nothing asks to link the account here: the page is a bookmark on the home Wi-Fi until the tablet is linked,
-      then it installs and works away. Linking comes up only when it's needed, Turn on Opie, with why ("Opie's voice
-      comes through your Opie account"). The tablet lists
-      what's been done there as it comes in (connected, calendars, albums, invited), and makes a fresh code when one
-      has been used.
-
-   4. **Choose a PIN** ("For grown-ups: settings and approvals"): PIN Lock on, so Settings and approving a new app
+      Allow: the code was only on the tablet). Nothing asks to link the account here: the page is a bookmark on the
+      home Wi-Fi until the tablet is linked, then it installs and works away. The tablet lists what's been done there
+      as it comes in (connected, calendars, albums, invited), and makes a fresh code when one has been used.
+   6. **Choose a PIN** ("For grown-ups: settings and approvals"): PIN Lock on, so Settings and approving a new app
       ask for it. Skip leaves the lock off (Settings, PIN Lock, later). On a linked tablet there's no recovery code
       to keep, since the account page resets the PIN; unlinking shows one first.
+   7. **Talk to Opie**, the only step with a voice: "say “Hey Opie”, then what you'd like", three things to ask in
+      the household's words ("Add milk to the list", "What's on tomorrow?", and an app in the children's names when
+      the household has any: `PluginsMenu.example`), a row of OpenAI's live voices, and the line the tablet always
+      uses: "What you say after “Hey Opie” goes to OpenAI." **Turn on Opie's voice** (a person's tap, behind the PIN
+      when the lock is on: `CloudVoiceMenu.fromSetup`) sets the voice, turns the voice and Hey Opie on, and offers a
+      try ("Say “Hey Opie, what's the weather?”") with Opie's face showing it listening; picking another voice then
+      says a line in it. **Not now** ends the setup with the voice off, kept as an Off (`OpieChoice`), so it isn't
+      turned on by itself later: Settings → Voice. Without a voice to turn on, it says why and how, and offers Done:
+      the household's account doesn't have it yet ("Opie's voice isn't on for your household yet"; the tablet asks
+      once when it does), or the tablet isn't linked (Link this tablet, or Settings → Account, then Settings →
+      Voice).
 
-   **Linking for Opie** (an unlinked tablet, Turn on Opie chosen): not at the start, but when they reach the
-   phone-or-computer step, with why. Closed or failed, it asks again the next time that step shows. Opie turns on as
-   soon as it's linked.
+      The voices can't be heard before Turn on: they're OpenAI's live voices, played only in a live session, and the
+      cloud has no sample route (that would be a cloud change: a short clip per voice, made once and served without a
+      session). Until then the row says "You hear it once the voice is on", and once it's on, each pick is a real
+      sample in that voice.
 
    **Opie's voice turning on by itself** (`CloudSetup.autoVoice`): once a minute the shell looks at `/cloud/voice`;
    while the tablet is linked and the voice is off, it asks the cloud (`?check=1`, the cloud's `voiceState`) right after
-   a link (from setup, Settings → Account, or the setup QR's code) and every five minutes after. When the household
-   has the voice (`available`): a household that said yes here (Turn on Opie, a voice picked) gets it on with the
-   default voice, Hey Opie listening; one that hasn't answered (Without Opie, or a tablet from before) sees "Turn on
-   Opie?" once, with the welcome's words about OpenAI (a person's tap, behind the PIN when the lock is on). Off in
-   Settings, Not now, or off from the account page (`offWhy`) stays off. Until the household has it, turning it on
-   says "Opie's voice isn't on for your household yet."
-
-   **With Opie**, it asks each step out loud ("Hi, I'm Opie. Who lives here?", "Is this your address?") and what's
-   said fills in the fields at once, and Opie says it back in a few words. The live voice's own model hands plain
-   answers ("Ana and Ben") to nobody (it delegates only requests), so the bridge reads what's heard during setup
-   itself (`/live/said` -> live-tools.js `setupHeard`: the text model pulls out the step's answer) and saves it; the
-   screen waits on `GET /setup/wait` and reads it the moment it changes. (The voice's text model can still save
-   with `update_household` when it's handed something.) Typing always works too.
+   a link (from Settings → Account, or the setup QR's code) and every five minutes after. Never while the welcome or
+   the setup shows: the setup's voice step decides. When the household has the voice (`available`): a household that
+   said yes here (the voice step's Turn on, a voice picked, or an older welcome's Turn on Opie) gets it on, Hey Opie
+   listening; one that hasn't answered (a setup left before its voice step, or a tablet from before) sees "Turn on
+   Opie?" once, with the words about OpenAI (a person's tap, behind the PIN when the lock is on). Off in Settings, Not
+   now, or off from the account page (`offWhy`) stays off. Until the household has it, turning it on says "Opie's
+   voice isn't on for your household yet."
 
 On the phone or computer (`chat/src/phone.jsx`, SetupFlow), five steps with Next and Back:
 

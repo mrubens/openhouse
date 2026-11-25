@@ -206,6 +206,11 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         voice.enabled = micWanted()
         if (micWanted()) { startVoice(); VoiceModels.ensure(this, bridge, now = true) }
     }
+    /** The welcome or the setup came or went (Setup.hushed): the microphone follows, and a live session going ends. */
+    private fun micFollows() = main.post {
+        voice.enabled = micWanted()
+        if (!micWanted()) LiveVoice.stopNow() else { startVoice(); VoiceModels.ensure(this, bridge, now = true) }
+    }
     /** The microphone (Settings, Hey Opie, with the wake word). */
     internal fun setListening(on: Boolean) {
         getSharedPreferences("shell", MODE_PRIVATE).edit().putBoolean("listen", on).apply()
@@ -414,7 +419,9 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
             }
         }
         // The assistant is OpenAI's, through the family's account (Settings → Voice): no sign-in on the tablet.
-        override fun setUpAssistant() { main.post { CloudVoiceMenu(this@MainActivity).turnOn(linkNow = dev.openhouse.ui.Openhouse.setupStep == null) } } // first run: no lock yet; in setup, linking waits for its last step
+        override fun setupVoice(action: String, voice: String, done: (String) -> Unit) { main.post { CloudVoiceMenu(this@MainActivity).fromSetup(action, voice, done) } }
+        override fun voices() = CloudVoiceMenu.VOICES
+        override fun micFollow() { micFollows() }
         override fun hasAssistant() = LiveVoice.chosen
         override fun chooseVoice() { main.post { CloudVoiceMenu(this@MainActivity).chooseVoice() } }
         override fun withPin(title: String, ok: () -> Unit) { main.post { askPin(this@MainActivity, this@MainActivity, title, ok) } }
@@ -549,7 +556,8 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         /** The bridge runs on this tablet (so the shell runs and watches it). */
         fun onDevice(bridge: String) = Regex("^https?://(127\\.0\\.0\\.1|localhost)[:/]").containsMatchIn(bridge)
         fun listenOn(c: android.content.Context) = c.getSharedPreferences("shell", android.content.Context.MODE_PRIVATE).getBoolean("listen", android.os.Build.HARDWARE != "ranchu")
-        fun micWanted(c: android.content.Context) = listenOn(c) && LiveVoice.chosen
+        /** Switched on, the live voice on, and not during the welcome or the setup before its voice step (Setup.hushed). */
+        fun micWanted(c: android.content.Context) = listenOn(c) && LiveVoice.chosen && !dev.openhouse.ui.Setup.hushed
         const val HOST_PKG = BuildConfig.HOST_PKG
         /** The display, while it's running (ConfigReceiver tells it about new settings). */
         @Volatile var live: MainActivity? = null

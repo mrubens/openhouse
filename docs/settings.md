@@ -19,6 +19,11 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 | Account | the family's name, or Off | link or unlink, Backups (the cloud or a USB drive), reach from away | yes |
 | Advanced | | Lock and updates (PIN Lock, PIN recovery code, Updates, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
 
+Voice can also be turned on in the first setup's last step, **Talk to Opie** (docs/onboarding.md): the same voices and
+the same line about OpenAI, a person's tap behind the PIN when the lock is on. The setup before it is quiet (no
+microphone, nothing said aloud). Its **Not now** is an Off, kept like this row's, so the voice isn't turned on by
+itself later; this row is the way to turn it on then.
+
 "Tabs and look" stays its own button beside the gear (and holding a tab): it is the home screen's, already has no
 text, and is used more than any of the above.
 
@@ -94,7 +99,7 @@ One switch, PIN Lock: Off or On.
   button, Android's own (saved networks, forgetting one, and a tap from the rest of Android's settings), is a way out
   as above. During the first setup, before the household is saved (the welcome screen's Join Wi-Fi, a tablet arriving
   from somewhere else), the button opens Android's Wi-Fi settings, since there's no PIN to ask for yet.
-- **The first PIN:** chosen in the first setup's last step (Choose a PIN), or later from PIN Lock or "Set a PIN
+- **The first PIN:** chosen in the first setup's Choose a PIN step, or later from PIN Lock or "Set a PIN
   first" only on a tablet linked to an account, which can reset it if it's forgotten. On an unlinked tablet, anyone
   at it could choose one and tap past its recovery code, locking everyone else out of Account, Erase and Android's
   settings, so those say to link the tablet first (Account).

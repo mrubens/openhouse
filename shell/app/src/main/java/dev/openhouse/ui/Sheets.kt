@@ -151,9 +151,9 @@ internal fun SettingsRow(title: String, value: String? = null, locked: Boolean =
 // --- welcome (a new tablet) -------------------------------------------------------------------
 
 /**
- * The first thing a new tablet says: what it is, and one choice. Either way the setup's steps come next (Setup.kt):
- * with Opie, it asks them out loud and fills them in; without, they're typed. Turning it on is the consent (the line
- * says what goes to OpenAI).
+ * The first thing a new tablet says: what it is, and Get started. The setup's steps come next (Setup.kt), by touch and
+ * typing, with nothing said aloud and no microphone; talking to Opie is the setup's last step, which has its own words
+ * about what goes to OpenAI.
  */
 @Composable
 internal fun WelcomeSheet() {
@@ -163,22 +163,17 @@ internal fun WelcomeSheet() {
             QuietCard(Modifier.width(760.u), padding = PaddingValues(horizontal = 56.u, vertical = 52.u)) {
                 Text("Welcome to Opie", style = calmText(Calm.DISPLAY, FontWeight.Medium))
                 Spacer(Modifier.height(16.u))
-                Text("Say “Hey Opie” or just type, and Opie answers. What you say after “Hey Opie” goes to OpenAI.", style = calmText(Calm.LEAD, color = Calm.soft))
+                Text("A few steps to make it your household's: who lives here, your calendars and photos, and Opie's voice last.", style = calmText(Calm.LEAD, color = Calm.soft))
                 Spacer(Modifier.height(40.u))
                 // A tablet set up somewhere else (a beta tablet we set up and sent) arrives knowing a Wi-Fi that isn't
-                // here: joining this one comes first, then the same choice. Android's Wi-Fi settings; Home comes back.
+                // here: joining this one comes first, then Get started. Android's Wi-Fi settings; Home comes back.
                 if (o.net == Net.NoNetwork) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
                     Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { o.joinWifi() }.padding(horizontal = 36.u, vertical = 20.u)) {
                         Text("Join Wi-Fi", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
                     }
                     Text("First, connect to your Wi-Fi.", style = calmText(21, color = Calm.soft))
-                } else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
-                    Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { o.welcomeAssistant() }.padding(horizontal = 36.u, vertical = 20.u)) {
-                        Text("Turn on Opie", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
-                    }
-                    Box(Modifier.clip(RoundedCornerShape(99.u)).clickable { o.welcomeLater() }.padding(horizontal = 24.u, vertical = 20.u)) {
-                        Text("Without Opie", style = calmText(21, FontWeight.Medium, Calm.soft))
-                    }
+                } else Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { o.welcomeStart() }.padding(horizontal = 36.u, vertical = 20.u)) {
+                    Text("Get started", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
                 }
             }
         }

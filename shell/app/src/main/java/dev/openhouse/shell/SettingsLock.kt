@@ -54,7 +54,11 @@ internal class SettingsLock(private val act: MainActivity) {
             "addAlbum" -> act.addAlbum()
             "photoPhones" -> act.sharePhotos()
             "computer" -> withPin { Screens.computer(act) }
-            "linkForOpie" -> CloudVoiceMenu(act).turnOn(linkNow = true) // the setup's phone step, when Turn on Opie needs the account
+            // The setup's calendar and photos steps (ui/Setup.kt): the same screens as Settings' and the Photos app's.
+            "calendarGoogle" -> CalendarAccounts.google(act, act::immersive)
+            "calendarICloud" -> CalendarAccounts.addICloud(act, act::immersive)
+            "calendarLink" -> CalendarLinks.add(act, act::immersive)
+            "googlePhotos" -> act.googlePhotos()
             // The setup's last step: PIN Lock on (with a recovery code unless linked), then the setup ends. Only while that
             // step is showing: anywhere else a first PIN is firstPin's.
             "setupPin" -> if (on) dev.openhouse.ui.Setup.next() else if (Openhouse.setupStep == "pin") PinPrompt.choose(act, act, then = { changed(); dev.openhouse.ui.Setup.next() })

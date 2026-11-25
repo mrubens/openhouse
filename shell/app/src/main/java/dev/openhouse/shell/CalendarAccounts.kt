@@ -159,13 +159,22 @@ object CalendarAccounts {
                     CalmDialog.Row("A calendar's link", "Read only: Outlook, a school or team calendar"))
                 CalmDialog(a).setTitle("Add a calendar").setWidth(860f).setRows(rows) { _, i ->
                     when (i) {
-                        0 -> if (cloud != null) addGoogle(a, cloud, immersive) else CalmDialog(a).setTitle("Link the tablet first").setMessage("Google sign-in goes through Opie cloud: Settings, Account.").setPositiveButton("OK", null).show().also { immersive() }
+                        0 -> google(a, immersive, cloud)
                         1 -> addICloud(a, immersive)
                         else -> CalendarLinks.add(a, immersive)
                     }
                 }.setNeutralButton("Your calendars") { _, _ -> CalendarLinks.manage(a, immersive) } // back to the ones already here
                     .setNegativeButton("Cancel", null).show().also { immersive() }
             }
+        }
+    }
+
+    /** Google's sign-in, through Opie cloud: the tablet linked first. [cloud]: the account's API, if it's known. */
+    fun google(a: Activity, immersive: () -> Unit, cloud: String? = null) {
+        if (cloud != null) return addGoogle(a, cloud, immersive)
+        thread {
+            val c = cloudApi()
+            main.post { if (c != null) addGoogle(a, c, immersive) else CalmDialog(a).setTitle("Link the tablet first").setMessage("Google sign-in goes through Opie cloud: Settings, Account.").setPositiveButton("OK", null).show().also { immersive() } }
         }
     }
 
