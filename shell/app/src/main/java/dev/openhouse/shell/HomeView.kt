@@ -169,10 +169,10 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         load()
     }
 
-    /** Settings: load the home screen again. */
-    fun reload() = load()
+    /** Settings: load the home screen again; [first]: on its first tab (Home), not the one it showed last. */
+    fun reload(first: Boolean = false) = load(first)
 
-    private fun load() { web?.loadUrl(bridge().trimEnd('/') + "/screen/?display") }
+    private fun load(first: Boolean = false) { web?.loadUrl(bridge().trimEnd('/') + "/screen/?display" + if (first) "&first" else "") }
     private val again = Runnable { load() }
 
     @SuppressLint("SetJavaScriptEnabled", "JavascriptInterface")

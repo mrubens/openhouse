@@ -66,7 +66,7 @@ internal object Setup {
         go(null)
         Openhouse.scope.launch(Dispatchers.IO) { Openhouse.post("/household", JSONObject()) } // set up: not asked again
         Openhouse.householdDone()
-        Openhouse.host.setting("reloadHome") // the home screen with their names, weather and calendars now
+        Openhouse.host.setting("reloadHomeFirst") // the home screen with their names, weather and calendars now, on Home
         if (Openhouse.host.hasAssistant()) Speech.say("All set.", null)
     }
 

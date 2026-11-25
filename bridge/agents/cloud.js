@@ -19,7 +19,7 @@ export function routeFor(tools = []) {
   return [{ ...ROUTE[0], choices: [{ ...household, description: `${household.description}, or something one of the household's apps does: ${acts.join('; ')}` }, ...rest] }];
 }
 export const NEEDS_COMPUTER = "Making and changing apps happens on a computer: someone connects their own Claude or ChatGPT to the tablet (Settings, then Screens and computers) and asks there. I can help with the calendar, lists, chores, meals, notes, the home screen's tabs and the weather.";
-export const BUILDING = "I'm making that now. It opens here when it's ready, and a grown-up says yes before it goes in.";
+export const BUILDING = "I'm making it; it'll show here when it's ready."; // (no promise: a build can still fail, and then it says so here)
 const BUSY = "I'm still making the last thing. Ask me again when it's done.";
 export function useCloud(d) { deps = d; }
 /** Whether apps are made on the tablet (rails.js): the household has it on and the cloud's model is there. */
@@ -45,7 +45,7 @@ export async function chat({ prompt, onEvent = () => {}, signal, homeToken = nul
     // (only when it's clear: anything less goes to the model, which has make_app and the household's tools both)
     if (r?.choice === 'tablet' && (r.confidence ?? 1) >= 0.7) {
       // Made here, on rails (builder.js shows it working and opens the app); a computer when building here is off.
-      const started = deps.build ? await deps.build(String(request?.text || prompt || ''), { who: request?.who || null, app: request?.app || null, context: request ? String(prompt || '') : null }).catch(() => null) : null;
+      const started = deps.build ? await deps.build(String(request?.text || prompt || ''), { who: request?.who || null, app: request?.app || null, context: request ? String(prompt || '') : null, conversation: request?.conversation || null }).catch(() => null) : null;
       const text = started?.ok ? BUILDING : started?.busy ? BUSY : NEEDS_COMPUTER;
       onEvent({ kind: 'delta', text }); return { ok: true, text };
     }

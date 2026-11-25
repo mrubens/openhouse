@@ -323,7 +323,7 @@ internal object Turns {
             "state" -> if (ev.optString("state") == "working" && (b == null || b.done)) o.build = Build(ev.optString("request"), ev.s("who"), ev.optLong("startedAt", System.currentTimeMillis()))
             "ack" -> o.build = Build(ev.optString("text"), ev.s("who"), System.currentTimeMillis())
             "queue" -> o.buildQueue = ev.optJSONArray("waiting")?.let { a -> List(a.length()) { a.optString(it) } }.orEmpty()
-            "phase" -> if (b != null) stages[ev.optString("name")]?.let { o.build = b.copy(stage = it) }
+            "phase" -> if (b != null) { if (ev.optString("name") == "asking") o.build = b.copy(stage = "Waiting for a grown-up's yes", live = null, waiting = true) else stages[ev.optString("name")]?.let { o.build = b.copy(stage = it) } }
             "delta" -> if (b != null && b.plan == null) o.build = b.copy(plan = firstSentence(ev.optString("text")))
             "log" -> if (b != null && ev.optString("kind") == "tool") {
                 val t = ev.s("friendly") ?: return // only steps worth reading ("Building the timer app"), not every file it opens
@@ -343,6 +343,13 @@ internal object Turns {
                 o.build = b.copy(done = true, ok = ev.optBoolean("ok"), summary = ev.optString("text"), endedAt = System.currentTimeMillis(), live = null)
                 // Asked for by voice (the assistant's make_change): it says what changed, briefly.
                 if (b.who != null || o.speaking || ev.optBoolean("spoken")) Answers.sentences(ev.optString("text"), true).take(2).forEach { Speech.say(it, o.person(b.who)?.note) }
+                // Typed and it didn't work: why, in writing, up until it's tapped away or the next ask (not the moment the
+                // build's own line shows), and in its conversation if that's open (the bridge saved it there: builder.js tell).
+                else if (!ev.optBoolean("ok") && ev.optString("text").isNotBlank()) {
+                    val why = ev.optString("text"); val convo = ev.s("conversation")
+                    if (o.answer?.live != true) o.answer = Answer(b.request, null, text = why, live = false, ok = false, convo = convo, at = System.currentTimeMillis(), stays = true) // (never over an answer still coming)
+                    o.conversation?.takeIf { convo != null && it.id == convo }?.let { c -> o.conversation = c.copy(turns = c.turns + Turn("assistant", why, ok = false)) }
+                }
                 o.appsChanged()
             }
             "undone" -> o.build = Build(ev.optString("text"), null, System.currentTimeMillis(), done = true, summary = "Undone: “${ev.optString("text")}”", endedAt = System.currentTimeMillis())

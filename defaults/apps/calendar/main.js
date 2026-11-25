@@ -116,6 +116,15 @@ function draw() {
   keepScroll($app, () => $app.replaceChildren(screen()));
   for (const s of sheets) s.redraw?.();
 }
+// Drawn again when its width changes: a tab first drawn while its frame was hidden (no width, so a phone's layout and
+// month alone) or a phone turned sideways gets the layout and title for the width it has now, and nothing is left
+// painted from before. (Not for height alone: a phone's keyboard coming up over a card's field.)
+let drawnWidth = innerWidth, sized = 0;
+addEventListener('resize', () => {
+  if (innerWidth === drawnWidth) return;
+  cancelAnimationFrame(sized);
+  sized = requestAnimationFrame(() => { drawnWidth = innerWidth; if (H) draw(); });
+});
 
 // days, as the time of their midnight
 const dayStart = (t, plus = 0) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + plus); return d.getTime(); };

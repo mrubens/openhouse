@@ -17,6 +17,7 @@ import { PALETTES, WHITE, paletteOf, worldOf } from './look.js';
 import { card as weatherCard, icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 
 const DEFAULT_TABS = ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'];
+const FIRST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('first');
 export { PALETTES };
 const FACES = { clean: "'Inter', Roboto, system-ui, sans-serif", serif: "'Newsreader', Georgia, serif", round: "'Nunito', system-ui, sans-serif", hand: "'Caveat', cursive" };
 const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'];
@@ -35,12 +36,12 @@ const eventPaint = (house, e) => { const cs = eventPeople(house, e).map((n) => p
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
 /** The look as CSS variables (the soft text, lines and tints come from its ink); tab: whose world is behind it. */
-/** An app to ask Opie for, in the household's own names: the children's (an age for a note), else anyone's. Setup's
- *  last step on the phone says it too. */
+/** An app to ask Opie for, in the children's names (those with an age under 18 for a note). With none known to be
+ *  children, a neutral one: never a name that might be a grown-up's. Setup's last step on the phone says it too
+ *  (PluginsMenu.example in the shell says the same). */
 export function makeExample(family = []) {
-  const people = family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || '')));
-  const kids = people.filter((f) => /^\d{1,2}$/.test(String(f.note || '').trim()) && +f.note < 18);
-  const names = (kids.length ? kids : people).slice(0, 2).map((f) => f.name);
+  const kids = family.filter((f) => String(f.name || '').trim() && /^\d{1,2}$/.test(String(f.note || '').trim()) && +f.note < 18);
+  const names = kids.slice(0, 2).map((f) => String(f.name).trim());
   return names.length ? `Make a reading streak for ${names.join(' and ')}` : 'Make a countdown to our next trip';
 }
 
@@ -99,7 +100,8 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
   const nameOf = (t) => t.name || (t.id === 'today' ? 'Home' : t.id === 'apps' ? 'Apps' : appBy.get(t.id)?.meta?.name || t.id);
   // Its icon: the app's own pick ("tabIcon" in its app.json), else a starting tab's; none leaves the space, so names line up.
   const iconOf = (t) => TAB_ICONS[appBy.get(t.id)?.meta?.tabIcon] || TAB_ICONS[TAB_ICON_BY_ID[t.id]] || null;
-  const [want, setWant] = useState(() => store.get('openhouse.tab') || 'today');
+  // (`&first` in its address: the shell, as the setup ends, wants it on Home whatever showed during the setup)
+  const [want, setWant] = useState(() => { if (FIRST) { store.set('openhouse.tab', 'today'); return 'today'; } return store.get('openhouse.tab') || 'today'; });
   const cur = tabs.some((t) => t.id === want) ? want : tabs[0]?.id;
   const [seen, setSeen] = useState(() => new Set());
   useEffect(() => { if (cur && !seen.has(cur)) setSeen(new Set([...seen, cur])); }, [cur]);
@@ -111,11 +113,12 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
   const [addIn, setAddIn] = useState(null);
   const addTo = (id, extra = '') => { setAddIn({ id, at: Date.now(), extra }); go(id); }; // extra: more for its address (Photos: photo=<name>)
   const openApp = (id) => { if (tabs.some((t) => t.id === id)) go(id); else if (appBy.has(id)) shell?.openApp(id); };
-  // A tab that wasn't there a moment ago (the assistant just added it): show it, so they see what they asked for.
+  // A tab that wasn't there a moment ago (the assistant just added it): show it, so they see what they asked for. Several
+  // at once are the starting apps arriving on a new tablet, not one asked for: those stay where they are.
   const known = useRef(null);
   useEffect(() => {
     const ids = tabs.map((t) => t.id);
-    if (appsLoaded && known.current) { const added = ids.find((id) => !known.current.has(id)); if (added) go(added); }
+    if (appsLoaded && known.current) { const added = ids.filter((id) => !known.current.has(id)); if (added.length === 1) go(added[0]); }
     if (appsLoaded) known.current = new Set(ids);
   }, [tabs.map((t) => t.id).join(), appsLoaded]);
   // A paired computer checking one of the tabs' apps (workshop.js): show that tab, once per request.

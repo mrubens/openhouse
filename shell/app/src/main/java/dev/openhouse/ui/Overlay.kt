@@ -123,7 +123,8 @@ fun ShellOverlay() {
                 BuildChip(Modifier.align(Alignment.BottomEnd).padding(end = 24.u, bottom = 24.u))
             // Typing: a tap anywhere outside the box puts it away (so does a tap on the assistant).
             if (o.typing != null) Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { o.closeTyping() })
-            AnimatedVisibility(o.typing != null, Modifier.align(Alignment.BottomCenter).padding(horizontal = 260.u), enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut() + slideOutVertically { it / 2 }) {
+            // Above the on-screen keyboard (the window doesn't shrink for it: MainActivity.immersive), never under it.
+            AnimatedVisibility(o.typing != null, Modifier.align(Alignment.BottomCenter).imePadding().padding(horizontal = 260.u), enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut() + slideOutVertically { it / 2 }) {
                 TypeBox(o.typing ?: "")
             }
             LaunchedEffect(Unit) { Devices.ensureLoaded() }
@@ -187,7 +188,7 @@ val AssistantCardShape @Composable get() = RoundedCornerShape(22.u)
  * who typed may look up a while later, so at least 20 s and up to a minute; a tap on it puts it away sooner.
  */
 internal fun shownFor(a: Answer): Long =
-    if (a.voice) (4000L + a.text.length * 50L).coerceIn(8000L, 25_000L) else (8000L + a.text.length * 80L).coerceIn(20_000L, 60_000L)
+    if (a.stays) Long.MAX_VALUE / 4 else if (a.voice) (4000L + a.text.length * 50L).coerceIn(8000L, 25_000L) else (8000L + a.text.length * 80L).coerceIn(20_000L, 60_000L)
 
 private fun tail(t: String, max: Int = 90): String {
     if (t.length <= max) return t
@@ -336,12 +337,13 @@ fun BuildChip(modifier: Modifier = Modifier) {
     val name = b.app?.let { id -> o.apps.firstOrNull { it.id == id }?.name ?: id.replace('-', ' ').replaceFirstChar { it.uppercase() } }
     val then = o.buildQueue.firstOrNull()
     val shape = RoundedCornerShape(18.u)
-    val part = ((o.now - b.startedAt) / 90_000f).coerceIn(0.04f, 0.92f) // most builds take a minute or two
+    // most builds take a minute or two; made and waiting for a yes, it stands full and still
+    val part = if (b.waiting) 1f else ((o.now - b.startedAt) / 90_000f).coerceIn(0.04f, 0.92f)
     val shown by animateFloatAsState(part, label = "made")
     Column(modifier.widthIn(min = 260.u, max = 420.u).shadow(10.u, shape).clip(shape).background(Color.White)
         .clickable { if (b.app != null && o.openAppId != b.app) o.openApp(b.app) else o.showJobs = true }
         .padding(start = 20.u, end = 20.u, top = 12.u, bottom = 12.u), verticalArrangement = Arrangement.spacedBy(6.u)) {
-        Text(if (name != null) "Making $name…" else "Making it…", style = quietText(17, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(if (b.waiting) (name ?: "It") + " is made" else if (name != null) "Making $name…" else "Making it…", style = quietText(17, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(listOfNotNull(b.live ?: b.stage, then?.let { "then: $it" + if (o.buildQueue.size > 1) " and ${o.buildQueue.size - 1} more" else "" }).joinToString(" · "),
             style = quietText(14, color = PaperLook.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Box(Modifier.fillMaxWidth().height(3.u).clip(RoundedCornerShape(2.u)).background(PaperLook.ink.copy(alpha = .08f))) {

@@ -21,8 +21,9 @@ import { dayKey } from './dates.js';
 import { buildWaits, markBuilding, unmarkBuilding } from './build-waits.js';
 
 /** ask(card): the tablet's card (server.js shellAsk); grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home;
- *  say(text): said aloud on the tablet (a request asked aloud hears that it's ready for the card). */
-export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
+ *  say(text): said aloud on the tablet (a request asked aloud hears that it's ready for the card);
+ *  tell(conversation, text): a typed request's conversation hears, in writing, that it didn't work (chat.js tell). */
+export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, tell = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
   const waits = buildWaits({ FILE: WAITS_FILE, APP_DIR, edits, ask: (c) => ask(c), grant: (c) => grant(c), unmake: (id) => unmake(id), line: (t) => line(t), changed: () => changed(), emit,
     landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} } });
@@ -136,10 +137,14 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     queued();
     return { ok: true, queued: waiting.length };
   }
+  /** A request typed in a conversation (ctx.conversation) that ended without its app: that conversation says why. */
+  const told = (ctx, text) => { if (ctx?.conversation) { try { tell(ctx.conversation, text); } catch (e) { console.error('[builder] tell:', e.message); } } };
   function begin(text, who, ctx) {
     startRun(text, who, ctx).catch((e) => {
       console.error(e);
-      emit({ type: 'done', ok: false, text: e.message });
+      const said = "I couldn't make that just now: something went wrong partway. Try asking again in a minute.";
+      emit({ type: 'done', spoken: !!ctx?.spoken, ok: false, text: said, conversation: ctx?.conversation || null });
+      told(ctx, said);
       setState({ state: 'idle', request: null, base: null });
     }).finally(() => { const w = events.state.state !== 'working' && waiting.shift(); if (w) { queued(); setImmediate(() => begin(w.text, w.who, w.ctx)); } });
   }
@@ -258,8 +263,9 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     if (events.state.state !== 'working' || owner.abort.signal.aborted) return false; // cancelled: put back
     if (!result.ok) {
       edits.discard(owner);
-      const text = result.text;
-      emit({ type: 'done', spoken: !!ctx.spoken, ok: false, text, ms, firstEditMs });
+      const text = result.text || "I couldn't make that. Try asking again.";
+      emit({ type: 'done', spoken: !!ctx.spoken, ok: false, text, conversation: ctx.conversation || null, ms, firstEditMs });
+      told(ctx, text);
       setState({ state: 'idle', request: null, base: null });
       return false;
     }
@@ -280,7 +286,9 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       if (events.state.state !== 'working' || owner.abort.signal.aborted) return false; // cancelled while the card was up
       if (a === 'no') {
         edits.discard(owner);
-        emit({ type: 'done', spoken: !!ctx.spoken, ok: false, text: card.fresh ? `${card.name} wasn't put in.` : `The change to ${card.name} wasn't put in.`, ms, firstEditMs });
+        const said = card.fresh ? `${card.name} wasn't put in.` : `The change to ${card.name} wasn't put in.`;
+        emit({ type: 'done', spoken: !!ctx.spoken, ok: false, text: said, conversation: ctx.conversation || null, ms, firstEditMs });
+        told(ctx, said);
         setState({ state: 'idle', request: null, base: null, making: null });
         return false;
       }
