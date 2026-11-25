@@ -4,8 +4,8 @@ package dev.openhouse.shell
 // the household's versions of OpenHouse's own apps ("Yours, based on Calendar 1.0"), with Remove, Put ours back, and an
 // update's three choices when the household changed one (keep yours, take theirs, or both). "Add a plugin" opens
 // OpenHouse's list (the gallery), with "From a link" for anything else. The bridge does the work (bridge/plugins.js);
-// this is only the dialogs. Whoever opened it is already here (the lock's PIN, if it's on), so adding from here asks
-// no second time; the assistant's add_plugin shows the tablet's own card instead.
+// this is only the dialogs. Adding gets the tablet's own card, the same one the assistant's add_plugin gets (the
+// bridge asks it through DeviceServer /approve), so what someone says yes to is what goes in.
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -259,31 +259,22 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             .setPositiveButton("Next") { _, _ -> look(box.text.toString().trim()) }.setNegativeButton("Cancel") { _, _ -> gallery() }.show()
     }
 
-    /** [source]: a link, or the name of a plugin on OpenHouse's list (the bridge fetches only its pinned tarball). */
+    /** [source]: a link, or the name of a plugin on OpenHouse's list (the bridge fetches only its pinned tarball). The
+     *  bridge puts up the tablet's own card for it, the one add_plugin gets (its rights, a person's own tap, the PIN
+     *  when it's on), made from exactly what it then adds: no card of our own here. */
     private fun look(source: String) {
         if (source.isEmpty()) return
         act.toast("Getting it…")
         thread {
-            val r = post("/plugins/inspect", JSONObject().put("source", source))
+            val r = post("/plugins/install", JSONObject().put("source", source))
             ui {
                 when {
                     r == null -> say("Plugins", noBridge)
                     r.has("error") -> say("That didn't work", r.optString("error"))
                     r.optBoolean("already") -> { act.toast("${r.optString("title")} is already here"); installedOne(r.optString("name")) }
-                    else -> CalmDialog(act).setTitle("Add ${r.optString("title")}?").setRights(rightsOf(r.optJSONArray("rights"))).setMore(r.optString("more")).setWidth(860f)
-                        .setPositiveButton("Add") { _, _ -> guard { add(source, r.optString("title")) } }.setNegativeButton("Cancel") { _, _ -> gallery() }.show()
+                    r.optBoolean("declined") -> gallery()
+                    else -> { act.toast("Added ${r.optString("title")}"); act.reloadHome(); if (!fromApps) show() } // from Apps: back to Apps, where it now is
                 }
-            }
-        }
-    }
-
-    private fun add(source: String, title: String) = thread {
-        val r = post("/plugins/install", JSONObject().put("source", source))
-        ui {
-            when {
-                r == null -> say("Plugins", noBridge)
-                r.has("error") -> say("That didn't work", r.optString("error"))
-                else -> { act.toast("Added $title"); act.reloadHome(); if (!fromApps) show() } // from Apps: back to Apps, where it now is
             }
         }
     }

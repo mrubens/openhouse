@@ -11,7 +11,7 @@
 // plugin in webapp/plugins/<name>.json (in git with the apps, so undo keeps it right; outside apps/, so neither the
 // assistant nor a computer can write it). v1's one webapp/plugins.json is moved there once (migrate).
 //
-// Display only (Settings): GET /plugins, POST /plugins/inspect {source}, /plugins/install {source, tabs},
+// Display only (Settings): GET /plugins, POST /plugins/inspect {source}, /plugins/install {source, tabs} (after the card),
 // /plugins/remove {name}. The assistant and a computer: the tools below (install waits on the card).
 import { asData } from './as-data.js';
 import fs from 'node:fs';
@@ -1307,9 +1307,17 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     if (req.method !== 'POST') return false;
     const b = await body(req);
     try {
-      // Settings: someone is already there (its PIN opened it), so no second card.
       if (url.pathname === '/plugins/inspect') { const p = await inspect(b.source); json(res, 200, { name: p.name, title: p.title, text: summary(p), ...card(p), already: readAll()[p.name]?.kind === 'shared' }); return true; }
-      if (url.pathname === '/plugins/install') { const r = put(await inspect(b.source), { tabs: b.tabs !== false, who: 'someone' }); json(res, r.error ? 409 : 200, r); return true; }
+      // Settings' Add: the same card as add_plugin, made from exactly what is put in (a person's own tap, the PIN when
+      // it's on), so what someone says yes to is what's added.
+      if (url.pathname === '/plugins/install') {
+        const p = await inspect(b.source);
+        if (readAll()[p.name]?.kind === 'shared') { json(res, 200, { already: true, name: p.name, title: p.title }); return true; }
+        const yes = approve ? await approve(`Add ${p.title}?`, '', true, { yes: 'Add', ...card(p, { already: false }) }) : null;
+        if (yes === null) { json(res, 409, { error: cantAsk }); return true; }
+        if (!yes) { json(res, 200, { declined: true, title: p.title }); return true; }
+        const r = put(p, { tabs: b.tabs !== false, who: 'someone' }); json(res, r.error ? 409 : 200, { title: p.title, ...r }); return true;
+      }
       // An update from Settings: what it is first (check), then the household's choice (update).
       if (url.pathname === '/plugins/check') {
         const c = await check(String(b.name || ''));
