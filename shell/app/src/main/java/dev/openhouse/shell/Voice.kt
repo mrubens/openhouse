@@ -15,14 +15,18 @@ import java.net.URL
  */
 class Voice(private val bridge: () -> String, private val source: () -> Int = { MediaRecorder.AudioSource.VOICE_RECOGNITION },
     /** The source while the bridge cancels echo itself: the plainest the device has (no gain control or noise suppression in it). */
-    private val plainSource: () -> Int = { MediaRecorder.AudioSource.VOICE_RECOGNITION }) {
+    private val plainSource: () -> Int = { MediaRecorder.AudioSource.VOICE_RECOGNITION },
+    /** Which of the platform's effects to add (agc, ns, aec), for comparing on a tablet (adb `--es micFx agc,aec`). */
+    private val effects: () -> String = { DEFAULT_FX }) {
     @Volatile var enabled = true
     /** Restart the microphone (e.g. after changing the audio source). */
     fun restart() { restartReq = true }
     /** The source it has open now (-1: none), so a settings change only reopens the microphone when it's a different one. */
     @Volatile var openSource = -1; private set
+    @Volatile private var openFx = ""
+
     /** Reopen only if the source it would choose now isn't the one it has open (adb's settings broadcasts, even a token fetch, used to reopen it). */
-    fun restartIfChanged() { val now = if (dev.openhouse.ui.MicMode.plain) plainSource() else source(); if (holding && now != openSource) restart() }
+    fun restartIfChanged() { val now = if (dev.openhouse.ui.MicMode.plain) plainSource() else source(); if (holding && (now != openSource || effects() != openFx)) restart() }
     @Volatile private var restartReq = false
     @Volatile var paused = false
     /** The screen is off (the cover closed, or the power button): the microphone is let go until it's on again. */
@@ -82,7 +86,7 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
                 runCatching { dev.openhouse.ui.MicMode.set(org.json.JSONObject(dev.openhouse.ui.BridgeClient.getText(bridge() + "/voice/status", 1500, 3000)).optBoolean("echo")) }
                 val plain = dev.openhouse.ui.MicMode.plain
                 val src = if (plain) plainSource() else source()
-                holding = true; openSource = src
+                val want = effects(); holding = true; openSource = src; openFx = want
                 rec = AudioRecord(src, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(min, rate * 2))
                 if (rec.state != AudioRecord.STATE_INITIALIZED) throw IllegalStateException("microphone unavailable")
                 // The platform's voice processing: gain, noise suppression, and echo cancelling (so it
@@ -90,9 +94,9 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
                 val sid = rec.audioSessionId
                 // (Not when the bridge cancels echo itself: it needs the microphone as it is.)
                 val fx = if (plain) emptyList() else listOfNotNull(
-                    runCatching { if (android.media.audiofx.AutomaticGainControl.isAvailable()) android.media.audiofx.AutomaticGainControl.create(sid)?.apply { enabled = true } else null }.getOrNull(),
-                    runCatching { if (android.media.audiofx.NoiseSuppressor.isAvailable()) android.media.audiofx.NoiseSuppressor.create(sid)?.apply { enabled = true } else null }.getOrNull(),
-                    runCatching { if (android.media.audiofx.AcousticEchoCanceler.isAvailable()) android.media.audiofx.AcousticEchoCanceler.create(sid)?.apply { enabled = true } else null }.getOrNull(),
+                    runCatching { if ("agc" !in want) null else if (android.media.audiofx.AutomaticGainControl.isAvailable()) android.media.audiofx.AutomaticGainControl.create(sid)?.apply { enabled = true } else null }.getOrNull(),
+                    runCatching { if ("ns" !in want) null else if (android.media.audiofx.NoiseSuppressor.isAvailable()) android.media.audiofx.NoiseSuppressor.create(sid)?.apply { enabled = true } else null }.getOrNull(),
+                    runCatching { if ("aec" !in want) null else if (android.media.audiofx.AcousticEchoCanceler.isAvailable()) android.media.audiofx.AcousticEchoCanceler.create(sid)?.apply { enabled = true } else null }.getOrNull(),
                 )
                 rec.startRecording(); restartReq = false; dev.openhouse.ui.MicClock.began()
                 Log.i(TAG, "listening (source $src, effects: ${if (plain) "none, the bridge cancels echo" else fx.joinToString { it.javaClass.simpleName }})")
@@ -149,5 +153,11 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
          * VOICE_RECOGNITION, and MIC was its source until then (the wake model's gain and floor were set with it).
          */
         const val DEFAULT_SOURCE = MediaRecorder.AudioSource.VOICE_RECOGNITION
+        /**
+         * The platform effects listening adds: gain control only. On the Galaxy Tab A11 (2026-11-25) its noise suppressor and
+         * echo canceller blank the microphone to exact zeros in a quiet spell and cut off most of the first "Hey Opie" after
+         * it; with gain control alone nothing is blanked, and every try in a replay woke (9 of 9, with the 0.01 floor of voice set 10).
+         */
+        const val DEFAULT_FX = "agc"
     }
 }

@@ -11,7 +11,7 @@ import android.content.Intent
  *
  *   adb shell am broadcast -n dev.openhouse.shell/.ConfigReceiver -a dev.openhouse.shell.CONFIG \
  *     [--es pin 1234 | --es pin ""] [--es bridge http://127.0.0.1:8787] [--es ui http://127.0.0.1:5173/] \
- *     [--es runtime http://127.0.0.1:8000/runtime.tar.gz] [--ei mic 1] [--ei micPlain 9] [--ez listen true] [--ez token true] [--es say "A sentence. Another."] [--es partial "words being heard"]
+ *     [--es runtime http://127.0.0.1:8000/runtime.tar.gz] [--ei mic 1] [--ei micPlain 9] [--es micFx agc,ns,aec] [--ez listen true] [--ez token true] [--es say "A sentence. Another."] [--es partial "words being heard"]
  *     [--es update_url https://…/update.json | --es update_url ""] [--es update_hours 2-5] [--ei update_health_s 300] [--es update_channel beta]
  *     [--ez update_check true] [--ez update_install true]
  *     [--ez cloud_checkin true] [--es voice_url https://…/voice.json | --es voice_url ""] [--ez voice_get true]
@@ -44,6 +44,7 @@ class ConfigReceiver : BroadcastReceiver() {
         // As the setup QR would (Provisioning): link with this setup code once the runtime is up (an emulator has no QR setup).
         intent.getStringExtra("cloud_link_token")?.takeIf { CloudSetup.TOKEN.matches(it) }?.let { e.putString("cloud_link_token", it) }
         intent.getStringExtra("cloud_link_api")?.takeIf { it.startsWith("https://") || it.startsWith("http://10.0.2.2:") }?.let { e.putString("cloud_link_api", it) }
+        intent.getStringExtra("micFx")?.let { e.putString("micFx", it) } // the platform effects listening adds: agc, ns, aec, comma-separated ("" none)
         if (intent.hasExtra("micPlain")) e.putInt("micPlain", intent.getIntExtra("micPlain", -1)) // the source while the bridge cancels echo (-1: the plainest the device has)
         e.commit()
         intent.getStringExtra("update_channel")?.let { ch -> if (Regex("^[a-z0-9-]{1,32}$").matches(ch)) ctx.getSharedPreferences("update", Context.MODE_PRIVATE).edit().putString("channel", ch).commit() }
