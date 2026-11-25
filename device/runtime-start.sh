@@ -10,6 +10,9 @@ for n in $(seq 3 30); do eval "exec $n>&-"; done 2>/dev/null
 exec < /dev/null >> "$D/start.log" 2>&1
 exec 9> "$D/.start.lock"; flock -n 9 || exit 0
 echo "$(date '+%F %T') starting"
+# Every git here runs nothing from the repo itself (as bridge/edits.js GIT_SAFE): webapp/ may have come from a backup.
+git() { command git -c core.hooksPath=/dev/null -c core.fsmonitor=false -c commit.gpgSign=false -c tag.gpgSign=false \
+  -c diff.ignoreSubmodules=all -c submodule.recurse=false "$@"; }
 
 # First run on this device: the starting dashboard, as a git repo (Keep/Undo need history).
 if [ ! -d webapp/.git ]; then
@@ -30,9 +33,15 @@ if [ -d ports ]; then
   done
   [ -n "$ported" ] && (cd webapp && for id in $ported; do git add -A "apps/$id"; done && git commit -qm "Moved to web:$ported" && git tag -f last-good)
 fi
-# node_modules built for this runtime (Linux arm64), not copied from elsewhere.
+# node_modules built for this runtime (Linux arm64), not copied from elsewhere: from OpenHouse's own package.json and
+# lockfile (webapp.tgz), never the ones in webapp/ (a backup's), installed exactly and with no package's scripts run.
 if [ ! -d webapp/node_modules/@esbuild/linux-arm64 ]; then
-  (cd webapp && rm -rf node_modules && npm install --no-audit --no-fund --silent)
+  t="$D/.npm-build"; rm -rf "$t"; mkdir -p "$t"
+  if tar xzf webapp.tgz -C "$t" ./package.json ./package-lock.json \
+     && (cd "$t" && npm ci --ignore-scripts --no-audit --no-fund --silent); then
+    rm -rf webapp/node_modules && mv "$t/node_modules" webapp/node_modules
+  fi
+  rm -rf "$t"
 fi
 if ! up 5173; then
   (cd webapp && setsid nohup node node_modules/vite/bin/vite.js --config ../vite.config.mjs --host 127.0.0.1 --port 5173 --strictPort < /dev/null >> ../vite.log 2>&1 9>&- &) 9>&-

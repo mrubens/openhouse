@@ -17,28 +17,68 @@ import path from 'node:path';
 
 /**
  * For every git the bridge runs on the household's repos: nothing in the repo itself runs (hooks, a file monitor, a
- * signing program), whatever its .git holds, as when it came back from a backup.
+ * signing program, anything inside an embedded repo), whatever its .git holds, as when it came back from a backup.
+ * Filter, diff and merge programs come only from config, and quietRepo gives a restored repo a fresh one.
+ * device/runtime-start.sh passes the same settings.
  */
-export const GIT_SAFE = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'commit.gpgSign=false', '-c', 'tag.gpgSign=false'];
+export const GIT_SAFE = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'commit.gpgSign=false', '-c', 'tag.gpgSign=false', '-c', 'diff.ignoreSubmodules=all', '-c', 'submodule.recurse=false'];
 
-// Settings in a repo's own config that name a program or bring in more config: none are ours, so none stay.
-const RUNS = /^(filter|diff|merge|difftool|mergetool|include|includeif|credential|gpg|alias|url|remote|uploadpack|receive|sequence|pager|core\.(hookspath|fsmonitor|sshcommand|pager|editor|askpass|gitproxy|attributesfile|worktree)$|commit\.gpgsign$|tag\.gpgsign$)/i;
+// What may stay of a repo's own config: how its objects and refs are stored (read with git config --file, which runs
+// nothing and follows no includes). The rest of it, and every other config git would read from .git, goes.
+const FORMAT = { 'extensions.objectformat': /^(sha1|sha256)$/, 'extensions.refstorage': /^(files|reftable)$/ };
+// Files in .git that point git somewhere else: another git dir, other objects.
+const POINTERS = ['commondir', 'gitdir', 'objects/info/alternates', 'objects/info/http-alternates'];
+// Hooks, the per-worktree config, attributes, linked worktrees and submodules' repos, old remotes, and any operation
+// left half-done: none are ours.
+const DROP = ['hooks', 'config.worktree', 'info/attributes', 'worktrees', 'modules', 'branches', 'remotes', 'sequencer', 'rebase-merge',
+  'rebase-apply', 'MERGE_HEAD', 'MERGE_MSG', 'MERGE_MODE', 'CHERRY_PICK_HEAD', 'REVERT_HEAD', 'index.lock'];
+
+function hasLink(dir) {
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (e.isSymbolicLink()) return true;
+    if (e.isDirectory() && hasLink(path.join(dir, e.name))) return true;
+  }
+  return false;
+}
+
 /**
- * A repo that came from somewhere else (a backup being restored): its hooks gone, and its config left with nothing
- * that runs a program, with hooks pointed nowhere. Reading the config here runs nothing (git config --file).
+ * A repo that came from somewhere else (a backup being restored), made so that nothing of its own runs: a fresh
+ * config holding only how it is stored, with hooks pointed nowhere, and the rest of DROP gone. A .git that isn't a
+ * plain folder (a file pointing elsewhere, a link), holds a link or points outside itself, or that git can't read
+ * after that, is replaced by a new repo of the files as they are (the history of the changes doesn't come back).
+ * Returns false when there's no .git at all.
  */
 export function quietRepo(repo) {
   const dotGit = path.join(repo, '.git');
-  if (!fs.existsSync(dotGit) || !fs.lstatSync(dotGit).isDirectory()) return false;
-  fs.rmSync(path.join(dotGit, 'hooks'), { recursive: true, force: true });
-  const cfg = path.join(dotGit, 'config');
-  if (fs.existsSync(cfg)) {
-    const c = (...a) => execFileSync('git', ['config', '--file', cfg, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
-    let keys = [];
-    try { keys = c('--name-only', '--list').split('\n').filter(Boolean); } catch { fs.rmSync(cfg); } // unreadable: git makes a plain one
-    for (const k of new Set(keys)) if (RUNS.test(k)) { try { c('--unset-all', k); } catch {} }
+  let st; try { st = fs.lstatSync(dotGit); } catch { return false; }
+  const g = (...a) => execFileSync('git', [...GIT_SAFE, '-c', 'user.name=display', '-c', 'user.email=display@local', ...a], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  let fresh = !st.isDirectory() || hasLink(dotGit) || POINTERS.some((p) => fs.existsSync(path.join(dotGit, p)));
+  const keep = {};
+  if (!fresh) {
+    const cfg = path.join(dotGit, 'config');
+    for (const [k, ok] of Object.entries(FORMAT)) {
+      let v = '';
+      try { v = execFileSync('git', ['config', '--file', cfg, '--get', k], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim().toLowerCase(); } catch {}
+      if (v && !ok.test(v)) fresh = true; else if (v) keep[k] = v;
+    }
   }
-  if (fs.existsSync(cfg)) execFileSync('git', ['config', '--file', cfg, 'core.hooksPath', '/dev/null'], { stdio: 'ignore' });
+  if (!fresh) {
+    for (const d of DROP) fs.rmSync(path.join(dotGit, d), { recursive: true, force: true });
+    const ext = Object.entries(keep);
+    const lines = ['[core]', `\trepositoryformatversion = ${ext.length ? 1 : 0}`, '\tbare = false', '\tlogallrefupdates = true', '\thooksPath = /dev/null'];
+    if (ext.length) lines.push('[extensions]', ...ext.map(([k, v]) => `\t${k.split('.')[1]} = ${v}`));
+    fs.rmSync(path.join(dotGit, 'config'), { recursive: true, force: true });
+    fs.writeFileSync(path.join(dotGit, 'config'), lines.join('\n') + '\n');
+    try { g('rev-parse', '--verify', '-q', 'HEAD^{commit}'); } catch { fresh = true; }
+  }
+  if (fresh) {
+    fs.rmSync(dotGit, { recursive: true, force: true });
+    g('init', '-q', '--template=');
+    g('config', 'core.hooksPath', '/dev/null');
+    g('add', '-A');
+    g('commit', '-qm', 'Restored from a backup', '--allow-empty');
+    g('tag', '-f', 'last-good');
+  }
   return true;
 }
 
