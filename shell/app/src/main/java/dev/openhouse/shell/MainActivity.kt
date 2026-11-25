@@ -301,15 +301,19 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
     // Just updated (the cover went up a moment ago): if this display isn't in front within a few seconds, the cover
     // outstayed its update (UpdateCover.clearStuck).
-    private var resumedOnce = false
+    // (It can come to the front for a moment and be covered again, so what counts is being in front when it looks.)
+    private var inFront = false
     private fun watchCover() {
-        val at = getSharedPreferences("shell", MODE_PRIVATE).getLong("covered_at", 0L)
+        val prefs = getSharedPreferences("shell", MODE_PRIVATE)
+        val at = prefs.getLong("covered_at", 0L)
         if (at <= 0 || System.currentTimeMillis() - at > 5 * 60_000L) return
-        main.postDelayed({ if (!resumedOnce && !isFinishing) UpdateCover.clearStuck(this) }, 6000)
+        for (ms in listOf(6000L, 15000L)) main.postDelayed({ if (!inFront && !isFinishing) UpdateCover.clearStuck(this) }, ms)
+        main.postDelayed({ prefs.edit().remove("covered_at").apply() }, 20000)
     }
+    override fun onPause() { inFront = false; super.onPause() }
 
     override fun onResume() {
-        resumedOnce = true; getSharedPreferences("shell", MODE_PRIVATE).edit().remove("covered_at").apply()
+        inFront = true
         super.onResume(); DeviceOwner.enterKiosk(this, kioskPaused); apps.stubAppId = null; AppStubs.front = null // back from an app's own window
         KioskApps.revokeTemporary() // Settings or a store opened with a yes: not reachable from kiosk any more
         Buddy.covering = false // an update that didn't happen (the display is still this one)
