@@ -71,7 +71,7 @@ internal object PinPrompt {
     private fun again(act: Activity, pins: Context, first: String, then: () -> Unit, back: () -> Unit, linked: () -> Boolean) {
         lateinit var d: android.app.Dialog
         var going = false
-        val pad = PinPad(act, first.length) { _, entry ->
+        val pad = PinPad(act, null) { _, entry -> // (OK to finish, as the first pad: one that submits by itself lets a tap meant for OK land on what's underneath)
             going = true; d.dismiss()
             val keep = { code: String? -> ParentPin.set(pins, first, code); ParentGrace.open(); dev.openhouse.ui.Openhouse.settingsChanged(); then() }
             when {
