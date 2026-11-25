@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// OpenHouse for Claude Code and Claude Desktop: a local MCP server (stdio) that pairs this computer with the family's
+// Opie for Claude Code and Claude Desktop: a local MCP server (stdio) that pairs this computer with the family's
 // tablet and then carries each MCP message to it, sealed with this computer's own key. The tools themselves run on
 // the tablet (bridge/workshop.js); this only pairs and forwards. docs/workshop-mcp.md.
 //
-// Claude Desktop: the OpenHouse extension (scripts/build-mcpb.sh bundles this file with what it imports). Claude Code:
+// Claude Desktop: the Opie extension (scripts/build-mcpb.sh bundles this file with what it imports). Claude Code:
 //   claude mcp add openhouse -- npx openhouse-mcp          (or: node /path/to/openhouse/connect/openhouse-mcp.mjs)
 //   openhouse-mcp pair K7QM-2XD9-HPA4      pair from a terminal instead ("192.168.1.23:8788 K7QM-2XD9-HPA4" if it
 //                                          isn't found on the Wi-Fi by itself)
@@ -86,7 +86,7 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
   const inv = parseInvite(`${address || ''} ${code || ''}`);
   if (!inv.code) return { ok: false, text: `That doesn't look like the tablet's code: 12 letters and numbers, like K7QM-2XD9-HPA4. ${WHERE}` };
   const p = pairingFromCode(inv.code);
-  // Where to ask: the address they gave, else every OpenHouse answering on this Wi-Fi (only the one showing this code knows it).
+  // Where to ask: the address they gave, else every Opie answering on this Wi-Fi (only the one showing this code knows it).
   // A name (openhouse.local, answered only while the Connect screen shows) becomes the tablet's address now, so the
   // pairing keeps working after the screen closes.
   let named = null;
@@ -103,10 +103,10 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
     const promise = relayPair({ pair: p.pair, key: b64.enc(p.key), name, signal: stop.signal, onAsked: () => { asked = true; told(); } })
       .then(async (w) => {
         if (w.refused) return { ok: false, text: 'The tablet said no.' };
-        if (!w.base && !w.relay) return { ok: false, text: 'This OpenHouse needs an update before it can be paired this way. Pair on its Wi-Fi instead.' };
+        if (!w.base && !w.relay) return { ok: false, text: 'This Opie needs an update before it can be paired this way. Pair on its Wi-Fi instead.' };
         const relay = w.relay ? { url: RELAY, relay: w.relay.relay, token: await relayTokenOf(w.key) } : undefined;
         save({ base: w.base || null, ...(relay ? { relay } : {}), id: w.id, key: w.key, name: w.name, paired: Date.now() });
-        return { ok: true, text: `Paired: "${w.name}" can change this OpenHouse now. Call get_guide before changing anything.` };
+        return { ok: true, text: `Paired: "${w.name}" can change this Opie now. Call get_guide before changing anything.` };
       })
       .catch((error) => ({ ok: false, asked, error }));
     const first = await Promise.race([promise, new Promise((r) => setTimeout(() => r(null), 10e3))]);
@@ -115,14 +115,14 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
     else if (!notThere) { pending = { promise: promise.then((r) => (r.error ? { ok: false, text: 'The pairing ended on the tablet. Start again there.' } : r)), name }; return finishPending(waitMs); }
   }
   if (!bases.length) bases = (await findTablets()).map((t) => `http://${t.address}:${t.port}`);
-  if (!bases.length) return { ok: false, needAddress: true, text: 'I couldn\'t find the OpenHouse through the cloud or on this Wi-Fi. Through the cloud, the tablet needs "Use it away from home" on (its Cloud settings). Is "A computer, to change the apps" open on the tablet? Its name and code only work while that screen shows. If it is, ask for the address shown under the name (like 192.168.1.23:8788) and pair again with both. This computer has to be on the same Wi-Fi as the tablet.' };
+  if (!bases.length) return { ok: false, needAddress: true, text: 'I couldn\'t find the Opie through the cloud or on this Wi-Fi. Through the cloud, the tablet needs "Use it away from home" on (its Cloud settings). Is "A computer, to change the apps" open on the tablet? Its name and code only work while that screen shows. If it is, ask for the address shown under the name (like 192.168.1.23:8788) and pair again with both. This computer has to be on the same Wi-Fi as the tablet.' };
   for (const base of bases) {
     let asked = false;
     const promise = pairScreen({ base, pair: p.pair, key: b64.enc(p.key), name, onAsked: () => { asked = true; told(); } })
       .then((w) => {
         if (w.refused) return { ok: false, text: 'The tablet said no.' };
         save({ base, id: w.id, key: w.key, name: w.name, paired: Date.now() });
-        return { ok: true, text: `Paired: "${w.name}" can change this OpenHouse now. Call get_guide before changing anything.` };
+        return { ok: true, text: `Paired: "${w.name}" can change this Opie now. Call get_guide before changing anything.` };
       })
       .catch((e) => ({ ok: false, asked, error: e }));
     // The tablet answers the hello at once: wait for that much, then (if it knew the code) for Allow.
@@ -131,7 +131,7 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
     pending = { promise: promise.then((r) => (r.error ? { ok: false, text: 'The pairing ended on the tablet. Start again there.' } : r)), name };
     return finishPending(waitMs);
   }
-  return { ok: false, text: inv.base ? `The OpenHouse at ${inv.base} didn't take that code: it may have run out (10 minutes) or been mistyped. ${WHERE}` : `No OpenHouse on this Wi-Fi is showing that code: it may have run out (10 minutes) or been mistyped. ${WHERE}` };
+  return { ok: false, text: inv.base ? `The Opie at ${inv.base} didn't take that code: it may have run out (10 minutes) or been mistyped. ${WHERE}` : `No Opie on this Wi-Fi is showing that code: it may have run out (10 minutes) or been mistyped. ${WHERE}` };
 }
 async function finishPending(waitMs) {
   const { promise, name } = pending;
@@ -164,26 +164,26 @@ async function toTablet(msg, { timeoutMs = 175e3 } = {}) {
 }
 
 // ---- the MCP server Claude talks to (stdio, one JSON message per line) ----
-const PAIR_TOOL = { name: 'pair_with_tablet', description: `Pair this computer with the family's OpenHouse tablet, once. Ask the person for the code their tablet shows (${WHERE.replace('On the tablet: ', '')}). It finds the tablet on the Wi-Fi by itself; pass address too only if it couldn't. Then someone taps Allow on the tablet.`,
+const PAIR_TOOL = { name: 'pair_with_tablet', description: `Pair this computer with the family's Opie tablet, once. Ask the person for the code their tablet shows (${WHERE.replace('On the tablet: ', '')}). It finds the tablet on the Wi-Fi by itself; pass address too only if it couldn't. Then someone taps Allow on the tablet.`,
   inputSchema: { type: 'object', required: ['code'], properties: { code: { type: 'string', description: 'The 12-character code, like K7QM-2XD9-HPA4' }, address: { type: 'string', description: 'Only if asked for: the address shown above the code, like 192.168.1.23:8788' } } } };
 // Clients that list tools once, at start (Codex, today), never see the tablet's tools appear after pairing: until
 // they start again, they reach them through this one.
-const USE_TOOL = { name: 'use_tablet_tool', description: 'Only if the OpenHouse\'s own tools (get_guide, set_home, write_file...) aren\'t in your tool list after pairing: call one of them by name. pair_with_tablet\'s answer lists them.',
+const USE_TOOL = { name: 'use_tablet_tool', description: 'Only if the Opie\'s own tools (get_guide, set_home, write_file...) aren\'t in your tool list after pairing: call one of them by name. pair_with_tablet\'s answer lists them.',
   inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, arguments: { type: 'object' } } } };
 /** The tablet's tools in a line each, for clients that can't see them yet. */
 async function toolLines() {
   try { const r = await toTablet({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, { timeoutMs: 8e3 }); return (r.result?.tools || []).map((t) => `- ${t.name}: ${String(t.description || '').split(/(?<=\.)\s/)[0]} Arguments: ${JSON.stringify(t.inputSchema?.properties || {})}`).join('\n'); } catch { return ''; }
 }
-const FORGET_TOOL = { name: 'forget_tablet', description: 'Unpair this computer from the OpenHouse (only when asked). The tablet can remove it too (Screens, in its Tablet settings).', inputSchema: { type: 'object', properties: {} } };
-const LOCAL_INSTRUCTIONS = `OpenHouse is a family's kitchen tablet whose apps and home screen these tools change. This computer isn't paired with it yet (or can't reach it). To pair, ask the person for the code the tablet shows (${WHERE.replace('On the tablet: ', 'on the tablet: ')}) and call pair_with_tablet with it. Once paired, call get_guide before changing anything.`;
+const FORGET_TOOL = { name: 'forget_tablet', description: 'Unpair this computer from the Opie (only when asked). The tablet can remove it too (Screens, in its Tablet settings).', inputSchema: { type: 'object', properties: {} } };
+const LOCAL_INSTRUCTIONS = `Opie is a family's kitchen tablet whose apps and home screen these tools change. This computer isn't paired with it yet (or can't reach it). To pair, ask the person for the code the tablet shows (${WHERE.replace('On the tablet: ', 'on the tablet: ')}) and call pair_with_tablet with it. Once paired, call get_guide before changing anything.`;
 
 const out = (m) => process.stdout.write(JSON.stringify(m) + '\n');
 const text = (t, isError = false) => ({ content: [{ type: 'text', text: t }], ...(isError ? { isError: true } : {}) });
 const unreachable = (e) => e instanceof Removed
   ? 'The tablet removed this computer. Ask for a new code and pair again. ' + WHERE + ''
   : /brain said 503/.test(e.message) && link?.c.where() === 'away'
-    ? 'The OpenHouse isn\'t connected to the internet right now (this computer is away from its Wi-Fi, so it goes through OpenHouse\'s relay). Is the tablet on?'
-    : `Can't reach the OpenHouse${link?.pairing.base ? ` at ${link.pairing.base}` : ''} right now (${e.cause?.code || (e.name === 'TimeoutError' ? 'no answer' : e.message)}). Is it on, and this computer on the same Wi-Fi? ${link?.pairing.relay ? '' : 'To reach it from anywhere, turn on "Use it away from home" on the tablet (its Cloud settings), then use this once on the Wi-Fi. '}If its address changed, pair again.`;
+    ? 'The Opie isn\'t connected to the internet right now (this computer is away from its Wi-Fi, so it goes through Opie\'s relay). Is the tablet on?'
+    : `Can't reach the Opie${link?.pairing.base ? ` at ${link.pairing.base}` : ''} right now (${e.cause?.code || (e.name === 'TimeoutError' ? 'no answer' : e.message)}). Is it on, and this computer on the same Wi-Fi? ${link?.pairing.relay ? '' : 'To reach it from anywhere, turn on "Use it away from home" on the tablet (its Cloud settings), then use this once on the Wi-Fi. '}If its address changed, pair again.`;
 let serving = false;
 function lost(e) { if (e instanceof Removed) { forget(); link = null; if (serving) out({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' }); } }
 
@@ -233,14 +233,14 @@ async function handle(msg) {
         if (!r.ok) return reply(text(r.text, !r.waiting));
         out({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' });
         const lines = await toolLines();
-        return reply(text(r.text + (lines ? `\n\nThe OpenHouse's tools. If they aren't in your tool list yet, call them through use_tablet_tool {name, arguments}:\n${lines}` : '')));
+        return reply(text(r.text + (lines ? `\n\nThe Opie's tools. If they aren't in your tool list yet, call them through use_tablet_tool {name, arguments}:\n${lines}` : '')));
       }
       if (p.name === USE_TOOL.name) {
-        if (!link) return reply(text('Not paired with a OpenHouse yet: ask for the tablet\'s code and use pair_with_tablet.', true));
+        if (!link) return reply(text('Not paired with an Opie yet: ask for the tablet\'s code and use pair_with_tablet.', true));
         msg.params = { name: String(p.arguments?.name || ''), arguments: p.arguments?.arguments || {} };
       }
       if (p.name === FORGET_TOOL.name) { forget(); link = null; out({ jsonrpc: '2.0', method: 'notifications/tools/list_changed' }); return reply(text('Unpaired. (The tablet still lists this computer until someone removes it in Settings > Screens.)')); }
-      if (!link) return reply(text('Not paired with a OpenHouse yet: ask for the tablet\'s code and use pair_with_tablet.', true));
+      if (!link) return reply(text('Not paired with an Opie yet: ask for the tablet\'s code and use pair_with_tablet.', true));
       try { const r = await toTablet(msg); return r.error ? fail(r.error.code, r.error.message) : reply(r.result); }
       catch (e) { lost(e); return reply(text(unreachable(e), true)); }
     }
@@ -275,7 +275,7 @@ function printResult(r) {
 if (cmd === 'pair') { // from a terminal (the setup page's prompt): pair now, so the AI has the tools from then on
   const at = rest.indexOf('--name');
   if (at >= 0) { process.env.OPENHOUSE_NAME = String(rest[at + 1] || '').trim() || ''; rest.splice(at, 2); }
-  console.log('Looking for your OpenHouse…');
+  console.log('Looking for your Opie…');
   const r = await doPair(rest.join(' '), rest.join(' '), { waitMs: 10 * 60e3, onAsked: () => console.log('Now tap Allow on the tablet.') });
   const me = process.argv[1];
   console.log(r.ok ? `Paired. Add it as an MCP server (command: node ${me}), or use it from here: node ${me} tools, then node ${me} call get_guide '{}'.` : r.text);
@@ -297,6 +297,6 @@ else if (cmd === 'tools' || cmd === 'call') { // for an AI that can run commands
   } catch (e) { lost(e); console.log(unreachable(e)); process.exit(1); }
   process.exit(0);
 }
-else if (cmd === 'status') { const p = load(); console.log(p ? `Paired with ${p.base || 'the OpenHouse, through the cloud'} as "${p.name}".` : 'Not paired.'); }
+else if (cmd === 'status') { const p = load(); console.log(p ? `Paired with ${p.base || 'the Opie, through the cloud'} as "${p.name}".` : 'Not paired.'); }
 else if (cmd === 'forget') { forget(); console.log('Unpaired.'); }
 else serve();

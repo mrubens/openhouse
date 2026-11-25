@@ -1,6 +1,6 @@
 ---
 name: design
-description: "How an OpenHouse tab or everyday app should look (color, accents, buttons, panels, type sizes, touch targets), for restyling one or checking a new one."
+description: "How an Opie tab or everyday app should look (color, accents, buttons, panels, type sizes, touch targets), for restyling one or checking a new one."
 ---
 
 # How a tab should look
@@ -34,4 +34,4 @@ as icons (draw them in inline SVG), no sparkle symbols.
 
 ---
 
-This copy of the OpenHouse guide is version 862a16609b60. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.
+This copy of the Opie guide is version 26e8fd1a2d07. If the Opie connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the Opie plugin needs updating.

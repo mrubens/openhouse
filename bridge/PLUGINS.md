@@ -1,15 +1,15 @@
-# Plugins on OpenHouse
+# Plugins on Opie
 
 Every app on the tablet is part of a plugin, and you never write a manifest:
-- OpenHouse's own (Calendar, Chores, Lists, Meals…). Changing one here makes the household's version of it, which
-  OpenHouse's updates leave alone. `reset_plugin` puts ours back (their version is one undo away).
+- Opie's own (Calendar, Chores, Lists, Meals…). Changing one here makes the household's version of it, which
+  Opie's updates leave alone. `reset_plugin` puts ours back (their version is one undo away).
 - The household's own: each app made here is one by itself, and its version counts its changes.
-- Ones from a link (another household's, or from OpenHouse's gallery), added with someone's yes on the tablet.
+- Ones from a link (another household's, or from Opie's gallery), added with someone's yes on the tablet.
 
 `list_plugins` shows them all, with where each came from and whether the household's version is used over ours.
 
 ## Finding and adding one
-- "What plugins are there?" or "is there one for…": `find_plugins`, OpenHouse's reviewed list, says what each does,
+- "What plugins are there?" or "is there one for…": `find_plugins`, Opie's reviewed list, says what each does,
   what it may use and whether it's on this tablet already.
 - Before adding one, `look_at_plugin` with its name or link, and say back in a sentence or two what's in it and what
   it may use of the household's things or reach on the internet.

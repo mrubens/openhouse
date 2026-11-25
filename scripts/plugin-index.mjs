@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// OpenHouse's list of plugins (the gallery in Settings, Opie's find_plugins): index.json, built from plugins/*/package.json
+// Opie's list of plugins (the gallery in Settings, Opie's find_plugins): index.json, built from plugins/*/package.json
 // and the tarballs scripts/plugin-tarballs.sh made. Each tarball is unpacked and checked the way the tablet checks it
 // (bridge/plugins.js checkPlugin), and what it may do is written in the card's words. The tablet installs only from the
 // tarball address here, and only if its sha256 matches. Uploading (next to the tarballs) is a separate, asked-for step.

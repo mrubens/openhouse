@@ -1,10 +1,10 @@
 {
   "manifest_version": "0.3",
   "name": "openhouse",
-  "display_name": "OpenHouse",
+  "display_name": "Opie",
   "version": "0.1.0",
-  "description": "Change your family's OpenHouse tablet from Claude: new tabs and apps, notes, the look, with undo.",
-  "long_description": "Pair Claude with your OpenHouse once, with the code the tablet shows under Settings > Screens and computers > A computer. Then ask for what you want on it (\"a whiteboard tab that looks like Chores\", \"make it warmer\", \"put the photos tab first\") and watch it appear on the tablet. Every change can be undone, from Claude or on the tablet. Claude talks to the tablet only over your home Wi-Fi.",
+  "description": "Change your family's Opie tablet from Claude: new tabs and apps, notes, the look, with undo.",
+  "long_description": "Pair Claude with your Opie once, with the code the tablet shows under Settings > Screens and computers > A computer. Then ask for what you want on it (\"a whiteboard tab that looks like Chores\", \"make it warmer\", \"put the photos tab first\") and watch it appear on the tablet. Every change can be undone, from Claude or on the tablet. Claude talks to the tablet only over your home Wi-Fi.",
   "author": { "name": "Roo Code, Inc.", "url": "https://roocode.com" },
   "license": "MIT",
   "icon": "icon.png",
@@ -15,8 +15,8 @@
     "mcp_config": { "command": "node", "args": ["${__dirname}/server/index.mjs"] }
   },
   "tools": [
-    { "name": "pair_with_tablet", "description": "Pair with your OpenHouse using the code it shows." },
-    { "name": "get_guide", "description": "How apps are made on OpenHouse, and the home screen as it is now." },
+    { "name": "pair_with_tablet", "description": "Pair with your Opie using the code it shows." },
+    { "name": "get_guide", "description": "How apps are made on Opie, and the home screen as it is now." },
     { "name": "set_home", "description": "Change the tabs and the look." },
     { "name": "start_editing", "description": "Open a change to the apps." },
     { "name": "write_file", "description": "Write an app's file on the tablet." },

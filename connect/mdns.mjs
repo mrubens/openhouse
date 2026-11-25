@@ -1,4 +1,4 @@
-// Finding the family's OpenHouse on the home Wi-Fi: the tablet advertises _openhouse._tcp over mDNS (Bonjour) while a
+// Finding the family's Opie on the home Wi-Fi: the tablet advertises _openhouse._tcp over mDNS (Bonjour) while a
 // computer may pair (the shell's Screens.kt, Android's NsdManager). One question, asked from an ordinary port so
 // responders answer straight back (no need to share port 5353 with the computer's own mDNS service), on every
 // IPv4 network this computer is on. No dependencies.
@@ -49,7 +49,7 @@ export function parse(buf) {
   return out;
 }
 
-/** The OpenHouses answering on this computer's networks: [{name, address, port}] (no duplicates). */
+/** The Opie tablets answering on this computer's networks: [{name, address, port}] (no duplicates). */
 export async function findTablets({ timeoutMs = 2500, service = SERVICE } = {}) {
   const nets = Object.values(os.networkInterfaces()).flat().filter((x) => x && x.family === 'IPv4' && !x.internal);
   const found = new Map();

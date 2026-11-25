@@ -1,11 +1,11 @@
 ---
 name: working-here
-description: "How to work on this household's OpenHouse tablet from a computer: which tools to use, in what order, for the tabs and look, notes, an app, waiting fixes, undo and devices, and the rules. Load before changing anything on the OpenHouse."
+description: "How to work on this household's Opie tablet from a computer: which tools to use, in what order, for the tabs and look, notes, an app, waiting fixes, undo and devices, and the rules. Load before changing anything on the Opie."
 ---
 
-# Working on OpenHouse from a computer
+# Working on Opie from a computer
 
-You are changing a family's OpenHouse: a tablet in their home whose home screen is a column of tabs beside
+You are changing a family's Opie: a tablet in their home whose home screen is a column of tabs beside
 one sheet showing the chosen tab. Today is the day at a glance with the family's notes, Apps is a grid of every app
 that isn't a tab of its own, and each other tab is one of the family's apps: a small web page in `apps/<id>/`. The
 tabs it has now are in `get_guide`. Someone in the family is asking you from their own computer. The family may be
@@ -41,7 +41,7 @@ watching the tablet while you work: it shows your change being made.
   change, whoever made it), `list_changes` then `undo_change` for an older one, or `undo_plugin` for the latest change
   to one app, keeping the rest.
 - Every app is a plugin, and you never write a manifest. An app you make is the household's own plugin (its version
-  counts its changes). Changing one of OpenHouse's own (Calendar, Chores…) makes the household's version, which our
+  counts its changes). Changing one of Opie's own (Calendar, Chores…) makes the household's version, which our
   updates leave alone; `reset_plugin` puts ours back. `list_plugins` shows them all. `export_plugin` with `plugin`
   is how one is shared.
 - An app can offer the voice an action in its `app.json`: `"actions": [{"name": "start", "description": "Start the
@@ -113,4 +113,4 @@ How notes on Home should read: the notes skill. Making or changing an app: the a
 
 ---
 
-This copy of the OpenHouse guide is version 862a16609b60. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.
+This copy of the Opie guide is version 26e8fd1a2d07. If the Opie connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the Opie plugin needs updating.

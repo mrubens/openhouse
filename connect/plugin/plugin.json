@@ -1,10 +1,10 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "openhouse",
-  "version": "1.0.0+862a16609b60",
-  "description": "Change your household's OpenHouse from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.",
+  "version": "1.0.0+26e8fd1a2d07",
+  "description": "Change your household's Opie from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.",
   "author": {
-    "name": "OpenHouse",
+    "name": "Opie",
     "url": "https://openhouse.computer"
   },
   "homepage": "https://openhouse.computer",
@@ -18,10 +18,10 @@
   "extensions": {
     "com.openai": {
       "interface": {
-        "displayName": "OpenHouse",
-        "shortDescription": "Change your OpenHouse tablet",
-        "longDescription": "Change your household's OpenHouse from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.",
-        "developerName": "OpenHouse",
+        "displayName": "Opie",
+        "shortDescription": "Change your Opie tablet",
+        "longDescription": "Change your household's Opie from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.",
+        "developerName": "Opie",
         "category": "Productivity",
         "capabilities": [
           "Read",

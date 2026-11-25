@@ -1,4 +1,4 @@
-# OpenHouse: how apps are made
+# Opie: how apps are made
 
 (These rules come with the tablet's bridge; a computer's Claude or ChatGPT reads them through the workshop's get_guide,
 bridge/workshop.js. They are not part of the apps folder.)

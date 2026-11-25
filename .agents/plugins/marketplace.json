@@ -1,7 +1,7 @@
 {
   "name": "openhouse",
   "interface": {
-    "displayName": "OpenHouse"
+    "displayName": "Opie"
   },
   "plugins": [
     {

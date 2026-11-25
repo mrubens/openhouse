@@ -1,20 +1,20 @@
 ---
 name: plugins
-description: "OpenHouse plugins: finding, adding, updating and removing them, OpenHouse's own apps versus the household's versions, and sharing the household's apps as a plugin."
+description: "Opie plugins: finding, adding, updating and removing them, Opie's own apps versus the household's versions, and sharing the household's apps as a plugin."
 ---
 
-# Plugins on OpenHouse
+# Plugins on Opie
 
 Every app on the tablet is part of a plugin, and you never write a manifest:
-- OpenHouse's own (Calendar, Chores, Lists, Meals…). Changing one here makes the household's version of it, which
-  OpenHouse's updates leave alone. `reset_plugin` puts ours back (their version is one undo away).
+- Opie's own (Calendar, Chores, Lists, Meals…). Changing one here makes the household's version of it, which
+  Opie's updates leave alone. `reset_plugin` puts ours back (their version is one undo away).
 - The household's own: each app made here is one by itself, and its version counts its changes.
-- Ones from a link (another household's, or from OpenHouse's gallery), added with someone's yes on the tablet.
+- Ones from a link (another household's, or from Opie's gallery), added with someone's yes on the tablet.
 
 `list_plugins` shows them all, with where each came from and whether the household's version is used over ours.
 
 ## Finding and adding one
-- "What plugins are there?" or "is there one for…": `find_plugins`, OpenHouse's reviewed list, says what each does,
+- "What plugins are there?" or "is there one for…": `find_plugins`, Opie's reviewed list, says what each does,
   what it may use and whether it's on this tablet already.
 - Before adding one, `look_at_plugin` with its name or link, and say back in a sentence or two what's in it and what
   it may use of the household's things or reach on the internet.
@@ -41,4 +41,4 @@ Every app on the tablet is part of a plugin, and you never write a manifest:
 
 ---
 
-This copy of the OpenHouse guide is version 862a16609b60. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.
+This copy of the Opie guide is version 26e8fd1a2d07. If the Opie connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the Opie plugin needs updating.

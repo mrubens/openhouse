@@ -37,7 +37,7 @@ const WEATHER = { name: 'weather', description: "The weather where the family li
 export const TIMER_TOOL = { name: 'timer', description: 'Timers on the tablet (it rings them, and shows them): start one ("Pasta", 10 minutes), list them (running and finished), or cancel: that stops one ringing and clears it off the screen too. To cancel, no list first: with one timer, just cancel; otherwise by its label, or all.',
   inputSchema: { type: 'object', required: ['action'], properties: { action: { type: 'string', enum: ['start', 'list', 'cancel'] }, label: { type: 'string', description: 'For start: its name. For cancel: which one, by its name' }, all: { type: 'boolean', description: 'For cancel: every timer' }, minutes: { type: 'number' }, seconds: { type: 'number' }, endAt: { type: 'number', description: 'For cancel, optional: the exact one, from list' } } } };
 
-/** Opie putting OpenHouse's own screen on a tab, or one of its apps (setScreen: the tabs and apps there are now). */
+/** Opie putting its own screen on a tab, or one of its apps (setScreen: the tabs and apps there are now). */
 export function screenTool(places) {
   const list = places.map((p) => `${p.id} (${p.name}${p.tab ? ', a tab' : ', opens full screen'})`).join('; ');
   return { name: 'show_on_screen', description: 'Put the tablet\'s own screen on one of its tabs or apps, whatever is showing now: ' +

@@ -495,7 +495,7 @@ export const reach = {
 
 // ---- the rest ----------------------------------------------------------------------------------------------
 /**
- * Small judgments by OpenHouse's cloud (OpenAI Decisions), when the family chose it: questions about some text, each a
+ * Small judgments by Opie's cloud (OpenAI Decisions), when the family chose it: questions about some text, each a
  * predicate {type:'predicate', name, instructions} (a probability), a choice {type:'choice', name, instructions,
  * choices:[{value, description}]} or a score {type:'score', name, instructions, levels:[{label, description}]}.
  * Resolves to the answers, in order ({name, probability} / {name, choice, confidence} / {name, score, confidence}), or

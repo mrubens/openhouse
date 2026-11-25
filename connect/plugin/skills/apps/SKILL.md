@@ -1,9 +1,9 @@
 ---
 name: apps
-description: "How apps are made on OpenHouse, before making or changing one: everyday tools that fit a tab, games, the kit for the household's data, icons, app.json, the quiet kit's CSS and how a tab should look."
+description: "How apps are made on Opie, before making or changing one: everyday tools that fit a tab, games, the kit for the household's data, icons, app.json, the quiet kit's CSS and how a tab should look."
 ---
 
-# How apps are made on OpenHouse (paths are relative to the apps folder)
+# How apps are made on Opie (paths are relative to the apps folder)
 
 ## The screen
 - A 10.9" landscape touchscreen (2304x1440) on a wall or counter, viewed from across the room.
@@ -149,4 +149,4 @@ The quiet kit (`/kit/quiet.css`, linked after `/kit/openhouse.css` in an everyda
 
 ---
 
-This copy of the OpenHouse guide is version 862a16609b60. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.
+This copy of the Opie guide is version 26e8fd1a2d07. If the Opie connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the Opie plugin needs updating.

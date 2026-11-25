@@ -20,7 +20,7 @@ export function workshopGuide({ read: readFile, homeNow, log = console.error }) 
   // working without it (and tells the person) instead of getting nothing. The rest of the bridge goes on.
   const missing = GUIDE_FILES.filter((f) => !readFile(f));
   if (missing.length) log(`[workshop] MISSING GUIDE FILES: ${missing.join(', ')}. get_guide and the skills are incomplete; this build left them out (scripts/runtime-assets.sh).`);
-  const read = (f) => readFile(f) || `(This OpenHouse is missing its ${f}, so this part of the guide is empty. Tell the person once that the tablet needs an update; go on with care.)`;
+  const read = (f) => readFile(f) || `(This tablet is missing its ${f}, so this part of the guide is empty. Tell the person once that the tablet needs an update; go on with care.)`;
   // The tablet assistant's rules (AGENT.md), as they apply on a computer: by section, without the ones about the tablet
   // itself (its other apps and devices, its own reply rules, the code layout it sees), and with no Edit tool to use.
   function agentSections(names) {
@@ -38,7 +38,7 @@ export function workshopGuide({ read: readFile, homeNow, log = console.error }) 
   const TOPICS = {
     start: {
       skill: 'working-here',
-      description: "How to work on this household's OpenHouse tablet from a computer: which tools to use, in what order, for the tabs and look, notes, an app, waiting fixes, undo and devices, and the rules. Load before changing anything on the OpenHouse.",
+      description: "How to work on this household's Opie tablet from a computer: which tools to use, in what order, for the tabs and look, notes, an app, waiting fixes, undo and devices, and the rules. Load before changing anything on the Opie.",
       body: () => [read('WORKSHOP.md'), '# Changing the home screen\n\n' + agentSections(HOME_SECTIONS), NOW,
         'How notes on Home should read: the notes skill. Making or changing an app: the apps skill.'].join('\n\n---\n\n'),
       guide: () => [read('WORKSHOP.md'), '# The home screen right now\n\n' + homeNow(), '# Changing the home screen\n\n' + agentSections(HOME_SECTIONS),
@@ -46,34 +46,34 @@ export function workshopGuide({ read: readFile, homeNow, log = console.error }) 
     },
     apps: {
       skill: 'apps',
-      description: "How apps are made on OpenHouse, before making or changing one: everyday tools that fit a tab, games, the kit for the household's data, icons, app.json, the quiet kit's CSS and how a tab should look.",
-      body: () => ['# How apps are made on OpenHouse (paths are relative to the apps folder)\n\n' + agentSections(APP_SECTIONS),
+      description: "How apps are made on Opie, before making or changing one: everyday tools that fit a tab, games, the kit for the household's data, icons, app.json, the quiet kit's CSS and how a tab should look.",
+      body: () => ['# How apps are made on Opie (paths are relative to the apps folder)\n\n' + agentSections(APP_SECTIONS),
         'The quiet kit (`/kit/quiet.css`, linked after `/kit/openhouse.css` in an everyday tool) is in references/quiet.css: read it before writing one. ' +
         'How a tab should look is in references/design.md: check what you made against it before calling it done. ' + NOW].join('\n\n---\n\n'),
       files: { 'references/quiet.css': css, 'references/design.md': () => read('DESIGN.md') },
-      guide: () => ['# How apps are made on OpenHouse (paths are relative to the apps folder)\n\n' + agentSections(APP_SECTIONS),
+      guide: () => ['# How apps are made on Opie (paths are relative to the apps folder)\n\n' + agentSections(APP_SECTIONS),
         read('DESIGN.md'), '# /kit/quiet.css (link it after /kit/openhouse.css in an everyday tool)\n\n```css\n' + css() + '\n```'].join('\n\n---\n\n'),
     },
     notes: {
       skill: 'notes',
-      description: 'How a note on the OpenHouse Home tab should read (title, first line, what to leave out), before putting one up or changing one.',
+      description: 'How a note on the Opie Home tab should read (title, first line, what to leave out), before putting one up or changing one.',
       body: () => read('NOTES.md'),
     },
     plugins: {
       skill: 'plugins',
-      description: "OpenHouse plugins: finding, adding, updating and removing them, OpenHouse's own apps versus the household's versions, and sharing the household's apps as a plugin.",
+      description: "Opie plugins: finding, adding, updating and removing them, Opie's own apps versus the household's versions, and sharing the household's apps as a plugin.",
       body: () => read('PLUGINS.md'),
     },
     design: {
       skill: 'design',
-      description: 'How an OpenHouse tab or everyday app should look (color, accents, buttons, panels, type sizes, touch targets), for restyling one or checking a new one.',
+      description: 'How an Opie tab or everyday app should look (color, accents, buttons, panels, type sizes, touch targets), for restyling one or checking a new one.',
       body: () => read('DESIGN.md'),
     },
   };
   const TOPIC_NAMES = [...Object.keys(TOPICS), 'home'];
 
   /**
-   * The guide's version: a hash of every skill's files, so it changes exactly when the guide does. The OpenHouse plugin
+   * The guide's version: a hash of every skill's files, so it changes exactly when the guide does. The Opie plugin
    * (scripts/build-plugin.mjs, connect/plugin) carries the version it was made from; the connector says its own, so a
    * model reading an old copy can tell (stale()).
    */
@@ -83,7 +83,7 @@ export function workshopGuide({ read: readFile, homeNow, log = console.error }) 
     return h.digest('hex').slice(0, 12);
   }
   /** What the connector says of its guide: the version, and what to do when a copy of the skills is another one. */
-  const versionLine = () => `This OpenHouse's guide is version ${version()}. OpenHouse skills from the OpenHouse plugin say the version they were made from at their end: if it isn't this one, that copy is out of date, so use get_guide (with the skill's topic) instead and tell the person once that the OpenHouse plugin needs updating.`;
+  const versionLine = () => `This tablet's guide is version ${version()}. Opie skills from the Opie plugin say the version they were made from at their end: if it isn't this one, that copy is out of date, so use get_guide (with the skill's topic) instead and tell the person once that the Opie plugin needs updating.`;
 
   /** get_guide's answer for a topic ("start" when unknown). */
   function guide(topic) {
@@ -124,7 +124,7 @@ export function workshopGuide({ read: readFile, homeNow, log = console.error }) 
     const v = version(), out = {};
     for (const [uri, f] of files()) {
       const rel = uri.replace(/^skill:\/\//, '');
-      out[rel] = rel.endsWith('/SKILL.md') ? `${f.text}\n---\n\nThis copy of the OpenHouse guide is version ${v}. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.\n` : f.text;
+      out[rel] = rel.endsWith('/SKILL.md') ? `${f.text}\n---\n\nThis copy of the Opie guide is version ${v}. If the Opie connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the Opie plugin needs updating.\n` : f.text;
     }
     return out;
   }

@@ -28,24 +28,24 @@ const NEVER = 'It never taps a button that pays, places an order, buys, sends a 
 
 export const DEVICE_TOOLS = [
   { name: 'open_app', description: 'Open one of the tablet\'s Android apps by name ("DoorDash", "Clock", "Calculator"), to use it for someone. ' +
-      'Not for OpenHouse\'s own tabs and apps (Calendar, Lists, the Map...): show_on_screen opens those. Afterwards: what is on its screen (numbered elements). Back on the family screen with press home. ' + NEVER,
+      'Not for Opie\'s own tabs and apps (Calendar, Lists, the Map...): show_on_screen opens those. Afterwards: what is on its screen (numbered elements). Back on the family screen with press home. ' + NEVER,
     inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'The app\'s name, as on its icon' } } } },
   { name: 'install_app', description: 'Add an Android app to the tablet from Google Play (through Aurora Store, no Google account), by name. ' +
       'Ask them first in a few words ("Install DoorDash from the Play Store?") and call with confirmed true only after they said yes; the tablet ' +
       'also asks on screen (with the PIN when the lock is on). It takes a minute or two; then open_app opens it.',
     inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'The app\'s name' }, package: { type: 'string', description: 'Its package, only if you know it' }, confirmed: { type: 'boolean', description: 'They said yes to installing it' } } } },
-  { name: 'look_at_screen', description: 'What is on the tablet\'s screen now (OpenHouse\'s own tabs and apps, or another app you opened): numbered elements with their text, what can be done ' +
+  { name: 'look_at_screen', description: 'What is on the tablet\'s screen now (Opie\'s own tabs and apps, or another app you opened): numbered elements with their text, what can be done ' +
       'with each (tap, type, scroll) and where. picture: also a short description of a picture of it, for pictures, maps or games the list can\'t ' +
       'show. wait: seconds to wait first for something to load (up to 10). The actions already answer with the screen afterwards, so look only when unsure.',
     inputSchema: { type: 'object', properties: { picture: { type: 'boolean' }, wait: { type: 'number' } } } },
   { name: 'tap', description: 'Tap an element by its number from the latest screen, or a point (x, y). Long-press with long. ' +
-      'Something hard to take back on OpenHouse\'s own screen (deleting, removing, resetting) answers "ask them first": ask in a few words, and once they say yes, tap again with confirmed true. ' + NEVER +
+      'Something hard to take back on Opie\'s own screen (deleting, removing, resetting) answers "ask them first": ask in a few words, and once they say yes, tap again with confirmed true. ' + NEVER +
       ' Answers with the screen afterwards.',
     inputSchema: { type: 'object', properties: { id: { type: 'integer' }, x: { type: 'number' }, y: { type: 'number' }, long: { type: 'boolean' }, confirmed: { type: 'boolean', description: 'They said yes to this one, just now' } } } },
   { name: 'type', description: 'Type into a text field (by its number, or the one in focus). submit true presses the keyboard\'s search or enter key, ' +
       'only in a search box: a message, review or form is written but never sent (the person sends it). Never a password or card details.',
     inputSchema: { type: 'object', required: ['text'], properties: { id: { type: 'integer' }, text: { type: 'string' }, submit: { type: 'boolean' } } } },
-  { name: 'pick', description: 'Choose an option in a dropdown (a select: on the screen it says "a menu pop up button", or "now:" with its choice in some apps): its element number and the option as it reads ("Alex"). It opens the list, finds the option and taps it, in OpenHouse or another app; if there\'s no such option, it says which there are and closes the list. Use it rather than tapping a dropdown open.',
+  { name: 'pick', description: 'Choose an option in a dropdown (a select: on the screen it says "a menu pop up button", or "now:" with its choice in some apps): its element number and the option as it reads ("Alex"). It opens the list, finds the option and taps it, in Opie or another app; if there\'s no such option, it says which there are and closes the list. Use it rather than tapping a dropdown open.',
     inputSchema: { type: 'object', required: ['id', 'option'], properties: { id: { type: 'integer' }, option: { type: 'string' } } } },
   { name: 'scroll', description: 'Scroll the screen (or element id) up, down, left or right, to find more. Answers with the screen afterwards.',
     inputSchema: { type: 'object', required: ['direction'], properties: { direction: { type: 'string', enum: ['up', 'down', 'left', 'right'] }, id: { type: 'integer' } } } },
@@ -57,7 +57,7 @@ export const DEVICE_TOOLS = [
 
 /** What the assistant is told about using apps, after the household's rules (live-tools.js, chat.js). */
 export const DEVICE_RULES = `\n\n---\n\nUSING THE SCREEN AND THE TABLET'S APPS
-Anything a person can do on OpenHouse by tapping, you can do when they ask: every tab and app and its buttons, the sidebar's buttons (typing to you, sleep, tabs and look, Settings), timers, and Settings itself. Your limits are a person's.
+Anything a person can do on Opie by tapping, you can do when they ask: every tab and app and its buttons, the sidebar's buttons (typing to you, sleep, tabs and look, Settings), timers, and Settings itself. Your limits are a person's.
 - Use a direct tool when there is one: the household tools for the family's things (lists, calendar, chores, meals, notes), timer for timers, show_on_screen to put the screen on a tab or app ("open the calendar", "show me the map"). For anything else on the screen, look_at_screen, then tap, type, pick (a dropdown) or scroll, like a person would.
 - Other Android apps: open_app, install_app, then the same look_at_screen, tap, type, scroll, press ("open DoorDash and reorder last Friday's pizza").
 - Before anything hard to take back or that reaches outside the house (deleting the household's things, installing, buying, sending), ask in a few words first ("Delete the Groceries list?") and go on only once they say yes.
