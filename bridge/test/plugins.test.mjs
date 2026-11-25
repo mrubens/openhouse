@@ -291,7 +291,9 @@ test('a tarball from a link: every redirect checked, and nothing in it is a link
   execFileSync('tar', ['-czf', path.join(d, 'a.tgz'), '-C', d, 'package']);
   fs.rmSync(path.join(d, 'package', 'apps', 'out')); fs.mkdirSync(path.join(d, 'package', 'apps', 'out')); fs.writeFileSync(path.join(d, 'package', 'apps', 'out', 'x.js'), 'x');
   execFileSync('tar', ['-czf', path.join(d, 'b.tgz'), '-C', d, 'package/apps/out/x.js']);
-  const both = Buffer.concat([zlib.gunzipSync(fs.readFileSync(path.join(d, 'a.tgz'))).subarray(0, -1024), zlib.gunzipSync(fs.readFileSync(path.join(d, 'b.tgz')))]);
+  // (a's end, all its zero blocks, cut off: tar pads to 10 KB on Linux, so more than the two end blocks)
+  const body = (b) => { let n = b.length; while (n >= 512 && b.subarray(n - 512, n).every((x) => x === 0)) n -= 512; return b.subarray(0, n); };
+  const both = Buffer.concat([body(zlib.gunzipSync(fs.readFileSync(path.join(d, 'a.tgz')))), zlib.gunzipSync(fs.readFileSync(path.join(d, 'b.tgz')))]);
   const t2 = tablet(served({ 'https://cdn.example.com/evil.tgz': zlib.gzipSync(both) }));
   await t2.pl.call('add_plugin', { source: 'https://cdn.example.com/evil.tgz' });
   assert.deepEqual(fs.readdirSync(outside), []);
