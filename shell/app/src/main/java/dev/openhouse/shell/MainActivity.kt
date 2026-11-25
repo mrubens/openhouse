@@ -279,6 +279,9 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     internal fun addAlbum() = lock.withPin { PhotoAlbums.add(this, ::immersive) }
     /** "Photos from phones, any time": behind the PIN when the lock is on, the lasting link's QR code (PhotoShare). */
     internal fun sharePhotos() = lock.withPin { PhotoShare.show(this, ::immersive) }
+    /** The setup's photos step, with its phone or computer connected: the same yes as above, then no code to scan (the
+     *  link goes to that phone or computer: ui/Setup.kt). */
+    internal fun sharePhotosOn() = lock.withPin { PhotoShare.turnOn(this, ::immersive) }
     /** "Add photos from Google": behind the PIN when the lock is on, the phone page for Google Photos' picker (GooglePhotos). */
     internal fun googlePhotos() = lock.withPin { GooglePhotos.show(this, ::immersive) }
     /** An album link from the computer or the assistant (DeviceServer /album): the tablet's card, then the PIN. */

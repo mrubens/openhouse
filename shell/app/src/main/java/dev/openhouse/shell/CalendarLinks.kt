@@ -261,10 +261,14 @@ object CalendarLinks {
     private const val HELP = "Google Calendar: Settings, your calendar, “Secret address in iCal format”. iCloud: share as a public calendar. Outlook: publish a calendar, ICS link."
 
     /**
-     * Add a calendar on the tablet: paste its link here (or send it from a phone), say whose it is. Reached behind the
-     * PIN: Settings, or the Calendar app's "Add a calendar" (MainActivity.addCalendar).
+     * Add a calendar from a link: sent from a phone (it scans the code and pastes the link there), since a link is
+     * copied on a phone or computer, not on the tablet. Pasting or typing it here is the small way, for a tablet with a
+     * keyboard cover. Reached from Settings, the Calendar app's "Add a calendar" (MainActivity.addCalendar) and setup.
      */
-    fun add(a: Activity, immersive: () -> Unit) {
+    fun add(a: Activity, immersive: () -> Unit) = addFromPhone(a, immersive)
+
+    /** Paste or type the link here, and say whose it is (a tablet with a keyboard cover). */
+    fun paste(a: Activity, immersive: () -> Unit) {
         thread {
             val names = familyNames()
             main.post {
@@ -274,16 +278,12 @@ object CalendarLinks {
                     runCatching { (a.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(a)?.toString())?.let { clean(it) }?.let { setText(it) } }
                 }
                 val who = Calm.field(a, if (names.isEmpty()) "Whose is it? (optional)" else "Whose? " + names.take(4).joinToString(", "))
-                // Where to find the link is behind More; sending it from a phone is a quiet link, not a third button (docs/ux.md).
-                var d: android.app.Dialog? = null
+                // Where to find the link is behind More (docs/ux.md).
                 val col = Calm.column(a, 12).apply {
                     addView(link); addView(who)
-                    addView(Calm.row(a, 0).apply {
-                        addView(Calm.quiet(a, "Send it from a phone") { d?.dismiss(); addFromPhone(a, immersive) }.apply { setPadding(0, 0, Calm.px(a, 28), 0) })
-                    })
                     addView(Calm.more(a, HELP))
                 }
-                d = CalmDialog(a).setTitle("Add a calendar").setView(col).setWidth(760f)
+                CalmDialog(a).setTitle("Add a calendar").setView(col).setWidth(760f)
                     .setPositiveButton("Add") { _, _ ->
                         val u = clean(link.text.toString())
                         if (u == null) { CalmDialog(a).setTitle("That isn't a calendar link").setMessage(HELP).setPositiveButton("Close", null).show().also { immersive() }; return@setPositiveButton }
@@ -321,10 +321,16 @@ object CalendarLinks {
                     .put("help", "Google Calendar: Settings, your calendar, “Secret address in iCal format”. iCloud: share as a public calendar. Outlook: publish a calendar, ICS link.")
                     .put("who", true).put("names", JSONArray(names)).put("done", "Sent. Check the display.")
                 val h = Handoff(a, info, onSecret = { got = it; dialog?.dismiss() }, onEnd = { if (got == null) dialog?.dismiss() })
-                if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return@post }
+                if (!h.start()) { paste(a, immersive); return@post } // no Wi-Fi: no phone to send it from
                 val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
-                val col = Calm.qr(a, qr, Calm.caption(a, "Scan with a phone on this Wi-Fi, and paste the calendar's link there."), 360) { Handoff.share(a, h.url!!) }
-                dialog = CalmDialog(a).setTitle("Add a calendar").setView(col).setNegativeButton("Cancel", null)
+                // The phone is the way: the link is copied there. Pasting here is a quiet link, for a keyboard cover.
+                val col = Calm.column(a, 12).apply {
+                    gravity = android.view.Gravity.CENTER_HORIZONTAL
+                    addView(Calm.qr(a, qr, Calm.caption(a, "Copy the calendar's link on your phone, then scan this with it on this Wi-Fi and send the link."), 360) { Handoff.share(a, h.url!!) })
+                    addView(Calm.quiet(a, "Paste it here instead") { dialog?.dismiss(); paste(a, immersive) })
+                    addView(Calm.more(a, HELP))
+                }
+                dialog = CalmDialog(a).setTitle("Send a calendar from your phone").setView(col).setNegativeButton("Cancel", null)
                     .setOnDismissListener { h.stop(); got?.let { confirm(a, it, immersive) } }.show().also { immersive() }
             }
         }

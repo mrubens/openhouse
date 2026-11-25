@@ -473,6 +473,8 @@ async function route(req, res, url) {
   try {
     // The setup phone or computer (screens.js scope 'setup'): a calendar or an album straight to the shell (trusted:
     // added with no card on the tablet unless its lock is on), and invites for the family.
+    // Which step the tablet's setup shows: the setup phone or computer follows it (chat/src/phone.jsx SetupFlow).
+    if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, chat.live.setupShown?.() || { step: null }); return true; }
     if (req.method === 'POST' && /^\/setup\/(calendar|album|invite)$/.test(url.pathname)) {
       const b = await body(req);
       if (url.pathname === '/setup/invite') {

@@ -208,7 +208,7 @@ to my Opie" with the code the tablet shows, tap Allow). The
 download button fires once per visit. It serves that page, the two downloads and the kit's font, nothing else. `scripts/runtime-assets.sh` runs
 `scripts/build-mcpb.sh`, so the download is built into the runtime with the tablet and always matches it.
 
-The page is plain http on the home Wi-Fi, and `openhouse.local` is answered over mDNS, which anyone on the Wi-Fi can
+The page is plain http on the home Wi-Fi, and `opie.local` is answered over mDNS, which anyone on the Wi-Fi can
 answer too. So nothing on it is trusted, and it never carries the code: the person reads the code off the tablet's
 own screen and types it. The download button points at the release's https copy of the same file
 (`releases/connect/<first 16 hex of its sha256>/openhouse.mcpb` on the release CDN; `extensionInfo` in
@@ -218,14 +218,14 @@ serves its own copy only when it isn't: a `--local` build, or a release whose co
 `scripts/release.sh` puts the files in the release folder (`connect/<hash>/`) and prints the upload, a separate step
 like the voice set's (the cloud's `scripts/release.ts --extension <dir>`).
 
-The Connect screen leads with **On your computer, open openhouse.local:8788**, the IP and port under it, and a QR
+The Connect screen leads with **On your computer, open opie.local:8788**, the IP and port under it, and a QR
 code for the page. What I found getting the address short:
 - **The name works.** Android's NsdManager can't advertise a host name (API 35 has no `setHostname`), so the bridge
-  answers `openhouse.local` itself with a tiny mDNS responder for one A record, only while the screen is open. Inside
+  answers `opie.local` (and `openhouse.local`, the name from before) itself with a tiny mDNS responder, only while the screen is open. Inside
   the tablet's runtime it binds UDP 5353 and joins the multicast group fine (checked on the emulator); the shell holds a
   Wi-Fi multicast lock meanwhile. On this Mac, macOS resolved a name answered by the same code over the real Wi-Fi.
 - **Port 80 doesn't.** Binding it from the runtime fails with `EACCES` (Android keeps ports below 1024 for the system),
-  so the port stays: `openhouse.local:8788`.
+  so the port stays: `opie.local:8788`.
 - Two Opie tablets on one network would both claim the name while their Connect screens are open; the IP line covers that.
 
 ### The setup prompt (any assistant)

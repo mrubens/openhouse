@@ -58,6 +58,9 @@ internal class SettingsLock(private val act: MainActivity) {
             "calendarGoogle" -> CalendarAccounts.google(act, act::immersive)
             "calendarICloud" -> CalendarAccounts.addICloud(act, act::immersive)
             "calendarLink" -> CalendarLinks.add(act, act::immersive)
+            "calendarPaste" -> CalendarLinks.paste(act, act::immersive) // pasted or typed here (a keyboard cover)
+            "albumPaste" -> withPin { PhotoAlbums.paste(act, act::immersive) }
+            "photoPhonesOn" -> act.sharePhotosOn()
             "googlePhotos" -> act.googlePhotos()
             // The setup's last step: PIN Lock on (with a recovery code unless linked), then the setup ends. Only while that
             // step is showing: anywhere else a first PIN is firstPin's.

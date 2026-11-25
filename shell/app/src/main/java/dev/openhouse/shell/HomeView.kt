@@ -88,7 +88,8 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
             if (on) main.post { web?.let { w -> w.requestFocus(); (act.getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as? android.view.inputmethod.InputMethodManager)?.showSoftInput(w, 0) } }
         }
         /** Night, and nobody using it: the backlight goes right down (on: true), back to normal on false. */
-        @JavascriptInterface fun dim(g: String?, on: Boolean) { if (ok(g)) main.post {
+        @JavascriptInterface fun dim(g: String?, dark: Boolean) { if (ok(g)) main.post {
+            val on = dark && !o.showWelcome && o.setupStep == null // never under the welcome or the setup
             val w = act.window; val a = w.attributes
             val want = if (on) 0.08f else android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
             if (a.screenBrightness != want) { a.screenBrightness = want; w.attributes = a }

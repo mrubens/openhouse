@@ -87,7 +87,7 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
   if (!inv.code) return { ok: false, text: `That doesn't look like the tablet's code: 12 letters and numbers, like K7QM-2XD9-HPA4. ${WHERE}` };
   const p = pairingFromCode(inv.code);
   // Where to ask: the address they gave, else every Opie answering on this Wi-Fi (only the one showing this code knows it).
-  // A name (openhouse.local, answered only while the Connect screen shows) becomes the tablet's address now, so the
+  // A name (opie.local, answered only while the Connect screen shows) becomes the tablet's address now, so the
   // pairing keeps working after the screen closes.
   let named = null;
   if (inv.base && !/^http:\/\/[\d.]+:/.test(inv.base)) {

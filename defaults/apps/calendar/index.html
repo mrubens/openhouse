@@ -75,7 +75,10 @@
     .wxm { display: flex; align-items: center; gap: calc(6 * var(--u)); font-size: calc(15 * var(--u)); font-weight: 600; letter-spacing: 0; color: var(--fg2); white-space: nowrap; }
     .sky { display: flex; }
     .wxm svg { width: calc(26 * var(--u)); height: calc(26 * var(--u)); color: var(--ink); flex: none; }
-    .band { grid-column: 1; min-width: 0; padding: calc(16 * var(--u)) 0 0 calc(8 * var(--u)); display: flex; flex-direction: column; gap: calc(6 * var(--u)); font-size: calc(15 * var(--u)); font-weight: 600; color: var(--fg2); z-index: 1; }
+    /* No z-index: the parts' names sit alone in the first column, where no day's column paints. With one, each was a
+       layer of its own inside the scrolling week, and Android's WebView drew one of them over the top
+       left of the page, a box the color of the screen behind it that hid the start of the month's name ("vember"). */
+    .band { grid-column: 1; min-width: 0; padding: calc(16 * var(--u)) 0 0 calc(8 * var(--u)); display: flex; flex-direction: column; gap: calc(6 * var(--u)); font-size: calc(15 * var(--u)); font-weight: 600; color: var(--fg2); }
     .band .icon { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
     .bline { grid-column: 1 / -1; height: 1px; background: var(--hair); align-self: start; z-index: 1; pointer-events: none; }
     .wcell { padding: calc(12 * var(--u)) calc(8 * var(--u)); display: flex; flex-direction: column; gap: calc(8 * var(--u)); min-width: 0; z-index: 2; }

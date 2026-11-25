@@ -177,5 +177,19 @@ object PhotoShare {
             }
         }
     }
+    /** Turned on after the same yes as [show], with no code to scan: the setup hands the link to the phone or
+     *  computer it was carried on from (ui/Setup.kt). Already on: nothing to ask. */
+    fun turnOn(a: Activity, immersive: () -> Unit) {
+        init(a)
+        thread {
+            if (state() != null) return@thread
+            main.post {
+                CalmDialog(a).setTitle("Let phones send photos here?")
+                    .setMessage("Anyone with the link can send photos, so give it only to the household.")
+                    .setPositiveButton("Turn on") { _, _ -> thread { fresh(); restartNow {} } }
+                    .setNegativeButton("Not now", null).show().also { immersive() }
+            }
+        }
+    }
     private fun init(c: Context) { if (!::ctx.isInitialized) ctx = c.applicationContext }
 }

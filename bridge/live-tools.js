@@ -166,6 +166,10 @@ export const SETUP_STEPS = {
 
 export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '', assistantName = () => 'Opie', now = () => '', json, body, talk = recentTalk(), household = null }) {
   let setupStep = null, setupAt = 0;
+  // Which setup step the tablet shows, whatever it is (the setup phone or computer follows it: chat/src/phone.jsx).
+  // On the photos step, the household's photo page (PhotoShare's link) once someone turned it on there: the setup
+  // phone or computer opens it, rather than a second code to scan.
+  let shownStep = null, shownAt = 0, shownPhotos = null;
   // Whether to stop listening is a small yes-or-no model's call (the cloud's decide, about a hundred-thousandth of a
   // cent each), given the whole conversation: never a list of words.
   let decide = null, convoStart = 0; // convoStart: when this conversation began (its /live/setup)
@@ -342,6 +346,8 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   async function handle(req, res, url) {
     if (req.method === 'POST' && url.pathname === '/setup/step') { // the display only (its secret), like every route here
       const b = await body(req); const s = String(b.step || ''); setupStep = SETUP_STEPS[s] ? s : null; setupAt = Date.now();
+      shownStep = /^[a-z]{1,20}$/.test(s) ? s : null; shownAt = setupAt;
+      shownPhotos = shownStep === 'photos' && /^https?:\/\/[^\s"'<>]{1,600}$/.test(String(b.photos || '')) ? String(b.photos) : null;
       json(res, 200, { ok: true, step: setupStep }); return true;
     }
     if (req.method === 'GET' && url.pathname === '/live/setup') {
@@ -380,5 +386,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   }
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
-  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device });
+  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,
+    /** The setup step on the tablet's screen now, or null (none, or shown more than an hour ago). */
+    setupShown: () => (shownStep && Date.now() - shownAt < 60 * 60e3 ? { step: shownStep, ...(shownPhotos ? { photos: shownPhotos } : {}) } : { step: null }) });
 }
