@@ -38,11 +38,14 @@ struct OpenHouseApp: App {
 
   /// A link from the tablet's code (scanned or pasted): its joining page, or the cloud page with a pairing.
   func join(_ u: URL) {
-    if let p = Pairing.from(url: u) { paired(p) } else { url = u }
+    if let p = Pairing.from(url: u) { Task { await paired(p) } } else { url = u }
   }
 
-  /// The page has joined (it went on to the cloud's copy with the pairing after #): keep it, and set up notes.
-  func paired(_ p: Pairing) {
+  /// The page has joined (it went on to the cloud's copy with the pairing after #): keep it, and set up notes. One that
+  /// would replace this phone's pairing with another is kept only if the person says so; false when they don't.
+  @discardableResult
+  func paired(_ p: Pairing) async -> Bool {
+    if let old = pairing, !old.sameAs(p), !(await Home.askToReplace()) { return false }
     let first = pairing?.id != p.id || pairing?.key != p.key
     var p = p
     if !first, let r = pairing?.relayURL { p.relayURL = r }
@@ -51,6 +54,24 @@ struct OpenHouseApp: App {
     if first {
       WidgetCenter.shared.reloadAllTimelines()
       Task { await Notes.turnOn(p) }
+    }
+    return true
+  }
+
+  /// Asks the person, natively, before this phone leaves the home it's joined to for another one.
+  private static func askToReplace() async -> Bool {
+    guard let top = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.keyWindow?.rootViewController }).first
+    else { return false }
+    var shown = top
+    while let next = shown.presentedViewController { shown = next }
+    if shown is UIAlertController { return false } // (already asking: a page asking again and again gets one question)
+    return await withCheckedContinuation { done in
+      let a = UIAlertController(title: "Join another home?",
+                                message: "This page wants this phone to join a different home. It would stop being joined to the one it's on now.",
+                                preferredStyle: .alert)
+      a.addAction(UIAlertAction(title: "Not now", style: .cancel) { _ in done.resume(returning: false) })
+      a.addAction(UIAlertAction(title: "Join it", style: .destructive) { _ in done.resume(returning: true) })
+      shown.present(a, animated: true)
     }
   }
 

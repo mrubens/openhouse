@@ -30,10 +30,32 @@ struct Pairing: Codable, Equatable {
   /// The cloud's address (for /send).
   var origin: String { URL(string: page).flatMap { u in u.host.map { "\(u.scheme ?? "https")://\($0)\(u.port.map { ":\($0)" } ?? "")" } } ?? "" }
 
-  /// From the cloud page's address, as the Wi-Fi page hands over to it after joining (phone.jsx cloudLink).
+  /// The same household's tablet and this phone's place on it (what a new pairing would replace if not).
+  func sameAs(_ o: Pairing) -> Bool { id == o.id && key == o.key && relay == o.relay }
+
+  /// The clouds this app was built to take a pairing from: OPENHOUSE_CLOUD_HOSTS (Config/Base.xcconfig), through the
+  /// app's Info.plist.
+  static let cloudHosts: Set<String> = {
+    let s = Bundle.main.object(forInfoDictionaryKey: "OpenHouseCloudHosts") as? String ?? ""
+    let hosts = s.split(whereSeparator: { $0 == " " || $0 == "," }).map { $0.lowercased() }
+    return hosts.isEmpty ? ["cloud.openhouse.computer"] : Set(hosts)
+  }()
+
+  /// Whether a pairing may come from this address: https on one of the app's clouds, or (debug builds only) plain
+  /// http to this computer, a local cloud while developing.
+  static func fromCloud(_ url: URL) -> Bool {
+    guard let host = url.host?.lowercased(), url.user == nil, url.password == nil else { return false }
+    if url.scheme == "https" { return cloudHosts.contains(host) && (url.port == nil || url.port == 443) }
+    #if DEBUG
+    if url.scheme == "http" { return ["localhost", "127.0.0.1"].contains(host) }
+    #endif
+    return false
+  }
+
+  /// From the cloud page's address, as the Wi-Fi page hands over to it after joining (phone.jsx cloudLink). Only from
+  /// the app's own clouds: any other page could otherwise swap this phone onto a home of its choosing.
   static func from(url: URL) -> Pairing? {
-    // https, or plain http only to this computer (a local cloud while developing).
-    guard let frag = url.fragment, let scheme = url.scheme, scheme == "https" || (scheme == "http" && ["localhost", "127.0.0.1"].contains(url.host ?? "")) else { return nil }
+    guard let frag = url.fragment, fromCloud(url) else { return nil }
     let parts = frag.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
     let ok = { (s: String) in !s.isEmpty && s.allSatisfy { $0.isLetter && $0.isASCII || $0.isNumber || $0 == "_" || $0 == "-" } }
     guard parts.count == 5, parts.allSatisfy(ok), parts[1].count == 43, B64.dec(parts[1])?.count == 32 else { return nil }
