@@ -110,7 +110,8 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       return { text: (r?.content || []).map((c) => c.text || '').join('\n').slice(0, 8000), isError: !!r?.isError };
     }
     if (TYPED.includes(name)) return { text: `${name} needs a conversation.`, isError: true };
-    return live.callTool(name, args);
+    // (a typed turn's: make_app's build then answers in writing, in this conversation, not aloud)
+    return live.callTool(name, args, run && run.by === 'chat' && !run.spoken ? { typed: { conversation: run.conversation || null } } : {});
   }
   const TEXT_PREAMBLE = (n, builds = false) => `You are ${n}, the assistant on a household's home-screen tablet. This turn was typed (or comes from the tablet itself), and your answer is shown on the screen: ` +
     'short and plain, like the spoken answers described below. Use your tools for anything about the household and never guess it. ' +
@@ -220,6 +221,14 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const load = (id) => readJson(file(id), null, { bak: false });
   const save = (c) => { c.updated = Date.now(); writeJson(file(c.id), c, { bak: false }); };
   const validId = (id) => /^[a-z0-9-]{6,40}$/.test(id || '');
+  /** A typed request's build ended without the app (builder.js): its conversation says so, as the assistant's next
+   *  line, so the last thing it says isn't a promise that didn't happen. */
+  function tell(id, text) {
+    if (!validId(id) || !String(text || '').trim()) return;
+    const c = load(id); if (!c) return;
+    c.turns.push({ role: 'assistant', text: String(text), at: Date.now() });
+    try { save(c); } catch (e) { console.error('[chat] not saved:', e.message); }
+  }
 
   /** What the app builder is doing, so "are you making it?" gets a real answer. */
   function buildLine() {
@@ -328,9 +337,9 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       });
     } catch {}
     try { // whatever goes wrong, the conversation is free again afterwards (else it answers "busy" forever)
-    ({ result, notes, ctx: run } = await homeScreen.during({ by: 'chat', who, conversation: c.id, send, turn: editTurn, signal: abort.signal, app: /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(b.app || '')) ? String(b.app) : null, crash: b.crash ? String(b.crash).slice(0, 2000) : null }, (run1) => agent.chat({
+    ({ result, notes, ctx: run } = await homeScreen.during({ by: 'chat', who, conversation: c.id, spoken, send, turn: editTurn, signal: abort.signal, app: /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(b.app || '')) ? String(b.app) : null, crash: b.crash ? String(b.crash).slice(0, 2000) : null }, (run1) => agent.chat({
       prompt, cwd: WORK, systemPrompt: systemPrompt(), signal: abort.signal, resume: c.sessions?.[name] || null, homeToken: run1.token, history, route: !onboard,
-      request: { text, who, app: b.app || null }, // (what was asked, on its own: a request to make an app goes to the builder as asked)
+      request: { text, who, app: b.app || null, conversation: spoken ? null : c.id }, // (what was asked, on its own: a request to make an app goes to the builder as asked; typed, how it went comes back here)
       onEvent: (e) => {
         if (e.kind === 'step') { if (steps.length < 80) steps.push([Date.now() - t0, String(e.text).slice(0, 80)]); return; }
         if (e.kind === 'warm') { warmed = e.warm; return; }
@@ -434,5 +443,5 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       return true;
     }
     return false;
-  }, { homeScreen, deviceServer, house, things, notes, board, hooks, live, voice, textTools, callText, textInstructions, busy: () => running.size > 0, work: WORK, summarizeDays, weather }); // homeScreen, deviceServer: for the workshop (workshop.js); the rest for the heartbeat (heartbeat.js)
+  }, { homeScreen, deviceServer, house, things, notes, board, hooks, live, voice, textTools, callText, textInstructions, tell, busy: () => running.size > 0, work: WORK, summarizeDays, weather }); // homeScreen, deviceServer: for the workshop (workshop.js); the rest for the heartbeat (heartbeat.js)
 }

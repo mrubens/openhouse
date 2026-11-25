@@ -119,7 +119,7 @@ edits.watch();
 // asks someone to choose one there); no answer keeps it waiting, on Home (build-waits.js). shellAsk, plugins, chat: below.
 const builder = builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json,
   ask: (card) => shellAsk(card), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), unmake: (id) => plugins.unmake(id), say: (t) => chat.voice.say(t),
-  line: (text) => chat.things.put({ text, minutes: 12 * 60, by: 'builder' }), changed: () => chat.house?.changed?.() });
+  line: (text) => chat.things.put({ text, minutes: 12 * 60, by: 'builder' }), changed: () => chat.house?.changed?.(), tell: (id, text) => chat.tell(id, text) });
 
 const devices = devicesRoutes({ HERE, json, body }); // first: it sets HOME_MCP_* for the agents
 const chat = chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body, building: () => events.state,
@@ -269,8 +269,10 @@ const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
   }, { available: () => !!chat.deviceServer() }),
 }) : null;
 import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud.decide, tools: chat.textTools, callTool: chat.callText, instructions: chat.textInstructions,
-  rails: buildHere, build: buildHere ? (text, o = {}) => builder.request(text, o.who || null, { app: o.app || null, ...(o.context ? { context: o.context } : {}) }) : null }));
-if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, { spoken: !o.phone }), builder.waits); // the voice's make_app (on the tablet: it says how it went), and a waiting one's card again
+  rails: buildHere, build: buildHere ? (text, o = {}) => builder.request(text, o.who || null, { app: o.app || null, ...(o.context ? { context: o.context } : {}), ...(o.conversation ? { conversation: o.conversation } : {}) }) : null }));
+// The voice's make_app (on the tablet: it says how it went), and a waiting one's card again. Typed (a written
+// conversation's make_app): how it went is written there instead, not said.
+if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, o.typed ? { conversation: o.typed.conversation || null } : { spoken: !o.phone }), builder.waits);
 // A hub (docs/hub.md) has no shell to own a USB drive: its backups go to a folder instead (a mounted drive, a share, a volume).
 const localDest = isHub() ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
 backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest], escrow: cloud.escrow, busy: () => !!edits.holder() });

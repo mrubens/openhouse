@@ -80,7 +80,8 @@ export function rails(deps) {
   /** One request: the builder's agent interface (builder.js runBuild). Resolves { ok, text, usage, model, card? }: card is
    *  what a grown-up is asked before it goes in (builder.js asks it; nothing is granted or kept here). */
   // Asked aloud: the voice may have gone quiet by now, so the tablet says why it didn't work (that it's ready for the
-  // card, the builder says as it shows it). A cancel says nothing.
+  // card, the builder says as it shows it). A cancel says nothing. Typed: the builder writes it in that conversation
+  // and the screen shows it (builder.js tell), so nothing is said.
   async function run(opts) {
     const r = await make(opts);
     if (!r.ok && opts.owner?.spoken && !opts.signal?.aborted && r.text) say(r.text);
@@ -102,7 +103,10 @@ export function rails(deps) {
       if (signal?.aborted) return { ok: false, text: 'Stopped.' };
       let r;
       try { r = await ai({ instructions, input: s.input, tools }); }
-      catch (e) { return { ok: false, text: e.code === 'http429' ? "I've used this month's allowance. Someone can see it on the family's account page." : `I couldn't make that right now (${e.message}).`, usage: s.usage }; }
+      catch (e) { // (in plain words for the family; what went wrong, for us, in the log)
+        log('model call failed:', e.code || '', e.message);
+        return { ok: false, text: e.code === 'http429' ? "I've used this month's allowance. Someone can see it on the family's account page." : "I couldn't make that just now: Opie's service didn't answer. Try asking again in a minute.", usage: s.usage };
+      }
       s.steps++;
       const u = r.usage || {};
       s.usage.input_tokens += u.input_tokens || 0; s.usage.output_tokens += u.output_tokens || 0; s.usage.cached_tokens += u.cached_tokens || u.input_tokens_details?.cached_tokens || 0;

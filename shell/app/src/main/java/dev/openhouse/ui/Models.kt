@@ -23,6 +23,8 @@ data class Answer(
     val notes: List<String> = emptyList(),
     /** Which turn this is (a newer conversation can take the screen while an older one finishes in the background). */
     val turnId: Long = System.nanoTime(),
+    /** Stays up until it's tapped away or someone asks something else (a typed request's build that didn't work). */
+    val stays: Boolean = false,
 )
 
 /** A note on the home screen: its shape on the home screen's grid ([size]: "2x1", cells across x down) and where it is. */
@@ -63,6 +65,8 @@ data class Build(
     val request: String, val who: String?, val startedAt: Long, val stage: String = "Starting", val plan: String? = null,
     val steps: List<String> = emptyList(), val live: String? = null, val done: Boolean = false, val ok: Boolean = true,
     val summary: String? = null, val endedAt: Long = 0, val app: String? = null,
+    /** Made, and its card is up: waiting for a grown-up's yes (nothing more is being made). */
+    val waiting: Boolean = false,
 )
 data class Turn(val role: String, val text: String, val who: String? = null, val live: Boolean = false, val status: String = "", val ok: Boolean = true, val notes: List<TurnNote> = emptyList())
 /** A note an answer put on the home screen, as it was then (it may have changed or come down since). */
