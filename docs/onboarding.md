@@ -13,7 +13,9 @@ On the tablet:
    control out of the setup and add it as the last step"): nothing is said aloud, nothing listens, and everything is
    tapped and typed. `Setup.hushed` keeps the microphone, the wake word and the live voice off while the welcome or a
    step before the voice step shows (`MainActivity.micWanted`, `LiveVoice`, `Speech.say`).
-   1. **Who lives here**: names, and an age or role.
+   1. **Who lives here**: names, and an age or role. + Add someone sits beside Next, and a new row takes the keys.
+      Every step's card is one width and never runs past the screen or Android's keyboard: what's in it scrolls, its
+      buttons stay below it.
    2. **Where do you live**: a street address by default, guessed from where the tablet is (Android's location and
       geocoder, only with location on), or just the town or the zip code. The address is kept with the household
       (`address`: Opie's for directions and the like, and the Map's once it's on; the Map looks it up then, not
@@ -47,7 +49,7 @@ On the tablet:
       to keep, since the account page resets the PIN; unlinking shows one first.
    7. **Talk to Opie**, the only step with a voice: "say “Hey Opie”, then what you'd like", three things to ask in
       the household's words ("Add milk to the list", "What's on tomorrow?", and an app in the children's names when
-      the household has any: `PluginsMenu.example`), a row of OpenAI's live voices, and the line the tablet always
+      the household has any: `PluginsMenu.example`), OpenAI's live voices in rows of six (all in view, nothing off the edge), and the line the tablet always
       uses: "What you say after “Hey Opie” goes to OpenAI." **Turn on Opie's voice** (a person's tap, behind the PIN
       when the lock is on: `CloudVoiceMenu.fromSetup`) sets the voice, turns the voice and Hey Opie on, and offers a
       try ("Say “Hey Opie, what's the weather?”") with Opie's face showing it listening; picking another voice then

@@ -89,7 +89,10 @@ internal object Setup {
     }
 }
 
-private class SetupPerson(name: String, note: String) { var name by mutableStateOf(name); var note by mutableStateOf(note) }
+private class SetupPerson(name: String, note: String) {
+    var name by mutableStateOf(name); var note by mutableStateOf(note)
+    val focus = androidx.compose.ui.focus.FocusRequester()
+}
 
 private fun getJson(path: String, readMs: Int = 4000): JSONObject? = runCatching { JSONObject(BridgeClient.getText(Openhouse.bridgeUrl + path, 2000, readMs)) }.getOrNull()
 
@@ -106,13 +109,15 @@ internal fun SetupSheet() {
     val pinSet = remember(Openhouse.settingsV) { Openhouse.host.locked() }
     val choosePin = step == "pin" && !pinSet
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later
+    val addPerson = remember(step) { arrayOf<() -> Unit>({}) } // who lives here: + Add someone, beside Next (never scrolled away under the keyboard)
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
-        // From the top, not centered: the card's top stays put from step to step. Every step is the same width. The
+        // From the top, not centered: the card's top stays put from step to step (the last, the voices, starts higher:
+        // it has the most to show, down to the line about OpenAI above its buttons). Every step is the same width. The
         // card never runs past the screen, or past Android's on-screen keyboard when it's up (a tablet with no keyboard
         // cover: imePadding, and nearer the top): what's in it scrolls, and Back, Skip and Next stay below it in reach.
         val ime = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
         Box(Modifier.fillMaxSize().background(Calm.scrim).clickable(enabled = false) {}.imePadding(), contentAlignment = Alignment.TopCenter) {
-            QuietCard(Modifier.padding(top = if (ime) 24.u else 110.u, bottom = 24.u).width(860.u), padding = PaddingValues(horizontal = 56.u, vertical = 48.u)) {
+            QuietCard(Modifier.padding(top = if (ime) 16.u else if (step == "voice") 36.u else 110.u, bottom = 16.u).width(860.u), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("${Setup.STEPS.indexOf(step) + 1} of ${Setup.STEPS.size}", style = calmText(17, color = Calm.soft), modifier = Modifier.weight(1f))
                     if (step != "voice") Chip("Later") { save[0](); Setup.finish() }
@@ -120,12 +125,16 @@ internal fun SetupSheet() {
                 Spacer(Modifier.height(12.u))
                 Text(title, style = calmText(Calm.DISPLAY, FontWeight.Medium))
                 Spacer(Modifier.height(20.u))
-                if (step == "voice") Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) { Spacer(Modifier.height(8.u)); VoiceStep() } // with its own buttons
-                else {
+                if (step == "voice") {
+                    val v = remember { VoiceUi() }
+                    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) { Spacer(Modifier.height(8.u)); VoiceStep(v) }
+                    Spacer(Modifier.height(28.u))
+                    VoiceButtons(v) // with its own buttons, below what scrolls
+                } else {
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                         Spacer(Modifier.height(8.u))
                         when (step) {
-                            "people" -> PeopleStep { save[0] = it }
+                            "people" -> PeopleStep({ addPerson[0] = it }) { save[0] = it }
                             "place" -> PlaceStep { save[0] = it }
                             "calendar" -> CalendarStep()
                             "photos" -> PhotosStep()
@@ -136,6 +145,7 @@ internal fun SetupSheet() {
                     Spacer(Modifier.height(28.u))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
                         if (Setup.STEPS.indexOf(step) > 0) TextButton("Back") { save[0](); Setup.back() }
+                        if (step == "people") TextButton("+ Add someone") { addPerson[0]() }
                         Spacer(Modifier.weight(1f))
                         if (step != "pin" || choosePin) TextButton("Skip") { Setup.next() }
                         MainButton(if (choosePin) "Choose a PIN" else "Next") { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }
@@ -353,14 +363,20 @@ private fun PhotosStep() {
  *  what goes to OpenAI; then Turn on Opie's voice (a person's tap: it's the yes to OpenAI) and a try, or Not now (it
  *  stays off and isn't turned on by itself later; Settings, Voice). Without a voice to turn on (the household doesn't
  *  have it yet, or the tablet isn't linked), it says so and how, and Done. */
-@Composable
-private fun VoiceStep() {
-    val o = Openhouse
+private class VoiceUi {
     // looking, ready (it can be turned on), on (the try), notYet, unlinked, noBridge
-    var state by remember { mutableStateOf(if (o.host.hasAssistant()) "on" else "looking") }
-    var voice by remember { mutableStateOf("marin") }
-    var problem by remember { mutableStateOf<String?>(null) }
-    var busy by remember { mutableStateOf(false) }
+    var state by mutableStateOf(if (Openhouse.host.hasAssistant()) "on" else "looking")
+    var voice by mutableStateOf("marin")
+    var problem by mutableStateOf<String?>(null)
+    var busy by mutableStateOf(false)
+}
+
+@Composable
+private fun VoiceStep(v: VoiceUi) {
+    val o = Openhouse
+    var state by v::state
+    var voice by v::voice
+    val problem = v.problem
     var example by remember { mutableStateOf(dev.openhouse.shell.PluginsMenu.example(emptyList())) }
     val voices = remember { o.host.voices() }
     LaunchedEffect(Unit) {
@@ -372,13 +388,13 @@ private fun VoiceStep() {
     LaunchedEffect(Unit) {
         while (true) {
             if (state in setOf("looking", "unlinked", "noBridge")) {
-                val v = withContext(Dispatchers.IO) { getJson("/cloud/voice?check=1", 15_000) }
-                if (state == "looking") v?.optString("voiceName")?.takeIf { it.isNotBlank() }?.let { voice = it }
+                val st = withContext(Dispatchers.IO) { getJson("/cloud/voice?check=1", 15_000) }
+                if (state == "looking") st?.optString("voiceName")?.takeIf { it.isNotBlank() }?.let { voice = it }
                 state = when {
-                    v == null -> "noBridge"
-                    v.optBoolean("on") -> "on"
-                    !v.optBoolean("linked") -> "unlinked"
-                    v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> "notYet"
+                    st == null -> "noBridge"
+                    st.optBoolean("on") -> "on"
+                    !st.optBoolean("linked") -> "unlinked"
+                    st.has("available") && !st.isNull("available") && !st.optBoolean("available") -> "notYet"
                     else -> "ready"
                 }
             }
@@ -402,9 +418,9 @@ private fun VoiceStep() {
                 } })
                 Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
                     Text("Choose a voice", style = calmText(21, FontWeight.Medium))
-                    // All of them in view: rows of five, each name one word on one line (no row running off the edge).
+                    // All of them in view: rows of six, each name one word on one line (no row running off the edge).
                     Column(verticalArrangement = Arrangement.spacedBy(8.u)) {
-                        voices.chunked(5).forEach { row ->
+                        voices.chunked(6).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(8.u)) {
                                 row.forEach { (id, about) ->
                                     Chip(about.substringBefore(" · "), Modifier.weight(1f), selected = voice == id) {
@@ -412,7 +428,7 @@ private fun VoiceStep() {
                                         if (state == "on") o.host.setupVoice("sample", id) // on: it says a line in the new voice
                                     }
                                 }
-                                repeat(5 - row.size) { Spacer(Modifier.weight(1f)) }
+                                repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
                     }
@@ -421,7 +437,10 @@ private fun VoiceStep() {
                     Soft((voices.firstOrNull { it.first == voice }?.second?.substringAfter(" · ", "")?.takeIf { it.isNotBlank() }?.let { "$it. " } ?: "") +
                         if (state == "on") "Tap another to hear it." else "You hear it once the voice is on.")
                 }
-                if (state == "ready") Text("What you say after “Hey Opie” goes to OpenAI.", style = calmText(21))
+                if (state == "ready") Column(verticalArrangement = Arrangement.spacedBy(6.u)) {
+                    Text("What you say after “Hey Opie” goes to OpenAI.", style = calmText(21))
+                    Soft("Not now leaves it off: it's in Settings, Voice.") // (here, not beside the buttons: the card is narrow)
+                }
                 if (state == "on") Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
                     Box(Modifier.size(172.u, 76.u), contentAlignment = Alignment.Center) { dev.openhouse.shell.AssistantFace(onLongPress = {}, wide = true) }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.u)) {
@@ -434,22 +453,26 @@ private fun VoiceStep() {
             }
         }
         problem?.let { Soft(it) }
-        Spacer(Modifier.height(8.u))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
-            TextButton("Back") { Setup.back() }
-            Spacer(Modifier.weight(1f))
-            if (state == "ready") {
-                Soft("Not now leaves it off: it's in Settings, Voice.")
-                TextButton("Not now") { o.host.setupVoice("off"); Setup.finish() }
-                MainButton(if (busy) "Turning on…" else "Turn on Opie's voice", enabled = !busy) {
-                    busy = true; problem = null
-                    o.host.setupVoice("on", voice) { r ->
-                        busy = false
-                        when (r) { "on" -> state = "on"; "notYet" -> state = "notYet"; else -> problem = r.ifBlank { null } }
-                    }
+    }
+}
+
+/** The voice step's buttons: Turn on Opie's voice (a person's tap: the yes to OpenAI) or Not now; else Done. */
+@Composable
+private fun VoiceButtons(v: VoiceUi) {
+    val o = Openhouse
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
+        TextButton("Back") { Setup.back() }
+        Spacer(Modifier.weight(1f))
+        if (v.state == "ready") {
+            TextButton("Not now") { o.host.setupVoice("off"); Setup.finish() }
+            MainButton(if (v.busy) "Turning on…" else "Turn on Opie's voice", enabled = !v.busy) {
+                v.busy = true; v.problem = null
+                o.host.setupVoice("on", v.voice) { r ->
+                    v.busy = false
+                    when (r) { "on" -> v.state = "on"; "notYet" -> v.state = "notYet"; else -> v.problem = r.ifBlank { null } }
                 }
-            } else MainButton("Done", enabled = state != "looking") { Setup.finish() }
-        }
+            }
+        } else MainButton("Done", enabled = v.state != "looking") { Setup.finish() }
     }
 }
 
@@ -467,29 +490,32 @@ private fun PinStep(set: Boolean) {
 
 /** Who lives here: names and an age or role, typed (what was saved before shows). */
 @Composable
-private fun PeopleStep(onSave: (() -> Unit) -> Unit) {
+private fun PeopleStep(onAdd: (() -> Unit) -> Unit, onSave: (() -> Unit) -> Unit) {
     val o = Openhouse
     val people = remember { mutableStateListOf<SetupPerson>() }
     var edited by remember { mutableStateOf(false) }
     val first = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { delay(300); runCatching { first.requestFocus() } } // keys go here, not to the home screen behind
+    // Someone added: their name has the keys, which brings it into view above the keyboard.
+    var added by remember { mutableStateOf<SetupPerson?>(null) }
+    LaunchedEffect(added) { added?.let { delay(100); runCatching { it.focus.requestFocus() } } }
     LaunchedEffect(Unit) {
         val saved = withContext(Dispatchers.IO) { o.loadHousehold() }?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
         if (!edited && saved.isNotEmpty()) { people.clear(); saved.forEach { people += SetupPerson(it.optString("name"), it.optString("note")) } }
         if (people.isEmpty()) people += SetupPerson("", "")
     }
+    onAdd { SetupPerson("", "").let { people += it; added = it }; edited = true }
     onSave { if (edited) o.saveHousehold(JSONObject().put("family", JSONArray(people.filter { it.name.isNotBlank() }.map { JSONObject().put("name", it.name.trim()).put("note", it.note.trim()) }))) }
     Column(verticalArrangement = Arrangement.spacedBy(12.u)) {
         people.forEachIndexed { i, p ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
-                Field(p.name, { p.name = it; edited = true }, "Name", Modifier.weight(1f), focus = if (i == 0) first else null, words = true)
+                Field(p.name, { p.name = it; edited = true }, "Name", Modifier.weight(1f), focus = if (i == 0) first else p.focus, words = true)
                 Field(p.note, { p.note = it; edited = true }, "Age 9, or Mom", Modifier.weight(1f))
                 Box(Modifier.size(44.u).clip(CircleShape).clickable { people.remove(p); edited = true; if (people.isEmpty()) people += SetupPerson("", "") }, contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.Close, "Remove", tint = PaperLook.inkSoft, modifier = Modifier.size(20.u))
                 }
             }
         }
-        Text("+ Add someone", style = calmText(19, FontWeight.Medium, Calm.soft), modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { people += SetupPerson("", ""); edited = true }.padding(vertical = 6.u))
     }
 }
 
