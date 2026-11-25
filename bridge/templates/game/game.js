@@ -2,7 +2,7 @@
 // move and draw, touch and keys, collisions, gravity and platforms, on-screen buttons, a score, particles, sounds, and
 // a "game over / play again" card. A game's own main.js imports it and only says what its things are and do.
 //
-//   import { start, add, remove, things, hit, near, button, pointer, keys, solids, burst, shake, beep, over, text, rand } from './game.js';
+//   import { start, add, remove, things, hit, near, keepIn, button, pointer, keys, solids, burst, shake, beep, over, text, rand } from './game.js';
 //   start({ background: '#0b1a2a', setup() { ... add things ... }, update(dt, t) { ... each frame ... }, draw(ctx) { ... over everything ... } });
 //
 // A thing is a plain object: { x, y, w, h } (its center and size, in world units), optional vx, vy (units/s),
@@ -23,6 +23,15 @@ export const add = (t) => { things.push(t); return t; };
 export const remove = (t) => { const i = things.indexOf(t); if (i >= 0) things.splice(i, 1); };
 /** Boxes overlap (centers and sizes). */
 export const hit = (a, b) => Math.abs(a.x - b.x) * 2 < a.w + b.w && Math.abs(a.y - b.y) * 2 < a.h + b.h;
+/** Keep a thing inside the world (the screen's edges); returns which edge it touched: 'left', 'right', 'top', 'bottom' or null. */
+export function keepIn(t) {
+  let edge = null;
+  if (t.x - t.w / 2 < 0) { t.x = t.w / 2; t.vx = Math.max(0, t.vx || 0); edge = 'left'; }
+  if (t.x + t.w / 2 > W) { t.x = W - t.w / 2; t.vx = Math.min(0, t.vx || 0); edge = 'right'; }
+  if (t.y - t.h / 2 < 0) { t.y = t.h / 2; t.vy = Math.max(0, t.vy || 0); edge = 'top'; }
+  if (t.y + t.h / 2 > H) { t.y = H - t.h / 2; t.vy = Math.min(0, t.vy || 0); t.onGround = true; edge = 'bottom'; }
+  return edge;
+}
 /** Centers within d. */
 export const near = (a, b, d) => Math.hypot(a.x - b.x, a.y - b.y) < d;
 export const solids = () => things.filter((t) => t.solid);
