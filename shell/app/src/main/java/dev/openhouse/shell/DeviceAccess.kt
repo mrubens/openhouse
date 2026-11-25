@@ -40,7 +40,6 @@ val AI_KEYS = setOf(1104 /* Samsung keyboard cover AI key */, android.view.KeyEv
 class DeviceAccess : AccessibilityService() {
     private val main = Handler(Looper.getMainLooper())
     private val wm by lazy { getSystemService(WindowManager::class.java) }
-    private var card: View? = null
     private var buddy: BuddyWindow? = null
 
     override fun onServiceConnected() {
@@ -276,76 +275,17 @@ class DeviceAccess : AccessibilityService() {
 
     fun hideStatus() = Buddy.act(null)
 
-    /**
-     * Ask the people in the room. Blocks the calling (server) thread until someone answers;
-     * no answer in [timeoutMs] counts as No. Nothing the agent sends can answer it: while it's up the device
-     * tools do nothing ([dev.openhouse.ui.PersonCards]), and its yes answers only a real finger. One card at a time:
-     * a second waits for the first.
-     * With [parent], only someone can say yes: the PIN on the card's own pad (no keyboard), right as its last
-     * digit goes in. Within the grace after an unlock (ParentGrace) the
-     * card just asks.
-     */
+    /** The approval card ([ApprovalCard]) as an accessibility overlay: over whatever app is in front. On the main thread. */
+    internal fun showOverlay(v: View) { wm.addView(v, overlayParams(-1, -1, Gravity.CENTER, false).apply { y = 0 }) }
+    internal fun hideOverlay(v: View) { runCatching { wm.removeView(v) } }
+
+    /** The "Is this OK?" card ([ApprovalCard.ask]), here over whatever app is in front. */
     fun approve(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false, yes: String = "Allow",
-                rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false): Boolean = synchronized(ASKING) {
-        val done = CountDownLatch(1)
-        val asking = dev.openhouse.ui.PersonCards.open(title)
-        var said = false
-        main.post {
-            card?.let { runCatching { wm.removeView(it) } }
-            // The shared look (Calm), as the shell's own dialogs; the house rules in docs/ux.md: the title is the
-            // question, one short line, the rights as a list (never behind More), then the verb.
-            val K = dev.openhouse.ui.Calm
-            val col = K.column(this).apply {
-                setPadding(K.px(this@DeviceAccess, 44), K.px(this@DeviceAccess, 40), K.px(this@DeviceAccess, 44), K.px(this@DeviceAccess, 32))
-                background = K.rounded(K.SHEET, K.R_SHEET * K.u(this@DeviceAccess)); elevation = 24f
-            }
-            col.addView(K.title(this, title))
-            if (detail.isNotBlank()) col.addView(K.text(this, detail, K.BODY, 400, K.SOFT).apply {
-                setPadding(0, K.px(this@DeviceAccess, 12), 0, 0)
-                maxHeight = K.px(this@DeviceAccess, 300)
-                movementMethod = android.text.method.ScrollingMovementMethod() // (no scrollbar: a TextView made in code has no drawable for one, and asking for it crashes)
-            })
-            // All of them, scrolling when there are many: never cut. At most 300 dp tall, so the PIN and buttons fit.
-            if (rights.isNotEmpty()) col.addView(dev.openhouse.ui.Calm.Capped(this, K.px(this@DeviceAccess, 330)).apply { addView(K.rights(this@DeviceAccess, rights)); isVerticalScrollBarEnabled = false },
-                android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(this@DeviceAccess, 22) })
-            more?.takeIf { it.isNotBlank() }?.let { col.addView(K.more(this, it), android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(this@DeviceAccess, 8) }) }
-            val row = K.row(this, 8).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; setPadding(0, K.px(this@DeviceAccess, 28), 0, 0) }
-            fun answer(a: Boolean) { if (done.count == 0L) return; said = a; done.countDown() }
-            val needPin = parent && ParentPin.isSet(this) && !ParentGrace.isOpen()
-            if (needPin) { // a yes: the PIN is the yes
-                col.addView(K.text(this, "Type the PIN to ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(this@DeviceAccess, 20), 0, 0) })
-                val pad = dev.openhouse.ui.PinPad(this, ParentPin.length(this)) { p, entry ->
-                    if (ParentPin.check(this, entry)) answer(true) else PinPrompt.showLock(p, this, "Wrong PIN")
-                }
-                PinPrompt.showLock(pad, this, null)
-                col.addView(pad, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(this@DeviceAccess, 8) })
-                row.addView(K.quiet(this, "Not now") { answer(false) })
-            } else {
-                row.addView(K.quiet(this, "Not now") { answer(false) })
-                var byHand: () -> Boolean = { false }
-                row.addView((if (danger) K::danger else K::primary)(this, yes) { if (byHand()) answer(true) }
-                    .also { byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
-            }
-            col.addView(row)
-            val dim = android.widget.FrameLayout(this).apply {
-                setBackgroundColor(K.SCRIM)
-                addView(col, android.widget.FrameLayout.LayoutParams(K.px(this@DeviceAccess, 760), -2, Gravity.CENTER))
-                isClickable = true // swallow taps meant for the app underneath
-            }
-            runCatching { wm.addView(dim, overlayParams(-1, -1, Gravity.CENTER, false).apply { y = 0 }) }
-            card = dim; Log.i(TAG, "asking: $title")
-        }
-        val answered = try { done.await(timeoutMs, TimeUnit.MILLISECONDS) } finally {
-            main.post { card?.let { runCatching { wm.removeView(it) } }; card = null }
-            dev.openhouse.ui.PersonCards.close(asking)
-        }
-        Log.i(TAG, "approval \"$title\": ${if (!answered) "timed out" else if (said) "yes" else "no"}")
-        answered && said
-    }
+                rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false): Boolean =
+        ApprovalCard.ask(title, detail, timeoutMs, parent, yes, rights, more, danger)
 
     companion object {
         const val TAG = "Device"
         @Volatile var instance: DeviceAccess? = null
-        private val ASKING = Object()
     }
 }

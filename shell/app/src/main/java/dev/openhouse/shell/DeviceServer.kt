@@ -213,22 +213,24 @@ object DeviceServer {
         val acc = DeviceAccess.instance
         return when (path) {
             "/approve" -> {
-                if (acc == null) return 200 to """{"yes":false,"why":"device access is off"}"""
+                // The shell's own card (ApprovalCard): with Device control off (a tablet set up by QR code) it's a
+                // window of the display, so plugin adds and rewards are asked there too.
+                if (acc == null && MainActivity.live == null) return 200 to """{"yes":false,"why":"the display isn't showing"}"""
                 // "pin": a yes that needs the PIN when the lock is on (a reward the kids saved stars for).
-                val ctx = acc.applicationContext
                 val parent = b.optBoolean("pin") && ParentPin.isSet(ctx)
                 // The card's words (docs/ux.md): a verb for the yes, what it may do as a list (always shown), and
-                // the rest behind More.
-                val rights = b.optJSONArray("rights")?.let { a -> (0 until minOf(a.length(), 40)).mapNotNull { a.optJSONObject(it) }.map { it.optString("kind").take(20) to it.optString("text").take(300) } }.orEmpty()
+                // the rest behind More. All of them, as the voice model gets them: one too long to show is a no, never cut.
+                val rights = b.optJSONArray("rights")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { it.optString("kind").take(20) to it.optString("text") } }.orEmpty()
+                val title = b.optString("title"); val detail = b.optString("detail"); val more = b.optString("more").ifBlank { null }
+                ApprovalCard.tooLong(title, detail, more, rights)?.let { return 200 to JSONObject().put("yes", false).put("why", "the card can't show all of it: $it").toString() }
                 val yesWord = b.optString("yes").trim().take(20).ifEmpty { "Allow" }
                 // Under the tools' lock: no device tool runs while the card is up, so none can answer it.
                 if (!lock.tryLock(60, java.util.concurrent.TimeUnit.SECONDS)) return 200 to JSONObject().put("yes", false).put("why", "the display is busy with $busyWith").toString()
                 val yes = try {
                     busyWith = "a question on screen for the people here"
-                    acc.approve(b.optString("title").take(120), b.optString("detail").take(if (b.optBoolean("pin")) 3000 else 200), parent = parent,
-                        yes = yesWord, rights = rights, more = b.optString("more").take(3000).ifBlank { null }, danger = b.optBoolean("danger"))
+                    ApprovalCard.ask(title, detail, parent = parent, yes = yesWord, rights = rights, more = more, danger = b.optBoolean("danger"))
                 } finally { busyWith = null; lock.unlock() }
-                acc.hideStatus()
+                acc?.hideStatus()
                 200 to JSONObject().put("yes", yes).toString()
             }
             // A phone hand-off link from one of the family's apps (Photos, Lists), through the share sheet. The apps run
