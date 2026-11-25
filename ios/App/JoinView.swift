@@ -11,7 +11,7 @@ struct JoinView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 20) {
-      Text("OpenHouse").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+      Text("Opie").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
       Text("Join your home").font(.largeTitle.weight(.semibold))
       Text("On the tablet: Settings, Screens, Add a screen, Someone's phone. Then scan the code it shows.")
         .foregroundStyle(.secondary)

@@ -1,4 +1,4 @@
-// "Hey Siri, ask OpenHouse…" and a Shortcuts action: a typed turn to Opie as this phone's person (POST /chat, the
+// "Hey Siri, ask Opie…" and a Shortcuts action: a typed turn to Opie as this phone's person (POST /chat, the
 // same as the page's Ask sheet), answered out loud by Siri.
 import AppIntents
 
@@ -8,7 +8,7 @@ struct AskOpie: AppIntent {
   @Parameter(title: "What to ask", requestValueDialog: "What should I ask Opie?") var text: String
 
   func perform() async throws -> some IntentResult & ProvidesDialog {
-    guard let p = PairingStore.load() else { return .result(dialog: "Open OpenHouse and join your home first.") }
+    guard let p = PairingStore.load() else { return .result(dialog: "Open Opie and join your home first.") }
     guard p.canAsk else { return .result(dialog: "This phone can't ask Opie.") }
     let t = Tablet(p); defer { t.close() }
     var body: [String: Any] = ["text": text]
@@ -32,7 +32,7 @@ struct AskOpie: AppIntent {
 
 struct Phrases: AppShortcutsProvider {
   static var appShortcuts: [AppShortcut] {
-    AppShortcut(intent: AskOpie(), phrases: ["Ask \(.applicationName)", "Tell \(.applicationName)", "Ask Opie in \(.applicationName)"],
+    AppShortcut(intent: AskOpie(), phrases: ["Ask \(.applicationName)", "Tell \(.applicationName)"],
                 shortTitle: "Ask Opie", systemImageName: "bubble.left")
   }
 }

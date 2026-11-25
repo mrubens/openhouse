@@ -53,7 +53,7 @@ struct TodayView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
       }
     } else {
-      Text(entry.paired ? "Not in touch with home yet." : "Open OpenHouse to join your home.").font(.caption).foregroundStyle(.secondary)
+      Text(entry.paired ? "Not in touch with home yet." : "Open Opie to join your home.").font(.caption).foregroundStyle(.secondary)
     }
   }
   func when(_ e: Glance.Event) -> String {
@@ -116,7 +116,7 @@ struct ListView: View {
       }
       .frame(maxWidth: .infinity, alignment: .leading)
     } else {
-      Text(entry.paired ? "Not in touch with home yet." : "Open OpenHouse to join your home.").font(.caption).foregroundStyle(.secondary)
+      Text(entry.paired ? "Not in touch with home yet." : "Open Opie to join your home.").font(.caption).foregroundStyle(.secondary)
     }
   }
 }

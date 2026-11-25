@@ -1,7 +1,7 @@
 // Shared settings. Your Apple team goes in Local.xcconfig (gitignored), e.g.:
 //   DEVELOPMENT_TEAM = ABCDE12345
 
-// The OpenHouse clouds this app takes a pairing from (hosts, space-separated). A self-hosted cloud adds its host in
+// The Opie clouds this app takes a pairing from (hosts, space-separated). A self-hosted cloud adds its host in
 // Local.xcconfig, e.g. OPENHOUSE_CLOUD_HOSTS = cloud.openhouse.computer cloud.example.org
 OPENHOUSE_CLOUD_HOSTS = cloud.openhouse.computer
 

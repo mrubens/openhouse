@@ -1,4 +1,4 @@
-// OpenHouse on an iPhone (docs/iphone-app.md): the household's phone page, the app's own copy (PhonePage.swift), in a web view, so the app
+// Opie on an iPhone (docs/iphone-app.md): the household's phone page, the app's own copy (PhonePage.swift), in a web view, so the app
 // is always the page the tablet's household has, plus what a page can't do: notes by APNs, the share sheet, widgets
 // and Siri. Joining is scanning the tablet's code here, which opens the tablet's own joining page in the web view.
 import SwiftUI

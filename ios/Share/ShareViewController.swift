@@ -25,7 +25,7 @@ final class ShareViewController: UIViewController {
   @Published var done = false
 
   func send(items: [NSExtensionItem]) async {
-    guard let p = PairingStore.load() else { return finish("Open OpenHouse and join your home first.") }
+    guard let p = PairingStore.load() else { return finish("Open Opie and join your home first.") }
     guard p.canAsk else { return finish("This phone can't ask Opie. That's chosen on the tablet, in Settings, Screens.") }
     guard let (body, type) = await Self.item(items) else { return finish("Nothing came through to send.") }
     guard let url = URL(string: p.origin + "/send") else { return finish("This phone isn't linked to the cloud.") }
