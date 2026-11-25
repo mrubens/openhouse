@@ -138,8 +138,12 @@ never holds a long-lived Google credential.
 3. The phone page and the tablet's card count along, "Copying 12 of 30…", then "Done". The photos are in Photos.
 
 **How the token moves** (`openhouse-cloud/lambda/google.ts`, `/g/start` and `/g/done`):
-- The phone page keeps its key in sessionStorage and goes to `/g/start?r=<its own address>`. The return address must
-  be the tablet's page on a home network (a private address, path `/`). The cloud sets a short cookie with a nonce
+- When the phone taps Sign in, the tablet (the shell, through the bridge's `/cloud/google/start` and the tablet's
+  credential) asks the cloud to start a sign-in for its page's own address and kind (`POST /v1/google/start {r, k?}`),
+  and the page gets back a one-time link, `/g/start?t=<ticket>` (15 minutes). The return address must be the tablet's
+  page on a home network (a private address, path `/`), and it is the one the tablet named, never one from the link.
+  (A cloud from before that route: the bridge hands back its old `/g/start?r=<address>` link instead.) The phone page
+  keeps its key in sessionStorage and opens the link. The cloud sets a short cookie with a nonce
   and sends the phone to Google with `scope=photospicker.mediaitems.readonly`, `access_type=online` (so no refresh
   token).
 - `/g/done` checks the nonce, exchanges the code (with the client secret) for an access token, and sends the phone

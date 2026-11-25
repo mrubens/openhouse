@@ -98,7 +98,8 @@ own upcoming events into it (each with its fixed id, so a second offer can't dou
 ## Google
 
 **Sign-in.** The same path as Google Photos (`docs/photos.md`, `openhouse-cloud/lambda/google.ts`): behind the PIN,
-the tablet shows a QR code; the phone opens the tablet's own page on the home Wi-Fi, then the cloud's `/g/start`,
+the tablet shows a QR code; the phone opens the tablet's own page on the home Wi-Fi, then the cloud's `/g/start` (a
+one-time link the tablet asked the cloud for, of kind cal),
 then Google's Allow screen. For calendars: `access_type=offline`, `prompt=consent`, the two scopes above. `/g/done`
 exchanges the code and sends the phone back to its page with the refresh token after `#` (never leaving the phone,
 never kept in the cloud); the page seals it for the tablet. The phone then shows the account's calendars to pick:

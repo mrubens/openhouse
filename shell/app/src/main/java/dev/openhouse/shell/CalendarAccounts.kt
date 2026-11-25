@@ -224,14 +224,19 @@ object CalendarAccounts {
         var dialog: android.app.Dialog? = null
         var got: String? = null
         var state = JSONObject().put("state", "start").put("kind", "cal")
+        var self: String? = null // this page's own address, where the sign-in comes back to
+        var link: String? = null // the phone's way to Google's sign-in, made when it taps Sign in
         val h = Handoff(a, JSONObject(), minutes = 15, page = "google.html", maxBytes = 8192, once = false,
-            infoNow = { JSONObject(state.toString()).put("cloud", cloud) },
+            infoNow = { JSONObject(state.toString()).put("cloud", cloud).apply { link?.let { put("signin", it) } } },
             onData = { bytes ->
-                val t = JSONObject(String(bytes, Charsets.UTF_8)).optString("refresh").takeIf { it.length in 20..2048 } ?: throw IllegalArgumentException("no token")
+                val j = JSONObject(String(bytes, Charsets.UTF_8))
+                if (j.optBoolean("start")) { link = GooglePhotos.signInLink(self ?: throw IllegalStateException("no page"), cal = true) ?: throw IllegalStateException("no link"); return@Handoff }
+                val t = j.optString("refresh").takeIf { it.length in 20..2048 } ?: throw IllegalArgumentException("no token")
                 if (got == null) { got = t; state = JSONObject().put("state", "signedin").put("kind", "cal"); main.post { dialog?.dismiss() } }
             },
             onEnd = { if (got == null) main.post { dialog?.dismiss() } })
         if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
+        self = h.url!!.substringBefore('#')
         val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
         val col = Calm.qr(a, qr, Calm.caption(a, "Scan with a phone on this Wi-Fi to sign in to Google. Then choose the calendars here."), 360) { Handoff.share(a, h.url!!) }
         dialog = CalmDialog(a).setTitle("Google Calendar").setWidth(560f).setView(col).setNegativeButton("Cancel", null)
