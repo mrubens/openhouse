@@ -18,6 +18,15 @@ All three reach the builder (`bridge/builder.js`), which takes the edit lock, sh
 shell's build line, and the app opens as it's written), commits one change that undo takes back, and puts everything
 back when a run fails or is cancelled. The builder's agent is `agents/cloud.js run`, which is `bridge/rails.js`.
 
+One build runs at a time. A request made while one is being made ("and make the unclear block say Library") waits
+its turn and runs right after it, as its own change with its own card, told what was being made so it lands in the
+same app. Up to three wait; `/cancel` clears them with the run. Opie calls `make_app` once for each change asked for.
+
+Asked aloud, the conversation stays while the app is being made (`chat/live/live-session.cjs`, `Host.building`): it
+says "Still making it." now and then, because OpenAI ends a session after 60 s with nothing said, for up to four
+minutes. When the app is ready for the card, the tablet says so (`rails.js say`), and the conversation ends as usual
+while the card waits for a tap. If the build doesn't work, the tablet says why.
+
 ## The rails (`bridge/rails.js`)
 
 1. **One app per request, named first.** The model's first call is `start`: a new `game` or `tab` with an id and a

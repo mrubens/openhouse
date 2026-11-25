@@ -44,10 +44,11 @@ Never write outside the app, never use alert/confirm/prompt, never load scripts,
  * look() -> MCP content of the tablet's screen or null (Device control off), approve(title, detail, pin, extra)
  * (server.js shellApprove: true, false, or null with no shell), madeHere(id, {uses}) and limited(id) (plugins.js),
  * show(app) (puts the app on the screen, so its errors are reported), review(q) (optional: a second model's look at the
- * code before it's done, the same call as ai; null for none), log }.
+ * code before it's done, the same call as ai; null for none), say(text) (the tablet says it aloud: for a request
+ * asked aloud, owner.spoken, that it's ready for the card or why it didn't work), log }.
  */
 export function rails(deps) {
-  const { ai, review = null, APP_DIR, guide = () => '', checkBuild = async () => ({ ok: true }), look = async () => null, approve = async () => null, madeHere = () => false, limited = () => false, show = () => {}, log = (...a) => console.log('[rails]', ...a) } = deps;
+  const { ai, review = null, APP_DIR, guide = () => '', checkBuild = async () => ({ ok: true }), look = async () => null, approve = async () => null, madeHere = () => false, limited = () => false, show = () => {}, say = () => {}, log = (...a) => console.log('[rails]', ...a) } = deps;
   const appsDir = path.join(APP_DIR, 'apps');
   const sessions = new Map(); // a run's conversation, for the builder's "fix what the page threw" round (resume)
 
@@ -69,7 +70,14 @@ export function rails(deps) {
   const metaOf = (text) => { try { const m = JSON.parse(text); return m && typeof m === 'object' && !Array.isArray(m) ? m : null; } catch { return null; } };
 
   /** One request: the builder's agent interface (builder.js runBuild). Resolves { ok, text, usage, model }. */
-  async function run({ prompt, signal, onEvent = () => {}, resume = null, owner = null }) {
+  // Asked aloud: the voice may have gone quiet by now, so the tablet says how it went (that it's ready for the card,
+  // or why it didn't work). A cancel says nothing.
+  async function run(opts) {
+    const r = await make(opts);
+    if (!r.ok && opts.owner?.spoken && !opts.signal?.aborted && r.text) say(r.text);
+    return r;
+  }
+  async function make({ prompt, signal, onEvent = () => {}, resume = null, owner = null }) {
     const who = owner?.who || null, asked = owner?.text || '';
     const id = resume && sessions.has(resume) ? resume : `r${Date.now().toString(36)}`;
     const s = sessions.get(id) || { input: [], target: null, kind: null, fresh: false, before: null, steps: 0, usage: { input_tokens: 0, output_tokens: 0, cached_tokens: 0 }, summary: '' };
@@ -118,6 +126,7 @@ export function rails(deps) {
     const isLimited = s.fresh || limited(s.target);
     const hosts = isLimited ? hostsOf(meta) : [];
     const name = String(meta.name || appName(s.target)).slice(0, 40);
+    if (owner?.spoken) say(s.fresh ? `${name} is ready. A grown-up can put it in on the tablet.` : `The change to ${name} is ready. A grown-up can put it in on the tablet.`);
     const yes = await approve(s.fresh ? `Put ${name} in Apps?` : `Put in the change to ${name}?`,
       `${who ? `${who} asked` : 'Asked'}: "${String(asked || '').slice(0, 200)}". ${String(s.summary || '').slice(0, 300)}`, true,
       { yes: 'Put it in', ...(isLimited ? { rights: rightsList([{ name, uses: asks, reaches: hosts }]) } : {}) });
