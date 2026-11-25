@@ -9,6 +9,7 @@ import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import { reviewCost } from './heartbeat-review.js';
+import { dayKey } from './dates.js';
 
 export const SENSE_RULES = `You add a line or two under a household's weather forecast on their home screen, where everyone sees it in passing. Below are the forecast, hour by hour and day by day, the household's people, and their plans for the next few days, all in the household's own clock.
 Write a line only when the weather meets their plans in a way worth knowing: rain, snow, wind, ice, heat or real cold at the time and place of something they're doing (school drop-off, a game, a drive, a party), or a clear change from today that matters to them. Say what it means for them, with the thing, its time and the person: "Rain all day Thursday: Thanksgiving at 4:30, leave a little early.", "23° at drop-off tomorrow: hats and gloves.", "Dry until about 7: Maya's soccer at 4 is fine."
@@ -18,8 +19,6 @@ Reply with only JSON: {"lines": [{"text": "...", "until": "2026-11-26T16:30"}]} 
 
 export const SENSE_CAPS = { perDay: 8, gapMs: 2 * 3600e3, slots: [6, 12] };
 
-const pad = (n) => String(n).padStart(2, '0');
-const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const hm = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 const cut = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 const textOf = (out) => (out || []).filter((o) => o.type === 'message').flatMap((o) => o.content || []).filter((c) => c.type === 'output_text').map((c) => c.text).join('');

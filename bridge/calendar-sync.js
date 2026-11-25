@@ -17,12 +17,11 @@ import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
 import crypto from 'node:crypto';
 import { parse } from './calendar.js';
+import { pad, dayKey } from './dates.js';
 
 const DAY = 86400e3;
 const MIN = 60e3;
 const str = (v, n = 200) => String(v ?? '').trim().slice(0, n);
-const pad = (n) => String(n).padStart(2, '0');
-const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const zone = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch { return 'UTC'; } };
 const RRULES = { daily: 'FREQ=DAILY', weekdays: 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', weekly: 'FREQ=WEEKLY', biweekly: 'FREQ=WEEKLY;INTERVAL=2', monthly: 'FREQ=MONTHLY', yearly: 'FREQ=YEARLY' };
 

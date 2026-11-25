@@ -10,6 +10,7 @@
 import { requestApp, showingTab } from './home-screen.js';
 import fs from 'node:fs';
 import path from 'node:path';
+import { dayKey } from './dates.js';
 
 export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json }) {
   const { emit, setState } = events;
@@ -69,7 +70,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
 
   // The bridge, not the agent, keeps the request log: saves the agent two turns.
   function appendMemory(text, who, summary) {
-    const d = new Date(), day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; // (the household's day: toISOString's is tomorrow by evening)
+    const day = dayKey(); // (the household's day: toISOString's is tomorrow by evening)
     const line = `- ${day}${who ? ' (' + who + ')' : ''}: "${text}" → ${summary.replace(/\s+/g, ' ').trim()}\n`;
     fs.appendFileSync(path.join(APP_DIR, 'MEMORY.md'), line);
   }

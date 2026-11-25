@@ -8,6 +8,7 @@ import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import { reviewCost } from './heartbeat-review.js';
+import { dayKey } from './dates.js';
 
 const DAY = 86400e3;
 export const SUMMARY_RULES = 'You keep a household assistant\'s diary. Below is what was said with it on one day, by voice or typed ' +
@@ -17,7 +18,6 @@ export const SUMMARY_RULES = 'You keep a household assistant\'s diary. Below is 
   'out greetings, small talk, and anything sensitive (health, money, passwords, arguments) unless they asked you to remember it. ' +
   'Nothing worth keeping: answer with one dash.';
 
-const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const textOf = (out) => (out || []).filter((o) => o.type === 'message').flatMap((o) => o.content || []).filter((c) => c.type === 'output_text').map((c) => c.text).join('');
 
 export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
@@ -29,7 +29,7 @@ export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
 
   /** One thing said or found (recentTalk's onAdd). */
   function log(x) {
-    try { fs.mkdirSync(TALK, { recursive: true }); fs.appendFileSync(path.join(TALK, `${dayKey(x.at)}.jsonl`), JSON.stringify(x) + '\n'); } catch (e) { console.error('[days]', e.message); }
+    try { fs.mkdirSync(TALK, { recursive: true }); fs.appendFileSync(path.join(TALK, `${dayKey(new Date(x.at))}.jsonl`), JSON.stringify(x) + '\n'); } catch (e) { console.error('[days]', e.message); }
   }
 
   /** Each day with talk not yet summed up: its lines rewritten. ai({instructions, input, tools, tier}) as the hourly review's.
@@ -51,7 +51,7 @@ export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
       }
       if (clock() - new Date(`${day}T00:00:00`).getTime() > 2 * DAY && days[day]?.upto >= (all.at(-1)?.at || 0)) try { fs.unlinkSync(path.join(TALK, f)); } catch {}
     }
-    const oldest = dayKey(clock() - keepDays * DAY);
+    const oldest = dayKey(new Date(clock() - keepDays * DAY));
     for (const k of Object.keys(days)) if (k < oldest) delete days[k];
     save();
     return done;
@@ -59,7 +59,7 @@ export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
 
   /** For a conversation's instructions: today's lines, then one line for each earlier day, newest first. */
   function describe() {
-    const today = dayKey(clock()), yesterday = dayKey(clock() - DAY);
+    const today = dayKey(new Date(clock())), yesterday = dayKey(new Date(clock() - DAY));
     const out = [];
     for (const k of Object.keys(days).sort().reverse()) {
       const text = String(days[k].text || '').trim(); if (!text) continue;

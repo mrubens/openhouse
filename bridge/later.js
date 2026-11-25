@@ -23,7 +23,6 @@ import { parseRule, nextAfter, ruleWords, fromOld } from './repeat-rule.js';
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 export const LATE = HOUR; // later than this, a missed one is dropped
 const MAX = 60; // kept at once
-const pad = (n) => String(n).padStart(2, '0');
 const hm = (t) => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 const whenText = (t, now) => {
   const d = new Date(t), a = new Date(now); a.setHours(0, 0, 0, 0); const b = new Date(t); b.setHours(0, 0, 0, 0);
