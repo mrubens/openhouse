@@ -126,7 +126,9 @@ function liveSession(Host) {
   function begin2() { started = true; Host.ready(true); for (const e of queue.splice(0)) send(e); lastAct = Date.now(); quietTimer(); }
   // It ends here: Host.idle() seconds after the last words heard or said, with nothing in the works (a request handed to
   // its text model or to the client, its tools, a web search, words waiting to be said) and nothing still playing.
-  let lastAct = Date.now(), work = 0, workAt = 0, qTimer = null, leaving = 0, toolsOut = 0; // leaving: when it was asked to go; toolsOut: tools the client is running
+  // An app being made (make_app) keeps it too, for a few minutes: it says so now and then (OpenAI's own timer ends a
+  // session after 60 s with nothing heard or said), and the tablet says when it's ready; then it ends as usual.
+  let lastAct = Date.now(), work = 0, workAt = 0, qTimer = null, leaving = 0, toolsOut = 0, holdAt = 0; // leaving: when it was asked to go; toolsOut: tools the client is running
   const working = (d) => { work = Math.max(0, work + d); workAt = Date.now(); lastAct = workAt; };
   function quietTimer() {
     if (qTimer) return;
@@ -139,6 +141,12 @@ function liveSession(Host) {
       if (work > 0 || pend.length || queue.length || rms(outAn) > 0.003) { lastAct = t; return; }
       // asked to go: once what it was saying has had time to start, and has played
       if (leaving && t - leaving > 1500 && t - lastAct > 400) { clearInterval(qTimer); Host.ended('asked to go'); return; }
+      const b = !leaving && Host.building ? Host.building() : '';
+      if (b && (holdAt = holdAt || t) && t - holdAt < 240000) {
+        if (t - lastAct > 40000) { lastAct = t; send({ type: 'session.instructions.append', delegation_id: null, content: 'Read the following exactly, without an introduction or explanation: <say>' + b + '</say>' }); }
+        return;
+      }
+      if (!b) holdAt = 0;
       if (t - lastAct > idle) { Host.log('quiet ' + idle / 1000 + ' s'); clearInterval(qTimer); Host.ended('quiet'); }
     }, 250);
   }

@@ -25,6 +25,8 @@ object ApprovalCard {
     private const val TAG = "Approval"
     private val main by lazy { Handler(Looper.getMainLooper()) }
     private val ASKING = Object()
+    /** A card is up, waiting for a person's tap (the live voice doesn't wait on it: LiveVoice building). */
+    @Volatile var open = false; private set
 
     /** What a card shows, all of it (the rights scroll, never cut): more than this and the card says no instead. The
      *  bridge's longest is a voice action's words (bridge/plugins.js ACTION_LIMITS: about 12,500 characters for one),
@@ -135,7 +137,9 @@ object ApprovalCard {
             if (runCatching { host.show(dim) }.onFailure { Log.w(TAG, "couldn't show the card: $it") }.isFailure) { answer(false); return@post }
             shown = dim; Log.i(TAG, "asking: $title")
         }
+        open = true
         val answered = try { done.await(timeoutMs, TimeUnit.MILLISECONDS) } finally {
+            open = false
             main.post { shown?.let { v -> runCatching { host.hide(v) }; (v.parent as? ViewGroup)?.removeView(v) }; shown = null }
             dev.openhouse.ui.PersonCards.close(asking)
         }
