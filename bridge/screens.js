@@ -222,7 +222,10 @@ export const frameHeaders = (host, reaches = '') => ({
  * dispatch(req, res, url): the bridge's own routes, after its secret is checked (server.js). A screen's opened
  * request is handed to it as if it came from the display, once its scopes allow it.
  */
-export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), lanTls = null, TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
+// How long a connection on the home network may take (screensRoutes startLan): its headers, its body, and with nothing
+// either way; checked every tick.
+export const LAN_TIMES = { headers: 20e3, request: 60e3, idle: 180e3, tick: 5e3 };
+export function screensRoutes({ HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), lanTls = null, TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
   // (no .bak: a phone taken off must not come back from an older copy)
   const state = readJson(registered('screens', FILE), null, { bak: false }) || { lan: false, screens: [] };
   state.screens ||= [];
@@ -273,24 +276,52 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     if (!t) return null;
     if (secureFor !== t.cert) { // (a new certificate: renewed, or a new name)
       if (secureLan) secureLan.setSecureContext({ key: t.key, cert: t.cert });
-      else secureLan = https.createServer({ key: t.key, cert: t.cert, minVersion: 'TLSv1.2' }, guarded('screens', onLan));
+      else secureLan = https.createServer({ key: t.key, cert: t.cert, minVersion: 'TLSv1.2' }, timed(guarded('screens', onLan)));
       secureFor = t.cert;
     }
     return secureLan;
   }
+  // The inner servers never listen themselves, so their own timeouts never run: each connection is timed here. A
+  // request's headers (and, on https, the handshake) must be in within LAN_MS.headers of the connection or of the last
+  // answer, its body within LAN_MS.request of its headers, and a connection with nothing either way for LAN_MS.idle
+  // is closed (a long poll answers within 25 s).
+  const conns = new Map(); // raw socket -> {due: a time it must be past by, or 0; read, wrote, at: its last bytes}
+  let lanTick = null;
+  function lanConnection(sock) {
+    const c = { due: Date.now() + LAN_MS.headers, read: 0, wrote: 0, at: Date.now() };
+    conns.set(sock, c);
+    sock.once('close', () => conns.delete(sock));
+    sock.once('error', () => sock.destroy());
+    sock.once('data', (first) => {
+      sock.pause(); sock.unshift(first);
+      ((first[0] === 0x16 && secureContext()) || plainLan).emit('connection', sock);
+      process.nextTick(() => sock.resume());
+    });
+  }
+  function sweepLan() {
+    const t = Date.now();
+    for (const [sock, c] of conns) {
+      if (sock.bytesRead !== c.read || sock.bytesWritten !== c.wrote) { c.read = sock.bytesRead; c.wrote = sock.bytesWritten; c.at = t; }
+      if ((c.due && t > c.due) || t - c.at > LAN_MS.idle) sock.destroy();
+    }
+  }
+  /** A request on one of those connections: its body is timed, then nothing until it's answered, then the next one's headers. */
+  const timed = (handler) => (req, res) => {
+    const c = conns.get(req.socket) || conns.get(req.socket?._parent); // (on https, the TLS socket over the raw one)
+    if (c) {
+      c.due = req.complete ? 0 : Date.now() + LAN_MS.request;
+      req.once('end', () => { if (!res.writableFinished) c.due = 0; });
+      res.once('finish', () => { c.due = Date.now() + LAN_MS.headers; });
+    }
+    return handler(req, res);
+  };
   function startLan() {
     if (lan) return;
-    if (TLS) lan = https.createServer(TLS, guarded('screens', onLan));
+    if (TLS) { lan = https.createServer({ ...TLS, headersTimeout: LAN_MS.headers, requestTimeout: LAN_MS.request }, guarded('screens', onLan)); lan.timeout = LAN_MS.idle; }
     else {
-      plainLan = http.createServer(guarded('screens', onLan));
-      lan = net.createServer((sock) => {
-        sock.once('error', () => sock.destroy());
-        sock.once('data', (first) => {
-          sock.pause(); sock.unshift(first);
-          ((first[0] === 0x16 && secureContext()) || plainLan).emit('connection', sock);
-          process.nextTick(() => sock.resume());
-        });
-      });
+      plainLan = http.createServer(timed(guarded('screens', onLan)));
+      lan = net.createServer(lanConnection);
+      lanTick = setInterval(sweepLan, LAN_MS.tick); lanTick.unref?.();
     }
     lan.on('error', (e) => { console.log('[screens] listener:', e.code || e.message); lan = null; });
     lan.listen(PORT, HOST, () => console.log(`[screens] on the home network, ${TLS ? 'https' : 'http and https'} :${PORT}`));
@@ -299,7 +330,8 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     if (!lan) return;
     for (const set of live.values()) for (const r of set) r.end();
     lan.close(); lan.closeAllConnections?.(); lan = null;
-    for (const srv of [plainLan, secureLan]) srv?.closeAllConnections?.();
+    for (const sock of conns.keys()) sock.destroy(); // (every connection it took, whichever server it went to)
+    conns.clear(); clearInterval(lanTick); lanTick = null;
     plainLan = null; secureLan = null; secureFor = null;
     console.log('[screens] off the home network');
   }
