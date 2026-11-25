@@ -115,7 +115,8 @@ object CameraLook {
             c.addView(K.text(a, "One picture, and none is kept.", 18f, 400, K.SOFT).apply { setPadding(0, K.px(a, 12), 0, 0) })
             val row = K.row(a, 8).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; setPadding(0, K.px(a, 28), 0, 0) }
             row.addView(K.quiet(a, "Not now") { finish(Result.No("They tapped Not now.")) })
-            row.addView(K.primary(a, "Allow") { allow() })
+            var byHand: () -> Boolean = { false } // a finger on the glass, not an injected tap (dev.openhouse.ui.PersonCards)
+            row.addView(K.primary(a, "Allow") { if (byHand()) allow() }.also { byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
             c.addView(row)
             put(c, 760)
             h.postDelayed({ finish(Result.No("Nobody answered on the screen.")) }, ASK_MS)

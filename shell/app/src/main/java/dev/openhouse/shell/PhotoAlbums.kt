@@ -276,7 +276,7 @@ object PhotoAlbums {
     fun offer(a: Activity, withPin: (() -> Unit) -> Unit, url: String, from: String, immersive: () -> Unit, done: (Boolean) -> Unit) {
         var answered = false
         val finish = { yes: Boolean -> if (!answered) { answered = true; done(yes) } }
-        CalmDialog(a).setTitle("Add an iCloud shared album?")
+        CalmDialog(a).setForPerson().setTitle("Add an iCloud shared album?")
             .setMessage(listOfNotNull(runCatching { java.net.URL(url).host }.getOrNull(), from.takeIf { it.isNotBlank() }?.let { "Sent by $it." }).joinToString("\n"))
             .setPositiveButton("Add") { _, _ -> if (DeviceServer.personOnly("Adding an album someone sent")) { finish(false); return@setPositiveButton }; withPin { thread { add(url); sync() }; finish(true) } }
             .setNegativeButton("Not now") { _, _ -> finish(false) }

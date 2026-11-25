@@ -262,7 +262,11 @@ class CalmDialog(private val c: Context) {
     private var more: CharSequence? = null
     private var rights: List<Pair<String, String>>? = null
     private var danger = false
+    private var forPerson = false
 
+    /** A yes to something asked from elsewhere (a device pairing, a link someone sent): while it's up Opie's screen
+     *  tools do nothing, and its main button answers only a real finger ([PersonCards]). */
+    fun setForPerson() = apply { forPerson = true }
     fun setTitle(t: CharSequence?) = apply { title = t }
     fun setMessage(t: CharSequence?) = apply { message = t }
     fun setView(v: View) = apply { view = v }
@@ -346,7 +350,11 @@ class CalmDialog(private val c: Context) {
             neutral?.let { n -> bar.addView(Calm.quiet(c, n.first) { act(n, DialogInterface.BUTTON_NEUTRAL) }.apply { setPadding(Calm.px(c, 4), 0, Calm.px(c, 20), 0) }) }
             bar.addView(View(c), LinearLayout.LayoutParams(0, 1, 1f))
             negative?.let { n -> bar.addView(Calm.quiet(c, n.first) { act(n, DialogInterface.BUTTON_NEGATIVE) }) }
-            positive?.let { p -> bar.addView((if (danger) Calm::danger else Calm::primary)(c, p.first) { act(p, DialogInterface.BUTTON_POSITIVE) }) }
+            positive?.let { p ->
+                var byHand: () -> Boolean = { true }
+                bar.addView((if (danger) Calm::danger else Calm::primary)(c, p.first) { if (byHand()) act(p, DialogInterface.BUTTON_POSITIVE) }
+                    .also { if (forPerson) byHand = PersonCards.yesOnlyByHand(it) })
+            }
             card.addView(bar, LinearLayout.LayoutParams(-1, -2))
         } else card.setPadding(card.paddingLeft, card.paddingTop, card.paddingRight, Calm.px(c, 40))
 
@@ -354,7 +362,8 @@ class CalmDialog(private val c: Context) {
         d.setContentView(holder)
         d.setCancelable(cancelable)
         if (cancelable) dev.openhouse.shell.addEdgeBack(holder) { d.cancel() } // the tablet hides the system's back: swipe in from an edge
-        d.setOnDismissListener { onDismiss?.invoke(it); Openhouse.settingsChanged() } // Settings, under it, reads its values again
+        var asking: Any? = null
+        d.setOnDismissListener { asking?.let(PersonCards::close); onDismiss?.invoke(it); Openhouse.settingsChanged() } // Settings, under it, reads its values again
         d.window?.apply {
             setBackgroundDrawable(ColorDrawable(0))
             setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
@@ -362,6 +371,7 @@ class CalmDialog(private val c: Context) {
             if (view?.let { hasField(it) } == true) setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
         d.show()
+        if (forPerson) asking = PersonCards.open(title?.toString() ?: "a question") { d.isShowing }
         d.window?.insetsController?.hide(WindowInsets.Type.systemBars()) // the tablet stays full screen
         view?.let { firstField(it)?.requestFocus() }
         return d

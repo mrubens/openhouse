@@ -260,7 +260,7 @@ internal object Screens {
 
     private fun confirm(a: MainActivity, pair: String, name: String, computer: Boolean = false, tv: Boolean = false, via: String = "") {
         if (tv) {
-            CalmDialog(a).setTitle("Let “$name” show photos and the calendar?").setMessage("It can't change anything.")
+            CalmDialog(a).setForPerson().setTitle("Let “$name” show photos and the calendar?").setMessage("It can't change anything.")
                 .setMore("A TV shows the photos, the calendar, today's chores, dinner and the grocery list. Linked devices, in Settings, removes it.")
                 .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
                 .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
@@ -269,7 +269,7 @@ internal object Screens {
         }
         if (computer) {
             // The name is the computer's own choice; how it asked isn't, and it could ask only with the code from this screen.
-            CalmDialog(a).setTitle("Let “$name” change this OpenHouse?")
+            CalmDialog(a).setForPerson().setTitle("Let “$name” change this OpenHouse?")
                 .setMessage(when (via) { "cloud" -> "It typed this tablet's code, through OpenHouse's cloud."; "wifi" -> "It typed this tablet's code, on this Wi-Fi."; else -> null })
                 .setRights(listOf("data" to "The lists, calendar, chores, notes and timers", "devices" to "The speakers and TVs", "apps" to "Makes and changes apps and tabs"))
                 .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
@@ -277,7 +277,7 @@ internal object Screens {
                 .setCancelable(false).show().also { a.immersive() }
             return
         }
-        CalmDialog(a).setTitle("Let “$name” show the home screen?").setMessage("It can tick lists and ask Opie. Not Settings or apps.")
+        CalmDialog(a).setForPerson().setTitle("Let “$name” show the home screen?").setMessage("It can tick lists and ask Opie. Not Settings or apps.")
             .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
             .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
             .setCancelable(false).show().also { a.immersive() }

@@ -278,15 +278,17 @@ class DeviceAccess : AccessibilityService() {
 
     /**
      * Ask the people in the room. Blocks the calling (server) thread until someone answers;
-     * no answer in [timeoutMs] counts as No. Nothing the agent sends can answer it: the agent's
-     * tool call is the thing waiting, and the server runs one action at a time.
+     * no answer in [timeoutMs] counts as No. Nothing the agent sends can answer it: while it's up the device
+     * tools do nothing ([dev.openhouse.ui.PersonCards]), and its yes answers only a real finger. One card at a time:
+     * a second waits for the first.
      * With [parent], only someone can say yes: the PIN on the card's own pad (no keyboard), right as its last
      * digit goes in. Within the grace after an unlock (ParentGrace) the
      * card just asks.
      */
     fun approve(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false, yes: String = "Allow",
-                rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false): Boolean {
+                rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false): Boolean = synchronized(ASKING) {
         val done = CountDownLatch(1)
+        val asking = dev.openhouse.ui.PersonCards.open(title)
         var said = false
         main.post {
             card?.let { runCatching { wm.removeView(it) } }
@@ -320,7 +322,9 @@ class DeviceAccess : AccessibilityService() {
                 row.addView(K.quiet(this, "Not now") { answer(false) })
             } else {
                 row.addView(K.quiet(this, "Not now") { answer(false) })
-                row.addView((if (danger) K::danger else K::primary)(this, yes) { answer(true) })
+                var byHand: () -> Boolean = { false }
+                row.addView((if (danger) K::danger else K::primary)(this, yes) { if (byHand()) answer(true) }
+                    .also { byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
             }
             col.addView(row)
             val dim = android.widget.FrameLayout(this).apply {
@@ -331,14 +335,17 @@ class DeviceAccess : AccessibilityService() {
             runCatching { wm.addView(dim, overlayParams(-1, -1, Gravity.CENTER, false).apply { y = 0 }) }
             card = dim; Log.i(TAG, "asking: $title")
         }
-        val answered = done.await(timeoutMs, TimeUnit.MILLISECONDS)
-        main.post { card?.let { runCatching { wm.removeView(it) } }; card = null }
+        val answered = try { done.await(timeoutMs, TimeUnit.MILLISECONDS) } finally {
+            main.post { card?.let { runCatching { wm.removeView(it) } }; card = null }
+            dev.openhouse.ui.PersonCards.close(asking)
+        }
         Log.i(TAG, "approval \"$title\": ${if (!answered) "timed out" else if (said) "yes" else "no"}")
-        return answered && said
+        answered && said
     }
 
     companion object {
         const val TAG = "Device"
         @Volatile var instance: DeviceAccess? = null
+        private val ASKING = Object()
     }
 }
