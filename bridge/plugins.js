@@ -744,7 +744,8 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   }
   const catalogSource = (c) => ({ kind: 'tar', url: c.tarball, sha256: c.sha256, label: "Opie's plugins", key: `catalog:${c.name}`, catalog: c });
   /** Where the household's plugin from the list (or from a link) is now: the source to look at for an update. */
-  const sourceOf = (e) => (String(e.source || '').startsWith('catalog:') ? e.source.slice(8) : String(e.source || '').replace(/@[^/]*$/, ''));
+  // (a tarball's is kept as its label, without https://)
+  const sourceOf = (e) => { const s = String(e.source || ''); return s.startsWith('catalog:') ? s.slice(8) : /\.(tgz|tar\.gz)$/i.test(s) ? (s.startsWith('https://') ? s : 'https://' + s) : s.replace(/@[^/]*$/, ''); };
 
   // ---- shared: from a link ----
   /**
@@ -865,13 +866,15 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     for (const n of p.apps) if (!from.has(n.id)) out.newRights.push(`a new app, ${rightsText([n])[0]}`);
     return out;
   }
-  function update(name, p, { who = null, by = null, keepTheirs = true } = {}) {
+  function update(name, p, { who = null, by = null, keepTheirs = true, source = null } = {}) {
     const e = readAll()[name];
     if (e?.kind !== 'shared') return { error: `No plugin from a link called ${name} is on this tablet.` };
     const d = updateDiff(name, p);
     if (d.changedHere.length && keepTheirs) return { error: `${d.changedHere.join(', ')} changed here since it was added, so it's the household's version now. Taking the new one replaces their changes (one undo brings them back): ask, then update again with replace.`, changedHere: d.changedHere };
     return inChange(`Update the ${e.title || name} plugin to ${p.version || p.commit?.slice(0, 7)}`, who, by, () => {
       const { skip, merged, ...rest } = e;
+      // From another place (its card said so): that is where it comes from now, reviewed only if it's Opie's list.
+      if (source) { rest.source = source.key || source.label; delete rest.reviewed; if (source.catalog) rest.reviewed = true; }
       const next = { ...rest, commit: p.commit, ...(p.sha256 ? { sha256: p.sha256 } : {}), version: p.version, title: p.title, updated: now(), apps: {} };
       const byFrom = new Map(Object.entries(e.apps || {}).map(([id, a]) => [a.from || id, id]));
       for (const a of p.apps) {
@@ -1115,6 +1118,38 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     const text = [`From ${f.e.version || f.e.commit?.slice(0, 7)} to ${p.version || p.commit?.slice(0, 7)}.`, ...(d.newRights.length ? ['It now also asks for:', ...d.newRights.map((l) => '- ' + l)] : []), 'Everything it may do then:', ...rightsMerged(p.apps).map((l) => '- ' + l)].join('\n');
     return { p, f, newer, changedHere: d.changedHere, newRights: d.newRights, text, rightsCard: [...d.newRights.map((t) => ({ kind: 'new', text: `New: ${t}` })), ...rightsList(p.apps)] };
   }
+  /** One fetched version of a plugin, as a hash of everything that would be put in (its files, look and tabs). */
+  const contentHash = (p) => sha(JSON.stringify({ name: p.name, commit: p.commit || null, sha256: p.sha256 || null, look: p.look || null, tabs: p.tabs || [],
+    apps: p.apps.map((a) => ({ id: a.id, meta: { ...a, files: undefined }, files: Object.keys(a.files).sort().map((k) => [k, sha(a.files[k])]) })) }));
+  // What Settings' check showed, by its hash, for a few minutes: its Update puts in exactly that, never a second fetch.
+  const CHECKED_MS = 5 * 60e3;
+  const checked = new Map(); // hash -> { name, was: { sha256, commit }, p, at }
+  function keepChecked(c) {
+    const t = Date.now();
+    for (const [h, x] of checked) if (t - x.at > CHECKED_MS) checked.delete(h);
+    while (checked.size >= 20) checked.delete(checked.keys().next().value);
+    const hash = contentHash(c.p);
+    checked.set(hash, { name: c.f.name, was: { sha256: c.f.e.sha256 || null, commit: c.f.e.commit || null }, p: c.p, at: t });
+    return hash;
+  }
+  /** The checked version under this hash, while it's fresh and the plugin is still as it was then; else null. */
+  function takeChecked(name, hash) {
+    const x = checked.get(String(hash || ''));
+    if (!x || x.name !== name || Date.now() - x.at > CHECKED_MS) return null;
+    const f = find(name);
+    if (!f || f.e.kind !== 'shared' || (f.e.sha256 || null) !== x.was.sha256 || (f.e.commit || null) !== x.was.commit) return null;
+    return { f, p: x.p };
+  }
+  /** The tablet's card for an update: what's new, everything it may do then, and where it's from when that isn't
+   *  where it came from before (then the PIN, always). */
+  function askUpdate(f, p, d, choice, { pin = false, source = null } = {}) {
+    const from = f.e.version || f.e.commit?.slice(0, 7), to = p.version || p.commit?.slice(0, 7);
+    const moved = !!source && sourceOf({ source: p.src.key || p.src.label }) !== sourceOf(f.e);
+    const rights = [...(moved ? [{ kind: 'from', text: p.src.catalog ? `From Opie's list, reviewed, not ${sourceOf(f.e)} as before.` : `From ${p.src.label}, not ${sourceOf(f.e)} as before. Not reviewed for Opie's list.` }] : []),
+      ...d.newRights.map((t) => ({ kind: 'new', text: `New: ${t}` })), ...rightsList(p.apps)];
+    return approve(`Update ${f.e.title}?`, choice === 'both' ? 'Their new version, with the household\'s changes kept.' : '', pin || moved || d.newRights.length > 0,
+      { yes: 'Update', rights, more: [from, to].filter(Boolean).join(' to ') }).then((yes) => ({ yes, moved }));
+  }
   /** One of the household's choices for an update: 'theirs' (replaces their changes), 'both' (merge), 'keep' (skip it). */
   async function choose(name, p, choice, ctx) {
     if (choice === 'keep') return keepOurs(name, p);
@@ -1264,12 +1299,10 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
         if (!choice) return err(`${d.changedHere.join(', ')} changed here since it was added, so it's the household's version (based on ${f.e.title} ${f.e.version || ''}). Ask which they want: keep theirs and skip this update, take the new version instead of their changes, or both (the new version's changes put onto theirs). Then update_plugin with choice keep, theirs or both.`);
         if (choice === 'keep') { const r = keepOurs(f.name, p); return r.error ? err(r.error) : ok(`Kept the household's ${f.e.title}; ${p.version || 'this version'} is skipped.`); }
         if (!approve) return err(cantAsk);
-        const from = f.e.version || f.e.commit?.slice(0, 7), to = p.version || p.commit?.slice(0, 7);
-                const yes = await approve(`Update ${f.e.title}?`, choice === 'both' ? 'Their new version, with the household\'s changes kept.' : '', d.newRights.length > 0, { yes: 'Update',
-          rights: [...d.newRights.map((t) => ({ kind: 'new', text: `New: ${t}` })), ...rightsList(p.apps)], more: [from, to].filter(Boolean).join(' to ') });
+        const { yes, moved } = await askUpdate(f, p, d, choice, { source: a.source || null });
         if (yes === null) return err(cantAsk);
         if (!yes) return err('Not updated: someone said no, or nobody answered.');
-        const r = await choose(f.name, p, choice, { who, by });
+        const r = await choose(f.name, p, choice, { who, by, ...(moved ? { source: p.src } : {}) });
         if (r.error) return err(r.error);
         return ok(choice === 'both' ? `Put ${p.title} ${r.version || ''}'s changes onto the household's version${r.note ? ': ' + r.note : '.'}` : `Updated ${f.e.title} to ${r.version || 'the newest'}.`);
       }
@@ -1348,15 +1381,24 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       // An update from Settings: what it is first (check), then the household's choice (update).
       if (url.pathname === '/plugins/check') {
         const c = await check(String(b.name || ''));
-        json(res, c.error ? 409 : 200, c.error ? c : { name: c.f.name, title: c.f.e.title, from: c.f.e.version, version: c.p.version, newer: c.newer, changedHere: c.changedHere, newRights: c.newRights, text: c.text, rights: c.rightsCard, basedOn: `${c.f.e.title} ${c.f.e.version || ''}`.trim() });
+        json(res, c.error ? 409 : 200, c.error ? c : { name: c.f.name, title: c.f.e.title, from: c.f.e.version, version: c.p.version, newer: c.newer, changedHere: c.changedHere, newRights: c.newRights, text: c.text, rights: c.rightsCard, basedOn: `${c.f.e.title} ${c.f.e.version || ''}`.trim(), ...(c.newer ? { hash: keepChecked(c) } : {}) });
         return true;
       }
+      // Settings' Update: exactly the version its check fetched (by hash), never another fetch, behind the same card
+      // as Add (a person's tap, with the PIN), showing what's new. Keeping the household's own version asks nothing.
       if (url.pathname === '/plugins/update') {
-        const c = await check(String(b.name || ''));
-        if (c.error) { json(res, 409, c); return true; }
+        const name = String(b.name || ''), c = takeChecked(name, b.hash);
+        if (!c) { json(res, 409, { error: 'That update needs looking at again: check for it once more.', again: true }); return true; }
         const choice = ['keep', 'theirs', 'both'].includes(b.choice) ? b.choice : 'theirs';
-        if (c.changedHere.length && !b.choice) { json(res, 409, { error: 'Changed here: choose keep, theirs or both.', changedHere: c.changedHere }); return true; }
+        const d = updateDiff(c.f.name, c.p);
+        if (d.changedHere.length && !b.choice) { json(res, 409, { error: 'Changed here: choose keep, theirs or both.', changedHere: d.changedHere }); return true; }
+        if (choice !== 'keep') {
+          const { yes } = approve ? await askUpdate(c.f, c.p, d, choice, { pin: true }) : { yes: null };
+          if (yes === null) { json(res, 409, { error: cantAsk }); return true; }
+          if (!yes) { json(res, 200, { declined: true, title: c.f.e.title }); return true; }
+        }
         const r = await choose(c.f.name, c.p, choice, { who: 'someone' });
+        if (!r.error) checked.delete(String(b.hash));
         json(res, r.error ? 409 : 200, r); return true;
       }
       if (url.pathname === '/plugins/remove') { const r = remove(String(b.name || ''), { who: 'someone' }); json(res, r.error ? 409 : 200, r); return true; }
