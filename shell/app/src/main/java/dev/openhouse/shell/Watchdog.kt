@@ -20,11 +20,10 @@ import java.util.concurrent.TimeUnit
  * never holds up the screen and a hung one doesn't pile up threads. What only the display's window can do (kiosk mode,
  * first-time setup's screen, opening the new display) it asks of the activity that's live, if there is one.
  *
- * Why not a foreground service: the runtime is this process's children (proot, Node), which go when the process
- * goes, so nothing in another component can outlive what it watches; a service in this process has the same lifetime
- * as this object. The process is kept as it is: it's the tablet's home and lock-task app, its device owner, and holds
- * the bound accessibility service (DeviceAccess). A foreground service would add a standing notification and, on
- * Android 14 and later, a declared type that doesn't fit ("specialUse"), for nothing the tablet needs.
+ * Not itself a service: the runtime is this process's children (proot, Node), which go when the process goes, so
+ * nothing in another component can outlive what it watches; a service in this process has the same lifetime as this
+ * object. While it runs, though, a foreground service (KeepOnline) does: without one, Android cuts this UID off the
+ * network whenever another app is in front, and the runtime, in the same UID, with it.
  */
 internal object Watchdog {
     private const val TAG = "Watchdog"
@@ -40,6 +39,7 @@ internal object Watchdog {
     /** Start it, once per process (again only after [stop]). The first tick comes after [firstS] seconds. */
     fun start(c: Context, firstS: Long = 15) = synchronized(this) {
         app = c.applicationContext
+        KeepOnline.start(app) // every time (it's a no-op when up): started from the display, which is in front now
         if (runtime != null) return@synchronized
         fun lane(name: String) = Executors.newSingleThreadScheduledExecutor { r -> Thread(r, name).apply { isDaemon = true } }
         // At a fixed rate: a tick that overruns (a hung server's probes time out) is followed at once, never overlapped.
@@ -50,7 +50,7 @@ internal object Watchdog {
 
     fun stop() = synchronized(this) {
         runtime?.shutdownNow(); updates?.shutdownNow()
-        if (runtime != null) Log.i(TAG, "stopped")
+        if (runtime != null) { Log.i(TAG, "stopped"); KeepOnline.stop(app) }
         runtime = null; updates = null
     }
 
