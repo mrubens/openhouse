@@ -112,12 +112,13 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     if (TYPED.includes(name)) return { text: `${name} needs a conversation.`, isError: true };
     return live.callTool(name, args);
   }
-  const TEXT_PREAMBLE = (n) => `You are ${n}, the assistant on a household's home-screen tablet. This turn was typed (or comes from the tablet itself), and your answer is shown on the screen: ` +
+  const TEXT_PREAMBLE = (n, builds = false) => `You are ${n}, the assistant on a household's home-screen tablet. This turn was typed (or comes from the tablet itself), and your answer is shown on the screen: ` +
     'short and plain, like the spoken answers described below. Use your tools for anything about the household and never guess it. ' +
-    'You can\'t make or change an app\'s or a game\'s code: someone does that from their computer with their own Claude or ChatGPT (Settings, then Screens and computers). ' +
+    (builds ? 'You don\'t write an app\'s or a game\'s code yourself: make_app has the tablet make or change one, and a grown-up says yes there. '
+      : 'You can\'t make or change an app\'s or a game\'s code: someone does that from their computer with their own Claude or ChatGPT (Settings, then Screens and computers). ') +
     'Tabs, their order and names, and the look of the home screen are set_home.\n\n---\n\n';
   const textInstructions = () => { const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
-    return TEXT_PREAMBLE(nameOf()) + read('CHAT.md') + '\n\n---\n\n' + read('NOTES.md') + prefsBlock(); };
+    return TEXT_PREAMBLE(nameOf(), live.tools().some((t) => t.name === 'make_app')) + read('CHAT.md') + '\n\n---\n\n' + read('NOTES.md') + prefsBlock(); };
   const prefsBlock = () => {
     const p = readPrefs(), d = days.describe();
     return (p.length ? `\n\nWHAT THIS HOUSEHOLD TOLD YOU TO REMEMBER (facts about them and how they like things; these win over the defaults above)\n${p.map((x) => '- ' + x).join('\n')}` : '') +
@@ -329,6 +330,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     try { // whatever goes wrong, the conversation is free again afterwards (else it answers "busy" forever)
     ({ result, notes, ctx: run } = await homeScreen.during({ by: 'chat', who, conversation: c.id, send, turn: editTurn, signal: abort.signal, app: /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(b.app || '')) ? String(b.app) : null, crash: b.crash ? String(b.crash).slice(0, 2000) : null }, (run1) => agent.chat({
       prompt, cwd: WORK, systemPrompt: systemPrompt(), signal: abort.signal, resume: c.sessions?.[name] || null, homeToken: run1.token, history, route: !onboard,
+      request: { text, who, app: b.app || null }, // (what was asked, on its own: a request to make an app goes to the builder as asked)
       onEvent: (e) => {
         if (e.kind === 'step') { if (steps.length < 80) steps.push([Date.now() - t0, String(e.text).slice(0, 80)]); return; }
         if (e.kind === 'warm') { warmed = e.warm; return; }

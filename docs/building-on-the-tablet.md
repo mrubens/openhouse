@@ -31,8 +31,8 @@ back when a run fails or is cancelled. The builder's agent is `agents/cloud.js r
 3. **Its own files only.** Writes go into the started app's folder, flat, `.js .css .html .json .svg`, 200 KB each, a
    dozen files. A change can't touch what an app may do in `app.json` (`uses`, `reaches`, `background`, `screens`…).
 4. **Checked before it's done.** `check_build` and `done` run the workshop's file checks (`bridge/app-check.js`: every
-   script parses, what `index.html` loads is there) and what the page threw on the tablet. With Device control on,
-   the model has `look_at_tablet`, a picture of the screen with the app on it. In the eval, looking was what caught
+   script parses, what `index.html` loads is there) and what the page threw on the tablet. With Device control on
+   (the default on a set-up tablet: `docs/device-control.md`), the model has `look_at_tablet`, a picture of the screen with the app on it. In the eval, looking was what caught
    pages that loaded without errors but looked broken.
 5. **A budget**: 30 model calls, and a stop when it makes the same call four times.
 6. **A grown-up's yes.** The approval card ("Put Dino Eggs in Apps?", with the PIN) says who asked, what was made, and

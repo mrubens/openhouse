@@ -239,7 +239,7 @@ const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
   }, { available: () => !!chat.deviceServer() }),
 }) : null;
 import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud.decide, tools: chat.textTools, callTool: chat.callText, instructions: chat.textInstructions,
-  rails: buildHere, build: buildHere ? (text) => builder.request(text) : null }));
+  rails: buildHere, build: buildHere ? (text, o = {}) => builder.request(text, o.who || null, { app: o.app || null, ...(o.context ? { context: o.context } : {}) }) : null }));
 if (buildHere) chat.live.setBuild?.((text, who) => builder.request(text, who)); // the voice's make_app
 // A hub (docs/hub.md) has no shell to own a USB drive: its backups go to a folder instead (a mounted drive, a share, a volume).
 const localDest = isHub() ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });

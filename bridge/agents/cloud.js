@@ -9,7 +9,7 @@ let deps = null; // { ai, decide?, tools(), callTool(name, args, homeToken), ins
 // quick things and everyday questions here; making or changing an app is for a computer, said plainly at once.
 const ROUTE = [{ type: 'choice', name: 'route', instructions: "A family member said this to their kitchen tablet's assistant. What does it need?",
   choices: [{ value: 'household', description: 'The calendar, lists, chores, stars, rewards, routines, meals, notes, the weather, the family, or an everyday question or chat' },
-    { value: 'tablet', description: 'Making, building or changing the code of an app or a game (not the home screen\'s tabs, order or look: those are household)' },
+    { value: 'tablet', description: 'Making a new app, game or tab, or changing how one of the apps looks or works (its text, colors, layout, what it shows or lets them do). Not the home screen\'s tabs, their order or its overall look, and not the family\'s things themselves (an event, a list item, a chore): those are household' },
     { value: 'not_for_it', description: 'Not meant for the assistant (people talking to each other, the TV, a fragment)' }] }];
 /** The route question, with what the household's apps offer the voice (plugins' voice actions, <app>__<action>) as household. */
 export function routeFor(tools = []) {
@@ -31,9 +31,10 @@ const textOf = (out) => out.filter((o) => o.type === 'message').flatMap((o) => o
 /**
  * One turn: prompt (with the household's context), history [{role, text}] (this conversation's earlier turns),
  * systemPrompt (the rules; the household's own by default), homeToken (the turn's run, so its tools act as part of it),
- * route false for a background turn or the first conversation (no "is this for me?" question first).
+ * route false for a background turn or the first conversation (no "is this for me?" question first), request {text, who,
+ * app} what was asked on its own (a request to make an app goes to the builder as it was asked, the prompt as its context).
  */
-export async function chat({ prompt, onEvent = () => {}, signal, homeToken = null, route = true, history = [], systemPrompt = null }) {
+export async function chat({ prompt, onEvent = () => {}, signal, homeToken = null, route = true, history = [], systemPrompt = null, request = null }) {
   if (!deps) return { ok: false, text: "I can't think right now: the cloud assistant isn't ready." };
   const before = (Array.isArray(history) ? history : []).filter((t) => t && t.text).map((t) => ({ role: t.role === 'assistant' ? 'assistant' : 'user', content: String(t.text) }));
   const input = [...before, { role: 'user', content: String(prompt || '') }], tools = deps.tools(), instructions = systemPrompt || deps.instructions();
@@ -41,9 +42,10 @@ export async function chat({ prompt, onEvent = () => {}, signal, homeToken = nul
   if (deps.decide && route) {
     const a = await deps.decide(String(prompt || ''), routeFor(tools)).catch(() => null);
     const r = a?.answers?.[0];
-    if (r?.choice === 'tablet' && (r.confidence ?? 1) >= 0.6) {
+    // (only when it's clear: anything less goes to the model, which has make_app and the household's tools both)
+    if (r?.choice === 'tablet' && (r.confidence ?? 1) >= 0.7) {
       // Made here, on rails (builder.js shows it working and opens the app); a computer when building here is off.
-      const started = deps.build ? await deps.build(String(prompt || '')).catch(() => null) : null;
+      const started = deps.build ? await deps.build(String(request?.text || prompt || ''), { who: request?.who || null, app: request?.app || null, context: request ? String(prompt || '') : null }).catch(() => null) : null;
       const text = started?.ok ? BUILDING : started?.busy ? BUSY : NEEDS_COMPUTER;
       onEvent({ kind: 'delta', text }); return { ok: true, text };
     }
