@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "openhouse",
-  "version": "1.0.0+1551e9f41ca6",
+  "version": "1.0.0+b99689307304",
   "description": "Change your household's OpenHouse from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.",
   "author": {
     "name": "OpenHouse",

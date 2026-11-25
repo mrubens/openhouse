@@ -1,6 +1,6 @@
 ---
 name: notes
-description: "How a note on the OpenHouse Today tab should read (title, first line, what to leave out), before putting one up or changing one."
+description: "How a note on the OpenHouse Home tab should read (title, first line, what to leave out), before putting one up or changing one."
 ---
 
 THE FEEL OF A NOTE (read this before you put one up)
@@ -36,4 +36,4 @@ someone needs to be home."
 
 ---
 
-This copy of the OpenHouse guide is version 1551e9f41ca6. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.
+This copy of the OpenHouse guide is version b99689307304. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.

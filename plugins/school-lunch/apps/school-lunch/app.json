@@ -1,5 +1,6 @@
 {
   "name": "School lunch",
+  "kit": 1,
   "tabIcon": "basket",
   "background": true,
   "uses": [

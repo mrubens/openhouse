@@ -1,5 +1,6 @@
 {
   "name": "Word puzzle",
+  "kit": 1,
   "tabIcon": "puzzle-piece",
   "background": true,
   "today": {

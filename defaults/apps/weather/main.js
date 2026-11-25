@@ -30,7 +30,7 @@ function ask(note = '') {
     e.preventDefault();
     const place = f.place.value.trim(); if (!place) return;
     f.querySelector('button').disabled = true;
-    try { await setLocation(place); } catch { return ask("That didn't save. Try again."); }
+    if ((await setLocation(place))?.ok === false) return ask("That didn't save. Try again.");
     const w = await weather();
     w ? draw(w) : ask(`Couldn't find ${place}. Try a ZIP code.`);
   };

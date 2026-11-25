@@ -1,5 +1,6 @@
 {
   "name": "Air quality",
+  "kit": 1,
   "tabIcon": "drop",
   "background": true,
   "uses": [

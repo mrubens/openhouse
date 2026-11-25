@@ -54,6 +54,7 @@ import { newCode, pairingFromCode } from './pair-code.js';
 import { responder, page as connectPage, downloads, extensionCopy, HOSTNAME } from './connect-page.js';
 import * as push from './web-push.js';
 import { homePath } from './home-screen.js';
+import { kitFile } from './kit-version.js';
 
 export { newCode, pairingFromCode };
 
@@ -173,8 +174,10 @@ export function appFileList(APP_DIR, id, kitDir) {
   };
   walk(root, '', 0);
   const kit = new Set(['openhouse.js']);
-  for (const x of out) if (TEXT.has(path.extname(x.rel)) && fs.statSync(x.f).size < FILE_MAX) for (const m of fs.readFileSync(x.f, 'utf8').matchAll(/\/kit\/([\w-]+(?:\.[\w-]+)+)/g)) kit.add(m[1]);
-  for (const k of [...kit].sort()) { const f = path.join(kitDir, k); if (kitDir && fs.existsSync(f) && fs.statSync(f).isFile()) out.push({ rel: 'kit/' + k, f }); }
+  for (const x of out) if (TEXT.has(path.extname(x.rel)) && fs.statSync(x.f).size < FILE_MAX) for (const m of fs.readFileSync(x.f, 'utf8').matchAll(/\/kit\/((?:v\d{1,3}\/)?[\w-]+(?:\.[\w-]+)+)/g)) kit.add(m[1]);
+  // (/kit/openhouse.js is the kit version its app.json names, kit-version.js)
+  let v = null; try { v = JSON.parse(fs.readFileSync(path.join(root, 'app.json'), 'utf8')).kit; } catch {}
+  for (const k of [...kit].sort()) { const n = kitFile(k, Number.isInteger(v) ? v : null), f = n && path.join(kitDir, n); if (kitDir && f && fs.existsSync(f) && fs.statSync(f).isFile()) out.push({ rel: 'kit/' + k, f }); }
   return out;
 }
 /** Does it import an installed library (three, phaser: what the tablet's dev server finds by name)? A phone's frame

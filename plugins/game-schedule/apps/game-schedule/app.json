@@ -1,5 +1,6 @@
 {
   "name": "Game days",
+  "kit": 1,
   "tabIcon": "soccer-ball",
   "background": true,
   "uses": [

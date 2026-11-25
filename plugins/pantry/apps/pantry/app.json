@@ -1,5 +1,6 @@
 {
   "name": "Pantry",
+  "kit": 1,
   "tabIcon": "cooking-pot",
   "background": true,
   "uses": [

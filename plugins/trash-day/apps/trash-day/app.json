@@ -1,5 +1,6 @@
 {
   "name": "Trash day",
+  "kit": 1,
   "tabIcon": "recycle",
   "background": true,
   "today": { "size": "small" },

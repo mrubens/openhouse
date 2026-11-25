@@ -1,5 +1,6 @@
 {
   "name": "Trivia night",
+  "kit": 1,
   "tabIcon": "trophy",
   "background": true,
   "uses": [

@@ -1,6 +1,6 @@
 {
   "name": "laundry",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Says when the wash is done: by watching a smart plug's power if the tablet can read one, else from a timer. A line on Home and out loud.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",

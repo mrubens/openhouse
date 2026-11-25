@@ -34,4 +34,4 @@ as icons (draw them in inline SVG), no sparkle symbols.
 
 ---
 
-This copy of the OpenHouse guide is version 1551e9f41ca6. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.
+This copy of the OpenHouse guide is version b99689307304. If the OpenHouse connector's guide is another version (its instructions, or get_guide with topic "home", say which), use get_guide instead and tell the person once that the OpenHouse plugin needs updating.

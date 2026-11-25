@@ -1,5 +1,6 @@
 {
   "name": "Bedtime",
+  "kit": 1,
   "tabIcon": "bed",
   "background": true,
   "today": {

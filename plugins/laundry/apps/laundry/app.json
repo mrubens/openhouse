@@ -1,5 +1,6 @@
 {
   "name": "Laundry",
+  "kit": 1,
   "tabIcon": "washing-machine",
   "background": true,
   "uses": [

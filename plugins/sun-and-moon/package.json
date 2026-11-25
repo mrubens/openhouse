@@ -1,6 +1,6 @@
 {
   "name": "sun-and-moon",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Sunrise, sunset, the day's length and the moon's phase: a small card for Home and answers for the voice. Worked out on the tablet; nothing is sent anywhere.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",
