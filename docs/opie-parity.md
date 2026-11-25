@@ -14,7 +14,8 @@ the tablet", and from a phone, that it's on the tablet itself. The rules that do
 - What is person-only (`DeviceServer.personOnly`: turning on email, allowing a held email, Opie uses apps and other
   switches that widen what Opie may do, ways out of OpenHouse, saying yes to a calendar or album someone sent, or to the account that entered the link code) needs a
   person's own tap, PIN or not. Opie can open the screen; the tap is theirs.
-- PIN Lock itself (turning it off, changing the PIN) and leaving kiosk mode: Opie only opens the screen. Asking Opie to
+- PIN Lock itself (turning it off, changing the PIN, Forgot PIN? and its Reset with your account, whose code card is
+  a person card with the PIN pad's mark) and leaving kiosk mode: Opie only opens the screen. Asking Opie to
   take off the lock that guards against Opie makes no sense, and leaving kiosk mode takes the tablet out of OpenHouse.
 
 `test/house.test.mjs` checks the PIN can't be got round: Opie's change to a locked calendar or a reward goes through

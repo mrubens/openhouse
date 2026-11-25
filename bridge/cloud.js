@@ -11,6 +11,9 @@
 //   POST /cloud/link/token {token, api?, name}  link with a setup token (the setup QR carried it; no code to type)
 //   POST /cloud/report {shellLog, note, version}  Send a report (Settings → Advanced, after a yes there): the shell's
 //                                    log, the tails of the runtime's logs and the waiting app fixes, gzipped, to the service
+//   POST /cloud/pin-reset/start      the shell only ("Forgot PIN?", Reset with your account): a code for a signed-in
+//                                    member of this tablet's family to type on the account page -> {display, url, expiresAt}
+//   POST /cloud/pin-reset/poll       the shell only: {status: 'waiting' | 'approved' | 'expired', by}; approved once
 //   (mail.js uses mailApi/mailFetch: the household's address and its waiting mail, docs/tablet-email.md)
 //   POST /cloud/google/refresh {refresh_token}  the shell only: a two-way Google calendar's access token (calendar-sync.js)
 //   POST /cloud/google/start {r, k?}  the shell only: a Google sign-in for its phone page at r (assets/google.html) -> {url}
@@ -135,6 +138,25 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     if (r.status !== 200) throw new Error(r.json?.error || `the service answered ${r.status}`);
     if (ok && r.json?.status === 'linked') keep(l.api, r.json);
     return status();
+  }
+
+  // --- a forgotten PIN, reset through the account ----------------------------------------------------------------
+  // The shell's "Forgot PIN?" (docs/settings.md): the service gives a code and a poll token; a member signed in to the
+  // account page of this tablet's own family types the code there, and the poll then says approved, once. The poll
+  // token stays here; the shell only hears the code to show and the answer. The PIN itself is only ever the shell's.
+  let pinReset = null;
+  async function pinResetStart() {
+    const r = await call('POST', '/v1/device/pin-reset/start', {});
+    pinReset = { poll: String(r.pollToken || ''), until: now() + Number(r.expiresIn || 0) * 1000 };
+    return { display: String(r.display || ''), url: String(r.url || ''), expiresAt: new Date(pinReset.until).toISOString() };
+  }
+  async function pinResetPoll() {
+    const p = pinReset;
+    if (!p || now() > p.until) { pinReset = null; return { status: 'expired' }; }
+    const r = await call('POST', '/v1/device/pin-reset/poll', { pollToken: p.poll });
+    const status = ['waiting', 'approved'].includes(r?.status) ? r.status : 'expired';
+    if (status !== 'waiting' && pinReset === p) pinReset = null;
+    return { status, by: status === 'approved' ? String(r.by || '').slice(0, 120) : null };
   }
 
   /** The family's name as the service has it now; a 401 here (unlinked from the web) drops the link (call). */
@@ -277,6 +299,10 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       case '/cloud/link/start': await reply(res, () => linkStart(String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
       case '/cloud/link/confirm': await reply(res, () => linkAnswer(b.ok === true)); return true;
       case '/cloud/link/cancel': linking = null; json(res, 200, { ok: true }); return true;
+      // The shell's own (its token, on this tablet): never a paired device's call, which a hub would pass on here.
+      case '/cloud/pin-reset/start': case '/cloud/pin-reset/poll':
+        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the tablet only' }); return true; }
+        await reply(res, p === '/cloud/pin-reset/start' ? pinResetStart : pinResetPoll); return true;
       case '/cloud/report': await reply(res, () => sendReport(b)); return true;
       case '/cloud/link/token': await reply(res, () => linkToken(String(b.token || ''), String(b.api || ''), String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
       case '/cloud/voice': await reply(res, () => voiceSet(!!b.on)); return true;
