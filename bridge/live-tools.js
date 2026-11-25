@@ -157,6 +157,7 @@ export const SETUP_STEPS = {
   people: 'Who lives here. Save names (and, for children, ages; pets count too) with update_household as you hear them, passing everyone so far each time. Don\'t assume there are children.',
   place: 'Where they live. The screen may show a guess at their street address (below). They can say it\'s right, correct it, or give just a town or zip code (any is fine; a street address helps with directions). Save a street address with update_household {home_address}, a town or zip with {location}.',
   devices: 'Carrying on from their phone or computer: they scan the code on the screen, or type it on a computer. Calendars, photos and inviting the family are done there. Help only if asked.',
+  pin: 'The last step: a PIN for settings and approvals, which they can skip. A person types it on the tablet\'s keypad; never ask anyone to say a PIN aloud (you never see or hear it). Help only if asked.',
 };
 const SETUP_TOOL = { name: 'update_household', description: 'Save who lives here and where. family replaces the whole list, so pass everyone so far; location is a town or zip code. Only what they said.',
   inputSchema: { type: 'object', properties: { family: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, note: { type: 'string', description: 'an age for a child, or a role: "9", "Mom", "the dog"' } } } }, location: { type: 'string', description: 'a town or a zip code' }, home_address: { type: 'string', description: 'their street address, as they said it' } } } };

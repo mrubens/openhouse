@@ -149,8 +149,15 @@ internal class CloudMenu(private val act: MainActivity) {
         }
     }
 
-    /** Behind a PIN, set first if there's none (SettingsLock.withPinSet): unlinked, the account's way back in goes. */
+    /** Behind a PIN, set first if there's none (SettingsLock.withPinSet): unlinked, the account's way back in goes. A
+     *  PIN chosen while linked has no recovery code (the account resets it: PinPrompt.choose), so one is shown and
+     *  kept first, since unlinked it's the way back in. */
     private fun unlink() = act.lock.withPinSet(back = { show() }) {
+        if (!ParentPin.hasRecovery(act)) PinPrompt.showCode(act, RecoveryCode.new(), keep = { ParentPin.setRecovery(act, it); unlinkNow() }, back = { show() })
+        else unlinkNow()
+    }
+
+    private fun unlinkNow() {
         CalmDialog(act).setTitle("Unlink this tablet?").setMessage("Its backups stay in the account.")
             .setPositiveButton("Unlink") { _, _ -> thread { val r = post("/cloud/unlink"); ui { if (r?.optBoolean("ok") == true) act.toast("Unlinked") else say("Unlink", r?.optString("error") ?: noBridge) } } }
             .setNegativeButton("Cancel", null).open()

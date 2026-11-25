@@ -84,6 +84,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Row | Opie | Notes |
 | --- | --- | --- |
 | Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN; then it chooses there |
+| "Turn on Opie?", asked once when a linked household's voice becomes available and nobody here had said yes | no, on purpose | personOnly: it's the yes to what goes to OpenAI (and the voice is off then, so there's no Opie to ask) |
+| The first setup's last step, Choose a PIN | no, on purpose | As PIN Lock: Opie can't choose or see a PIN; it's told the step is showing and never to ask for a PIN aloud |
 | Family: who, ages or roles, colours, where, chores | **new** | update_household (was typed-only). Leaving someone out of the list is refused unless they're named in taking_off |
 | Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the row, the tablet asks for the PIN, Opie carries on there; adding one by link is add_calendar |
 | What Opie remembers | yes | remember_preference, forget_preference |

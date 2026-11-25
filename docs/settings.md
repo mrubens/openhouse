@@ -102,7 +102,10 @@ One switch, PIN Lock: Off or On.
 Choosing a PIN on the tablet, from PIN Lock or from "Set a PIN first", ends with its **recovery code**: 16 characters
 (XXXX-XXXX-XXXX-XXXX, the same alphabet as the backups' code: no I, L, O or U). Nothing is saved until someone taps
 "I've kept it", so a PIN never exists without its code having been shown; the card can't be swiped away, and Cancel
-leaves no PIN at all. The tablet keeps only a salted PBKDF2 hash of the code, as it does for the PIN.
+leaves no PIN at all. The tablet keeps only a salted PBKDF2 hash of the code, as it does for the PIN. A tablet
+linked to an account skips the code (Reset with your account, below, is the way back in), and so does the first
+setup's Choose a PIN step there; Unlink this tablet then shows a code to keep before it unlinks, so an unlinked
+tablet's PIN still always has one.
 
 "Forgot PIN?" under the PIN pad takes that code, or the backups' recovery code (Account, Backups), and then a new
 PIN, which comes with a new code. So if a child sets a PIN to lock someone out, whoever kept the backups' code still
