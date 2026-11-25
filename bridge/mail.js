@@ -220,7 +220,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
   async function handle(req, res, url) {
     const p = url.pathname;
     if (!/^\/mail(\/|$)/.test(p)) return false;
-    if (req.headers['x-openhouse-app']) { json(res, 403, { error: 'Only the display can do that.' }); return true; }
+    if (req.headers['x-openhouse-app'] || req.headers['x-openhouse-screen-app']) { json(res, 403, { error: 'Only the display can do that.' }); return true; }
     if (req.method === 'GET' && p === '/mail') { json(res, 200, view()); return true; }
     if (req.method !== 'POST') { json(res, 405, { error: 'POST' }); return true; }
     const b = await body(req);
