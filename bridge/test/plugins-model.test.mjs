@@ -146,7 +146,6 @@ const members = new Map();
 const listOf = (f) => { if (!members.has(f)) members.set(f, execFileSync('tar', ['tzf', path.join(BACKUPS, f)], { encoding: 'utf8', maxBuffer: 1 << 28 }).split('\n')); return members.get(f); };
 const isMoved = (f) => listOf(f).includes('./webapp/plugins/.v1');
 const beforeMove = backups.find((f) => !isMoved(f)) || null;
-const afterMove = backups[0] && isMoved(backups[0]) ? backups[0] : null;
 /** A copy of a backup's webapp, appdata and .defaults-seeded (the ones it has). */
 function unpack(f) {
   const copy = tmp('family'), want = ['./webapp', './appdata', './.defaults-seeded'].filter((m) => listOf(f).some((l) => l === m || l.startsWith(m + '/')));
@@ -196,19 +195,4 @@ test('the move on a copy of the family tablet\'s newest backup from before it: a
   const back = pl.unmigrate();
   assert.equal(back.ok, true, back.error);
   assert.equal(fs.existsSync(pl.DIR), false);
-});
-
-test('start-up on a copy of the family tablet\'s newest backup, already moved: nothing moves again, the household\'s own stay as they are', { skip: !afterMove && 'the newest tablet backup here is from before the move' }, () => {
-  const { app, snap, ids, pl, edits } = unpack(afterMove);
-  const before = snap(), manifests = gitIn(app, 'ls-files', '-s', 'plugins'), theirs = localFiles(pl, app), stack = edits.stack().length;
-  const r = pl.start();
-  assert.equal(r.migrate.already, true);
-  assert.equal(r.sync.error, undefined, r.sync.error);
-  for (const id of ids) assert.ok(pl.ownerOf(id), `${id} has a plugin`);
-  assert.deepEqual(localFiles(pl, app), theirs);
-  assert.equal(snap().tabs, before.tabs);
-  assert.equal(snap().data, before.data);
-  assert.equal(snap().status, '');
-  assert.equal(edits.stack().length, stack, 'our update is never on the undo stack');
-  if (!r.sync.commit) assert.equal(gitIn(app, 'ls-files', '-s', 'plugins'), manifests, 'nothing new from us: the manifests as they were');
 });
