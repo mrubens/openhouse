@@ -5,6 +5,7 @@
 //   GET  /cloud/status[?check=1]     linked?, the family, a link code being shown (check: ask the service first)
 //   POST /cloud/config {api}         the service's address (a self-hosted one, or the emulator's local server)
 //   POST /cloud/link/start {name}    a code to show; the bridge waits for someone to enter it on the web
+//   POST /cloud/link/confirm {ok}    yes or no to the account that claimed the code (status: linking.confirm {family, by})
 //   POST /cloud/link/cancel          POST /cloud/unlink
 //   GET  /cloud/health-bits          the bridge's part of the shell's check-in (agent, model, last error type)
 //   POST /cloud/link/token {token, api?, name}  link with a setup token (the setup QR carried it; no code to type)
@@ -87,12 +88,22 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     return status();
   }
 
+  /** The service's answer that carries the tablet's credential (a code's poll, or a yes to the account that claimed it). */
+  function keep(base, j) {
+    write('device.json', { api: base, deviceId: j.deviceId, credential: j.credential, family: j.family?.name || '', name: j.name, linkedAt: iso(), rotatedAt: iso() });
+    setState({ unlinkedAt: null, unlinkedWhy: null });
+  }
+
+  // A code someone types on the web. The tablet asks the service to confirm: once the code is claimed, the poll says
+  // which account claimed it and who ({status: 'confirm', family, by}), and the credential comes only after someone at
+  // the tablet says yes (linkAnswer, from Settings → Account's person card). An older service that doesn't know
+  // confirm answers 'linked' straight away, as before.
   async function linkStart(name) {
     const base = api();
     if (!base) throw new Error('No cloud address is set.');
-    const r = await request(base + '/v1/link/start', { method: 'POST', body: JSON.stringify({ name }) });
+    const r = await request(base + '/v1/link/start', { method: 'POST', body: JSON.stringify({ name, confirm: true }) });
     if (r.status !== 200) throw new Error(r.json?.error || `the service answered ${r.status}`);
-    const l = { api: base, display: r.json.display, url: r.json.url, poll: r.json.pollToken, until: now() + r.json.expiresIn * 1000 };
+    const l = { api: base, display: r.json.display, url: r.json.url, poll: r.json.pollToken, until: now() + r.json.expiresIn * 1000, confirm: null };
     linking = l;
     (async () => {
       while (linking === l && now() < l.until) {
@@ -100,18 +111,28 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         if (linking !== l) return;
         try {
           const p = await request(l.api + '/v1/link/poll', { method: 'POST', body: JSON.stringify({ pollToken: l.poll }) });
+          if (linking !== l) return;
           if (p.status === 404) break;
-          if (p.json?.status === 'linked') {
-            write('device.json', { api: l.api, deviceId: p.json.deviceId, credential: p.json.credential, family: p.json.family?.name || '', name: p.json.name, linkedAt: iso(), rotatedAt: iso() });
-            setState({ unlinkedAt: null, unlinkedWhy: null });
-            linking = null;
-            return;
-          }
+          if (p.json?.status === 'linked') { keep(l.api, p.json); linking = null; return; }
+          if (p.json?.status === 'confirm') l.confirm = { family: String(p.json.family?.name || '').slice(0, 80), by: String(p.json.by || '').slice(0, 120) };
         } catch {}
       }
       if (linking === l) linking = null;
     })();
     return { display: l.display, url: l.url, expiresAt: new Date(l.until).toISOString() };
+  }
+
+  /** Someone at the tablet said yes (ok) or no to the account that claimed the code. The shell's person card sends it
+   *  (Opie's tap there does nothing: DeviceServer.personOnly), or a hub's own settings device. */
+  async function linkAnswer(ok) {
+    const l = linking;
+    if (!l?.confirm) throw new Error('No account is waiting for a yes.');
+    linking = null;
+    const r = await request(l.api + '/v1/link/confirm', { method: 'POST', body: JSON.stringify({ pollToken: l.poll, ok }) });
+    if (r.status === 404) throw Object.assign(new Error('The code ran out. Start again to get a new one.'), { code: 'expired' });
+    if (r.status !== 200) throw new Error(r.json?.error || `the service answered ${r.status}`);
+    if (ok && r.json?.status === 'linked') keep(l.api, r.json);
+    return status();
   }
 
   /** The family's name as the service has it now; a 401 here (unlinked from the web) drops the link (call). */
@@ -191,7 +212,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     return {
       api: api(), linked: !!d, family: d?.family || null, name: d?.name || null, linkedAt: d?.linkedAt || null,
       unlinked: !d && s.unlinkedAt ? { at: s.unlinkedAt, why: s.unlinkedWhy } : null,
-      linking: linking ? { display: linking.display, url: linking.url, expiresAt: new Date(linking.until).toISOString() } : null,
+      linking: linking ? { display: linking.display, url: linking.url, expiresAt: new Date(linking.until).toISOString(), confirm: linking.confirm } : null,
       iphoneApp: d ? s.iphoneApp || null : null,
     };
   }
@@ -235,6 +256,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         json(res, 200, { ok: true, api: api() }); return true;
       }
       case '/cloud/link/start': await reply(res, () => linkStart(String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
+      case '/cloud/link/confirm': await reply(res, () => linkAnswer(b.ok === true)); return true;
       case '/cloud/link/cancel': linking = null; json(res, 200, { ok: true }); return true;
       case '/cloud/report': await reply(res, () => sendReport(b)); return true;
       case '/cloud/link/token': await reply(res, () => linkToken(String(b.token || ''), String(b.api || ''), String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
