@@ -6,6 +6,7 @@
 // GET  /house                  { v, today, family, lists, chores, stars, rewards, asks, checklists, meals, favorites,
 //                                mealWork, events, photos, night, ai }
 // GET  /house/wait?v=N         the same, once it changes (or after 25 s)
+//      &same=1                 nothing changed in those 25 s: { v, same: true }, and the caller keeps what it has
 // POST /house/list             { list, add?: [text], check?: [id|text], uncheck?, remove?, clearChecked?, who? }
 // POST /house/chore            { done: {who, task}, value? } | { add: {who, task, days?} } | { remove: {who, task} }
 // POST /house/reward           { add: {title, stars, who?} } | { remove: id } | { redeem: {who, id} } | { answer: {id, yes} }
@@ -48,6 +49,7 @@
 // update_household keep them.
 import fs from 'node:fs';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { readJson, writeJson } from './store.js';
 import { AISLES, PEOPLE, aisleOf, dayKey, daysFrom, MEDIA, VIDEO, MAX_VIDEO, DAY, NIGHT, SHOWS, str } from './house/util.js';
 import assistantPart from './house/assistant.js';
@@ -102,7 +104,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     data.earned = {};
     for (const keys of Object.values(data.done)) for (const k of keys) { const w = k.split('|')[0]; if (w) data.earned[w] = (data.earned[w] || 0) + 1; }
   }
-  let version = 1;
+  // A view's version: from anywhere at a start, so a caller holding one from before a restart is never told nothing changed.
+  let version = crypto.randomInt(1, 2 ** 30);
   const waiters = new Set();
   const mealWork = {}; // "date|meal" -> { state: "working" | "done" | "error", added?, text? } (not saved)
   const FLYERS = path.join(DIR, '../flyers');
@@ -170,7 +173,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (req.method === 'GET' && p === '/house') { json(res, 200, view()); return true; }
     if (req.method === 'GET' && p === '/house/wait') {
       if (Number(url.searchParams.get('v')) !== version) { json(res, 200, view()); return true; }
-      const t = setTimeout(() => { waiters.delete(done); json(res, 200, view()); }, 25e3);
+      const same = url.searchParams.get('same') === '1'; // (a caller from before it could keep its view gets the view again)
+      const t = setTimeout(() => { waiters.delete(done); json(res, 200, same ? { v: version, same: true } : view()); }, 25e3);
       const done = (v) => { clearTimeout(t); json(res, 200, v); };
       waiters.add(done);
       req.on('close', () => { clearTimeout(t); waiters.delete(done); });

@@ -86,9 +86,12 @@ function useHouse(c, onRemoved) {
       let v = -1;
       while (!stop) {
         try {
-          const r = await c.json('GET', v < 0 ? '/house' : `/house/wait?v=${v}`);
+          const r = await c.json('GET', v < 0 ? '/house' : `/house/wait?v=${v}&same=1`);
           if (r.status !== 200) throw new Error();
-          v = r.json.v; keepHouse(r.json); setUp(true); flush();
+          v = r.json.v;
+          if (r.json.same) { const t = Date.now(); setAt(t); put(CACHE, { ...get(CACHE), at: t }); } // nothing changed: what it shows is still so
+          else keepHouse(r.json);
+          setUp(true); flush();
         } catch (e) { if (e instanceof Removed) { stop = true; return onRemoved(); } setUp(false); v = -1; if (!stop) await new Promise((r) => setTimeout(r, 4000)); }
       }
     })();

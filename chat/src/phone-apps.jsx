@@ -115,7 +115,11 @@ export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQue
       const t1 = performance.now();
       try {
         const r = await c.request(method, p, method === 'POST' ? m.b ?? {} : undefined, { app: app.id, big: method === 'GET' && p.startsWith('/house/photo/') });
-        if (method === 'GET' && r.status === 200 && /^\/house(\/wait)?(\?|$)/.test(p)) put(houseKey(app.id), { body: new TextDecoder().decode(r.body), at: Date.now() });
+        if (method === 'GET' && r.status === 200 && /^\/house(\/wait)?(\?|$)/.test(p)) {
+          const text = new TextDecoder().decode(r.body), same = text.length < 100 && (() => { try { return JSON.parse(text).same === true; } catch { return false; } })();
+          const was = same && get(houseKey(app.id)); // nothing changed ({v, same}): the house it keeps is still so
+          if (!same) put(houseKey(app.id), { body: text, at: Date.now() }); else if (was) put(houseKey(app.id), { ...was, at: Date.now() });
+        }
         const body = r.body.buffer.slice(r.body.byteOffset, r.body.byteOffset + r.body.byteLength);
         to({ oh: 'reply', id: m.id, status: r.status, type: r.type, body }, [body]);
         if ((T.calls ||= []).length < 20) T.calls.push([p.slice(0, 40), Math.round(t1 - t0), Math.round(performance.now() - t1)]);

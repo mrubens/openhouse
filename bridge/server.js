@@ -377,7 +377,7 @@ async function appCall(req, res, url, app) {
     const r = chat.things.putApp(app, { text: b.text, until: b.until, sleep: b.sleep });
     return r ? json(res, 200, { ok: true, text: r.item.text, until: r.item.until }) : json(res, 400, { error: 'Say what it is.' });
   }
-  if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => houseFor(v, rights)), url);
+  if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => (v?.same === true ? { v: v.v, same: true } : houseFor(v, rights))), url); // (nothing changed: only that)
   return route(req, res, url);
 }
 
