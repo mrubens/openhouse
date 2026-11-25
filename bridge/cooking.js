@@ -9,7 +9,7 @@
 // (app-web.js publicGet: every redirect checked again, and the address checked is the one reached).
 import { asData } from './as-data.js';
 import crypto from 'node:crypto';
-import { publicGet, pinnedFetch } from './app-web.js';
+import { publicGet, pinnedFetch, reachMatches } from './app-web.js';
 
 /** What a recipe's cooking steps were made from: they're good while this is the same. */
 export const cookSource = (r) => crypto.createHash('sha1').update(`${r?.link || ''}\n${r?.notes || ''}`).digest('hex').slice(0, 16);
@@ -106,14 +106,15 @@ async function notPlaceholder(image, url, get) {
 }
 
 /** Read a shared link: {name, text, video} (the Recipe when the page has one), or throws with words. An http link is
- *  read over https. */
-export async function readRecipeLink(link, { fetch = pinnedFetch, lookup, timeoutMs = 12000 } = {}) {
+ *  read over https. reaches (a link a shared app gave): the page and every redirect only from those hosts (app-web.js). */
+export async function readRecipeLink(link, { fetch = pinnedFetch, lookup, timeoutMs = 12000, reaches = null } = {}) {
   let url; try { url = new URL(String(link ?? '').trim()); } catch { throw new Error('A link starts with https://'); }
   if (!/^https?:$/.test(url.protocol)) throw new Error('A link starts with https://');
   if (url.protocol === 'http:') { url.protocol = 'https:'; if (url.port === '80') url.port = ''; }
   const get = { fetch, lookup };
-  const r = await publicGet(url.href, { ...get, timeoutMs, max: 3e6, headers: PAGE_HEADERS });
-  if (r.error) throw new Error(r.error === 'timeout' ? 'That page took too long to open.' : r.error === 'home' ? 'That page isn’t on the web.' : 'That page didn’t open.');
+  const allow = Array.isArray(reaches) ? (u) => (reachMatches(u.host, reaches) ? null : { error: 'reach' }) : undefined;
+  const r = await publicGet(url.href, { ...get, timeoutMs, max: 3e6, headers: PAGE_HEADERS, ...(allow ? { allow } : {}) });
+  if (r.error) throw new Error(r.error === 'timeout' ? 'That page took too long to open.' : r.error === 'home' ? 'That page isn’t on the web.' : r.error === 'reach' ? 'That page sent it to a site this app doesn’t reach.' : 'That page didn’t open.');
   if (r.status < 200 || r.status > 299) throw new Error(`That page didn’t open (${r.status}).`);
   const html = r.buf.toString('utf8').slice(0, 3e6), at = r.url;
   const rec = recipeFromHtml(html), links = linksFromHtml(html, at.href, 60, rec?.text || '');
