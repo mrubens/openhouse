@@ -113,7 +113,7 @@ internal fun FamilySheet() {
                             // Their color everywhere (the calendar, chores): tap for the next one.
                             if (p.c.isBlank()) p.c = PERSON_COLORS[i % 6]
                             Box(Modifier.size(40.u).clip(CircleShape).background(hexColor(p.c)).clickable { p.c = PERSON_COLORS[(PERSON_COLORS.indexOf(p.c) + 1) % PERSON_COLORS.size] })
-                            Field(p.a, { p.a = it }, "Name", Modifier.weight(1f)); Field(p.b, { p.b = it }, "Age 9, or Mom", Modifier.weight(1f)); Remove { people.remove(p) } } }
+                            Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Field(p.b, { p.b = it }, "Age 9, or Mom", Modifier.weight(1f)); Remove { people.remove(p) } } }
                         if (people.size > 0) Text("Tap a color to change it.", style = quietText(15, color = PaperLook.inkSoft))
                         AddLink("Add someone") { people += Pair2("", "", PERSON_COLORS[people.size % 6]) }
                         Section("Where you live")
@@ -122,7 +122,7 @@ internal fun FamilySheet() {
                     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) {
                         Section("Chores")
                         chores.forEach { c -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
-                            Field(c.a, { c.a = it }, "Who", Modifier.width(170.u)); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }
+                            Field(c.a, { c.a = it }, "Who", Modifier.width(170.u), words = true); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }
                         AddLink("Add a chore") { chores += Pair2(names.firstOrNull() ?: "", "") }
                     }
                 }
@@ -134,11 +134,13 @@ internal fun FamilySheet() {
 @Composable private fun Section(t: String) { Text(t, style = quietText(20, FontWeight.SemiBold), modifier = Modifier.padding(top = 10.u)) }
 
 @Composable
-internal fun Field(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier.fillMaxWidth(), focus: FocusRequester? = null) {
+internal fun Field(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier.fillMaxWidth(), focus: FocusRequester? = null, words: Boolean = false) {
+    // A name: each word starts with a capital, which the no-suggestions keyboard (a password type) never does itself.
+    val change: (String) -> Unit = if (!words) onChange else { t -> onChange(if (t.length > value.length) capWords(t) else t) }
     Box(modifier.clip(RoundedCornerShape(12.u)).background(Color(0xFFF1EEE6)).border(1.u, Color(0xFFDAD5CA), RoundedCornerShape(12.u)).padding(horizontal = 14.u, vertical = 11.u)) {
         if (value.isEmpty()) Text(hint, style = quietText(18, color = PaperLook.inkSoft.copy(alpha = .6f)), maxLines = 1)
         val cover = coverAttached()
-        BasicTextField(value, onChange, Modifier.fillMaxWidth().let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, onChange, null) }, readOnly = cover, singleLine = true, keyboardOptions = NoSuggestions, textStyle = quietText(18), cursorBrush = SolidColor(PaperLook.ink))
+        BasicTextField(value, change, Modifier.fillMaxWidth().let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, change, null) }, readOnly = cover, singleLine = true, keyboardOptions = NoSuggestions, textStyle = quietText(18), cursorBrush = SolidColor(PaperLook.ink))
     }
 }
 
@@ -149,6 +151,9 @@ internal fun Field(value: String, onChange: (String) -> Unit, hint: String, modi
 @Composable private fun AddLink(t: String, onClick: () -> Unit) {
     Text("+ $t", style = quietText(17, FontWeight.Medium, Color(0xFFB5562F)), modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable(onClick = onClick).padding(vertical = 6.u, horizontal = 4.u))
 }
+
+/** Each word's first letter capitalized ("maya jones" -> "Maya Jones"); the rest as typed. */
+internal fun capWords(t: String) = t.split(' ').joinToString(" ") { w -> w.replaceFirstChar { it.uppercaseChar() } }
 
 /** No suggestion bar or autocorrect: people type on the keyboard cover, and the bar just gets in the way.
  *  (The password type is what makes keyboards like Samsung's and Gboard hide suggestions; the text still shows.) */
