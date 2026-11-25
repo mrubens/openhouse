@@ -29,7 +29,7 @@
 //
 // file: door.json next to the chats (its first name, kept so tablets and backups need no move).
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -140,7 +140,16 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   // Written to a temp file and renamed, so a power cut mid-write can't leave half a file; the previous
   // version is kept as door.json.bak and read if the main one is ever unreadable.
   const read = () => readJson(FILE, null) || { notes: [] };
-  const write = () => writeJson(FILE, homeScreen);
+  // A save that's refused or fails puts the home screen back as it was last saved and throws (marked unsaved: store.js
+  // unsaved says what to answer), so what shows is what's on disk.
+  let saved = null; // the home screen as last saved (or read), as JSON
+  const write = () => {
+    try { writeJson(FILE, homeScreen); saved = JSON.stringify(homeScreen); }
+    catch (e) { if (saved != null) homeScreen = JSON.parse(saved); console.error('[home]', e.message); throw Object.assign(e, { unsaved: true }); }
+  };
+  // Start-up's own one-time moves: one that can't be saved (a door.json a newer release saved) is kept in memory only,
+  // never a reason to stop (the shell would only start the bridge again, and again).
+  const writeAtStart = () => { try { writeJson(FILE, homeScreen); } catch (e) { console.error('[home] not saved at start:', e.message); } };
   let homeScreen = read();
   homeScreen.notes ||= [];
   for (const n of homeScreen.notes) { n.content = fenced(n.content); delete n.refitting; } // notes saved in an older shape read right again; no refit outlives a restart
@@ -149,7 +158,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   // Once, when the board became the Apps tab and notes moved to Home: the notes the assistant kept current for the
   // board on its own (by: 'assistant', from its hourly look) are put aside, kept in door.json, so Today shows the notes
   // someone asked for.
-  if (!homeScreen.notesOnToday) { homeScreen.notesOnToday = true; homeScreen.boardNotes = homeScreen.notes.filter((n) => n.by === 'assistant'); homeScreen.notes = homeScreen.notes.filter((n) => n.by !== 'assistant'); write(); }
+  if (!homeScreen.notesOnToday) { homeScreen.notesOnToday = true; homeScreen.boardNotes = homeScreen.notes.filter((n) => n.by === 'assistant'); homeScreen.notes = homeScreen.notes.filter((n) => n.by !== 'assistant'); writeAtStart(); }
   homeScreen.present ||= null; // what the display last said is on the home screen (not notes); null: it hasn't yet
   // The whiteboard on the home screen: what the family drew, as strokes ({c: color, w: width, p: [x, y, ...]}, 0-1000 across
   // and down its box). `was`: what a clear wiped, so undo brings it back.
@@ -173,10 +182,11 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
         else homeScreen.places[m.key] = { ...q, page: m.page, col: m.col, row: m.row, ...(q?.w != null || m.key === key ? { w: m.w, h: m.h } : {}) }; // the home app's things keep being measured
       }
     }
-    write();
+    writeAtStart();
   }
   homeScreen.widgets ||= {}; // app id -> { content (a layout, like a note's), shapes: { "4x2": content for that shape }, at }: what agent-made apps show on the home screen
-  if (toGrid(homeScreen)) write();
+  if (toGrid(homeScreen)) writeAtStart();
+  saved = JSON.stringify(homeScreen);
   // A change to how the home screen looks (the assistant's edit, an undo) reaches every screen at once.
   // A change to the apps reaches every screen at once: the look (apps/home, the assistant's edit or an undo), and an
   // app's own files (appsV: when each last changed), so a tab showing that app loads it again and they watch it change.
@@ -187,7 +197,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     fs.watch(d, { recursive: true }, (_, f) => {
       const id = String(f || '').split(/[\\/]/)[0];
       if (id && id !== 'home' && TAB_ID.test(id)) appsV[id] = Date.now();
-      clearTimeout(t); t = setTimeout(save, 300);
+      clearTimeout(t); t = setTimeout(tell, 300); // (appsV is kept in memory only)
     }).unref?.();
   } catch {}
   // What a paired computer is changing (workshop.js): a quiet line on the home screen instead of the assistant looking
@@ -196,8 +206,12 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   // and listens a while after each answer (live-tools.js). Until it says so, or `until`. Not kept.
   const live = { computer: null, show: null, handsFree: null };
   const handsFree = () => (live.handsFree && live.handsFree.until > Date.now() ? live.handsFree : null);
+  /** Saved, and every screen told (also when it wasn't saved: they show it as it was put back). */
   function save() {
-    write();
+    try { write(); } finally { tell(); }
+  }
+  /** Every screen told the home screen changed (what changed isn't kept: live, appsV). */
+  function tell() {
     version++;
     const out = view();
     for (const w of waiters) w(out);
@@ -238,7 +252,8 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     const now = Date.now(), before = homeScreen.notes.length, timers = homeScreen.timers.length;
     homeScreen.notes = homeScreen.notes.filter((n) => !n.until || n.until > now || n.keep);
     homeScreen.timers = homeScreen.timers.filter((t) => t.endAt > now - 10 * 60e3); // rung long ago (the shell stops ringing after 5 min)
-    if (homeScreen.notes.length !== before || homeScreen.timers.length !== timers) save();
+    // (on a timer and before a read: one that can't be saved is put back and tried again next time, never thrown)
+    if (homeScreen.notes.length !== before || homeScreen.timers.length !== timers) { try { save(); } catch {} }
   }
   /** A timer started (by the shell, a screen, a note's Timer), or put back with the time it had: by when it rings. */
   function startTimer(a) {
@@ -544,6 +559,10 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   }
 
   async function handle(req, res, url) {
+    try { return await handleNow(req, res, url); }
+    catch (e) { if (!e?.unsaved || res.headersSent) throw e; const u = unsaved(e); json(res, u.status, { error: u.error }); return true; }
+  }
+  async function handleNow(req, res, url) {
     const p = url.pathname;
     if (p === '/home/mcp' && req.method === 'POST') { await mcp(req, res); return true; }
     if (req.method === 'GET' && p === '/home') { expire(); json(res, 200, view()); return true; }
@@ -609,12 +628,12 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     }
     if (p === '/home/handsfree') { // {note, listen (s), minutes} from an app in use hands-free, or {off: true}
       const app = String(req.headers['x-openhouse-app'] || 'home').slice(0, 60);
-      if (b.off) { if (live.handsFree?.app === app) { live.handsFree = null; save(); } json(res, 200, { ok: true }); return true; }
+      if (b.off) { if (live.handsFree?.app === app) { live.handsFree = null; tell(); } json(res, 200, { ok: true }); return true; }
       const minutes = Math.max(1, Math.min(90, Number(b.minutes) || 20));
       const was = handsFree();
       live.handsFree = { app, note: String(b.note || '').replace(/[\u0000-\u0008]/g, '').slice(0, 1500), listen: Math.max(8, Math.min(30, Math.round(Number(b.listen) || 20))), until: Date.now() + minutes * 60e3 };
       // the screens hear of it when it starts or stops (a new step's note needs no redraw anywhere)
-      if (!was || was.app !== app) save(); json(res, 200, { ok: true }); return true;
+      if (!was || was.app !== app) tell(); json(res, 200, { ok: true }); return true;
     }
     if (p === '/home/remove') { trash(String(b.id || '')); json(res, 200, { ok: true }); return true; }
     if (p === '/home/putback') { json(res, 200, { ok: putBack(String(b.key || '')) }); return true; }
@@ -635,12 +654,12 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   /** Kitchen timers for the workshop's timer tool (a paired agent's "set a pasta timer"): the shell rings them. */
   handle.timers = { start: startTimer, cancel: cancelTimer, list: () => homeScreen.timers.slice() }; // (finished ones too: still on the screen, ringing, until cleared)
   // apps: the apps the change has touched so far: the home screen pulses their tabs (or Apps, for one that isn't a tab).
-  handle.computerNote = (text, apps = []) => { live.computer = text ? { text: String(text).slice(0, 160), apps: apps.slice(0, 20), at: live.computer?.at || Date.now() } : null; save(); };
+  handle.computerNote = (text, apps = []) => { live.computer = text ? { text: String(text).slice(0, 160), apps: apps.slice(0, 20), at: live.computer?.at || Date.now() } : null; tell(); };
   /** The app in use hands-free right now: {app, note, listen, until}, or null. */
   handle.handsFree = handsFree;
-  handle.showTab = (tab) => { if (TAB_ID.test(String(tab || ''))) { live.show = { tab: String(tab), at: Date.now() }; save(); } };
+  handle.showTab = (tab) => { if (TAB_ID.test(String(tab || ''))) { live.show = { tab: String(tab), at: Date.now() }; tell(); } };
   /** Open an app: its tab if it is one, else full screen over the home screen (the Map, when Opie shows a place). */
-  handle.showApp = (app) => { if (TAB_ID.test(String(app || ''))) { live.show = { tab: String(app), at: Date.now(), ...(isTab(app) ? {} : { open: true }) }; save(); } };
+  handle.showApp = (app) => { if (TAB_ID.test(String(app || ''))) { live.show = { tab: String(app), at: Date.now(), ...(isTab(app) ? {} : { open: true }) }; tell(); } };
   handle.tools = () => [...TOOLS, ...extra];
   handle.call = (name, a, ctx) => call(name, a || {}, ctx || NOBODY);
   handle.addTools = (tools, fn) => { extra.push(...tools); for (const t of tools) extraCall.set(t.name, fn); };

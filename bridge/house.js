@@ -251,8 +251,11 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     }
     if (p === '/house/reward') { send(house.changeRewards(b, { fromApp: true })); return true; }
     if (p === '/house/checklist') { send(house.changeChecklists(b)); return true; }
-    if (p === '/house/recipe-link') { send(house.addRecipeLink(b)); return true; } // a link shared from a phone (Recipes)
-    if (p === '/house/meal') { send(b.favorite != null ? house.favorite(b.favorite, b.value !== false) : b.recipe ? house.setRecipe({ ...b.recipe, quiet: false, video: b.recipe.video }) : b.cook ? house.prepareCook(b.cook, { force: !!b.force }) : b.find ? house.findRecipes(b.find) : b.findDone ? house.findDone() : b.writeRecipe ? house.writeRecipe(b.writeRecipe) : b.addText ? house.addRecipeText(b.addText) : b.slots ? house.setSlots(b.slots) : house.setMeals([b])); return true; }
+    // (reach: the hosts a shared app's card said it reaches, from server.js, never from the body: a link it gave is read,
+    // redirects and all, only from those)
+    const reach = Array.isArray(req.reaches) ? req.reaches : undefined;
+    if (p === '/house/recipe-link') { send(house.addRecipeLink({ ...b, reach })); return true; } // a link shared from a phone (Recipes)
+    if (p === '/house/meal') { send(b.favorite != null ? house.favorite(b.favorite, b.value !== false) : b.recipe ? house.setRecipe({ ...b.recipe, quiet: false, video: b.recipe.video, reach }) : b.cook ? house.prepareCook(b.cook, { force: !!b.force }) : b.find ? house.findRecipes(b.find) : b.findDone ? house.findDone() : b.writeRecipe ? house.writeRecipe(b.writeRecipe) : b.addText ? house.addRecipeText(b.addText, { reach }) : b.slots ? house.setSlots(b.slots) : house.setMeals([b])); return true; }
     if (p === '/house/meal/ingredients') { send(await house.ingredients(b.date, str(b.meal || 'dinner', 20).toLowerCase())); return true; }
     if (p === '/house/event') {
       // With the calendar locked, an app changes it only for a little while after the PIN on the display.

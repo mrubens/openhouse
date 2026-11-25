@@ -13,6 +13,8 @@ import { execFileSync } from 'node:child_process';
 import { registered, STORES, backedUp } from '../stores.js';
 import { INCLUDE, pack } from '../backup-format.js';
 import { laterRoutes } from '../later.js';
+import { homeScreenRoutes } from '../home-screen.js';
+import { dayNotes } from '../day-notes.js';
 
 const family = [{ name: 'Sam' }, { name: 'Alex' }, { name: 'Maya' }, { name: 'Leo' }];
 const names = (h) => (h.family || []).map((f) => f.name);
@@ -122,6 +124,36 @@ test('a store saved by a newer release is never saved over by this one', async (
     fs.writeFileSync(g, JSON.stringify({ items: [1] }));
     writeJson(g, { ...readJson(g, {}), more: true });
     assert.deepEqual(readJson(g, {}), { items: [1], more: true });
+  } finally {
+    console.error = errors;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('the home screen and the apps\' calendar notes: a refused save is said to fail and nothing of it is kept, and start-up goes on', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-r-')), DIR = path.join(root, 'chats');
+  fs.mkdirSync(DIR);
+  const errors = console.error; console.error = () => {};
+  try {
+    // door.json as a later release left it: start-up's own one-time moves can't be saved, and it starts anyway.
+    const door = path.join(DIR, 'door.json'), doorNewer = JSON.stringify({ $v: 999, notes: [], places: { 'app:lists': { page: 0, col: 0, row: 0 } } });
+    fs.writeFileSync(door, doorNewer);
+    let out = null;
+    const hs = homeScreenRoutes({ DIR, json: (res, code, obj) => { out = { code, obj }; }, body: async () => ({ key: 'app:lists', hidden: true }), APP_DIR: root });
+    await hs({ method: 'POST', headers: {} }, { headersSent: false }, new URL('http://x/home/place'));
+    assert.ok(out.code >= 400, `a tap is told it failed (${out.code})`);
+    out = null; await hs({ method: 'GET', headers: {} }, {}, new URL('http://x/home'));
+    assert.ok(!out.obj.places?.['app:lists']?.hidden, 'not kept');
+    assert.equal(fs.readFileSync(door, 'utf8'), doorNewer);
+
+    // day-notes.json the same: an app's notes aren't kept when they can't be saved.
+    const dn = path.join(root, 'day-notes.json'), dnNewer = JSON.stringify({ $v: 999, byApp: {}, first: {} });
+    fs.writeFileSync(dn, dnNewer);
+    const notes = dayNotes({ DIR });
+    const day = new Date().toISOString().slice(0, 10);
+    assert.throws(() => notes.put('lunch', 'Lunch', [{ date: day, text: 'Lunch: Tacos' }]), (e) => e.unsaved);
+    assert.deepEqual(notes.apps(), []);
+    assert.equal(fs.readFileSync(dn, 'utf8'), dnNewer);
   } finally {
     console.error = errors;
     fs.rmSync(root, { recursive: true, force: true });

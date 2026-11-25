@@ -122,7 +122,13 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
   const read = () => readJson(FILE, {});
   const st = { level: DEFAULT_LEVEL, handled: {}, log: [], day: null, sleepUntil: 0, lastCheckIn: 0, lastReview: 0, last: null, findings: [], notesFor: {}, judgedAt: [], ...read() };
   st.notesFor ||= {}; st.judgedAt ||= [];
-  const save = () => { try { writeJson(FILE, st); } catch {} onChange(); };
+  // Its own log of what it did (which findings it handled, its notes): kept in memory when a save is refused or fails,
+  // since what it did happened (dropping it would do it again); a run someone asked for is told it wasn't saved.
+  let saveFailed = null; // store.js unsaved's { status, error }, until a save goes through
+  const save = () => {
+    try { writeJson(FILE, st); saveFailed = null; } catch (e) { console.error('[heartbeat]', e.message); saveFailed = unsaved(e); }
+    onChange();
+  };
   const CHATS = path.join(HERE, 'chats.jsonl');
   const free = freeBytes || (() => { try { const s = fs.statfsSync(DIR); return s.bavail * s.bsize; } catch { return null; } });
   logTurn ||= (line) => { try { fs.appendFileSync(CHATS, JSON.stringify(line) + '\n'); } catch {} };
@@ -274,9 +280,14 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
       let queued = false;
       if (v.act === 'fix' && f.kind === 'crash' && lv === 'fix' && fixes) {
         const errs = appErrors().filter((e) => e.app === f.app);
-        const r = fixes.add({ app: f.app, name: f.text.match(/^The (.*?) app/)?.[1] || f.app, errors: [...new Set(errs.map((e) => e.text))].slice(-5), log: errs.slice(-20).map((e) => ({ at: e.at, text: String(e.text).slice(0, 300) })), changes: (() => { try { return changesOf(f.app); } catch { return []; } })() });
-        fixed = r.fix; queued = true;
-        if (!r.fresh) { done.push({ key: f.key, did: `already waiting (${r.fix.id})`, v }); continue; }
+        // (a fix that couldn't be saved isn't waiting: the app is shown as broken on Home instead, below)
+        let r = null;
+        try { r = fixes.add({ app: f.app, name: f.text.match(/^The (.*?) app/)?.[1] || f.app, errors: [...new Set(errs.map((e) => e.text))].slice(-5), log: errs.slice(-20).map((e) => ({ at: e.at, text: String(e.text).slice(0, 300) })), changes: (() => { try { return changesOf(f.app); } catch { return []; } })() }); }
+        catch (e) { if (!e?.unsaved) throw e; }
+        if (r) {
+          fixed = r.fix; queued = true;
+          if (!r.fresh) { done.push({ key: f.key, did: `already waiting (${r.fix.id})`, v }); continue; }
+        }
       }
       // A broken app: one line on Home, in code, no text model ("Drawing has a problem: ask Claude or ChatGPT to fix
       // it"), while its fix waits (things.js shows the fix) or, with none queued, while it's failing.
@@ -353,7 +364,9 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
       if (name === 'queue_fix') {
         const f = crashed.find((x) => x.app === args.app); if (!f) return { text: 'No broken app by that name.', isError: true };
         const errs = appErrors().filter((e) => e.app === f.app);
-        const r = fixes.add({ app: f.app, name: f.text.match(/^The (.*?) app/)?.[1] || f.app, errors: [...new Set(errs.map((e) => e.text))].slice(-5), log: errs.slice(-20).map((e) => ({ at: e.at, text: String(e.text).slice(0, 300) })), changes: (() => { try { return changesOf(f.app); } catch { return []; } })() });
+        let r;
+        try { r = fixes.add({ app: f.app, name: f.text.match(/^The (.*?) app/)?.[1] || f.app, errors: [...new Set(errs.map((e) => e.text))].slice(-5), log: errs.slice(-20).map((e) => ({ at: e.at, text: String(e.text).slice(0, 300) })), changes: (() => { try { return changesOf(f.app); } catch { return []; } })() }); }
+        catch (e) { if (!e?.unsaved) throw e; return { text: unsaved(e).error, isError: true }; }
         fixed = r.fix; return { text: r.fresh ? `Queued ${r.fix.id}: it waits for whoever builds.` : `Already waiting (${r.fix.id}).`, isError: false };
       }
       if (THING_TOOLS.has(name)) return thingCall(name, args, ctx, list.length === 1 ? list[0].key : null, put);
@@ -431,7 +444,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
       const e = setSettings({ level: b.level }); json(res, e ? e.status : 200, e ? { error: e.error } : view()); return true;
     }
     if (p === '/heartbeat/settings') { const e = setSettings({ every: b.every, prompt: b.prompt, level: b.level }); json(res, e ? e.status : 200, e ? { error: e.error } : view()); return true; }
-    if (p === '/heartbeat/run') { const r = await beat({ force: true }); json(res, 200, { ...view(), result: r }); return true; }
+    if (p === '/heartbeat/run') { const r = await beat({ force: true }); json(res, saveFailed ? saveFailed.status : 200, { ...view(), result: r, ...(saveFailed ? { error: saveFailed.error } : {}) }); return true; }
     if (p === '/heartbeat/sleep') {
       const until = Number(b.until) || (() => { const n = nightHours(), d = new Date(now()), m = n?.to ? mins(n.to) : 390; d.setHours(Math.floor(m / 60), m % 60, 0, 0); if (+d <= now()) d.setDate(d.getDate() + 1); return +d; })();
       const e = setSettings({ sleepUntil: until }); json(res, e ? e.status : 200, e ? { error: e.error } : view()); return true;

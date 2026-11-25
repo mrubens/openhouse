@@ -422,8 +422,10 @@ async function appCall(req, res, url, app) {
   // Its own page's errors only: the app is the caller, never one the body names (they reach the builder's checks).
   if (url.pathname === '/apperror') { const b = await body(req); return builder.appError(app, b.text) ? json(res, 200, { ok: true }) : json(res, 400, { error: 'text needed' }); }
   if (url.pathname === '/apps/fetch') { const b = await body(req); const r = await appFetch(app, b.url, plugins.reachesOf(app), { binary: b.binary === true }); return json(res, r.error ? r.status || 502 : 200, r); }
-  if (url.pathname === '/calendar/days') { const b = await body(req), reaches = plugins.reachesOf(app); const n = chat.notes.put(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.days, { imageOk: (u) => reachMatches(u.host, reaches) }); return json(res, 200, { ok: true, days: n }); } // a note's photos only from hosts the app reaches
-  if (url.pathname === '/calendar/events') { const b = await body(req); const n = chat.notes.putEvents(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.events); return json(res, 200, { ok: true, events: n }); }
+  // (a save that's refused or fails is said so: store.js unsaved)
+  const notSaved = (e) => { if (!e?.unsaved) throw e; const u = unsaved(e); return json(res, u.status, { error: u.error }); };
+  if (url.pathname === '/calendar/days') { const b = await body(req), reaches = plugins.reachesOf(app); let n; try { n = chat.notes.put(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.days, { imageOk: (u) => reachMatches(u.host, reaches) }); } catch (e) { return notSaved(e); } return json(res, 200, { ok: true, days: n }); } // a note's photos only from hosts the app reaches
+  if (url.pathname === '/calendar/events') { const b = await body(req); let n; try { n = chat.notes.putEvents(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.events); } catch (e) { return notSaved(e); } return json(res, 200, { ok: true, events: n }); }
   // The home's speakers and TVs (devices/index.js forApp): the app's own ids, the same asks as Opie, rate-limited.
   if (url.pathname.startsWith('/apps/devices')) {
     const b = await body(req), who = { id: app, name: apps.list().find((a) => a.id === app)?.meta?.name || app };
@@ -442,16 +444,18 @@ async function appCall(req, res, url, app) {
     return r ? json(res, 200, { ok: true, text: r.item.text, until: r.item.until }) : json(res, 400, { error: 'Say what it is.' });
   }
   // A recipe from a link is read by the tablet and given back: for a shared app, only from hosts it reaches (its card says
-  // which); the body, read here once, is passed on as it came.
+  // which); the body, read here once, is passed on with each link cut as the house reads it, and the house is given
+  // those hosts (reaches) to check every redirect against.
   // What a shared app sets going stays within its card: the groceries a meal needs go on a list (its card must cover
   // lists), and finding a recipe searches the web and reads what it finds (any host, none of them on its card).
   if (rights && req.method === 'POST' && url.pathname === '/house/meal/ingredients' && !rights.has('lists')) return json(res, 403, { error: "This app doesn't change lists." });
   if (rights && req.method === 'POST' && /^\/house\/(recipe-link|meal)$/.test(url.pathname)) {
-    const b = await body(req), no = recipeLinkRefused(url.pathname, b, plugins.reachesOf(app));
+    const reaches = plugins.reachesOf(app) || [];
+    const b = await body(req), no = recipeLinkRefused(url.pathname, b, reaches);
     if (no) return json(res, 403, no);
     const typed = String(b?.addText ?? '').trim();
     if (url.pathname === '/house/meal' && (String(b?.find ?? '').trim() || (typed && !/^\S+\.\S+$/.test(typed)))) return json(res, 403, { error: "This app doesn't search the web." });
-    return route(Object.assign(Readable.from([JSON.stringify(b)]), { method: req.method, url: req.url, headers: req.headers, socket: req.socket }), houseCut(res, rights), url);
+    return route(Object.assign(Readable.from([JSON.stringify(b)]), { method: req.method, url: req.url, headers: req.headers, socket: req.socket, reaches: [...reaches] }), houseCut(res, rights), url);
   }
   if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => (v?.same === true ? { v: v.v, same: true } : houseFor(v, rights))), url); // (nothing changed: only that)
   // Any other house answer that carries the house (a change's reply: {..., house}, also on a refusal) is cut the same way.

@@ -132,9 +132,8 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
                     r == null -> say("Plugins", noBridge)
                     r.has("error") -> say("That didn't work", r.optString("error"))
                     !r.optBoolean("newer") -> say(p.optString("title"), "This is the newest version.") { home() }
-                    strs(r.optJSONArray("changedHere")).isEmpty() ->
-                        CalmDialog(act).setTitle("Update ${r.optString("title")}?").setRights(rightsOf(r.optJSONArray("rights"))).setWidth(860f)
-                            .setPositiveButton("Update") { _, _ -> choose(r, "theirs") }.setNegativeButton("Cancel") { _, _ -> home() }.show()
+                    // the bridge asks on the tablet's own card (what's new, everything it may do, the PIN), as Add does
+                    strs(r.optJSONArray("changedHere")).isEmpty() -> choose(r, "theirs")
                     else -> choices(r)
                 }
             }
@@ -159,10 +158,11 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         val title = c.optString("title"); val v = c.optString("version")
         if (choice == "both") act.toast("Putting the two together…")
         thread {
-            val r = post("/plugins/update", JSONObject().put("name", c.optString("name")).put("choice", choice), 240_000)
+            val r = post("/plugins/update", JSONObject().put("name", c.optString("name")).put("hash", c.optString("hash")).put("choice", choice), 240_000)
             ui {
                 when {
                     r == null -> say("Plugins", noBridge)
+                    r.optBoolean("declined") -> home()
                     r.optBoolean("kept") && r.has("error") -> say("Kept yours", r.optString("error")) { home() }
                     r.has("error") -> say("That didn't work", r.optString("error")) { home() }
                     choice == "keep" -> { act.toast("Kept yours"); home() }

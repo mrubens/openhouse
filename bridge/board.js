@@ -17,7 +17,7 @@
 //
 // files: board.json (the last curation) and household.json (family, calendar, chores, location), next to the chats.
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import { calendars } from './calendar.js';
@@ -169,11 +169,14 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     if (p === '/calendar/sync' && req.method === 'GET') { await sync.loadAccounts().catch(() => {}); json(res, 200, { calendars: sync.calendars(), targets: sync.targets(), status: sync.status() }); return true; }
     if (p.startsWith('/calendar/sync/') && req.method === 'POST') {
       const b = await body(req);
-      const r = p === '/calendar/sync/discover' ? await sync.discover(String(b.account || ''))
-        : p === '/calendar/sync/set' ? sync.setCalendar(String(b.key || ''), b)
-        : p === '/calendar/sync/forget' ? sync.forget(String(b.account || ''))
-        : p === '/calendar/sync/now' ? (await sync.flush().catch(() => {}), await sync.pull().catch(() => {}), { ok: true, status: sync.status() })
-        : null;
+      let r;
+      try {
+        r = p === '/calendar/sync/discover' ? await sync.discover(String(b.account || ''))
+          : p === '/calendar/sync/set' ? sync.setCalendar(String(b.key || ''), b)
+          : p === '/calendar/sync/forget' ? sync.forget(String(b.account || ''))
+          : p === '/calendar/sync/now' ? (await sync.flush().catch(() => {}), await sync.pull().catch(() => {}), { ok: true, status: sync.status() })
+          : null;
+      } catch (e) { if (!e?.unsaved) throw e; const u = unsaved(e); json(res, u.status, { error: u.error }); return true; } // (not saved: not kept)
       if (!r) return false;
       json(res, r.error ? 400 : 200, r); return true;
     }

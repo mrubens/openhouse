@@ -5,6 +5,7 @@ import path from 'node:path';
 import { cookSource, readRecipeLink, cookPrompt, COOK_SYSTEM, parseCook, cookAsNotes, youtube, findPrompt, FIND_SYSTEM, parseFound, withPictures } from '../cooking.js';
 import { ROOM, str, keepLines, must } from './util.js';
 import { asData } from '../as-data.js';
+import { RECIPE_LINK_MAX } from '../app-web.js';
 
 export default function (house) {
   const { data, save, changed, mealWork, FLYERS } = house;
@@ -12,7 +13,7 @@ export default function (house) {
   /** A meal's recipe: a link and/or notes (ingredients, steps); both empty takes it out of the box. */
   function setRecipe(r) {
     const text = str(r?.meal, 80).trim(); if (!text) return { error: 'which meal?' };
-    const k = text.toLowerCase(), link = str(r.link, 400).trim(), notes = keepLines(r.notes, 4000);
+    const k = text.toLowerCase(), link = str(r.link, RECIPE_LINK_MAX).trim(), notes = keepLines(r.notes, 4000);
     if (link && !/^https?:\/\//i.test(link)) return { error: 'A link starts with http:// or https://' };
     if (!link && !notes) { delete data.recipes[k]; save(); return { ok: true, did: [`took ${text}'s recipe out`] }; }
     const was = data.recipes[k], unchanged = !!was && cookSource(was) === cookSource({ link, notes });
@@ -20,7 +21,9 @@ export default function (house) {
     // Its cooking steps (cooking.js) stay while it's the same recipe; a changed one is read again.
     // by: 'assistant' when the assistant wrote it (for its credit); photoFrom: the page its photo came from (photoFor)
     const by = r.by === 'assistant' ? 'assistant' : unchanged ? was.by : undefined;
-    data.recipes[k] = { text: was?.text || text, ...(link ? { link } : {}), ...(notes ? { notes } : {}), at: Date.now(), ...(by ? { by } : {}),
+    // reach: a shared app's link, read (redirects and all) only from the hosts its card said it reaches
+    const reach = !link ? null : Array.isArray(r.reach) ? r.reach.map(String).slice(0, 50) : unchanged && Array.isArray(was.reach) ? was.reach : null;
+    data.recipes[k] = { text: was?.text || text, ...(link ? { link } : {}), ...(reach ? { reach } : {}), ...(notes ? { notes } : {}), at: Date.now(), ...(by ? { by } : {}),
       ...(unchanged && was.photoFrom ? { photoFrom: was.photoFrom, photoAt: was.photoAt } : {}),
       ...(unchanged && was.cook ? { cook: was.cook } : {}), ...(unchanged && was.video ? { video: was.video } : {}), ...(unchanged && was.image ? { image: was.image, picsAt: was.picsAt } : {}), ...(r.video && youtube(r.video) ? { video: youtube(r.video) } : !unchanged && youtube(link) ? { video: youtube(link) } : {}) };
     save();
@@ -44,8 +47,8 @@ export default function (house) {
         const ownNotes = r.link && r.cook && r.notes === cookAsNotes(r.cook).slice(0, 4000);
         let source = ownNotes ? '' : r.notes || '', video = r.video || null, page = null;
         // a link is read for the recipe (when it's all there is) and for its pictures: the dish and its steps' own photos
-        if (!source && r.link) { page = await readRecipeLink(r.link); source = page.text; }
-        else if (r.link) page = await readRecipeLink(r.link).catch(() => null);
+        if (!source && r.link) { page = await readRecipeLink(r.link, { reaches: r.reach }); source = page.text; }
+        else if (r.link) page = await readRecipeLink(r.link, { reaches: r.reach }).catch(() => null);
         video ||= page?.video || null;
         if (!source.trim()) throw new Error('That recipe has nothing in it to cook from.');
         let cook = parseCook(await house.answer(cookPrompt(r.text, source, page?.links || []), COOK_SYSTEM));
@@ -54,7 +57,7 @@ export default function (house) {
         // steps on its own (one answer for all of them takes longer than the cloud waits), as a part, in place of the step
         // that only says to make it (makes), so nothing is left as "prepare the sauce" with no way to.
         if (cook.needs?.length) cook = withNeeds(cook, (await Promise.all(cook.needs.slice(0, 3).map(async (x) => {
-          try { const p = await readRecipeLink(x.url, { timeoutMs: 8000 }); const c = parseCook(await house.answer(cookPrompt(x.name, p.text.slice(0, 12000), [], `This is made for ${r.text}, whose own steps go on from where they use it: write only the steps that make the ${x.name} itself, and leave out what comes after it is ready (using it, baking, serving).`), COOK_SYSTEM)); if (p.minutes) c.minutes = p.minutes; return { name: x.name, cook: c }; } catch { return null; }
+          try { const p = await readRecipeLink(x.url, { timeoutMs: 8000, reaches: r.reach }); const c = parseCook(await house.answer(cookPrompt(x.name, p.text.slice(0, 12000), [], `This is made for ${r.text}, whose own steps go on from where they use it: write only the steps that make the ${x.name} itself, and leave out what comes after it is ready (using it, baking, serving).`), COOK_SYSTEM)); if (p.minutes) c.minutes = p.minutes; return { name: x.name, cook: c }; } catch { return null; }
         }))).filter(Boolean));
         cook.steps = cook.steps.map(({ makes, ...st }) => st);
         cook = withPictures(cook, page?.stepPics); delete cook.needs;
@@ -78,7 +81,7 @@ export default function (house) {
   function checkPhoto(k) {
     const r = data.recipes[k]; if (!r?.link || r.checkedAt) return;
     r.checkedAt = Date.now(); save();
-    readRecipeLink(r.link).then((page) => {
+    readRecipeLink(r.link, { reaches: r.reach }).then((page) => {
       const now = data.recipes[k]; if (!now || page.image) return;
       delete now.image; save(); changed(); photoFor(k);
     }, () => {});
@@ -103,7 +106,7 @@ export default function (house) {
     const r = data.recipes[k]; if (!r?.cook || r.timeAt) return;
     r.timeAt = Date.now();
     (async () => {
-      let m = r.link ? (await readRecipeLink(r.link).catch(() => null))?.minutes : null;
+      let m = r.link ? (await readRecipeLink(r.link, { reaches: r.reach }).catch(() => null))?.minutes : null;
       if (!m && !house.noAssistant('')) m = Math.round(Number(String(await house.answer(`How many minutes does this recipe take, start to finish? Reply with only a number.\n\n${cookAsNotes(r.cook).slice(0, 6000)}`, 'Reply with only a number.')).match(/\d+/)?.[0]));
       const now = data.recipes[k];
       if (now?.cook && m > 0 && m < 10000) { now.cook.minutes = m; save(); changed(); }
@@ -129,7 +132,7 @@ export default function (house) {
   function pictures(k) {
     const r = data.recipes[k]; if (!r?.link || r.picsAt) return;
     r.picsAt = Date.now();
-    readRecipeLink(r.link).then((page) => {
+    readRecipeLink(r.link, { reaches: r.reach }).then((page) => {
       const now = data.recipes[k]; if (!now?.cook) return;
       if (page.image) now.image = page.image;
       now.cook = withPictures({ ...now.cook, steps: now.cook.steps.map((st) => ({ ...st })) }, page.stepPics);
@@ -168,35 +171,35 @@ export default function (house) {
   }
   /** A link shared from a phone (or typed): the page is read for its name, saved as that meal's recipe, and its steps
    *  made (mealWork["link"] while it's read; then mealWork["cook|meal"]). */
-  function addRecipeLink({ link, meal = '' } = {}) {
-    let l = str(link, 400); if (l && !/^https?:\/\//i.test(l)) l = 'https://' + l;
+  function addRecipeLink({ link, meal = '', reach } = {}) {
+    let l = str(link, RECIPE_LINK_MAX); if (l && !/^https?:\/\//i.test(l)) l = 'https://' + l;
     try { if (!/^https?:$/.test(new URL(l).protocol)) throw 0; } catch { return { error: 'That isn’t a link.' }; }
     { const no = house.noAssistant('Adding a recipe from a link'); if (no) return { error: no }; }
-    if (str(meal)) { const x = setRecipe({ meal, link: l, quiet: true }); if (x.error) return x; return prepareCook(meal); }
+    if (str(meal)) { const x = setRecipe({ meal, link: l, quiet: true, reach }); if (x.error) return x; return prepareCook(meal); }
     if (boxFull()) return boxFull();
     if (mealWork.link?.state === 'working') return { error: 'Still reading the last link.' };
     mealWork.link = { state: 'working', link: l }; changed();
     (async () => {
-      try { await saveLink(l); } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
+      try { await saveLink(l, null, reach); } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
       setTimeout(() => { if (mealWork.link?.state !== 'working') { delete mealWork.link; changed(); } }, 60e3).unref?.();
     })();
     return { ok: true };
   }
   /** A recipe's page read and saved under its own name (its link kept, for its credit), and its steps made. */
-  async function saveLink(l, page = null) {
-    page ||= await readRecipeLink(l);
+  async function saveLink(l, page = null, reach = undefined) {
+    page ||= await readRecipeLink(l, { reaches: reach });
     const name = str(page.name, 60) || new URL(l).hostname.replace(/^www\./, '');
-    must(setRecipe({ meal: name, link: l, notes: page.text.length < 4000 && /\bIngredients\b/.test(page.text) ? page.text : '', video: page.video || '', quiet: true }));
+    must(setRecipe({ meal: name, link: l, notes: page.text.length < 4000 && /\bIngredients\b/.test(page.text) ? page.text : '', video: page.video || '', quiet: true, reach }));
     mealWork.link = { state: 'done', meal: name };
     changed(); prepareCook(name);
   }
   /** What someone typed in Add a recipe: a link (read as one), a recipe pasted in (kept as written, named by the model), or an
    *  idea ("something with leftover chicken"): a real recipe for it found on the web and saved as its link (its page, its
    *  photo, its credit); the model writes one only when none is found. Then its steps are made, as for a link. */
-  function addRecipeText(input) {
+  function addRecipeText(input, { reach } = {}) {
     const text = String(input || '').trim().slice(0, 20000);
     if (!text) return { error: 'Nothing to add.' };
-    if (/^\S+\.\S+$/.test(text) && !/\n/.test(text)) return addRecipeLink({ link: text }); // one word with a dot in it: a link
+    if (/^\S+\.\S+$/.test(text) && !/\n/.test(text)) return addRecipeLink({ link: text, reach }); // one word with a dot in it: a link
     { const no = house.noAssistant('Adding a recipe'); if (no) return { error: no }; }
     if (boxFull()) return boxFull(); // (before the work of finding or writing one: a new one wouldn't fit)
     if (mealWork.link?.state === 'working') return { error: 'Still adding the last one.' };

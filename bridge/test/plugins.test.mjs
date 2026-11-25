@@ -345,6 +345,41 @@ test('both versions put together: the household\'s changes and theirs, and never
   assert.equal(fs.readFileSync(path.join(dir, 'main.js'), 'utf8'), before + '// more\n');
 });
 
+test('Settings\' Update puts in exactly the version its check showed, behind the card; a link from elsewhere is named on the card, with the PIN', async () => {
+  const mainJs = (s) => (d) => fs.writeFileSync(path.join(d, 'apps/twins-chores/main.js'), s);
+  const v1 = tarball(), v2 = tarball({ extra: mainJs('console.log("v2");\n') }), v3 = tarball({ uses: ['chores', 'rewards', 'photos', 'family'] });
+  const files = { 'https://cdn.example.com/p.tgz': v1 };
+  const asked = [];
+  const t = tablet(served(files), { body: async (req) => req.b, json: (res, code, obj) => Object.assign(res, { code, obj }),
+    approve: async (title, detail, pin, extra) => { asked.push({ title, pin, extra }); return true; } });
+  assert.equal((await t.pl.call('add_plugin', { source: 'https://cdn.example.com/p.tgz' })).isError, undefined);
+  const route = async (p, b) => { const res = {}; await t.pl.handle({ method: 'POST', b }, res, new URL('http://bridge' + p)); return res; };
+
+  files['https://cdn.example.com/p.tgz'] = v2;
+  const c = await route('/plugins/check', { name: 'twins-chores' });
+  assert.equal(c.code, 200, JSON.stringify(c.obj)); assert.ok(c.obj.hash);
+  files['https://cdn.example.com/p.tgz'] = v3; // the same link now serves something else
+  asked.length = 0;
+  assert.equal((await route('/plugins/update', { name: 'twins-chores' })).code, 409, 'no check, no update');
+  assert.equal((await route('/plugins/update', { name: 'twins-chores', hash: 'f'.repeat(64) })).code, 409);
+  assert.equal(asked.length, 0);
+  const u = await route('/plugins/update', { name: 'twins-chores', hash: c.obj.hash });
+  assert.equal(u.code, 200, JSON.stringify(u.obj));
+  assert.equal(asked.length, 1); assert.equal(asked[0].pin, true);
+  assert.deepEqual([...t.pl.rightsOf('twins-chores')].sort(), ['chores', 'rewards'], 'what was checked, not a second fetch');
+  assert.equal(t.pl.readAll()['twins-chores'].sha256, hex(v2));
+  assert.equal((await route('/plugins/update', { name: 'twins-chores', hash: c.obj.hash })).code, 409, 'a check is used once');
+
+  // update_plugin from another link: the card names that link and asks for the PIN; it comes from there after.
+  files['https://elsewhere.example.net/p.tgz'] = tarball({ extra: mainJs('console.log("v4");\n') });
+  asked.length = 0;
+  const r = await t.pl.call('update_plugin', { name: 'twins-chores', source: 'https://elsewhere.example.net/p.tgz' });
+  assert.equal(r.isError, undefined, r.content?.[0]?.text);
+  assert.equal(asked[0].pin, true);
+  assert.ok(asked[0].extra.rights.some((x) => x.kind === 'from' && x.text.includes('elsewhere.example.net')));
+  assert.equal(t.pl.readAll()['twins-chores'].source, 'elsewhere.example.net/p.tgz');
+});
+
 test('the web through the tablet as bytes: the same hosts only', async () => {
   const r = await appFetch('bytes-app', 'https://elsewhere.example/feed.pb', ['feed.example.org'], { binary: true, lookup: async () => [{ address: '93.184.216.34', family: 4 }], fetch: async () => { throw new Error('not reached'); } });
   assert.equal(r.status, 403);

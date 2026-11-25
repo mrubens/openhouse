@@ -60,6 +60,13 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   function save() {
     writeJson(FILE, st);
   }
+  /** A change someone made (a tap, a tool), from before it: saved, or put back as it was and thrown (marked unsaved:
+   *  store.js unsaved says what to answer), so nothing is kept, or later sent, that isn't on disk. (What a read or a
+   *  send brings stays in memory when it can't be saved: it is what the calendars hold, and the next save keeps it.) */
+  function commit(before) {
+    try { save(); }
+    catch (e) { st = before; accounts = Array.isArray(st.accounts) ? st.accounts : []; log(`[calendar-sync] not saved: ${str(e.message, 120)}`); throw Object.assign(e, { unsaved: true }); }
+  }
   const window = () => { const t = now(); return { from: t - 35 * DAY, to: t + 70 * DAY }; };
 
   // ---- talking to Google and iCloud, through the shell -------------------------------------------------------
@@ -366,8 +373,11 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   async function discover(accountId) {
     await loadAccounts();
     const a = acc(accountId); if (!a) return { error: 'No such account.' };
-    try {
-      const list = await prov(a).calendars(a);
+    let list;
+    try { list = await prov(a).calendars(a); }
+    catch (e) { st.errors[a.id] = e.signin ? 'signin' : str(e.message, 120); try { save(); } catch {} return { error: e.signin ? 'The sign-in didn\'t work.' : `Couldn't reach it (${str(e.message, 80)}).`, signin: !!e.signin }; }
+    {
+      const before = structuredClone(st);
       const fam = family().map((n) => String(n).toLowerCase());
       for (const c of list) {
         const k = keyOf(a.id, c.remote);
@@ -377,28 +387,30 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           mode: was?.mode || (c.canWrite ? 'two-way' : 'read'), who: was ? was.who : guess && fam.includes(guess.toLowerCase()) ? guess : a.who || null };
       }
       if (!st.default || !st.calendars[st.default] || !twoWay(st.calendars[st.default])) st.default = targets().find((t) => st.calendars[t.key].primary)?.key || targets()[0]?.key || null;
-      delete st.errors[a.id]; save(); changed();
+      delete st.errors[a.id]; commit(before); changed();
       pull().catch(() => {});
       return { ok: true, calendars: calendars().filter((c) => c.account === a.id) };
-    } catch (e) { st.errors[a.id] = e.signin ? 'signin' : str(e.message, 120); save(); return { error: e.signin ? 'The sign-in didn\'t work.' : `Couldn't reach it (${str(e.message, 80)}).`, signin: !!e.signin }; }
+    }
   }
   const keyOf = (account, remote) => crypto.createHash('sha256').update(`${account}|${remote}`).digest('base64url').replace(/[-_]/g, '').slice(0, 8);
   function setCalendar(key, b = {}) {
-    const c = st.calendars[key]; if (!c) return { error: 'No such calendar.' };
+    if (!st.calendars[key]) return { error: 'No such calendar.' };
+    const before = structuredClone(st), c = st.calendars[key];
     if (['off', 'read', 'two-way'].includes(b.mode)) c.mode = b.mode === 'two-way' && !c.canWrite ? 'read' : b.mode;
     if (b.who !== undefined) c.who = str(b.who, 40) || null;
     if (b.tone !== undefined) c.tone = /^#[0-9a-f]{6}$/i.test(b.tone || '') ? b.tone.toLowerCase() : null; // the color chosen here (its events'), not the provider's
     if (b.default) st.default = twoWay(c) ? key : st.default;
     if (st.default === key && !twoWay(c)) st.default = targets().find((t) => t.key !== key)?.key || null;
-    save(); changed(); if (isOn(c)) pull().catch(() => {});
+    commit(before); changed(); if (isOn(c)) pull().catch(() => {});
     return { ok: true, calendars: calendars() };
   }
   /** An account signed out (the shell forgot it): its calendars, their events and its changes not yet sent go. */
   function forget(accountId) {
+    const before = structuredClone(st);
     for (const [k, c] of Object.entries(st.calendars)) if (c.account === accountId) { delete st.calendars[k]; delete st.cache[k]; delete st.reads?.[k]; }
     st.outbox = st.outbox.filter((o) => st.calendars[o.calendar]);
     if (st.default && !st.calendars[st.default]) st.default = targets()[0]?.key || null;
-    delete st.errors[accountId]; save(); changed(); return { ok: true };
+    delete st.errors[accountId]; commit(before); changed(); return { ok: true };
   }
 
   /** What a read can change that anyone sees (events, errors, changes waiting, accounts, each calendar's counts, the
@@ -442,9 +454,9 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     return { key: k, remote, c, item, queued };
   }
   const isMine = (id) => /^c-[A-Za-z0-9]{8}-/.test(String(id || ''));
-  function queue(o) {
+  function queue(o, before = structuredClone(st)) {
     st.outbox.push({ ...o, at: now(), tries: 0 });
-    save(); changed();
+    commit(before); changed();
     flush().catch(() => {});
   }
   function add(fields, calendar) {
@@ -458,16 +470,17 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   function update(id, fields) {
     const f = find(id, fields.date); if (!f) return { error: `No event ${id}.` };
     if (!twoWay(f.c)) return { error: 'That calendar is shown here but changed where it comes from.' };
-    if (f.queued) { f.queued.fields = { ...f.queued.fields, ...fields }; save(); changed(); flush().catch(() => {}); return { ok: true, event: { ...f.queued.fields, id } }; }
+    const before = structuredClone(st);
+    if (f.queued) { f.queued.fields = { ...f.queued.fields, ...fields }; commit(before); changed(); flush().catch(() => {}); return { ok: true, event: { ...f.queued.fields, id } }; }
     if (!f.item) return { error: `No event ${id}.` };
     st.outbox = st.outbox.filter((o) => !(o.op === 'update' && o.key === `${f.key}|${f.remote}`)); // the latest change is the one that goes
-    queue({ op: 'update', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, fields, from: f.item.ev.date ? f.item.ev.start : null, date: f.item.ev.date || null });
+    queue({ op: 'update', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, fields, from: f.item.ev.date ? f.item.ev.start : null, date: f.item.ev.date || null }, before);
     return { ok: true, event: { ...f.item.ev, ...fields, id } };
   }
   function remove(id, date) {
     const f = find(id, date); if (!f) return { error: `No event ${id}.` };
     if (!twoWay(f.c)) return { error: 'That calendar is shown here but changed where it comes from.' };
-    if (f.queued && !date) { st.outbox = st.outbox.filter((o) => o !== f.queued); save(); changed(); return { ok: true, removed: [id] }; }
+    if (f.queued && !date) { const before = structuredClone(st); st.outbox = st.outbox.filter((o) => o !== f.queued); commit(before); changed(); return { ok: true, removed: [id] }; }
     if (!f.item) return { error: `No event ${id}.` };
     const one = date && f.item.ev.repeat ? date : null;
     // [start]: that time's own start, so iCloud's EXDATE names it exactly ([date] is its local day).

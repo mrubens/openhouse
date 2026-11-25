@@ -25,7 +25,8 @@ export default function (house) {
   /**
    * Adding or removing rewards (what stars buy) needs a yes on the display's card, with the PIN, as
    * giving one does: a kid could otherwise make "Ice cream: 1 star", in an app or by asking the assistant. With no
-   * display around (a computer running the bridge) it just happens; with no card possible (device access off), too.
+   * display around (a computer running the bridge) it just happens. Only a yes on the card changes them: a card that
+   * couldn't be shown (the display is off or busy, the change too long to show) changes nothing.
    */
   function rewardSetup(a, fromApp) {
     const adds = (a.add ? [].concat(a.add) : []).filter((y) => str(y?.title)), removes = arr(a.remove);
@@ -33,7 +34,7 @@ export default function (house) {
     if (!house.shellCfg()) return setUpRewards(adds, removes);
     const what = [...adds.map((x) => `${str(x.title, 60)} for ${Math.max(1, Math.min(500, Math.round(Number(x.stars) || 10)))} stars`), ...removes.map((x) => `take off ${data.rewards.find((y) => y.id === x || same(y.title, x))?.title || x}`)].join('; ');
     house.shell('/approve', { title: 'Change the rewards?', detail: what, pin: true, yes: 'Change' }, 100_000).then((r) => {
-      if (r?.why || r?.yes) { setUpRewards(adds, removes); save(); }
+      if (r?.yes === true) { setUpRewards(adds, removes); save(); }
     });
     return [`asked someone to OK it on the display (${what})`];
   }

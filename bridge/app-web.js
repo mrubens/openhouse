@@ -78,17 +78,30 @@ export function reachMatches(host, reaches) {
  * A recipe's link from a shared app: POST /house/recipe-link {link}, /house/meal {recipe: {link}} or {addText} that is
  * a link (house/recipes.js addRecipeText). The bridge reads that page, and what it read lands in the recipes the app
  * sees, so it is the web through the bridge like /apps/fetch: only a host the app's card said it reaches. null when it
- * may (no link in it is the house's to answer), else {error}. A redirect from that host elsewhere is followed as for any
- * recipe page: the host's own server could read that page itself, and a page on the home network is never read.
+ * may (no link in it is the house's to answer), else {error}. Each link in b is cut here as the house reads it (its
+ * first 400 characters, house/util.js str) and b is changed to that, so what's checked is what's read; a link with a
+ * name and password in it is refused. Every redirect from there is checked against the same hosts (the house is given
+ * them: readRecipeLink's reaches).
  */
+export const RECIPE_LINK_MAX = 400;
+const asHouseReads = (v) => String(v ?? '').trim().replace(/\s+/g, ' ').slice(0, RECIPE_LINK_MAX);
 export function recipeLinkRefused(pathname, b, reaches) {
-  const t = String(b?.addText ?? '').trim();
-  const l = String((pathname === '/house/recipe-link' ? b?.link : b?.recipe?.link ?? (/^\S+\.\S+$/.test(t) ? t : '')) ?? '').trim();
-  if (!l) return null;
-  let host = '';
-  try { host = new URL(/^https?:\/\//i.test(l) ? l : 'https://' + l).host; } catch {}
-  if (host && reachMatches(host, reaches)) return null;
-  return { error: reaches?.length ? `This app doesn't reach ${host || 'that link'}.` : "This app doesn't reach the internet." };
+  if (!b || typeof b !== 'object') return null;
+  const links = [];
+  if (pathname === '/house/recipe-link') { if (b.link != null) links.push(b.link = asHouseReads(b.link)); }
+  else {
+    if (b.recipe && typeof b.recipe === 'object' && b.recipe.link != null) links.push(b.recipe.link = asHouseReads(b.recipe.link));
+    const t = String(b.addText ?? '').trim();
+    if (/^\S+\.\S+$/.test(t)) links.push(b.addText = asHouseReads(t)); // (one word with a dot: read as a link, house/recipes.js)
+  }
+  for (const l of links) {
+    if (!l) continue;
+    let u = null;
+    try { u = new URL(/^https?:\/\//i.test(l) ? l : 'https://' + l); } catch {}
+    if (u && (u.username || u.password)) return { error: 'No sign-ins in the address.' };
+    if (!u || !reachMatches(u.host, reaches)) return { error: reaches?.length ? `This app doesn't reach ${u?.host || 'that link'}.` : "This app doesn't reach the internet." };
+  }
+  return null;
 }
 
 const aborted = () => Object.assign(new Error('aborted'), { name: 'AbortError' });

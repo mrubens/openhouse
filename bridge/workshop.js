@@ -11,7 +11,7 @@
 // change left open goes in by itself after a quiet while, so a closed laptop never blocks the family's assistant.
 import { DEVICE_NAMES } from './device-tools.js';
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import { staticCheck } from './app-check.js';
 import path from 'node:path';
@@ -56,6 +56,8 @@ export function reopenChanges({ HERE, edits, log = (...a) => console.log('[works
 
 export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = null, plugins = null, fixes = null, approve = async () => null, events, checkBuild, deviceServer = () => null, whoOf = () => null, live = null, devices = null, json, body, idleMs = 10 * 60e3, log = (...a) => console.log('[workshop]', ...a) }) {
   const { emit, setState } = events; // the tablet's assistant shows the builder's state; a computer's change keeps out of it
+  /** A fix's status changed (heartbeat-fixes.js): null, or what to say when that couldn't be saved (store.js unsaved). */
+  const fixStatus = (id, patch) => { try { fixes?.set(id, patch); return null; } catch (e) { if (!e?.unsaved) throw e; return unsaved(e).error; } };
   const guided = new Set(); // computers that read how apps are made (get_guide topic apps)
   // Open changes, kept on disk so one survives the bridge restarting (an update installed mid-change): its files are
   // still there, uncommitted, and stay its change.
@@ -146,7 +148,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
         log(`${c.name}'s fix was left open: put back out`);
         for (const [k, v] of open) if (v === c) open.delete(k);
         try { edits.end(c.turn, false); } catch {}
-        fixes?.set(c.fix, { status: 'pending' }); homeScreen.computerNote(null); keep(); emit({ type: 'apps' });
+        fixStatus(c.fix, { status: 'pending' }); homeScreen.computerNote(null); keep(); emit({ type: 'apps' });
         return;
       }
       log(`${c.name}'s change was left open: it goes in as it is`); finish(c, c.what);
@@ -209,7 +211,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
         const fx = a.fix && fixes ? fixes.get(String(a.fix)) : null;
         if (a.fix && (!fx || !['pending', 'working'].includes(fx.status))) { edits.end(turn, false); return err(`No waiting fix ${a.fix} (pending_fixes lists them).`); }
         const n = { turn, what, name: who.name, before: new Set(appIds()), shown: new Set(), fresh: new Set(), timer: null, fix: fx?.id || null };
-        if (fx) fixes.set(fx.id, { status: 'working', by: who.name });
+        if (fx) { const no = fixStatus(fx.id, { status: 'working', by: who.name }); if (no) { edits.end(turn, false); return err(no); } }
         open.set(key, n); touch(n); keep();
         // The tablet says so quietly (a line under its tabs), not by its assistant looking busy: that's for its own work.
         homeScreen.computerNote(`From ${who.name}: ${what}`);
@@ -311,16 +313,16 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
           if (yes === false) {
             clearTimeout(c.timer); open.delete(key); keep(); homeScreen.computerNote(null);
             try { edits.end(c.turn, false); } catch {}
-            fixes?.set(c.fix, { status: 'pending' });
+            fixStatus(c.fix, { status: 'pending' });
             emit({ type: 'apps' });
             return err('Nobody said yes on the tablet, so the fix was put back out (the app is as it was). It is still waiting: try again when someone is by the tablet.');
           }
         }
         const sha = finish(c, String(a.summary || '').trim().slice(0, 300) || c.what);
-        if (c.fix) fixes?.set(c.fix, sha ? { status: 'done', sha } : { status: 'pending' });
+        const fixNo = c.fix ? fixStatus(c.fix, sha ? { status: 'done', sha } : { status: 'pending' }) : null;
         let which = '';
         if (sha && plugins) { try { which = plugins.describe(new Set(edits.git('show', '--name-only', '--format=', sha).split('\n').map((f) => f.match(/^apps\/([^/]+)\//)?.[1]).filter(Boolean))); } catch {} }
-        return ok(sha ? `Saved as one change (${sha.slice(0, 7)}): "${c.what}".${which ? ` Plugin: ${which}.` : ''}` : 'Nothing had changed, so there is nothing to save.');
+        return ok((sha ? `Saved as one change (${sha.slice(0, 7)}): "${c.what}".${which ? ` Plugin: ${which}.` : ''}` : 'Nothing had changed, so there is nothing to save.') + (fixNo ? ` The fix's own status: ${fixNo}` : ''));
       }
       case 'show_on_tablet': { // the same as Opie's show_on_screen (server.js setScreen): from wherever the tablet is
         if (!live) return err('The tablet\'s screen can\'t be changed from here.');

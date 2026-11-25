@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { allowed, PHONE_SCOPES } from '../screens.js';
 import { appAllowed } from '../apps.js';
 import { recipeLinkRefused } from '../app-web.js';
+import { readRecipeLink } from '../cooking.js';
 
 test('who may add a recipe by its link, and who may ask another app or be used hands-free', () => {
   assert.ok(allowed(PHONE_SCOPES.grownup, 'POST', '/house/recipe-link'), "a grown-up's phone");
@@ -27,4 +28,23 @@ test("a shared app's recipe link is read only from a host its card said it reach
   assert.equal(recipeLinkRefused('/house/recipe-link', { link: 'https://a.recipes.example/x' }, some), null);
   assert.equal(recipeLinkRefused('/house/meal', { addText: 'something with leftover chicken' }, none), null, 'not a link');
   assert.equal(recipeLinkRefused('/house/meal', { date: '2026-11-25', meal: 'dinner', text: 'tacos' }, none), null);
+});
+
+test("a shared app's recipe link: what's checked is what's read, no sign-in in it, and no redirect off its hosts", async () => {
+  const some = ['www.example.com'];
+  // The house reads a link's first 400 characters: one that is another host once cut is checked as cut.
+  const head = 'https://other.example:';
+  const b = { link: head + '0'.repeat(400 - head.length - 3) + '443@www.example.com/chili' };
+  assert.ok(recipeLinkRefused('/house/recipe-link', b, some));
+  const ok = { link: '  https://www.example.com/' + 'x'.repeat(600) };
+  assert.equal(recipeLinkRefused('/house/recipe-link', ok, some), null);
+  assert.equal(ok.link.length, 400, 'passed on as cut');
+  assert.ok(recipeLinkRefused('/house/recipe-link', { link: 'https://me:pw@www.example.com/chili' }, some));
+  assert.ok(recipeLinkRefused('/house/meal', { recipe: { meal: 'chili', link: 'https://x@www.example.com/' } }, some));
+
+  const lookup = async () => [{ address: '93.184.216.34', family: 4 }];
+  const get = async (u) => (new URL(u).hostname === 'www.example.com' ? new Response('', { status: 302, headers: { location: 'https://elsewhere.example.org/soup' } })
+    : new Response('<title>Soup</title><p>Stir it.</p>', { status: 200, headers: { 'content-type': 'text/html' } }));
+  await assert.rejects(readRecipeLink('https://www.example.com/soup', { fetch: get, lookup, reaches: some }), 'a redirect off its hosts');
+  assert.ok((await readRecipeLink('https://www.example.com/soup', { fetch: get, lookup })).text, "the household's own link follows it");
 });

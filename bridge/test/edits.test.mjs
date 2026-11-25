@@ -11,6 +11,7 @@ import path from 'node:path';
 import net from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { initRepo, editLock, quietRepo } from '../edits.js';
+import { plain } from '../backup.js';
 
 const BRIDGE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -122,6 +123,31 @@ test('a restored repo whose .git is a file pointing elsewhere becomes a repo of 
   assert.equal(fs.readFileSync(path.join(app, 'README.md'), 'utf8'), 'apps\n', 'the files stay');
   fs.rmSync(root, { recursive: true, force: true });
 });
+
+test('a restored tree: no repo inside the repo, no node_modules, nothing but plain files and folders, and a pipe for a config hangs nothing', () => {
+  const { root, app, mark } = restoredRepo(({ app, run }) => {
+    const x = path.join(app, 'apps/x');
+    fs.mkdirSync(x, { recursive: true }); fs.writeFileSync(path.join(x, 'index.html'), 'x');
+    execFileSync('git', ['init', '-q'], { cwd: x });
+    execFileSync('git', ['config', 'filter.x.clean', run], { cwd: x });
+    fs.writeFileSync(path.join(x, '.gitattributes'), '* filter=x\n');
+    fs.mkdirSync(path.join(app, 'node_modules/vite'), { recursive: true }); fs.writeFileSync(path.join(app, 'node_modules/vite/vite.js'), run);
+    fs.symlinkSync('/etc', path.join(app, 'apps/link'));
+    execFileSync('mkfifo', [path.join(app, 'apps/pipe')]);
+  });
+  assert.equal(plain(app), true);
+  assert.equal(quietRepo(app), true);
+  for (const gone of ['apps/x/.git', 'node_modules', 'apps/link', 'apps/pipe']) assert.equal(fs.existsSync(path.join(app, gone)) || isLink(path.join(app, gone)), false, gone);
+  assert.ok(fs.existsSync(path.join(app, 'apps/x/index.html')), 'the inner repo\'s files stay');
+  changeOnce(root, app);
+  assert.equal(fs.existsSync(mark), false, 'nothing ran');
+  // quietRepo on its own: a .git holding a pipe is made fresh, never read (reading it would wait forever).
+  fs.rmSync(path.join(app, '.git/config')); execFileSync('mkfifo', [path.join(app, '.git/config')]);
+  assert.equal(quietRepo(app), true);
+  assert.ok(fs.lstatSync(path.join(app, '.git/config')).isFile());
+  fs.rmSync(root, { recursive: true, force: true });
+});
+const isLink = (p) => { try { return fs.lstatSync(p).isSymbolicLink(); } catch { return false; } };
 
 let b;
 before(async () => { b = await startBridge(); });
