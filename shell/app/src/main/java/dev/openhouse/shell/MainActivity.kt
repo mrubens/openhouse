@@ -309,12 +309,23 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         if (hasFocus) immersive()
     }
 
+    /** The key that woke the screen: its release is swallowed too. */
+    private var wakeKey: Int? = null
+
     /** A keyboard (the tablet's keyboard cover) types into the board, whatever was tapped last. */
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         val o = dev.openhouse.ui.Openhouse
         val fields = o.showFamily || o.setupStep != null // these sheets have their own text fields
         val onBoard = (apps.appId == null || o.showConversation) && !fields
         if (event.action == android.view.KeyEvent.ACTION_DOWN && !event.isPrintingKey) Log.d("Keys", "key ${event.keyCode} ${android.view.KeyEvent.keyCodeToString(event.keyCode)} scan ${event.scanCode}")
+        // A key wakes it as a touch does (asleep, the night's dark or the photos): that key only wakes it, as a tap
+        // on a sleeping screen does. The volume keys still turn the volume.
+        val volume = event.keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+        if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+            val asleep = o.idle
+            o.touch()
+            if (asleep && !volume) { wakeKey = event.keyCode; return true }
+        } else if (event.action == android.view.KeyEvent.ACTION_UP && event.keyCode == wakeKey) { wakeKey = null; return true }
         // During OpenAI's live voice the keys turn its loudness too (LiveVoice.volumeKey): the media stream, which it follows.
         if (event.keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == android.view.KeyEvent.KEYCODE_VOLUME_DOWN) {
             if (event.action == android.view.KeyEvent.ACTION_DOWN && LiveVoice.volumeKey(this, event.keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP)) return true
