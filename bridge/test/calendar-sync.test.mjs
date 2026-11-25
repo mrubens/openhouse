@@ -7,6 +7,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { calendarSync } from '../calendar-sync.js';
 import { parse } from '../calendar.js';
+import { houseRoutes } from '../house.js';
 
 const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'oh-sync-')), 'calendar-sync.json');
 
@@ -99,8 +100,20 @@ function fakeCalDav(ics) {
 const series = (rule) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT', 'UID:swim-1', 'DTSTART;TZID=America/Los_Angeles:20261110T170000',
   'DTEND;TZID=America/Los_Angeles:20261110T180000', `RRULE:${rule}`, 'SUMMARY:Swim', 'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n');
 
-for (const [rule, kind] of [['FREQ=DAILY', 'daily'], ['FREQ=WEEKLY', 'weekly']]) {
-  test(`removing one day of a ${kind} 5 PM event behind UTC takes off that day on iCloud, not the next`, async () => {
+// The Calendar app's Remove this day sends the date the view gave that time; Opie sends the day it was asked about
+// ("take swim off Tuesday"), through the calendar_event tool. Both must take off that day, on a tablet behind UTC.
+const viaApp = async (s, one) => assert.ok(s.remove(one.id, one.date)?.ok);
+async function viaOpie(s, one) {
+  const DIR = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'oh-house-')), 'x'); fs.mkdirSync(DIR);
+  const board = { householdView: () => ({ family: [{ name: 'Alex' }], chores: [], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => s.events(), sync: s };
+  const h = houseRoutes({ DIR, json: () => {}, body: async () => ({}), board });
+  const r = await h.call('calendar_event', { remove: one.id, date: '2026-12-08' }, { by: 'assistant', who: null, conversation: 'live' });
+  assert.ok(!r.isError, r.content[0].text);
+}
+for (const [rule, kind] of [['FREQ=DAILY', 'daily'], ['FREQ=WEEKLY', 'weekly']]) for (const [how, remove] of [['the Calendar app', viaApp], ['Opie', viaOpie]]) {
+  test(`removing one day of a ${kind} 5 PM event behind UTC (${how}) takes off that day on iCloud, not the next`, async () => {
+    const tz = process.env.TZ; process.env.TZ = 'America/Los_Angeles'; // the tablet's own day is Los Angeles's
+    try {
     const d = fakeCalDav(series(rule)), FILE = tmp(), now = () => Date.parse('2026-12-01T12:00:00Z');
     const s = calendarSync({ FILE, shell: d.shell, now, log: () => {} });
     assert.ok((await s.discover('a1')).ok);
@@ -108,7 +121,8 @@ for (const [rule, kind] of [['FREQ=DAILY', 'daily'], ['FREQ=WEEKLY', 'weekly']])
     // Tuesday Dec 8, 5 PM in Los Angeles: already Dec 9 in UTC.
     const one = s.events().find((e) => e.start === '2026-12-09T01:00:00.000Z');
     assert.ok(one?.editable && one.date);
-    assert.ok(s.remove(one.id, one.date)?.ok);
+    assert.equal(one.date, '2026-12-08', 'its date is its own day here');
+    await remove(s, one);
     await s.flush();
     assert.equal(d.puts.length, 1);
     assert.match(d.puts[0], /\r\nEXDATE;TZID=America\/Los_Angeles:20261208T170000\r\n/);
@@ -117,5 +131,6 @@ for (const [rule, kind] of [['FREQ=DAILY', 'daily'], ['FREQ=WEEKLY', 'weekly']])
     assert.ok(starts.includes(kind === 'daily' ? '2026-12-10T01:00:00.000Z' : '2026-12-16T01:00:00.000Z'), 'the next one stays');
     assert.ok(starts.includes(kind === 'daily' ? '2026-12-08T01:00:00.000Z' : '2026-12-02T01:00:00.000Z'), 'the one before stays');
     s.stop();
+    } finally { if (tz === undefined) delete process.env.TZ; else process.env.TZ = tz; }
   });
 }
