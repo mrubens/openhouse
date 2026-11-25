@@ -5,7 +5,8 @@ package dev.openhouse.shell
 // signed by the key this display is signed with or one it rotated to) and installs it itself, as device owner, with
 // nobody asked: only when the tablet is quiet, at night unless the release says it's urgent. Before installing it
 // stages the release's rescue build (the release before, a version code above) so that UpdateGuard, in its own
-// process, can go back to it if the new display doesn't come up healthy. Only the display's own APK changes (and what
+// process, can go back to it if the new display doesn't come up or can't check for updates itself; the rescue is
+// kept a day (UpdateHealth says why and how). Only the display's own APK changes (and what
 // it carries: the bridge, start script, the update cover); the family's files and apps are left as they are.
 
 import android.content.Context
@@ -93,13 +94,18 @@ internal object Updater {
         val url = url(c)
         val now = System.currentTimeMillis()
         prefs(c).edit().putLong("last_check", now).putLong("next_check", now + DAY).apply()
-        if (url.isEmpty()) { status = "Updates are off on this tablet"; return }
+        if (url.isEmpty()) { status = "Updates are off on this tablet"; proof(c, false, true, "no update URL"); return }
         val cred = cloudCredential(c, url)
-        val ask = Releases.requestUrl(url, installedCode(c), prefs(c).getString("channel", "stable")!!, if (cred == null) deviceId(c) else null)
-        val answer = try { Releases.parseAnswer(fetchText(ask, cred?.let { "Device $it" }), url) } catch (e: Exception) {
+        val answer = try {
+            val ask = Releases.requestUrl(url, installedCode(c), prefs(c).getString("channel", "stable")!!, if (cred == null) deviceId(c) else null)
+            Releases.parseAnswer(fetchText(ask, cred?.let { "Device $it" }), url)
+        } catch (e: Exception) {
             prefs(c).edit().putLong("next_check", now + DAY / 24).apply()
-            Log.w(TAG, "manifest $url: $e"); status = "Couldn't check for updates (${e.message?.take(80)})"; return
+            Log.w(TAG, "manifest $url: $e"); status = "Couldn't check for updates (${e.message?.take(80)})"
+            proof(c, false, UpdateHealth.failureCounts((e as? HttpStatus)?.code, networkValidated(c)), e.toString().take(200))
+            return
         }
+        proof(c, true, false, null)
         answer.checkAgainSeconds?.let { prefs(c).edit().putLong("next_check", now + it * 1000).apply() }
         val r = answer.release ?: run { status = "Up to date"; clearDownloads(c); Log.i(TAG, "checked $url: $status"); return }
         val mine = installedCode(c)
@@ -124,6 +130,13 @@ internal object Updater {
             ready.writeText(had.put("urgent", urgent).put("notes", r.notes).toString())
             status = "Version ${r.version} is ready to install"; return
         }
+        // Still keeping the last update's rescue: a newer release (with its own rescue) may end that day early, but
+        // only once the one installed has shown it comes up and can check for updates.
+        UpdateGuard.watching(c)?.let { p ->
+            val w = UpdateGuard.watch(c, p)
+            if (!w.upThisBoot || !(w.proven || !w.hasRescue)) { status = "Version ${r.version} waits until ${installedVersion(c)} has settled in"; return }
+            UpdateGuard.settle(c, p)
+        }
         clearDownloads(c)
         status = "Downloading version ${r.version}"
         val apk = File(d, "update.apk")
@@ -141,7 +154,11 @@ internal object Updater {
         Log.i(TAG, status)
     }
 
-    private fun clearDownloads(c: Context) { for (n in listOf("ready.json", "update.apk", "rescue.apk", "update.apk.part", "rescue.apk.part")) File(dir(c), n).delete() }
+    /** The downloads, but not the installed update's rescue build while it's still kept (UpdateGuard.settle drops it). */
+    private fun clearDownloads(c: Context) {
+        val keep = UpdateGuard.watching(c) != null
+        for (n in listOf("ready.json", "update.apk", "rescue.apk", "update.apk.part", "rescue.apk.part")) if (!(keep && n == "rescue.apk")) File(dir(c), n).delete()
+    }
 
     /**
      * The managed cloud's credential for this tablet, when someone linked it to a family (the bridge keeps it in
@@ -166,12 +183,21 @@ internal object Updater {
                 require(next.protocol == "https" || next.protocol == u.protocol) { "redirected to ${next.protocol}" }
                 u = next
             } else {
-                if (h.responseCode != 200) { h.disconnect(); throw java.io.IOException("HTTP ${h.responseCode}") }
+                if (h.responseCode != 200) { val code = h.responseCode; h.disconnect(); throw HttpStatus(code) }
                 return h
             }
         }
         throw java.io.IOException("too many redirects")
     }
+
+    /** The server answered, but not with the file: which answer (UpdateHealth.failureCounts tells the server's trouble from ours). */
+    class HttpStatus(val code: Int) : java.io.IOException("HTTP $code")
+
+    /** Android has checked this network reaches the internet (not offline, not behind a sign-in page). */
+    private fun networkValidated(c: Context): Boolean = runCatching {
+        val cm = c.getSystemService(android.net.ConnectivityManager::class.java)
+        cm.getNetworkCapabilities(cm.activeNetwork)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED) == true
+    }.getOrDefault(false)
 
     private fun fetchText(url: String, auth: String? = null) = open(url, auth).run { try { inputStream.bufferedReader().readText() } finally { disconnect() } }
 
@@ -248,7 +274,8 @@ internal object Updater {
         File(dir(c), "healthy").delete()
         File(dir(c), "pending.json").writeText(JSONObject().put("from", installedCode(c)).put("fromVersion", installedVersion(c))
             .put("to", code).put("version", version).put("rescueCode", if (session != null) rescueCode else 0).put("rescueVersion", rescueVersion)
-            .put("session", session ?: -1).put("at", System.currentTimeMillis()).put("healthS", healthSeconds(c)).toString())
+            .put("session", session ?: -1).put("at", System.currentTimeMillis()).put("healthS", healthSeconds(c))
+            .put("boot", UpdateGuard.bootCount(c)).put("atElapsed", android.os.SystemClock.elapsedRealtime()).toString())
         UpdateGuard.schedule(c, healthSeconds(c) * 1000L) // also scheduled by the new display when it's replaced; whichever is there
         status = "Installing version $version"
         Log.i(TAG, "installing $version ($code), rescue ${if (session != null) "$rescueVersion ($rescueCode) staged" else "none"}")
@@ -289,8 +316,9 @@ internal object Updater {
     // --- after an update: healthy, or went back ----------------------------------------------------------------------
 
     /**
-     * Just updated: once the bridge answers and the home screen's page has loaded, this display is healthy (UpdateGuard then
-     * leaves it be). Just gone back to the rescue build: remember that release failed here, so it isn't tried again.
+     * Just updated: note when this display is up this boot (the bridge answers, the home screen's page has loaded), try
+     * the manifest until a try works, and settle once UpdateHealth says so (UpdateGuard, watching too, goes back if
+     * it must). Just gone back to the rescue build: remember that release failed here, so it isn't tried again.
      */
     private fun afterUpdate(c: Context, bridge: String) {
         val pf = File(dir(c), "pending.json")
@@ -300,16 +328,27 @@ internal object Updater {
         val to = p.getLong("to")
         when {
             mine == to -> {
-                if (File(dir(c), "healthy").exists()) return
-                val bridgeOk = runCatching { dev.openhouse.ui.BridgeClient.getText("$bridge/state", 3000, 5000) }.isSuccess
-                if (!bridgeOk || !homeLoaded) { status = "Version ${p.optString("version")} is starting"; return }
-                File(dir(c), "healthy").writeText(mine.toString())
-                p.optInt("session", -1).takeIf { it >= 0 }?.let { runCatching { c.packageManager.packageInstaller.abandonSession(it) } }
-                UpdateGuard.cancel(c)
-                pf.delete(); clearDownloads(c)
-                history(c, "Updated from ${p.optString("fromVersion")} to ${p.optString("version")}")
-                status = "Updated to ${p.optString("version")}"
-                Log.i(TAG, "healthy on $to")
+                if (File(dir(c), "healthy").exists() || p.optBoolean("rescuing")) return
+                val version = p.optString("version")
+                if (!UpdateGuard.watch(c, p).upThisBoot) {
+                    val bridgeOk = runCatching { dev.openhouse.ui.BridgeClient.getText("$bridge/state", 3000, 5000) }.isSuccess
+                    if (!bridgeOk || !homeLoaded) { status = "Version $version is starting"; return }
+                    UpdateGuard.write(c, p.put("upBoot", UpdateGuard.bootCount(c)).put("upAt", System.currentTimeMillis()))
+                    Log.i(TAG, "version $version is up")
+                }
+                var w = UpdateGuard.watch(c, p)
+                if (!w.proven && w.hasRescue && System.currentTimeMillis() - p.optLong("triedAt", 0) >= UpdateHealth.retryMs(w.sinceInstallMs)) {
+                    check(c) // the same check as every day's; it records how it went (proof)
+                    val q = UpdateGuard.watching(c) ?: return // settled by a newer release, or the guard went back
+                    w = UpdateGuard.watch(c, q)
+                }
+                if (!w.proven && w.hasRescue) status = "Version $version is running; making sure it can check for updates"
+                if (UpdateHealth.judge(w) == UpdateHealth.Verdict.Settle) {
+                    UpdateGuard.watching(c)?.let { UpdateGuard.settle(c, it) }
+                    if (!w.hasRescue) history(c, "Updated from ${p.optString("fromVersion")} to $version")
+                    status = "Updated to $version"
+                    clearDownloads(c)
+                }
             }
             mine == p.optLong("rescueCode", -1) -> {
                 remember(c, to)
@@ -321,6 +360,27 @@ internal object Updater {
             }
             mine == p.optLong("from") && System.currentTimeMillis() - p.optLong("at") > 10 * 60_000L -> { pf.delete() } // the install never happened
         }
+    }
+
+    /**
+     * How a manifest check went, while an update is watched: one that worked shows the new release can update again;
+     * one that failed is noted, and counts against it only when [counts] (UpdateHealth.failureCounts).
+     */
+    private fun proof(c: Context, ok: Boolean, counts: Boolean, why: String?) {
+        val p = UpdateGuard.watching(c) ?: return
+        if (p.optBoolean("proven") || p.optBoolean("rescuing")) return
+        val now = System.currentTimeMillis()
+        p.put("triedAt", now)
+        if (ok) {
+            p.put("proven", true).put("provenAt", now)
+            history(c, "Updated from ${p.optString("fromVersion")} to ${p.optString("version")}")
+            Log.i(TAG, "version ${p.optString("version")} can check for updates")
+        } else {
+            if (counts) p.put("failures", p.optInt("failures", 0) + 1)
+            p.put("lastFailure", why)
+            Log.w(TAG, "version ${p.optString("version")}: manifest check failed (${if (counts) "counts" else "offline or the server's trouble: doesn't count"}): $why")
+        }
+        UpdateGuard.write(c, p)
     }
 
     private fun history(c: Context, line: String) {
