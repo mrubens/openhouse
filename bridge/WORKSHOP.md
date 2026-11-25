@@ -14,7 +14,7 @@ watching the tablet while you work: it shows your change being made.
      the family's data, icons) and the quiet kit's CSS.
   2. `start_editing` with what was asked, in their words ("A whiteboard that looks like Chores").
   3. Read what you need with `list_files` and `read_file` (for an everyday tool, read `apps/chores/` first, and
-     `kit/openhouse.js` for the family's data).
+     `kit/openhouse-v2.js` for the family's data: a new app says `"kit": 2`).
   4. `write_file` a new file, whole; `edit_file` (old text, new text) for a small change to one that's there. Every
      save shows on the tablet at once, so each one must load without errors.
   5. A new app goes in Apps (the grid of apps that aren't tabs). Don't add it to the sidebar yourself, even when they

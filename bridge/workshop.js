@@ -88,7 +88,8 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
     { uri: 'openhouse://guide/apps', name: 'How apps are made', mimeType: 'text/markdown', text: () => guide('apps') },
     { uri: 'openhouse://guide/board', name: 'Notes on Home', mimeType: 'text/markdown', text: () => read('NOTES.md') },
     { uri: 'openhouse://kit/quiet.css', name: 'The quiet kit', mimeType: 'text/css', text: () => read('kit/quiet.css') },
-    { uri: 'openhouse://kit/openhouse.js', name: 'The kit (family data)', mimeType: 'text/javascript', text: () => read('kit/openhouse.js') },
+    { uri: 'openhouse://kit/openhouse-v2.js', name: 'The kit, version 2 (family data; new apps say "kit": 2)', mimeType: 'text/javascript', text: () => read('kit/openhouse-v2.js') },
+    { uri: 'openhouse://kit/openhouse.js', name: 'The kit, version 1 (apps that say "kit": 1 or name none)', mimeType: 'text/javascript', text: () => read('kit/openhouse.js') },
     { uri: 'openhouse://home', name: 'The home screen now', mimeType: 'text/plain', text: homeNow },
   ];
 
@@ -99,7 +100,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
     { name: 'start_editing', description: 'Open a change before writing or deleting any file. what: what the person asked, in their words ("A whiteboard that looks like Chores"); the tablet shows it while you work and undo lists it. Waits if the family\'s assistant is changing something right now. Not needed for set_home, notes or the household tools.',
       inputSchema: { type: 'object', required: ['what'], properties: { what: { type: 'string' }, fix: { type: 'string', description: 'A waiting fix\'s id (pending_fixes), when this change fixes it: someone says yes on the tablet before it goes in.' } } } },
     { name: 'list_files', description: 'Without app: every app (id and name) and the kit\'s files. With app: that app\'s files and sizes.', inputSchema: { type: 'object', properties: { app: { type: 'string', description: 'An app id' } } } },
-    { name: 'read_file', description: 'Read a file: under apps/ (e.g. "apps/chores/main.js"), or the kit ("kit/openhouse.js", "kit/quiet.css", "kit/openhouse.css").', inputSchema: { type: 'object', required: ['path'], properties: { path: path_ } } },
+    { name: 'read_file', description: 'Read a file: under apps/ (e.g. "apps/chores/main.js"), or the kit ("kit/openhouse-v2.js" for a new app, "kit/openhouse.js" for one on kit 1, "kit/quiet.css", "kit/openhouse.css").', inputSchema: { type: 'object', required: ['path'], properties: { path: path_ } } },
     { name: 'write_file', description: 'Write a whole file under apps/ (created with its folder if new). Only while your change is open (start_editing). It shows on the tablet at once, so it must load without errors.',
       inputSchema: { type: 'object', required: ['path', 'content'], properties: { path: path_, content: { type: 'string' } } } },
     { name: 'edit_file', description: 'Change part of a file under apps/: old is text that is in the file now, exactly once (with enough around it to be unique), new replaces it. Quicker than write_file for a small change to a big file. Only while your change is open.',
@@ -243,7 +244,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
       case 'list_files': {
         if (!a.app) {
           const apps = appIds().map((id) => `${id} ("${appName(id)}")${isTab(id) ? ', a tab' : ''}`);
-          return ok(`Apps (apps/<id>/):\n${apps.join('\n')}\n\nThe kit (read-only): kit/openhouse.js, kit/openhouse.css, kit/quiet.css`);
+          return ok(`Apps (apps/<id>/):\n${apps.join('\n')}\n\nThe kit (read-only): kit/openhouse-v2.js (version 2, new apps), kit/openhouse.js (version 1), kit/openhouse.css, kit/quiet.css`);
         }
         const id = String(a.app);
         if (!ID.test(id) || !fs.existsSync(path.join(appsDir, id))) return err(`No app ${id}.`);
@@ -253,9 +254,9 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
       }
       case 'read_file': {
         const rel = String(a.path || '').replace(/^\/+/, '');
-        const kit = rel.match(/^kit\/(openhouse\.js|openhouse\.css|quiet\.css)$/);
+        const kit = rel.match(/^kit\/(openhouse\.js|openhouse-v2\.js|openhouse\.css|quiet\.css)$/);
         const file = kit ? path.join(HERE, 'kit', kit[1]) : insideApps(APP_DIR, rel);
-        if (!file) return err('Only files under apps/ or the kit (kit/openhouse.js, kit/quiet.css, kit/openhouse.css).');
+        if (!file) return err('Only files under apps/ or the kit (kit/openhouse-v2.js, kit/openhouse.js, kit/quiet.css, kit/openhouse.css).');
         if (!fs.existsSync(file)) return err(`No file ${rel}.`);
         if (fs.statSync(file).isDirectory()) return err(`${rel} is a folder: list_files.`);
         const buf = fs.readFileSync(file);

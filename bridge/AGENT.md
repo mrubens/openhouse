@@ -63,7 +63,7 @@ The display starts with these apps: `apps/calendar`, `apps/chores`, `apps/lists`
 `apps/recipes`, `apps/map`, `apps/weather`, `apps/whiteboard` and `apps/tv` (the TV's). They're ordinary apps: change them like any other ("make the calendar show two weeks" is an edit to
 `apps/calendar/main.js`), and deleting one is deleting its folder. Their data is not in their code: it lives in the
 bridge, so an edit or a delete never loses the family's events, chores, lists or meals. Keep it that way, and use the
-same data in any new app that needs it, through the kit (version 1: a new app's `app.json` says `"kit": 1`):
+same data in any new app that needs it, through the kit (version 2: a new app's `app.json` says `"kit": 2`; an app that names no kit gets version 1, `docs/kit.md`):
 `import { house, store, timer, say, phone, shell, weather } from '/kit/openhouse.js';`
 - `house.subscribe((h) => draw(h))`: now and on every change (the assistant, another screen). `h.lists` (`{id, name,
   items: [{id, text, done, who}]}`), `h.chores` (`{who, task, today, done, week, days}`; `week` = days done this past
@@ -83,8 +83,11 @@ same data in any new app that needs it, through the kit (version 1: a new app's 
   `addChecklist`, `updateChecklist`, `removeChecklist`, `checkStep(id, step, who, done)`, `addPhoto(blob, name)`,
   `removePhoto(name)`, `setNight(from, to)`. Every one, with its arguments, is in the kit (`kit/openhouse.js`).
   `house.color(who)` is that person's color; `await house.photo(name)` is a URL for an `<img>`.
-- Every change resolves, never throws: the bridge's answer, or `{ok: false, error, status}` when it didn't happen
-  (`error`: the reason in words to show, or null). Check `r?.ok === false` and show `r.error` when there is one.
+- In kit 2 every change resolves, never throws: the bridge's answer, or `{ok: false, error, status}` when it didn't
+  happen (`error`: the reason in words to show, or null). Check `r?.ok === false` and show `r.error` when there is one.
+  An app on kit 1 (`"kit": 1`, or none) fails the older way: `house.*` changes resolve `{error}`, and `store.set`,
+  `house.addPhoto`, `setLocation` and the Map's changes reject. Keep its code to that, or move it to `"kit": 2` and
+  change its checks with it.
 - `await weather()`: the weather where they live (or null), °F and mph: `{place, temp, condition, code, isDay, high,
   low, feels, humidity, wind, sunrise, sunset, hours: [{time, temp, code, isDay, rain}] (next 24), days: [{date, high,
   low, code, condition, rain}] (7)}`; `code` is the WMO weather code, `rain` the chance in percent.
@@ -98,7 +101,7 @@ same data in any new app that needs it, through the kit (version 1: a new app's 
   the week, left and right on the remote). "Show Saturday's games on the TV" is a change to that app (or a new one with
   `"screens": ["tv"]`, which the TV then shows instead). It isn't on the tablet, it can't be seen with `look_at_tablet`,
   and it only reads: `house.subscribe`, `house.photo`, `weather()` work; anything that changes things resolves
-  `{ok: false}` there.
+  `{ok: false}` there (kit 2).
   Plain files only (no packages), sized in `vh` for across a room, and keys instead of touch (`keydown`: arrows, Enter).
 - To change what's *on* a list, the chores, rewards, routines, the meals or an event, use the house tools
   (`change_list`, `change_chores`, `change_rewards`, `change_routines`, `set_meals`, `calendar_event`), not code.
@@ -114,7 +117,7 @@ one clear subject on a background that fills the square; keep the bottom-left co
 ## Apps and games
 A page in `apps/<id>/` (id: lowercase, hyphens, e.g. `star-catcher`), served by the dev server and reloaded on every
 save. `check_build` reports errors the page throws while it's open.
-- Files (flat, no subfolders): `app.json` `{"name": "Marble Run", "tabIcon": "game-controller", "kit": 1}`, `icon.svg` (see "Icons"), `index.html`,
+- Files (flat, no subfolders): `app.json` `{"name": "Marble Run", "tabIcon": "game-controller", "kit": 2}`, `icon.svg` (see "Icons"), `index.html`,
   `main.js` (more `.js` and `.css` files next to it are fine). A new app: write them all in one turn, so it appears
   right away; then improve it with Edit.
 - A card of its own on Home (a remote, a score): `widget.html` (a small page with the kit, like `index.html`; it sits

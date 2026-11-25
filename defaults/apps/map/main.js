@@ -228,7 +228,7 @@ function sheet({ home = false } = {}) {
     msg.textContent = 'Finding it…';
     try {
       const r = await places.save(name, address, home, picked && picked.text === address ? picked.id : '');
-      if (r?.ok === false || r?.error) { msg.textContent = r.error || "That didn't save. Try again."; return; }
+      if (r?.error) { msg.textContent = r.error; return; }
       el.remove(); await refresh(); pick(home ? { kind: 'home', id: 'home' } : { kind: 'place', id: r.place.name }); fit();
     } catch { msg.textContent = "That didn't save. Try again."; }
   };

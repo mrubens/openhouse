@@ -164,9 +164,10 @@ twins-chores/
 - `pi.extensions` must be empty (§5). The installer refuses a plugin with extensions, and also refuses
   `node_modules`, symlinks, `.git` inside an app, files over 5 MB and more than 200 files.
 - `tabs` are **offered**, never forced: the card asks "Add a Chores tab?".
-- **An app's `app.json` names the kit it was made for:** `"kit": 1`. Set it in every plugin's app: the bridge
-  then serves that version of `/kit/openhouse.js` to it after a newer kit comes, so a kit change never breaks an
-  installed plugin. An app with none gets the newest. Every kit function and what it resolves to: `docs/kit.md`.
+- **An app's `app.json` names the kit it was made for:** `"kit": 2` for a new app. Set it in every plugin's app:
+  the bridge then serves that version of `/kit/openhouse.js` to it after a newer kit comes, so a kit change never
+  breaks an installed plugin. An app with none gets version 1, the kit from before versions. Every kit function and
+  what it resolves to in each version: `docs/kit.md`.
 - **An app's `app.json` gains two optional fields:**
   - `uses`: which house data and abilities it needs, e.g. `["chores", "rewards", "say", "store"]`. The names map onto
     `APP_RULES` route groups: lists, chores, meals, events, rewards, checklists, photos, weather, say, timer, phone,
