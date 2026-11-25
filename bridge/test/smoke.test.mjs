@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
+import http from 'node:http';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { initRepo } from '../edits.js';
 
@@ -41,6 +42,11 @@ test('server.js starts and serves', async () => {
     assert.ok(r, 'the bridge never answered:\n' + out.slice(-2000));
     assert.equal(r.status, 200, out.slice(-2000));
     await r.json();
+    // A malformed address gets an error, and the bridge goes on answering.
+    const bad = await new Promise((done, fail) => http.get({ host: '127.0.0.1', port, path: '//' }, (x) => { x.resume(); done(x.statusCode); }).on('error', fail));
+    assert.ok(bad >= 400 && bad < 500, `GET // answered ${bad}`);
+    const again = await fetch(`http://127.0.0.1:${port}/state`, { headers: { 'x-openhouse-token': token } });
+    assert.equal(again.status, 200, out.slice(-2000));
   } finally {
     child.kill();
     fs.rmSync(root, { recursive: true, force: true });

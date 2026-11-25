@@ -19,6 +19,7 @@
 //   POST /mcp             MCP (JSON answers), Bearer token
 import http from 'node:http';
 import fs from 'node:fs';
+import { guarded } from './guarded.js';
 import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -229,7 +230,7 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
   let server = null;
   function start() {
     if (server || !st.on || !okUrl(st.url)) return;
-    server = http.createServer(onPublic);
+    server = http.createServer(guarded('web-mcp', onPublic));
     server.on('error', (e) => { console.log('[web-mcp] listener:', e.code || e.message); server = null; });
     server.listen(PORT, HOST, () => console.log(`[web-mcp] the tablet's own connector on :${PORT}, as ${base()}`));
   }

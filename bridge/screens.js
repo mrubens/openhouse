@@ -43,6 +43,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import fs from 'node:fs';
+import { guarded } from './guarded.js';
 import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -258,7 +259,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   const TLS = (() => { try { return TLS_FILES ? { cert: fs.readFileSync(TLS_FILES.cert), key: fs.readFileSync(TLS_FILES.key) } : null; } catch (e) { console.log('[screens] no https:', e.message); return null; } })();
   function startLan() {
     if (lan) return;
-    lan = TLS ? https.createServer(TLS, onLan) : http.createServer(onLan);
+    lan = TLS ? https.createServer(TLS, guarded('screens', onLan)) : http.createServer(guarded('screens', onLan));
     lan.on('error', (e) => { console.log('[screens] listener:', e.code || e.message); lan = null; });
     lan.listen(PORT, HOST, () => console.log(`[screens] on the home network, ${TLS ? 'https' : 'http'} :${PORT}`));
   }
