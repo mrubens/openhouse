@@ -80,6 +80,10 @@ export const livePreamble = (name, builds = false) => `You are ${name}, the voic
 export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or game, or change one of the household\'s apps ("make the text on Chores bigger"), on the tablet itself: it takes a minute or two, the screen shows it working, and a grown-up says yes on the tablet before it goes in. what: what they asked for, in their words, with what you know (who it\'s for, what it should do). Only an app\'s code: the family\'s things (lists, events, a countdown on the calendar, chores) and the tabs and look have their own tools.',
   inputSchema: { type: 'object', properties: { what: { type: 'string' } }, required: ['what'] } };
 
+/** An app made on the tablet waiting for a grown-up's yes (build-waits.js): its card up again, as a tap on Home's line. */
+export const ASK_AGAIN_TOOL = { name: 'ask_grownup_again', description: 'An app the tablet made is waiting for a grown-up\'s yes (Home says "… is waiting for a grown-up"): put its card back up on the tablet, where a grown-up says yes with the PIN, or no. Only a person answers it. app: its name.',
+  inputSchema: { type: 'object', properties: { app: { type: 'string' } } } };
+
 /** The TV, straight from the voice (no agent turn): devices/index.js tv(). Offered only when there's a TV to control. */
 export const TV_TOOL = { name: 'tv', description: "The family's TV: turn it on or off, pause or play, volume, mute, open an app (Netflix, YouTube...), or what it's showing. Turning it on or opening an app asks the people in the room first.",
   inputSchema: { type: 'object', properties: { do: { type: 'string', enum: ['off', 'on', 'pause', 'play', 'volume_up', 'volume_down', 'mute', 'open_app', 'status'] }, app: { type: 'string', description: 'For open_app: the app by name' }, steps: { type: 'integer', description: 'For volume: how many steps (1-10)' }, tv: { type: 'string', description: 'Which TV, only when there are several' } }, required: ['do'] } };
@@ -194,6 +198,8 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   // Voice actions the apps declare (plugins.js voiceTools/callVoice), set once the plugins are up: data only, each one
   // done by its app's own page.
   let builds = null; // (text) => {ok, busy}: the builder (builder.js request), when apps are made on the tablet
+  let waits = null; // the apps made here waiting for a grown-up's yes (build-waits.js): waiting(), open(id)
+  const waitTools = () => { try { const w = waits?.waiting() || []; return w.length ? [{ ...ASK_AGAIN_TOOL, description: ASK_AGAIN_TOOL.description + ` Waiting now: ${w.map((x) => x.name).join(', ')}.` }] : []; } catch { return []; } };
   let extra = null, tvDevices = null, device = null, screen = null, phones = null; // screen: {places(), show(id)} (server.js); phones: screens.js phones(), message()
   const screenTools = () => { try { const p = screen?.places() || []; return p.length ? [screenTool(p)] : []; } catch { return []; } }; // device: Opie using the tablet's other apps (device-tools.js)
   const deviceTools = () => { try { return device?.tools() || []; } catch { return []; } };
@@ -207,7 +213,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
     const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name) && !(inSetup() && t.name === SETUP_TOOL.name)); // (during setup, its own update_household)
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds && !inSetup() ? [MAKE_APP_TOOL] : []), ...(inSetup() ? [SETUP_TOOL] : [])];
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds && !inSetup() ? [MAKE_APP_TOOL, ...waitTools()] : []), ...(inSetup() ? [SETUP_TOOL] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   const setupText = () => !inSetup() ? '' : '\n\n---\n\nThe tablet was just set up, and its setup is on the screen now. The step showing: ' + SETUP_STEPS[setupStep] +
@@ -272,6 +278,13 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       return { text: `The screen shows ${p.name}${p.tab ? '' : ', full screen'}. look_at_screen to see what's on it.`, isError: false };
     }
     if (name === MESSAGE_NAME && phones) return sendMessage(args || {}, ctx.phone?.person || null);
+    if (name === ASK_AGAIN_TOOL.name && waits) { // (Home's "waiting for a grown-up" line, tapped: the card again; only a person answers it)
+      const w = waits.waiting(), want = String(args?.app || '').trim().toLowerCase();
+      const one = w.find((x) => x.name.toLowerCase() === want || x.app === want) || (w.length === 1 ? w[0] : null);
+      if (!one) return { text: w.length ? `Which one? ${w.map((x) => x.name).join(', ')}.` : 'Nothing is waiting for a grown-up.', isError: true };
+      waits.open(one.id).catch(() => {});
+      return { text: `${one.name}'s card is up on the tablet. Tell them a grown-up says yes there with the PIN (or no); it isn't yours to answer.`, isError: false };
+    }
     if (name === MAKE_APP_TOOL.name && builds) {
       const r = await builds(String(args?.what || ''), ctx.phone?.person || null).catch(() => ({ ok: false }));
       return r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them it opens on the tablet when it\'s ready, and a grown-up says yes there.', isError: false }
@@ -414,5 +427,5 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   }
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
-  return Object.assign(handle, { useAi: (f) => { ai = f; }, useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f) => { builds = f; }, heard, setupFor, device: () => device });
+  return Object.assign(handle, { useAi: (f) => { ai = f; }, useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device });
 }

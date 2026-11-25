@@ -6,6 +6,8 @@
 //  - a countdown to a one-off event ("Trip to Chicago in 4 days"): until it starts (never a daily or weekly event);
 //  - a broken app ("Drawing has a problem: ask Claude or ChatGPT to fix it"): while its fix waits, or while it's failing.
 //  - an app's own line ("Lunch: Popcorn Chicken · Tacos tomorrow", kit today.show): one per app, until it says.
+//  - an app made on the tablet waiting for a grown-up's yes ("Reading Streak is waiting for a grown-up", build-waits.js):
+//    first, until it's answered or put back after a day; a tap ("build") shows its card again.
 // A tap does what the line is about: opens its tab ("open": Meals for dinner, Calendar for an event, Map to leave by),
 // or asks Opie ("ask": "Help us plan dinner tonight"); a reminder or countdown opens Calendar. Its x takes it down, as
 // Opie does when asked ("got it", "take that down"). The heartbeat writes these, not notes.
@@ -44,7 +46,7 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     onChange();
   };
   const copy = () => structuredClone(st);
-  let fixesOf = () => [], putAway = () => {};
+  let fixesOf = () => [], waitsOf = () => [], putAway = () => {};
 
   /** The stored ones still current (the past ones go). */
   function live() {
@@ -106,7 +108,7 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     if (was?.kind === 'app') st.gone[s] = now(); // kept, hidden: the app putting the same words up again doesn't bring it back
     else if (was) st.items = st.items.filter((x) => x !== was);
     else if (s.startsWith('rem-')) { try { putAway(s.slice(4)); } catch {} st.gone[s] = now(); } // (put away on every screen, as "Got it")
-    else if (/^(cd|rem|fix|t)-/.test(s)) st.gone[s] = now();
+    else if (/^(cd|rem|fix|t|build)-/.test(s)) st.gone[s] = now(); // (a waiting build stays waiting: only its line is hidden)
     else return false;
     save(before);
     return true;
@@ -131,6 +133,9 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     for (const x of live()) out.push({ id: x.id, kind: x.kind, text: x.kind === 'broken' ? brokenText(x.text) : x.text, when: x.kind === 'broken' ? t + DAY : x.until, until: x.until, ...(x.app ? { app: x.app } : {}), ...(x.open ? { open: x.open } : {}), ...(x.ask ? { ask: x.ask } : {}) });
     let fixes = []; try { fixes = fixesOf() || []; } catch {}
     for (const f of fixes) if (!out.some((x) => x.app === f.app && x.kind === 'broken')) out.push({ id: `fix-${f.id}`, kind: 'broken', text: brokenText(f.name || f.app), when: t + DAY, app: f.app });
+    // An app made here, waiting for a grown-up's yes (build-waits.js): first, so it isn't missed; a tap asks its card again.
+    let waits = []; try { waits = waitsOf() || []; } catch {}
+    for (const w of waits) out.push({ id: `build-${w.id}`, kind: 'waiting', text: `${plain(w.name)} is waiting for a grown-up`, when: t - DAY, app: w.app, build: w.id });
     const seen = new Set();
     for (const e of [...(house.events || [])].filter((x) => x.countdown && Date.parse(x.start) > t && !(x.local && EVERY.has(x.repeat))).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))) {
       const k = `${e.uid || e.id}|${e.start}`, series = String(e.id || e.uid || e.title);
@@ -173,5 +178,5 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     }
     return err(`unknown tool ${name}`);
   }
-  return { put, putApp, takeApp, take, settle, all, strip, describe, tools, call, setFixes: (fn) => { fixesOf = fn; }, setPutAway: (fn) => { putAway = fn; }, items: () => live() };
+  return { put, putApp, takeApp, take, settle, all, strip, describe, tools, call, setFixes: (fn) => { fixesOf = fn; }, setWaits: (fn) => { waitsOf = fn; }, setPutAway: (fn) => { putAway = fn; }, items: () => live() };
 }

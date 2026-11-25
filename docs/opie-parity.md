@@ -49,6 +49,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | An app's day notes: week, today only, off | **new** | calendar_event settings.app_notes |
 | Sleep now (the moon) | **new** | tablet_screen sleep |
 | Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and a grown-up says yes on the tablet's card, with the PIN, before it goes in (docs/building-on-the-tablet.md) |
+| Home: "… is waiting for a grown-up" (an app made on the tablet nobody said yes to yet): its card again | **new** | ask_grownup_again puts the card back up; only a person answers it, with the PIN |
 
 ## The built-in apps
 

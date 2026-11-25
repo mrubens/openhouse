@@ -1,5 +1,6 @@
 // Apps made on the tablet (rails.js): the model writes only into the one app it started, can't change what an app
-// may reach, and a new app goes in only with a parent's yes, with none of the family's things and no websites.
+// may reach, and a new app goes in only with a grown-up's yes (the PIN always), with none of the family's things and no
+// websites. A build nobody answers waits (build-waits.js): nothing of it is in, and nothing of it is lost.
 //   cd bridge && npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,6 +11,7 @@ import { initRepo, editLock } from '../edits.js';
 import { pluginsRoutes } from '../plugins.js';
 import { appAllowed } from '../apps.js';
 import { rails } from '../rails.js';
+import { buildWaits } from '../build-waits.js';
 
 const tmp = (n) => fs.mkdtempSync(path.join(os.tmpdir(), `openhouse-${n}-`));
 /** A stand-in for the cloud's model: each answer is the next list of tool calls (or a plain reply when there are none). */
@@ -29,12 +31,18 @@ function setup() {
   const edits = editLock({ APP_DIR, UNDO_FILE: path.join(APP_DIR, '../undo-' + path.basename(APP_DIR) + '.json'), log: () => {} });
   const pl = pluginsRoutes({ APP_DIR, edits, homeScreen: { style: () => ({}) }, json: () => {}, body: async () => ({}), local: true, approve: async () => true, log: () => {} });
   pl.start(); // every app a plugin (chores: the household's own, full rights)
-  return { APP_DIR, edits, pl };
+  /** The builder's side of the card (build-waits.js), answering with [answers] in turn. */
+  const waitsWith = (answers, o = {}) => {
+    const asked = [];
+    const w = buildWaits({ FILE: path.join(APP_DIR, '../waits-' + path.basename(APP_DIR) + '.json'), edits, log: () => {},
+      ask: async (c) => { asked.push(c); return answers.shift() ?? 'later'; }, grant: (c) => pl.madeHere(c.app, { uses: c.uses }), ...o });
+    return Object.assign(w, { asked });
+  };
+  return { APP_DIR, edits, pl, waitsWith };
 }
 
 test('made on the tablet: only its own app, nothing about what it may reach, and none of the family\'s things', async () => {
-  const { APP_DIR, edits, pl } = setup();
-  const asked = [];
+  const { APP_DIR, edits, pl, waitsWith } = setup();
   const outside = [
     ['write_file', { path: 'apps/chores/main.js', content: 'stolen' }], // another app
     ['write_file', { path: 'apps/dino/../chores/main.js', content: 'x' }], // out by ..
@@ -54,8 +62,7 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
         ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino Eggs', kit: 1, uses: ['lists'] }) }]],
       [['done', { summary: 'A dinosaur catches eggs.' }]],
     ]),
-    approve: async (title, detail, pin, extra) => { asked.push({ title, pin, extra }); return true; },
-    madeHere: (id, o) => pl.madeHere(id, o), limited: (id) => pl.limited(id),
+    limited: (id) => pl.limited(id),
   });
   const owner = { kind: 'build', who: 'Leo', text: 'a dinosaur game' };
   assert.ok(await edits.acquire(owner, {}));
@@ -66,10 +73,13 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
   assert.equal(fs.readFileSync(path.join(APP_DIR, 'apps/chores/main.js'), 'utf8'), 'document.body.textContent = "chores";\n');
   assert.ok(!fs.readFileSync(path.join(APP_DIR, 'apps/dino/index.html'), 'utf8').includes('evil'));
   assert.equal(fs.readFileSync(path.join(APP_DIR, 'apps/dino/game.js'), 'utf8'), fs.readFileSync(new URL('../templates/game/game.js', import.meta.url), 'utf8'));
-  // A parent's yes, with the PIN, on a card that says what it may use; then it's limited to that
-  assert.equal(asked.length, 1); assert.equal(asked[0].pin, true);
-  assert.ok(asked[0].extra.rights.some((x) => x.kind === 'offline'));
-  edits.finish(owner, true);
+  // Nothing is granted until a grown-up's yes, on a card that always takes the PIN and says what it may use
+  assert.equal(pl.rightsOf('dino'), null);
+  const waits = waitsWith(['yes']);
+  assert.equal(await waits.decide(owner, r.card), 'yes');
+  assert.equal(waits.asked.length, 1); assert.equal(waits.asked[0].pin, true); assert.equal(waits.asked[0].grownup, true);
+  assert.ok(waits.asked[0].rights.some((x) => x.kind === 'offline'));
+  edits.finish(owner, true); waits.stop();
   assert.deepEqual([...pl.rightsOf('dino')], ['lists']);
   assert.deepEqual(pl.reachesOf('dino'), []);
   assert.equal(appAllowed('POST', '/house/event', pl.rightsOf('dino')), false);
@@ -82,26 +92,85 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
 });
 
 test('made on the tablet: a no on the card keeps nothing; a change to the household\'s app keeps its rights as they were', async () => {
-  const { APP_DIR, edits, pl } = setup();
-  const no = rails({ APP_DIR, ai: scripted([[['start', { kind: 'tab', app: 'snacks' }]], [['done', { summary: 'Snacks.' }]]]), approve: async () => false,
-    madeHere: (id, o) => pl.madeHere(id, o), limited: (id) => pl.limited(id) });
+  const { APP_DIR, edits, pl, waitsWith } = setup();
+  const no = rails({ APP_DIR, ai: scripted([[['start', { kind: 'tab', app: 'snacks' }]], [['done', { summary: 'Snacks.' }]]]), limited: (id) => pl.limited(id) });
   const owner = { kind: 'build', who: 'Sam', text: 'snacks' };
   assert.ok(await edits.acquire(owner, {}));
   const r = await no.run({ prompt: 'snacks', owner });
-  assert.equal(r.ok, false);
-  edits.finish(owner, r.ok); // the builder puts it back
+  const waits = waitsWith(['no']);
+  assert.equal(await waits.decide(owner, r.card), 'no'); waits.stop();
+  edits.finish(owner, false); // the builder puts it back
   assert.equal(fs.existsSync(path.join(APP_DIR, 'apps/snacks')), false);
   assert.equal(pl.rightsOf('snacks'), null);
 
   const change = rails({ APP_DIR, ai: scripted([
     [['start', { kind: 'change', app: 'chores' }]],
     [['edit_file', { path: 'apps/chores/app.json', old: '"Chores"', new: '"Chores", "reaches": ["evil.example"]' }], ['edit_file', { path: 'apps/chores/main.js', old: '"chores"', new: '"Chores!"' }]],
-    [['done', { summary: 'Bigger.' }]]]), approve: async () => true, madeHere: (id, o) => pl.madeHere(id, o), limited: (id) => pl.limited(id) });
+    [['done', { summary: 'Bigger.' }]]]), limited: (id) => pl.limited(id) });
   const o2 = { kind: 'build', who: 'Alex', text: 'bigger' };
   assert.ok(await edits.acquire(o2, {}));
-  assert.equal((await change.run({ prompt: 'bigger', owner: o2 })).ok, true);
+  const r2 = await change.run({ prompt: 'bigger', owner: o2 });
+  assert.equal(r2.ok, true); assert.equal(r2.card.limited, false);
   edits.finish(o2, true);
   assert.equal(JSON.parse(fs.readFileSync(path.join(APP_DIR, 'apps/chores/app.json'), 'utf8')).reaches, undefined);
   assert.match(fs.readFileSync(path.join(APP_DIR, 'apps/chores/main.js'), 'utf8'), /Chores!/);
   assert.equal(pl.rightsOf('chores'), null);
+});
+
+test('a build nobody answers waits: nothing of it is in or granted, a later yes puts it in, a no or a day puts it back', async () => {
+  const { APP_DIR, edits, pl, waitsWith } = setup();
+  const head = () => edits.git('rev-parse', 'HEAD');
+  const make = async (id) => {
+    const b = rails({ APP_DIR, ai: scripted([[['start', { kind: 'tab', app: id, name: id }]], [['done', { summary: `${id}: a list.` }]]]), limited: (x) => pl.limited(x) });
+    const owner = { kind: 'build', who: 'Maya', text: `make ${id}` };
+    assert.ok(await edits.acquire(owner, {}));
+    return { owner, r: await b.run({ prompt: id, owner }) };
+  };
+  let t = Date.now();
+  const lines = [];
+  const waits = waitsWith(['later', 'yes', 'later', 'no'], { now: () => t, line: (x) => lines.push(x) });
+
+  // Nobody answers: set aside, the files put back and the lock free, nothing committed or granted
+  const before = head();
+  const a = await make('streak');
+  assert.equal(await waits.decide(a.owner, a.r.card), 'later');
+  waits.park(a.owner, a.r.card); edits.release(a.owner);
+  assert.equal(head(), before);
+  assert.equal(fs.existsSync(path.join(APP_DIR, 'apps/streak')), false);
+  assert.equal(edits.dirty(), false);
+  assert.equal(pl.rightsOf('streak'), null);
+  assert.deepEqual(waits.waiting().map((w) => w.app), ['streak']);
+  // Asked again (Home's line), a yes: in, with only what the card granted
+  const id = waits.waiting()[0].id;
+  assert.equal((await waits.open(id)).answer, 'yes');
+  assert.equal(waits.asked.at(-1).pin, true); assert.equal(waits.asked.at(-1).grownup, true);
+  assert.notEqual(head(), before);
+  assert.ok(fs.existsSync(path.join(APP_DIR, 'apps/streak/main.js')));
+  assert.deepEqual([...pl.rightsOf('streak')], []);
+  assert.deepEqual(waits.waiting(), []);
+  assert.equal(edits.holder(), null);
+
+  // Another: waits, then a no puts it back for good
+  t += 1000;
+  const b = await make('jokes');
+  assert.equal(await waits.decide(b.owner, b.r.card), 'later');
+  waits.park(b.owner, b.r.card); edits.release(b.owner);
+  const at = head();
+  assert.equal((await waits.open(waits.waiting()[0].id)).answer, 'no');
+  assert.equal(head(), at);
+  assert.equal(fs.existsSync(path.join(APP_DIR, 'apps/jokes')), false);
+  assert.deepEqual(waits.waiting(), []);
+  assert.equal(pl.rightsOf('jokes'), null);
+
+  // And one nobody answers for a day: put back, with a line on Home saying so
+  t += 1000;
+  const c = await make('dots');
+  waits.park(c.owner, c.r.card); edits.release(c.owner);
+  assert.equal(waits.waiting().length, 1);
+  t += 25 * 3600e3;
+  assert.deepEqual(waits.waiting(), []);
+  assert.equal(lines.length, 1);
+  assert.equal((await waits.open('dots')).ok, false);
+  assert.equal(fs.existsSync(path.join(APP_DIR, 'apps/dots')), false);
+  waits.stop();
 });

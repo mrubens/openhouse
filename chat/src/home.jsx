@@ -610,13 +610,15 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
 
 /** The things on Home (the bridge's things.js): a reminder due, a suggestion, a countdown, a broken app; one line
  *  each, at most three, most urgent first, each gone once it no longer matters. A tap does what it's about: its tab
- *  (go), or asks Opie (ask); its x takes it down. */
+ *  (go), or asks Opie (ask), or for an app made here waiting for a grown-up (build), puts its card up again; its x
+ *  takes it down. */
 export function Things({ c, things, className = 't-things', go, tabs, ask }) {
   const [gone, setGone] = useState(() => new Set());
   const shown = (things || []).filter((x) => !gone.has(x.id));
   if (!shown.length) return null;
   const down = (e, x) => { e.stopPropagation(); setGone(new Set([...gone, x.id])); c.json('POST', '/house/thing', { take: x.id }).catch(() => {}); };
-  const act = (x) => (x.open && go && tabs?.some((t) => t.id === x.open) ? () => go(x.open) : x.ask && ask ? () => ask(x.ask) : null);
+  const act = (x) => (x.build ? () => c.json('POST', '/build/open', { id: x.build }).catch(() => {})
+    : x.open && go && tabs?.some((t) => t.id === x.open) ? () => go(x.open) : x.ask && ask ? () => ask(x.ask) : null);
   return <div className={className}>{shown.map((x) => {
     const f = act(x);
     return <div key={x.id} role={f ? 'button' : undefined} className={'t-thing t-' + x.kind + (f ? ' t-acts' : '')} onClick={(e) => { e.stopPropagation(); f?.(); }}>

@@ -8,13 +8,24 @@
 // POST /cancel                 stop the run and put back what it changed
 // POST /apperror {app, text}   an app's page threw (the shell's web view, or the kit); its next check sees it. From an
 //                              app's own key, app is always the caller (server.js appCall), whatever the body says
+// GET  /build/waiting          apps made here waiting for a grown-up's yes (build-waits.js)
+// POST /build/open {id}        one of them: its card on the tablet again (Home's "waiting for a grown-up" line)
+//
+// A run whose agent hands back a card (rails.js) goes in only on a grown-up's yes on that card, with the PIN; a no puts
+// it back, and no answer keeps it waiting (build-waits.js), so a parent called from another room loses nothing.
 import { requestApp, showingTab } from './home-screen.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { dayKey } from './dates.js';
+import { buildWaits } from './build-waits.js';
 
-export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json }) {
+/** ask(card): the tablet's card (server.js shellAsk); grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home. */
+export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, line = () => {}, changed = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
+  const waits = buildWaits({ FILE: WAITS_FILE, edits, ask: (c) => ask(c), grant: (c) => grant(c), line: (t) => line(t), changed: () => changed(), emit,
+    landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} } });
+  /** A new app put back (a no, a failed run, one set aside to wait): the screens close it, so none is left on a page that's gone. */
+  const closeGone = (apps) => { for (const app of apps || []) if (!fs.existsSync(path.join(APP_DIR, 'apps', app))) emit({ type: 'gone', app }); };
   const git = edits.git;
   let abort = null;
   let sessionId = null; // only used when SESSION=reuse; dropped on undo/restore
@@ -126,6 +137,8 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     } finally {
       // A run that failed, was cancelled or threw puts back what it changed; one that worked is committed already.
       if (!ok) edits.discard(owner);
+      closeGone(owner.apps);
+      if (events.state.making) setState({ making: null });
       edits.release(owner);
       if (run === owner) { run = null; abort = null; }
     }
@@ -157,7 +170,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       (ctx.context ? `\n\nContext from the family's conversation with the display's assistant:\n${String(ctx.context).slice(0, 20000)}` : '');
 
     let runSession = null, lastEditAt = 0;
-    const touchedApps = new Set();
+    const touchedApps = owner.apps = new Set();
     const onEvent = (e) => {
         if (e.kind === 'phase' && e.sessionId) runSession = e.sessionId;
         if (e.kind === 'phase' && e.name === 'thinking') return emit({ type: 'phase', name: 'thinking' }); // repeats; not timed
@@ -228,6 +241,27 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       setState({ state: 'idle', request: null, base: null });
       return true;
     }
+    // A grown-up's yes on the tablet before it goes in (the agent's card: rails.js), with the PIN. A no puts it back;
+    // no answer (or "Not now") keeps it waiting, put aside, with a line on Home that asks again (build-waits.js).
+    if (result.card) {
+      const card = result.card;
+      touchedApps.add(card.app); // (closed on screen if it's put back or set aside: closeGone)
+      emit({ type: 'phase', name: 'asking' });
+      const a = await waits.decide(owner, card);
+      if (events.state.state !== 'working' || owner.abort.signal.aborted) return false; // cancelled while the card was up
+      if (a === 'no') {
+        edits.discard(owner);
+        emit({ type: 'done', spoken: !!ctx.spoken, ok: false, text: card.fresh ? `${card.name} wasn't put in.` : `The change to ${card.name} wasn't put in.`, ms, firstEditMs });
+        setState({ state: 'idle', request: null, base: null, making: null });
+        return false;
+      }
+      if (a === 'later') {
+        waits.park(owner, card, { who, text });
+        emit({ type: 'done', spoken: !!ctx.spoken, ok: true, changed: false, waiting: true, app: card.app, text: `${card.name} is waiting for a grown-up's yes: it's on Home.`, ms, firstEditMs });
+        setState({ state: 'idle', request: null, base: null, making: null });
+        return true; // (kept aside: nothing to put back)
+      }
+    }
     appendMemory(text, who, result.text);
     edits.commit(owner);
     emit({ type: 'done', spoken: !!ctx.spoken, ok: true, changed: true, text: shortSummary(result.text), full: result.text, files: [...edited], ms, firstEditMs, visibleMs: phases.firstVisible, apps: [...touchedApps] });
@@ -296,6 +330,13 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
         const ok = appError(b.app, b.text);
         return ok ? json(res, 200, { ok: true }) : json(res, 400, { error: 'app and text needed' });
       }
+      case '/build/waiting': return json(res, 200, { waiting: waits.waiting() });
+      case '/build/open': { // its card again; the answer comes on the tablet (and as events)
+        const id = String(b.id || '').slice(0, 80);
+        if (!waits.waiting().some((w) => w.id === id)) return json(res, 404, { error: 'Nothing is waiting for a yes.' });
+        waits.open(id).catch((e) => console.error('[waits]', e));
+        return json(res, 202, { ok: true });
+      }
       case '/cancel': {
         if (events.state.state !== 'working') return json(res, 409, { error: 'not running' });
         abort?.abort();
@@ -307,5 +348,5 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     }
     return false;
   }
-  return { handle, request, checkBuild, appError, errors: () => [...appErrors].flatMap(([app, l]) => l.map((e) => ({ app, ...e }))), abort: () => abort?.abort(), forgetSession: () => { sessionId = null; } };
+  return { handle, request, checkBuild, waits, appError, errors: () => [...appErrors].flatMap(([app, l]) => l.map((e) => ({ app, ...e }))), abort: () => abort?.abort(), forgetSession: () => { sessionId = null; } };
 }
