@@ -437,6 +437,7 @@ function credits(r) {
   const out = [];
   if (r?.link) out.push([`From ${siteOf(r.link)}`, r.link]);
   else if (r?.by === 'assistant') out.push(['Written by Opie', null]);
+  else if (r?.starter) out.push(['One of Opie’s starters', null]);
   if (r?.photoFrom && r.image) out.push([`${out.length ? 'photo' : 'Photo'} from ${siteOf(r.photoFrom)}`, r.photoFrom]);
   return out;
 }
@@ -518,8 +519,11 @@ function addCard() {
 }
 
 // ---- start ----
+// Opened from Home's recipe to try (add=<when> and recipe=<key> in its address, just now): that recipe, once it's here.
+let openAsked = (() => { const q = new URLSearchParams(location.hash.slice(1)); return Date.now() - (Number(q.get('add')) || 0) < 15e3 ? q.get('recipe') : null; })();
 house.subscribe((d) => {
   H = d; askHowLong();
+  if (openAsked && d.recipes?.[openAsked]) { const k = openAsked; openAsked = null; openRecipe(k); return; }
   if (waiting && cookOf(waiting.key)?.v === 2 && Date.now() - waiting.at < 5 * 60e3) begin(waiting.key); // its steps are ready: start
   else if (cooking && !recipeOf(cooking.key)) stop();
   else draw();
