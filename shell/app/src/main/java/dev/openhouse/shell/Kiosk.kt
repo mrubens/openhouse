@@ -7,14 +7,14 @@ import android.os.UserManager
 import android.util.Log
 
 /**
- * What the tablet won't do while it's the family's display (device owner): factory reset, add users, install
- * apps from outside the shell, or turn on USB debugging. Someone leaving kiosk mode (Settings, PIN) lifts
- * them until the display is reopened. USB debugging has its own switch in Settings, so a developer
+ * What the tablet won't do while it's the family's display (device owner): factory reset, start in safe mode (which
+ * would open without OpenHouse), add users, install apps from outside the shell, or turn on USB debugging. Someone
+ * leaving kiosk mode (Settings, PIN) lifts them until the display is reopened. USB debugging has its own switch in Settings, so a developer
  * keeps adb: it starts the way the tablet was set up (adb was on: it stays allowed).
  */
 object Kiosk {
     private const val TAG = "Kiosk"
-    private val ALWAYS = listOf(UserManager.DISALLOW_FACTORY_RESET, UserManager.DISALLOW_ADD_USER,
+    private val ALWAYS = listOf(UserManager.DISALLOW_FACTORY_RESET, UserManager.DISALLOW_SAFE_BOOT, UserManager.DISALLOW_ADD_USER,
         UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
     private val UNKNOWN = listOf(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
     @Volatile private var on = false

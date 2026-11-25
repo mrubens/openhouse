@@ -1,8 +1,9 @@
 package dev.openhouse.shell
 
 // The shell's rows of Settings (the list is ui/Sheets.kt, SettingsSheet; docs/settings.md) and the optional lock:
-// off by default, so nothing asks for a PIN. Turned on, it is a PIN (ParentPin), and the rows it locks ask for it
-// before they open. The dialogs open over the list, so closing one comes back to it.
+// off by default, so nothing everyday asks for a PIN. Turned on, it is a PIN (ParentPin), and the rows it locks ask for
+// it before they open. Erasing the tablet and the ways out of OpenHouse need one set first (withPinSet). The dialogs
+// open over the list, so closing one comes back to it.
 
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -20,6 +21,17 @@ internal class SettingsLock(private val act: MainActivity) {
     fun withPin(title: String = "PIN", ok: () -> Unit) {
         if (!on) return ok()
         PinPrompt.ask(act, act, title, ok)
+    }
+
+    /** Erasing the tablet and the ways out of OpenHouse (leaving kiosk mode, Android settings, USB debugging): with the
+     *  lock on, straight to [ok] (This tablet already asked for the PIN). With it off, they wait for someone to set a
+     *  PIN, so taps alone never reach them; once it's chosen, [ok]. */
+    fun withPinSet(ok: () -> Unit) {
+        if (on) return ok()
+        CalmDialog(act).setTitle("Set a PIN first")
+            .setMessage("This needs PIN Lock on, so only someone who knows the PIN can do it.")
+            .setPositiveButton("Set a PIN") { _, _ -> PinPrompt.choose(act, act, then = { changed(); ok() }) }
+            .setNegativeButton("Cancel") { _, _ -> tablet() }.show()
     }
 
     /** A row of Settings (the ids are SettingsSheet's). */
@@ -256,7 +268,7 @@ internal class SettingsLock(private val act: MainActivity) {
             head("Opie"),
             CalmDialog.Row("Device control", value = onOff(deviceOn)) to person("Device control") {
                 if (granted) { DeviceOwner.setDeviceControl(act, !deviceOn); again() }
-                else { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                else withPinSet { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             },
             // Opie opening, installing and using other apps for someone (docs/device-control.md): off until someone turns it on.
             CalmDialog.Row("Opie uses apps", value = if (!deviceOn) "Needs device control" else onOff(DeviceServer.appsOn(act))) to person("Opie uses apps") {
@@ -267,14 +279,16 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("Home network", value = onOff(lan)) to person("Home network") { thread { CloudSetup.post("${act.bridge}/screens/lan", JSONObject().put("on", !lan)) }; again() },
             CalmDialog.Row("Cloud address") to { CloudMenu(act).address() },
             CalmDialog.Row("Speech log", value = onOff(o.speechLog)) to { o.setSpeechLog(!o.speechLog); again() },
-            CalmDialog.Row("USB debugging", value = onOff(Kiosk.debugging(act))) to person("USB debugging") { Kiosk.setDebugging(act, !Kiosk.debugging(act)); again() },
-            CalmDialog.Row("Android settings") to person("Android settings") { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) },
-            CalmDialog.Row("Leave kiosk mode") to person("Leave kiosk mode") {
+            CalmDialog.Row("USB debugging", value = onOff(Kiosk.debugging(act))) to person("USB debugging") {
+                if (Kiosk.debugging(act)) { Kiosk.setDebugging(act, false); again() } else withPinSet { Kiosk.setDebugging(act, true); again() }
+            },
+            CalmDialog.Row("Android settings") to person("Android settings") { withPinSet { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) } },
+            CalmDialog.Row("Leave kiosk mode") to person("Leave kiosk mode") { withPinSet {
                 CalmDialog(act).setTitle("Leave kiosk mode?").setMessage("Open OpenHouse from its icon to come back.")
                     .setPositiveButton("Leave") { _, _ -> act.leaveKioskForGood() }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
-            },
+            } },
             // Kiosk mode blocks Android's own factory reset, so this is the way to hand a tablet on (docs/beta.md).
-            CalmDialog.Row("Erase this tablet") to person("Erase this tablet") { erase() },
+            CalmDialog.Row("Erase this tablet") to person("Erase this tablet") { withPinSet { erase() } },
         )
         CalmDialog(act).setTitle("Advanced").setWidth(760f).setRows(items.map { it.first }) { _, i -> items[i].second() }
             .setNegativeButton("Back", null).show()

@@ -88,7 +88,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
 | Account: link, backups, reach from away | screen, with the PIN | Opie opens the row; the tablet asks for the PIN |
 | Advanced: Updates, home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
-| Advanced: PIN Lock, leave kiosk mode | no, on purpose | Opie only opens the screen (above) |
+| Advanced: PIN Lock, leave kiosk mode, erase this tablet | no, on purpose | Opie only opens the screen (above); with no PIN set, erase and the ways out ask a person to set one first |
 | Advanced: Opie uses apps, device control, USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave OpenHouse |
 | Advanced: check-ins (how often, what they look for) | yes | heartbeat_settings |
 | Night hours | yes | night_hours |

@@ -85,7 +85,9 @@ One switch, PIN Lock: Off or On.
 
 - **Off (the default):** nothing asks for a PIN. Things that lead out of the home screen (leaving kiosk mode, Android
   settings, an app store or a system app, adding an Android app) still ask "Is this OK?" with a Yes, so nobody
-  leaves by accident, but anyone can say yes. USB debugging and device control are plain switches in This tablet.
+  leaves by accident, but anyone can say yes. In This tablet, erasing the tablet, leaving kiosk mode, Android
+  settings, turning on USB debugging and turning on device control (which opens Android's settings) ask someone to set
+  a PIN first, so taps alone never reach them; once it's chosen they go on as with the lock on.
 - **On:** turning it on chooses a PIN (typed twice). Rows marked with a small lock ask for it, then stay open for two
   minutes as before. The same PIN is the yes on the "Is this OK?" card for the
   ways out above, for adding apps, for a reward that needs a yes, and for changing the calendar.
