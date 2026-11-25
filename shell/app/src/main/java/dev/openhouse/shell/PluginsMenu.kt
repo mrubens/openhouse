@@ -21,6 +21,25 @@ import kotlin.concurrent.thread
 // From the Apps tab ([fromApps]): the gallery alone, nobody has given the PIN yet, so adding, removing and updating ask
 // for it (askPin; none set, none asked), and Back closes it.
 internal class PluginsMenu(private val act: MainActivity, private val fromApps: Boolean = false, private val onBack: (() -> Unit)? = null) {
+    companion object {
+        /** "Make an app" (here, and the Apps tab's): Settings put away, the typing box open with [note] over it and
+         *  "Make " already typed, so they say what. Opie's make_app does the rest (bridge/live-tools.js). */
+        fun makeApp(note: String) {
+            val o = dev.openhouse.ui.Openhouse
+            o.showSettings = false
+            o.openTyping(note = note, seed = "Make ")
+        }
+
+        /** An app to ask for, in the household's own names: the children's (an age for a note), else anyone's
+         *  (chat/src/home.jsx makeExample says the same on the Apps tab and the phone). */
+        fun example(family: List<JSONObject>): String {
+            val people = family.filter { !Regex("\\b(dog|cat|pet|fish|bird|hamster|rabbit)\\b", RegexOption.IGNORE_CASE).containsMatchIn(it.optString("note")) && it.optString("name").isNotBlank() }
+            val kids = people.filter { it.optString("note").trim().toIntOrNull()?.let { n -> n < 18 } == true && it.optString("note").trim().length <= 2 }
+            val names = (kids.ifEmpty { people }).take(2).map { it.optString("name") }
+            return if (names.isEmpty()) "Make a countdown to our next trip" else "Make a reading streak for ${names.joinToString(" and ")}"
+        }
+    }
+
     /** Where a dialog goes back to: Settings' list of plugins, or (from the Apps tab) the gallery. */
     private fun home() { if (fromApps) gallery() else show() }
     private fun guard(f: () -> Unit) { if (fromApps) askPin(act, act, "PIN", f) else f() }
@@ -161,16 +180,18 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             val g = get("/plugins/gallery", 30_000)
             val list = objs(g?.optJSONArray("plugins"))
             val pics = list.filter { it.has("image") }.associate { it.optString("name") to picture(it.optString("name")) }
-            ui { if (g == null) say("Plugins", noBridge) else galleryList(list, g.str("error"), pics) }
+            val family = objs(get("/household")?.optJSONArray("family"))
+            ui { if (g == null) say("Plugins", noBridge) else galleryList(list, g.str("error"), pics, family) }
         }
     }
 
     /**
      * Two halves (one above the other on a narrow screen): "Find an app", Opie's list with a search box that
-     * filters by name and description as you type (a tap goes on to the card, as before), and "Make your own with AI",
-     * a few lines on connecting Claude or ChatGPT from a computer, with a button for that pairing step.
+     * filters by name and description as you type (a tap goes on to the card, as before), and "Make your own":
+     * asking Opie, with an example in the household's names and "Make an app" (the typing box, ready for it), then
+     * connecting Claude or ChatGPT on a computer for bigger work, with a button for that pairing step.
      */
-    private fun galleryList(list: List<JSONObject>, error: String?, pics: Map<String, Bitmap?>) {
+    private fun galleryList(list: List<JSONObject>, error: String?, pics: Map<String, Bitmap?>, family: List<JSONObject>) {
         val c = act
         val u = Calm.u(c)
         val wide = c.resources.displayMetrics.widthPixels / u >= 1300
@@ -220,17 +241,21 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
                 android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 10); leftMargin = -Calm.px(c, 16); rightMargin = -Calm.px(c, 16) })
         }
 
-        // ---- Make your own with AI ----
+        // ---- Make your own: ask Opie (it builds it here, bridge/builder.js); a computer for bigger work ----
+        val first = example(family)
         val make = Calm.column(c).apply {
             setPadding(Calm.px(c, 32), Calm.px(c, 28), Calm.px(c, 32), Calm.px(c, 32))
             background = Calm.rounded(Calm.TINT, 24 * u)
-            addView(Calm.eyebrow(c, "Make your own with AI"))
-            addView(Calm.text(c, "Connect Claude or ChatGPT on a computer, then ask it for the app you want.", 21f, 400).apply { setPadding(0, Calm.px(c, 14), 0, Calm.px(c, 18)) })
-            for (ex in listOf("A chore chart with stars for the week", "A countdown to our next trip", "Keep track of the dog's walks and meals")) {
+            addView(Calm.eyebrow(c, "Make your own"))
+            addView(Calm.text(c, "Ask Opie for the app you want, out loud or typed, and it builds it here.", 21f, 400).apply { setPadding(0, Calm.px(c, 14), 0, Calm.px(c, 18)) })
+            for (ex in listOf(first, "Make a chore chart with stars for the week")) {
                 addView(Calm.text(c, "\u201C$ex\u201D", 19f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, 6), 0, Calm.px(c, 6)) })
             }
-            addView(Calm.quiet(c, "Pair a computer") { go { Screens.computer(act) } }.apply { setPadding(0, Calm.px(c, 18), 0, 0) },
-                android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 12) })
+            addView(Calm.primary(c, "Make an app") { go { makeApp("Say what app to make, like \u201C$first\u201D") } },
+                android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 18) })
+            addView(Calm.text(c, "For bigger work, connect Claude or ChatGPT on a computer (the connector is cloud.opie.house/mcp).", 17f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, 28), 0, 0) })
+            addView(Calm.quiet(c, "Pair a computer") { go { Screens.computer(act) } }.apply { setPadding(0, Calm.px(c, 12), 0, 0) },
+                android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 4) })
         }
 
         val both = if (wide) Calm.row(c).apply {

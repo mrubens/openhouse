@@ -110,7 +110,7 @@ object CalendarLinks {
         save(list().filter { it.url != u } + Link(UUID.randomUUID().toString().take(8), who.trim().take(40), u, name.trim().take(60), only.trim().take(200), list().firstOrNull { it.url == u }?.tone ?: ""))
     }
 
-    @Synchronized fun remove(id: String) = save(list().filter { it.id != id })
+    @Synchronized fun remove(id: String) { save(list().filter { it.id != id }); problems.remove(id); lastIcs.remove(id) }
     /** Its events' color (Settings, Calendars): one of the household's palette, or "" for none. */
     @Synchronized fun setTone(id: String, tone: String) = save(list().map { if (it.id == id) Link(it.id, it.who, it.url, it.name, it.only, tone) else it })
 
@@ -119,6 +119,26 @@ object CalendarLinks {
     // --- reading the calendars -----------------------------------------------------------------
     /** What each calendar said at the last read (by id), so a change made here (its color) shows at once, without reading them all again. */
     private val lastIcs = java.util.concurrent.ConcurrentHashMap<String, String>()
+    /** Why a calendar couldn't be read at the last read (by id), for the Calendars list: never has the link in it. */
+    private val problems = java.util.concurrent.ConcurrentHashMap<String, String>()
+    fun problem(id: String): String? = problems[id]
+
+    /**
+     * Read a link once, before it's kept (from setup's phone, the assistant, the paste box): null when it's a calendar
+     * that reads, else what to tell them ("Couldn't read that calendar: it asked for a sign-in."). Off the main thread.
+     */
+    fun check(url: String): String? {
+        val u = clean(url) ?: return "That isn't a calendar link (an https:// or webcal:// address ending in .ics, usually)."
+        return try { read(u); null } catch (e: Exception) { "Couldn't read that calendar: ${(e as? Said)?.message ?: "it didn't answer"}." }
+    }
+
+    /** A calendar's text, or why it isn't one ([Said]): what [fetch] got, if it's iCal. */
+    private fun read(url: String): String {
+        val t = fetch(url)
+        if (!t.trimStart('﻿', ' ', '\r', '\n', '\t').startsWith("BEGIN:VCALENDAR", ignoreCase = true))
+            throw Said(if (t.contains("<html", ignoreCase = true)) "that's a web page, not the calendar itself (look for its iCal or .ics address)" else "what's there isn't a calendar")
+        return t
+    }
 
     /** [fresh] false: send what was read last time with the links' settings as they are now (a color just chosen). */
     fun sync(fresh: Boolean = true) {
@@ -131,7 +151,10 @@ object CalendarLinks {
                 for (l in list()) feeds.put(JSONObject().put("id", l.id).put("who", l.who).put("name", l.name).put("only", l.only).put("tone", l.tone).apply {
                     val kept = lastIcs[l.id]
                     if (!fresh && kept != null) put("ics", kept)
-                    else runCatching { put("ics", fetch(l.url).also { lastIcs[l.id] = it }) }.onFailure { put("error", (it as? Said)?.message ?: "Couldn't read it") /* other messages can hold the link */ }
+                    else runCatching { put("ics", read(l.url).also { lastIcs[l.id] = it; problems.remove(l.id) }) }.onFailure {
+                        val why = (it as? Said)?.message ?: "it didn't answer" // other messages can hold the link
+                        problems[l.id] = why; put("error", why.replaceFirstChar { c -> c.uppercase() })
+                    }
                 })
                 val ok = post("/calendar/feeds", JSONObject().put("feeds", feeds)) != null
                 Log.i(TAG, "${feeds.length()} calendar(s) ${if (ok) "sent" else "not sent (bridge not up)"}")
@@ -151,7 +174,7 @@ object CalendarLinks {
     private fun https(u: URL): URL = when (u.protocol.lowercase()) {
         "https" -> u
         "http" -> URL("https", u.host, if (u.port == 80) -1 else u.port, u.file)
-        else -> throw Said("Only https")
+        else -> throw Said("only https and webcal addresses can be read")
     }
 
     /**
@@ -162,11 +185,11 @@ object CalendarLinks {
     private fun fetch(url: String): String {
         var u = https(URL(url))
         repeat(6) { // the link, and up to five redirects
-            if (u.userInfo != null) throw Said("No sign-ins in the address")
+            if (u.userInfo != null) throw Said("it has a sign-in in its address")
             val host = PublicAddress.bare(u.host)
-            if (host.isEmpty() || PublicAddress.localName(host)) throw Said("Not the home network")
-            val found = try { java.net.InetAddress.getAllByName(host).toList() } catch (e: Exception) { throw Said("Couldn't find it") }
-            if (found.isEmpty() || found.any { PublicAddress.isPrivate(it) }) throw Said("Not the home network")
+            if (host.isEmpty() || PublicAddress.localName(host)) throw Said("it points into a home network, which isn't read")
+            val found = try { java.net.InetAddress.getAllByName(host).toList() } catch (e: Exception) { throw Said("there's no site by that name, or the Wi-Fi is down") }
+            if (found.isEmpty() || found.any { PublicAddress.isPrivate(it) }) throw Said("it points into a home network, which isn't read")
             val at = found.first()
             val ip = at.hostAddress.substringBefore('%').let { if (at is java.net.Inet6Address) "[$it]" else it }
             val c = (URL("https", ip, u.port, u.file).openConnection(java.net.Proxy.NO_PROXY) as HttpsURLConnection).apply {
@@ -176,14 +199,16 @@ object CalendarLinks {
                 setRequestProperty("Host", if (u.port == -1 || u.port == 443) u.host else "${u.host}:${u.port}")
                 setRequestProperty("User-Agent", "openhouse-calendar/0.1")
             }
-            val code = try { c.responseCode } catch (e: Exception) { throw Said("Couldn't reach it") }
-            if (code in 300..399) { u = https(URL(u, c.getHeaderField("Location") ?: throw Said("HTTP $code"))); c.disconnect(); return@repeat }
-            if (code != 200) throw Said("HTTP $code")
+            val code = try { c.responseCode } catch (e: Exception) { throw Said("its site didn't answer") }
+            if (code in 300..399) { u = https(URL(u, c.getHeaderField("Location") ?: throw Said("its site answered with an error ($code)"))); c.disconnect(); return@repeat }
+            if (code == 401 || code == 403) throw Said("it asked for a sign-in (copy the calendar's secret or public iCal address instead)")
+            if (code == 404 || code == 410) throw Said("there's nothing at that address (a link that was reset stops working)")
+            if (code != 200) throw Said("its site answered with an error ($code)")
             val bytes = c.inputStream.use { s -> val o = java.io.ByteArrayOutputStream(); val buf = ByteArray(16384); var n = 0
-                while (true) { val r = s.read(buf); if (r < 0) break; n += r; if (n > 8_000_000) throw Said("Too big"); o.write(buf, 0, r) }; o.toByteArray() }
+                while (true) { val r = s.read(buf); if (r < 0) break; n += r; if (n > 8_000_000) throw Said("it's too big"); o.write(buf, 0, r) }; o.toByteArray() }
             return String(bytes, Charsets.UTF_8)
         }
-        throw Said("Too many redirects")
+        throw Said("it kept sending the tablet somewhere else")
     }
 
     /**
@@ -256,8 +281,7 @@ object CalendarLinks {
                         val u = clean(link.text.toString())
                         if (u == null) { CalmDialog(a).setTitle("That isn't a calendar link").setMessage(HELP).setPositiveButton("Close", null).show().also { immersive() }; return@setPositiveButton }
                         val w = who.text.toString().trim().let { t -> names.firstOrNull { it.equals(t, true) } ?: t }
-                        thread { add(w, u); sync() }
-                        (a as? MainActivity)?.toast("Added ${label(w)}")
+                        checkThenAdd(a, w, u, immersive)
                     }
                     .setNegativeButton("Cancel", null).show().also { immersive() }
             }
@@ -305,7 +329,20 @@ object CalendarLinks {
         val who = msg.optString("who").trim().take(40)
         if (url == null) { CalmDialog(a).setTitle("That isn't a calendar link").setPositiveButton("Close", null).show().also { immersive() }; return }
         CalmDialog(a).setTitle("Add ${label(who)}?").setMessage(runCatching { URL(url).host }.getOrDefault(""))
-            .setPositiveButton("Add") { _, _ -> thread { add(who, url); sync() } }
+            .setPositiveButton("Add") { _, _ -> checkThenAdd(a, who, url, immersive) }
             .setNegativeButton("Cancel", null).show().also { immersive() }
+    }
+
+    /** Read it once first: kept (and "Added") only if it reads, else why not, and nothing is kept. */
+    private fun checkThenAdd(a: Activity, who: String, url: String, immersive: () -> Unit) {
+        (a as? MainActivity)?.toast("Reading the calendar…")
+        thread {
+            val why = check(url)
+            if (why == null) { add(who, url); sync() }
+            main.post {
+                if (why == null) (a as? MainActivity)?.toast("Added ${label(who)}")
+                else CalmDialog(a).setTitle("Not added").setMessage(why).setMore(HELP).setPositiveButton("Close", null).show().also { immersive() }
+            }
+        }
     }
 }
