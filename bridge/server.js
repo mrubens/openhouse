@@ -51,10 +51,19 @@ import { hubRoutes, isHub } from './hub.js';
 import { weatherSense } from './weather-sense.js';
 import { guarded } from './guarded.js';
 
-// A stray error from one request or timer is logged, and the bridge keeps serving the family. It doesn't hide a
-// stuck bridge: the shell's watchdog asks /state every 10 s and restarts one that stops answering (Runtime.kt).
-process.on('unhandledRejection', (e) => console.error('[bridge] unhandled rejection:', e?.stack || e));
-process.on('uncaughtException', (e) => console.error('[bridge] uncaught exception:', e?.stack || e));
+// Once it's serving, a stray error from one request or timer is logged, and the bridge keeps serving the family. It
+// doesn't hide a stuck bridge: the shell's watchdog asks /state every 10 s and restarts one that stops answering
+// (Runtime.kt). Before it's listening, any such error ends the process: one that stayed alive without serving would
+// look stopped to the shell, which would start another beside it (its voice worker and timers still running).
+let listening = false;
+function stray(what) {
+  return (e) => {
+    console.error(`[bridge] ${what}${listening ? '' : ' before listening; exiting'}:`, e?.stack || e);
+    if (!listening) process.exit(1);
+  };
+}
+process.on('unhandledRejection', stray('unhandled rejection'));
+process.on('uncaughtException', stray('uncaught exception'));
 
 // Who answers: there's no coding agent on the tablet (making and changing apps is someone's own Claude or ChatGPT on
 // a computer, through the workshop: workshop.js). Talking is OpenAI's live voice (the shell, through the cloud), and
@@ -334,7 +343,7 @@ http.createServer(guarded('bridge', async (req, res) => {
   if (/^\/mail(\/|$)/.test(url.pathname)) { try { await mail.handle(req, res, url); } catch (e) { if (!res.headersSent) json(res, 500, { error: e.message }); } return; }
   await route(req, res, url);
 })).on('error', (e) => { console.error('[bridge] listener:', e.code || e.message); process.exit(1); }) // (can't listen: the shell starts it again)
-  .listen(PORT, process.env.BRIDGE_HOST || '127.0.0.1', () => console.log(`bridge on :${PORT}, app ${APP_DIR}, agent ${agentName()}`));
+  .listen(PORT, process.env.BRIDGE_HOST || '127.0.0.1', () => { listening = true; console.log(`bridge on :${PORT}, app ${APP_DIR}, agent ${agentName()}`); });
 
 /** A response whose JSON passes through fn first (the house's data, cut to what a plugin's app may see). */
 function onlyThe(res, fn) {
