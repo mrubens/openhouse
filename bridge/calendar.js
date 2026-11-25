@@ -9,6 +9,7 @@
 //     the cloud's decision model (useCalendarDecide), never by matching words; until judged an event isn't shown.
 //   events: [{ who, title, start (ISO), end?, allDay, place?, notes?, uid? }]
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 
 const DAY = 86400e3;
@@ -20,12 +21,12 @@ export function useCalendarDecide(f) { decideFn = f; }
 export function calendars({ DIR }) {
   const CACHE = path.join(DIR, '../calendar.json');
   const empty = { events: [], at: 0, errors: {}, labels: [] };
-  let cache = (() => { try { return { ...empty, ...JSON.parse(fs.readFileSync(CACHE, 'utf8')) }; } catch { return empty; } })();
+  let cache = { ...empty, ...readJson(CACHE, {}, { bak: false }) }; // (read again from the calendars: no .bak)
   // Errors from before the links moved to the shell were keyed by the start of the link.
   if (Object.keys(cache.errors || {}).some((k) => /^(https?|webcals?):/i.test(k))) cache.errors = {};
   // Verdicts for calendars kept only in part: { [only]: { [title + place]: true | false } }.
   const ONLY = path.join(DIR, '../calendar-only.json');
-  let verdicts = (() => { try { return JSON.parse(fs.readFileSync(ONLY, 'utf8')) || {}; } catch { return {}; } })();
+  let verdicts = readJson(ONLY, {}, { bak: false }) || {};
   let lastFeeds = null, judging = false;
   const keyOf = (e) => `${e.title || ''}\u0000${e.place || ''}`;
   async function judge(pending) {
@@ -42,7 +43,7 @@ export function calendars({ DIR }) {
           part.forEach((e, j) => { const p = (answers || []).find((a) => a.name === `e${j}`)?.probability; if (typeof p === 'number') v[keyOf(e)] = p >= 0.5; });
         }
       }
-      try { fs.writeFileSync(ONLY, JSON.stringify(verdicts)); } catch {}
+      try { writeJson(ONLY, verdicts, { bak: false }); } catch {}
     } catch (e) { console.log(`[calendar] couldn't judge which events to keep (${e?.message || e})`); judging = false; return; }
     judging = false;
     if (lastFeeds) setFeeds(lastFeeds);
@@ -74,7 +75,7 @@ export function calendars({ DIR }) {
     if (pending.size) judge(pending);
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
     cache = { events, at: Date.now(), errors, labels };
-    try { fs.writeFileSync(CACHE, JSON.stringify(cache)); } catch {}
+    try { writeJson(CACHE, cache, { bak: false }); } catch {}
     console.log(`[calendar] ${events.length} events from ${labels.length} calendar(s)${Object.keys(errors).length ? `; ${Object.keys(errors).length} couldn't be read` : ''}`);
     return status();
   }

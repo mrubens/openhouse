@@ -21,6 +21,7 @@
 //
 // file: heartbeat.json next to the chats.
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import { questions, judgeInput, verdicts, writeNote, decideCost, WORTH } from './heartbeat-judge.js';
 import { REVIEW_RULES, snapshot, runReview } from './heartbeat-review.js';
@@ -118,10 +119,10 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
   now = () => Date.now(), freeBytes = null, logTurn = null, every = 5 * 60e3, json = null, body = null, onChange = () => {},
   judge = null, fixes = null, things = null, extraChecks = null, checkProblems = () => ({}), changesOf = () => [], review = true }) {
   const FILE = path.join(DIR, '../heartbeat.json');
-  const read = () => { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { return {}; } };
+  const read = () => readJson(FILE, {});
   const st = { level: DEFAULT_LEVEL, handled: {}, log: [], day: null, sleepUntil: 0, lastCheckIn: 0, lastReview: 0, last: null, findings: [], notesFor: {}, judgedAt: [], ...read() };
   st.notesFor ||= {}; st.judgedAt ||= [];
-  const save = () => { try { fs.writeFileSync(FILE + '.tmp', JSON.stringify(st)); fs.renameSync(FILE + '.tmp', FILE); } catch {} onChange(); };
+  const save = () => { try { writeJson(FILE, st); } catch {} onChange(); };
   const CHATS = path.join(HERE, 'chats.jsonl');
   const free = freeBytes || (() => { try { const s = fs.statfsSync(DIR); return s.bavail * s.bsize; } catch { return null; } });
   logTurn ||= (line) => { try { fs.appendFileSync(CHATS, JSON.stringify(line) + '\n'); } catch {} };

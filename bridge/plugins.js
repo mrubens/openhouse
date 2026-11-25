@@ -14,6 +14,7 @@
 // Display only (Settings): GET /plugins, POST /plugins/inspect {source}, /plugins/install {source, tabs},
 // /plugins/remove {name}. The assistant and a computer: the tools below (install waits on the card).
 import fs from 'node:fs';
+import { writeJson as storeJson } from './store.js';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -338,7 +339,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   }
   function save(name, e) {
     fs.mkdirSync(DIR, { recursive: true });
-    fs.writeFileSync(fileOf(name) + '.tmp', JSON.stringify(e, null, 2) + '\n'); fs.renameSync(fileOf(name) + '.tmp', fileOf(name));
+    storeJson(fileOf(name), e, { bak: false, space: 2, newline: true }); // (in the apps' git folder: no .bak beside it)
   }
   const drop = (name) => fs.rmSync(fileOf(name), { force: true });
   const owns = (e, id) => !!e?.apps?.[id] && !(e.kind === 'builtin' && (e.overriddenBy || e.removed));
@@ -487,7 +488,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     try {
       const shared = Object.fromEntries(Object.entries(readAll()).filter(([, e]) => e.kind === 'shared').map(([n, { kind, ...e }]) => [n, e]));
       fs.rmSync(DIR, { recursive: true, force: true });
-      if (Object.keys(shared).length) fs.writeFileSync(LEGACY, JSON.stringify(shared, null, 2) + '\n');
+      if (Object.keys(shared).length) storeJson(LEGACY, shared, { bak: false, space: 2, newline: true });
       cache.stamp = null;
       return { ok: true, commit: edits.finish(owner, true, { quiet: true }) };
     } catch (e) { edits.finish(owner, false); return { error: e.message }; }
@@ -1053,7 +1054,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     let box = { next: 1, items: [] }; try { const v = readJson(f); if (v && Array.isArray(v.items)) box = v; } catch {}
     const id = box.next;
     box.items = [...box.items, { id, action: x.a.name, args: clean, at: now(), ...(x.a.answer ? { answer: true } : {}) }].slice(-20); box.next += 1;
-    fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f + '.tmp', JSON.stringify(box)); fs.renameSync(f + '.tmp', f);
+    fs.mkdirSync(path.dirname(f), { recursive: true }); storeJson(f, box, { bak: false }); // (an app's data folder: no .bak among its files)
     if (x.a.open) (homeScreen.showApp || homeScreen.showTab)?.(x.id); // its tab, or (not a tab) its own window (home-screen.js showApp)
     if (!x.a.answer) return { text: x.a.reply || `Asked ${x.title} to do that.`, isError: false };
     // Its page answers (the kit's onAction writes appdata/<app>/replies.json): what it says is what the voice says.

@@ -10,6 +10,7 @@
 //
 // Saved in display/devices.json: the devices, the recipes the agent wrote, and pairings (TV tokens).
 import fs from 'node:fs';
+import { readJson, writeJson } from '../store.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
@@ -91,8 +92,8 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   const MCP_FILE = path.join(path.dirname(FILE), 'home-mcp.json');
   const PORT = Number(process.env.PORT || 8787);
   let db = { scannedAt: null, devices: [], recipes: {}, pairing: {}, certs: {} };
-  try { db = { ...db, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch {}
-  const save = () => { const t = FILE + '.tmp'; fs.writeFileSync(t, JSON.stringify(db, null, 1)); fs.renameSync(t, FILE); };
+  db = { ...db, ...readJson(FILE, {}) };
+  const save = () => writeJson(FILE, db, { space: 1 });
   // Each device's own certificate, kept for its address (net.js checkPin).
   db.certs ||= {};
   Object.assign(netPins, { get: (where) => db.certs[where] || null, set: (where, fp) => { db.certs[where] = fp; save(); } });

@@ -17,6 +17,7 @@
 //
 // files: board.json (the last curation) and household.json (family, calendar, chores, location), next to the chats.
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import { calendars } from './calendar.js';
 import { calendarSync } from './calendar-sync.js';
@@ -25,9 +26,9 @@ import { shellCall } from './calendar-links.js';
 export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen }) {
   const BOARD = path.join(DIR, 'board.json');
   const HOUSE = path.join(DIR, '../household.json');
-  const read = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
+  const read = (f, d) => readJson(f, d); // an unreadable file reads as its .bak, never as empty (store.js)
   const load = () => ({ assistant: null, ...read(BOARD, {}) });
-  const save = (b) => fs.writeFileSync(BOARD, JSON.stringify(b));
+  const save = (b) => writeJson(BOARD, b);
   let curating = false, lastError = null;
   // The family's calendars, read by the shell, which keeps their links (calendar.js).
   const cal = calendars({ DIR });
@@ -75,7 +76,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     if (b.maps != null) { if (b.maps === true) h.maps = true; else delete h.maps; } // the Map turned on (its services: docs/maps.md)
     delete h.assistant; // (it was once renamable; it's always Opie now)
     if (Array.isArray(b.routines)) h.routines = b.routines.map((r) => str(r, 160)).filter(Boolean).slice(0, 20);
-    fs.writeFileSync(HOUSE, JSON.stringify(h, null, 2));
+    writeJson(HOUSE, h, { space: 2 });
     if (!quiet) curate('household'); // a chore ticked on or off isn't worth a curation
     return h;
   }
@@ -159,7 +160,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     }
     if (p === '/calendar/claim' && req.method === 'POST') {
       const h = read(HOUSE, null), links = (h?.calendars || []).filter((c) => c && c.url).map((c) => ({ url: String(c.url), who: c.who || null }));
-      if (h && 'calendars' in h) fs.writeFileSync(HOUSE, JSON.stringify(withoutLinks(h), null, 2));
+      if (h && 'calendars' in h) writeJson(HOUSE, withoutLinks(h), { space: 2 });
       json(res, 200, { calendars: links });
       return true;
     }

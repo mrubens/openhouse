@@ -4,6 +4,7 @@
 // hour) rewrites that day's few lines in chats/days.json. A day's talk is deleted once it's two days old and summed up.
 // Both are on the tablet only (and in its backups, with the rest of chats/); they go to OpenAI only as context.
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import { reviewCost } from './heartbeat-review.js';
 
@@ -21,8 +22,8 @@ const textOf = (out) => (out || []).filter((o) => o.type === 'message').flatMap(
 export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
   const TALK = path.join(DIR, 'talk'), FILE = path.join(DIR, 'days.json');
   let days = {};
-  try { days = JSON.parse(fs.readFileSync(FILE, 'utf8')).days || {}; } catch {}
-  const save = () => { try { fs.writeFileSync(FILE, JSON.stringify({ days })); } catch (e) { console.error('[days]', e.message); } };
+  days = readJson(FILE, {})?.days || {};
+  const save = () => { try { writeJson(FILE, { days }); } catch (e) { console.error('[days]', e.message); } };
   const lines = (day) => { try { return fs.readFileSync(path.join(TALK, `${day}.jsonl`), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; } };
 
   /** One thing said or found (recentTalk's onAdd). */

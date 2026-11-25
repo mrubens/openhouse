@@ -21,6 +21,7 @@
 //
 // The credential lives in display/.cloud/device.json (0600), never in a backup.
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { request } from './backup-format.js';
@@ -33,8 +34,8 @@ const DAY = 86400e3;
 export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', backupBits = () => ({}), fixesFile = null, now = Date.now, tick = 15 * 60e3, defaultApi = process.env.OPENHOUSE_CLOUD_URL || DEFAULT_API }) {
   const DIR = path.join(DISPLAY, '.cloud');
   const f = (n) => path.join(DIR, n);
-  const read = (n) => { try { return JSON.parse(fs.readFileSync(f(n), 'utf8')); } catch { return null; } };
-  const write = (n, v) => { fs.mkdirSync(DIR, { recursive: true, mode: 0o700 }); const t = f(n) + '.new'; fs.writeFileSync(t, JSON.stringify(v, null, 2), { mode: 0o600 }); fs.renameSync(t, f(n)); };
+  const read = (n) => readJson(f(n), null, { bak: false }); // (keys: no .bak copies lying around)
+  const write = (n, v) => { fs.mkdirSync(DIR, { recursive: true, mode: 0o700 }); writeJson(f(n), v, { bak: false, mode: 0o600, space: 2 }); };
   const state = () => read('state.json') || {};
   const setState = (p) => write('state.json', { ...state(), ...p });
   const api = () => read('config.json')?.api || defaultApi;

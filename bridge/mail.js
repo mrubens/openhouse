@@ -12,6 +12,7 @@
 // State in display/mail.json (senders, held and recent lists, counts); held and recent messages themselves in
 // display/mail/ (a week at most); the mail key in display/.cloud/mail-key.json (0600, never in a backup).
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { newMailKey, open, senderHash } from './mail-seal.js';
@@ -29,9 +30,9 @@ const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
 export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = null, now = Date.now, every = 5 * 60e3, log = (m) => console.log(m) }) {
   const FILE = path.join(DISPLAY, 'mail.json'), DIR = path.join(DISPLAY, 'mail'), KEY = path.join(DISPLAY, '.cloud', 'mail-key.json');
   let st;
-  try { st = JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { st = {}; }
+  st = readJson(FILE, null) || {};
   st.senders ||= []; st.held ||= []; st.recent ||= []; st.notes ||= []; st.counts ||= {};
-  const save = () => { const t = FILE + '.new'; fs.writeFileSync(t, JSON.stringify(st, null, 2)); fs.renameSync(t, FILE); };
+  const save = () => writeJson(FILE, st, { space: 2 });
   const raw = (id) => path.join(DIR, id.replace(/[^\w-]/g, '') + '.eml');
   const keep = (id, bytes) => { fs.mkdirSync(DIR, { recursive: true, mode: 0o700 }); fs.writeFileSync(raw(id), bytes, { mode: 0o600 }); };
   const drop = (id) => fs.rmSync(raw(id), { force: true });
@@ -114,10 +115,10 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
 
   // ---- the cloud's address ----
   function mailKey() {
-    try { return JSON.parse(fs.readFileSync(KEY, 'utf8')); } catch {}
+    const had = readJson(KEY, null, { bak: false }); if (had) return had;
     const k = newMailKey();
     fs.mkdirSync(path.dirname(KEY), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(KEY, JSON.stringify(k), { mode: 0o600 });
+    writeJson(KEY, k, { bak: false, mode: 0o600 }); // (an unreadable one is set aside, not written over)
     return k;
   }
   const linked = () => !!cloud?.credential?.();

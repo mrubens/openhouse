@@ -13,6 +13,7 @@
 //
 // file: later.json next to the chats: { items: [{id, kind, what, at, rule?, start?, fired?, made}] } (at: its next time)
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import { isNight } from './heartbeat.js';
 import { runReview } from './heartbeat-review.js';
@@ -78,11 +79,11 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
   talk = null, ai = null, live = null, picture = () => '', every = 20e3, onChange = () => {} }) {
   const FILE = path.join(DIR, '../later.json');
   let st = { items: [] };
-  try { st = { ...st, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch {}
+  st = { ...st, ...readJson(FILE, {}) };
   st.items = (st.items || []).filter((x) => x && x.id && x.at);
   for (const x of st.items) if (x.repeat && !x.rule) { x.rule = fromOld(x.repeat, x.dow); x.start = x.at; x.fired = 0; delete x.repeat; delete x.time; delete x.dow; } // (kept before rules)
   const ruleOf = (x) => (x.rule ? parseRule(x.rule) : null);
-  const save = () => { try { fs.writeFileSync(FILE + '.tmp', JSON.stringify(st)); fs.renameSync(FILE + '.tmp', FILE); } catch (e) { console.error('[later]', e.message); } onChange(); };
+  const save = () => { try { writeJson(FILE, st); } catch (e) { console.error('[later]', e.message); } onChange(); };
   const quiet = (t) => { try { return !!asleep() || isNight(night(), new Date(t)); } catch { return false; } };
   const repeatWords = (x) => { const r = ruleOf(x); return r && !r.error ? ruleWords(r, x.start) : ''; };
   const describe = (x, t = now()) => `${x.id}: ${x.kind === 'say' ? `say "${x.what}"` : `do: ${x.what}`}, ${x.rule ? `${repeatWords(x)} (next: ${whenText(x.at, t)})` : whenText(x.at, t)}`;

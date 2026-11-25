@@ -12,6 +12,7 @@
 //
 // file: things.json next to the chats: { items: [{id, kind, text, until, key?, app?, open?, ask?, by, at}], gone: {id: at} }
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
@@ -33,8 +34,8 @@ const brokenText = (name) => `${name} has a problem: ask Claude or ChatGPT to fi
 export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} }) {
   const FILE = path.join(DIR, '../things.json');
   let st = { items: [], gone: {} };
-  try { st = { ...st, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch {}
-  const save = () => { try { fs.writeFileSync(FILE + '.tmp', JSON.stringify(st)); fs.renameSync(FILE + '.tmp', FILE); } catch (e) { console.error('[things]', e.message); } onChange(); };
+  st = { ...st, ...readJson(FILE, {}) };
+  const save = () => { try { writeJson(FILE, st); } catch (e) { console.error('[things]', e.message); } onChange(); };
   let fixesOf = () => [], putAway = () => {};
 
   /** The stored ones still current (the past ones go). */

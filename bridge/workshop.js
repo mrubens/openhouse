@@ -11,6 +11,7 @@
 // change left open goes in by itself after a quiet while, so a closed laptop never blocks the family's assistant.
 import { DEVICE_NAMES } from './device-tools.js';
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { insideApps } from './inside-apps.js';
@@ -43,7 +44,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
   const OPEN_FILE = path.join(HERE, 'workshop-open.json');
   const keep = () => {
     const out = {}; for (const [k, c] of open) out[k] = { what: c.what, name: c.name, before: [...c.before], fresh: [...c.fresh], started: c.turn.started, fix: c.fix || null };
-    try { fs.writeFileSync(OPEN_FILE + '.tmp', JSON.stringify(out)); fs.renameSync(OPEN_FILE + '.tmp', OPEN_FILE); } catch {}
+    try { writeJson(OPEN_FILE, out); } catch {}
   };
   const open = new Map(); // computer key -> { turn, what, name, before: Set of app ids, shown: Set, fresh: Set, timer }
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
@@ -342,8 +343,8 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
   }
 
   // Changes that were open when the bridge stopped: open again, with what was written since as theirs.
-  try {
-    const saved = JSON.parse(fs.readFileSync(OPEN_FILE, 'utf8'));
+  const saved = readJson(OPEN_FILE, null);
+  if (saved) try {
     for (const [key, x] of Object.entries(saved)) {
       const turn = { id: `w${Date.now()}-${key}`, kind: 'chat', who: x.name, text: x.what, conversation: null, started: x.started || Date.now() };
       if (!edits.tryAcquire(turn)) { log(`couldn't reopen ${x.name}'s change "${x.what}": another is being made`); continue; }

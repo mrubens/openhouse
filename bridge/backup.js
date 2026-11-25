@@ -14,6 +14,7 @@
 // A destination: { id, label, ready() -> {ok, why?, name?}, put(file, meta), list() -> [{id, kind, size, keyId,
 // createdAt, deviceId?, deviceName?}], get(item, toFile), prune?(keepNightly, keepManual) }.
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { newRecoveryCode, keyFromCode, normalCode, encryptFile, decryptFile, pack, run, INCLUDE, VIDEO_BUDGET, keptVideos } from './backup-format.js';
@@ -24,8 +25,8 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
   const DIR = path.join(DISPLAY, '.backup'); // never in a backup (not in INCLUDE)
   const TMP = path.join(DIR, 'tmp');
   const f = (n) => path.join(DIR, n);
-  const read = (n) => { try { return JSON.parse(fs.readFileSync(f(n), 'utf8')); } catch { return null; } };
-  const write = (n, v) => { fs.mkdirSync(DIR, { recursive: true, mode: 0o700 }); const t = f(n) + '.new'; fs.writeFileSync(t, JSON.stringify(v, null, 2), { mode: 0o600 }); fs.renameSync(t, f(n)); };
+  const read = (n) => readJson(f(n), null, { bak: false }); // (keys: no .bak copies lying around)
+  const write = (n, v) => { fs.mkdirSync(DIR, { recursive: true, mode: 0o700 }); writeJson(f(n), v, { bak: false, mode: 0o600, space: 2 }); };
   const state = () => read('state.json') || { dests: {} };
   const setState = (p) => write('state.json', { ...state(), ...p });
   const setDest = (id, p) => { const s = state(); setState({ dests: { ...s.dests, [id]: { ...(s.dests?.[id] || {}), ...p } } }); };

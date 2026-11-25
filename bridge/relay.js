@@ -18,6 +18,7 @@
 // A paired device (screens.js lets screens and computers ask only this):
 //   GET  /relay/me                  {url, relay, token}: where to go and its token, or {off: true}
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
@@ -29,8 +30,8 @@ const okHandoff = (b) => /^http:\/\/(10|127|192\.168|172\.(1[6-9]|2\d|3[01]))(\.
 
 export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () => {}, WS = globalThis.WebSocket, now = Date.now, backoff = [2e3, 5e3, 15e3, 60e3, 300e3], pingMs = 4 * 60e3, maxAgeMs = 110 * 60e3 }) {
   const FILE = path.join(DISPLAY, '.cloud', 'relay.json');
-  const read = () => { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { return {}; } };
-  const save = (v) => { fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 }); fs.writeFileSync(FILE + '.new', JSON.stringify(v), { mode: 0o600 }); fs.renameSync(FILE + '.new', FILE); };
+  const read = () => readJson(FILE, {}, { bak: false });
+  const save = (v) => { fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 }); writeJson(FILE, v, { bak: false, mode: 0o600 }); };
 
   let sock = null, url = null, relayId = null, connected = false, since = null, error = null;
   let tries = 0, retryTimer = null, pingTimer = null, ageTimer = null, sentTokens = '';

@@ -11,6 +11,7 @@
 // GET  /chat/...                 the conversation page (public/chat; the start of a phone page)
 import * as G from './grid.js';
 import fs from 'node:fs';
+import { readJson, writeJson, writeFileAtomic } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { weatherRoutes } from './weather.js';
@@ -200,20 +201,21 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       const p = String(a.preference || '').trim().replace(/\s+/g, ' ').slice(0, 200);
       if (!p) return { content: [{ type: 'text', text: 'Nothing to remember.' }], isError: true };
       const all = readPrefs().filter((x) => x.toLowerCase() !== p.toLowerCase()); all.push(p);
-      fs.writeFileSync(PREFS, all.map((x) => '- ' + x).join('\n') + '\n');
+      writeFileAtomic(PREFS, all.map((x) => '- ' + x).join('\n') + '\n', { bak: true });
       return ok(`Remembered: ${p}`);
     }
     if (name === 'forget_preference') {
       const w = String(a.preference || '').toLowerCase().split(/\W+/).filter((x) => x.length > 2);
       const all = readPrefs(), keep = all.filter((x) => !w.length || w.filter((t) => x.toLowerCase().includes(t)).length < Math.ceil(w.length * 0.6));
-      fs.writeFileSync(PREFS, keep.map((x) => '- ' + x).join('\n') + (keep.length ? '\n' : ''));
+      writeFileAtomic(PREFS, keep.map((x) => '- ' + x).join('\n') + (keep.length ? '\n' : ''), { bak: true });
       return ok(all.length === keep.length ? 'No preference like that was saved.' : `Forgot: ${all.filter((x) => !keep.includes(x)).join('; ')}`);
     }
   });
 
   const file = (id) => path.join(DIR, `${id}.json`);
-  const load = (id) => { try { return JSON.parse(fs.readFileSync(file(id), 'utf8')); } catch { return null; } };
-  const save = (c) => { c.updated = Date.now(); fs.writeFileSync(file(c.id), JSON.stringify(c)); };
+  // (no .bak for each conversation: the chats folder goes into backups whole)
+  const load = (id) => readJson(file(id), null, { bak: false });
+  const save = (c) => { c.updated = Date.now(); writeJson(file(c.id), c, { bak: false }); };
   const validId = (id) => /^[a-z0-9-]{6,40}$/.test(id || '');
 
   /** What the app builder is doing, so "are you making it?" gets a real answer. */
@@ -408,7 +410,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       if (b.day) { const ok = days.forget(String(b.day)); json(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'not found' }); return true; }
       const t = String(b.text || '').trim(), all = readPrefs(), keep = all.filter((x) => x !== t);
       if (keep.length === all.length) { json(res, 404, { error: 'not found' }); return true; }
-      fs.writeFileSync(PREFS, keep.map((x) => '- ' + x).join('\n') + (keep.length ? '\n' : ''));
+      writeFileAtomic(PREFS, keep.map((x) => '- ' + x).join('\n') + (keep.length ? '\n' : ''), { bak: true });
       json(res, 200, { ok: true }); return true;
     }
     if (req.method === 'GET' && p.startsWith('/chats/')) {
