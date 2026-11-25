@@ -75,6 +75,54 @@ test('nothing in the repo itself runs: hooks and programs in its config, as a re
   fs.rmSync(root, { recursive: true, force: true });
 });
 
+// A restored repo whose filter program would run on the bridge's next `git add`, once quietRepo has seen it.
+function restoredRepo(make) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-quiet-')), app = path.join(root, 'webapp'), mark = path.join(root, 'ran');
+  fs.mkdirSync(app); initRepo(app);
+  fs.writeFileSync(path.join(app, '.gitattributes'), '* filter=x diff=x\n');
+  make({ root, app, run: `touch '${mark}'; cat` });
+  return { root, app, mark };
+}
+function changeOnce(root, app) {
+  const edits = editLock({ APP_DIR: app, UNDO_FILE: path.join(root, 'undo.json'), log: () => {} });
+  const hand = { id: 'h', kind: 'edit', text: 'A change' };
+  edits.tryAcquire(hand); fs.writeFileSync(path.join(app, 'apps/a.txt'), 'a'); edits.finish(hand, true);
+  return execFileSync('git', ['log', '--format=%s'], { cwd: app, encoding: 'utf8' }).trim().split('\n');
+}
+
+test('a restored repo with a per-worktree config naming a filter runs nothing, and keeps its history', () => {
+  const { root, app, mark } = restoredRepo(({ app, run }) => {
+    execFileSync('git', ['config', 'extensions.worktreeConfig', 'true'], { cwd: app });
+    execFileSync('git', ['config', '--worktree', 'filter.x.clean', run], { cwd: app });
+    execFileSync('git', ['config', '--worktree', 'diff.x.textconv', run], { cwd: app });
+    fs.mkdirSync(path.join(app, '.git/info'), { recursive: true });
+    fs.writeFileSync(path.join(app, '.git/info/attributes'), '* filter=x\n');
+  });
+  assert.equal(quietRepo(app), true);
+  assert.equal(fs.existsSync(path.join(app, '.git/config.worktree')), false);
+  const log = changeOnce(root, app);
+  assert.deepEqual(log, ['A change', 'Starting point']);
+  assert.equal(fs.existsSync(mark), false, 'the filter never ran');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
+test('a restored repo whose .git is a file pointing elsewhere becomes a repo of its own that runs nothing', () => {
+  const { root, app, mark } = restoredRepo(({ root, app, run }) => {
+    const away = path.join(root, 'away.git');
+    fs.renameSync(path.join(app, '.git'), away);
+    execFileSync('git', ['config', '--file', path.join(away, 'config'), 'filter.x.clean', run]);
+    execFileSync('git', ['config', '--file', path.join(away, 'config'), 'core.worktree', app]);
+    fs.writeFileSync(path.join(app, '.git'), `gitdir: ${away}\n`);
+  });
+  assert.equal(quietRepo(app), true);
+  assert.ok(fs.lstatSync(path.join(app, '.git')).isDirectory());
+  const log = changeOnce(root, app);
+  assert.equal(log[0], 'A change');
+  assert.equal(fs.existsSync(mark), false, 'the filter never ran');
+  assert.equal(fs.readFileSync(path.join(app, 'README.md'), 'utf8'), 'apps\n', 'the files stay');
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 let b;
 before(async () => { b = await startBridge(); });
 after(() => b?.stop());
