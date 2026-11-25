@@ -161,7 +161,7 @@ internal fun SetupSheet() {
 @Composable
 private fun PinStep(set: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(14.u)) {
-        Text("For grown-ups: settings and approvals.", style = calmText(Calm.LEAD))
+        Text("It guards Settings and saying yes to new apps.", style = calmText(Calm.LEAD))
         Text(if (set) "PIN Lock is on. Settings and approving new apps ask for the PIN."
             else "With a PIN, only someone who knows it can change Settings or approve a new app. Without one, anyone at the tablet can. You can set it later in Settings, PIN Lock.",
             style = calmText(19, color = Calm.soft))
