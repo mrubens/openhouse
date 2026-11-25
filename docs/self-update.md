@@ -95,8 +95,11 @@ back or change the rollout, so keep the host's account safe.
   Someone's *Install now* goes on at once. The update cover goes up first (`UpdateCover`, the same cover
   `install-display.sh` uses), the display is replaced, Android starts the new one (`UpdatedReceiver`), and the cover
   hands the screen back.
-- **Healthy**: the new display counts as healthy once the bridge answers (`/state`) and the home screen's page has
-  loaded. Then the rescue build is thrown away and Settings says *Updated from 0.3.0 to 0.4.0*.
+- **Healthy** (`UpdateHealth.kt`): the new display has to come up (the bridge answers `/state` and the home
+  screen's page loads) and be able to update again: its own updater fetches and parses the manifest, by the same
+  check as every day's, tried every ten minutes until it works. Then Settings says *Updated from 0.3.0 to 0.4.0*. The
+  rescue build stays staged until a day after the install either way (or until a newer release comes), and is thrown
+  away then.
 
 ### The managed cloud's endpoint
 
@@ -120,9 +123,19 @@ is then an ordinary upgrade.
 
 Before installing, the display writes the rescue build into a PackageInstaller session and leaves it uncommitted, and
 notes the update in `files/updates/pending.json`. `UpdateGuard` (its own process, `:guard`, apart from everything the
-display does on screen) is woken when the new display arrives and again after five minutes (a job; also after a
-restart mid-update). If the new display hasn't become healthy by then, crashed or not, it puts the cover up and
-commits the staged session (or installs `rescue.apk` from the file if the session is gone). The rescue build starts,
+display does on screen) is woken when the new display arrives, after a restart, and by a job when it's time to look
+again. It goes back when:
+
+- the new display hasn't come up within five minutes, crashed or not. That's on the boot clock
+  (`SystemClock.elapsedRealtime`), from the install, or from the start of this boot after a restart, and it has to
+  come up again after every restart while the rescue is kept. A restart in the window gives it its five minutes
+  again instead of a judgment seconds after boot.
+- a day after the install, none of its manifest checks has worked and at least three counted against it. A check
+  counts only when Android has validated the network and the server isn't the trouble (no 5xx or 429): a tablet
+  that's offline, or a server that's down, proves nothing, so the rescue stays and it keeps trying hourly.
+
+To go back it puts the cover up and commits the staged session (or installs `rescue.apk` from the file if the session
+is gone). The rescue build starts,
 remembers that release failed here and never tries it again, and Settings says *Version 0.4.0 didn't start
 properly, so this tablet went back to 0.3.0*. The next release (0.5.0 = 50000) is above the rescue build (40001), so it
 updates as usual.
