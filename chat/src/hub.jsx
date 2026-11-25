@@ -136,6 +136,11 @@ function Account({ c, onRemoved }) {
           <label className="check"><input type="checkbox" checked={!!v?.on} onChange={(e) => post('/cloud/voice', { on: e.target.checked }, reloadV)} /> Live voice: talk to Opie from phones and computers</label>
           <label className="check"><input type="checkbox" checked={!!relay?.on} onChange={(e) => post('/relay', { on: e.target.checked }, reloadR)} /> Reach the hub from away from home</label>
           <button className="plain" onClick={() => confirm('Unlink the hub from the account? Live voice and cloud backups stop.') && post('/cloud/unlink', {}, reload)}>Unlink</button></div>
+      ) : s.linking?.confirm ? (
+        <div className="card"><div className="t">Link to {s.linking.confirm.family || 'this account'}?</div>
+          <p className="soft small">{s.linking.confirm.by || 'Someone'} entered the code.</p>
+          <button className="go small" onClick={() => post('/cloud/link/confirm', { ok: true }, reload)}>Link</button>
+          <button className="plain" onClick={() => post('/cloud/link/confirm', { ok: false }, reload)}>No</button></div>
       ) : s.linking ? (
         <div className="card"><div className="t">Type this code at {s.linking.url}</div><p className="mono big">{s.linking.display}</p>
           <button className="plain" onClick={() => post('/cloud/link/cancel', {}, reload)}>Cancel</button></div>

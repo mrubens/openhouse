@@ -91,12 +91,23 @@ async function signIn(email) {
   const t = new URL(/https?:\S+/.exec(svc.mail.sent.at(-1).text)[0]).searchParams.get('t');
   assert.equal((await web('/v1/auth/finish', { token: t })).status, 200);
 }
-async function link(t) {
+/** A code entered on the web, then the account that claimed it waiting for an answer at the tablet: [ok] links it. */
+async function claimed(t) {
   assert.equal((await t.call('POST', '/cloud/config', { api: svc.url.replace('localhost', '127.0.0.1') })).code, 200);
   const s = await t.call('POST', '/cloud/link/start', { name: 'Kitchen' });
   assert.match(s.obj.display, /^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+  assert.equal((await t.call('POST', '/cloud/link/confirm', { ok: true })).code, 400); // nothing claimed it yet
   assert.equal((await web('/v1/account/claim', { code: s.obj.display })).status, 200);
-  for (let i = 0; i < 40 && !(await t.call('GET', '/cloud/status')).obj.linked; i++) await new Promise((r) => setTimeout(r, 250));
+  let st;
+  for (let i = 0; i < 40 && !(st = (await t.call('GET', '/cloud/status')).obj).linking?.confirm; i++) await new Promise((r) => setTimeout(r, 250));
+  assert.ok(st.linking?.confirm, 'the tablet asks before it links');
+  assert.equal(st.linked, false); // no credential until a yes
+  return st.linking.confirm;
+}
+async function link(t) {
+  await claimed(t);
+  const r = await t.call('POST', '/cloud/link/confirm', { ok: true });
+  assert.equal(r.code, 200); assert.equal(r.obj.linked, true);
   assert.equal((await t.call('GET', '/cloud/status')).obj.linked, true);
 }
 const until = async (t, f) => { for (let i = 0; i < 100; i++) { const s = (await t.call('GET', '/backup/status')).obj; if (f(s)) return s; await new Promise((r) => setTimeout(r, 100)); } throw new Error('timed out'); };
@@ -201,6 +212,16 @@ test('videos: a backup holds the newest up to its budget, and a restore keeps th
   mp4('later.mp4', new Date()); // came after the backup
   assert.equal((await t.call('POST', '/backup/restore', { dest: 'drive', id })).code, 200);
   for (const n of ['a.jpg', 'new.mp4', 'old.mov', 'later.mp4', '.stills/old.mov.jpg']) assert.ok(fs.existsSync(path.join(D, 'photos', n)), n + ' is still on the tablet');
+});
+
+test('a code someone claimed links only after a yes at the tablet; a no leaves it unlinked', { skip: !svc && SKIP }, async () => {
+  await signIn('sam@example.com');
+  const t = tablet(display());
+  assert.equal((await claimed(t)).by, 'sam@example.com'); // the card shows who claimed it
+  const no = await t.call('POST', '/cloud/link/confirm', { ok: false });
+  assert.equal(no.code, 200); assert.equal(no.obj.linked, false); assert.equal(no.obj.linking, null);
+  assert.equal((await t.call('POST', '/cloud/link/confirm', { ok: true })).code, 400); // the answer was no; nothing to say yes to now
+  assert.equal((await t.call('GET', '/cloud/status')).obj.linked, false);
 });
 
 test('cloud and drive together; a new tablet restores with the code; the copy kept with OpenHouse; unlink from the web', { skip: !svc && SKIP }, async () => {

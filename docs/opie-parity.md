@@ -9,10 +9,10 @@ the tablet", and from a phone, that it's on the tablet itself. The rules that do
   and nothing it does lands while a PIN pad is up (`DeviceServer.ownPrivate`); its tools can't answer the card
   (one tool runs at a time, and the card's own call is the one waiting).
 - While a card that waits for a person's answer is up (the "Is this OK?" card, a device asking to pair, a calendar or
-  album link someone sent: `ui/PersonCards.kt`), every device tool is refused, reading the screen included, and Opie
+  album link someone sent, the account that entered the link code: `ui/PersonCards.kt`), every device tool is refused, reading the screen included, and Opie
   tells them it's theirs to answer. The card's yes also takes only a real touch, not an injected one.
 - What is person-only (`DeviceServer.personOnly`: turning on email, allowing a held email, Opie uses apps and other
-  switches that widen what Opie may do, ways out of OpenHouse, saying yes to a calendar or album someone sent) needs a
+  switches that widen what Opie may do, ways out of OpenHouse, saying yes to a calendar or album someone sent, or to the account that entered the link code) needs a
   person's own tap, PIN or not. Opie can open the screen; the tap is theirs.
 - PIN Lock itself (turning it off, changing the PIN) and leaving kiosk mode: Opie only opens the screen. Asking Opie to
   take off the lock that guards against Opie makes no sense, and leaving kiosk mode takes the tablet out of OpenHouse.
@@ -89,7 +89,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Linked devices: the house's speakers, streamers, printers and their buttons | **new** | home_devices (tv, bluetooth and volume were already there); turning on or opening something asks the room first |
 | Brightness | **new** | tablet_screen (Settings' row has no PIN) |
 | Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
-| Account: link, backups, reach from away | screen, with the PIN | Opie opens the row; the tablet asks for the PIN |
+| Account: link, backups, reach from away | screen, with the PIN | Opie opens the row; the tablet asks for the PIN. The yes to the account that entered the code is personOnly |
 | Advanced: Updates, home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
 | Advanced: PIN Lock, leave kiosk mode, erase this tablet | no, on purpose | Opie only opens the screen (above); with no PIN set, erase and the ways out ask a person to set one first |
 | Advanced: Opie uses apps, device control, USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave OpenHouse |

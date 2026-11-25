@@ -78,11 +78,42 @@ internal class CloudMenu(private val act: MainActivity) {
                 while (waiting) {
                     Thread.sleep(2000)
                     val s = get("/cloud/status", 5000) ?: continue
-                    if (s.optBoolean("linked")) { ui { d.dismiss(); act.toast("Linked to ${s.optString("family")}"); if (then != null) then() else linked(s) }; return@thread }
+                    if (s.optBoolean("linked")) { ui { d.dismiss(); done(s, then) }; return@thread } // (an older cloud: no yes asked)
                     if (s.isNull("linking") || !s.has("linking")) { ui { if (d.isShowing) { d.dismiss(); say("Link", "The code ran out. Start again to get a new one.") } }; return@thread }
+                    val ask = s.optJSONObject("linking")?.optJSONObject("confirm")
+                    if (ask != null) { ui { if (d.isShowing) { d.dismiss(); confirm(ask, then) } }; return@thread }
                 }
             }
         }
+    }
+
+    private fun done(s: JSONObject, then: (() -> Unit)?) { act.toast("Linked to ${s.optString("family")}"); if (then != null) then() else linked(s) }
+
+    /** Someone entered the code: link to their account? A person's own yes, by hand (a person card; Opie's tap on it
+     *  does nothing). No, or closing it, tells the cloud no. */
+    private fun confirm(ask: JSONObject, then: (() -> Unit)?) {
+        var answered = false
+        fun answer(ok: Boolean) {
+            if (answered) return
+            answered = true
+            thread {
+                val r = post("/cloud/link/confirm", JSONObject().put("ok", ok))
+                ui {
+                    when {
+                        r == null || r.has("error") -> say("Link", r?.optString("error")?.ifEmpty { null } ?: noBridge)
+                        ok && r.optBoolean("linked") -> done(r, then)
+                        else -> act.toast("Not linked")
+                    }
+                }
+            }
+        }
+        val family = ask.optString("family").ifBlank { null }
+        val by = ask.optString("by").ifBlank { null }
+        CalmDialog(act).setForPerson().setTitle(if (family != null) "Link to $family?" else "Link to this account?")
+            .setMessage(if (by != null) "$by entered the code." else "Someone entered the code.")
+            .setPositiveButton("Link") { _, _ -> if (!DeviceServer.personOnly("Linking this tablet to an account")) answer(true) }
+            .setNegativeButton("No") { _, _ -> answer(false) }
+            .setOnDismissListener { act.window.decorView.post { answer(false) } }.open() // (after a button's own answer)
     }
 
     private fun linked(s: JSONObject) {
