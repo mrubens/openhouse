@@ -19,7 +19,10 @@ import { rightsList } from './plugins.js';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const FILE = /^[a-z0-9][a-z0-9_-]{0,40}\.(js|css|html|json|svg)$/i;
-const MAX_FILE = 200e3, MAX_STEPS = 30, MAX_FILES = 12;
+const MAX_FILE = 200e3, MAX_STEPS = 40, MAX_FILES = 12;
+// What one step may write: the service stops a model call at 30 seconds, and a long file written in one go takes most of
+// that, so a bigger file is written in parts (write_file, then add_to_file).
+const MAX_WRITE = 9000;
 const KINDS = { game: 'game', tab: 'tab' };
 // app.json fields that say what an app may do: a change made here leaves them as they were (only a card grants them).
 const GUARDED = ['uses', 'reaches', 'background', 'screens', 'tablet', 'actions', 'checks', 'today'];
@@ -29,7 +32,8 @@ const RULES = `You make and change the household's apps on their kitchen tablet,
 2. A new app starts from a template that already loads: read its files, then write main.js (and app.css for a tab; draw icon.svg, square, simple shapes). index.html stays as it is, and so does a game's game.js (the engine: read the top of it, and use what it offers rather than writing your own loop, input or collisions).
 3. For a change: read the app's files first, then change only what was asked, with edit_file where you can. Keep everything else working as it was.
 4. The app's own things (what someone typed, ticked or scored) are saved with the kit's store (store.get / store.set), never only in memory. A tab is calm and quiet like the starting apps, fits its box with nothing cut off and works on a phone; a game can be bold, with big touch targets.
-5. check_build after writing, and fix what it finds${'${LOOK}'}. Then done, with one plain sentence for the family about what you made (not how).
+5. Write in parts: at most about 200 lines (9,000 characters) in one write_file; write the first part, then add_to_file the next ones.
+6. check_build after writing, and fix what it finds${'${LOOK}'}. Then done, with one plain sentence for the family about what you made (not how).
 Never write outside the app, never use alert/confirm/prompt, never load anything from the internet.`;
 
 /**
@@ -50,6 +54,7 @@ export function rails(deps) {
     { name: 'list_files', description: 'Without app: the apps there are (id and name). With app: its files and sizes.', parameters: { type: 'object', properties: { app: { type: 'string' } } } },
     { name: 'read_file', description: 'Read a file: an app\'s ("apps/chores/main.js") or the kit\'s ("kit/openhouse.js", "kit/quiet.css").', parameters: { type: 'object', required: ['path'], properties: { path: { type: 'string' } } } },
     { name: 'write_file', description: 'Write a whole file of the app you started ("apps/<id>/main.js"). Flat: no folders.', parameters: { type: 'object', required: ['path', 'content'], properties: { path: { type: 'string' }, content: { type: 'string' } } } },
+    { name: 'add_to_file', description: 'Add to the end of a file of the app you started: the next part of a file too long to write in one step.', parameters: { type: 'object', required: ['path', 'content'], properties: { path: { type: 'string' }, content: { type: 'string' } } } },
     { name: 'edit_file', description: 'Change part of a file of the app you started: old is text in it now, exactly once; new replaces it.', parameters: { type: 'object', required: ['path', 'old', 'new'], properties: { path: { type: 'string' }, old: { type: 'string' }, new: { type: 'string' } } } },
     { name: 'check_build', description: 'Check the app: its scripts parse, what index.html loads is there, and what the page threw on the tablet.', parameters: { type: 'object', properties: {} } },
     ...(canLook ? [{ name: 'look_at_tablet', description: 'A picture of the tablet\'s screen now, with the app on it: see what you made the way the family will.', parameters: { type: 'object', properties: {} } }] : []),
@@ -88,7 +93,7 @@ export function rails(deps) {
       for (const c of calls) {
         let args = {}; try { args = JSON.parse(c.arguments || '{}'); } catch {}
         const callId = `${id}-${n++}`;
-        const shown = c.name === 'write_file' ? 'Write' : c.name === 'edit_file' ? 'Edit' : c.name === 'read_file' ? 'Read' : c.name;
+        const shown = c.name === 'write_file' ? 'Write' : c.name === 'edit_file' || c.name === 'add_to_file' ? 'Edit' : c.name === 'read_file' ? 'Read' : c.name;
         onEvent({ kind: 'tool', id: callId, name: shown, detail: String(args.path || args.app || '') });
         let res;
         try { res = await tool(s, c.name, args, { who, asked }); } catch (e) { res = { text: e.message, error: true }; }
@@ -181,7 +186,7 @@ export function rails(deps) {
         if (buf.length > 400e3 || buf.includes(0)) return err(`${rel} can't be read here.`);
         return { text: buf.toString('utf8') };
       }
-      case 'write_file': case 'edit_file': {
+      case 'write_file': case 'edit_file': case 'add_to_file': {
         if (!s.target) return err('Call start first.');
         const f = fileOf(a.path);
         if (!f || f.app !== s.target) return err(`Only the app you started: apps/${s.target}/<file>.`);
@@ -196,8 +201,14 @@ export function rails(deps) {
           if (!count) return err(`${a.path} doesn't have that text (it must match exactly). read_file to see it as it is.`);
           if (count > 1) return err(`That text is in ${a.path} ${count} times: add more around it so it's unique.`);
           next = was.replace(a.old, () => a.new);
+        } else if (name === 'add_to_file') {
+          if (was == null) return err(`No file ${a.path}: write_file its first part.`);
+          if (typeof a.content !== 'string' || !a.content) return err('content: the next part, as text.');
+          if (a.content.length > MAX_WRITE) return err(`That part is too long for one step: at most about ${MAX_WRITE} characters at a time.`);
+          next = was + (was.endsWith('\n') ? '' : '\n') + a.content;
         } else {
           if (typeof a.content !== 'string') return err('content: the whole file, as text.');
+          if (a.content.length > MAX_WRITE) return err(`That's too long for one step (the link to the model stops at 30 seconds): write_file the first part, at most about ${MAX_WRITE} characters, then add_to_file the rest.`);
           if (was == null && fs.readdirSync(path.join(appsDir, s.target)).length >= MAX_FILES) return err('That\'s enough files for one app.');
           next = a.content;
         }
@@ -212,7 +223,7 @@ export function rails(deps) {
           }
         }
         fs.writeFileSync(f.file, next);
-        return { text: `${name === 'edit_file' ? 'Changed' : 'Wrote'} ${a.path}.` };
+        return { text: `${name === 'edit_file' ? 'Changed' : name === 'add_to_file' ? 'Added to' : 'Wrote'} ${a.path}.` };
       }
       case 'check_build': {
         if (!s.target) return err('Call start first.');
