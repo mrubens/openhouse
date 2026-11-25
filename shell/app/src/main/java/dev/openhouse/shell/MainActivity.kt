@@ -155,6 +155,13 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         timers.showPills(false) // the home screen draws the timers itself; the pills are for over apps
         Watchdog.start(this) // once per process: an activity recreated keeps the one that's running
 
+        // As the tablet's owner (set up from the QR), Opie grants itself the microphone and notifications, as a moved
+        // tablet does (Move.kt), so Android's own question doesn't come up over the welcome screen.
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) runCatching {
+            val dpm = getSystemService(android.app.admin.DevicePolicyManager::class.java)
+            if (dpm.isDeviceOwnerApp(packageName)) for (p in listOf(Manifest.permission.RECORD_AUDIO, "android.permission.POST_NOTIFICATIONS"))
+                dpm.setPermissionGrantState(android.content.ComponentName(this, AdminReceiver::class.java), packageName, p, android.app.admin.DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+        }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 1)
         else startVoice()
     }
