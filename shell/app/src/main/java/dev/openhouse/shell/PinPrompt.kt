@@ -95,15 +95,25 @@ internal object PinPrompt {
     /**
      * "Forgot PIN?": the PIN's recovery code (or the backups' recovery code, which only someone who saved it has),
      * then a new PIN and its new code, then [ok]. [cancelled] if they give up. Opie can't see or type in it (PIN pad
-     * mark, setForPerson).
+     * mark, setForPerson). A tablet linked to an account also offers Reset with your account ([viaAccount]).
      */
     fun forgot(act: Activity, pins: Context, ok: () -> Unit, cancelled: () -> Unit = {}, again: Boolean = false) {
         val box = dev.openhouse.ui.Calm.field(act, "XXXX-XXXX-XXXX-XXXX").apply {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             letterSpacing = .06f
         }
+        var d: android.app.Dialog? = null
         val view = dev.openhouse.ui.Calm.column(act).apply { contentDescription = PinPad.MARK; addView(box, android.widget.LinearLayout.LayoutParams(-1, -2)) }
-        CalmDialog(act).setTitle(if (again) "That code doesn't fit" else "Forgot the PIN")
+        // Linked to an account: a signed-in member of the family can say yes instead (a quiet link, not a third button).
+        kotlin.concurrent.thread {
+            val linked = runCatching { org.json.JSONObject(dev.openhouse.ui.BridgeClient.getText(dev.openhouse.ui.Openhouse.bridgeUrl + "/cloud/status", 1500, 5000)).optBoolean("linked") }.getOrDefault(false)
+            if (linked) act.runOnUiThread {
+                if (d?.isShowing != true) return@runOnUiThread
+                view.addView(dev.openhouse.ui.Calm.quiet(act, "Reset with your account") { d?.dismiss(); viaAccount(act, pins, ok, cancelled) }.apply { setPadding(0, 0, 0, 0) },
+                    android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = dev.openhouse.ui.Calm.px(act, 12) })
+            }
+        }
+        d = CalmDialog(act).setTitle(if (again) "That code doesn't fit" else "Forgot the PIN")
             .setMessage("Type the recovery code that was shown when the PIN was chosen. The backups' recovery code works too.")
             .setView(view).setWidth(760f).setForPerson().setCancelable(false)
             .setMore("A tablet set up before recovery codes has none: make one in Settings, Advanced, while the PIN is known.")
@@ -120,6 +130,62 @@ internal object PinPrompt {
             }
             .setNegativeButton("Cancel") { _, _ -> cancelled() }.show()
         (act as? MainActivity)?.immersive()
+    }
+
+    /**
+     * Reset with your account (docs/settings.md, "Forgot the PIN"): the tablet shows a code (bridge /cloud/pin-reset);
+     * someone signed in to the account page of the family this tablet is linked to types it there, and only then may
+     * they choose a new PIN (and see its new recovery code), then [ok]. It's a person card with the PIN pad's mark, so
+     * Opie's screen tools neither read the code nor act while it's up. [cancelled] if they give up.
+     */
+    fun viaAccount(act: Activity, pins: Context, ok: () -> Unit, cancelled: () -> Unit = {}) {
+        val bridge = dev.openhouse.ui.Openhouse.bridgeUrl
+        fun say(title: String, text: String) {
+            CalmDialog(act).setTitle(title).setMessage(text).setCancelable(false)
+                .setPositiveButton("Back") { _, _ -> forgot(act, pins, ok, cancelled) }
+                .setNegativeButton("Cancel") { _, _ -> cancelled() }.show()
+            (act as? MainActivity)?.immersive()
+        }
+        kotlin.concurrent.thread {
+            val (code, r) = CloudSetup.post("$bridge/cloud/pin-reset/start", org.json.JSONObject(), 20_000)
+            act.runOnUiThread {
+                if (code != 200 || r == null) return@runOnUiThread say("Couldn't start it",
+                    if (r?.optString("code") == "unlinked") "This tablet isn't linked to an account any more." else r?.optString("error")?.ifBlank { null } ?: "The tablet didn't answer. Try again in a minute.")
+                val url = r.optString("url")
+                val where = runCatching { java.net.URL(url).let { it.host + (if (it.port > 0) ":${it.port}" else "") + it.path } }.getOrDefault(url)
+                val C = dev.openhouse.ui.Calm
+                val box = C.column(act).apply {
+                    contentDescription = PinPad.MARK
+                    addView(C.text(act, "On a phone or computer, sign in at $where. Under Reset a tablet's PIN, type this code:", 19f, 400, C.SOFT))
+                    addView(C.text(act, r.optString("display"), 48f, 600).apply { letterSpacing = .08f; gravity = android.view.Gravity.CENTER; setPadding(0, C.px(act, 28), 0, C.px(act, 8)) },
+                        android.widget.LinearLayout.LayoutParams(-1, -2))
+                }
+                var waiting = true
+                val d = CalmDialog(act).setTitle("Reset with your account").setView(box).setWidth(760f).setForPerson().setCancelable(false)
+                    .setMore("Only someone signed in to the account this tablet is linked to can do it. The code works once, for 15 minutes.")
+                    .setNegativeButton("Cancel") { _, _ -> waiting = false; cancelled() }
+                    .setOnDismissListener { waiting = false }.show()
+                (act as? MainActivity)?.immersive()
+                kotlin.concurrent.thread {
+                    while (waiting) {
+                        Thread.sleep(3000)
+                        if (!waiting) return@thread
+                        val (c2, p) = CloudSetup.post("$bridge/cloud/pin-reset/poll", org.json.JSONObject(), 15_000)
+                        if (c2 != 200 || p == null) continue // offline a moment: keep asking until the code runs out
+                        val status = p.optString("status")
+                        if (status == "waiting") continue
+                        act.runOnUiThread {
+                            if (!d.isShowing) return@runOnUiThread
+                            waiting = false; d.dismiss()
+                            if (status != "approved") return@runOnUiThread say("The code ran out", "Start again to get a new one.")
+                            Log.i(TAG, "PIN reset through the account")
+                            choose(act, pins, then = { MainActivity.live?.lock?.changed(); ok() }, note = "Choose a new PIN.", back = cancelled)
+                        }
+                        return@thread
+                    }
+                }
+            }
+        }
     }
 
     /** The backups' recovery code, if the tablet has one (bridge/backup.js). */

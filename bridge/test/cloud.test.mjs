@@ -301,3 +301,21 @@ test('a Google sign-in for the phone page starts only from a linked tablet, for 
     assert.equal(/calendar/.test(to.searchParams.get('scope')), k === 'cal');
   }
 });
+
+test("a forgotten PIN reset through the account: only the shell asks, and a yes from the family's account page comes through once", { skip: !svc && SKIP }, async () => {
+  await signIn('sam@example.com');
+  const t = tablet(display());
+  assert.equal((await t.call('POST', '/cloud/pin-reset/start')).code, 409); // not linked yet
+  await link(t);
+  const s = await t.call('POST', '/cloud/pin-reset/start');
+  assert.equal(s.code, 200);
+  assert.equal(s.obj.pollToken, undefined); // the poll token stays in the bridge
+  // A paired device's call (a hub passes those on to /cloud/) is never the shell's.
+  const res = {};
+  await t.cloud.handle({ method: 'POST', b: {}, headers: { 'x-openhouse-screen': 'abc' } }, res, new URL('http://x/cloud/pin-reset/poll'));
+  assert.equal(res.code, 403);
+  assert.equal((await t.call('POST', '/cloud/pin-reset/poll')).obj.status, 'waiting');
+  assert.equal((await web('/v1/account/pin-reset', { code: s.obj.display })).status, 200);
+  assert.deepEqual((await t.call('POST', '/cloud/pin-reset/poll')).obj, { status: 'approved', by: 'sam@example.com' });
+  assert.equal((await t.call('POST', '/cloud/pin-reset/poll')).obj.status, 'expired');
+});

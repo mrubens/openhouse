@@ -110,10 +110,17 @@ gets back in. Advanced, PIN recovery code (after the PIN) makes a new one; the o
 before recovery codes, or over adb, has none ("None" on that row) until one is made. The backups' code in Backups
 needs the PIN to be shown, since it resets the PIN too.
 
-Not yet: resetting the PIN through the family's account. The link flow's poll only says the claiming family's name
-(not which family), so the tablet can't tell its own account from one made with the same name. It needs a cloud
-route that checks the family itself, such as a code shown on the tablet that a signed-in member of the same family
-enters on the account page, with the tablet polling for that approval under its device credential.
+A child who chose the PIN has its code, though, so a tablet linked to an account also offers **Reset with your
+account** under the code box: the real proof of a grown-up is being signed in to the family's account. The tablet
+shows an 8-character code (the link code's alphabet) and the account page's address; someone signed in there types it
+under "Reset a tablet's PIN", and then the tablet lets them choose a new PIN, which comes with a new recovery code as
+always. The service (openhouse-cloud `/v1/device/pin-reset/start` and `/poll`, under the tablet's device credential)
+approves only when the member's family is the one the tablet is linked to and the tablet hasn't been unlinked; another
+family's member is told no such code is showing. The code and poll token are kept only as hashes, for 15 minutes, a
+tablet starts at most six an hour, and an approval is heard once. The bridge keeps the poll token (`/cloud/pin-reset/
+start` and `/poll`, the shell's own: a paired device's call is refused); the shell only shows the code and acts on
+the answer. The code's card is a person card with the PIN pad's mark, so Opie's screen tools neither read it nor act
+while it's up, and the new PIN is typed on the pad as any other.
 
 Locked rows: Voice, Screens and computers, Account, Backups, Plugins, Updates, This tablet, and Calendars. Not locked: what a household uses every day (Hey Opie, the voice, Family's names
 and chores, night hours, devices, looking after things, putting things back).
