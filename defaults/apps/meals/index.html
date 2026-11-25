@@ -60,7 +60,7 @@
   <style>
     /* The week (after the kit, on its tokens). Tonight is a wide white panel: what's for dinner at the left, and at the
        right either its picture or three of the household's own to tap. Under it, a card for each of the next six days.
-       A dish's picture is its recipe's own; with none, its initial on a warm tile (the kit's .q-letter). */
+       A dish's picture is its recipe's own; with none, a drawn mark of its kind of dish on a warm tint (.q-letter.q-dish). */
     .m-head { flex: 1; min-width: 0; }
     .m-range { display: none; }
     .m-when { pointer-events: none; }
@@ -93,6 +93,7 @@
     .m-day { border-radius: var(--r-panel); overflow: hidden; display: flex; flex-direction: column; }
     .m-day .im { flex: 1; min-height: 0; position: relative; }
     .m-day .im > .q-letter { font-size: calc(80 * var(--u)); }
+    .m-day .im > .q-dish > svg { width: 46%; }
     .m-day .b { flex: none; min-height: calc(132 * var(--u)); padding: calc(14 * var(--u)) calc(16 * var(--u)) calc(18 * var(--u)); }
     .m-day b, .m-slot b { display: block; font-size: calc(23 * var(--u)); font-weight: 700; letter-spacing: -.025em; line-height: 1.1; margin-top: calc(7 * var(--u)); overflow-wrap: break-word; }
     .m-day small, .m-slot small { display: block; font-size: calc(15 * var(--u)); font-weight: 600; color: var(--fg2); margin-top: calc(5 * var(--u)); }

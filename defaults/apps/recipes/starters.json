@@ -1,9 +1,10 @@
 {
-  "about": "Opie's starter recipes: put in a new household's recipe box once (bridge/house/recipes.js), marked as starters so they can be taken out like any other. Written for Opie; plain weeknight dishes in the box's cooking-steps shape (bridge/cooking.js parseCook).",
+  "about": "Opie's starter recipes: put in a new household's recipe box once (bridge/house/recipes.js), marked as starters so they can be taken out like any other. Written for Opie; plain weeknight dishes in the box's cooking-steps shape (bridge/cooking.js parseCook); dish: its drawn mark where it has no photo (bridge/kit/dish-look.js).",
   "v": 1,
   "recipes": [
     {
       "name": "Lemon Chicken Traybake",
+      "dish": "tray",
       "serves": "4",
       "minutes": 55,
       "ingredients": [
@@ -29,6 +30,7 @@
     },
     {
       "name": "Weeknight Spaghetti Bolognese",
+      "dish": "noodles",
       "serves": "4 to 6",
       "minutes": 50,
       "ingredients": [
@@ -57,6 +59,7 @@
     },
     {
       "name": "Beef Tacos",
+      "dish": "handheld",
       "serves": "4",
       "minutes": 25,
       "ingredients": [
@@ -85,6 +88,7 @@
     },
     {
       "name": "Vegetable Fried Rice",
+      "dish": "pan",
       "serves": "4",
       "minutes": 25,
       "ingredients": [
@@ -109,6 +113,7 @@
     },
     {
       "name": "Chickpea and Spinach Curry",
+      "dish": "bowl",
       "serves": "4",
       "minutes": 35,
       "ingredients": [
@@ -136,6 +141,7 @@
     },
     {
       "name": "Stovetop Mac and Cheese",
+      "dish": "pan",
       "serves": "4",
       "minutes": 20,
       "ingredients": [
@@ -157,6 +163,7 @@
     },
     {
       "name": "Honey Soy Salmon with Rice",
+      "dish": "plate",
       "serves": "4",
       "minutes": 30,
       "ingredients": [
@@ -182,6 +189,7 @@
     },
     {
       "name": "Chicken Noodle Soup",
+      "dish": "bowl",
       "serves": "6",
       "minutes": 45,
       "ingredients": [
@@ -208,6 +216,7 @@
     },
     {
       "name": "Tomato Soup and Grilled Cheese",
+      "dish": "bowl",
       "serves": "4",
       "minutes": 35,
       "ingredients": [
@@ -233,6 +242,7 @@
     },
     {
       "name": "Banana Bread",
+      "dish": "loaf",
       "serves": "Makes 1 loaf",
       "minutes": 75,
       "ingredients": [

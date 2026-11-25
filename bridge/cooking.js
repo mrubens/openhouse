@@ -8,6 +8,7 @@
 // service they already use; nothing else is sent anywhere. Only public https pages are read, never the home network
 // (app-web.js publicGet: every redirect checked again, and the address checked is the one reached).
 import { asData } from './as-data.js';
+import { DISHES } from './kit/dish-look.js';
 import crypto from 'node:crypto';
 import { publicGet, pinnedFetch, reachMatches } from './app-web.js';
 
@@ -152,7 +153,7 @@ export function cookPrompt(meal, source, links = [], also = '') {
   const recipe = `The recipe for "${String(meal).slice(0, 200)}":\n\n${String(source).slice(0, 24000)}` +
     (links.length ? `\n\nLinks on its page:\n${links.map((l) => `- ${l.text}: ${l.url}`).join('\n').slice(0, 6000)}` : '');
   return `${asData(recipe, 'a recipe, from its page or as someone wrote it', { max: 31000 })}\n\n${also ? also + '\n\n' : ''}` +
-    'Write it as JSON: {"name": "...", "serves": "4", "minutes": 45, "ingredients": [{"item": "ground cumin", "amount": "2 tsp"}], ' +
+    'Write it as JSON: {"name": "...", "dish": "bowl", "serves": "4", "minutes": 45, "ingredients": [{"item": "ground cumin", "amount": "2 tsp"}], ' +
     '"steps": [{"title": "Simmer the sauce", "part": "Sauce", "text": "...", "uses": [{"item": "ground cumin", "amount": "1 tsp"}], "timer": {"minutes": 20, "label": "Simmer the sauce"}, "hands": "busy", "ahead": "the day before"}]' +
     (links.length ? ', "needs": [{"name": "Classic Pizza Sauce", "url": "https://..."}]' : '') + '}.\n' +
     '- Keep the recipe\'s detail: its own amounts, units, temperatures, sizes, times, and how to tell when something is done. Don\'t shorten or summarize; leave out only stories, ads, nutrition and tips that aren\'t steps.\n' +
@@ -165,6 +166,7 @@ export function cookPrompt(meal, source, links = [], also = '') {
     '- uses: the ingredients that step adds, each with the amount for that step (split an amount used in two steps).\n' +
     '- minutes: how long the whole recipe takes, start to finish: the recipe\'s own total time when it gives one, else your best estimate from its steps.\n' +
     '- timer: only when the step says to wait, cook, bake, rest or simmer for a time; minutes is the shortest time it gives. Leave it out otherwise.\n' +
+    `- dish: what kind of dish it is, for the small drawing shown where it has no photo: one of ${Object.entries(DISHES).map(([k, v]) => `"${k}" (${v})`).join(', ')}.\n` +
     '- If there is no recipe in it, reply {"none": true}.';
 }
 
@@ -188,7 +190,8 @@ export function parseCook(said) {
   if (!steps.length) throw new Error('Couldn’t make steps from that recipe.');
   const needs = (Array.isArray(v?.needs) ? v.needs : []).map((x) => { try { const u = new URL(String(x?.url || '')); return u.protocol === 'https:' ? { name: clean(x?.name, 80) || u.hostname, url: u.href } : null; } catch { return null; } }).filter(Boolean).slice(0, 3);
   const minutes = Math.round(Number(v?.minutes));
-  return { name: clean(v.name, 80), serves: clean(v.serves, 40), ...(minutes > 0 && minutes < 10000 ? { minutes } : {}), ingredients, steps, ...(needs.length ? { needs } : {}) };
+  const dish = Object.hasOwn(DISHES, v?.dish) ? v.dish : null;
+  return { name: clean(v.name, 80), ...(dish ? { dish } : {}), serves: clean(v.serves, 40), ...(minutes > 0 && minutes < 10000 ? { minutes } : {}), ingredients, steps, ...(needs.length ? { needs } : {}) };
 }
 
 /** The page's step photos put on the steps they belong to. The model splits and rewords steps, so each photo goes to

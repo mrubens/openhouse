@@ -15,6 +15,7 @@ import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { PALETTES, WHITE, paletteOf, worldOf } from './look.js';
 import { card as weatherCard, icon as weatherIcon } from '../../bridge/kit/weather-look.js';
+import { dishMark, dishOf, dishTint } from '../../bridge/kit/dish-look.js';
 
 const DEFAULT_TABS = ['today', 'calendar', 'weather', 'map', 'chores', 'lists', 'meals', 'recipes', 'photos', 'whiteboard', 'apps'];
 const FIRST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('first');
@@ -435,12 +436,13 @@ const inText = (e, now) => {
   const m = Math.round((new Date(e.start) - now) / 60e3);
   return m <= 0 ? 'now' : m < 60 ? `in ${m} ${m === 1 ? 'minute' : 'minutes'}` : m < 600 ? `in ${Math.round(m / 60)} ${Math.round(m / 60) === 1 ? 'hour' : 'hours'}` : '';
 };
-/** A dish's picture: its recipe's own (kept from its page), else a warm tile with its initial. */
+/** A dish's picture: its recipe's own (kept from its page), else the mark of its kind of dish on a warm tint, as in
+ *  Recipes and Meals (/kit/dish-look.js). */
 function DishPic({ house, name }) {
   const [bad, setBad] = useState(false);
-  const src = house?.recipes?.[String(name || '').trim().toLowerCase()]?.image;
+  const r = house?.recipes?.[String(name || '').trim().toLowerCase()], src = r?.image;
   return src && !bad ? <img className="t-dish" src={src} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setBad(true)} />
-    : <span className="t-dish letter">{String(name || '').trim()[0]?.toUpperCase() || ''}</span>;
+    : <span className="t-dish letter" style={{ '--c': dishTint(name) }} aria-hidden="true" dangerouslySetInnerHTML={{ __html: dishMark(dishOf(r?.cook)) }} />;
 }
 const Check = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
 

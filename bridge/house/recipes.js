@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { cookSource, readRecipeLink, cookPrompt, COOK_SYSTEM, parseCook, cookAsNotes, youtube, findPrompt, FIND_SYSTEM, parseFound, withPictures } from '../cooking.js';
 import { ROOM, str, keepLines, must } from './util.js';
 import { asData } from '../as-data.js';
+import { DISHES } from '../kit/dish-look.js';
 import { RECIPE_LINK_MAX } from '../app-web.js';
 
 /** Opie's starter recipes (defaults/apps/recipes/starters.json: where the built-in apps are, in this checkout or on the
@@ -28,7 +29,7 @@ export default function (house) {
       for (const x of starterRecipes(house.STARTERS)) {
         const name = str(x?.name, 80).trim(); if (!name || !Array.isArray(x.steps) || !x.steps.length) continue;
         const ing = (i) => ({ item: str(i?.item, 80), amount: str(i?.amount, 90) });
-        const cook = { name, serves: str(x.serves, 40), ...(x.minutes > 0 ? { minutes: Math.round(x.minutes) } : {}),
+        const cook = { name, ...(Object.hasOwn(DISHES, x.dish) ? { dish: x.dish } : {}), serves: str(x.serves, 40), ...(x.minutes > 0 ? { minutes: Math.round(x.minutes) } : {}),
           ingredients: (x.ingredients || []).map(ing).filter((i) => i.item),
           steps: x.steps.map((st) => ({ text: str(st.text, 900), ...(st.title ? { title: str(st.title, 50) } : {}), ...(st.wait ? { wait: true } : {}), ...(st.ahead ? { ahead: str(st.ahead, 40) } : {}),
             ...(st.uses?.length ? { uses: st.uses.map(ing).filter((i) => i.item) } : {}), ...(st.timer?.minutes > 0 ? { timer: { minutes: st.timer.minutes, label: str(st.timer.label, 40) } } : {}) })).filter((st) => st.text) };
@@ -37,6 +38,15 @@ export default function (house) {
       }
     }
     try { save(); } catch (e) { console.error('[recipes] starters not saved:', e.message); }
+  } else {
+    // Starters put in before they had a kind of dish (cook.dish, their drawn mark): theirs from the file, once.
+    const kinds = new Map(starterRecipes(house.STARTERS).map((x) => [str(x?.name, 80).trim().toLowerCase(), x?.dish]));
+    let added = 0;
+    for (const r of Object.values(data.recipes)) {
+      const d = r?.starter && r.cook && !r.cook.dish && kinds.get(String(r.cook.name || r.text || '').toLowerCase());
+      if (d && Object.hasOwn(DISHES, d)) { r.cook.dish = d; added++; }
+    }
+    if (added) try { save(); } catch (e) { console.error('[recipes] starters not saved:', e.message); }
   }
   const boxFull = () => (Object.keys(data.recipes).length >= ROOM.recipes ? { error: `The recipe box is full (${ROOM.recipes} recipes). Take one out first.`, code: 'full' } : null);
   /** A meal's recipe: a link and/or notes (ingredients, steps); both empty takes it out of the box. */

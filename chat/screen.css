@@ -340,7 +340,9 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .t-pick { display: flex; flex-direction: column; min-height: 0; border-radius: calc(var(--u) * 18); overflow: hidden; background: var(--h-tint); transition: transform .15s; }
 .t-pick:active { transform: scale(.97); }
 .t-dish { flex: 1; min-height: 0; width: 100%; object-fit: cover; display: block; }
-.t-dish.letter { display: grid; place-items: center; background: var(--h-tint); color: var(--h-faint); font-size: calc(var(--u) * 40 * var(--s)); font-weight: 700; }
+.t-dish.letter { display: grid; place-items: center; color: color-mix(in srgb, var(--c, #d9662f) 70%, var(--h-ink));
+  background: linear-gradient(155deg, color-mix(in srgb, var(--c, #d9662f) 20%, var(--h-sheet)), color-mix(in srgb, var(--c, #d9662f) 38%, var(--h-sheet))); }
+.t-dish.letter > svg { width: 44%; height: auto; }
 .t-pick b { flex: none; display: block; box-sizing: border-box; padding: calc(var(--u) * 9) calc(var(--u) * 12) 0; margin-bottom: calc(var(--u) * 11); font-size: calc(var(--u) * 16 * var(--s)); font-weight: 650; line-height: 1.15; height: calc(2.3em + calc(var(--u) * 9)); overflow: hidden; }
 /* the list: what's left to get, in two columns, a round box each to tick it here */
 .t-lists { padding: calc(var(--u) * 22 * var(--s)); }

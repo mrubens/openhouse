@@ -47,7 +47,8 @@
      .q-rows > * rows with a hairline between them
      .q-photo    a picture that fills its box (on a div: background-size cover; on an img: object-fit cover)
      .q-scrim    over a .q-photo's box: a dark fade at the foot so white words read on it
-     .q-letter   where there's no picture: the name's initial on a warm tint (give it --c for a color of its own) */
+     .q-letter   where there's no picture: the name's initial on a warm tint (give it --c for a color of its own)
+     .q-dish     with .q-letter, a dish with no picture: its drawn mark instead (/kit/dish-look.js dishMark) */
 @font-face { font-family: 'Inter'; src: url('fonts/Inter.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
 /* A phone (docs/phones.md, "Narrow screens"): under 700 px wide the unit grows so type and taps are a phone's size. */
 @media (max-width: 700px) { :root { --u: calc(100vw / 560); } }
@@ -116,6 +117,7 @@
 :root .q-scrim > .q-photo { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; border-radius: inherit; }
 :root .q-letter { display: grid; place-items: center; font-weight: 700; letter-spacing: -.02em; color: color-mix(in srgb, var(--c, #d9662f) 70%, var(--ink));
   background: linear-gradient(155deg, color-mix(in srgb, var(--c, #d9662f) 20%, var(--card)), color-mix(in srgb, var(--c, #d9662f) 38%, var(--card))); }
+:root .q-dish > svg { width: 36%; max-width: calc(220 * var(--u)); height: auto; }
 
 /* calendar: a day is a soft panel on the world (today's the white one, ringed in ink); an event is its person's
    color with ink on it, in the week a card, in the month a chip, in a list a row */

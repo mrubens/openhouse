@@ -2,7 +2,8 @@
 // A recipe comes in by a link (shared from a phone or typed here), a photo of a cookbook page, typed in, or written by
 // the assistant; it's made into steps once (bridge/cooking.js) and kept, so cooking needs no internet.
 //
-// The box: every recipe a tile on its own picture (kept from its page; with none, its initial on a warm tile).
+// The box: every recipe a tile on its own picture (kept from its page; with none, a drawn mark of its kind of dish on a
+// warm tint: /kit/dish-look.js).
 // Cooking: the whole recipe on one page: the dish and what it needs at the left (what's already gone in, faint), every
 // step at the right, in its parts; the step they're on is the big one, with its timer, and is kept in view. "Opie, next", "go to the sauce", "go back",
 // "how much cumin?" come in as the app's voice actions (app.json) and go through the same moves (cook.js), so the
@@ -10,6 +11,7 @@
 // answer (kit handsFree), so the next "next" needs no name for a while.
 import { house, store, timer, phone, handsFree, onAction } from '/kit/openhouse.js';
 import { findRecipe, mealsNow, move, sayAt, howMuch, needs, noteAt, timerWords, searchBox, sayFound, sayHits } from './cook.js';
+import { dishMark, dishOf, dishTint } from '/kit/dish-look.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
@@ -85,11 +87,9 @@ function plannedFor(r) {
   }
   return null;
 }
-/** A recipe's picture: its page's own; with none, or one that won't load, its initial on a warm tile. */
-const WARM = ['#d9662f', '#c98a1e', '#b8503a', '#7f9a45', '#c46f8a', '#a8763a'];
+/** A recipe's picture: its page's own; with none, or one that won't load, the mark of its kind of dish on a warm tint. */
 function dishPic(r, name) {
-  const t = String(name || '').trim();
-  const letter = h('div', { class: 'q-letter', style: `--c:${WARM[[...t.toLowerCase()].reduce((n, ch, i) => n + ch.charCodeAt(0) * (i + 1), 0) % WARM.length]}`, 'aria-hidden': 'true' }, t[0]?.toUpperCase() || '');
+  const letter = h('div', { class: 'q-letter q-dish', style: `--c:${dishTint(name)}`, 'aria-hidden': 'true', html: dishMark(dishOf(r?.cook)) });
   if (!r?.image) return letter;
   const img = h('img', { class: 'q-photo', src: r.image, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', draggable: 'false' });
   img.addEventListener('error', () => { img.parentElement?.classList.remove('q-scrim'); img.replaceWith(letter); });

@@ -6,6 +6,7 @@
 // Cook opens the Recipes app on that meal's recipe (kit askApp: its "cook" voice action), one step at a time.
 // The plan lives in the bridge, so the assistant plans too ("tacos on Tuesday") and changing this app never loses it.
 import { house, timer, say, phone, shell, askApp, h, press } from '/kit/openhouse.js';
+import { dishMark, dishOf, dishTint } from '/kit/dish-look.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
@@ -112,11 +113,11 @@ function favorite(text, pinned) {
   draw(); house.favorite(text, pinned);
 }
 
-/** A dish's picture: its recipe's own (kept from its page); with none, or one that won't load, its initial on a warm tile. */
-const WARM = ['#d9662f', '#c98a1e', '#b8503a', '#7f9a45', '#c46f8a', '#a8763a'];
+/** A dish's picture: its recipe's own (kept from its page); with none, or one that won't load, the mark of its kind of
+ *  dish (its recipe's cook.dish; a plate when it has no recipe) on a warm tint (/kit/dish-look.js). */
 function dishPic(name) {
-  const t = String(name || '').trim(), src = recipeOf(t)?.image;
-  const letter = h('div', { class: 'q-letter', style: `--c:${WARM[[...t.toLowerCase()].reduce((n, ch, i) => n + ch.charCodeAt(0) * (i + 1), 0) % WARM.length]}`, 'aria-hidden': 'true' }, t[0]?.toUpperCase() || '');
+  const t = String(name || '').trim(), r = recipeOf(t), src = r?.image;
+  const letter = h('div', { class: 'q-letter q-dish', style: `--c:${dishTint(t)}`, 'aria-hidden': 'true', html: dishMark(dishOf(r?.cook)) });
   if (!src) return letter;
   const img = h('img', { class: 'q-photo', src, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer', draggable: 'false' });
   img.addEventListener('error', () => { img.parentElement?.classList.remove('q-scrim'); img.replaceWith(letter); });

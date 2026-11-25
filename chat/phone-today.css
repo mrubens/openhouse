@@ -70,6 +70,7 @@
 .ptoday .t-pick:active { transform: scale(.97); }
 .ptoday .t-dish { flex: 1; min-height: 0; width: 100%; object-fit: cover; display: block; }
 .ptoday .t-dish.letter { display: grid; place-items: center; background: linear-gradient(160deg, rgba(255,255,255,.26), rgba(255,255,255,.1)); color: rgba(255,255,255,.92); font-size: calc(var(--u) * 40 * var(--s)); font-weight: 700; }
+.ptoday .t-dish.letter > svg { width: 44%; height: auto; }
 .ptoday .t-pick b { flex: none; display: block; box-sizing: border-box; padding: calc(var(--u) * 9) calc(var(--u) * 12) 0; margin-bottom: calc(var(--u) * 11); font-size: calc(var(--u) * 16 * var(--s)); font-weight: 650; line-height: 1.15; height: calc(2.3em + calc(var(--u) * 9)); overflow: hidden; }
 .ptoday .t-lists { background: linear-gradient(155deg, #0c6b58 0%, #129477 60%, #35b889 100%); color: #fff; --h-soft: rgba(255,255,255,.8); padding: calc(var(--u) * 22 * var(--s)); }
 .ptoday .t-top { display: flex; align-items: center; gap: calc(var(--u) * 10); flex: none; min-height: calc(var(--u) * 28); }

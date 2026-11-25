@@ -24,7 +24,7 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .vscroll::-webkit-scrollbar { display: none; }
 
 /* the box: every recipe a tile on its own picture (from its page), its name and a few facts at the foot; with no
-   picture, its initial on a warm tile (the kit's .q-letter). Two rows fill the tab; more scroll. */
+   picture, a drawn mark of its kind of dish on a warm tint (the kit's .q-letter.q-dish). Two rows fill the tab; more scroll. */
 .btn .icon, .r-find .icon, .r-chip .icon, .c-pill .icon, .c-back .icon { display: inline-flex; flex: none; width: calc(20 * var(--u)); height: calc(20 * var(--u)); }
 .icon svg { width: 100%; height: 100%; }
 .btn.add { display: inline-flex; align-items: center; gap: calc(9 * var(--u)); }
