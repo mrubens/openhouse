@@ -1,15 +1,19 @@
 package dev.openhouse.ui
 
 // The first setup, right after the welcome (docs/onboarding.md): who lives here, where (a street address guessed from
-// where the tablet is), then carrying on from a phone or a computer, where calendars, photos, invites for the family
-// and making apps are done (the phone page's own setup, chat/src/phone.jsx), and last a PIN for settings and
-// approvals (PIN Lock, which can be skipped). One step on screen at a time, each with Skip and Next. With Opie on, it
-// asks each step out loud, and what's said fills in the fields here as it's saved (the bridge's /setup/step tells the
-// live voice which step is showing, and lends it update_household).
+// where the tablet is), the household's calendar (Google, iCloud, Outlook or a link, or none), photos (an iCloud shared
+// album, Google Photos, or from phones), then carrying on from a phone or a computer (the phone page's own setup,
+// chat/src/phone.jsx), a PIN for settings and approvals (PIN Lock, which can be skipped), and last talking to Opie:
+// what to say, which voice, and turning the voice on. One step on screen at a time, each with Back, Skip and Next.
+//
+// Quiet until that last step: nothing is said aloud and nothing listens (Setup.hushed: no microphone, no wake word,
+// no live voice), and everything is done by tapping and typing. The owner, after trying it on a real tablet: "leave
+// the voice control out of the setup and add it as the last step".
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
@@ -29,29 +33,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.flow.first
 import org.json.JSONArray
 import org.json.JSONObject
 
 internal object Setup {
-    val STEPS = listOf("people", "place", "devices", "pin")
+    val STEPS = listOf("people", "place", "calendar", "photos", "devices", "pin", "voice")
 
-    private var greeted = false
-    /** Bumped when the bridge has an answer Opie heard (GET /setup/wait): the step reads what's saved at once. */
-    var tick by mutableStateOf(0)
-    /** Turn on Opie was chosen but the tablet isn't linked yet: the phone-or-computer step asks for it (not before),
-     *  each time it shows, until it's linked (CloudVoiceMenu.turnOn clears it then). */
-    @Volatile var wantsLink = false
-    /** Where the tablet is, guessed once ({address, town, zip}), for the place step and Opie's question. */
+    /** Where the tablet is, guessed once ({address, town, zip}), for the place step. */
     @Volatile var guess: JSONObject? = null
 
-    /** What Opie says as a step comes up: only what it needs to ask, never what the screen already says (the user: "It
-     *  is just really dumb for opie to just narrate what's already on the screen"). Nothing for the phone step. */
-    private fun line(step: String): String? = when (step) {
-        "people" -> "Who's in the family?"
-        "place" -> if (guess?.optString("address").isNullOrBlank()) "And your address?" else "Is that right?"
-        else -> null
-    }
+    /** The welcome or a setup step before the voice step is showing: no microphone, no wake word, no live voice and
+     *  nothing said aloud (MainActivity.micWanted, LiveVoice, Speech.say). */
+    val hushed: Boolean get() = Openhouse.showWelcome || Openhouse.setupStep.let { it != null && it != "voice" }
 
     fun start() {
         Openhouse.setupStep = STEPS.first(); shown(STEPS.first())
@@ -67,88 +60,63 @@ internal object Setup {
         Openhouse.scope.launch(Dispatchers.IO) { Openhouse.post("/household", JSONObject()) } // set up: not asked again
         Openhouse.householdDone()
         Openhouse.host.setting("reloadHomeFirst") // the home screen with their names, weather and calendars now, on Home
-        if (Openhouse.host.hasAssistant()) Speech.say("All set.", null)
     }
 
-    /** Opie was just turned on (the welcome's Turn on Opie, after linking): it says the step that's showing. */
-    fun opieOn() { Openhouse.setupStep?.let { say(it) } }
-
+    /** The bridge hears which step shows (the live voice is told about the voice step: live-tools.js SETUP_STEPS), and
+     *  the microphone follows (none before the voice step). */
     private fun shown(step: String?) {
-        Openhouse.scope.launch(Dispatchers.IO) {
-            Openhouse.post("/setup/step", JSONObject().put("step", step ?: JSONObject.NULL).put("guess", guess?.optString("address") ?: ""))
-        }
-        if (step != null) say(step)
-    }
-
-    private fun say(step: String) {
-        if (!Openhouse.host.hasAssistant()) return
-        val l = line(step) ?: return
-        Speech.say((if (!greeted) "Hi, I'm Opie. " else "") + l, null)
-        greeted = true
+        Openhouse.scope.launch(Dispatchers.IO) { Openhouse.post("/setup/step", JSONObject().put("step", step ?: JSONObject.NULL)) }
+        Openhouse.host.micFollow()
     }
 }
 
 private class SetupPerson(name: String, note: String) { var name by mutableStateOf(name); var note by mutableStateOf(note) }
 
-private fun getJson(path: String): JSONObject? = runCatching { JSONObject(BridgeClient.getText(Openhouse.bridgeUrl + path, 2000, 4000)) }.getOrNull()
+private fun getJson(path: String, readMs: Int = 4000): JSONObject? = runCatching { JSONObject(BridgeClient.getText(Openhouse.bridgeUrl + path, 2000, readMs)) }.getOrNull()
 
 @Composable
 internal fun SetupSheet() {
     val step = Openhouse.setupStep ?: return
-    val opie = Openhouse.host.hasAssistant()
-    val title = when (step) { "people" -> "Who lives here?"; "place" -> "Where do you live?"; "pin" -> "Choose a PIN"; else -> "Connect your phone or computer to Opie" }
-    val last = step == Setup.STEPS.last()
-    // The PIN step: its own button chooses one (SettingsLock "setupPin"), and the setup ends once it's kept; Skip, or
-    // Done if one is already set.
+    val title = when (step) {
+        "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a family calendar?"
+        "photos" -> "Put your photos on the tablet?"; "pin" -> "Choose a PIN"; "voice" -> "Talk to Opie"
+        else -> "Connect your phone or computer to Opie"
+    }
+    // The PIN step: its own button chooses one (SettingsLock "setupPin"), and the setup goes on once it's kept; Skip, or
+    // Next if one is already set.
     val pinSet = remember(Openhouse.settingsV) { Openhouse.host.locked() }
     val choosePin = step == "pin" && !pinSet
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later
-    // Answers Opie heard (the bridge reads them: live-tools.js setupHeard), as they come: the step shows them, and Opie
-    // says them back in a few words.
-    LaunchedEffect(Unit) {
-        var v = -1
-        while (true) {
-            val j = withContext(Dispatchers.IO) { runCatching { JSONObject(BridgeClient.getText(Openhouse.bridgeUrl + "/setup/wait?v=$v", 2000, 30_000)) }.getOrNull() }
-            if (j == null) { delay(2000); continue }
-            if (v >= 0 && j.optInt("v") != v) {
-                Setup.tick++
-                j.optString("said").takeIf { it.isNotBlank() && Openhouse.host.hasAssistant() }?.let { Speech.say(it, null) }
-            }
-            v = j.optInt("v")
-        }
-    }
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         // From the top, not centered: the card's top stays put from step to step. Above Android's on-screen keyboard
         // when it's up (a tablet with no keyboard cover), nearer the top, and scrolling if it still doesn't fit, so
         // Next stays in reach.
         val ime = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
         Box(Modifier.fillMaxSize().background(Calm.scrim).clickable(enabled = false) {}.imePadding().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
-            QuietCard(Modifier.padding(top = if (ime) 24.u else 110.u, bottom = 24.u).width(if (step == "devices") 1080.u else 860.u), padding = PaddingValues(horizontal = 56.u, vertical = 48.u)) {
+            QuietCard(Modifier.padding(top = if (ime) 24.u else 110.u, bottom = 24.u).width(if (step == "devices" || step == "voice") 1080.u else 860.u), padding = PaddingValues(horizontal = 56.u, vertical = 48.u)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("${Setup.STEPS.indexOf(step) + 1} of ${Setup.STEPS.size}", style = calmText(17, color = Calm.soft), modifier = Modifier.weight(1f))
-                    Chip("Later") { save[0](); Setup.finish() }
+                    if (step != "voice") Chip("Later") { save[0](); Setup.finish() }
                 }
                 Spacer(Modifier.height(12.u))
                 Text(title, style = calmText(Calm.DISPLAY, FontWeight.Medium))
-                if (opie && step != "devices" && step != "pin") Text("Tell Opie, or type it.", style = calmText(Calm.LEAD, color = Calm.soft))
                 Spacer(Modifier.height(28.u))
-                when (step) {
-                    "people" -> PeopleStep { save[0] = it }
-                    "place" -> PlaceStep { save[0] = it }
-                    "pin" -> PinStep(pinSet)
-                    else -> DevicesStep()
-                }
-                Spacer(Modifier.height(36.u))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
-                    if (Setup.STEPS.indexOf(step) > 0) Box(Modifier.clip(RoundedCornerShape(99.u)).clickable { save[0](); Setup.back() }.padding(horizontal = 20.u, vertical = 18.u)) {
-                        Text("Back", style = calmText(21, FontWeight.Medium, Calm.soft))
+                if (step == "voice") VoiceStep() // with its own buttons
+                else {
+                    when (step) {
+                        "people" -> PeopleStep { save[0] = it }
+                        "place" -> PlaceStep { save[0] = it }
+                        "calendar" -> CalendarStep()
+                        "photos" -> PhotosStep()
+                        "pin" -> PinStep(pinSet)
+                        else -> DevicesStep()
                     }
-                    Spacer(Modifier.weight(1f))
-                    if (!last || choosePin) Box(Modifier.clip(RoundedCornerShape(99.u)).clickable { Setup.next() }.padding(horizontal = 20.u, vertical = 18.u)) {
-                        Text("Skip", style = calmText(21, FontWeight.Medium, Calm.soft))
-                    }
-                    Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }.padding(horizontal = 36.u, vertical = 18.u)) {
-                        Text(if (choosePin) "Choose a PIN" else if (last) "Done" else "Next", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
+                    Spacer(Modifier.height(36.u))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
+                        if (Setup.STEPS.indexOf(step) > 0) TextButton("Back") { save[0](); Setup.back() }
+                        Spacer(Modifier.weight(1f))
+                        if (step != "pin" || choosePin) TextButton("Skip") { Setup.next() }
+                        MainButton(if (choosePin) "Choose a PIN" else "Next") { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }
                     }
                 }
             }
@@ -156,8 +124,259 @@ internal fun SetupSheet() {
     }
 }
 
-/** The last step: a PIN, so Settings and saying yes to new apps are for the people who know it. Skipping leaves the
- *  lock off (PIN Lock in Settings turns it on later). */
+/** The one filled button on a step: the next thing to do. */
+@Composable
+private fun MainButton(label: String, enabled: Boolean = true, onClick: () -> Unit) {
+    Box(Modifier.clip(RoundedCornerShape(99.u)).background(if (enabled) Calm.ink else Calm.faint).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 36.u, vertical = 18.u)) {
+        Text(label, style = calmText(21, FontWeight.SemiBold, Calm.sheet))
+    }
+}
+
+/** A quiet button: words only (Back, Skip, Not now). */
+@Composable
+private fun TextButton(label: String, onClick: () -> Unit) {
+    Box(Modifier.clip(RoundedCornerShape(99.u)).clickable(onClick = onClick).padding(horizontal = 20.u, vertical = 18.u)) {
+        Text(label, style = calmText(21, FontWeight.Medium, Calm.soft))
+    }
+}
+
+/** A step's own action beside the filled Next (Sign in, Paste the link): soft, tinted, never filled. */
+@Composable
+private fun SoftButton(label: String, onClick: () -> Unit) {
+    Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.tint).clickable(onClick = onClick).padding(horizontal = 28.u, vertical = 16.u)) {
+        Text(label, style = calmText(21, FontWeight.Medium))
+    }
+}
+
+@Composable
+private fun Soft(t: String) = Text(t, style = calmText(19, color = Calm.soft))
+
+/** What to do, a numbered line for each step. */
+@Composable
+private fun HowTo(lines: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.u)) {
+        lines.forEachIndexed { i, t ->
+            Row(horizontalArrangement = Arrangement.spacedBy(14.u)) {
+                Text("${i + 1}", style = calmText(21, FontWeight.SemiBold, Calm.soft), modifier = Modifier.width(22.u))
+                Text(t, style = calmText(21))
+            }
+        }
+    }
+}
+
+/** Rows with hairlines between them. */
+@Composable
+private fun Rows(rows: List<@Composable () -> Unit>) {
+    Column {
+        rows.forEachIndexed { i, r ->
+            if (i > 0) Box(Modifier.fillMaxWidth().height(1.u).background(Calm.line))
+            r()
+        }
+    }
+}
+
+/** What's been added so far: its name, and what it is. */
+@Composable
+private fun Added(rows: List<Pair<String, String>>) {
+    if (rows.isEmpty()) return
+    Column {
+        Text("Added", style = calmText(19, FontWeight.Medium, Calm.soft), modifier = Modifier.padding(bottom = 4.u))
+        Rows(rows.map { (name, what) -> @Composable {
+            Row(Modifier.fillMaxWidth().padding(vertical = 10.u), verticalAlignment = Alignment.CenterVertically) {
+                Text(name, style = calmText(21, FontWeight.Medium), modifier = Modifier.weight(1f), maxLines = 1)
+                Text(what, style = calmText(19, color = Calm.soft), maxLines = 1)
+            }
+        } })
+    }
+}
+
+/** Linked to an Opie account (Google's sign-ins go through it), looked at again now and then while a step shows. */
+@Composable
+private fun linkedNow(): Boolean {
+    var linked by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { while (true) { linked = withContext(Dispatchers.IO) { getJson("/cloud/status")?.optBoolean("linked") == true }; delay(5000) } }
+    return linked
+}
+
+private class HowItGoes(val steps: List<String>, val note: String?, val action: String?, val id: String?)
+
+/** The household's calendar: the tablet's own sign-ins (Google through the account, iCloud with an app-specific
+ *  password: CalendarAccounts), a calendar's link pasted or sent from a phone (CalendarLinks, read once before it's
+ *  kept), or none (Opie's own). What's been added shows below as it comes in. */
+@Composable
+private fun CalendarStep() {
+    var pick by remember { mutableStateOf<String?>(null) }
+    val linked = linkedNow()
+    var added by remember { mutableStateOf(listOf<Pair<String, String>>()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            added = withContext(Dispatchers.IO) {
+                runCatching { dev.openhouse.shell.CalendarAccounts.rows().map { it.first to it.second } }.getOrDefault(emptyList()) +
+                    runCatching { dev.openhouse.shell.CalendarLinks.list().map { l -> l.name.ifBlank { dev.openhouse.shell.CalendarLinks.label(l.who) } to "Read only" } }.getOrDefault(emptyList())
+            }
+            delay(2000)
+        }
+    }
+    val how = when (pick) {
+        "google" -> if (linked) HowItGoes(listOf("Tap Sign in with Google.", "Scan the code with a phone on this Wi-Fi, and sign in to Google there.", "Choose which calendars to show."),
+            "Two-way: what's added here shows in Google Calendar too.", "Sign in with Google", "calendarGoogle")
+            else HowItGoes(listOf("On a computer, open Google Calendar, then Settings.", "Under Settings for my calendars, choose the calendar, then Integrate calendar.", "Copy the Secret address in iCal format.", "Tap Paste the link, and paste it, or send it from a phone."),
+            "Read only: what's added here stays on the tablet. Once the tablet is linked to an Opie account, it can sign in to Google for two-way.", "Paste the link", "calendarLink")
+        "icloud" -> HowItGoes(listOf("On appleid.apple.com, go to Sign-In and Security, then App-Specific Passwords, and make one.", "Tap Sign in to iCloud, and type your Apple ID and that password.", "Choose which calendars to show."),
+            "Two-way: what's added here shows on your iPhone too. The password stays sealed on this tablet.", "Sign in to iCloud", "calendarICloud")
+        "outlook" -> HowItGoes(listOf("In Outlook on the web, open Settings, then Calendar, then Shared calendars.", "Under Publish a calendar, choose the calendar and Can view all details, then Publish.", "Copy the ICS link. Tap Paste the link, and paste it, or send it from a phone."),
+            "Read only: what's added here stays on the tablet.", "Paste the link", "calendarLink")
+        "link" -> HowItGoes(listOf("Find the calendar's iCal or ICS link: a school, team or club calendar usually has one.", "Tap Paste the link, and paste it, or send it from a phone."), "Read only.", "Paste the link", "calendarLink")
+        "none" -> HowItGoes(emptyList(), "Events added on the tablet or a phone go in Opie's own calendar. You can bring one in later in Settings, Calendars.", null, null)
+        else -> null
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(20.u)) {
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.u)) {
+            for ((k, label) in listOf("google" to "Google", "icloud" to "iCloud", "outlook" to "Outlook", "link" to "Another link", "none" to "Start one here")) Chip(label, selected = pick == k) { pick = k }
+        }
+        how?.let { h ->
+            if (h.steps.isNotEmpty()) HowTo(h.steps)
+            h.note?.let { Soft(it) }
+            if (h.action != null && h.id != null) SoftButton(h.action) { Openhouse.host.setting(h.id) }
+        }
+        Added(added)
+    }
+}
+
+/** Photos for the tablet: an iCloud shared album's link (PhotoAlbums), Google Photos' picker when the tablet is linked
+ *  (GooglePhotos), or sent from phones (PhotoShare). What's come in shows below. */
+@Composable
+private fun PhotosStep() {
+    var pick by remember { mutableStateOf<String?>(null) }
+    val linked = linkedNow()
+    var albums by remember { mutableStateOf(0) }
+    LaunchedEffect(Unit) { while (true) { albums = withContext(Dispatchers.IO) { runCatching { dev.openhouse.shell.PhotoAlbums.list().size }.getOrDefault(0) }; delay(2000) } }
+    val photos = House.photos
+    val how = when (pick) {
+        "icloud" -> HowItGoes(listOf("In Photos on an iPhone or a Mac, open a shared album, or make one.", "In its sharing settings, turn on Public Website, and copy the link.", "Tap Add the album, and paste it, or send it from a phone."),
+            "New photos in the album come to the tablet by themselves.", "Add the album", "addAlbum")
+        "google" -> HowItGoes(listOf("Tap Pick from Google Photos, and scan the code with a phone on this Wi-Fi.", "Sign in to Google there.", "Pick the photos for the tablet."), "They're copied to the tablet.", "Pick from Google Photos", "googlePhotos")
+        "phone" -> HowItGoes(listOf("Tap Show the code, and scan it with each phone.", "Then share photos to Opie from the phone, any time."), null, "Show the code", "photoPhones")
+        else -> null
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(20.u)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.u)) {
+            Chip("iCloud album", selected = pick == "icloud") { pick = "icloud" }
+            if (linked) Chip("Google Photos", selected = pick == "google") { pick = "google" }
+            Chip("From a phone", selected = pick == "phone") { pick = "phone" }
+        }
+        how?.let { h ->
+            HowTo(h.steps)
+            h.note?.let { Soft(it) }
+            if (h.action != null && h.id != null) SoftButton(h.action) { Openhouse.host.setting(h.id) }
+        }
+        if (photos.isNotEmpty() || albums > 0) Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
+            Text(listOfNotNull(if (albums > 0) "Albums: $albums" else null, if (photos.isNotEmpty()) "Photos: ${photos.size}" else null).joinToString("    "), style = calmText(19, FontWeight.Medium, Calm.soft))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.u)) { photos.take(7).forEach { HousePhoto(it, Modifier.size(96.u).clip(RoundedCornerShape(12.u))) } }
+        }
+    }
+}
+
+/** The last step: talking to Opie. What it is, things to ask in the household's own words, a voice, and the line about
+ *  what goes to OpenAI; then Turn on Opie's voice (a person's tap: it's the yes to OpenAI) and a try, or Not now (it
+ *  stays off and isn't turned on by itself later; Settings, Voice). Without a voice to turn on (the household doesn't
+ *  have it yet, or the tablet isn't linked), it says so and how, and Done. */
+@Composable
+private fun VoiceStep() {
+    val o = Openhouse
+    // looking, ready (it can be turned on), on (the try), notYet, unlinked, noBridge
+    var state by remember { mutableStateOf(if (o.host.hasAssistant()) "on" else "looking") }
+    var voice by remember { mutableStateOf("marin") }
+    var problem by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var example by remember { mutableStateOf(dev.openhouse.shell.PluginsMenu.example(emptyList())) }
+    val voices = remember { o.host.voices() }
+    LaunchedEffect(Unit) {
+        val fam = withContext(Dispatchers.IO) { o.loadHousehold() }?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
+        example = dev.openhouse.shell.PluginsMenu.example(fam)
+    }
+    // Looked at until it's known; while unlinked (or the bridge is starting), again every few seconds, so linking from
+    // here, or from the account page, shows at once.
+    LaunchedEffect(Unit) {
+        while (true) {
+            if (state in setOf("looking", "unlinked", "noBridge")) {
+                val v = withContext(Dispatchers.IO) { getJson("/cloud/voice?check=1", 15_000) }
+                if (state == "looking") v?.optString("voiceName")?.takeIf { it.isNotBlank() }?.let { voice = it }
+                state = when {
+                    v == null -> "noBridge"
+                    v.optBoolean("on") -> "on"
+                    !v.optBoolean("linked") -> "unlinked"
+                    v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> "notYet"
+                    else -> "ready"
+                }
+            }
+            delay(3000)
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(22.u)) {
+        when (state) {
+            "looking" -> Text("…", style = calmText(Calm.LEAD, color = Calm.soft))
+            "notYet" -> Text("Opie's voice isn't on for your household yet. When it is, the tablet asks you here, or you can turn it on in Settings, Voice.", style = calmText(Calm.LEAD))
+            "unlinked" -> {
+                Text("Opie's voice comes through an Opie account. Link this tablet to one, then choose a voice in Settings, Voice.", style = calmText(Calm.LEAD))
+                Soft("Linking is in Settings, Account, too.")
+                SoftButton("Link this tablet") { o.host.setupVoice("link") }
+            }
+            "noBridge" -> Text("The tablet's software isn't answering right now. Opie's voice is in Settings, Voice, once it is.", style = calmText(Calm.LEAD))
+            else -> {
+                Text("You can talk to Opie: say “Hey Opie”, then what you'd like.", style = calmText(Calm.LEAD))
+                Rows(listOf("Add milk to the list", "What's on tomorrow?", example).map { t -> @Composable {
+                    Text("“Hey Opie, ${t.replaceFirstChar { it.lowercase() }}”", style = calmText(21), modifier = Modifier.padding(vertical = 10.u))
+                } })
+                Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
+                    Text("Choose a voice", style = calmText(21, FontWeight.Medium))
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.u)) {
+                        voices.forEach { (id, about) ->
+                            Chip(about.substringBefore(" · "), selected = voice == id) {
+                                voice = id
+                                if (state == "on") o.host.setupVoice("sample", id) // on: it says a line in the new voice
+                            }
+                        }
+                    }
+                    // Before it's on there's nothing to play them with: they're OpenAI's live voices, heard only in a
+                    // session, and a session is for after the yes below.
+                    Soft((voices.firstOrNull { it.first == voice }?.second?.substringAfter(" · ", "")?.takeIf { it.isNotBlank() }?.let { "$it. " } ?: "") +
+                        if (state == "on") "Tap another to hear it." else "You hear it once the voice is on.")
+                }
+                if (state == "ready") Text("What you say after “Hey Opie” goes to OpenAI.", style = calmText(21))
+                if (state == "on") Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
+                    Box(Modifier.size(172.u, 76.u), contentAlignment = Alignment.Center) { dev.openhouse.shell.AssistantFace(onLongPress = {}, wide = true) }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.u)) {
+                        Text("Try it: say “Hey Opie, what's the weather?”", style = calmText(Calm.LEAD, FontWeight.Medium))
+                        val now by produceState(0L) { while (true) { value = System.currentTimeMillis(); delay(300) } }
+                        val said = remember(now) { dev.openhouse.shell.LiveVoice.caption.takeIf { dev.openhouse.shell.LiveVoice.active } }
+                        said?.takeIf { it.isNotBlank() }?.let { Soft(it.takeLast(200)) }
+                    }
+                }
+            }
+        }
+        problem?.let { Soft(it) }
+        Spacer(Modifier.height(8.u))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
+            TextButton("Back") { Setup.back() }
+            Spacer(Modifier.weight(1f))
+            if (state == "ready") {
+                Soft("Not now leaves it off: it's in Settings, Voice.")
+                TextButton("Not now") { o.host.setupVoice("off"); Setup.finish() }
+                MainButton(if (busy) "Turning on…" else "Turn on Opie's voice", enabled = !busy) {
+                    busy = true; problem = null
+                    o.host.setupVoice("on", voice) { r ->
+                        busy = false
+                        when (r) { "on" -> state = "on"; "notYet" -> state = "notYet"; else -> problem = r.ifBlank { null } }
+                    }
+                }
+            } else MainButton("Done", enabled = state != "looking") { Setup.finish() }
+        }
+    }
+}
+
+/** The PIN: Settings and saying yes to new apps are for the people who know it. Skipping leaves the lock off (PIN
+ *  Lock in Settings turns it on later). */
 @Composable
 private fun PinStep(set: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(14.u)) {
@@ -168,7 +387,7 @@ private fun PinStep(set: Boolean) {
     }
 }
 
-/** Who lives here: names and an age or role. What Opie saves shows here as it's saved, until someone types. */
+/** Who lives here: names and an age or role, typed (what was saved before shows). */
 @Composable
 private fun PeopleStep(onSave: (() -> Unit) -> Unit) {
     val o = Openhouse
@@ -177,17 +396,9 @@ private fun PeopleStep(onSave: (() -> Unit) -> Unit) {
     val first = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { delay(300); runCatching { first.requestFocus() } } // keys go here, not to the home screen behind
     LaunchedEffect(Unit) {
-        while (true) {
-            val h = withContext(Dispatchers.IO) { o.loadHousehold() }
-            if (h != null && !edited) {
-                val saved = h.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty().map { it.optString("name") to it.optString("note") }
-                val now = people.map { it.name.trim() to it.note.trim() }.filter { it.first.isNotEmpty() }
-                if (saved != now && (saved.isNotEmpty() || people.isEmpty())) { people.clear(); saved.forEach { people += SetupPerson(it.first, it.second) } }
-            }
-            if (people.isEmpty()) people += SetupPerson("", "")
-            val t0 = Setup.tick
-            kotlinx.coroutines.withTimeoutOrNull(5000) { snapshotFlow { Setup.tick }.first { it != t0 } }
-        }
+        val saved = withContext(Dispatchers.IO) { o.loadHousehold() }?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
+        if (!edited && saved.isNotEmpty()) { people.clear(); saved.forEach { people += SetupPerson(it.optString("name"), it.optString("note")) } }
+        if (people.isEmpty()) people += SetupPerson("", "")
     }
     onSave { if (edited) o.saveHousehold(JSONObject().put("family", JSONArray(people.filter { it.name.isNotBlank() }.map { JSONObject().put("name", it.name.trim()).put("note", it.note.trim()) }))) }
     Column(verticalArrangement = Arrangement.spacedBy(12.u)) {
@@ -215,18 +426,16 @@ private fun PlaceStep(onSave: (() -> Unit) -> Unit) {
     val first = remember { androidx.compose.ui.focus.FocusRequester() }
     LaunchedEffect(Unit) { delay(300); runCatching { first.requestFocus() } }
     LaunchedEffect(Unit) {
-        while (true) {
-            if (!edited) {
-                Setup.guess?.let { g -> if (value["street"].isNullOrEmpty()) { value["street"] = g.optString("address"); value["town"] = g.optString("town"); value["zip"] = g.optString("zip") } }
-                // What Opie heard: a street address (held by the bridge until Next), or a town or zip it saved as the location.
-                withContext(Dispatchers.IO) { getJson("/setup/step") }?.optString("home_address")?.takeIf { it.isNotBlank() }?.let { value["street"] = it; kind = "street" }
-                withContext(Dispatchers.IO) { o.loadHousehold() }?.optString("location")?.takeIf { it.isNotBlank() && it != "null" && value["street"].isNullOrBlank() }?.let { loc ->
-                    if (Regex("^\\d{5}").containsMatchIn(loc)) { value["zip"] = loc; kind = "zip" } else { value["town"] = loc; kind = "town" }
-                }
-            }
-            val t0 = Setup.tick
-            kotlinx.coroutines.withTimeoutOrNull(5000) { snapshotFlow { Setup.tick }.first { it != t0 } }
-        }
+        // What was saved before, else the guess (which may come a moment later).
+        val h = withContext(Dispatchers.IO) { o.loadHousehold() }
+        val addr = h?.optString("address")?.takeIf { it.isNotBlank() && it != "null" }
+        val loc = h?.optString("location")?.takeIf { it.isNotBlank() && it != "null" }
+        if (edited) return@LaunchedEffect
+        if (addr != null) { value["street"] = addr; return@LaunchedEffect }
+        if (loc != null) { if (Regex("^\\d{5}").containsMatchIn(loc)) { value["zip"] = loc; kind = "zip" } else { value["town"] = loc; kind = "town" }; return@LaunchedEffect }
+        var waited = 0
+        while (Setup.guess == null && waited < 20_000) { delay(500); waited += 500 }
+        if (!edited) Setup.guess?.let { g -> if (value["street"].isNullOrEmpty()) { value["street"] = g.optString("address"); value["town"] = g.optString("town"); value["zip"] = g.optString("zip") } }
     }
     onSave {
         val v = value[kind].orEmpty().trim()
@@ -257,9 +466,6 @@ private fun DevicesStep() {
         val kidOrPet = { n: String -> Regex("^\\d{1,2}$").matches(n.trim()) || Regex("\\b(dog|cat|pet|fish|bird|hamster|rabbit)\\b", RegexOption.IGNORE_CASE).containsMatchIn(n) }
         names = h?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty().filter { !kidOrPet(it.optString("note")) }.map { it.optString("name") }
         who = names.firstOrNull() ?: "Me"
-        // Linking for Opie, now that they're here with a phone. Kept until it's linked: closed, or the account not
-        // reached, it asks again the next time this step shows (and a yes made here turns Opie on whenever it links).
-        if (Setup.wantsLink) o.host.setting("linkForOpie")
     }
     var used by remember { mutableStateOf(0) } // devices joined with a code from here: each code works once, so a new one
     LaunchedEffect(who, used) { val w = who ?: return@LaunchedEffect; pair = null; pair = withContext(Dispatchers.IO) { o.host.setupPair(w) } }
@@ -291,10 +497,10 @@ private fun DevicesStep() {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.u)) { names.forEach { n -> Chip(n, selected = who == n) { who = n } } }
                 Spacer(Modifier.height(10.u))
             }
-            // What connecting is for, before how: the setup carries on there, where their calendars and photos already are.
+            // What connecting is for, before how: the setup carries on there.
             Text("So you can:", style = calmText(19, FontWeight.Medium))
             listOf("Use Opie on the go: lists, chores and the calendar from anywhere",
-                "Bring in your calendars and photo albums from where they already are",
+                "Add more calendars and albums, and invite the family",
                 "Use the AI you already have, like Claude or ChatGPT, to change and add to Opie").forEach { Text("·  $it", style = calmText(19, color = Calm.soft)) }
             Spacer(Modifier.height(14.u))
             Text("On a phone, scan the code.", style = calmText(Calm.LEAD))

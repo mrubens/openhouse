@@ -6,9 +6,10 @@ package dev.openhouse.shell
 // - nothing more is asked on the day it's linked: reaching it from away and backups are in Settings (Account, Backups).
 // - whether OpenAI's live voice takes the conversation after its name (LiveVoice.chosen), from /cloud/voice, once a minute.
 // - turning the voice on by itself (autoVoice) once the tablet is linked and its household has Opie's voice (the
-//   cloud's voiceState.available), for a household that said yes to it here (OpieChoice "on": the welcome's Turn on
-//   Opie, a voice picked in Settings). One that hasn't answered yet (Without Opie, or a tablet from before) is asked
-//   once, with the welcome's words about OpenAI (CloudVoiceMenu.ask). An Off, here or from the web, stays off.
+//   cloud's voiceState.available), for a household that said yes to it here (OpieChoice "on": the setup's Turn on
+//   Opie's voice, a voice picked in Settings, or an older welcome's Turn on Opie). One that hasn't answered yet (a
+//   setup left before its voice step, or a tablet from before) is asked once, with the words about OpenAI
+//   (CloudVoiceMenu.ask). An Off (Settings, the setup's Not now, or from the web) stays off. Never during the setup.
 
 import android.content.Context
 import android.util.Log
@@ -82,9 +83,10 @@ internal object CloudSetup {
         act.runOnUiThread {
             val o = dev.openhouse.ui.Openhouse
             when {
-                choice == OpieChoice.ON -> { Log.i("CloudSetup", "the household has the voice: on"); CloudVoiceMenu(act).set(true, auto = true) }
-                // The welcome is the same question, and the setup is busy: after them (the next look, in five minutes).
+                // Never during the welcome or the setup: its last step decides (ui/Setup.kt VoiceStep). After it, the
+                // next look (in five minutes) goes on as below.
                 o.showWelcome || o.setupStep != null -> {}
+                choice == OpieChoice.ON -> { Log.i("CloudSetup", "the household has the voice: on"); CloudVoiceMenu(act).set(true, auto = true) }
                 else -> CloudVoiceMenu(act).ask()
             }
         }
@@ -101,9 +103,10 @@ internal object CloudSetup {
     }.getOrElse { 0 to null }
 }
 
-/** What this tablet's household said about Opie's voice (OpenAI's, through the account). [ON]: the welcome's Turn on
- *  Opie, a voice picked in Settings → Voice, or yes to CloudVoiceMenu.ask; [OFF]: Off in Settings → Voice, or Not now;
- *  null: not answered (Without Opie at the welcome, or a tablet from before this was kept). */
+/** What this tablet's household said about Opie's voice (OpenAI's, through the account). [ON]: the setup's Turn on
+ *  Opie's voice, a voice picked in Settings → Voice, yes to CloudVoiceMenu.ask (or an older welcome's Turn on Opie);
+ *  [OFF]: Off in Settings → Voice, or Not now (the setup's or the ask's); null: not answered (a setup left before its
+ *  voice step, or a tablet from before this was kept). */
 internal object OpieChoice {
     const val ON = "on"
     const val OFF = "off"

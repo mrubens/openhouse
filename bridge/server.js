@@ -248,7 +248,6 @@ const DISPLAY = process.env.CLOUD_DISPLAY || path.join(HERE, '..');
 let backups = null;
 const cloud = cloudRoutes({ DISPLAY, json, body, agentName, backupBits: () => backups?.bits() || {}, fixesFile: path.join(HB_DIR, '../heartbeat-fixes.json') });
 cloudRef = cloud;
-chat.live.useAi((q) => cloud.ai(q)); // setup: what's heard fills in the step (live-tools.js setupHeard)
 chat.live.useDecide((i, q) => cloud.decide(i, q));
 import('./calendar.js').then((m) => m.useCalendarDecide((i, q) => cloud.decide(i, q)));
 import('./maps.js').then((m) => m.useMapCloud({ suggest: (q, near) => cloud.placesSuggest(q, near), place: (id) => cloud.placeOf(id) })); // the Map's address suggestions // which events of a calendar kept only in part (calendar.js) // judgments about what was said, from the whole conversation (live-tools.js judge)
