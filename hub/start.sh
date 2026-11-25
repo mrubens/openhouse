@@ -41,7 +41,9 @@ if [ -z "${OPENHOUSE_BACKUP_DIR:-}" ]; then if [ -d /backups ]; then export OPEN
 
 (cd webapp && exec node node_modules/vite/bin/vite.js --config ../vite.config.mjs --host 127.0.0.1 --port $VITE_PORT --strictPort >> ../vite.log 2>&1) &
 VITE=$!
-(cd bridge && exec node server.js 2>&1 | tee -a ../bridge.log) &
+# The log through tee without a pipeline, so the subshell becomes node and $! is the bridge itself (a pipeline would
+# leave $! a shell, and stopping it would leave node running).
+(cd bridge && exec node server.js > >(tee -a ../bridge.log) 2>&1) &
 BRIDGE=$!
 trap 'kill $VITE $BRIDGE 2>/dev/null; exit 0' TERM INT
 # Either one stopping stops the hub: Docker's restart policy, systemd or launchd starts it again (a restore, an update,

@@ -9,6 +9,7 @@
 //
 // Edits go through one lock (edits.js): one change at a time, committed with the words of whoever
 // asked; "undo" is a git revert of that change. Progress: events.js (/events, /state).
+import './pid-file.js'; // first: the process id, before anything else loads
 import http from 'node:http';
 import fs from 'node:fs';
 import { calendarLinkTools, shellCall } from './calendar-links.js';
