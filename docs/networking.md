@@ -60,8 +60,9 @@ so a browser at home gets the tablet's pages over TLS with no warning and no set
   the tablet's private address (only RFC 1918 addresses are accepted, so the domain never names anyone else's server).
 - **The cloud** (`openhouse-cloud/lambda/lan.ts`) keeps the records in a Route 53 zone of their own and only for a
   linked tablet, by its Device credential: `POST /v1/lan/name {ip}`, `/v1/lan/challenge {value}`,
-  `/v1/lan/challenge/done`, `/v1/lan/forget`. One name per tablet (a name is never handed out again); 12 address
-  changes and 10 challenges an hour per tablet. Unlinking, revoking or deleting the account removes the records.
+  `/v1/lan/challenge/done`, `/v1/lan/forget`. One name per tablet, kept across forget (it never goes to another tablet
+  while an old certificate could be valid); at most 3 new names a household a week; 12 address changes and 10
+  challenges an hour per tablet. Unlinking, revoking or deleting the account removes the records and releases the name.
 - **The tablet** (`bridge/lan-tls.js`, `bridge/acme.js`: ACME with only `node:crypto`) makes its own keys, asks Let's
   Encrypt for the certificate, and proves the name by DNS-01: the cloud puts the challenge's digest in
   `_acme-challenge.<name>`. The cloud never has the key, and couldn't use the certificate without it. Keys and the
