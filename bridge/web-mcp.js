@@ -19,6 +19,8 @@
 //   POST /mcp             MCP (JSON answers), Bearer token
 import http from 'node:http';
 import fs from 'node:fs';
+import { guarded } from './guarded.js';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { pairingFromCode } from './pair-code.js';
@@ -34,9 +36,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 export const okUrl = (u) => /^https:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(String(u || ''));
 
 export function webMcpRoutes({ HERE, screens, workshop, json, body, PORT = Number(process.env.WEB_MCP_PORT || 8789), HOST = process.env.WEB_MCP_HOST || '0.0.0.0', FILE = path.join(HERE, 'web-mcp.json'), now = Date.now, fetchFn = fetch }) {
-  const st = (() => { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { return {}; } })();
+  const st = readJson(FILE, null, { bak: false }) || {}; // (no .bak: a grant taken back must not come back)
   st.clients ||= {}; st.grants ||= {};
-  const save = () => { fs.writeFileSync(FILE + '.tmp', JSON.stringify(st), { mode: 0o600 }); fs.renameSync(FILE + '.tmp', FILE); };
+  const save = () => writeJson(FILE, st, { bak: false, mode: 0o600 });
   const secs = () => Math.floor(now() / 1000);
   const base = () => String(st.url || '').replace(/\/+$/, '');
   const hosts = () => [...REDIRECT_HOSTS, ...(Array.isArray(st.hosts) ? st.hosts : [])];
@@ -228,7 +230,7 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
   let server = null;
   function start() {
     if (server || !st.on || !okUrl(st.url)) return;
-    server = http.createServer(onPublic);
+    server = http.createServer(guarded('web-mcp', onPublic));
     server.on('error', (e) => { console.log('[web-mcp] listener:', e.code || e.message); server = null; });
     server.listen(PORT, HOST, () => console.log(`[web-mcp] the tablet's own connector on :${PORT}, as ${base()}`));
   }

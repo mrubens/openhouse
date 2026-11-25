@@ -47,6 +47,7 @@
 // next to household.json; photos/ next to it. Chores themselves stay in household.json, where setup and
 // update_household keep them.
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import { albumSync } from './photo-albums.js';
 import { stillMaker } from './stills.js';
 import path from 'node:path';
@@ -91,8 +92,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   const FILE = path.join(DIR, '../house.json');
   const PHOTOS = path.join(DIR, '../photos');
   try { fs.mkdirSync(PHOTOS, { recursive: true }); } catch {}
-  const tryRead = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
-  let data = tryRead(FILE) || tryRead(FILE + '.bak') || {};
+  let data = readJson(FILE, null) || {};
   data.lists ||= [{ id: 'groceries', name: 'Groceries', items: [] }, { id: 'todo', name: 'To do', items: [] }];
   data.done ||= {}; // "YYYY-MM-DD": ["who|task", ...]
   data.by ||= {}; // "YYYY-MM-DD|who|task" -> who did a chore anyone could (they got its stars)
@@ -140,10 +140,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   let rev = 0; // goes up with every save (what's cached from the data is good while it's the same)
   function save() {
     rev++;
-    const tmp = FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(data));
-    try { if (fs.existsSync(FILE)) fs.copyFileSync(FILE, FILE + '.bak'); } catch {}
-    fs.renameSync(tmp, FILE);
+    writeJson(FILE, data);
     changed();
   }
   function changed() {

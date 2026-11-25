@@ -19,6 +19,7 @@
 //                                old window: {files: {name: text}, prefs: {file: {key: value}}}, kept as legacy.json
 // GET /kit/<file>                the kit: openhouse.js, openhouse.css, fonts (no key: plain code and fonts)
 import fs from 'node:fs';
+import { writeFileAtomic } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 
@@ -104,8 +105,8 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
   });
   function writeData(id, name, text) {
     fs.mkdirSync(path.join(DATA, id), { recursive: true });
-    const f = dataFile(id, name), tmp = f + '.tmp';
-    fs.writeFileSync(tmp, text); fs.renameSync(tmp, f);
+    const f = dataFile(id, name);
+    writeFileAtomic(f, text); // (any kind of file an app keeps: no .bak among them)
   }
   const secret = crypto.randomBytes(32); // keys last until the bridge restarts; the shell asks again each time it opens an app
   const keyOf = (id) => crypto.createHmac('sha256', secret).update('app:' + id).digest('base64url');

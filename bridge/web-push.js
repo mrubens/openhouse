@@ -8,6 +8,7 @@
 //   send(sub, payload, {keys, ttl, urgency, fetch}) -> {ok, status, gone}  (gone: the phone unsubscribed; forget it)
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 
 const b64u = (b) => Buffer.from(b).toString('base64url');
 const unb64u = (s) => Buffer.from(String(s || ''), 'base64url');
@@ -15,13 +16,13 @@ const hkdf = (salt, ikm, info, len) => Buffer.from(crypto.hkdfSync('sha256', ikm
 
 /** The tablet's VAPID keys ({publicKey: base64url of the raw 65 bytes, privateKey: PEM}), made the first time. */
 export function keys(file) {
-  try { const k = JSON.parse(fs.readFileSync(file, 'utf8')); if (k.publicKey && k.privateKey) return k; } catch {}
+  const had = readJson(file, null, { bak: false }); if (had?.publicKey && had?.privateKey) return had;
   const ecdh = crypto.createECDH('prime256v1'); ecdh.generateKeys();
   const pub = ecdh.getPublicKey();
   const jwk = { kty: 'EC', crv: 'P-256', x: b64u(pub.subarray(1, 33)), y: b64u(pub.subarray(33, 65)), d: b64u(ecdh.getPrivateKey()) };
   const privateKey = crypto.createPrivateKey({ key: jwk, format: 'jwk' }).export({ type: 'pkcs8', format: 'pem' });
   const k = { publicKey: b64u(pub), privateKey };
-  try { const t = file + '.tmp'; fs.writeFileSync(t, JSON.stringify(k), { mode: 0o600 }); fs.renameSync(t, file); } catch {}
+  try { writeJson(file, k, { bak: false, mode: 0o600 }); } catch {}
   return k;
 }
 

@@ -5,6 +5,7 @@
 // It gets the forecast and the next three days' events in the household's own clock, and the people; it decides what's
 // worth a line, and most of the time that may be nothing. Kept in chats/weather-sense.json.
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import { reviewCost } from './heartbeat-review.js';
 
@@ -50,8 +51,8 @@ export function fingerprint(w, events, now = new Date()) {
 export function weatherSense({ DIR, weather, events = () => [], people = () => '', ai, ready = () => true, night = () => false, clock = () => Date.now(), every = 15 * 60e3 }) {
   const FILE = path.join(DIR, 'weather-sense.json');
   let st = { lines: [], at: 0, print: '', runs: {}, failedAt: 0 };
-  try { st = { ...st, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch {}
-  const save = () => { try { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(FILE, JSON.stringify(st)); } catch (e) { console.error('[sense]', e.message); } };
+  st = { ...st, ...readJson(FILE, {}, { bak: false }) }; // (made again from the forecast: no .bak)
+  const save = () => { try { fs.mkdirSync(DIR, { recursive: true }); writeJson(FILE, st, { bak: false }); } catch (e) { console.error('[sense]', e.message); } };
   let running = false;
 
   /** The lines still current, for GET /weather. */

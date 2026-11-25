@@ -14,6 +14,7 @@
 // elsewhere first (If-Match fails) is dropped: theirs stays, and the event says so (note).
 // Event ids here: "c-<calendar key>-<remote id>"; a repeating one's times share it, each with its own date.
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import crypto from 'node:crypto';
 import { parse } from './calendar.js';
 
@@ -50,7 +51,7 @@ const ruleOf = (repeat, until) => `RRULE:${RRULES[repeat]}${until ? `;UNTIL=${un
 
 export function calendarSync({ FILE, shell, family = () => [], now = Date.now, every = 2 * MIN, log = console.log }) {
   const blank = { calendars: {}, outbox: [], cache: {}, notes: {}, errors: {}, at: 0 };
-  let st = (() => { try { return { ...blank, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch { return structuredClone(blank); } })();
+  let st = { ...structuredClone(blank), ...readJson(FILE, {}) };
   // from the shell: [{ id, provider: 'google'|'caldav', name, who, server? }] (no secrets). The last list is kept (st.accounts),
   // so right after a restart the kept events show at once, not only once the shell has answered (Today's calendar was empty for seconds).
   let accounts = Array.isArray(st.accounts) ? st.accounts : [];
@@ -58,9 +59,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   let trail = []; // the methods and answers of the change being sent (no contents), for status()
   let read = null; // the last list's counts (no contents), kept per calendar in st.reads for Settings and debugging
   function save() {
-    const tmp = FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(st));
-    fs.renameSync(tmp, FILE);
+    writeJson(FILE, st);
   }
   const window = () => { const t = now(); return { from: t - 35 * DAY, to: t + 70 * DAY }; };
 

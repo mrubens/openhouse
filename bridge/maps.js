@@ -8,6 +8,7 @@
 //   POST /map/on {on}       POST /map/place {name, address, home?}   POST /map/place/remove {name}   POST /map/clear
 //   tools: show_on_map, save_place, forget_place (home-screen tools; the live voice and typed turns have them)
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 
 const UA = 'OpenHouse/1 (+https://openhouse.computer)';
@@ -23,9 +24,9 @@ export function useMapCloud(p) { cloudPlaces = p; }
 
 export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = null, hasApp = () => true, fetchImpl = (...a) => fetch(...a), now = () => Date.now(), gap = 1100 }) {
   const HOUSE = path.join(DIR, '../household.json'), CACHE = path.join(DIR, 'maps.json');
-  const read = (f, d) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return d; } };
+  const read = (f, d) => readJson(f, d, { bak: f === HOUSE }); // (the household's .bak is board.js's; maps.json is a cache)
   const cache = { geo: {}, routes: {}, shown: null, ...read(CACHE, {}) };
-  const keep = () => { try { fs.writeFileSync(CACHE + '.tmp', JSON.stringify(cache)); fs.renameSync(CACHE + '.tmp', CACHE); } catch {} };
+  const keep = () => { try { writeJson(CACHE, cache, { bak: false }); } catch {} };
   const household = () => read(HOUSE, {});
   const isOn = () => household().maps === true;
   const places = () => (Array.isArray(household().places) ? household().places : []);

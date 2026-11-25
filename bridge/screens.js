@@ -45,6 +45,8 @@
 import http from 'node:http';
 import https from 'node:https';
 import fs from 'node:fs';
+import { guarded } from './guarded.js';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
@@ -216,11 +218,11 @@ export const frameHeaders = (host, reaches = '') => ({
  * request is handed to it as if it came from the display, once its scopes allow it.
  */
 export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
-  const tryRead = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
-  const state = tryRead(FILE) || { lan: false, screens: [] };
+  // (no .bak: a phone taken off must not come back from an older copy)
+  const state = readJson(FILE, null, { bak: false }) || { lan: false, screens: [] };
   state.screens ||= [];
   state.invites ||= []; // [{pair, key, person, grownup, until}]: links sent to the family from the setup phone, a week each
-  const write = () => { const tmp = FILE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(state), { mode: 0o600 }); fs.renameSync(tmp, FILE); };
+  const write = () => writeJson(FILE, state, { bak: false, mode: 0o600 });
   const changed = () => { try { onChange(); } catch {} }; // who is paired changed (the relay's list of tokens)
   // Counters: a request's n must be new: above `floor` (the highest before the last restart), not seen, and within a
   // minute of the highest (they can arrive out of order).
@@ -260,7 +262,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   const TLS = (() => { try { return TLS_FILES ? { cert: fs.readFileSync(TLS_FILES.cert), key: fs.readFileSync(TLS_FILES.key) } : null; } catch (e) { console.log('[screens] no https:', e.message); return null; } })();
   function startLan() {
     if (lan) return;
-    lan = TLS ? https.createServer(TLS, onLan) : http.createServer(onLan);
+    lan = TLS ? https.createServer(TLS, guarded('screens', onLan)) : http.createServer(guarded('screens', onLan));
     lan.on('error', (e) => { console.log('[screens] listener:', e.code || e.message); lan = null; });
     lan.listen(PORT, HOST, () => console.log(`[screens] on the home network, ${TLS ? 'https' : 'http'} :${PORT}`));
   }

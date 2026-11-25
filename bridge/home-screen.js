@@ -29,6 +29,7 @@
 //
 // file: door.json next to the chats (its first name, kept so tablets and backups need no move).
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import * as G from './grid.js';
@@ -137,14 +138,8 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
 
   // Written to a temp file and renamed, so a power cut mid-write can't leave half a file; the previous
   // version is kept as door.json.bak and read if the main one is ever unreadable.
-  const tryRead = (f) => { try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return null; } };
-  const read = () => tryRead(FILE) || tryRead(FILE + '.bak') || { notes: [] };
-  const write = () => {
-    const tmp = FILE + '.tmp';
-    fs.writeFileSync(tmp, JSON.stringify(homeScreen));
-    try { if (fs.existsSync(FILE)) fs.copyFileSync(FILE, FILE + '.bak'); } catch {}
-    fs.renameSync(tmp, FILE);
-  };
+  const read = () => readJson(FILE, null) || { notes: [] };
+  const write = () => writeJson(FILE, homeScreen);
   let homeScreen = read();
   homeScreen.notes ||= [];
   for (const n of homeScreen.notes) { n.content = fenced(n.content); delete n.refitting; } // notes saved in an older shape read right again; no refit outlives a restart
@@ -286,7 +281,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     if (edits && !holding && !edits.tryAcquire(owner, { checkpoint: true })) return { error: edits.busyText?.() || 'Busy', busy: true };
     try {
       fs.mkdirSync(path.dirname(styleFile()), { recursive: true });
-      fs.writeFileSync(styleFile(), JSON.stringify(next, null, 2) + '\n');
+      writeJson(styleFile(), next, { bak: false, space: 2, newline: true }); // (in the apps' git folder: no .bak beside it)
       if (edits && !holding) edits.finish(owner, true);
     } catch (e) { if (edits && !holding) edits.finish(owner, false); return { error: e.message }; }
     save();

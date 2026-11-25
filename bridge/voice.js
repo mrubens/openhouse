@@ -23,6 +23,7 @@
 // GET  /voice/events            SSE: wake, say, recording
 
 import fs from 'node:fs';
+import { writeJson } from './store.js';
 import path from 'node:path';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -172,7 +173,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
     if (m.type === 'model-wake') { const { type, src, ...o } = m; if (src === 'mic') wakeLog(o); return; }
     if (m.type === 'wake') { if (m.src !== 'mic') return; vlog('wake-word', { p: m.p }); clipWake(m.p); handle.onWake?.(); emit({ type: 'wake', at: Date.now(), p: m.p }); return; }
     if (m.type === 'note') { vlog('note', { text: m.text }); console.log('[voice] ' + m.text); return; }
-    if (m.type === 'mic-level') { try { fs.writeFileSync(MIC_LEVEL + '.tmp', JSON.stringify({ usual: m.level })); fs.renameSync(MIC_LEVEL + '.tmp', MIC_LEVEL); } catch {} return; }
+    if (m.type === 'mic-level') { try { writeJson(MIC_LEVEL, { usual: m.level }, { bak: false }); } catch {} return; }
     if (m.type === 'flushed') { const r = waiting.get(m.src); if (r) { waiting.delete(m.src); r({ woke: m.woke > 0, wakes: m.woke, peak: m.peak }); } }
   }
 

@@ -12,6 +12,7 @@
 //
 // file: day-notes.json next to the chats: { byApp: { [app]: { name, at, items: [note], events: [event] } }, first: { [app]: ms } }
 import fs from 'node:fs';
+import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 
 const DAY = 864e5, PER_APP = 120, EVENTS_PER_APP = 200;
@@ -49,9 +50,9 @@ export function dayNotes({ DIR, now = () => Date.now(), onChange = () => {} }) {
   const FILE = path.join(DIR, '../day-notes.json');
   let st = { byApp: {}, first: {} }, alive = () => true; // alive(app): is it still there (one taken off leaves nothing)
   let prefs = { show: () => 'today', order: () => [] }; // the household's (house.js)
-  try { st = { byApp: {}, first: {}, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) }; } catch {}
+  st = { byApp: {}, first: {}, ...readJson(FILE, {}) };
   for (const s of Object.values(st.byApp)) s.items = (s.items || []).map((x) => (x.label ? x : x.date && { date: x.date, ...noteOf(x, s.name), ...(x.who ? { who: x.who } : {}) })).filter((x) => x && x.text); // kept before notes had a label
-  const save = () => { try { fs.writeFileSync(FILE + '.tmp', JSON.stringify(st)); fs.renameSync(FILE + '.tmp', FILE); } catch (e) { console.error('[day-notes]', e.message); } onChange(); };
+  const save = () => { try { writeJson(FILE, st); } catch (e) { console.error('[day-notes]', e.message); } onChange(); };
   const range = () => { const t = now(); return { from: dayKey(new Date(t - 14 * DAY)), to: dayKey(new Date(t + 92 * DAY)) }; };
   const entry = (app, name) => {
     st.first[app] ||= now();
