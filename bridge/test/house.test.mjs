@@ -55,6 +55,11 @@ test('a locked calendar: apps change it only for a little while after the PIN on
   await post('/house/unlock', {});
   assert.equal((await post('/house/event', add, true)).code, 200, 'unlocked for a while');
   assert.equal((await post('/house/event', add)).code, 200, 'the display itself is never locked out');
+  // An app in its frame on a phone (a sealed call through screens.js) is held to the same lock.
+  await post('/house/lock', { calendar: true });
+  const phone = async (p, b) => { next = b; out = null; await h({ method: 'POST', headers: { 'x-openhouse-screen': 'p1', 'x-openhouse-screen-app': 'calendar' } }, {}, new URL('http://x' + p)); return out; };
+  assert.equal((await phone('/house/event', add)).code, 403, 'a phone\'s app frame: locked too');
+  assert.equal((await phone('/house/unlock', {})).code, 403, 'a phone\'s app frame can\'t unlock');
 });
 
 test('Opie and a locked calendar: it asks, and only the PIN typed on the tablet lets the change in', async () => {

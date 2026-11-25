@@ -24,7 +24,7 @@ import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { pairingFromCode } from './pair-code.js';
+import { pairingFromCodeAsync } from './pair-code.js';
 import { seal, open } from './screens.js';
 
 /** Where Claude and ChatGPT send people back after signing in (as connector.ts), and localhost for tests. */
@@ -44,7 +44,17 @@ export function webMcpRoutes({ HERE, screens, workshop, json, body, PORT = Numbe
   const base = () => String(st.url || '').replace(/\/+$/, '');
   const hosts = () => [...REDIRECT_HOSTS, ...(Array.isArray(st.hosts) ? st.hosts : [])];
   const sessions = new Map(); // sid -> {client, name, redirect, challenge, state, pair?, key?, until}
-  const tries = new Map(); // address -> {n, since}: code tries a minute
+  // Code tries a minute: by the address that connected (a header can say anything), and all of them together, since
+  // behind a tunnel every try comes from the tunnel's own address. And only a few worked out at once (scrypt).
+  const tries = new Map(); // address -> {n, since}
+  let allTries = { n: 0, since: 0 }, working = 0;
+  const PER_ADDRESS = 10, ALL = 30, AT_ONCE = 2;
+  const tooMany = (ip) => {
+    if (now() - allTries.since > 60e3) allTries = { n: 0, since: now() };
+    for (const [k, t] of tries) if (now() - t.since > 60e3) tries.delete(k);
+    const t = tries.get(ip) || { n: 0, since: now() }; tries.set(ip, t);
+    return ++t.n > PER_ADDRESS || ++allTries.n > ALL;
+  };
 
   function who(redirect) {
     if (LOCAL.test(redirect)) return 'A test app on this computer';
@@ -118,7 +128,7 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
 
   async function onPublic(req, res) {
     const url = new URL(req.url, 'http://x'), p = url.pathname.replace(/\/+$/, '') || '/';
-    const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '?').split(',')[0].trim();
+    const ip = String(req.socket.remoteAddress || '?');
     try {
       if (!st.on || !okUrl(st.url)) return out(res, 404, { error: 'off' });
       const B = base(), resource = `${B}/mcp`;
@@ -158,8 +168,10 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
         const b = jsonBody(), s = sessions.get(String(b.sid || ''));
         if (!s || s.until < now()) return out(res, 404, { error: 'This page has run out. Start again from Claude or ChatGPT.' });
         if (p === '/oauth/pair') {
-          const t = tries.get(ip); if (!t || now() - t.since > 60e3) tries.set(ip, { n: 1, since: now() }); else if (++t.n > 10) return out(res, 429, { error: 'Too many tries. Wait a minute.' });
-          const pc = pairingFromCode(b.code);
+          if (tooMany(ip)) return out(res, 429, { error: 'Too many tries. Wait a minute.' });
+          if (working >= AT_ONCE) return out(res, 429, { error: 'The tablet is busy. Try again in a moment.' });
+          let pc; working++;
+          try { pc = await pairingFromCodeAsync(b.code); } finally { working--; }
           if (!pc) return out(res, 400, { error: "That isn't the tablet's code: 12 letters and numbers, like K7QM-2XD9-HPA4." });
           const box = seal(pc.key, `hello:${pc.pair}`, Buffer.from(JSON.stringify({ name: s.name })));
           const r = screens.pairRelayed(pc.pair, 'hello', Buffer.from(JSON.stringify({ box: box.toString('base64url') })));

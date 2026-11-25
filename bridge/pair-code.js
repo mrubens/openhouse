@@ -26,3 +26,11 @@ export function pairingFromCode(code) {
   const d = crypto.scryptSync(c, 'openhouse computer pairing', 38, { N: 16384, r: 8, p: 1 });
   return { pair: b64(d.subarray(0, 6)), key: d.subarray(6) };
 }
+
+/** pairingFromCode off the event loop (a code typed on a public page: scrypt mustn't stall the bridge). */
+export async function pairingFromCodeAsync(code) {
+  const c = cleanCode(code);
+  if (!c) return null;
+  const d = await new Promise((resolve, reject) => crypto.scrypt(c, 'openhouse computer pairing', 38, { N: 16384, r: 8, p: 1 }, (e, k) => (e ? reject(e) : resolve(k))));
+  return { pair: b64(d.subarray(0, 6)), key: d.subarray(6) };
+}

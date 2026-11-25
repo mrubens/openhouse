@@ -20,10 +20,13 @@ import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import net from 'node:net';
+import zlib from 'node:zlib';
 import { execFile, execFileSync } from 'node:child_process';
 import { cleanLook, DEFAULT_TABS, isTab } from './home-screen.js';
 import { USES } from './apps.js';
 import { validateChecks } from './heartbeat-checks.js';
+import { publicGet } from './app-web.js';
+import { GIT_SAFE } from './edits.js';
 
 const ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(:\d{1,5})?$/;
@@ -70,7 +73,44 @@ function run(cmd, args, opts = {}) {
 }
 
 /** The plugin's files in a folder of their own (to be thrown away). { dir, commit, done() } */
-async function fetchSource(src, fetchImpl = fetch) {
+/**
+ * A plugin's tarball opened into out, read here rather than by tar: only folders and plain files, each inside out
+ * (never an absolute path or ..), and never a link of any kind, so nothing is written through one. Throws with words.
+ */
+export function untar(tgz, out) {
+  let buf;
+  try { buf = zlib.gunzipSync(tgz, { maxOutputLength: MAX_BYTES * 4 }); } catch { throw new Error("That plugin's tarball couldn't be opened (or is too big)."); }
+  const field = (h, at, n) => { const b = h.subarray(at, at + n), z = b.indexOf(0); return (z < 0 ? b : b.subarray(0, z)).toString('utf8'); };
+  const octal = (h, at, n) => parseInt(field(h, at, n).trim() || '0', 8);
+  const bad = (name) => { throw new Error(`Its tarball has ${String(name).slice(0, 80)} in it, which a plugin can't have: only plain files and folders.`); };
+  let at = 0, longName = null, paxPath = null, entries = 0;
+  while (at + 512 <= buf.length) {
+    const h = buf.subarray(at, at + 512);
+    if (h.every((x) => x === 0)) break; // the end
+    const size = octal(h, 124, 12), type = String.fromCharCode(h[156] || 48), body = buf.subarray(at + 512, at + 512 + size);
+    if (!Number.isFinite(size) || size < 0 || at + 512 + size > buf.length) throw new Error("That plugin's tarball is cut short.");
+    at += 512 + Math.ceil(size / 512) * 512;
+    if (type === 'g') continue; // a pax note for the whole archive (GitHub's commit): nothing to write
+    if (type === 'x') { const m = body.toString('utf8').match(/(?:^|\n)\d+ path=([^\n]*)\n/); paxPath = m ? m[1] : null; continue; }
+    if (type === 'L') { longName = field(body, 0, body.length); continue; }
+    if (/(^|\/)\._[^/]*\/?$/.test(paxPath ?? longName ?? field(h, 0, 100))) { paxPath = longName = null; continue; } // a Mac's ._ notes about a file: not part of it
+    const prefix = field(h, 257, 6).startsWith('ustar') ? field(h, 345, 155) : '';
+    const name = paxPath ?? longName ?? (prefix ? prefix + '/' : '') + field(h, 0, 100);
+    paxPath = longName = null;
+    if (++entries > MAX_FILES * 5) throw new Error('That plugin has too many files.');
+    if (type !== '0' && type !== '5' && type !== '7') bad(name);
+    const rel = name.replace(/^(\.\/)+/, '').replace(/\/+$/, '');
+    if (!rel) continue;
+    if (path.isAbsolute(rel) || rel.includes('\0') || rel.split('/').some((p) => p === '..')) bad(name);
+    const dest = inside(out, rel);
+    if (!dest || dest === out) bad(name);
+    if (type === '5') { fs.mkdirSync(dest, { recursive: true }); continue; }
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    fs.writeFileSync(dest, body, { flag: 'wx', mode: 0o644 }); // (wx: never onto something already there)
+  }
+}
+
+async function fetchSource(src, fetchImpl = fetch, web = {}) {
   if (src.kind === 'local') return { dir: src.dir, commit: null, done: () => {} };
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'plugin-'));
   const done = () => fs.rmSync(tmp, { recursive: true, force: true });
@@ -96,15 +136,16 @@ async function fetchSource(src, fetchImpl = fetch) {
       }
       return { dir: tmp, commit, done };
     }
-    const r = await fetchImpl(src.url, { signal: AbortSignal.timeout(60e3), redirect: 'follow' });
-    if (!r.ok) throw new Error(`Couldn't get it from ${src.label}: ${r.status}`);
-    const buf = Buffer.from(await r.arrayBuffer());
+    // Every hop https, public and connected to at the address checked (app-web.js publicGet), as for any link.
+    const r = await publicGet(src.url, { ...web, ipLiterals: false, timeoutMs: 60e3, max: MAX_BYTES * 2, headers: { 'user-agent': 'OpenHouse', accept: '*/*' } });
+    if (r.error) throw new Error(`Couldn't get it from ${src.label}${r.error === 'home' ? ': it points into the home network' : r.error === 'protocol' ? ': only https' : ''}.`);
+    if (r.status < 200 || r.status >= 300) throw new Error(`Couldn't get it from ${src.label}: ${r.status}`);
+    const buf = r.buf;
     if (buf.length > MAX_BYTES * 2) throw new Error('That plugin is too big.');
     // From OpenHouse's list (the gallery): only the exact tarball that was reviewed.
     if (src.sha256 && sha(buf) !== src.sha256) throw new Error(`What ${src.label} sent isn't the version OpenHouse reviewed, so it wasn't added.`);
-    fs.writeFileSync(path.join(tmp, 'p.tgz'), buf);
     const out = path.join(tmp, 'p'); fs.mkdirSync(out);
-    await run('tar', ['-xzf', path.join(tmp, 'p.tgz'), '-C', out, '--no-same-owner', '--no-same-permissions']);
+    untar(buf, out);
     // npm pack puts everything in package/; GitHub's archives in <repo>-<ref>/
     const top = fs.readdirSync(out);
     const dir = top.length === 1 && fs.statSync(path.join(out, top[0])).isDirectory() ? path.join(out, top[0]) : out;
@@ -344,7 +385,7 @@ export function cleanCatalog(raw, indexUrl = CATALOG_URL, { http = false } = {})
  */
 export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve = null, onChange = () => {}, local = !!process.env.PLUGINS_LOCAL, household = () => ({}),
   DATA = null, DEFAULTS = null, SEEDED = null, answerWaitMs = 6000, log = (...a) => console.log('[plugins]', ...a),
-  ai = null, fetchImpl = (...a) => fetch(...a), catalogUrl = process.env.PLUGIN_INDEX_URL || CATALOG_URL }) {
+  ai = null, fetchImpl = (...a) => fetch(...a), web = {}, catalogUrl = process.env.PLUGIN_INDEX_URL || CATALOG_URL }) {
   const DIR = path.join(APP_DIR, 'plugins');
   const LEGACY = path.join(APP_DIR, 'plugins.json'); // v1's one lock file, moved into DIR by migrate()
   const MARK = path.join(DIR, '.v1');
@@ -686,7 +727,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     let src = parseSource(source, { local: local || opts.local });
     if (!src && !/[/:]/.test(String(source || ''))) { const c = await listed(source); if (c) src = catalogSource(c); }
     if (!src) throw new Error('That isn\'t a plugin on OpenHouse\'s list or a link one comes from: give a git link (github.com/someone/something, or with @version) or an https link to a .tgz.');
-    const got = await fetchSource(src, fetchImpl);
+    const got = await fetchSource(src, fetchImpl, web);
     try {
       const p = { src, commit: src.catalog?.commit || got.commit, ...(got.sha256 ? { sha256: got.sha256 } : {}), ...checkPlugin(got.dir) };
       if (src.catalog && p.name !== src.catalog.name) throw new Error(`OpenHouse's list says ${src.catalog.title}, but that tarball holds ${p.name}.`);
@@ -841,7 +882,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
       for (const h of git('log', '-40', '--format=%H', '--', `apps/${id}`).split('\n').filter(Boolean)) {
         const names = git('ls-tree', '--name-only', h, `apps/${id}/`).split('\n').filter(Boolean).map((x) => path.basename(x));
         if (names.length !== Object.keys(a.files || {}).length || !names.every((n) => a.files[n])) continue;
-        const files = Object.fromEntries(names.map((n) => [n, execFileSync('git', ['show', `${h}:apps/${id}/${n}`], { cwd: APP_DIR, maxBuffer: 1e7 })]));
+        const files = Object.fromEntries(names.map((n) => [n, execFileSync('git', [...GIT_SAFE, 'show', `${h}:apps/${id}/${n}`], { cwd: APP_DIR, maxBuffer: 1e7 })]));
         if (same(hashes(files), a.files)) return files;
       }
     } catch {}

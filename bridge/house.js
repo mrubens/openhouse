@@ -171,6 +171,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   async function handle(req, res, url) {
     const p = url.pathname;
     if (p !== '/house' && !p.startsWith('/house/')) return false; // not /household
+    // An app asking: on the tablet (x-openhouse-app) or in its frame on a phone or other screen (x-openhouse-screen-app).
+    const fromApp = !!(req.headers['x-openhouse-app'] || req.headers['x-openhouse-screen-app']);
     if (req.method === 'GET' && p === '/house') { json(res, 200, view()); return true; }
     if (req.method === 'GET' && p === '/house/wait') {
       if (Number(url.searchParams.get('v')) !== version) { json(res, 200, view()); return true; }
@@ -236,10 +238,10 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (p === '/house/meal/ingredients') { send(await house.ingredients(b.date, str(b.meal || 'dinner', 20).toLowerCase())); return true; }
     if (p === '/house/event') {
       // With the calendar locked, an app changes it only for a little while after the PIN on the display.
-      if (req.headers['x-openhouse-app'] && data.settings.calendarLock && house.unlocked() < Date.now()) { json(res, 403, { error: 'The calendar is locked: someone unlocks it with the PIN.', locked: true }); return true; }
+      if (fromApp && data.settings.calendarLock && house.unlocked() < Date.now()) { json(res, 403, { error: 'The calendar is locked: someone unlocks it with the PIN.', locked: true }); return true; }
       send(house.changeEvents(b)); return true;
     }
-    if ((p === '/house/lock' || p === '/house/unlock') && req.headers['x-openhouse-app']) { json(res, 403, { error: 'Only the display can do that.' }); return true; }
+    if ((p === '/house/lock' || p === '/house/unlock') && fromApp) { json(res, 403, { error: 'Only the display can do that.' }); return true; }
     if (p === '/house/lock') { if (b.calendar !== undefined) { if (b.calendar) data.settings.calendarLock = true; else delete data.settings.calendarLock; } house.setUnlocked(0); save(); send({ ok: true }); return true; }
     if (p === '/house/unlock') { house.setUnlocked(Date.now() + 5 * 60e3); changed(); send({ ok: true, until: house.unlocked() }); return true; }
     if (p === '/house/settings') { send(house.settings(b)); return true; }
@@ -250,7 +252,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (p === '/house/photo/album') { send(house.changeAlbums(b)); return true; }
     if (p === '/house/photo/restore') { send(house.restorePhoto(b.name)); return true; }
     if (p === '/house/photo/caption') { send(house.caption(b)); return true; }
-    if ((p === '/house/album/stream' || p === '/house/album/assets') && req.headers['x-openhouse-app']) { json(res, 403, { error: 'Only the display can do that.' }); return true; }
+    if ((p === '/house/album/stream' || p === '/house/album/assets') && fromApp) { json(res, 403, { error: 'Only the display can do that.' }); return true; }
     if (p === '/house/album/stream') { const { done, ...r } = house.albums.stream(b); json(res, r.error ? 400 : 200, r); return true; }
     if (p === '/house/album/assets') { const { done, ...r } = house.albums.assets(b); json(res, r.error ? 400 : 200, r); return true; }
     if (p === '/house/share') { const r = await house.shell('/share', { url: String(b.url || '') }); send(r && !r.error ? { ok: true } : { error: r?.error || 'The display can\u2019t share from here.' }); return true; }

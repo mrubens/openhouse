@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 import { fileURLToPath } from 'node:url';
-import { initRepo } from '../edits.js';
+import { initRepo, editLock, quietRepo } from '../edits.js';
 
 const BRIDGE = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -55,6 +55,25 @@ async function startBridge(env = {}) {
     clean: () => !git('status', '--porcelain'),
   };
 }
+
+test('nothing in the repo itself runs: hooks and programs in its config, as a restored backup could bring', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-quiet-')), app = path.join(root, 'webapp'), mark = path.join(root, 'ran');
+  fs.mkdirSync(app); initRepo(app);
+  const hook = path.join(app, '.git/hooks/pre-commit');
+  fs.writeFileSync(hook, `#!/bin/sh\ntouch '${mark}'\n`, { mode: 0o755 });
+  execFileSync('git', ['config', 'filter.x.clean', `touch '${mark}'; cat`], { cwd: app });
+  const edits = editLock({ APP_DIR: app, UNDO_FILE: path.join(root, 'undo.json'), log: () => {} });
+  const hand = { id: 'h', kind: 'edit', text: 'A change' };
+  edits.tryAcquire(hand); fs.writeFileSync(path.join(app, 'apps/a.txt'), 'a'); edits.finish(hand, true);
+  assert.equal(execFileSync('git', ['log', '-1', '--format=%s'], { cwd: app, encoding: 'utf8' }).trim(), 'A change');
+  assert.equal(fs.existsSync(mark), false, 'the hook never ran');
+  quietRepo(app);
+  assert.equal(fs.existsSync(hook), false);
+  const cfg = execFileSync('git', ['config', '--file', path.join(app, '.git/config'), '--list'], { encoding: 'utf8' });
+  assert.doesNotMatch(cfg, /^filter\./m);
+  assert.match(cfg, /^core\.hookspath=\/dev\/null$/m);
+  fs.rmSync(root, { recursive: true, force: true });
+});
 
 let b;
 before(async () => { b = await startBridge(); });

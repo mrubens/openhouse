@@ -8,13 +8,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { initRepo, editLock } from '../edits.js';
-import { checkPlugin, parseSource, pluginsRoutes, cleanCatalog, cleanActions, rightsList, ACTION_LIMITS } from '../plugins.js';
+import { untar, checkPlugin, parseSource, pluginsRoutes, cleanCatalog, cleanActions, rightsList, ACTION_LIMITS } from '../plugins.js';
 import crypto from 'node:crypto';
 import { appAllowed, houseFor } from '../apps.js';
 import { reachMatches, appFetch, pinnedFetch, privateIp } from '../app-web.js';
 import { readPage } from '../read-page.js';
 import { readRecipeLink } from '../cooking.js';
 import net from 'node:net';
+import zlib from 'node:zlib';
 import { thingStore } from '../things.js';
 
 const tmp = (n) => fs.mkdtempSync(path.join(os.tmpdir(), `openhouse-${n}-`));
@@ -241,6 +242,7 @@ function tarball(opts) {
 }
 const CDN = 'https://cdn.example.com/releases/plugins/';
 const hex = (b) => crypto.createHash('sha256').update(b).digest('hex');
+const PUBLIC = async () => [{ address: '93.184.215.14', family: 4 }]; // every name a public address (no DNS in tests)
 /** A fetch that serves an index and tarballs; anything else fails. */
 const served = (files) => async (u) => { const b = files[String(u)]; if (!b) throw new Error('not served: ' + u); return new Response(b); };
 function tablet(fetchImpl, more = {}) {
@@ -249,7 +251,7 @@ function tablet(fetchImpl, more = {}) {
   let style = { tabs: ['today', 'apps'] };
   const homeScreen = { style: () => style, setLook: (b) => { style = { ...style, ...b }; return { style }; } };
   fs.mkdirSync(path.join(app, 'plugins'), { recursive: true }); fs.writeFileSync(path.join(app, 'plugins/.v1'), '');
-  const pl = pluginsRoutes({ APP_DIR: app, edits, homeScreen, json: () => {}, body: async () => ({}), approve: async () => true, fetchImpl, catalogUrl: CDN + 'index.json', log: () => {}, ...more });
+  const pl = pluginsRoutes({ APP_DIR: app, edits, homeScreen, json: () => {}, body: async () => ({}), approve: async () => true, fetchImpl, web: { fetch: fetchImpl, lookup: PUBLIC }, catalogUrl: CDN + 'index.json', log: () => {}, ...more });
   return { app, edits, pl };
 }
 
@@ -275,6 +277,27 @@ test('the gallery: only tarballs on the list\'s own host, and only the exact one
   assert.equal(no.isError, true);
   assert.deepEqual(t2.pl.readAll(), {});
   assert.equal(t2.pl.rightsOf('twins-chores'), null);
+});
+
+test('a tarball from a link: every redirect checked, and nothing in it is a link or lands outside', async () => {
+  const t = tablet(async (u) => (String(u) === 'https://cdn.example.com/x.tgz' ? new Response('', { status: 302, headers: { location: 'http://127.0.0.1:9/x.tgz' } }) : new Response(tarball())));
+  assert.equal((await t.pl.call('add_plugin', { source: 'https://cdn.example.com/x.tgz' })).isError, true, 'a redirect into the home network');
+  assert.deepEqual(t.pl.readAll(), {});
+
+  // A link to a folder outside, then a file "through" it: refused before anything is written.
+  const d = tmp('evil'), outside = tmp('outside');
+  makePlugin(path.join(d, 'package'));
+  fs.symlinkSync(outside, path.join(d, 'package', 'apps', 'out'));
+  execFileSync('tar', ['-czf', path.join(d, 'a.tgz'), '-C', d, 'package']);
+  fs.rmSync(path.join(d, 'package', 'apps', 'out')); fs.mkdirSync(path.join(d, 'package', 'apps', 'out')); fs.writeFileSync(path.join(d, 'package', 'apps', 'out', 'x.js'), 'x');
+  execFileSync('tar', ['-czf', path.join(d, 'b.tgz'), '-C', d, 'package/apps/out/x.js']);
+  const both = Buffer.concat([zlib.gunzipSync(fs.readFileSync(path.join(d, 'a.tgz'))).subarray(0, -1024), zlib.gunzipSync(fs.readFileSync(path.join(d, 'b.tgz')))]);
+  const t2 = tablet(served({ 'https://cdn.example.com/evil.tgz': zlib.gzipSync(both) }));
+  assert.equal((await t2.pl.call('add_plugin', { source: 'https://cdn.example.com/evil.tgz' })).isError, true);
+  assert.deepEqual(fs.readdirSync(outside), []);
+  const out = tmp('untar');
+  assert.throws(() => untar(zlib.gzipSync(both), out));
+  assert.deepEqual(fs.readdirSync(outside), []);
 });
 
 test('both versions put together: the household\'s changes and theirs, and never more rights than the update\'s card', async () => {
