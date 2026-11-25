@@ -73,7 +73,7 @@ fun ShellOverlay() {
             val newWords = a?.let { it.status + "|" + it.text.length / 40 }
             var wordsAt by remember { mutableStateOf(0L) }
             LaunchedEffect(newWords) { wordsAt = System.currentTimeMillis() }
-            val reply = a?.takeIf { (if (it.live) o.speaking || o.now - wordsAt < 5000 else o.now - it.at < readFor(it.text)) && (if (it.live) it.startedAt else it.at) > o.quietAt } // tapped quiet: put away
+            val reply = a?.takeIf { (if (it.live) o.speaking || o.now - wordsAt < 5000 else o.now - it.at < shownFor(it)) && (if (it.live) it.startedAt else it.at) > o.quietAt } // tapped quiet: put away
             // Making or changing something: what it's doing, then what it did, in the same caption.
             // Making or changing something: a small note that it started, and what it did, each for a few seconds (the face stays green meanwhile).
             val building = o.build?.takeIf { it.done && o.now - it.endedAt < 4000 } // while it works, only the spinner on the note; then what it did
@@ -178,8 +178,13 @@ fun TheirWords(text: String, crossed: Boolean = false) {
 val AssistantCardShape @Composable get() = RoundedCornerShape(22.u)
 
 /** The newest words of a long transcript, so it grows at the end instead of reflowing. */
-/** How long a finished answer stays up: 8 s, longer for a long one (about a word every quarter second), at most 25 s. */
-private fun readFor(t: String): Long = (4000L + t.length * 50L).coerceIn(8000L, 25_000L)
+/**
+ * How long a finished answer stays up. Said aloud: 8 s, longer for a long one (about a word every quarter second), at
+ * most 25 s. Typed: the words on screen are the whole answer (nothing says it; with the live voice on too), and someone
+ * who typed may look up a while later, so at least 20 s and up to a minute; a tap on it puts it away sooner.
+ */
+internal fun shownFor(a: Answer): Long =
+    if (a.voice) (4000L + a.text.length * 50L).coerceIn(8000L, 25_000L) else (8000L + a.text.length * 80L).coerceIn(20_000L, 60_000L)
 
 private fun tail(t: String, max: Int = 90): String {
     if (t.length <= max) return t
@@ -230,6 +235,8 @@ private fun Caption(live: Boolean, heard: Heard?, reply: Answer? = null, build: 
     val bubble = AssistantCardShape
     Row(
         Modifier.widthIn(max = 560.u).shadow(18.u, bubble).clip(bubble).background(Color.White)
+            // a tap on what it said puts it away (as a tap on the listening face does)
+            .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { o.quietAt = System.currentTimeMillis() }
             .padding(horizontal = 26.u, vertical = 18.u),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u),
     ) {
