@@ -1,6 +1,6 @@
 // Apps made on the tablet (rails.js): the model writes only into the one app it started, can't change what an app
-// may reach, and a new app goes in only with a grown-up's yes (the PIN always), with none of the family's things and no
-// websites. A build nobody answers waits (build-waits.js): nothing of it is in, and nothing of it is lost.
+// may reach, and a new app goes in only with a grown-up's yes (the PIN always), with only the family's things and the
+// exact websites its card named. A build nobody answers waits (build-waits.js): nothing of it is in, and nothing of it is lost.
 //   cd bridge && npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -35,13 +35,13 @@ function setup() {
   const waitsWith = (answers, o = {}) => {
     const asked = [];
     const w = buildWaits({ FILE: path.join(APP_DIR, '../waits-' + path.basename(APP_DIR) + '.json'), edits, log: () => {},
-      ask: async (c) => { asked.push(c); return answers.shift() ?? 'later'; }, grant: (c) => pl.madeHere(c.app, { uses: c.uses }), ...o });
+      ask: async (c) => { asked.push(c); return answers.shift() ?? 'later'; }, grant: (c) => pl.madeHere(c.app, { uses: c.uses, reaches: c.reaches }), ...o });
     return Object.assign(w, { asked });
   };
   return { APP_DIR, edits, pl, waitsWith };
 }
 
-test('made on the tablet: only its own app, nothing about what it may reach, and none of the family\'s things', async () => {
+test('made on the tablet: only its own app, and only the family\'s things and exact websites its card granted', async () => {
   const { APP_DIR, edits, pl, waitsWith } = setup();
   const outside = [
     ['write_file', { path: 'apps/chores/main.js', content: 'stolen' }], // another app
@@ -50,7 +50,10 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
     ['write_file', { path: '../../etc/x.js', content: 'x' }],
     ['write_file', { path: 'apps/dino/index.html', content: '<script src="https://evil.example/x.js"></script>' }], // the template's page
     ['write_file', { path: 'apps/dino/game.js', content: 'x' }], // the engine
-    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['evil.example'] }) }],
+    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['*.evil.example'] }) }], // any name under a site
+    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['https://evil.example/x'] }) }],
+    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['192.168.1.1'] }) }], // the home network
+    ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', reaches: ['a.example', 'b.example', 'c.example', 'd.example', 'e.example'] }) }],
     ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino', uses: ['settings'] }) }],
   ];
   const b = rails({
@@ -59,7 +62,7 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
       [['start', { kind: 'game', app: 'dino', name: 'Dino Eggs' }]],
       outside,
       [['write_file', { path: 'apps/dino/main.js', content: 'import { start } from "./game.js";\nstart({ setup() {} });\n' }],
-        ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino Eggs', kit: 1, uses: ['lists'] }) }]],
+        ['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino Eggs', kit: 1, uses: ['lists'], reaches: ['api.weather.gov'] }) }]],
       [['done', { summary: 'A dinosaur catches eggs.' }]],
     ]),
     limited: (id) => pl.limited(id),
@@ -73,22 +76,34 @@ test('made on the tablet: only its own app, nothing about what it may reach, and
   assert.equal(fs.readFileSync(path.join(APP_DIR, 'apps/chores/main.js'), 'utf8'), 'document.body.textContent = "chores";\n');
   assert.ok(!fs.readFileSync(path.join(APP_DIR, 'apps/dino/index.html'), 'utf8').includes('evil'));
   assert.equal(fs.readFileSync(path.join(APP_DIR, 'apps/dino/game.js'), 'utf8'), fs.readFileSync(new URL('../templates/game/game.js', import.meta.url), 'utf8'));
-  // Nothing is granted until a grown-up's yes, on a card that always takes the PIN and says what it may use
-  assert.equal(pl.rightsOf('dino'), null);
+  // Nothing is granted until a grown-up's yes, on a card that always takes the PIN and names the sites it may reach
   const waits = waitsWith(['yes']);
   assert.equal(await waits.decide(owner, r.card), 'yes');
   assert.equal(waits.asked.length, 1); assert.equal(waits.asked[0].pin, true); assert.equal(waits.asked[0].grownup, true);
-  assert.ok(waits.asked[0].rights.some((x) => x.kind === 'offline'));
+  assert.ok(waits.asked[0].rights.some((x) => x.kind === 'web' && x.text.includes('api.weather.gov')));
   edits.finish(owner, true); waits.stop();
   assert.deepEqual([...pl.rightsOf('dino')], ['lists']);
-  assert.deepEqual(pl.reachesOf('dino'), []);
+  assert.deepEqual(pl.reachesOf('dino'), ['api.weather.gov']);
+  assert.deepEqual(pl.frozenOf('dino').reaches, ['api.weather.gov']);
   assert.equal(appAllowed('POST', '/house/event', pl.rightsOf('dino')), false);
   assert.equal(appAllowed('POST', '/house/settings', pl.rightsOf('dino')), false);
   assert.equal(pl.rightsOf('chores'), null); // the household's own app keeps its own rights
   // Its app.json saying otherwise later changes nothing: what it may reach is the plugin registry's, not its own file's
   fs.writeFileSync(path.join(APP_DIR, 'apps/dino/app.json'), JSON.stringify({ name: 'Dino', reaches: ['evil.example'], uses: ['settings', 'events'] }));
-  assert.deepEqual(pl.reachesOf('dino'), []);
+  assert.deepEqual(pl.reachesOf('dino'), ['api.weather.gov']);
   assert.deepEqual([...pl.rightsOf('dino')], ['lists']);
+  // A no on a later change's card grants none of the sites it asked for
+  const later = rails({ APP_DIR, ai: scripted([
+    [['start', { kind: 'change', app: 'dino' }]],
+    [['write_file', { path: 'apps/dino/app.json', content: JSON.stringify({ name: 'Dino Eggs', kit: 1, uses: ['lists'], reaches: ['api.weather.gov', 'evil.example'] }) }]],
+    [['done', { summary: 'Weather eggs.' }]]]), limited: (id) => pl.limited(id) });
+  const o2 = { kind: 'build', who: 'Leo', text: 'more' };
+  assert.ok(await edits.acquire(o2, {}));
+  const r2 = await later.run({ prompt: 'more', owner: o2 });
+  const no = waitsWith(['no']);
+  assert.equal(await no.decide(o2, r2.card), 'no'); no.stop();
+  edits.finish(o2, false);
+  assert.deepEqual(pl.reachesOf('dino'), ['api.weather.gov']);
 });
 
 test('made on the tablet: a no on the card keeps nothing; a change to the household\'s app keeps its rights as they were', async () => {

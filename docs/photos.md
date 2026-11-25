@@ -62,6 +62,10 @@ which photos came from it (never the link). Rules it keeps:
 the album", or "The album isn't shared any more" for a 404), shown in Photo albums and on the album's card. Nothing
 already on the tablet goes because of it.
 
+**Checked when it's added.** Before a link is kept (`PhotoAlbums.check`, from the paste box, a phone, setup's phone,
+the assistant or the computer), the shell asks Apple about it once; a link Apple doesn't share isn't kept or counted,
+and whoever added it is told why. One that has never read (no album here yet) shows in Photos with Remove.
+
 **iOS 27 albums** (new ones, and old ones the owner upgrades) have a different link, "Anyone with the Link":
 `https://photos.icloud.com/shared/album/<key>` (25 characters, letters, digits, `_`, `-`). The old endpoints answer
 404 for it; Apple's own page (photos.icloud.com, "photos3") reads it through **CloudKit**, without signing in, and so

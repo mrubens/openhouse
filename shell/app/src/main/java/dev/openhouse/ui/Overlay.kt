@@ -73,7 +73,7 @@ fun ShellOverlay() {
             val newWords = a?.let { it.status + "|" + it.text.length / 40 }
             var wordsAt by remember { mutableStateOf(0L) }
             LaunchedEffect(newWords) { wordsAt = System.currentTimeMillis() }
-            val reply = a?.takeIf { (if (it.live) o.speaking || o.now - wordsAt < 5000 else o.now - it.at < readFor(it.text)) && (if (it.live) it.startedAt else it.at) > o.quietAt } // tapped quiet: put away
+            val reply = a?.takeIf { (if (it.live) o.speaking || o.now - wordsAt < 5000 else o.now - it.at < shownFor(it)) && (if (it.live) it.startedAt else it.at) > o.quietAt } // tapped quiet: put away
             // Making or changing something: what it's doing, then what it did, in the same caption.
             // Making or changing something: a small note that it started, and what it did, each for a few seconds (the face stays green meanwhile).
             val building = o.build?.takeIf { it.done && o.now - it.endedAt < 4000 } // while it works, only the spinner on the note; then what it did
@@ -118,6 +118,9 @@ fun ShellOverlay() {
             AnimatedVisibility(engaged || dev.openhouse.shell.assistantEngaged(o.now), Modifier.align(Alignment.BottomCenter).padding(bottom = 10.u), enter = fadeIn(), exit = fadeOut()) {
                 MicButton(engaged)
             }
+            // An app being made: a quiet chip in the corner, not the face (it's at rest; the tablet says when it's ready).
+            if (!o.dark && !o.sleeping && !o.showConversation && o.typing == null)
+                BuildChip(Modifier.align(Alignment.BottomEnd).padding(end = 24.u, bottom = 24.u))
             // Typing: a tap anywhere outside the box puts it away (so does a tap on the assistant).
             if (o.typing != null) Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { o.closeTyping() })
             AnimatedVisibility(o.typing != null, Modifier.align(Alignment.BottomCenter).padding(horizontal = 260.u), enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut() + slideOutVertically { it / 2 }) {
@@ -178,8 +181,13 @@ fun TheirWords(text: String, crossed: Boolean = false) {
 val AssistantCardShape @Composable get() = RoundedCornerShape(22.u)
 
 /** The newest words of a long transcript, so it grows at the end instead of reflowing. */
-/** How long a finished answer stays up: 8 s, longer for a long one (about a word every quarter second), at most 25 s. */
-private fun readFor(t: String): Long = (4000L + t.length * 50L).coerceIn(8000L, 25_000L)
+/**
+ * How long a finished answer stays up. Said aloud: 8 s, longer for a long one (about a word every quarter second), at
+ * most 25 s. Typed: the words on screen are the whole answer (nothing says it; with the live voice on too), and someone
+ * who typed may look up a while later, so at least 20 s and up to a minute; a tap on it puts it away sooner.
+ */
+internal fun shownFor(a: Answer): Long =
+    if (a.voice) (4000L + a.text.length * 50L).coerceIn(8000L, 25_000L) else (8000L + a.text.length * 80L).coerceIn(20_000L, 60_000L)
 
 private fun tail(t: String, max: Int = 90): String {
     if (t.length <= max) return t
@@ -230,6 +238,8 @@ private fun Caption(live: Boolean, heard: Heard?, reply: Answer? = null, build: 
     val bubble = AssistantCardShape
     Row(
         Modifier.widthIn(max = 560.u).shadow(18.u, bubble).clip(bubble).background(Color.White)
+            // a tap on what it said puts it away (as a tap on the listening face does)
+            .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { o.quietAt = System.currentTimeMillis() }
             .padding(horizontal = 26.u, vertical = 18.u),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u),
     ) {
@@ -310,6 +320,32 @@ private fun MicButton(on: Boolean, dark: Boolean = false, onTap: () -> Unit) {
             drawArc(ink, 0f, 180f, false, topLeft = androidx.compose.ui.geometry.Offset(w * .18f, h * .22f), size = androidx.compose.ui.geometry.Size(w * .64f, h * .56f),
                 style = androidx.compose.ui.graphics.drawscope.Stroke(stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round))
             drawLine(ink, androidx.compose.ui.geometry.Offset(w * .5f, h * .78f), androidx.compose.ui.geometry.Offset(w * .5f, h * .95f), stroke, androidx.compose.ui.graphics.StrokeCap.Round)
+        }
+    }
+}
+
+/**
+ * An app being made or changed (the builder: make_app, a typed request, the Apps sheet), and what waits after it: a
+ * quiet chip on the home screen and over apps (Buddy.kt), not the assistant's face, which has gone back to rest. Its
+ * line fills slowly with the time a build usually takes. A tap opens what's being made (or what's in flight).
+ */
+@Composable
+fun BuildChip(modifier: Modifier = Modifier) {
+    val o = Openhouse
+    val b = o.build?.takeIf { !it.done } ?: return
+    val name = b.app?.let { id -> o.apps.firstOrNull { it.id == id }?.name ?: id.replace('-', ' ').replaceFirstChar { it.uppercase() } }
+    val then = o.buildQueue.firstOrNull()
+    val shape = RoundedCornerShape(18.u)
+    val part = ((o.now - b.startedAt) / 90_000f).coerceIn(0.04f, 0.92f) // most builds take a minute or two
+    val shown by animateFloatAsState(part, label = "made")
+    Column(modifier.widthIn(min = 260.u, max = 420.u).shadow(10.u, shape).clip(shape).background(Color.White)
+        .clickable { if (b.app != null && o.openAppId != b.app) o.openApp(b.app) else o.showJobs = true }
+        .padding(start = 20.u, end = 20.u, top = 12.u, bottom = 12.u), verticalArrangement = Arrangement.spacedBy(6.u)) {
+        Text(if (name != null) "Making $name…" else "Making it…", style = quietText(17, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(listOfNotNull(b.live ?: b.stage, then?.let { "then: $it" + if (o.buildQueue.size > 1) " and ${o.buildQueue.size - 1} more" else "" }).joinToString(" · "),
+            style = quietText(14, color = PaperLook.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Box(Modifier.fillMaxWidth().height(3.u).clip(RoundedCornerShape(2.u)).background(PaperLook.ink.copy(alpha = .08f))) {
+            Box(Modifier.fillMaxWidth(shown).fillMaxHeight().background(PaperLook.ink.copy(alpha = .45f)))
         }
     }
 }

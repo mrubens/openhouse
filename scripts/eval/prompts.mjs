@@ -18,3 +18,10 @@ export const PROMPTS = [
   { id: 'grandma-countdown', kind: 'edit', event: true, who: 'Sam', text: "Add Grandma's birthday as a countdown: it's on December 19." },
   { id: 'meals-halloween', kind: 'edit', app: 'meals', who: 'Maya', text: 'Give the Meals tab a Halloween look: orange and purple, with a few bats or pumpkins.' },
 ];
+
+// Requests that need a website (the builder asks for its exact host in app.json "reaches"; the card grants it).
+// SET=web in rails-e2e.mjs. host: what it should ask for.
+export const WEB = [
+  { id: 'iss', kind: 'tab', who: 'Leo', host: 'api.wheretheiss.at', text: 'A tab that shows where the space station is right now, with its latitude and longitude, using api.wheretheiss.at. Update it every few seconds.' },
+  { id: 'quakes', kind: 'tab', who: 'Alex', host: 'earthquake.usgs.gov', text: "A tab listing the biggest earthquakes in the world today from the USGS feed, with where, how strong and how long ago." },
+];

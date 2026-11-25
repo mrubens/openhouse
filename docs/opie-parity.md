@@ -48,7 +48,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Lists card: tick, untick, add | yes | change_list |
 | An app's day notes: week, today only, off | **new** | calendar_event settings.app_notes |
 | Sleep now (the moon) | **new** | tablet_screen sleep |
-| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and a grown-up says yes on the tablet's card, with the PIN, before it goes in (docs/building-on-the-tablet.md) |
+| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and a grown-up says yes on the tablet's card, with the PIN, before it goes in; the card also names any exact websites the app asked to reach (docs/building-on-the-tablet.md) |
 | Home: "… is waiting for a grown-up" (an app made on the tablet nobody said yes to yet): its card again | **new** | ask_grownup_again puts the card back up; only a person answers it, with the PIN |
 
 ## The built-in apps
@@ -85,6 +85,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Row | Opie | Notes |
 | --- | --- | --- |
 | Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN; then it chooses there |
+| "Turn on Opie?", asked once when a linked household's voice becomes available and nobody here had said yes | no, on purpose | personOnly: it's the yes to what goes to OpenAI (and the voice is off then, so there's no Opie to ask) |
+| The first setup's last step, Choose a PIN | no, on purpose | As PIN Lock: Opie can't choose or see a PIN; it's told the step is showing and never to ask for a PIN aloud |
 | Family: who, ages or roles, colours, where, chores | **new** | update_household (was typed-only). Leaving someone out of the list is refused unless they're named in taking_off |
 | Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the row, the tablet asks for the PIN, Opie carries on there; adding one by link is add_calendar |
 | What Opie remembers | yes | remember_preference, forget_preference |

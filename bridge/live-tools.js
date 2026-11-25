@@ -67,7 +67,10 @@ export const wakeNote = (name) => `\n\n---\n\nThis conversation opened because t
   `people talking to each other, someone on a call, a TV or music, and what you hear can be written as "Hey ${name}" when it was other words. ` +
   'Before you say anything, decide from what you hear whether someone is asking you something. Answer only a clear, finished request to you, ' +
   `or "Hey ${name}" on its own (then just "Yes?"). Anything else (other talk, a sentence cut off or that sounds said to a person, the TV, nothing) is not for you: ` +
-  'call go_away and say nothing at all, not even "Okay". When in doubt, stay silent: being quiet when wanted costs little, talking when not wanted bothers people.';
+  'call go_away and say nothing at all, not even "Okay". When in doubt, stay silent: being quiet when wanted costs little, talking when not wanted bothers people.\n' +
+  'What you get is a transcript of speech, and it is often misheard ("you put all that" for "can you put a"): read it generously, for what they most likely said. ' +
+  'If the voice has already answered them (said it is on it, or anything back), it heard them speak to it: never call go_away then. Do what they most likely asked, ' +
+  'or if you truly can\'t tell what, ask in a few words.';
 export const livePreamble = (name, builds = false) => `You are ${name}, the voice of a family's kitchen tablet. You talk with the family out loud, so keep it short, warm and plain: ` +
   'one or two sentences, no lists or markdown. Use your tools for anything about the family (their calendar, lists, chores and stars, meals, notes, the weather) ' +
   'and never guess those. If you can\'t do something or don\'t know, say so plainly in a sentence; never answer a different question instead. Nobody\'s voice is recognised here, so "me" or "my name" doesn\'t say who is talking: if it matters, ask once who they are; once they\'ve said, use it and never ask again. ' +
@@ -77,7 +80,7 @@ export const livePreamble = (name, builds = false) => `You are ${name}, the voic
   (builds ? 'which is make_app (the tablet makes it, and a grown-up says yes there); ' : 'which isn\'t yours to do (someone does that from their computer); ') + 'the home screen\'s tabs and look are set_home.\n\n---\n\n';
 
 /** Making or changing an app on the tablet itself (rails.js, through the builder), when the household has it on. */
-export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or game, or change one of the household\'s apps ("make the text on Chores bigger"), on the tablet itself: it takes a minute or two, the screen shows it working, and a grown-up says yes on the tablet before it goes in. what: what they asked for, in their words, with what you know (who it\'s for, what it should do). Only an app\'s code: the family\'s things (lists, events, a countdown on the calendar, chores) and the tabs and look have their own tools.',
+export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or game, or change one of the household\'s apps ("make the text on Chores bigger"), on the tablet itself: it takes a minute or two, the screen shows it working, and a grown-up says yes on the tablet before it goes in. what: what they asked for, in their words, with what you know (who it\'s for, what it should do). Each change they ask for is its own call, also while one is still being made (it waits its turn): never say you\'ve asked for something without calling this for it. Only an app\'s code: the family\'s things (lists, events, a countdown on the calendar, chores) and the tabs and look have their own tools.',
   inputSchema: { type: 'object', properties: { what: { type: 'string' } }, required: ['what'] } };
 
 /** An app made on the tablet waiting for a grown-up's yes (build-waits.js): its card up again, as a tap on Home's line. */
@@ -161,6 +164,7 @@ export const SETUP_STEPS = {
   people: 'Who lives here. Save names (and, for children, ages; pets count too) with update_household as you hear them, passing everyone so far each time. Don\'t assume there are children.',
   place: 'Where they live. The screen may show a guess at their street address (below). They can say it\'s right, correct it, or give just a town or zip code (any is fine; a street address helps with directions). Save a street address with update_household {home_address}, a town or zip with {location}.',
   devices: 'Carrying on from their phone or computer: they scan the code on the screen, or type it on a computer. Calendars, photos and inviting the family are done there. Help only if asked.',
+  pin: 'The last step: a PIN for settings and approvals, which they can skip. A person types it on the tablet\'s keypad; never ask anyone to say a PIN aloud (you never see or hear it). Help only if asked.',
 };
 const SETUP_TOOL = { name: 'update_household', description: 'Save who lives here and where. family replaces the whole list, so pass everyone so far; location is a town or zip code. Only what they said.',
   inputSchema: { type: 'object', properties: { family: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, note: { type: 'string', description: 'an age for a child, or a role: "9", "Mom", "the dog"' } } } }, location: { type: 'string', description: 'a town or a zip code' }, home_address: { type: 'string', description: 'their street address, as they said it' } } } };
@@ -197,7 +201,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const inSetup = () => setupStep && household && Date.now() - setupAt < 30 * 60e3;
   // Voice actions the apps declare (plugins.js voiceTools/callVoice), set once the plugins are up: data only, each one
   // done by its app's own page.
-  let builds = null; // (text) => {ok, busy}: the builder (builder.js request), when apps are made on the tablet
+  let builds = null; // (text, who, {phone}) => {ok, queued?, busy?}: the builder (builder.js request), when apps are made on the tablet
   let waits = null; // the apps made here waiting for a grown-up's yes (build-waits.js): waiting(), open(id)
   const waitTools = () => { try { const w = waits?.waiting() || []; return w.length ? [{ ...ASK_AGAIN_TOOL, description: ASK_AGAIN_TOOL.description + ` Waiting now: ${w.map((x) => x.name).join(', ')}.` }] : []; } catch { return []; } };
   let extra = null, tvDevices = null, device = null, screen = null, phones = null; // screen: {places(), show(id)} (server.js); phones: screens.js phones(), message()
@@ -286,9 +290,11 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       return { text: `${one.name}'s card is up on the tablet. Tell them a grown-up says yes there with the PIN (or no); it isn't yours to answer.`, isError: false };
     }
     if (name === MAKE_APP_TOOL.name && builds) {
-      const r = await builds(String(args?.what || ''), ctx.phone?.person || null).catch(() => ({ ok: false }));
-      return r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them it opens on the tablet when it\'s ready, and a grown-up says yes there.', isError: false }
-        : { text: r.busy ? 'The tablet is still making the last thing: tell them to ask again when it\'s done.' : 'Making apps on the tablet isn\'t on: someone does it from their computer (Settings, then Screens and computers).', isError: true };
+      const r = await builds(String(args?.what || ''), ctx.phone?.person || null, { phone: !!ctx.phone }).catch(() => ({ ok: false }));
+      // Said once, then the conversation ends as usual: the tablet shows it being made and says when it's ready.
+      return r.queued ? { text: `Queued: the tablet makes it right after what it's making now${r.queued > 1 ? ` (${r.queued - 1} more before it)` : ''}. Tell them in one short sentence that it's next and the tablet will say when it's ready; don't wait for it.`, isError: false }
+        : r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them in one short sentence that you\'re making it and the tablet will say when it\'s ready for a grown-up\'s yes; don\'t wait for it.', isError: false }
+        : { text: r.busy ? 'The tablet already has a few things waiting to be made: tell them to ask again once those are done.' : 'Making apps on the tablet isn\'t on: someone does it from their computer (Settings, then Screens and computers).', isError: true };
     }
     if (name === SETUP_TOOL.name && inSetup()) {
       const b = {}; if (Array.isArray(args?.family)) b.family = args.family; if (typeof args?.location === 'string') b.location = args.location;

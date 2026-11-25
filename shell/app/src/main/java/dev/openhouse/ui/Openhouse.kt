@@ -166,6 +166,8 @@ object Openhouse : AnswerActions {
     }
     /** The agent at work (or just finished), or null. */
     var build by mutableStateOf<Build?>(null); internal set
+    /** What's asked to be made after it, in turn (bridge builder.js: a request made while one is being made). */
+    var buildQueue by mutableStateOf(listOf<String>()); internal set
     /** The conversation screen: open, its conversation, and the list of earlier ones. */
     var showConversation by mutableStateOf(false); private set
     var conversation by mutableStateOf<Conversation?>(null); internal set

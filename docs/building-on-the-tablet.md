@@ -14,9 +14,23 @@ tablet before anything goes in. Bigger or open-ended work stays with someone's o
 - **Voice**: Opie's `make_app` tool (`bridge/live-tools.js`), with what was asked in their words.
 - **The shell**: as before, `POST /request {text, app}` (the open app, so "make this bigger" means it).
 
+Where people find it: the Apps tab's "Make an app" tile and the Add apps sheet's "Make your own" panel (both open the
+typing box with "Make " typed and an example in the household's names, `PluginsMenu.makeApp`), and the phone setup's
+last step. Each leads with asking Opie and keeps the computer's connector (cloud.opie.house/mcp) for bigger work.
+
 All three reach the builder (`bridge/builder.js`), which takes the edit lock, shows the work on the tablet (the
 shell's build line, and the app opens as it's written), commits one change that undo takes back, and puts everything
 back when a run fails or is cancelled. The builder's agent is `agents/cloud.js run`, which is `bridge/rails.js`.
+
+One build runs at a time. A request made while one is being made ("and make the unclear block say Library") waits
+its turn and runs right after it, as its own change with its own card, told what was being made so it lands in the
+same app. Up to three wait; `/cancel` clears them with the run. Opie calls `make_app` once for each change asked for.
+
+Asked aloud, Opie says once that it's making it and that the tablet will say when it's ready, and the conversation
+ends as usual. While it works, a quiet chip in the bottom corner, on the home screen and over apps, says what's
+being made ("Making Reading Streak…"), what it's doing, and what waits after it ("then: …"). Its line fills with
+the time a build usually takes, and a tap opens what's being made (`BuildChip`, `Overlay.kt` and `Buddy.kt`). When
+it's ready for the card, the tablet says so (`rails.js say`). If the build doesn't work, the tablet says why.
 
 ## The rails (`bridge/rails.js`)
 
@@ -29,7 +43,10 @@ back when a run fails or is cancelled. The builder's agent is `agents/cloud.js r
    platforms, hit tests, touch buttons that hold, keys, particles, beeps, a Play again card), and writes only
    `main.js` on top of it.
 3. **Its own files only.** Writes go into the started app's folder, flat, `.js .css .html .json .svg`, 200 KB each, a
-   dozen files. A change can't touch what an app may do in `app.json` (`uses`, `reaches`, `background`, `screens`…).
+   dozen files. A change can't touch what an app may do in `app.json` (`uses`, `reaches`, `background`, `screens`…),
+   except that an app made here may *ask*: groups of the family's things in `uses`, and up to four exact websites in
+   `reaches` (`"api.weather.gov"`: no `https://`, path, port or `*.`), which it reads with the kit's `web.get` /
+   `web.json`. Asking grants nothing; the card does.
 4. **Checked before it's done.** `check_build` and `done` run the workshop's file checks (`bridge/app-check.js`: every
    script parses, what `index.html` loads is there), what the page threw on the tablet, and slips that load fine (a
    regex with a doubled backslash, which the eval found in an edit that read as done). With Device control on
@@ -51,7 +68,7 @@ written: the templates' `index.html` asks the kit (`beingMade`, the bridge's sta
 
 The card ("Put Dino Eggs in Apps?") says what the app is in one plain line (the builder's `done` summary, "Dino Eggs:
 catch the falling eggs before they crack", never the reviewer's notes about a fix), who asked and what they said, and
-what it may use. Its yes always takes the PIN, whether or not the lock is on: a child can't put an app in. A tablet
+what it may use and which websites it may reach. Asked aloud, the tablet says when the card is up. Its yes always takes the PIN, whether or not the lock is on: a child can't put an app in. A tablet
 with no PIN yet asks whoever is there to choose one on the card (the PIN, then its recovery code), and comes back to it.
 
 - **No** ("Don't put it in") puts everything back.
@@ -61,8 +78,8 @@ with no PIN yet asks whoever is there to choose one on the card (the PIN, then i
   closed (the `gone` event). Home shows "Dino Eggs is waiting for a grown-up" first among its things; a tap there (or
   Opie's `ask_grownup_again`) puts the change back in, opens the app behind the card and asks again.
 - One nobody answers for a day is put back for good, with a line on Home saying so.
-- The bridge asks, and only the card's answer counts: `POST /build/open` only puts the card up again. With no shell at
-  all to ask (a laptop running the bridge) it goes in as before.
+- The bridge asks, and only the card's answer counts: `POST /build/open` only puts the card up again. With no screen
+  to ask (a hub, or a bridge on a laptop) nothing goes in and nothing is granted.
 
 ## What an app made here may do
 
@@ -71,7 +88,9 @@ A new app made on the tablet is the household's own plugin, but limited like one
 
 - **None of the family's things** unless its `app.json` asked for some in `uses` and the card showed it. The card's
   yes grants exactly those, and nothing else later: the registry decides, not the app's own file.
-- **No websites**, whatever its `app.json` says (`reachesOf` is empty).
+- **Only the websites the card named.** The yes grants exactly the hosts the card showed, through the bridge
+  (`app-web.js`: https GETs, never the home network). A later change may ask for more, on a new card; its `app.json`
+  saying more on its own changes nothing (`reachesOf` reads the registry).
 - **Its own origin** (`<id>.localhost`), like any app from a link, so its key works only from there.
 - Its own saved things (`store`), the house's basics, and errors reported: the basics every app has.
 
@@ -79,10 +98,10 @@ A change to one of OpenHouse's apps or the household's own keeps that app's righ
 widen them (point 3 above).
 
 `bridge/test/rails.test.mjs` checks this: writes outside the app, out by `..`, into folders, over the template's page
-or the engine, and `reaches` or `uses` it can't have are all refused. The new app gets only what the card granted
-and no websites, even if its `app.json` later says otherwise. A no on the card keeps nothing, and a change to the
-household's app leaves its rights alone. The card always asks for the PIN; one nobody answers is in nowhere and
-granted nothing, a later yes puts it in with only what the card said, and a no or a day puts it back.
+or the engine, and `uses` or `reaches` it can't have (a `*.` name, a URL, an address, too many) are all refused.
+The new app gets only the things and websites the card granted, even if its `app.json` later says otherwise. A no
+on the card keeps nothing (nor the websites a later change asked for), and a change to the household's app can't add
+any to it.
 
 ## Cost and limits
 

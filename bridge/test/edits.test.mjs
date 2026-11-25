@@ -243,6 +243,15 @@ test('a cancelled build puts back only its own work and never resets history', a
   assert.equal(r.done.ok, true); assert.match(b.commits().at(-1).msg, /^Kid: after the build/);
 });
 
+test('a build asked for while one is being made waits its turn, and both go in', async () => {
+  assert.equal((await b.post('/request', { text: 'first queued build', who: 'Mom' })).status, 202);
+  const second = await b.post('/request', { text: 'second queued build', who: 'Mom' });
+  assert.equal(second.status, 202); assert.equal(second.body.queued, 1);
+  const both = () => /first queued build[\s\S]*second queued build/.test(b.read('src/theme.css') || '');
+  for (let i = 0; i < 50 && !(both() && b.clean()); i++) await wait(200);
+  assert.ok(both(), 'the second ran after the first'); assert.ok(b.clean());
+});
+
 async function homeIsolation(br) {
   const mom = br.chat('recipe [wait:300] [note:Mom note] [progress:Mom working] [wait:400]', 'Mom');
   await wait(100);

@@ -4,7 +4,8 @@
 // says a computer makes apps (workshop.js). A stand-in agent (AGENT=fake) runs here too, which is how the edit lock is
 // tested. check_build and the apps' errors (/apperror) are for everyone.
 //
-// POST /request {text, who?, app?, crash?, context?}  start a run; app = the app open on screen
+// POST /request {text, who?, app?, crash?, context?}  start a run (or queue it behind the one running); app = the app
+//                              open on screen
 // POST /cancel                 stop the run and put back what it changed
 // POST /apperror {app, text}   an app's page threw (the shell's web view, or the kit); its next check sees it. From an
 //                              app's own key, app is always the caller (server.js appCall), whatever the body says
@@ -19,8 +20,9 @@ import path from 'node:path';
 import { dayKey } from './dates.js';
 import { buildWaits } from './build-waits.js';
 
-/** ask(card): the tablet's card (server.js shellAsk); grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home. */
-export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, line = () => {}, changed = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
+/** ask(card): the tablet's card (server.js shellAsk); grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home;
+ *  say(text): said aloud on the tablet (a request asked aloud hears that it's ready for the card). */
+export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, line = () => {}, changed = () => {}, say = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
   const waits = buildWaits({ FILE: WAITS_FILE, edits, ask: (c) => ask(c), grant: (c) => grant(c), line: (t) => line(t), changed: () => changed(), emit,
     landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} } });
@@ -120,10 +122,33 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
   }
 
   let run = null; // the builder's lock owner while it works
+  // Requests asked while one is being made ("and make the unclear block say Library"): each runs in turn, after it, so
+  // nothing asked is dropped. A few at most; /cancel clears them with the run.
+  const waiting = [], MAX_WAITING = 3;
+  /** Run text now, or after the ones before it: { ok, queued? } or { busy } when too many wait. */
+  function enqueue(text, who, ctx) {
+    if (events.state.state !== 'working' && !waiting.length) { begin(text, who, ctx); return { ok: true }; }
+    if (waiting.length >= MAX_WAITING) return { ok: false, busy: true };
+    // What's being made now is likely what this one is about (it was asked while watching it being made)
+    const now = events.state.request;
+    const note = now ? `This was asked while the tablet was making: "${String(now).slice(0, 300)}". If that made or changed an app, this is most likely a change to that same app, as it is now.` : '';
+    waiting.push({ text, who, ctx: { ...ctx, context: [ctx.context, note].filter(Boolean).join('\n\n') || null } });
+    queued();
+    return { ok: true, queued: waiting.length };
+  }
+  function begin(text, who, ctx) {
+    startRun(text, who, ctx).catch((e) => {
+      console.error(e);
+      emit({ type: 'done', ok: false, text: e.message });
+      setState({ state: 'idle', request: null, base: null });
+    }).finally(() => { const w = events.state.state !== 'working' && waiting.shift(); if (w) { queued(); setImmediate(() => begin(w.text, w.who, w.ctx)); } });
+  }
+  /** What waits, for the screens' "then: …" (the shell's build chip). */
+  const queued = () => emit({ type: 'queue', waiting: waiting.map((w) => w.text) });
   async function startRun(text, who, ctx = {}) {
     if (events.state.state === 'working') throw new Error('busy');
     abort = new AbortController();
-    const owner = run = { id: 'build', kind: 'build', who, text, abort };
+    const owner = run = { id: 'build', kind: 'build', who, text, abort, spoken: !!ctx.spoken };
     const startedAt = Date.now();
     emit({ type: 'ack', text, who });
     setState({ state: 'working', request: text, who, base: null, startedAt });
@@ -247,6 +272,8 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       const card = result.card;
       touchedApps.add(card.app); // (closed on screen if it's put back or set aside: closeGone)
       emit({ type: 'phase', name: 'asking' });
+      // Asked aloud: the voice may have gone quiet by now, so the tablet says the card is up.
+      if (owner.spoken) { try { say(card.fresh ? `${card.name} is ready. A grown-up can put it in on the tablet.` : `The change to ${card.name} is ready. A grown-up can put it in on the tablet.`); } catch {} }
       const a = await waits.decide(owner, card);
       if (events.state.state !== 'working' || owner.abort.signal.aborted) return false; // cancelled while the card was up
       if (a === 'no') {
@@ -295,17 +322,12 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     if (n === 'none' || n === 'off') return false;
     return n !== 'cloud' || (await import('./agents/cloud.js')).buildsHere();
   }
-  /** Start making or changing an app from the bridge itself (the typed assistant's route, the voice's make_app): { ok } or { busy }. */
+  /** Start making or changing an app from the bridge itself (the typed assistant's route, the voice's make_app): { ok },
+   *  { ok, queued: n } when it waits behind the one being made, or { busy } when too many already wait. */
   async function request(text, who = null, ctx = {}) {
     text = String(text || '').trim();
     if (!text || !(await buildsHere())) return { ok: false };
-    if (events.state.state === 'working') return { ok: false, busy: true };
-    startRun(text, who, { app: requestApp(ctx.app), ...ctx }).catch((e) => {
-      console.error(e);
-      emit({ type: 'done', ok: false, text: e.message });
-      setState({ state: 'idle', request: null, base: null });
-    });
-    return { ok: true };
+    return enqueue(text, who, { ...ctx, app: requestApp(ctx.app) });
   }
 
   async function handle(req, res, url, b) {
@@ -318,13 +340,8 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
           emit({ type: 'done', spoken: !!b.spoken, ok: false, text: NEEDS_COMPUTER, ms: 0 });
           return json(res, 202, { ok: true });
         }
-        if (events.state.state === 'working') return json(res, 409, { error: 'busy' });
-        startRun(text, b.who ? String(b.who) : null, { app: requestApp(b.app), crash: b.crash ? String(b.crash) : null, context: b.context ? String(b.context) : null, spoken: !!b.spoken }).catch((e) => {
-          console.error(e);
-          emit({ type: 'done', ok: false, text: e.message });
-          setState({ state: 'idle', request: null, base: null });
-        });
-        return json(res, 202, { ok: true });
+        const r = enqueue(text, b.who ? String(b.who) : null, { app: requestApp(b.app), crash: b.crash ? String(b.crash) : null, context: b.context ? String(b.context) : null, spoken: !!b.spoken });
+        return r.busy ? json(res, 409, { error: 'busy' }) : json(res, 202, r);
       }
       case '/apperror': { // the display (the shell's web view) names the app; an app's own key reports only its own (server.js appCall)
         const ok = appError(b.app, b.text);
@@ -339,6 +356,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       }
       case '/cancel': {
         if (events.state.state !== 'working') return json(res, 409, { error: 'not running' });
+        waiting.length = 0; queued(); // (what was waiting for it goes too)
         abort?.abort();
         if (run) edits.discard(run); // now, so it's back at once (again when the agent has stopped)
         emit({ type: 'done', ok: false, text: 'Cancelled' });

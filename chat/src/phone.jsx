@@ -11,7 +11,7 @@ import { Talk, canTalk } from './talk.jsx';
 import { pairingFromCode } from './scrypt.js';
 import { AppFrame, AppIcon, usePhoneApps, phoneTabs, appBundle } from './phone-apps.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
-import { Today as TabletToday, lookVars } from './home.jsx';
+import { Today as TabletToday, lookVars, makeExample } from './home.jsx';
 import { paletteOf, worldOf } from './look.js';
 
 // Served by Opie's cloud (https, installable, notes by push): everything goes through the relay, and the
@@ -293,7 +293,7 @@ function SetupFlow({ me, c, h, onDone }) {
       {steps[i] === 'calendars' && <AddLink c={c} kind="calendar" family={h.house?.family || []} />}
       {steps[i] === 'photos' && <AddLink c={c} kind="album" />}
       {steps[i] === 'invite' && <Invite c={c} family={family} />}
-      {steps[i] === 'apps' && <Apps computer={computer} />}
+      {steps[i] === 'apps' && <Apps computer={computer} family={h.house?.family || []} />}
       <div className="setuprow">
         {i > 0 && <button className="quiet" onClick={() => setI(i - 1)}>Back</button>}
         <span className="grow" />
@@ -322,7 +322,8 @@ function AddLink({ c, kind, family = [] }) {
     <p>{how.help}</p>
     <input value={link} onChange={(e) => { setLink(e.target.value); setState(null); }} placeholder={how.hint} inputMode="url" autoCapitalize="off" autoComplete="off" />
     {kind === 'calendar' && family.length > 0 && <div className="chips">{family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || ''))).map((f) => <button key={f.name} className={'chip' + (who === f.name ? ' on' : '')} onClick={() => setWho(who === f.name ? '' : f.name)}>{f.name}</button>)}</div>}
-    <button className="go" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>Add</button>
+    {/* The tablet reads the link once before keeping it: "Added" only when it read, else what went wrong. */}
+    <button className="go" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>{state === 'sending' ? (kind === 'album' ? 'Looking at it…' : 'Reading it…') : 'Add'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}
     {added.map((a, k) => <p key={k} className="soft">Added: {a}</p>)}
   </>;
@@ -353,11 +354,12 @@ function Invite({ c, family }) {
     {link && <><p className="soft">Send {link.who} this link:</p><input readOnly value={link.url} onFocus={(e) => e.target.select()} /></>}
   </>;
 }
-function Apps({ computer }) {
+/** Setup's last step: asking Opie is the way to a new app; a computer's Claude or ChatGPT is for bigger work. */
+function Apps({ computer, family }) {
   return <>
     <h1>Make your own apps</h1>
-    <p>Connect Claude or ChatGPT{computer ? ' on this computer' : ' on your computer'}, then ask it for a game, a tracker or a new tab.</p>
-    <a className="go" href="https://opie.house" target="_blank" rel="noreferrer">How to connect</a>
+    <p>Ask Opie for one at the tablet, out loud or typed: “{makeExample(family)}”, or “Make a chore chart with stars for the week”. Opie builds it there, and it goes in Apps once a grown-up says yes.</p>
+    <p className="soft">For bigger work, connect Claude or ChatGPT{computer ? ' on this computer' : ' on a computer'}: add the connector cloud.opie.house/mcp, then ask it for a game, a tracker or a new tab.</p>
   </>;
 }
 

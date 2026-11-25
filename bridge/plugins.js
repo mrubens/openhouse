@@ -32,6 +32,8 @@ const ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(:\d{1,5})?$/;
 /** A host an app may reach: "api.example.com", or "*.example.com" for any name under example.com (app-web.js reachMatches). */
 export const reachOk = (h) => HOST.test(String(h).replace(/^\*\./, ''));
+/** The most websites an app made on the tablet may be granted (madeHere). */
+export const MAX_REACH = 4;
 const FILE = /^[\w][\w.-]{0,80}\.(html|js|mjs|css|json|svg|png|jpg|jpeg|webp|gif|mp3|ogg|wav|m4a|woff2|ttf|txt|md)$/i;
 const TEXT = /\.(html|js|mjs|css|json|svg|txt|md)$/i;
 const MAX_BYTES = 5e6, MAX_FILES = 200, MAX_FILE = 2e6;
@@ -645,7 +647,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   /** What a shared app's card fixed of its app.json: {background, screens, tablet, reaches}; null for ours and the household's. */
   function frozenOf(app) {
     const o = ownerOf(app);
-    if (o?.e.kind === 'local' && o.e.apps[app]?.limited) return { background: false, screens: undefined, tablet: false, reaches: [] }; // made on the tablet: none of it
+    if (o?.e.kind === 'local' && o.e.apps[app]?.limited) return { background: false, screens: undefined, tablet: false, reaches: reachesOf(app) }; // made on the tablet: only the sites its card granted
     if (o?.e.kind !== 'shared') return null;
     const a = o.e.apps[app] || {};
     return { background: a.background === true, screens: a.screens?.length ? a.screens : undefined, tablet: a.tablet === true, reaches: reachesOf(app) };
@@ -655,23 +657,24 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
    *  household's, from its app.json "reaches". */
   function reachesOf(app) {
     const o = ownerOf(app);
-    if (o?.e.kind === 'local' && o.e.apps[app]?.limited) return []; // made on the tablet: no websites, whatever its app.json says
-    const raw = o?.e.kind === 'shared' ? [...(o.e.apps[app]?.reaches || []), ...(o.e.apps[app]?.chosen || []).map((c) => c.host)] : appMeta(path.join(appsDir, app)).reaches;
+    const raw = o?.e.kind === 'local' && o.e.apps[app]?.limited ? o.e.apps[app].reaches || [] // made on the tablet: only what its card granted, whatever its app.json says
+      : o?.e.kind === 'shared' ? [...(o.e.apps[app]?.reaches || []), ...(o.e.apps[app]?.chosen || []).map((c) => c.host)] : appMeta(path.join(appsDir, app)).reaches;
     return (list(raw) || []).filter((h) => typeof h === 'string').map((h) => h.toLowerCase()).filter(reachOk).slice(0, 14);
   }
 
   /**
    * An app made on the tablet (rails.js), marked before its change is committed, in the same commit (undo takes both):
-   * the household's own, but with the rights of one from a link that was granted only [uses] (none by default), no
-   * websites, and its own origin. A change to an app that already has its own rights (ours, the household's) leaves
-   * them as they were; one to a limited app adds [uses] to what it had. Returns whether the app is limited now.
+   * the household's own, but with the rights of one from a link that was granted only [uses] and [reaches] (none by
+   * default: exact hosts, no "*."), and its own origin. A change to an app that already has its own rights (ours, the
+   * household's) leaves them as they were; one to a limited app adds to what it had. Returns whether the app is limited now.
    */
-  function madeHere(id, { uses = [] } = {}) {
+  function madeHere(id, { uses = [], reaches = [] } = {}) {
     if (!ID.test(id) || id === 'home' || !migrated()) return false;
     const all = readAll(), o = ownerOf(id, all), granted = (Array.isArray(uses) ? uses : []).filter((u) => USES.includes(u));
+    const hosts = (Array.isArray(reaches) ? reaches : []).map((h) => String(h).toLowerCase()).filter((h) => !h.startsWith('*.') && reachOk(h));
     if (o && !(o.e.kind === 'local' && o.e.apps[id]?.limited)) return false;
-    if (o) o.e.apps[id] = { ...o.e.apps[id], uses: [...new Set([...(o.e.apps[id].uses || []), ...granted])] };
-    else { const name = freeName(id, all); all[name] = { kind: 'local', title: appName(id), created: now(), apps: { [id]: { limited: true, uses: granted } } }; }
+    if (o) { const a = o.e.apps[id]; o.e.apps[id] = { ...a, uses: [...new Set([...(a.uses || []), ...granted])], reaches: [...new Set([...(a.reaches || []), ...hosts])].slice(0, MAX_REACH) }; }
+    else { const name = freeName(id, all); all[name] = { kind: 'local', title: appName(id), created: now(), apps: { [id]: { limited: true, uses: granted, reaches: [...new Set(hosts)].slice(0, MAX_REACH) } } }; }
     const name = o ? o.name : Object.keys(all).find((n) => all[n].apps?.[id]);
     save(name, all[name]); cache.stamp = null;
     return true;

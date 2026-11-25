@@ -43,13 +43,18 @@ internal object PinPrompt {
     }
 
     /** Choose a PIN (4 to 8 digits), typed twice, then its recovery code; then [then]. Nothing is set until someone
-     *  says they've kept the code, so a PIN never exists without one having been shown. [back]: closed before that. */
+     *  says they've kept the code, so an unlinked tablet's PIN never exists without one having been shown. A tablet
+     *  linked to an account skips the code: Reset with your account is the way back in (forgot), and unlinking shows
+     *  one first (CloudMenu.unlink). [back]: closed before that. */
     fun choose(act: Activity, pins: Context, then: () -> Unit = {}, note: String? = null, back: () -> Unit = {}) {
+        // Asked while the PIN is typed; not known yet by the time it's confirmed (no answer), the code is shown.
+        val linked = java.util.concurrent.atomic.AtomicBoolean(false)
+        kotlin.concurrent.thread { linked.set(isLinked()) }
         lateinit var d: android.app.Dialog
         var going = false
         val first = PinPad(act, null) { _, entry ->
             going = true; d.dismiss()
-            again(act, pins, entry, then, back)
+            again(act, pins, entry, then, back) { linked.get() }
         }
         first.say(note ?: "")
         d = CalmDialog(act).setTitle("Choose a PIN").setMessage("4 to 8 digits.")
@@ -58,13 +63,22 @@ internal object PinPrompt {
         (act as? MainActivity)?.immersive()
     }
 
-    private fun again(act: Activity, pins: Context, first: String, then: () -> Unit, back: () -> Unit) {
+    /** Linked to an account (the bridge's /cloud/status). Blocking; false when the bridge doesn't answer. */
+    private fun isLinked(): Boolean = runCatching {
+        org.json.JSONObject(dev.openhouse.ui.BridgeClient.getText(dev.openhouse.ui.Openhouse.bridgeUrl + "/cloud/status", 1500, 5000)).optBoolean("linked")
+    }.getOrDefault(false)
+
+    private fun again(act: Activity, pins: Context, first: String, then: () -> Unit, back: () -> Unit, linked: () -> Boolean) {
         lateinit var d: android.app.Dialog
         var going = false
         val pad = PinPad(act, first.length) { _, entry ->
             going = true; d.dismiss()
-            if (entry == first) showCode(act, RecoveryCode.new(), keep = { code -> ParentPin.set(pins, first, code); ParentGrace.open(); dev.openhouse.ui.Openhouse.settingsChanged(); then() }, back = back)
-            else choose(act, pins, then, "Those didn't match. Try again.", back)
+            val keep = { code: String? -> ParentPin.set(pins, first, code); ParentGrace.open(); dev.openhouse.ui.Openhouse.settingsChanged(); then() }
+            when {
+                entry != first -> choose(act, pins, then, "Those didn't match. Try again.", back)
+                linked() -> { keep(null); (act as? MainActivity)?.toast("PIN set. If it's forgotten, your Opie account can reset it") }
+                else -> showCode(act, RecoveryCode.new(), keep = { keep(it) }, back = back)
+            }
         }
         d = CalmDialog(act).setTitle("Once more").setView(pad).setWidth(620f).setNegativeButton("Cancel", null)
             .setOnDismissListener { if (!going) back() }.show()
@@ -114,7 +128,8 @@ internal object PinPrompt {
             }
         }
         d = CalmDialog(act).setTitle(if (again) "That code doesn't fit" else "Forgot the PIN")
-            .setMessage("Type the recovery code that was shown when the PIN was chosen. The backups' recovery code works too.")
+            .setMessage(if (ParentPin.hasRecovery(pins)) "Type the recovery code that was shown when the PIN was chosen. The backups' recovery code works too."
+                else "Type the backups' recovery code, or reset it with your Opie account if this tablet is linked to one.") // (a PIN chosen while linked has no code of its own)
             .setView(view).setWidth(760f).setForPerson().setCancelable(false)
             .setMore("A tablet set up before recovery codes has none: make one in Settings, Advanced, while the PIN is known.")
             .setPositiveButton("Next") { _, _ ->

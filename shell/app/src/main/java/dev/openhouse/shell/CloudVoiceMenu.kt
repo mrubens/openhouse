@@ -3,6 +3,8 @@ package dev.openhouse.shell
 // Settings → Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through Opie cloud, off unless someone
 // turns it on here after reading what goes where. The bridge does the work (bridge/cloud.js, /cloud/voice); the
 // session runs in the shell (LiveVoice). Its name is heard on the tablet; nothing goes out until then.
+// What the household said here is kept (OpieChoice), so a yes made before the tablet was linked, or before its
+// household had the voice, turns it on by itself later (CloudSetup.autoVoice).
 
 import dev.openhouse.ui.BridgeClient
 import dev.openhouse.ui.CalmDialog
@@ -13,6 +15,8 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
     private fun ui(f: () -> Unit) = act.runOnUiThread(f)
     private fun say(text: String) { CalmDialog(act).setTitle("Live voice").setMessage(text).setPositiveButton("Close", null).show() }
     private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
+    /** The household's account doesn't have Opie's voice yet (the cloud's voiceState.available, or its not_enabled). */
+    private val notYet = "Opie's voice isn't on for your household yet. It turns on here by itself as soon as it is."
     private fun n(x: Int) = String.format(java.util.Locale.US, "%,d", x)
 
     /** Settings → Voice (behind the PIN Lock when it is on; openhouse-cloud/docs/cloud-beta.md): Off, or which of OpenAI's voices it speaks with. Heard from the next
@@ -25,8 +29,9 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
             CalmDialog(act).setTitle("Voice").setMessage("What's said after “Hey Opie” goes to OpenAI.")
                 .setSingleChoiceItems((listOf("Off") + VOICES.map { it.second }).toTypedArray(), checked) { d, i ->
                     d.dismiss()
-                    if (i == 0) { off(); return@setSingleChoiceItems }
+                    if (i == 0) { OpieChoice.set(act, false); off(); return@setSingleChoiceItems }
                     val id = VOICES[i - 1].first
+                    OpieChoice.set(act, true)
                     thread {
                         val (_, r) = CloudSetup.post("${act.bridge}/cloud/voice/name", JSONObject().put("voice", id))
                         ui {
@@ -63,30 +68,52 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
         "noeul" to "Noeul · Korean, feminine",
     )
 
-    /** The welcome's "Turn on Opie" (its words already say what goes where): link first if the tablet isn't, then on,
-     *  with Hey Opie listening. */
+    /** The welcome's "Turn on Opie" (its words already say what goes where), or a voice picked: link first if the
+     *  tablet isn't, then on, with Hey Opie listening. The yes is kept (OpieChoice), so if linking doesn't finish now,
+     *  or the household doesn't have the voice yet, it comes on by itself once both are true (CloudSetup.autoVoice). */
     fun turnOn(linkNow: Boolean = true): Thread = thread {
+        OpieChoice.set(act, true)
         val v = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/cloud/voice?check=1", 3000, 15_000)) }.getOrNull()
         ui {
+            if (v?.optBoolean("linked") == true) dev.openhouse.ui.Setup.wantsLink = false
             when {
                 v == null -> say(noBridge)
                 // In the first setup, linking waits for its phone-or-computer step (the user: "Don't need to pop the phone
-                // up right away"): ui/Setup.kt asks for it there.
+                // up right away"): ui/Setup.kt asks for it there, each time that step shows, until it's linked.
                 !v.optBoolean("linked") && !linkNow -> dev.openhouse.ui.Setup.wantsLink = true
                 !v.optBoolean("linked") -> CloudMenu(act).startLink("Opie's voice comes through your Opie account.") { turnOn() }
-                v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> say("This tablet's cloud service doesn't offer it.")
+                v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> say(notYet)
                 else -> set(true)
             }
         }
     }
 
-    private fun set(on: Boolean) = thread {
+    /** Linked, the household has the voice, and nobody here has answered yet (Without Opie at the welcome, or a tablet
+     *  from before): the welcome's question once more, now that it can be on (CloudSetup.autoVoice; asked only once). A
+     *  person's own yes (Opie's tap does nothing), behind the PIN when the lock is on, as Settings → Voice is. */
+    fun ask() {
+        if (OpieChoice.asked(act)) return
+        OpieChoice.markAsked(act)
+        CalmDialog(act).setForPerson().setTitle("Turn on Opie?")
+            .setMessage("Opie's voice is ready for your household. Say “Hey Opie” or just type, and Opie answers. What you say after “Hey Opie” goes to OpenAI.")
+            .setPositiveButton("Turn on Opie") { _, _ ->
+                if (!DeviceServer.personOnly("Turning on Opie's voice")) act.lock.withPin("Turn on Opie") { OpieChoice.set(act, true); set(true) }
+            }
+            .setNegativeButton("Not now") { _, _ -> OpieChoice.set(act, false) }.show()
+    }
+
+    /** On or off here and for the household. [auto]: CloudSetup.autoVoice turning on a yes said earlier, so a refusal
+     *  isn't shown (it looks again later). */
+    fun set(on: Boolean, auto: Boolean = false) = thread {
         val (_, r) = CloudSetup.post("${act.bridge}/cloud/voice", JSONObject().put("on", on))
         ui {
-            if (r == null || r.has("error")) return@ui say(r?.optString("error")?.ifEmpty { null } ?: noBridge)
+            if (r == null || r.has("error")) {
+                if (auto) return@ui
+                return@ui say(if (r?.optString("error") == "not_enabled") notYet else r?.optString("error")?.ifEmpty { null } ?: noBridge)
+            }
             LiveVoice.chosen = r.optBoolean("on")
             dev.openhouse.ui.Openhouse.settingsChanged()
-            act.toast(if (r.optBoolean("on")) "Live voice on" else "Live voice off")
+            act.toast(if (!r.optBoolean("on")) "Live voice off" else if (auto) "Opie is on. Say “Hey Opie”" else "Live voice on")
             if (r.optBoolean("on")) { // Hey Opie listening (there's no button to tap), and new here: it says hello
                 act.setListening(true); dev.openhouse.ui.Openhouse.setWakeWord(true)
                 dev.openhouse.ui.Openhouse.assistantReady()

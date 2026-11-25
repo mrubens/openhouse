@@ -164,8 +164,21 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
     ).apply { gravity = Gravity.BOTTOM or Gravity.START; x = 40; y = 80 }
     private var wordsAdded = false
 
+    /** An app being made (dev.openhouse.ui.BuildChip): its quiet chip in the bottom corner, over whatever app is open. */
+    private val chip = ComposeView(svc).apply {
+        setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner)
+        setContent { CompositionLocalProvider(LocalU provides LocalConfiguration.current.screenWidthDp / 1536f) { dev.openhouse.ui.BuildChip(Modifier.padding(12.u)) } }
+    }
+    private val chipLp = WindowManager.LayoutParams(
+        WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+        PixelFormat.TRANSLUCENT,
+    ).apply { gravity = Gravity.BOTTOM or Gravity.END }
+    private var chipAdded = false
 
-    fun close() { if (Buddy.window === this) Buddy.window = null; anim?.cancel(); if (added) runCatching { wm.removeView(view) }; added = false; if (wordsAdded) runCatching { wm.removeView(words) }; wordsAdded = false }
+
+    fun close() { if (Buddy.window === this) Buddy.window = null; anim?.cancel(); if (added) runCatching { wm.removeView(view) }; added = false; if (wordsAdded) runCatching { wm.removeView(words) }; wordsAdded = false; if (chipAdded) runCatching { wm.removeView(chip) }; chipAdded = false }
 
     fun refresh() {
         val want = !Buddy.shellOnTop && !Buddy.covering
@@ -175,6 +188,8 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
         } else if (!want && added) { runCatching { wm.removeView(view) }; added = false }
         if (want && !wordsAdded) { wordsLp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; wordsLp.x = 0; wordsLp.y = (20 * unit()).toInt(); runCatching { wm.addView(words, wordsLp); wordsAdded = true } } // their words: along the bottom, centred
         else if (!want && wordsAdded) { runCatching { wm.removeView(words) }; wordsAdded = false }
+        if (want && !chipAdded) { chipLp.x = (12 * unit()).toInt(); chipLp.y = (12 * unit()).toInt(); runCatching { wm.addView(chip, chipLp); chipAdded = true } }
+        else if (!want && chipAdded) { runCatching { wm.removeView(chip) }; chipAdded = false }
     }
 
     private fun screen() = wm.currentWindowMetrics.bounds
@@ -269,7 +284,7 @@ private fun BuddyView() {
         val armed = o.awaitingUntil > now || handsFree
         val live = a?.live == true
         val step = Buddy.step?.takeIf { now - Buddy.stepAt < (if (live) 6000 else 8000) } // a stopped task clears at once (between steps a typed turn waits on its model a few seconds)
-        val reply = a?.takeIf { !it.live && now - it.at < 20_000 && it.at > o.quietAt }
+        val reply = a?.takeIf { !it.live && now - it.at < dev.openhouse.ui.shownFor(it) && it.at > o.quietAt }
         val hearing = isHearing(now)
         val ended = !armed && o.handsFreeUntil > 0 && now - o.handsFreeUntil in 0..5000 && now - o.quietAt > 5000 // not when tapped quiet
         val mood = moodAt(now)
@@ -287,7 +302,9 @@ private fun BuddyView() {
         else if (LiveVoice.problemNow(now) != null) { // the live voice couldn't say it: the answer, and why it wasn't heard
             main = listOfNotNull(LiveVoice.problemNow(now), reply?.text?.let { prose(it) }?.takeIf { it.isNotBlank() }).joinToString("\n\n")
         }
-        else if (LiveVoice.mood != null) {} // a live session: its voice is enough, no caption; a tap on the face, or "stop", stops what it's doing
+        // A live session: its voice is enough, no caption (a tap on the face, or "stop", stops what it's doing). But a typed
+        // question's answer is only ever written, never said by the session, so it shows here all the same.
+        else if (LiveVoice.mood != null) { if (reply != null && !reply.voice) main = prose(reply.text) }
         else when (mood) {
             Mood.Hearing -> {} // what they're saying shows centered at the bottom (WordsWindow), not out of the note
             // Only words: what it says as it comes, or (using an app for them) what it's doing there, with Stop. No
@@ -358,7 +375,7 @@ private fun moodAt(now: Long): Mood {
         o.showConversation && o.conversation?.turns?.lastOrNull()?.live == true -> Mood.Thinking // the same in the conversation screen
         step != null || live || o.build?.done == false -> Mood.Working // answering, using an app, or making something
         armed -> Mood.Listening
-        a != null && !a.live && now - a.at < 20_000 && a.at > o.quietAt -> Mood.Replied
+        a != null && !a.live && now - a.at < dev.openhouse.ui.shownFor(a) && a.at > o.quietAt -> Mood.Replied
         else -> Mood.Asleep
     }
 }
@@ -390,7 +407,7 @@ private fun Bubble(label: String?, text: String, foot: String?, left: Float, lis
     val shape = dev.openhouse.ui.AssistantCardShape
     Column(
         Modifier.width(BUBBLE_U.u).shadow(18.u, shape).clip(shape).background(Color.White)
-            .then(if (LiveVoice.active) Modifier.clickable { LiveVoice.tappedAway() } else Modifier) // open: a tap on what it says sends it away too
+            .clickable { if (LiveVoice.active) LiveVoice.tappedAway() else Openhouse.quietAt = System.currentTimeMillis() } // open: a tap on what it says sends it away too; else it puts the answer away
             .padding(horizontal = 26.u, vertical = 18.u),
         verticalArrangement = Arrangement.spacedBy(6.u),
     ) {

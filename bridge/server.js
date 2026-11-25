@@ -114,7 +114,7 @@ edits.watch();
 // An app made here goes in on a grown-up's yes on the tablet's card, always with the PIN (grownup: a tablet with no PIN
 // asks someone to choose one there); no answer keeps it waiting, on Home (build-waits.js). shellAsk, plugins, chat: below.
 const builder = builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json,
-  ask: (card) => shellAsk(card), grant: (card) => plugins.madeHere(card.app, { uses: card.uses }),
+  ask: (card) => shellAsk(card), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), say: (t) => chat.voice.say(t),
   line: (text) => chat.things.put({ text, minutes: 12 * 60, by: 'builder' }), changed: () => chat.house?.changed?.() });
 
 const devices = devicesRoutes({ HERE, json, body }); // first: it sets HOME_MCP_* for the agents
@@ -255,7 +255,7 @@ const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
   ai: (q) => cloud.ai(q), APP_DIR,
   // A second look at the code before it's done (role review: the service's own model today; it may pick another).
   review: process.env.BUILD_REVIEW === 'off' ? null : (q) => cloud.ai({ ...q, role: 'review' }), checkBuild: builder.checkBuild,
-  limited: (id) => plugins.limited(id), making: (app) => setState({ making: app }),
+  limited: (id) => plugins.limited(id), making: (app) => setState({ making: app }), say: (t) => chat.voice.say(t),
   guide: () => workshopGuide({ read: (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } }, homeNow: () => '', log: () => {} }).guide('apps'),
   // The tablet's screen (Device control on): the app being made is on it (the shell opens it as it's written).
   look: Object.assign(async () => {
@@ -266,7 +266,7 @@ const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
 }) : null;
 import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud.decide, tools: chat.textTools, callTool: chat.callText, instructions: chat.textInstructions,
   rails: buildHere, build: buildHere ? (text, o = {}) => builder.request(text, o.who || null, { app: o.app || null, ...(o.context ? { context: o.context } : {}) }) : null }));
-if (buildHere) chat.live.setBuild?.((text, who) => builder.request(text, who), builder.waits); // the voice's make_app, and a waiting one's card again
+if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, { spoken: !o.phone }), builder.waits); // the voice's make_app (on the tablet: it says how it went), and a waiting one's card again
 // A hub (docs/hub.md) has no shell to own a USB drive: its backups go to a folder instead (a mounted drive, a share, a volume).
 const localDest = isHub() ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
 backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest], escrow: cloud.escrow, busy: () => !!edits.holder() });

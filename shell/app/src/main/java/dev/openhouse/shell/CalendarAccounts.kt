@@ -312,7 +312,10 @@ object CalendarAccounts {
                     header("Links · read only", null, null)
                     links.forEach { l ->
                         val title = l.name.ifBlank { CalendarLinks.label(l.who) }
-                        line(title, Calm.text(a, l.only.takeIf { it.isNotBlank() }?.let { "Only $it" } ?: "Read only", 17f, 400, Calm.SOFT), l.tone.takeIf { it.startsWith("#") }, null) {
+                        // One that couldn't be read at the last look says so, and why (a tap: Remove).
+                        val why = CalendarLinks.problem(l.id)
+                        val sub = why?.let { "Can't read it: $it" } ?: l.only.takeIf { it.isNotBlank() }?.let { "Only $it" } ?: "Read only"
+                        line(title, Calm.text(a, sub, 17f, 400, if (why != null) Calm.INK else Calm.SOFT),l.tone.takeIf { it.startsWith("#") }, null) {
                             shown?.dismiss()
                             CalmDialog(a).setTitle(title).setItems(arrayOf("Color", "Remove")) { _, i ->
                                 if (i == 0) palette(a, title, l.tone.takeIf { it.startsWith("#") }, immersive, { again() }) { t -> thread { CalendarLinks.setTone(l.id, t ?: ""); CalendarLinks.sync(fresh = false); main.post { again() } } }

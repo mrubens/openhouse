@@ -120,20 +120,52 @@ object PhotoAlbums {
         }
     }
 
+    /** An old-style album's webstream (Apple's list of its photos) and the host that answered, or why not ([Said]). */
+    private fun webstream(token: String): Pair<String, String> {
+        var host = AlbumLink.host(token)
+        var r = call(AlbumLink.webstream(host, token), """{"streamCtag":null}""")
+        if (r.first == 330) { host = AlbumLink.movedTo(r.second)?.takeIf { AlbumLink.okHost(it) } ?: throw Said("Couldn't read the album"); r = call(AlbumLink.webstream(host, token), """{"streamCtag":null}""") }
+        return when (r.first) {
+            200 -> host to r.second
+            404 -> throw Said("The album isn't shared any more (its public website is off)")
+            else -> throw Said("Couldn't read the album")
+        }
+    }
+
+    /** A new-style album's key resolved: the album's record and its public access (a short-lived token, the partition), or why not ([Said]). */
+    private fun resolve(key: String): Pair<JSONObject, JSONObject> {
+        val r = call(AlbumLink.resolveUrl(key), JSONObject().put("shortGUIDs", JSONArray().put(JSONObject().put("value", key))).toString(), "https://photos.icloud.com")
+        val res = if (r.first == 200) runCatching { JSONObject(r.second).getJSONArray("results").getJSONObject(0) }.getOrNull() else null
+        val access = res?.optJSONObject("anonymousPublicAccess")
+        if (res == null || res.has("serverErrorCode") || access == null) throw Said("The album isn't shared any more, or its link has run out")
+        return res to access
+    }
+
+    /**
+     * Ask Apple once about a link, before it's kept (from setup's phone, the assistant, the paste box): null when it's
+     * an album Apple shares, else what to tell them. Off the main thread. Never has the link in it.
+     */
+    fun check(url: String): String? {
+        val u = AlbumLink.clean(url) ?: return "That isn't an iCloud shared album link."
+        return try {
+            val key = AlbumLink.shareKey(u)
+            if (key != null) resolve(key)
+            else {
+                val stream = webstream(AlbumLink.token(u)!!).second
+                if (!runCatching { JSONObject(stream).has("photos") }.getOrDefault(false)) throw Said("not an album")
+            }
+            null
+        } catch (e: Exception) {
+            if (e is Said) "Couldn't read that album: iCloud has no shared album at that link. In the album's sharing settings, check that Public Website is on, then copy the link again."
+            else "Couldn't read that album: iCloud didn't answer. Check the Wi-Fi and try again."
+        }
+    }
+
     /** One album: true if photos are still to come (the next look is soon). */
     private fun syncOne(l: Link): Boolean {
         AlbumLink.shareKey(l.url)?.let { return syncShared(l, it) }
         val token = AlbumLink.token(l.url) ?: return false
-        var host = AlbumLink.host(token)
-        val stream = try {
-            var r = call(AlbumLink.webstream(host, token), """{"streamCtag":null}""")
-            if (r.first == 330) { host = AlbumLink.movedTo(r.second)?.takeIf { AlbumLink.okHost(it) } ?: throw Said("Couldn't read the album"); r = call(AlbumLink.webstream(host, token), """{"streamCtag":null}""") }
-            when (r.first) {
-                200 -> r.second
-                404 -> throw Said("The album isn't shared any more (its public website is off)")
-                else -> throw Said("Couldn't read the album")
-            }
-        } catch (e: Exception) {
+        val (host, stream) = try { webstream(token) } catch (e: Exception) {
             val why = (e as? Said)?.message ?: "Couldn't reach iCloud"
             post("/house/album/stream", JSONObject().put("source", l.id).put("error", why))
             Log.i(TAG, "an album: $why")
@@ -159,10 +191,7 @@ object PhotoAlbums {
      */
     private fun syncShared(l: Link, key: String): Boolean {
         val ck = try {
-            val r = call(AlbumLink.resolveUrl(key), JSONObject().put("shortGUIDs", JSONArray().put(JSONObject().put("value", key))).toString(), "https://photos.icloud.com")
-            val res = if (r.first == 200) runCatching { JSONObject(r.second).getJSONArray("results").getJSONObject(0) }.getOrNull() else null
-            val access = res?.optJSONObject("anonymousPublicAccess")
-            if (res == null || res.has("serverErrorCode") || access == null) throw Said("The album isn't shared any more, or its link has run out")
+            val (res, access) = resolve(key)
             val partition = access.optString("databasePartition").takeIf { AlbumLink.okPartition(it) } ?: throw Said("Couldn't read the album")
             val fields = res.optJSONObject("share")?.optJSONObject("fields")
             val records = JSONArray()
@@ -267,9 +296,17 @@ object PhotoAlbums {
     private fun notAlbum(a: Activity, immersive: () -> Unit) =
         CalmDialog(a).setTitle("That isn't a shared album link").setMessage("It starts https://www.icloud.com/sharedalbum/ or https://photos.icloud.com/shared/album/.").setMore(HELP).setPositiveButton("Close", null).show().also { immersive() }
 
+    /** Asked about once first: kept (and "Added") only if Apple shares it, else why not, and nothing is kept. */
     private fun keep(a: Activity, url: String, immersive: () -> Unit) {
-        thread { add(url); sync() }
-        (a as? MainActivity)?.toast("Added. The photos come in over a few minutes.")
+        (a as? MainActivity)?.toast("Looking at the album…")
+        thread {
+            val why = check(url)
+            if (why == null) { add(url); sync() }
+            main.post {
+                if (why == null) (a as? MainActivity)?.toast("Added. The photos come in over a few minutes.")
+                else CalmDialog(a).setTitle("Not added").setMessage(why).setMore(HELP).setPositiveButton("Close", null).show().also { immersive() }
+            }
+        }
     }
 
     /** A link from the computer (the workshop) or the assistant: kept only after a yes and PIN here. */

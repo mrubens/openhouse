@@ -9,7 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import http from 'node:http';
 import { execFileSync } from 'node:child_process';
-import { PROMPTS } from './prompts.mjs';
+import { PROMPTS as ALL, WEB } from './prompts.mjs';
+const PROMPTS = process.env.SET === 'web' ? WEB : ALL; // SET=web: requests that need a website
 import { pages } from './pages.mjs';
 
 const { BRIDGE, APP_DIR, OUT, DISPLAY } = process.env;
@@ -129,7 +130,7 @@ for (const pr of PROMPTS.filter((p) => (TYPED || !p.event) && (!ONLY || ONLY.has
   const row = { variant: label, answer, route: decisions[0] || null, model: MODEL, id: pr.id, kind: pr.kind, builds, ok: !!done?.ok, text: done?.text || '(no answer)', steps: usage.calls, tokens: { input: usage.input, cached: usage.cached, output: usage.output }, cents: +cents(usage).toFixed(3), sec, slowestCallS: +((usage.slowestMs || 0) / 1000).toFixed(1), reviews: usage.reviews || 0, apps, limited, checks, cards, looks };
   spent += row.cents;
   fs.appendFileSync(path.join(OUT, 'results.jsonl'), JSON.stringify(row) + '\n');
-  console.log(`${label} ${MODEL} ${pr.id}: ${builds ? 'BUILDS' : 'fails'} ${row.ok ? '' : `(${row.text.slice(0, 80)}) `}${TYPED ? `route ${decisions[0]?.choice ?? '-'} ${decisions[0]?.confidence ?? ''} answer "${String(answer || '').slice(0, 70)}" ` : ''}calls ${usage.calls}${LOOK ? ` looks ${looks}` : ''} ${row.cents.toFixed(2)}c ${sec}s apps ${apps.join(',') || '-'}${limited ? ' limited' : ''}${Object.values(checks).some((c) => c.errs.length) ? ' errs: ' + Object.values(checks).flatMap((c) => c.errs).slice(0, 2).join(' | ') : ''}  [total ${spent.toFixed(1)}c]`);
+  console.log(`${label} ${MODEL} ${pr.id}: ${builds ? 'BUILDS' : 'fails'} ${row.ok ? '' : `(${row.text.slice(0, 80)}) `}${TYPED ? `route ${decisions[0]?.choice ?? '-'} ${decisions[0]?.confidence ?? ''} answer "${String(answer || '').slice(0, 70)}" ` : ''}calls ${usage.calls}${LOOK ? ` looks ${looks}` : ''} ${row.cents.toFixed(2)}c ${sec}s apps ${apps.join(',') || '-'}${limited ? ' limited' : ''}${cards.flatMap((c) => c.rights || []).filter((r) => r.kind === 'web').map((r) => ' card: ' + r.text).join('')}${Object.values(checks).some((c) => c.errs.length) ? ' errs: ' + Object.values(checks).flatMap((c) => c.errs).slice(0, 2).join(' | ') : ''}  [total ${spent.toFixed(1)}c]`);
   // Back to the start for the next request (the bridge's own commit included).
   git('reset', '-q', '--hard', base); git('clean', '-qfd');
 }

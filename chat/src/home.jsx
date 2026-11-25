@@ -35,6 +35,15 @@ const eventPaint = (house, e) => { const cs = eventPeople(house, e).map((n) => p
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
 /** The look as CSS variables (the soft text, lines and tints come from its ink); tab: whose world is behind it. */
+/** An app to ask Opie for, in the household's own names: the children's (an age for a note), else anyone's. Setup's
+ *  last step on the phone says it too. */
+export function makeExample(family = []) {
+  const people = family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || '')));
+  const kids = people.filter((f) => /^\d{1,2}$/.test(String(f.note || '').trim()) && +f.note < 18);
+  const names = (kids.length ? kids : people).slice(0, 2).map((f) => f.name);
+  return names.length ? `Make a reading streak for ${names.join(' and ')}` : 'Make a countdown to our next trip';
+}
+
 export function lookVars(st, tab) {
   const p = paletteOf(st);
   return { '--h-bg': worldOf(st, tab), '--h-sheet': p.sheet, '--h-ink': p.ink, '--h-accent': p.accent, '--h-face': FACES[st?.type] || FACES.clean };
@@ -164,7 +173,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
         {tabs.filter((t) => seen.has(t.id) || t.id === cur).map((t) => (
           <section key={t.id} className="h-page" hidden={t.id !== cur}>
             {t.id === 'today' ? <Today c={c} house={house} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} />
-              : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} />
+              : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} family={house?.family || []} />
               : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} add={addIn?.id === t.id ? addIn.at : 0} addExtra={addIn?.id === t.id ? addIn.extra : ''} />
               : <div className="h-widget"><Widget id={t.id} app={appBy.get(t.id)} w={4} h={4} house={house} c={c} Photo={(p) => <PhotoShow c={c} {...p} />}
                 content={homeScreen?.widgets?.content?.[t.id] ? (homeScreen.widgets.content[t.id].shapes?.['4x4'] || homeScreen.widgets.content[t.id].content || '') : null} /></div>}
@@ -707,7 +716,8 @@ function NotesCard({ c, notes, reminders, style }) {
 // ---- Apps: every app that isn't a tab of its own --------------------------------------------------------------------
 /** The family's apps that aren't tabs, and the Android apps added (Netflix…), as a calm grid. A tap opens one;
  *  a hold offers to make it a tab or to take it off here (an app taken off comes back when someone asks Opie). */
-function Apps({ c, shell, apps, tabs, places, cards }) {
+function Apps({ c, shell, apps, tabs, places, cards, family }) {
+  const example = makeExample(family);
   const android = useMemo(() => { try { return shell?.androidApps ? JSON.parse(shell.androidApps() || '[]') : []; } catch { return []; } }, [apps]);
   const [hid, setHid] = useState({}); // shown at once, until the home screen has it
   const [menu, setMenu] = useState(null);
@@ -736,15 +746,19 @@ function Apps({ c, shell, apps, tabs, places, cards }) {
     : <span className="h-app-icon letter">{a.name[0].toUpperCase()}</span>;
   return (
     <div className="h-apps">
-      <div className="h-head"><h1 className="h-title">Apps <span>made for this house</span></h1></div>
+      <div className="h-head"><h1 className="h-title">Apps</h1></div>
       {/* Each app a white panel: its icon large, its name and what it says of itself under. */}
       {here.length || shell?.plugins ? <div className="h-app-grid">{here.map((a) => (
         <button key={a.id} className={'h-app-tile' + (a.web === false ? ' old' : '')} {...press(a)}><Icon a={a} /><span className="h-app-name">{a.name}</span><span className="h-app-about">{a.about}</span></button>
       ))}
+        {/* Asking Opie is the way to a new app (it builds it here, bridge/builder.js): the typing box, ready for it */}
+        {shell?.makeApp && <button className="h-app-tile add make" onClick={() => shell.makeApp(`Say what app to make, like “${example}”`)}>
+          <span className="h-app-icon letter add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4v-4A1.5 1.5 0 0 1 4 14.5z" /><path d="M12 6.5v6M9 9.5h6" /></svg></span>
+          <span className="h-app-name">Make an app</span><span className="h-app-about">“{example}”</span></button>}
         {/* Opie's list of plugins (the shell's gallery, as in Settings, Plugins): adding one asks for the PIN */}
         {shell?.plugins && <button className="h-app-tile add" onClick={() => shell.plugins()}>
           <span className="h-app-icon letter add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg></span>
-          <span className="h-app-name">Add apps</span><span className="h-app-about">Find one, or make your own.</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : 'No other apps yet. Ask Opie to make one.'}</div>}
+          <span className="h-app-name">Add apps</span><span className="h-app-about">Find one on Opie's list.</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : `No other apps yet. Ask Opie for one: “${example}”.`}</div>}
       {menu && <div className="h-veil" onClick={() => setMenu(null)}>
         <div className="h-menu" onClick={(e) => e.stopPropagation()}>
           <div className="h-menu-head"><Icon a={menu} /><span>{menu.name}</span></div>
