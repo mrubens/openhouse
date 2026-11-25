@@ -1,9 +1,10 @@
 // The tablet's assistant for typed turns, getting to know the family, flyers and recipes, refitting notes and the
 // board: the cloud's text model (through our service: cloud.js ai(), once the family chose OpenAI) with the household's
 // tools (chat.js textTools: live-tools.js's, plus the household, the home screen's tabs and look, undo) and the
-// assistant's own rules (CHAT.md and the family's preferences). There's no coding agent on the tablet: making or changing
-// an app is someone's own Claude or ChatGPT on a computer (the workshop, workshop.js).
-let deps = null; // { ai, decide?, tools(), callTool(name, args, homeToken), instructions() } (server.js, once the home screen and the cloud exist)
+// assistant's own rules (CHAT.md and the family's preferences). Making or changing an app: on the tablet itself, on
+// rails (rails.js, run below, through the builder: builder.js), when the household has it on; otherwise, and for
+// anything bigger, someone's own Claude or ChatGPT on a computer (the workshop, workshop.js).
+let deps = null; // { ai, decide?, tools(), callTool(name, args, homeToken), instructions(), rails?, build?(text) } (server.js, once the home screen and the cloud exist)
 // Which way a request goes, decided first (OpenAI Decisions: fast, and about a hundredth of a cent): the household's
 // quick things and everyday questions here; making or changing an app is for a computer, said plainly at once.
 const ROUTE = [{ type: 'choice', name: 'route', instructions: "A family member said this to their kitchen tablet's assistant. What does it need?",
@@ -18,7 +19,11 @@ export function routeFor(tools = []) {
   return [{ ...ROUTE[0], choices: [{ ...household, description: `${household.description}, or something one of the household's apps does: ${acts.join('; ')}` }, ...rest] }];
 }
 export const NEEDS_COMPUTER = "Making and changing apps happens on a computer: someone connects their own Claude or ChatGPT to the tablet (Settings, then Screens and computers) and asks there. I can help with the calendar, lists, chores, meals, notes, the home screen's tabs and the weather.";
+export const BUILDING = "I'm making that now. It opens here when it's ready, and a grown-up says yes before it goes in.";
+const BUSY = "I'm still making the last thing. Ask me again when it's done.";
 export function useCloud(d) { deps = d; }
+/** Whether apps are made on the tablet (rails.js): the household has it on and the cloud's model is there. */
+export const buildsHere = () => !!deps?.rails;
 
 import { DEVICE_NAMES } from '../device-tools.js';
 const textOf = (out) => out.filter((o) => o.type === 'message').flatMap((o) => o.content || []).filter((c) => c.type === 'output_text').map((c) => c.text).join('');
@@ -36,7 +41,12 @@ export async function chat({ prompt, onEvent = () => {}, signal, homeToken = nul
   if (deps.decide && route) {
     const a = await deps.decide(String(prompt || ''), routeFor(tools)).catch(() => null);
     const r = a?.answers?.[0];
-    if (r?.choice === 'tablet' && (r.confidence ?? 1) >= 0.6) { onEvent({ kind: 'delta', text: NEEDS_COMPUTER }); return { ok: true, text: NEEDS_COMPUTER }; }
+    if (r?.choice === 'tablet' && (r.confidence ?? 1) >= 0.6) {
+      // Made here, on rails (builder.js shows it working and opens the app); a computer when building here is off.
+      const started = deps.build ? await deps.build(String(prompt || '')).catch(() => null) : null;
+      const text = started?.ok ? BUILDING : started?.busy ? BUSY : NEEDS_COMPUTER;
+      onEvent({ kind: 'delta', text }); return { ok: true, text };
+    }
     if (r?.choice === 'not_for_it' && (r.confidence ?? 1) >= 0.8) return { ok: true, text: '[quiet]', quiet: true };
   }
   // A few steps for the household's things; using an app for someone (device-tools.js) takes more: one per tap.
@@ -57,7 +67,8 @@ export async function chat({ prompt, onEvent = () => {}, signal, homeToken = nul
   }
   return { ok: false, text: 'That took too many steps. Try asking it a simpler way.' };
 }
-export async function run() { return { ok: false, text: NEEDS_COMPUTER }; }
+/** The builder's agent (builder.js): an app made or changed on the tablet, on rails (rails.js), when that's on. */
+export async function run(opts) { return deps?.rails ? deps.rails.run(opts) : { ok: false, text: NEEDS_COMPUTER }; }
 
 /**
  * One answer with no tools (the Meals app's buttons, a flyer or a recipe photo, finding recipes on the web): instructions,

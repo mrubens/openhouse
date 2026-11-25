@@ -2,7 +2,8 @@
 // with a few more (chat.js textTools), the cloud's text model for typed turns (agents/cloud.js). The home screen's tools
 // (calendar, lists, chores and stars, routines, meals, notes, what the family told it) plus the weather, the TV and the
 // apps' own voice actions, so the family's things stay in one place and whoever answers changes the same data. An app's
-// code isn't among them: that's someone's own Claude or ChatGPT on a computer (workshop.js).
+// code isn't among them: make_app hands a request to the tablet's own builder (rails.js), and anything bigger is
+// someone's own Claude or ChatGPT on a computer (workshop.js).
 //
 //   GET  /live/setup   {instructions, tools: [{type:'function', name, description, parameters}], earlier, quietS?}
 //                      (quietS: an app is in use hands-free, home-screen.js handsFree: the session stays this long after the last words)
@@ -19,7 +20,7 @@ import { readPage, READ_PAGE_TOOL } from './read-page.js';
 import { asData } from './as-data.js';
 
 /** The home screen's tools a voice may use: what a person can tap on the tablet without the PIN, and asking for what
- *  needs it (docs/opie-parity.md). Never an app's code (that's a computer's: workshop.js). */
+ *  needs it (docs/opie-parity.md). Never an app's code directly (make_app asks the builder; a computer: workshop.js). */
 export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'change_chores', 'change_rewards', 'change_routines', 'set_meals', 'save_recipe', 'keep_shared_photo',
   'calendar_event', 'look_at_notes', 'put_note', 'update_note', 'take_down_note', 'take_down_thing', 'today_card', 'remember_preference', 'forget_preference', 'show_on_map', 'save_place', 'forget_place', 'heartbeat_settings', 'night_hours', 'later', 'later_list',
   // a calendar or an iCloud album by its link (found with a web search, say: a team's schedule): the link goes straight to
@@ -67,13 +68,17 @@ export const wakeNote = (name) => `\n\n---\n\nThis conversation opened because t
   'Before you say anything, decide from what you hear whether someone is asking you something. Answer only a clear, finished request to you, ' +
   `or "Hey ${name}" on its own (then just "Yes?"). Anything else (other talk, a sentence cut off or that sounds said to a person, the TV, nothing) is not for you: ` +
   'call go_away and say nothing at all, not even "Okay". When in doubt, stay silent: being quiet when wanted costs little, talking when not wanted bothers people.';
-export const livePreamble = (name) => `You are ${name}, the voice of a family's kitchen tablet. You talk with the family out loud, so keep it short, warm and plain: ` +
+export const livePreamble = (name, builds = false) => `You are ${name}, the voice of a family's kitchen tablet. You talk with the family out loud, so keep it short, warm and plain: ` +
   'one or two sentences, no lists or markdown. Use your tools for anything about the family (their calendar, lists, chores and stars, meals, notes, the weather) ' +
   'and never guess those. If you can\'t do something or don\'t know, say so plainly in a sentence; never answer a different question instead. Nobody\'s voice is recognised here, so "me" or "my name" doesn\'t say who is talking: if it matters, ask once who they are; once they\'ve said, use it and never ask again. ' +
   'Something behind the tablet\'s PIN isn\'t a reason to refuse: do it, and when the tablet asks for the PIN (a tool says so), tell them to type it on the tablet. Never ask them to say the PIN to you. ' +
   'Make each change once, then say it\'s done; don\'t repeat a call that worked. Something repeats only if they said so ("every Friday"). If someone talks over you, stop and listen. If people are talking to each other and not to you, stay quiet.\n\n' +
   'What follows is how the family\'s assistant works and what this family asked for. Follow it, except the parts about making or changing an app\'s code, ' +
-  'which isn\'t yours to do (someone does that from their computer); the home screen\'s tabs and look are set_home.\n\n---\n\n';
+  (builds ? 'which is make_app (the tablet makes it, and a grown-up says yes there); ' : 'which isn\'t yours to do (someone does that from their computer); ') + 'the home screen\'s tabs and look are set_home.\n\n---\n\n';
+
+/** Making or changing an app on the tablet itself (rails.js, through the builder), when the household has it on. */
+export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or game, or change one of the household\'s apps ("make the text on Chores bigger"), on the tablet itself: it takes a minute or two, the screen shows it working, and a grown-up says yes on the tablet before it goes in. what: what they asked for, in their words, with what you know (who it\'s for, what it should do). Only an app\'s code: the family\'s things (lists, events, a countdown on the calendar, chores) and the tabs and look have their own tools.',
+  inputSchema: { type: 'object', properties: { what: { type: 'string' } }, required: ['what'] } };
 
 /** The TV, straight from the voice (no agent turn): devices/index.js tv(). Offered only when there's a TV to control. */
 export const TV_TOOL = { name: 'tv', description: "The family's TV: turn it on or off, pause or play, volume, mute, open an app (Netflix, YouTube...), or what it's showing. Turning it on or opening an app asks the people in the room first.",
@@ -188,6 +193,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const inSetup = () => setupStep && household && Date.now() - setupAt < 30 * 60e3;
   // Voice actions the apps declare (plugins.js voiceTools/callVoice), set once the plugins are up: data only, each one
   // done by its app's own page.
+  let builds = null; // (text) => {ok, busy}: the builder (builder.js request), when apps are made on the tablet
   let extra = null, tvDevices = null, device = null, screen = null, phones = null; // screen: {places(), show(id)} (server.js); phones: screens.js phones(), message()
   const screenTools = () => { try { const p = screen?.places() || []; return p.length ? [screenTool(p)] : []; } catch { return []; } }; // device: Opie using the tablet's other apps (device-tools.js)
   const deviceTools = () => { try { return device?.tools() || []; } catch { return []; } };
@@ -201,13 +207,13 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
     const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name) && !(inSetup() && t.name === SETUP_TOOL.name)); // (during setup, its own update_household)
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(inSetup() ? [SETUP_TOOL] : [])];
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds && !inSetup() ? [MAKE_APP_TOOL] : []), ...(inSetup() ? [SETUP_TOOL] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   const setupText = () => !inSetup() ? '' : '\n\n---\n\nThe tablet was just set up, and its setup is on the screen now. The step showing: ' + SETUP_STEPS[setupStep] +
     (setupStep === 'place' && setupGuess ? `\nThe guess on the screen: ${setupGuess}` : '') +
     '\nNever read out or describe what the screen shows; they can see it. If they answer it, save it, then say only a few words ("Got it: Ana and Ben."). Don\'t ask anything else, and don\'t say what\'s next: the screen moves on when they tap Next.';
-  const instructions = () => livePreamble(assistantName()) + read('CHAT.md') + (device?.rules() || '') + prefsBlock() + setupText();
+  const instructions = () => livePreamble(assistantName(), !!builds) + read('CHAT.md') + (device?.rules() || '') + prefsBlock() + setupText();
   /** One tool, as the assistant would call it (outside any conversation's turn). */
   const lately = []; // [{at, key}]: the calls of the last minute, to stop the same one being made over and over
   // The voice's backend fills in every part of a tool's schema (strict function calling): tool-args.js takes out what
@@ -266,6 +272,11 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       return { text: `The screen shows ${p.name}${p.tab ? '' : ', full screen'}. look_at_screen to see what's on it.`, isError: false };
     }
     if (name === MESSAGE_NAME && phones) return sendMessage(args || {}, ctx.phone?.person || null);
+    if (name === MAKE_APP_TOOL.name && builds) {
+      const r = await builds(String(args?.what || ''), ctx.phone?.person || null).catch(() => ({ ok: false }));
+      return r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them it opens on the tablet when it\'s ready, and a grown-up says yes there.', isError: false }
+        : { text: r.busy ? 'The tablet is still making the last thing: tell them to ask again when it\'s done.' : 'Making apps on the tablet isn\'t on: someone does it from their computer (Settings, then Screens and computers).', isError: true };
+    }
     if (name === SETUP_TOOL.name && inSetup()) {
       const b = {}; if (Array.isArray(args?.family)) b.family = args.family; if (typeof args?.location === 'string') b.location = args.location;
       if (typeof args?.home_address === 'string' && args.home_address.trim()) setupHome = args.home_address.trim().slice(0, 160); // the screen shows it, and saves it on Next (Home on the Map)
@@ -403,5 +414,5 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   }
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
-  return Object.assign(handle, { useAi: (f) => { ai = f; }, useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, heard, setupFor, device: () => device });
+  return Object.assign(handle, { useAi: (f) => { ai = f; }, useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f) => { builds = f; }, heard, setupFor, device: () => device });
 }

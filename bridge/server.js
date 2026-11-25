@@ -49,6 +49,8 @@ import { folderDestination } from './folder-backup.js';
 import { hubRoutes, isHub } from './hub.js';
 import { weatherSense } from './weather-sense.js';
 import { guarded } from './guarded.js';
+import { rails } from './rails.js';
+import { workshopGuide } from './workshop-guide.js';
 
 // A stray error from one request or timer is logged, and the bridge keeps serving the family. It doesn't hide a
 // stuck bridge: the shell's watchdog asks /state every 10 s and restarts one that stops answering (Runtime.kt).
@@ -223,7 +225,22 @@ chat.live.useDecide((i, q) => cloud.decide(i, q));
 import('./calendar.js').then((m) => m.useCalendarDecide((i, q) => cloud.decide(i, q)));
 import('./maps.js').then((m) => m.useMapCloud({ suggest: (q, near) => cloud.placesSuggest(q, near), place: (id) => cloud.placeOf(id) })); // the Map's address suggestions // which events of a calendar kept only in part (calendar.js) // judgments about what was said, from the whole conversation (live-tools.js judge)
 // The tablet's assistant for typed turns and the rest: the cloud's text model with the household's tools (chat.js textTools).
-import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud.decide, tools: chat.textTools, callTool: chat.callText, instructions: chat.textInstructions }));
+// Making and changing apps on the tablet itself, on rails (rails.js, docs/building-on-the-tablet.md): the same model, in the
+// builder (builder.js), each one a change a parent says yes to. BUILD_HERE=off leaves it to a computer (the workshop).
+const buildHere = process.env.BUILD_HERE !== 'off' ? rails({
+  ai: (q) => cloud.ai(q), APP_DIR, checkBuild: builder.checkBuild, approve: shellApprove,
+  madeHere: (id, o) => plugins.madeHere(id, o), limited: (id) => plugins.limited(id),
+  guide: () => workshopGuide({ read: (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } }, homeNow: () => '', log: () => {} }).guide('apps'),
+  // The tablet's screen (Device control on): the app being made is on it (the shell opens it as it's written).
+  look: Object.assign(async () => {
+    const d = chat.deviceServer(); if (!d) return null;
+    const r = await fetch(d.url, { method: 'POST', headers: { authorization: d.auth, 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'look', arguments: {} } }), signal: AbortSignal.timeout(30e3) });
+    return (await r.json()).result || null;
+  }, { available: () => !!chat.deviceServer() }),
+}) : null;
+import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud.decide, tools: chat.textTools, callTool: chat.callText, instructions: chat.textInstructions,
+  rails: buildHere, build: buildHere ? (text) => builder.request(text) : null }));
+if (buildHere) chat.live.setBuild?.((text, who) => builder.request(text, who)); // the voice's make_app
 // A hub (docs/hub.md) has no shell to own a USB drive: its backups go to a folder instead (a mounted drive, a share, a volume).
 const localDest = isHub() ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
 backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest], escrow: cloud.escrow, busy: () => !!edits.holder() });
