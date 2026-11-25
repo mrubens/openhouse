@@ -5,45 +5,11 @@
 // assistant writes), shown on every day it's planned. With the assistant set up, "Add to Groceries" puts what it needs on the list.
 // Cook opens the Recipes app on that meal's recipe (kit askApp: its "cook" voice action), one step at a time.
 // The plan lives in the bridge, so the assistant plans too ("tacos on Tuesday") and changing this app never loses it.
-import { house, timer, say, phone, shell, askApp } from '/kit/openhouse.js';
+import { house, timer, say, phone, shell, askApp, h, press } from '/kit/openhouse.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
 const $over = document.body.appendChild(document.createElement('div'));
-
-/** An element: h('div', { class, style, tap, hold, ...attributes }, ...children). tap/hold are touch-first presses. */
-function h(tag, props, ...kids) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(props || {})) {
-    if (v == null || v === false || k === 'tap' || k === 'hold') continue;
-    if (k === 'class') el.className = v;
-    else if (k === 'html') el.innerHTML = v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v === true ? '' : v);
-  }
-  if (props?.tap || props?.hold) { press(el, props.tap, props.hold); if (tag !== 'button' && tag !== 'input' && props.tap && !props.role) { el.tabIndex = 0; el.setAttribute('role', 'button'); } }
-  for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
-  return el;
-}
-
-/** A tap (finger up without moving) and a hold (about half a second), on any element. */
-function press(el, tap, hold) {
-  let t = 0, x = 0, y = 0, down = false;
-  const stop = () => { down = false; clearTimeout(t); };
-  el.addEventListener('pointerdown', (e) => {
-    e.stopPropagation(); down = true; x = e.clientX; y = e.clientY;
-    if (hold) t = setTimeout(() => { down = false; hold(e); }, 550);
-  });
-  el.addEventListener('pointermove', (e) => { if (down && Math.hypot(e.clientX - x, e.clientY - y) > 14) stop(); });
-  el.addEventListener('pointercancel', stop);
-  el.addEventListener('pointerleave', stop);
-  el.addEventListener('pointerup', (e) => { const was = down; stop(); if (was) { e.stopPropagation(); tap?.(e); } });
-  el.addEventListener('contextmenu', (e) => e.preventDefault());
-  // A tap doesn't move the keyboard's focus (it stays in the field being typed in); Tab still reaches everything.
-  el.addEventListener('mousedown', (e) => { if (e.target === el || !e.target.closest?.('input, textarea')) e.preventDefault(); });
-  // A keyboard (the cover) works it too: Enter or Space taps.
-  if (tap) el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el && !el.disabled) { e.preventDefault(); tap(e); } });
-}
 
 const ICONS = { search: '<circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>', meals: '<path d="M4 7h10M18 7h2M4 12h2M10 12h10M4 17h8M16 17h4"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="14" cy="17" r="2"/>',
   plus: '<path d="M12 4.5v15M4.5 12h15"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>' };

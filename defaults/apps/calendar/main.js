@@ -2,46 +2,12 @@
 // their color. Tap a day to see all of it and add to it. Events come from the family's synced calendars (added in Settings) plus ones added here,
 // which can repeat and stay on this display. Events in a two-way calendar (Google or iCloud signed in on the display: editable)
 // change here like those; calendars read from a link are read-only here. The events live in the bridge, not here.
-import { house, timer, say, phone, shell, weather, screen as onScreen } from '/kit/openhouse.js';
+import { house, timer, say, phone, shell, weather, screen as onScreen, h, press } from '/kit/openhouse.js';
 import { icon as skyIcon } from '/kit/weather-look.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
 const $over = document.body.appendChild(document.createElement('div'));
-
-/** An element: h('div', { class, style, tap, hold, ...attributes }, ...children). tap/hold are touch-first presses. */
-function h(tag, props, ...kids) {
-  const el = document.createElement(tag);
-  for (const [k, v] of Object.entries(props || {})) {
-    if (v == null || v === false || k === 'tap' || k === 'hold') continue;
-    if (k === 'class') el.className = v;
-    else if (k === 'html') el.innerHTML = v;
-    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
-    else el.setAttribute(k, v === true ? '' : v);
-  }
-  if (props?.tap || props?.hold) { press(el, props.tap, props.hold); if (tag !== 'button' && tag !== 'input' && props.tap && !props.role) { el.tabIndex = 0; el.setAttribute('role', 'button'); } }
-  for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
-  return el;
-}
-
-/** A tap (finger up without moving) and a hold (about half a second), on any element. */
-function press(el, tap, hold) {
-  let t = 0, x = 0, y = 0, down = false;
-  const stop = () => { down = false; clearTimeout(t); };
-  el.addEventListener('pointerdown', (e) => {
-    e.stopPropagation(); down = true; x = e.clientX; y = e.clientY;
-    if (hold) t = setTimeout(() => { down = false; hold(e); }, 550);
-  });
-  el.addEventListener('pointermove', (e) => { if (down && Math.hypot(e.clientX - x, e.clientY - y) > 14) stop(); });
-  el.addEventListener('pointercancel', stop);
-  el.addEventListener('pointerleave', stop);
-  el.addEventListener('pointerup', (e) => { const was = down; stop(); if (was) { e.stopPropagation(); tap?.(e); } });
-  el.addEventListener('contextmenu', (e) => e.preventDefault());
-  // A tap doesn't move the keyboard's focus (it stays in the field being typed in); Tab still reaches everything.
-  el.addEventListener('mousedown', (e) => { if (e.target === el || !e.target.closest?.('input, textarea')) e.preventDefault(); });
-  // A keyboard (the cover) works it too: Enter or Space taps.
-  if (tap) el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el && !el.disabled) { e.preventDefault(); tap(e); } });
-}
 
 const ICONS = { plus: '<path d="M12 4.5v15M4.5 12h15"/>', edit: '<path d="M5 19h4L19.5 8.5l-4-4L5 15v4z"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>', up: '<path d="M5.5 14.5L12 8l6.5 6.5"/>', down: '<path d="M5.5 9.5L12 16l6.5-6.5"/>',
   photo: '<rect x="3.5" y="6.5" width="17" height="13" rx="2.5"/><path d="M8.5 6.5l1.5-2.5h4l1.5 2.5"/><circle cx="12" cy="13" r="3.2"/>',

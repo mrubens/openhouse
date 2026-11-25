@@ -2,16 +2,15 @@
 // straight to the shell (DeviceServer /calendar), which keeps the links sealed with its own key and asks someone on
 // the tablet (the PIN). The link is never written here: not to a file, a result or a log.
 // add_photo_album: the same for an iCloud shared album's public link (the shell's PhotoAlbums.kt keeps it in step).
-import fs from 'node:fs';
+import { toShell } from './shell-call.js';
 
 /** A call to the shell's device server (DeviceServer.kt's home paths), with its token from the agents' MCP config. */
 export async function shellCall(p, b, { config = () => process.env.DEVICE_MCP_CONFIG, timeoutMs = 100e3 } = {}) {
-  let d; try { d = JSON.parse(fs.readFileSync(config(), 'utf8')).mcpServers.device; } catch { return { error: 'This only works on the display.' }; }
-  try {
-    const r = await fetch(d.url.replace(/\/mcp$/, '') + p, { method: 'POST', headers: { authorization: d.headers.Authorization, 'content-type': 'application/json' }, body: JSON.stringify(b), signal: AbortSignal.timeout(timeoutMs) });
-    const j = await r.json().catch(() => ({}));
-    return r.ok ? j : { error: j.error || `The display said ${r.status}.` };
-  } catch { return { error: 'The display didn\'t answer.' }; }
+  const r = await toShell(p, b, { file: config(), ms: timeoutMs });
+  if (!r) return { error: 'This only works on the display.' };
+  if (!r.status) return { error: 'The display didn\'t answer.' };
+  const j = r.body ?? {};
+  return r.ok ? j : { error: j.error || `The display said ${r.status}.` };
 }
 
 export function calendarLinkTools({ config = () => process.env.DEVICE_MCP_CONFIG, timeoutMs = 100e3 } = {}) {

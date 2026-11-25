@@ -15,12 +15,12 @@ import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
+import { dayKey } from './dates.js';
 
 const DAY = 864e5, PER_APP = 120, EVENTS_PER_APP = 200;
 const plain = (t, n) => String(t ?? '').replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}‍️⃣]/gu, '').replace(/\s+/g, ' ').trim().slice(0, n);
 /** Cut at a word, never in the middle of one. */
 const words = (t, n) => { const s = plain(t, 400); if (s.length <= n) return s; const c = s.slice(0, n + 1).replace(/\s+\S*$/, ''); return c || s.slice(0, n); };
-const dayKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const DATE = /^\d{4}-\d{2}-\d{2}$/, WHEN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/, ZONED = /(Z|[+-]\d{2}:?\d{2})$/i;
 const midnight = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
 

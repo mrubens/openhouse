@@ -19,12 +19,11 @@
 // add one. The family's own and OpenHouse's apps are read live from app.json.
 import fs from 'node:fs';
 import path from 'node:path';
+import { dayKey } from './dates.js';
 
 const ID = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const TESTS = { missing: [], empty: [], older_than: ['hours'], count_below: ['n'], count_above: ['n'], equals: ['value'], not_equals: ['value'] };
 const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
-const pad = (n) => String(n).padStart(2, '0');
-const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const mins = (s) => +s.slice(0, 2) * 60 + +s.slice(3, 5);
 
 /** One app's checks, as it declared them: { checks: [...valid], problems: [why one was left out] }. */

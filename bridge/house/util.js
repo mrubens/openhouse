@@ -44,12 +44,8 @@ export const SHOWS = ['week', 'today', 'off'];
 export const NIGHT = { from: '21:30', to: '06:30' };
 
 // ---- dates (the display's own time zone) ----
-export const pad = (n) => String(n).padStart(2, '0');
-export const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-/** n days from d by the calendar, at noon (not n × 24 hours: around a DST change that skips or repeats a day). */
-export const daysFrom = (n, d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, 12);
-/** The midnight n days after d's day (an all-day event's end: a day with a DST change is 23 or 25 hours). */
-export const midnightAfter = (d, n = 1) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+import { pad, dayKey } from '../dates.js';
+export { pad, dayKey, daysFrom, midnightAfter } from '../dates.js';
 export const wholeDays = (ms) => Math.max(1, Math.round(ms / DAY));
 // For a model: a time in the household's clock with its offset ("2026-11-22T13:00-05:00"); the stored UTC one
 // ("…T18:00:00.000Z") reads as 6 PM for a 1 PM practice. An all-day one is its day (an end: the last day it's on).

@@ -5,6 +5,7 @@
 //
 // The instant findings (an app crashing, a calendar that stopped syncing) don't wait for it: the decision model judges
 // those as soon as a check fires (heartbeat-judge.js), on the standard tier.
+import { dayKey as day } from './dates.js';
 
 // gpt-6-luna per million tokens (OpenAI's pricing page, 2026-11-20, short context): standard $0.10 in, $0.01 cached,
 // $0.50 out; Flex half that. A Flex request OpenAI can't take answers 429 and costs nothing: that hour is skipped.
@@ -27,7 +28,6 @@ Be helpful, never pushy: no nudges about chores, meals or plans they haven't mad
 A line: at most about eight plain words; people's names, not pronouns; no emoji; "until" is when its moment passes (the time to leave, tonight, the start of the thing). Give it what a tap does: "open" the tab it's about (meals, calendar, map, lists, chores), or "ask" Opie something that settles it.
 When you're done, reply with one line saying what you did, or NOTHING.`;
 
-const day = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const cut = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
 /**

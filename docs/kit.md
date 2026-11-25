@@ -150,6 +150,8 @@ reject.
 | `shell.close()` | | Back to the home screen |
 | `shell.openApp(id)` | | true, or false where it can't (not a promise) |
 | `shell.canOpenApps`, `shell.app` | | Whether `openApp` works; this app's id |
+| `h(tag, props?, ...children)` | `props`: `class`, `html`, `on…` listeners, `tap`/`hold` (a `press`), any other attribute (`true`: present; `null`/`false`: left out); children: nodes, text, arrays | A new element (not a promise). An element with a `tap` that isn't a button or input also takes the keyboard's focus, as a button |
+| `press(el, tap, hold?)` | a tap (finger up without moving) and a hold (about half a second) | Nothing; Enter or Space taps too |
 | `version` | | `1` |
 
 What a plugin's app may call follows its `app.json` `"uses"` (`docs/plugins.md`); a call it may not make is a failure

@@ -27,6 +27,7 @@ import path from 'node:path';
 import { questions, judgeInput, verdicts, writeNote, decideCost, WORTH } from './heartbeat-judge.js';
 import { REVIEW_RULES, snapshot, runReview } from './heartbeat-review.js';
 import { forModel, fromModel } from './tool-args.js';
+import { dayKey } from './dates.js';
 
 export const LEVELS = ['off', 'notice', 'tidy', 'fix'];
 export const DEFAULT_LEVEL = 'tidy';
@@ -54,8 +55,6 @@ const NOTE_TOOLS = new Set([...TOOLS.notice, ...TOOLS.tidy]);
 const THING_TOOLS = new Set(['show_thing', 'take_down_thing']);
 export const toolsFor = (level) => new Set(LEVELS.slice(1, RANK[level] + 1).flatMap((l) => TOOLS[l]));
 
-const pad = (n) => String(n).padStart(2, '0');
-const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const mins = (s) => +s.slice(0, 2) * 60 + +s.slice(3, 5);
 const clock = (d) => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 const wday = (d) => d.toLocaleDateString('en-US', { weekday: 'short' });
