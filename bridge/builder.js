@@ -5,7 +5,8 @@
 //
 // POST /request {text, who?, app?, crash?, context?}  start a run; app = the app open on screen
 // POST /cancel                 stop the run and put back what it changed
-// POST /apperror {app, text}   an app's page threw (the shell's web view, or the kit); its next check sees it
+// POST /apperror {app, text}   an app's page threw (the shell's web view, or the kit); its next check sees it. From an
+//                              app's own key, app is always the caller (server.js appCall), whatever the body says
 import { requestApp, showingTab } from './home-screen.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -243,6 +244,15 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     return errs.length ? { ok: false, errors: errs.join('\n').slice(0, 3000) } : { ok: true, note: 'No errors reported (only reported while the app is open).' };
   }
 
+  /** An app's page threw: kept for its next check (the last 20). False when there's no app or no text. */
+  function appError(app, text) {
+    const id = String(app || ''); text = String(text || '').slice(0, 1000);
+    if (!id || !text) return false;
+    const list = appErrors.get(id) || [];
+    list.push({ at: Date.now(), text }); appErrors.set(id, list.slice(-20));
+    return true;
+  }
+
   async function handle(req, res, url, b) {
     switch (url.pathname) {
       case '/request': {
@@ -261,12 +271,9 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
         });
         return json(res, 202, { ok: true });
       }
-      case '/apperror': {
-        const id = String(b.app || ''), text = String(b.text || '').slice(0, 1000);
-        if (!id || !text) return json(res, 400, { error: 'app and text needed' });
-        const list = appErrors.get(id) || [];
-        list.push({ at: Date.now(), text }); appErrors.set(id, list.slice(-20));
-        return json(res, 200, { ok: true });
+      case '/apperror': { // the display (the shell's web view) names the app; an app's own key reports only its own (server.js appCall)
+        const ok = appError(b.app, b.text);
+        return ok ? json(res, 200, { ok: true }) : json(res, 400, { error: 'app and text needed' });
       }
       case '/cancel': {
         if (events.state.state !== 'working') return json(res, 409, { error: 'not running' });
@@ -279,5 +286,5 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     }
     return false;
   }
-  return { handle, checkBuild, errors: () => [...appErrors].flatMap(([app, l]) => l.map((e) => ({ app, ...e }))), abort: () => abort?.abort(), forgetSession: () => { sessionId = null; } };
+  return { handle, checkBuild, appError, errors: () => [...appErrors].flatMap(([app, l]) => l.map((e) => ({ app, ...e }))), abort: () => abort?.abort(), forgetSession: () => { sessionId = null; } };
 }

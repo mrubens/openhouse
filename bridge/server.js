@@ -358,6 +358,8 @@ async function appCall(req, res, url, app) {
   // A website it chooses at setup (a shared app whose card said so): the tablet's card with the PIN, then the plugin's manifest.
   if (url.pathname === '/apps/reach') { const b = await body(req); const r = await plugins.askReach(app, b.host, b.key || null); return json(res, 200, r); }
   if (url.pathname === '/apps/reach/forget') { const b = await body(req); return json(res, 200, plugins.forgetReach(app, b.host)); }
+  // Its own page's errors only: the app is the caller, never one the body names (they reach the builder's checks).
+  if (url.pathname === '/apperror') { const b = await body(req); return builder.appError(app, b.text) ? json(res, 200, { ok: true }) : json(res, 400, { error: 'text needed' }); }
   if (url.pathname === '/apps/fetch') { const b = await body(req); const r = await appFetch(app, b.url, plugins.reachesOf(app), { binary: b.binary === true }); return json(res, r.error ? r.status || 502 : 200, r); }
   if (url.pathname === '/calendar/days') { const b = await body(req), reaches = plugins.reachesOf(app); const n = chat.notes.put(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.days, { imageOk: (u) => reachMatches(u.host, reaches) }); return json(res, 200, { ok: true, days: n }); } // a note's photos only from hosts the app reaches
   if (url.pathname === '/calendar/events') { const b = await body(req); const n = chat.notes.putEvents(app, apps.list().find((a) => a.id === app)?.meta?.name || app, b.events); return json(res, 200, { ok: true, events: n }); }

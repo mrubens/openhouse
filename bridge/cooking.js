@@ -5,8 +5,10 @@
 //
 // A link is read here on the tablet (the page the household shared: its schema.org Recipe when it has one, else its
 // text). The steps are written by the household's own assistant (the cloud's text model, house.js answer), the
-// service they already use; nothing else is sent anywhere.
+// service they already use; nothing else is sent anywhere. Only public https pages are read, never the home network
+// (app-web.js publicGet: every redirect checked again, and the address checked is the one reached).
 import crypto from 'node:crypto';
+import { publicGet, pinnedFetch } from './app-web.js';
 
 /** What a recipe's cooking steps were made from: they're good while this is the same. */
 export const cookSource = (r) => crypto.createHash('sha1').update(`${r?.link || ''}\n${r?.notes || ''}`).digest('hex').slice(0, 16);
@@ -93,29 +95,28 @@ export function linksFromHtml(html, base, n = 60, recipe = '') {
 /** A page's picture, unless it's the site's own stand-in (a logo, a banner: the same picture its home page shows), as some
  *  sites give for a recipe with no photo of its own. */
 const fileOf = (u) => { try { return new URL(u).pathname.match(/[^/]+?\.(?:jpe?g|png|webp|avif|gif)/i)?.[0]?.toLowerCase() || u; } catch { return u; } };
-async function notPlaceholder(image, url, fetch) {
+const PAGE_HEADERS = { 'user-agent': 'Mozilla/5.0 (Linux; Android 14) OpenHouse', accept: 'text/html,*/*' };
+async function notPlaceholder(image, url, get) {
   if (!image) return null;
-  try {
-    const r = await fetch(url.origin + '/', { signal: AbortSignal.timeout(5000), headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 14) OpenHouse', accept: 'text/html,*/*' } });
-    const home = ogImage((await r.text()).slice(0, 1e6));
-    return home && fileOf(home) === fileOf(image) ? null : image;
-  } catch { return image; }
+  const r = await publicGet(url.origin + '/', { ...get, timeoutMs: 5000, headers: PAGE_HEADERS });
+  if (r.error) return image;
+  const home = ogImage(r.buf.toString('utf8').slice(0, 1e6));
+  return home && fileOf(home) === fileOf(image) ? null : image;
 }
 
-/** Read a shared link: {name, text, video} (the Recipe when the page has one), or throws with words. */
-export async function readRecipeLink(link, { fetch = globalThis.fetch, timeoutMs = 12000 } = {}) {
-  const url = new URL(link);
-  if (!/^https?:$/.test(url.protocol)) throw new Error('A link starts with http:// or https://');
-  const ac = new AbortController(), t = setTimeout(() => ac.abort(), timeoutMs);
-  let html = '';
-  try {
-    const r = await fetch(url, { signal: ac.signal, redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (Linux; Android 14) OpenHouse', accept: 'text/html,*/*' } });
-    if (!r.ok) throw new Error(`That page didn’t open (${r.status}).`);
-    html = (await r.text()).slice(0, 3e6);
-  } catch (e) { throw new Error(e.name === 'AbortError' ? 'That page took too long to open.' : e.message.startsWith('That page') ? e.message : 'That page didn’t open.'); }
-  finally { clearTimeout(t); }
-  const rec = recipeFromHtml(html), links = linksFromHtml(html, url.href, 60, rec?.text || '');
-  if (rec) return { ...rec, image: await notPlaceholder(rec.image || ogImage(html), url, fetch), recipe: true, links };
+/** Read a shared link: {name, text, video} (the Recipe when the page has one), or throws with words. An http link is
+ *  read over https. */
+export async function readRecipeLink(link, { fetch = pinnedFetch, lookup, timeoutMs = 12000 } = {}) {
+  let url; try { url = new URL(String(link ?? '').trim()); } catch { throw new Error('A link starts with https://'); }
+  if (!/^https?:$/.test(url.protocol)) throw new Error('A link starts with https://');
+  if (url.protocol === 'http:') { url.protocol = 'https:'; if (url.port === '80') url.port = ''; }
+  const get = { fetch, lookup };
+  const r = await publicGet(url.href, { ...get, timeoutMs, max: 3e6, headers: PAGE_HEADERS });
+  if (r.error) throw new Error(r.error === 'timeout' ? 'That page took too long to open.' : r.error === 'home' ? 'That page isn’t on the web.' : 'That page didn’t open.');
+  if (r.status < 200 || r.status > 299) throw new Error(`That page didn’t open (${r.status}).`);
+  const html = r.buf.toString('utf8').slice(0, 3e6), at = r.url;
+  const rec = recipeFromHtml(html), links = linksFromHtml(html, at.href, 60, rec?.text || '');
+  if (rec) return { ...rec, image: await notPlaceholder(rec.image || ogImage(html), at, get), recipe: true, links };
   const { title, text } = textFromHtml(html);
   return { name: title.replace(/\s*[|–—-]\s*[^|–—-]{2,40}$/, '').slice(0, 80), text, video: youtube(link) || youtube(html), image: ogImage(html), stepPics: [], minutes: null, recipe: false, links };
 }

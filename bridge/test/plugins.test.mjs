@@ -11,7 +11,9 @@ import { initRepo, editLock } from '../edits.js';
 import { checkPlugin, parseSource, pluginsRoutes, cleanCatalog } from '../plugins.js';
 import crypto from 'node:crypto';
 import { appAllowed, houseFor } from '../apps.js';
-import { reachMatches, appFetch, pinnedFetch } from '../app-web.js';
+import { reachMatches, appFetch, pinnedFetch, privateIp } from '../app-web.js';
+import { readPage } from '../read-page.js';
+import { readRecipeLink } from '../cooking.js';
 import net from 'node:net';
 import { thingStore } from '../things.js';
 
@@ -165,6 +167,29 @@ test('an app reaching the web through the tablet: only its own hosts, never the 
   assert.equal(things.all().find((x) => x.app === 'lunch')?.text, 'Lunch: Tacos');
   things.takeApp('lunch');
   assert.deepEqual(things.all().map((x) => x.kind).sort(), ['app', 'suggestion']);
+});
+
+test('a recipe link or a page read never reaches the home network: every address form, every redirect, the address checked is the one reached', async () => {
+  for (const a of ['::ffff:c0a8:101', '::ffff:192.168.1.1', '[::ffff:7f00:1]', '::ffff:0:a00:1', '::1', '::', '::127.0.0.1', 'fd12::1', 'fe80::1%en0', 'ff02::1',
+    '2002:c0a8:101::1', '64:ff9b::a00:1', '2001:0:c0a8:101::1', '10.1.2.3', '169.254.1.1', '100.64.0.1', 'not an address']) assert.equal(privateIp(a), true, a);
+  for (const a of ['93.184.216.34', '2606:4700::1111', '::ffff:93.184.216.34', '64:ff9b::5db8:d822']) assert.equal(privateIp(a), false, a);
+  const lookup = async (h) => [{ address: h === 'inside.example.com' ? '192.168.1.1' : '93.184.216.34', family: 4 }];
+  const page = async () => new Response('<title>Soup</title><p>Stir it.</p>', { status: 200, headers: { 'content-type': 'text/html' } });
+  const to = (where) => async () => new Response('', { status: 302, headers: { location: where } });
+  assert.ok(!(await readPage('https://www.example.com/', { fetch: page, lookup })).error);
+  assert.ok((await readRecipeLink('https://www.example.com/', { fetch: page, lookup })).text);
+  for (const [link, f] of [['https://inside.example.com/', page], ['https://www.example.com/', to('https://inside.example.com/')], ['https://www.example.com/', to('https://[::ffff:c0a8:101]/')],
+    ['https://www.example.com/', to('https://192.168.1.1/')], ['https://printer.local/', page]]) {
+    assert.ok((await readPage(link, { fetch: f, lookup })).error, link);
+    await assert.rejects(readRecipeLink(link, { fetch: f, lookup }), link);
+  }
+  await assert.rejects(readRecipeLink('https://www.example.com/', { fetch: to('http://www.example.com/x'), lookup }), 'a recipe link is never read over plain http');
+  // DNS rebinding: one lookup per hop, and the connection goes to the address it gave.
+  for (const read of [readPage, readRecipeLink]) {
+    let asked = 0; const given = [];
+    await read('https://www.example.com/', { lookup: async () => (asked++ ? [{ address: '192.168.1.1', family: 4 }] : [{ address: '93.184.216.34', family: 4 }]), fetch: async (u, o) => { given.push(o.address); return page(); } });
+    assert.equal(asked, 1); assert.deepEqual(given, ['93.184.216.34']);
+  }
 });
 
 test('a website chosen at setup: never reachable without a yes on the card for it, and only for the app that asked', async () => {
