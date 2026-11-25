@@ -40,9 +40,11 @@ input[type=file]{padding:18px;border-style:dashed}
 <script>
 // Photos from Google Photos, through Google's Picker API (docs/photos.md), from a phone on the home Wi-Fi. This
 // page is the tablet's (GooglePhotos.kt), opened from its QR code: http://<tablet>:<port>/#<key>.
-//   1. Sign in: off to OpenHouse's cloud (/g/start), which sends the phone to Google's consent screen and back here
-//      with an access token after # (#g=…; it never leaves the phone). The key waits in sessionStorage meanwhile.
-//   Google Calendar (CalendarAccounts.kt, info.kind "cal"): the same page, signing in for the calendars (/g/start?k=cal);
+//   1. Sign in: the tablet asks OpenHouse's cloud for a one-time link (POST s {start}: the bridge's /cloud/google/start,
+//      with the tablet's credential, naming this page; the link comes back as info.signin). The phone opens it: the cloud
+//      sends it to Google's consent screen and back here with an access token after # (#g=…; it never leaves the
+//      phone). The key waits in sessionStorage meanwhile.
+//   Google Calendar (CalendarAccounts.kt, info.kind "cal"): the same page, signing in for the calendars (a link of kind cal);
 //      the cloud sends back a refresh token (#gc=…), sealed for the tablet, which keeps it; then the calendars are
 //      chosen on the tablet.
 //   2. The token, sealed with the key, to the tablet (POST s). The tablet starts a picking session with Google and
@@ -108,9 +110,17 @@ const te = new TextEncoder(), td = new TextDecoder();
     $('start').querySelector('p').textContent = 'Sign in to Google so the tablet and Google Calendar show the same events, and what’s added on either shows up on both. The sign-in stays sealed on the tablet.';
   }
   if (!i.cloud) return say('Google isn’t available right now. Try again later.');
-  $('go').onclick = () => {
+  $('go').onclick = async () => { // a fresh link each time: it works once, for a few minutes
+    $('go').disabled = true; say('');
+    let to = null;
+    try {
+      const r = await fetch('s', { method: 'POST', body: CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), te.encode(JSON.stringify({ start: true }))), headers: { 'content-type': 'application/octet-stream' } });
+      if (r.ok) to = (await info())?.signin || null;
+    } catch {}
+    $('go').disabled = false;
+    if (!to) return say('Google isn’t available right now. Try again later.');
     try { sessionStorage.setItem(KEEP, k64); } catch {}
-    location.href = `${i.cloud}/g/start?r=${encodeURIComponent(location.origin + '/')}${cal ? '&k=cal' : ''}`;
+    location.href = to;
   };
   if (h === 'g-no') say('Google said no, or it was cancelled. Try again?');
   if (h.startsWith('gc=')) { // the calendars' sign-in: the refresh token to the tablet, sealed

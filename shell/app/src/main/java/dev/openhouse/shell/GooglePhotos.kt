@@ -27,6 +27,7 @@ object GooglePhotos {
     private val main = Handler(Looper.getMainLooper())
     @Volatile private var state = JSONObject().put("state", "start")
     @Volatile private var token: String? = null
+    @Volatile private var link: String? = null // the phone's way to Google's sign-in, made when it taps Sign in
     @Volatile private var run = 0
 
     fun show(a: Activity, immersive: () -> Unit) {
@@ -39,7 +40,8 @@ object GooglePhotos {
 
     private fun card(a: Activity, immersive: () -> Unit, cloud: String?) {
         val me = ++run
-        token = null; state = JSONObject().put("state", "start")
+        token = null; link = null; state = JSONObject().put("state", "start")
+        var self: String? = null // this page's own address, where the sign-in comes back to
         var dialog: android.app.Dialog? = null
         // Beside the code: what to do on the phone, and a line that follows along (waiting, picking, copying, done).
         val status = Calm.text(a, "Waiting for a phone…", 20f, 500, Calm.SOFT)
@@ -49,13 +51,16 @@ object GooglePhotos {
             stepViews.forEachIndexed { i, v -> v.alpha = if (n < 0 || i >= n) 1f else .4f } // done steps fade
         }
         val h = Handoff(a, JSONObject(), minutes = 30, page = "google.html", maxBytes = 8192, once = false,
-            infoNow = { JSONObject(state.toString()).apply { if (cloud != null) put("cloud", cloud) } },
+            infoNow = { JSONObject(state.toString()).apply { if (cloud != null) put("cloud", cloud); link?.let { put("signin", it) } } },
             onData = { bytes ->
-                val t = JSONObject(String(bytes, Charsets.UTF_8)).optString("token").takeIf { it.length in 20..4096 } ?: throw IllegalArgumentException("no token")
+                val j = JSONObject(String(bytes, Charsets.UTF_8))
+                if (j.optBoolean("start")) { link = signInLink(self ?: throw IllegalStateException("no page"), cal = false) ?: throw IllegalStateException("no link"); return@Handoff }
+                val t = j.optString("token").takeIf { it.length in 20..4096 } ?: throw IllegalArgumentException("no token")
                 if (run == me) { token = t; at(2, "Signed in. Pick the photos on the phone."); thread(name = "google-photos") { pickAndCopy(me) { n, s -> at(n, s) } } }
             },
             onEnd = { dialog?.dismiss() })
         if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
+        self = h.url!!.substringBefore('#')
         if (cloud == null) status.text = "Google Photos isn't available right now."
         val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
         val steps = Calm.column(a, 22).apply { stepViews.forEach { addView(it) }; addView(Calm.gap(a, 0, 6)); addView(status) }
@@ -154,6 +159,14 @@ object GooglePhotos {
                 while (true) { val r = s.read(buf); if (r < 0) break; n += r; if (n > 25_000_000) throw Said("too big"); o.write(buf, 0, r) }; o.toByteArray() }
         } finally { c.disconnect() }
     }
+
+    /** A Google sign-in for the phone page at [page] (its own address, http://<tablet>:<port>/) and its kind: the cloud's
+     *  one-time link for the phone to open, asked through the bridge (which holds the tablet's credential), or null. */
+    internal fun signInLink(page: String, cal: Boolean): String? = runCatching {
+        val body = JSONObject().put("r", page).apply { if (cal) put("k", "cal") }
+        JSONObject(dev.openhouse.ui.BridgeClient.post(bridge() + "/cloud/google/start", body.toString()) ?: return null).optString("url")
+            .takeIf { it.startsWith("https://") || it.startsWith("http://") }
+    }.getOrNull()
 
     private fun bridge(): String = runCatching { dev.openhouse.ui.Openhouse.bridgeUrl }.getOrDefault("http://127.0.0.1:8787")
 }

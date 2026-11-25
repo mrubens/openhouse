@@ -13,6 +13,8 @@
 //                                    log, the tails of the runtime's logs and the waiting app fixes, gzipped, to the service
 //   (mail.js uses mailApi/mailFetch: the household's address and its waiting mail, docs/tablet-email.md)
 //   POST /cloud/google/refresh {refresh_token}  the shell only: a two-way Google calendar's access token (calendar-sync.js)
+//   POST /cloud/google/start {r, k?}  the shell only: a Google sign-in for its phone page at r (assets/google.html) -> {url}
+//                                    for the phone to open (the cloud's one-time ticket; an older cloud: its /g/start?r= link)
 // Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through OpenHouse cloud, off until someone turns it on (Parent
 // menu → Better voice). Without it the tablet works by touch and typing; there's no on-device fallback voice.
 //   GET  /cloud/voice[?check=1]      on?, the vendor, this month's use and allowance (check: ask the service)
@@ -247,6 +249,23 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         if (!t || t.length > 2048) { json(res, 400, { error: 'refresh_token' }); return true; }
         try { const r = await call('POST', '/v1/google/refresh', { refresh_token: t }); json(res, 200, { access_token: r.access_token, expires_in: r.expires_in }); }
         catch (e) { json(res, e.code === 'unlinked' ? 409 : 400, { error: e.message === 'invalid_grant' ? 'invalid_grant' : e.code === 'unlinked' ? 'unlinked' : 'unavailable' }); }
+        return true;
+      }
+      // The shell, as a phone on its Google page (google.html) taps Sign in: the cloud keeps which page the sign-in goes
+      // back to and its kind, and answers a one-time link for the phone. An older cloud (no such route): its old link.
+      case '/cloud/google/start': {
+        const r = String(b.r || ''), k = b.k === 'cal' ? 'cal' : undefined;
+        if (!/^http:\/\/[0-9a-z.:[\]-]{1,80}\/$/i.test(r)) { json(res, 400, { error: 'r' }); return true; }
+        try {
+          const s = await call('POST', '/v1/google/start', { r, ...(k ? { k } : {}) }), u = new URL(String(s?.url || ''));
+          // Only a sign-in page of the service's (https, or a local one in development).
+          if (u.pathname !== '/g/start' || !(u.protocol === 'https:' || /^(localhost|127\.0\.0\.1|10\.0\.2\.2)$/.test(u.hostname))) throw new Error('url');
+          json(res, 200, { url: u.href, expires_in: s.expires_in });
+        }
+        catch (e) {
+          if (e.code === 'http404' && device()) { json(res, 200, { url: `${device().api}/g/start?r=${encodeURIComponent(r)}${k ? '&k=cal' : ''}` }); return true; }
+          json(res, e.code === 'unlinked' ? 409 : e.code === 'http429' ? 429 : 400, { error: e.code === 'unlinked' ? 'unlinked' : e.code === 'http429' ? 'slow down' : 'unavailable' });
+        }
         return true;
       }
       case '/cloud/config': {

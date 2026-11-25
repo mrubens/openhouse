@@ -18,6 +18,7 @@ import { localCloud, SKIP } from './cloud-service.mjs';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'backup-'));
 // The service's code is the cloud repo's (cloud-service.mjs); without a checkout the cloud tests are skipped.
+process.env.GOOGLE_CLIENT_ID ||= 'test-client'; process.env.GOOGLE_CLIENT_SECRET ||= 'test-secret'; // (Google itself is never called here)
 const local = await localCloud();
 const svc = local ? await local.startLocal({ port: 0, dir: tmp(), host: '127.0.0.1' }) : null;
 if (svc) svc.blobs.base = svc.url;
@@ -281,4 +282,22 @@ test('cloud and drive together; a new tablet restores with the code; the copy ke
   const after = await until(t1, (x) => !x.job && x.last && x.last.at !== s.last.at);
   assert.equal(after.dests.find((d) => d.id === 'drive').last.ok, true);
   assert.equal(after.dests.find((d) => d.id === 'cloud').last.ok, false);
+});
+
+test('a Google sign-in for the phone page starts only from a linked tablet, for its own page and kind', { skip: !svc && SKIP }, async () => {
+  await signIn('alex@example.com');
+  const t = tablet(display());
+  const page = 'http://192.168.1.20:41234/';
+  assert.equal((await t.call('POST', '/cloud/google/start', { r: page, k: 'cal' })).code, 409); // not linked yet
+  await link(t);
+  assert.equal((await t.call('POST', '/cloud/google/start', { r: 'https://example.com/' })).code, 400);
+  for (const k of ['cal', undefined]) {
+    const s = await t.call('POST', '/cloud/google/start', { r: page, k });
+    assert.equal(s.code, 200);
+    const r = await fetch(s.obj.url, { redirect: 'manual' });
+    assert.equal(r.status, 302);
+    const to = new URL(r.headers.get('location'));
+    assert.equal(to.hostname, 'accounts.google.com');
+    assert.equal(/calendar/.test(to.searchParams.get('scope')), k === 'cal');
+  }
 });
