@@ -264,7 +264,8 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === SETUP_TOOL.name && inSetup()) {
       const b = {}; if (Array.isArray(args?.family)) b.family = args.family; if (typeof args?.location === 'string') b.location = args.location;
       if (typeof args?.home_address === 'string' && args.home_address.trim()) setupHome = args.home_address.trim().slice(0, 160); // the screen shows it, and saves it on Next (Home on the Map)
-      const h = household.save(b); bump(); return { text: `Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`, isError: false };
+      let h; try { h = household.save(b); } catch (e) { return { text: `Not saved: ${e.message}`, isError: true }; }
+      bump(); return { text: `Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`, isError: false };
     }
     if (!LIVE_TOOLS.includes(name)) return { text: `${name} isn't one of this voice's tools.`, isError: true };
     const r = await homeScreen.call(name, args || {}, { by: 'assistant', who: null, conversation: 'live', touched: null });
@@ -340,7 +341,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (typeof j.home_address === 'string' && j.home_address.trim()) setupHome = j.home_address.trim().slice(0, 160);
     else if (j.confirm && setupGuess) setupHome = setupGuess;
     if (!b.family && !b.location && !setupHome) return;
-    if (b.family || b.location) household.save(b);
+    if (b.family || b.location) try { household.save(b); } catch (e) { console.log('[setup] not saved:', e.message); }
     bump(typeof j.say === 'string' ? j.say.slice(0, 120) : '');
   }
 

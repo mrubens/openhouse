@@ -57,6 +57,9 @@ function openCard(render, { width = 820 } = {}) {
   return s;
 }
 
+/** What the tablet said no to (the recipe box is full): its reason, and OK. */
+function told(r) { if (r?.error) openCard((close) => [h('h2', null, r.error), h('div', { class: 'actions' }, btn('OK', close))]); }
+
 // ---- state ----
 let H = null;
 /** Cooking now: {key, at} (at: 0 before step 1, 1..n the steps, n + 1 the end), kept so a reload carries on. */
@@ -350,7 +353,7 @@ function choose(i) {
   const have = Object.entries(H.recipes || {}).find(([, x]) => x.link === r.url);
   const key = have ? have[0] : r.title.toLowerCase();
   chosen = { key, at: Date.now() };
-  if (!have) house.addRecipeLink(r.url, r.title);
+  if (!have) house.addRecipeLink(r.url, r.title).then(told);
   openWhenThere(key);
   return have ? `${r.title} is already in the recipe box.${cookOf(key) ? ' Say let\'s make it to start.' : ''}` : `Saved ${r.title}. Making the steps now; say let's make it when you're ready.`;
 }
@@ -503,7 +506,7 @@ function addCard() {
         const t = text.value.trim();
         if (!t) { text.focus(); return; }
         document.activeElement?.blur(); close();
-        house.addRecipe(t);
+        house.addRecipe(t).then(told);
       }, { disabled: !H?.ai })),
   ], { width: 900 });
   requestAnimationFrame(() => text.focus());

@@ -23,6 +23,11 @@ import { calendars } from './calendar.js';
 import { calendarSync } from './calendar-sync.js';
 import { shellCall } from './calendar-links.js';
 
+// How much the household holds. Past one, a save is refused with the reason (a 400 for a tap, an error a tool says),
+// never cut short: nobody's chore or person is dropped to make room.
+export const ROOM = { family: 20, chores: 100, places: 40, routines: 20 };
+const full = (text) => Object.assign(new Error(text), { code: 'full', status: 400 });
+
 export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen }) {
   const BOARD = path.join(DIR, 'board.json');
   const HOUSE = path.join(DIR, '../household.json');
@@ -52,7 +57,8 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       const had = new Map((h.family || []).map((f) => [String(f.name).toLowerCase(), f.color]));
       const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v || '')) ? String(v).toLowerCase() : null);
       h.family = b.family.map((f) => { const name = str(f.name, 40), color = f.color === null ? null : hex(f.color) || had.get(name.toLowerCase()) || null;
-        return { name, ...(str(f.note) ? { note: str(f.note) } : {}), ...(color ? { color } : {}) }; }).filter((f) => f.name).slice(0, 12);
+        return { name, ...(str(f.note) ? { note: str(f.note) } : {}), ...(color ? { color } : {}) }; }).filter((f) => f.name);
+      if (h.family.length > ROOM.family) throw full(`The family has room for ${ROOM.family} people. Take someone off first.`);
     }
     if (b.location != null) h.location = str(b.location, 100) || null;
     if (b.address != null) h.address = str(b.address, 160) || null; // the home's street address (the first setup): directions, deliveries
@@ -65,17 +71,22 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
         const every = Math.round(Number('every' in c ? c.every : was.every)), since = 'since' in c ? c.since : was.since, after = 'after' in c ? c.after : was.after;
         return { who, task, ...(Array.isArray(c.days) && c.days.length ? { days: c.days.map((d) => str(d, 3).toLowerCase()) } : {}), ...(n >= 2 && n <= 10 ? { stars: n } : {}),
           ...(typeof pic === 'string' && /^[a-z]{2,12}$/.test(pic) ? { pic } : {}), ...(keep ? { keep: true } : {}),
-          ...(every >= 2 && every <= 90 ? { every, ...(after ? { after: true } : /^\d{4}-\d{2}-\d{2}$/.test(since || '') ? { since } : {}) } : {}) }; }).filter((c) => c.task).slice(0, 40);
+          ...(every >= 2 && every <= 90 ? { every, ...(after ? { after: true } : /^\d{4}-\d{2}-\d{2}$/.test(since || '') ? { since } : {}) } : {}) }; }).filter((c) => c.task);
+      if (h.chores.length > ROOM.chores) throw full(`There's room for ${ROOM.chores} chores. Take one off first.`);
     }
     // The Map's saved places (maps.js): found once, kept with their name; home: Home's own street address.
     if (Array.isArray(b.places)) {
       const num = (v, lim) => { const n = Number(v); return Number.isFinite(n) && Math.abs(n) <= lim ? n : null; };
       h.places = b.places.map((p) => ({ name: str(p.name, 40), address: str(p.address, 160), lat: num(p.lat, 90), lon: num(p.lon, 180), ...(p.home ? { home: true } : {}) }))
-        .filter((p) => p.name && p.lat != null && p.lon != null).slice(0, 40);
+        .filter((p) => p.name && p.lat != null && p.lon != null);
+      if (h.places.length > ROOM.places) throw full(`The Map has room for ${ROOM.places} places. Take one off first.`);
     }
     if (b.maps != null) { if (b.maps === true) h.maps = true; else delete h.maps; } // the Map turned on (its services: docs/maps.md)
     delete h.assistant; // (it was once renamable; it's always Opie now)
-    if (Array.isArray(b.routines)) h.routines = b.routines.map((r) => str(r, 160)).filter(Boolean).slice(0, 20);
+    if (Array.isArray(b.routines)) {
+      h.routines = b.routines.map((r) => str(r, 160)).filter(Boolean);
+      if (h.routines.length > ROOM.routines) throw full(`There's room for ${ROOM.routines} routines. Take one off first.`);
+    }
     writeJson(HOUSE, h, { space: 2 });
     if (!quiet) curate('household'); // a chore ticked on or off isn't worth a curation
     return h;
@@ -141,7 +152,10 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       if (!loc) { json(res, 400, { error: 'location' }); return true; }
       saveHousehold({ location: loc }); json(res, 200, { ok: true, location: loc }); return true;
     }
-    if (p === '/household' && req.method === 'POST') { saveHousehold(await body(req)); json(res, 200, { ok: true }); return true; }
+    if (p === '/household' && req.method === 'POST') {
+      try { saveHousehold(await body(req)); } catch (e) { if (e.code !== 'full') throw e; json(res, 400, { error: e.message }); return true; }
+      json(res, 200, { ok: true }); return true;
+    }
     if (p === '/calendar/feeds' && req.method === 'POST') {
       const st = cal.setFeeds((await body(req)).feeds);
       json(res, 200, st);

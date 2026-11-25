@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { houseRoutes, MAX_VIDEO } from '../house.js';
+import { houseRoutes, MAX_VIDEO, ROOM } from '../house.js';
 
 function house(synced = []) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x');
@@ -167,4 +167,21 @@ test('videos: one over the size cap is refused and nothing there is lost; one se
   assert.equal(done.code, 200);
   assert.deepEqual(fs.readFileSync(path.join(PHOTOS, done.obj.name)), whole, 'whole, byte for byte');
   assert.equal((await part({ id: 'zzzzzzzz2', n: 0, of: 2 }, Buffer.from('not a video at all'))).code, 400);
+});
+
+test('a full list refuses the add, with a reason for the tap and for Opie, and drops nothing that was on it', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x'); fs.mkdirSync(DIR);
+  const board = { householdView: () => ({ family: [], chores: [], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => [] };
+  let out = null, next = {};
+  const h = houseRoutes({ DIR, json: (res, code, obj) => { out = { code, obj }; }, body: async () => next, board });
+  const post = async (p, b) => { next = b; out = null; await h({ method: 'POST', headers: {} }, {}, new URL('http://x' + p)); return out; };
+  const many = Array.from({ length: ROOM.listItems }, (_, i) => `Thing ${i}`);
+  assert.equal((await post('/house/list', { list: 'Groceries', add: many })).code, 200);
+  const r = await post('/house/list', { list: 'Groceries', add: ['One more'] });
+  assert.equal(r.code, 400); assert.ok(r.obj.error);
+  const t = await h.call('change_list', { list: 'Groceries', add: ['One more'] });
+  assert.equal(t.isError, true); assert.ok(t.content[0].text);
+  const items = JSON.parse((await h.call('family_things', {})).content[0].text).lists.find((l) => l.name === 'Groceries').items;
+  assert.equal(items.length, ROOM.listItems);
+  assert.equal(items[0].text, 'Thing 0', 'the oldest is still there');
 });

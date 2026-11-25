@@ -451,7 +451,9 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
   const [gone, setGone] = useState(() => new Set());
   const [adding, setAdding] = useState(null); // the words being added to the list, or null
   const typingIn = adding !== null; useEffect(() => { if (!typingIn) return; shell?.editing?.(true); return () => shell?.editing?.(false); }, [typingIn]); // (the shell's keyboard goes to the box)
-  const add = () => { const t = String(adding || '').trim(); setAdding(null); if (t) c.json('POST', '/house/list', { list: list.name, add: [t] }).catch(() => {}); };
+  const [refused, setRefused] = useState(null); // why the tablet didn't add it (the list is full), for a moment
+  const add = () => { const t = String(adding || '').trim(); setAdding(null); if (t) c.json('POST', '/house/list', { list: list.name, add: [t] }).then((r) => { if (r?.json?.error) setRefused(r.json.error); }).catch(() => {}); };
+  useEffect(() => { if (!refused) return; const x = setTimeout(() => setRefused(null), 8000); return () => clearTimeout(x); }, [refused]);
   useEffect(() => { if (!ticked) return; const x = setTimeout(() => setTicked(null), 6000); return () => clearTimeout(x); }, [ticked]);
   const items = (list?.items || []).filter((i) => !i.done && !gone.has(i.id));
   const tick = (e, i) => { e.stopPropagation(); setGone(new Set([...gone, i.id])); setTicked({ id: i.id, text: i.text }); c.json('POST', '/house/list', { list: list.name, check: [i.id] }).catch(() => {}); };
@@ -500,6 +502,7 @@ export function Today({ c, house, now, notes, weather, tabs, appBy, go, addTo = 
     ))}</div>
       : <div className="t-big">Nothing to get</div>}
     {ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Put it back</span>}
+    {refused && !ticked && <span className="t-undo">{refused}</span>}
     {adding !== null && <div className="h-veil" onClick={(e) => { e.stopPropagation(); setAdding(null); }}>
       <form className="h-note-full t-addsheet" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); add(); }}>
         <h2>Add to {list.name}</h2>

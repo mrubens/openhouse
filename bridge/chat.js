@@ -196,7 +196,8 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
         if (dropped.length) return { content: [{ type: 'text', text: `Not saved: this would take ${dropped.join(', ')} off the family list. Pass everyone who stays (about_household), and put anyone they asked to take off in taking_off.` }], isError: true };
       }
       const { taking_off, ...rest } = a; a = rest;
-      const h = board.saveHousehold(a); return ok(`Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`); }
+      let h; try { h = board.saveHousehold(a); } catch (e) { return { content: [{ type: 'text', text: `Not saved: ${e.message}` }], isError: true }; }
+      return ok(`Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`); }
     if (name === 'remember_preference') {
       const p = String(a.preference || '').trim().replace(/\s+/g, ' ').slice(0, 200);
       if (!p) return { content: [{ type: 'text', text: 'Nothing to remember.' }], isError: true };

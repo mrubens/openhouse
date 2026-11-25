@@ -93,10 +93,15 @@ function viaScreen(path, body) {
   }).then((m) => new Response(m.status === 204 ? null : m.body, { status: m.status || 500, headers: { 'content-type': m.type || 'application/json' } }));
 }
 
+/** A refused call's error: the bridge's reason when it gave one (e.reason: "Groceries is full…", for the app to show). */
+async function failed(path, r) {
+  let reason = null; try { reason = (await r.json())?.error || null; } catch {}
+  return Object.assign(new Error(`${path}: ${r.status}${reason ? ` (${reason})` : ''}`), { status: r.status, reason: typeof reason === 'string' ? reason : null });
+}
 async function call(path, body, raw = false) {
   if (SCREEN) {
     const r = await viaScreen(path, body);
-    if (!r.ok) throw new Error(`${path}: ${r.status}`);
+    if (!r.ok) throw await failed(path, r);
     return raw ? r : r.json();
   }
   await keyReady;
@@ -105,10 +110,12 @@ async function call(path, body, raw = false) {
     headers: { 'x-openhouse-app': APP, 'x-openhouse-key': KEY, ...(body === undefined || body instanceof Blob ? {} : { 'content-type': 'application/json' }) },
     body: body === undefined ? undefined : body instanceof Blob ? body : JSON.stringify(body),
   });
-  if (!r.ok) throw new Error(`${path}: ${r.status}`);
+  if (!r.ok) throw await failed(path, r);
   return raw ? r : r.json();
 }
-const send = (path, body) => call(path, body).catch((e) => console.warn(e.message));
+/** A change that doesn't stop the app: its answer, or { error } when it was refused (error: the bridge's reason to show,
+ *  "Groceries is full…"; null when it just didn't get there). */
+const send = (path, body) => call(path, body).catch((e) => { console.warn(e.message); return { error: e.reason || null }; });
 /** POST /apps/fetch, its answer whatever the status (its error is in the body). */
 async function fetched(b) {
   if (SCREEN) return viaScreen('/apps/fetch', b);
