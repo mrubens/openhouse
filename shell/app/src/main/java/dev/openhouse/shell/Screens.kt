@@ -19,6 +19,21 @@ import kotlin.concurrent.thread
 internal object Screens {
     private val main = Handler(Looper.getMainLooper())
 
+    /**
+     * Where a phone or screen on the Wi-Fi opens the tablet: its own https name while that works there (the bridge's
+     * lan-tls.js, docs/networking.md), else its address over plain http.
+     */
+    fun base(pair: JSONObject, ip: String?): String =
+        pair.optString("base").takeIf { !pair.isNull("base") && it.startsWith("https://") } ?: "http://$ip:${pair.optInt("port")}"
+
+    /** Tells the bridge the tablet's address on the Wi-Fi (for its https name), when it changes or the bridge restarted. */
+    @Volatile private var told: String? = null
+    fun tellAddress(c: android.content.Context) = thread {
+        val ip = Handoff.lanAddress(c)?.hostAddress ?: return@thread
+        if (ip == told) return@thread
+        if (post("/screens/address", JSONObject().put("address", ip)) != null) told = ip
+    }
+
     private fun get(a: MainActivity): JSONObject? = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/screens")) }.getOrNull()
     private fun post(path: String, body: JSONObject = JSONObject()) = dev.openhouse.ui.Openhouse.post(path, body)
 
@@ -60,7 +75,7 @@ internal object Screens {
         main.post {
             if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair")
-            val url = "http://${ip.hostAddress}:${p.optInt("port")}/screen/#$pair.${p.optString("key")}"
+            val url = "${base(p, ip.hostAddress)}/screen/#$pair.${p.optString("key")}"
             val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with the other screen, on this Wi-Fi."), 360) { Handoff.share(a, url) }
             var open = true
             val d = CalmDialog(a).setTitle("Add a screen").setView(col).setNegativeButton("Cancel", null)
@@ -102,7 +117,7 @@ internal object Screens {
         main.post {
             if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair")
-            val url = "http://${ip.hostAddress}:${p.optInt("port")}/phone/?for=${android.net.Uri.encode(who)}#$pair.${p.optString("key")}"
+            val url = "${base(p, ip.hostAddress)}/phone/?for=${android.net.Uri.encode(who)}#$pair.${p.optString("key")}"
             val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with $who's phone, on this Wi-Fi."), 360) { Handoff.share(a, url) }
             var open = true
             val d = CalmDialog(a).setTitle("$who's phone").setView(col).setNegativeButton("Cancel", null)

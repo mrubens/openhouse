@@ -44,6 +44,7 @@
 // A screen gets scopes, an allowlist of routes; nothing else reaches the bridge from the network.
 import http from 'node:http';
 import https from 'node:https';
+import net from 'node:net';
 import fs from 'node:fs';
 import { guarded } from './guarded.js';
 import { readJson, writeJson } from './store.js';
@@ -221,7 +222,7 @@ export const frameHeaders = (host, reaches = '') => ({
  * dispatch(req, res, url): the bridge's own routes, after its secret is checked (server.js). A screen's opened
  * request is handed to it as if it came from the display, once its scopes allow it.
  */
-export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
+export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), lanTls = null, TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
   // (no .bak: a phone taken off must not come back from an older copy)
   const state = readJson(registered('screens', FILE), null, { bak: false }) || { lan: false, screens: [] };
   state.screens ||= [];
@@ -264,18 +265,46 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   // A hub may answer on https (docs/hub.md: its own certificate, e.g. from Tailscale or mkcert), so a phone's browser lets
   // the page use the microphone for live voice. The tablet doesn't: plain http, sealed requests.
   const TLS = (() => { try { return TLS_FILES ? { cert: fs.readFileSync(TLS_FILES.cert), key: fs.readFileSync(TLS_FILES.key) } : null; } catch (e) { console.log('[screens] no https:', e.message); return null; } })();
+  // The tablet: plain http, and on the same port https with its own name's certificate once it has one (lan-tls.js):
+  // a connection that starts with a TLS handshake goes to the https server, any other to the http one.
+  let plainLan = null, secureLan = null, secureFor = null;
+  function secureContext() {
+    const t = lanTls?.tls();
+    if (!t) return null;
+    if (secureFor !== t.cert) { // (a new certificate: renewed, or a new name)
+      if (secureLan) secureLan.setSecureContext({ key: t.key, cert: t.cert });
+      else secureLan = https.createServer({ key: t.key, cert: t.cert, minVersion: 'TLSv1.2' }, guarded('screens', onLan));
+      secureFor = t.cert;
+    }
+    return secureLan;
+  }
   function startLan() {
     if (lan) return;
-    lan = TLS ? https.createServer(TLS, guarded('screens', onLan)) : http.createServer(guarded('screens', onLan));
+    if (TLS) lan = https.createServer(TLS, guarded('screens', onLan));
+    else {
+      plainLan = http.createServer(guarded('screens', onLan));
+      lan = net.createServer((sock) => {
+        sock.once('error', () => sock.destroy());
+        sock.once('data', (first) => {
+          sock.pause(); sock.unshift(first);
+          ((first[0] === 0x16 && secureContext()) || plainLan).emit('connection', sock);
+          process.nextTick(() => sock.resume());
+        });
+      });
+    }
     lan.on('error', (e) => { console.log('[screens] listener:', e.code || e.message); lan = null; });
-    lan.listen(PORT, HOST, () => console.log(`[screens] on the home network, ${TLS ? 'https' : 'http'} :${PORT}`));
+    lan.listen(PORT, HOST, () => console.log(`[screens] on the home network, ${TLS ? 'https' : 'http and https'} :${PORT}`));
   }
   function stopLan() {
     if (!lan) return;
     for (const set of live.values()) for (const r of set) r.end();
     lan.close(); lan.closeAllConnections?.(); lan = null;
+    for (const srv of [plainLan, secureLan]) srv?.closeAllConnections?.();
+    plainLan = null; secureLan = null; secureFor = null;
     console.log('[screens] off the home network');
   }
+  /** Where a phone or screen on the Wi-Fi goes for this tablet: its https name while that works (lan-tls.js), else null. */
+  const lanBase = () => (TLS ? null : lanTls?.base() || null);
   if (state.lan) startLan();
 
   /** A screen's token for an app's files: from its key, so it's the screen's own and ends with it. */
@@ -315,12 +344,14 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     if (p !== '/screens' && !p.startsWith('/screens/')) return false;
     sweep();
     if (req.method === 'GET' && p === '/screens') {
-      json(res, 200, { lan: !!state.lan, listening: !!lan, port: PORT, screens: state.screens.map(pub), invites: state.invites.map((v) => v.person),
+      json(res, 200, { lan: !!state.lan, listening: !!lan, port: PORT, base: lanBase(), https: lanTls?.status() || null, screens: state.screens.map(pub), invites: state.invites.map((v) => v.person),
         asking: [...pairs].filter(([, x]) => x.asked && !x.answer).map(([pair, x]) => ({ pair, name: x.name, kind: x.kind, via: x.via, ...(x.person ? { person: x.person } : {}) })) });
       return true;
     }
     if (req.method !== 'POST') return false;
     const b = await body(req);
+    // The tablet's address on the Wi-Fi, from the shell (as the router gives it): for its https name (lan-tls.js).
+    if (p === '/screens/address') { const ok = !!lanTls?.address(b.address); json(res, ok ? 200 : 400, { ok, https: lanTls?.status() || null, base: lanBase() }); return true; }
     if (p === '/screens/lan') { state.lan = !!b.on; write(); state.lan ? startLan() : stopLan(); json(res, 200, { ok: true, lan: state.lan }); return true; }
     if (p === '/screens/pair') {
       const computer = b.kind === 'computer', tv = b.kind === 'tv', phone = b.kind === 'phone' || b.setup === true, setup = b.setup === true;
@@ -355,7 +386,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
       if (computer) changed(); // the relay hears of the code (relay.js), for the web connector
       if (setup) pairs.get(pair).until = Date.now() + 30 * 60e3;
       json(res, 200, computer ? { pair, code, port: PORT, minutes: 10, host: connect.address ? HOSTNAME : null, away: connect.away, extension: httpsCopy()?.url || null } : tv ? { pair, port: PORT, minutes: 10 }
-        : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, host: setupNamed ? HOSTNAME : null } : { pair, key: b64(key), port: PORT, minutes: 10, ...(code ? { code } : {}) });
+        : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, host: setupNamed ? HOSTNAME : null, base: lanBase() } : { pair, key: b64(key), port: PORT, minutes: 10, base: lanBase(), ...(code ? { code } : {}) });
       return true;
     }
     if (p === '/screens/pair/end') { closeConnect(String(b.pair || '')); json(res, 200, { ok: true }); return true; }
@@ -429,7 +460,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
         const f = path.join(PUBLIC, 'phone', file[2]);
         if (!fs.existsSync(f)) return plain(res, 404, { error: 'not found' });
         const host = /^[a-z0-9.-]{1,80}(:\d{2,5})?$/i.test(String(req.headers.host || '')) ? req.headers.host : `127.0.0.1:${PORT}`;
-        res.writeHead(200, { 'content-type': TYPES[path.extname(f)], ...frameHeaders(`${TLS ? 'https' : 'http'}://${host}`, frameReaches(url.searchParams.get('r'))) });
+        res.writeHead(200, { 'content-type': TYPES[path.extname(f)], ...frameHeaders(`${req.socket.encrypted ? 'https' : 'http'}://${host}`, frameReaches(url.searchParams.get('r'))) });
         return res.end(fs.readFileSync(f));
       }
       if (file) {
@@ -480,7 +511,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     const f = path.join(root, path.normalize(rel || 'index.html').replace(/^(\.\.[/\\])+/, ''));
     if (!f.startsWith(root + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory() || path.basename(f) === 'app.json') return plain(res, 404, { error: 'not found' });
     const host = /^[a-z0-9.-]{1,80}(:\d{2,5})?$/i.test(String(req.headers.host || '')) ? req.headers.host : `127.0.0.1:${PORT}`;
-    res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', ...appHeaders(`http://${host}`) });
+    res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', ...appHeaders(`${req.socket.encrypted ? 'https' : 'http'}://${host}`) });
     return res.end(fs.readFileSync(f));
   }
 

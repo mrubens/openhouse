@@ -56,7 +56,7 @@ internal object SetupDevice {
         val ip = Handoff.lanAddress(c)?.hostAddress ?: return null
         val r = JSONObject(BridgeClient.post("$bridge/screens/pair", JSONObject().put("setup", true).put("person", person).put("address", ip).toString()) ?: return null)
         val port = r.optInt("port")
-        val url = "http://$ip:$port/phone/?for=${android.net.Uri.encode(person)}#${r.optString("pair")}.${r.optString("key")}"
+        val url = "${Screens.base(r, ip)}/phone/?for=${android.net.Uri.encode(person)}#${r.optString("pair")}.${r.optString("key")}"
         val host = r.optString("host").takeIf { it.isNotEmpty() && !r.isNull("host") } ?: ip
         JSONObject().put("url", url).put("code", r.optString("code")).put("address", "$host:$port/phone").put("ip", "$ip:$port/phone")
     }.onFailure { Log.w(TAG, "pair: $it") }.getOrNull()

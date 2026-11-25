@@ -38,6 +38,7 @@ import { fixQueue } from './heartbeat-fixes.js';
 import { snapshot } from './heartbeat-review.js';
 import { laterRoutes } from './later.js';
 import { cloudRoutes, noteError } from './cloud.js';
+import { lanTls } from './lan-tls.js';
 import { relayRoutes } from './relay.js';
 import { mailRoutes } from './mail.js';
 import { phoneBuzz } from './phone-buzz.js';
@@ -227,9 +228,13 @@ import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud
 // A hub (docs/hub.md) has no shell to own a USB drive: its backups go to a folder instead (a mounted drive, a share, a volume).
 const localDest = isHub() ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
 backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest], escrow: cloud.escrow, busy: () => !!edits.holder() });
+// The tablet's own https name at home (lan-tls.js): its address comes from the shell (POST /screens/address); a hub's
+// from LAN_ADDRESS, as only the machine knows which of its addresses the Wi-Fi sees.
+const lanTlsState = lanTls({ DIR: path.join(DISPLAY, '.lan-tls'), cloud, PORT: Number(process.env.SCREENS_PORT || 8788) });
+if (process.env.LAN_ADDRESS) lanTlsState.address(process.env.LAN_ADDRESS);
 // Other screens on the home network (off until someone adds one): their requests come to route() below.
 let relay = null;
-const screens = screensRoutes({ HERE, json, body, APP_DIR, apns: (b) => cloud.apns(b), kit: (req, res, url) => apps.kit(req, res, url), onChange: () => relay?.changed(),
+const screens = screensRoutes({ HERE, json, body, APP_DIR, apns: (b) => cloud.apns(b), lanTls: lanTlsState, kit: (req, res, url) => apps.kit(req, res, url), onChange: () => relay?.changed(),
   // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv).
   // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv). A phone
   // shows every app that runs on phones (apps.js onScreen), each in a frame of its own (docs/phones.md, "Every app").

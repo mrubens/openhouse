@@ -358,7 +358,10 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // Address suggestions for the Map (the cloud asks Amazon Location; a linked tablet only): [{id, text}], and a picked one's place.
   const placesSuggest = async (q, near) => (await call('GET', `/v1/places/suggest?q=${encodeURIComponent(q)}${near ? `&lat=${near.lat}&lon=${near.lon}` : ''}`)).suggestions || [];
   const placeOf = async (id) => (await call('GET', `/v1/places/place?id=${encodeURIComponent(id)}`)).place || null;
-  return { placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  // The tablet's own https name at home (lan-tls.js; openhouse-cloud lambda/lan.ts).
+  const lan = (what, b) => call('POST', `/v1/lan/${what}`, b ?? {});
+  const linked = () => !!device();
+  return { lan, linked, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

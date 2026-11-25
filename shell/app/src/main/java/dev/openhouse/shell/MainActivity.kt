@@ -471,8 +471,9 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
             else -> dev.openhouse.ui.Net.NoInternet
         }
         dev.openhouse.ui.Openhouse.setNet(of(runCatching { cm.getNetworkCapabilities(cm.activeNetwork) }.getOrNull()))
+        Screens.tellAddress(this) // (the tablet's https name at home follows its address: bridge/lan-tls.js)
         netWatch = object : android.net.ConnectivityManager.NetworkCallback() {
-            override fun onCapabilitiesChanged(n: android.net.Network, c: android.net.NetworkCapabilities) { dev.openhouse.ui.Openhouse.setNet(of(c)) }
+            override fun onCapabilitiesChanged(n: android.net.Network, c: android.net.NetworkCapabilities) { dev.openhouse.ui.Openhouse.setNet(of(c)); Screens.tellAddress(this@MainActivity) }
             override fun onLost(n: android.net.Network) { dev.openhouse.ui.Openhouse.setNet(dev.openhouse.ui.Net.NoNetwork) }
         }.also { runCatching { cm.registerDefaultNetworkCallback(it) } }
     }
