@@ -50,14 +50,16 @@ internal object SetupDevice {
 
     /**
      * Off the main thread: a new setup code for [person]'s phone or computer: {url} for the phone to scan, {code} and
-     * {address} ("openhouse.local:8788/phone") for a computer to type. null: no Wi-Fi, or the bridge didn't answer.
+     * {address} ("opie.local:8788", which goes to the page for the code while it lasts: screens.js) for a computer to
+     * type; no address when the tablet's name isn't answered (never its raw Wi-Fi address: that's not for people).
+     * null: no Wi-Fi, or the bridge didn't answer.
      */
     fun pair(c: Context, bridge: String, person: String): JSONObject? = runCatching {
         val ip = Handoff.lanAddress(c)?.hostAddress ?: return null
         val r = JSONObject(BridgeClient.post("$bridge/screens/pair", JSONObject().put("setup", true).put("person", person).put("address", ip).toString()) ?: return null)
         val port = r.optInt("port")
         val url = "${Screens.base(r, ip)}/phone/?for=${android.net.Uri.encode(person)}#${r.optString("pair")}.${r.optString("key")}"
-        val host = r.optString("host").takeIf { it.isNotEmpty() && !r.isNull("host") } ?: ip
-        JSONObject().put("url", url).put("code", r.optString("code")).put("address", "$host:$port/phone").put("ip", "$ip:$port/phone")
+        val host = r.optString("host").takeIf { it.isNotEmpty() && !r.isNull("host") }
+        JSONObject().put("url", url).put("code", r.optString("code")).apply { if (host != null) put("address", "$host:$port") }
     }.onFailure { Log.w(TAG, "pair: $it") }.getOrNull()
 }

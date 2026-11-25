@@ -12,13 +12,16 @@
 // GET /openhouse.mcpb      the Claude Desktop extension (scripts/build-mcpb.sh, built into the runtime)
 // GET /openhouse-mcp.mjs   the same thing as one script
 //
-// While it's open the bridge also answers "openhouse.local" over mDNS with the tablet's own address, so the
-// computer can open http://openhouse.local:8788 (Android apps can't listen on port 80, so the port stays).
+// While it's open the bridge also answers "opie.local" over mDNS with the tablet's own address, so the computer can
+// open http://opie.local:8788 (Android apps can't listen on port 80, so the port stays). "openhouse.local", the name
+// from before, is answered too, so older links still work.
 import fs from 'node:fs';
 import path from 'node:path';
 import dgram from 'node:dgram';
 
-export const HOSTNAME = process.env.CONNECT_HOSTNAME || 'openhouse.local'; // another name and port: tests
+export const HOSTNAME = process.env.CONNECT_HOSTNAME || 'opie.local'; // another name and port: tests
+/** Every name answered: the one shown, and the one from before. */
+const NAMES = process.env.CONNECT_HOSTNAME ? [HOSTNAME] : [HOSTNAME, 'openhouse.local'];
 const MDNS_PORT = Number(process.env.CONNECT_MDNS_PORT || 5353);
 const MDNS = '224.0.0.251';
 const IPV4 = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
@@ -53,35 +56,36 @@ export function questions(buf) {
   return out;
 }
 
-export function responder({ name = HOSTNAME, port = MDNS_PORT, log = (...a) => console.log('[connect]', ...a) } = {}) {
+export function responder({ names = NAMES, port = MDNS_PORT, log = (...a) => console.log('[connect]', ...a) } = {}) {
   let sock = null, address = null;
   const say = (buf, to = MDNS, toPort = port) => { try { sock?.send(buf, toPort, to); } catch {} };
   return {
     start(addr) {
       if (!IPV4.test(addr || '')) return;
       address = addr;
-      if (sock) { say(answer(name, address)); return; }
+      const announce = () => { for (const n of names) say(answer(n, address)); };
+      if (sock) { announce(); return; }
       sock = dgram.createSocket({ type: 'udp4', reuseAddr: true });
-      sock.on('error', (e) => { log(`no ${name} (${e.code || e.message})`); try { sock.close(); } catch {} sock = null; });
+      sock.on('error', (e) => { log(`no ${names[0]} (${e.code || e.message})`); try { sock.close(); } catch {} sock = null; });
       sock.on('message', (buf, from) => {
         if (!address) return;
         const id = buf.length >= 2 ? buf.readUInt16BE(0) : 0;
         for (const q of questions(buf)) {
-          if (q.name !== name || (q.type !== 1 && q.type !== 255)) continue;
-          if (from.port !== 5353) say(answer(name, address, { id }), from.address, from.port); // a plain resolver's question: straight back
-          else if (q.unicast) say(answer(name, address), from.address, from.port);
-          else say(answer(name, address));
+          if (!names.includes(q.name) || (q.type !== 1 && q.type !== 255)) continue;
+          if (from.port !== 5353) say(answer(q.name, address, { id }), from.address, from.port); // a plain resolver's question: straight back
+          else if (q.unicast) say(answer(q.name, address), from.address, from.port);
+          else say(answer(q.name, address));
         }
       });
       sock.bind(port, () => {
         try { sock.addMembership(MDNS); sock.setMulticastTTL(255); } catch (e) { log('mDNS membership:', e.message); }
-        say(answer(name, address)); setTimeout(() => address && say(answer(name, address)), 1000); // announce, twice
-        log(`answering ${name} with ${address}`);
+        announce(); setTimeout(() => address && announce(), 1000); // announce, twice
+        log(`answering ${names.join(', ')} with ${address}`);
       });
     },
     stop() {
       if (!sock) return;
-      if (address) say(answer(name, address, { ttl: 0 })); // goodbye: caches forget it now
+      if (address) for (const n of names) say(answer(n, address, { ttl: 0 })); // goodbye: caches forget it now
       const s = sock; sock = null; address = null;
       setTimeout(() => { try { s.close(); } catch {} }, 200);
     },

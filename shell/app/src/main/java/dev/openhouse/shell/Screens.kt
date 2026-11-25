@@ -230,7 +230,7 @@ internal object Screens {
                 override fun onServiceUnregistered(i: android.net.nsd.NsdServiceInfo) {}
                 override fun onUnregistrationFailed(i: android.net.nsd.NsdServiceInfo, e: Int) {}
             }
-            // Multicast reaches the bridge's name (openhouse.local) and the Bonjour advert only while this lock is held.
+            // Multicast reaches the bridge's name (opie.local) and the Bonjour advert only while this lock is held.
             val wifi = a.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
             val multicast = runCatching { wifi.createMulticastLock("openhouse-connect").apply { setReferenceCounted(false); acquire() } }.getOrNull()
             val advertised = runCatching { nsd.registerService(android.net.nsd.NsdServiceInfo().apply { serviceName = "Opie"; serviceType = "_openhouse._tcp"; setPort(port) }, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, advert) }.isSuccess

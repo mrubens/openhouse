@@ -8,7 +8,7 @@ CNAME. Decisions and what's left: the end of this page.
 
 | What | Today | Away from home |
 | --- | --- | --- |
-| The workshop MCP (`bridge/workshop.js`, `connect/`, [workshop-mcp.md](workshop-mcp.md)) | Paired computers reach `:8788` on the Wi-Fi (`openhouse.local`, Bonjour `_openhouse._tcp`) | Doesn't connect |
+| The workshop MCP (`bridge/workshop.js`, `connect/`, [workshop-mcp.md](workshop-mcp.md)) | Paired computers reach `:8788` on the Wi-Fi (`opie.local`, Bonjour `_openhouse._tcp`) | Doesn't connect |
 | Phone pages for lists (`shell/.../ui/Phone.kt`, `assets/list.html`, [built-in-apps.md](built-in-apps.md)) | Live for 3 hours on the Wi-Fi | The page keeps working offline; ticks reach the tablet only back home |
 | Paired screens ([brain-screens.md](brain-screens.md)) | Wi-Fi only | Not needed away (a screen lives in the house) |
 | Remote help for beta households | None | Wanted, only with the household's OK |

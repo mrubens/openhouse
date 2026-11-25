@@ -85,6 +85,7 @@ const RULES = [
   // 'setup': the phone or computer someone set the tablet up from (the setup's own code, scanned or typed): adds
   // calendars and albums (server.js, straight to the shell) and invites the rest of the family (handle.invite).
   ['setup', 'POST', /^\/setup\/(calendar|album|invite)$/],
+  ['setup', 'GET', /^\/setup\/step$/], // which setup step the tablet shows, to follow it
   // 'voice': talking to Opie from this device (chat/src/live-voice.js, docs/hub.md): the same live voice the tablet has,
   // its session started through the cloud (server.js /live/start) and its tools run here. A browser gives a page the
   // microphone only on https or localhost, so on the Wi-Fi's plain http address the page doesn't offer it.
@@ -256,7 +257,7 @@ export function screensRoutes({ HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 
     if (setupNamed && ![...pairs.values()].some((x) => x.setup)) { setupNamed = false; if (!connect) named.stop(); }
     const n = state.invites.length; state.invites = state.invites.filter((v) => v.until > Date.now() && pairs.has(v.pair)); if (state.invites.length !== n) write();
   };
-  let setupNamed = false; // openhouse.local answers while the setup's code lasts (a computer types the address)
+  let setupNamed = false; // opie.local answers while the setup's code lasts (a computer types the address)
   // The Connect screen's page (connect-page.js): open with one computer pairing, for as long as it lasts.
   let connect = null; // { pair, address, until, away } (never the code: the page mustn't have it)
   const named = responder();
@@ -402,7 +403,7 @@ export function screensRoutes({ HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 
         connect = { pair, address, until: Date.now() + 10 * 60e3, away: handle.awayForConnect?.() || null };
         if (address) named.start(address);
       }
-      else if (setup) { // the setup's own: a phone scans it, or a computer types its code at openhouse.local:8788/phone
+      else if (setup) { // the setup's own: a phone scans it, or a computer types its code at opie.local:8788
         for (const [id, x] of pairs) if (x.setup) pairs.delete(id); // one at a time
         do { code = newCode(); ({ pair, key } = pairingFromCode(code)); } while (pairs.has(pair));
         const address = /^\d{1,3}(\.\d{1,3}){3}$/.test(String(b.address || '')) ? String(b.address) : null;
@@ -480,6 +481,8 @@ export function screensRoutes({ HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 
     try {
       if (connect && connect.until < Date.now()) closeConnect();
       if (connect && req.method === 'GET' && (p === '/' || p === '/openhouse.mcpb' || p === '/openhouse-mcp.mjs')) return connectRoute(req, res, p);
+      // While the setup's code lasts, the bare address (opie.local:8788, typed on a computer) is the page to type it on.
+      if (req.method === 'GET' && p === '/' && [...pairs.values()].some((x) => x.setup && x.until > Date.now())) { res.writeHead(302, { location: '/phone/' }); return res.end(); }
       if (req.method === 'GET' && (p === '/' || p === '/screen')) { res.writeHead(302, { location: '/screen/' }); return res.end(); }
       if (req.method === 'GET' && p === '/phone') { res.writeHead(302, { location: '/phone/' }); return res.end(); }
       if (req.method === 'GET' && p === '/hub') { res.writeHead(302, { location: '/hub/' }); return res.end(); } // the hub's settings (docs/hub.md)
