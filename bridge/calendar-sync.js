@@ -253,11 +253,13 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
         const master = raw.replace(/\r\n[ \t]/g, '').split(/\r?\n/);
         const rule = master.find((l) => /^RRULE:/i.test(l));
         for (const e of parse(raw, from, to)) {
-          const [uid, date] = String(e.uid || '').split('|');
+          // [utc]: the time's day in UTC (calendar.js), kept in its key so countdowns and reminders keep their uid; its
+          // date is the local day, as Google's, so "Tuesday" from Opie and the Calendar app's own date both name it.
+          const [uid, utc] = String(e.uid || '').split('|');
           const id = (uid || url).replace(/[^\w.@-]/g, '_').slice(0, 120);
-          const key = date ? `${id}|${date}` : id;
+          const key = utc ? `${id}|${utc}` : id;
           const rep = rule ? repeatOf(rule) : { repeat: null };
-          events[key] = { remote: id, url, etag, raw, ev: { title: e.title, start: e.start, end: e.end || e.start, allDay: e.allDay, ...(e.place ? { place: e.place } : {}), ...(e.notes ? { notes: e.notes } : {}), ...(rep.repeat ? rep : {}), ...(date ? { date } : {}) } };
+          events[key] = { remote: id, url, etag, raw, ev: { title: e.title, start: e.start, end: e.end || e.start, allDay: e.allDay, ...(e.place ? { place: e.place } : {}), ...(e.notes ? { notes: e.notes } : {}), ...(rep.repeat ? rep : {}), ...(utc ? { date: dayKey(new Date(e.start)) } : {}) } };
         }
       }
       return events;
@@ -466,7 +468,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     if (f.queued && !date) { st.outbox = st.outbox.filter((o) => o !== f.queued); save(); changed(); return { ok: true, removed: [id] }; }
     if (!f.item) return { error: `No event ${id}.` };
     const one = date && f.item.ev.repeat ? date : null;
-    // [start]: that time's own start, so iCloud's EXDATE names it exactly ([date] is its id, the day in UTC).
+    // [start]: that time's own start, so iCloud's EXDATE names it exactly ([date] is its local day).
     queue({ op: 'remove', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, date: one, ...(one && f.item.ev.date === one ? { start: f.item.ev.start } : {}) });
     return one ? { ok: true, removed: [], skipped: one } : { ok: true, removed: [id] };
   }
