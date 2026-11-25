@@ -441,5 +441,7 @@ function endClip(s) { const v = s?.clip; if (!v) return; s.clip = null; v.classL
 function stopShow() { if (show) { clearTimeout(show.timer); endClip(show); show = null; } }
 
 // Opened from Today's photo (add=<when>&photo=<name> in its address, just now): that photo, once.
+// From Home's "Add your photos" (add=<when> with do=add): the ways in, once.
 let openAsked = (() => { const q = new URLSearchParams(location.hash.slice(1)); return Date.now() - (Number(q.get('add')) || 0) < 15e3 ? q.get('photo') : null; })();
-house.subscribe((d) => { H = d; if (openAsked && (d.photos || []).includes(openAsked)) { album = null; one = openAsked; } openAsked = null; draw(); });
+let addAsked = (() => { const q = new URLSearchParams(location.hash.slice(1)); return Date.now() - (Number(q.get('add')) || 0) < 15e3 && q.get('do') === 'add'; })();
+house.subscribe((d) => { H = d; if (openAsked && (d.photos || []).includes(openAsked)) { album = null; one = openAsked; } openAsked = null; draw(); if (addAsked) { addAsked = false; addPhotos(); } });

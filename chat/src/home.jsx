@@ -175,7 +175,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
       <main className="h-sheet">
         {tabs.filter((t) => seen.has(t.id) || t.id === cur).map((t) => (
           <section key={t.id} className="h-page" hidden={t.id !== cur}>
-            {t.id === 'today' ? <Today c={c} house={house} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} />
+            {t.id === 'today' ? <Today c={c} house={house} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} boardAt={homeScreen?.whiteboard || 0} />
               : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} family={house?.family || []} />
               : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} add={addIn?.id === t.id ? addIn.at : 0} addExtra={addIn?.id === t.id ? addIn.extra : ''} />
               : <div className="h-widget"><Widget id={t.id} app={appBy.get(t.id)} w={4} h={4} house={house} c={c} Photo={(p) => <PhotoShow c={c} {...p} />}
@@ -362,7 +362,7 @@ export function untilText(start, now) {
 // Each card is one tab's excerpt and opens that tab. Only the tabs the family has get a card (a renamed or remade app
 // still counts by its name), the most useful first, and they share the screen without scrolling: Calendar down the left
 // on a white panel, the others in rows beside it (two to a row, three in the last), each in its own color.
-const KINDS = ['calendar', 'weather', 'chores', 'meals', 'lists', 'photos'];
+const KINDS = ['calendar', 'weather', 'chores', 'meals', 'lists', 'photos', 'whiteboard', 'recipes'];
 /** Which of the starting apps a tab is, by its id or, for one the family remade, its name. */
 export function kindOf(t, app) { if (KINDS.includes(t.id)) return t.id; const n = String(t.name || app?.meta?.name || '').toLowerCase(); return KINDS.find((k) => n.includes(k.replace(/s$/, ''))) || null; }
 /** Whose world is behind a tab: the starting app it is, else its own id (look.js worldOf). */
@@ -389,13 +389,17 @@ function useFit() {
   return ref;
 }
 
-/** Home's own cards, in their usual order; an app's card ("app:<id>") goes before the photos. */
-export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'meals', 'lists', 'chores', 'notes', 'photos'];
-export const TODAY_NAMES = { calendar: 'Calendar', weather: 'Weather', lunch: 'App notes with a photo', meals: 'Dinner', lists: 'Groceries', chores: 'Chores', notes: 'Notes', photos: 'Photos' };
+/** Home's own cards (bridge/home-screen.js TODAY_CARDS): every one there is, the order Tabs and look offers them in. */
+export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'meals', 'lists', 'chores', 'notes', 'photos'];
+/** The ones a household that never arranged its Home sees, in order (home-screen.js TODAY_DEFAULT, version 2): Dinner
+ *  is off (it can be added), the Whiteboard and a recipe to try are on, the list comes after them, smaller. Arranging
+ *  saves the whole list in style.json, so a new default never moves a household's own. An app's card goes before the photos. */
+export const TODAY_DEFAULT = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'chores', 'photos', 'lists', 'notes'];
+export const TODAY_NAMES = { calendar: 'Calendar', weather: 'Weather', lunch: 'App notes with a photo', whiteboard: 'Whiteboard', recipes: 'A recipe to try', meals: 'Dinner', lists: 'Groceries', chores: 'Chores', notes: 'Notes', photos: 'Photos' };
 /** The cards Today shows, in order: the look's choice (look.today), with the apps' cards that are on (look.cards). */
 export function todayOrder(look) {
   const apps = (look?.cards || []).map((id) => 'app:' + id);
-  if (!Array.isArray(look?.today)) return [...TODAY_CARDS.slice(0, -1), ...apps, 'photos'];
+  if (!Array.isArray(look?.today)) { const d = [...TODAY_DEFAULT]; d.splice(d.indexOf('photos'), 0, ...apps); return d; }
   const list = look.today.filter((k) => !k.startsWith('app:') || apps.includes(k));
   return [...list, ...apps.filter((k) => !list.includes(k))];
 }
@@ -441,7 +445,7 @@ function DishPic({ house, name }) {
 const Check = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
 
 /** Today (also on someone's phone, phone.jsx, in one column). */
-export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, addTo = go, openApp, shell, usePhoto, look, appsV }) {
+export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, addTo = go, openApp, shell, usePhoto, look, appsV, boardAt = 0 }) {
   // The time: the phone's own (phone.jsx), else the page's, drawn again each minute (not each second: Today is big).
   const clockNow = useNow(60e3), now = given ?? clockNow;
   const h = house || {};
@@ -535,7 +539,7 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
     {items.length || ticked ? <div className="t-items one scrolls">{items.map((i) => (
       <div key={i.id} className="t-item"><span className="t-box" role="button" aria-label={'Got ' + i.text} onClick={(e) => tick(e, i)} /><span className="h-grow">{i.text}</span></div>
     ))}</div>
-      : <div className="t-big">Nothing to get</div>}
+      : <div className="t-invite"><div className="t-line">Nothing to get</div><div className="t-soft">Add things as you run out</div></div>}
     {ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Put it back</span>}
     {refused && !ticked && <span className="t-undo">{refused}</span>}
     {adding !== null && <div className="h-veil" onClick={(e) => { e.stopPropagation(); setAdding(null); }}>
@@ -556,10 +560,21 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
         <span className="t-ring-n">{who || 'Anyone'}</span><em>{all ? 'Done' : `${n - done} left`}</em>
       </div>); })}</div> : <div className="t-line">{routine.steps?.length || 0} steps</div>}
   </div>);
+  // The Whiteboard: what's drawn on it, small and live; blank, its paper and what it's for. A tap opens it.
+  if (kinds.has('whiteboard')) cards.push(<BoardCard key="whiteboard" c={c} at={boardAt} {...card('whiteboard')} />);
+  // A recipe to try (tonight's when dinner has one in the box), a tap opening it in Recipes.
+  if (kinds.has('recipes')) cards.push(<RecipeCard key="recipes" house={h} t={t} dinner={dinner} tonight={tonight} {...card('recipes')}
+    onOpen={(k) => addTo(kinds.get('recipes'), k ? 'recipe=' + encodeURIComponent(k) : '')} />);
   // The apps' own cards the household turned on, in their order, before the notes and the photo (wide: a row of its own).
   if (notes.length) cards.push(<NotesCard key="notes" c={c} notes={notes} reminders={[]} />); // (reminders due are things on Home)
   if (shell?.ui) for (const id of look?.cards || []) { const a = appBy.get(id); if (a?.today) cards.push(<AppCard key={'app:' + id} c={c} shell={shell} app={a} look={look} v={appsV[id] || 0} openApp={openApp} wide={a.today === 'wide'} />); }
-  if (kinds.has('photos') && photos.length) cards.push(<PhotoCard key="photos" c={c} names={photos} captions={h.captions} now={now} usePhoto={usePhoto} {...card('photos')} onOpen={(name) => addTo(kinds.get('photos'), 'photo=' + encodeURIComponent(name))} />);
+  // No photos yet: the card's frames, empty, and the ways in (Photos' Add photos).
+  if (kinds.has('photos') && !(h.photos || []).length) cards.push(<div key="photos" {...card('photos', () => addTo(kinds.get('photos'), 'do=add'))} className="t-card t-photos-none">
+    <div className="h-label">Photos</div>
+    <Frames />
+    <div className="t-invite"><div className="t-big">Add your photos</div><div className="t-soft">From a phone, or an iCloud shared album</div></div>
+  </div>);
+  else if (kinds.has('photos') && photos.length) cards.push(<PhotoCard key="photos" c={c} names={photos} captions={h.captions} now={now} usePhoto={usePhoto} {...card('photos')} onOpen={(name) => addTo(kinds.get('photos'), 'photo=' + encodeURIComponent(name))} />);
   // Laid out in rows, three at most: two to a row beside the calendar (three without it), a wide card a row of its own;
   // the last row takes one more, so seven cards share the screen as two, two and three.
   // Which of them show, in what order: the household's choice in the look panel (look.today), else all, as usual. An
@@ -583,9 +598,12 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   const per = showCal ? 2 : 3, rows = [];
   { let cur = null; for (const x of cards) { if (x.props.wide) { rows.push([x]); cur = null; } else { if (!cur || cur.length >= per) rows.push(cur = []); cur.push(x); } } }
   if (rows.length > 3 && rows[2].length === per && !rows[2][0].props.wide && !rows[3][0].props.wide) rows[2].push(rows[3][0]);
+  // a card that would be alone in the last row (a new Home's list) joins the row before it, three at most
+  { const last = rows.at(-1), prev = rows.at(-2); if (rows.length > 1 && rows.length <= 3 && last.length === 1 && !last[0].props.wide && prev.length < 3 && !prev[0].props.wide) prev.push(rows.pop()[0]); }
   rows.length = Math.min(rows.length, 3);
   const tall = rows.length === 3 ? [346, 296, 242] : [1, 1, 1];
-  const wide = (x) => (x.key === 'photos' ? 1.5 : x.key === 'notes' ? 1 : 1.25);
+  // how wide each is beside the others: the list a narrow column (the user: it shouldn't take up as much space)
+  const wide = (x) => (x.key === 'photos' ? 1.5 : x.key === 'whiteboard' ? 1.4 : x.key === 'notes' || x.key === 'lists' ? 1 : 1.25);
 
   return (
     <div className="h-today">
@@ -608,7 +626,14 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
                   : <div key={i} className="t-sev" data-fit="" style={tintOf(e)}><span className="t-sev-t">{plain(e.title)}</span><span className="t-when">{when(e)}</span></div>)}</div>
               </div>;
             }); })()}</div>
-          </> : <div className="t-empty"><div className="t-big t-quiet">Nothing coming up</div></div>}
+          </> : !h.calendars && !(h.events || []).length ? <div className="t-agenda t-invite-cal">
+            {/* no calendar yet: the days it will fill, and the way to add one (Calendar's Add a calendar) */}
+            {[0, 1, 2, 3, 4, 5, 6].map((n) => { const d = new Date(+t + n * 864e5); return <div key={n} className={'t-daygroup t-sday' + (n ? ' t-later' : '')} style={n ? { opacity: Math.max(0.15, 0.7 - n * 0.1) } : undefined}>
+              <div className="t-sdate"><small>{!n && !small ? 'Today' : weekday(d, true).slice(0, 3)}</small><b>{d.getDate()}</b></div>
+              <div className="t-sthings">{n ? <>{n % 3 !== 2 && <div className="t-snone t-ghost" />}<div className="t-snone t-ghost short" /></>
+                : <div className="t-snone t-ask" role="button" onClick={(e) => { e.stopPropagation(); addTo(kinds.get('calendar'), 'do=link'); }}><b>Add your family's calendar</b><span>Google, iCloud or Outlook: its events show here</span></div>}</div>
+            </div>; })}
+          </div> : <div className="t-empty"><div className="t-big t-quiet">Nothing coming up</div></div>}
           <Things c={c} things={h.things} go={go} tabs={tabs} ask={shell?.ask} />
         </div>
         {/* the day's other notes from the apps, the next thing under its events */}
@@ -639,6 +664,62 @@ export function Things({ c, things, className = 't-things', go, tabs, ask }) {
     </div>;
   })}</div>;
 }
+
+/** The Whiteboard on Home: what's drawn on it (the picture the Whiteboard app keeps for Home, GET /home/whiteboard),
+ *  on its own dotted paper, read again whenever it changes (at). Blank, the paper with a pen's line and what it's for. */
+function BoardCard({ c, at, ...rest }) {
+  const [b, setB] = useState(null);
+  useEffect(() => {
+    let off = false;
+    c.json('GET', '/home/whiteboard').then((r) => { if (!off && r.status === 200 && r.json) setB(r.json); }).catch(() => {});
+    return () => { off = true; };
+  }, [c, at]);
+  return <div {...rest} className={rest.className + (b?.img ? '' : ' blank')}>
+    <div className="h-label">Whiteboard</div>
+    {b?.img ? <img className="t-board-img" src={b.img} alt="" draggable={false} />
+      : <div className="t-board-empty">
+        <svg className="t-scribble" viewBox="0 0 220 70" aria-hidden="true"><path d="M8 48c14-22 26-30 34-24s-6 26 4 28 20-34 34-36 4 30 16 31 18-26 30-27 6 22 16 22 16-14 26-20" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <div className="t-line">Leave a note, a drawing, a list</div><div className="t-soft">Everyone sees it here</div></div>}
+  </div>;
+}
+
+/** A recipe from the box to try: tonight's dinner when it has one, else one ready to cook, a new one each day (not one
+ *  they had this past week). With a picture of its own, it's on it; without, its time and what it needs. */
+function RecipeCard({ house: h, t, dinner, tonight, onOpen, ...rest }) {
+  const ready = Object.entries(h.recipes || {}).filter(([, r]) => r?.cook?.steps?.length).sort((a, b) => a[0].localeCompare(b[0]));
+  const tk = String(tonight || '').trim().toLowerCase();
+  let key = ready.some(([k]) => k === tk) ? tk : null;
+  if (!key && ready.length) {
+    const had = new Set(); for (let n = 1; n <= 7; n++) { const v = dinner(new Date(+t - n * 864e5)); if (v) had.add(v.trim().toLowerCase()); }
+    const fresh = ready.filter(([k, r]) => !had.has(k) && !had.has(String(r.cook.name || '').toLowerCase()));
+    const from = fresh.length ? fresh : ready;
+    key = from[Math.round(+t / 864e5) % from.length][0];
+  }
+  if (!key) return <div {...rest} onClick={() => onOpen(null)}>
+    <div className="h-label">Recipes</div>
+    <div className="t-invite"><div className="t-big">Find something to cook</div><div className="t-soft">Search the web, or add your own</div></div>
+  </div>;
+  return <RecipeShown key={key} k={key} r={h.recipes[key]} tonight={key === tk} onOpen={onOpen} {...rest} />;
+}
+function RecipeShown({ k: key, r, tonight, onOpen, ...rest }) {
+  const ck = r.cook, [bad, setBad] = useState(false), fit = useFit();
+  const pic = r.image && !bad;
+  const time = ck.minutes ? (ck.minutes < 60 ? `${ck.minutes} min` : `${Math.floor(ck.minutes / 60)} hr${ck.minutes % 60 ? ` ${ck.minutes % 60} min` : ''}`) : null;
+  const serves = /^\d+(\s*(-|–|to)\s*\d+)?$/.test(String(ck.serves || '').trim()) ? `serves ${String(ck.serves).trim()}` : String(ck.serves || '').trim().toLowerCase();
+  return <div {...rest} onClick={() => onOpen(key)} className={rest.className + (pic ? ' t-pic-card' : '')}>
+    {pic && <img className="t-cover" src={r.image} alt="" loading="lazy" referrerPolicy="no-referrer" draggable={false} onError={() => setBad(true)} />}
+    <div className="h-label">{tonight ? 'Tonight' : 'A recipe to try'}</div>
+    <div className="t-big">{ck.name || r.text}</div>
+    <div className="t-facts">{time && <b>{time}</b>}{[serves, `${ck.steps.length} steps`].filter(Boolean).map((x) => <span key={x}>{x}</span>)}</div>
+    {!pic && <div className="t-fit t-needs" ref={fit}>{ck.ingredients.filter((i) => !i.part).slice(0, 8).map((i, n) => <div key={n} className="t-row" data-fit=""><span className="h-grow">{i.item}</span><span className="t-when">{i.amount}</span></div>)}</div>}
+  </div>;
+}
+
+/** Three empty photo frames, a little askew: where the household's photos will be. */
+const Frames = () => <svg className="t-frames" viewBox="0 0 300 150" aria-hidden="true">
+  <g fill="var(--h-sheet)" stroke="currentColor" strokeWidth="2.5"><rect x="22" y="30" width="96" height="104" rx="8" transform="rotate(-7 70 82)" /><rect x="182" y="26" width="96" height="104" rx="8" transform="rotate(6 230 78)" /><rect x="100" y="14" width="100" height="110" rx="8" /></g>
+  <g fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="128" cy="44" r="8" /><path d="M110 104l24-26 18 18 12-12 26 20" /></g>
+</svg>;
 
 /** A photo of theirs, a new one every minute, with its caption if it has one, opening Photos. */
 function PhotoCard({ c, names, captions, now, usePhoto, onOpen, ...rest }) {
