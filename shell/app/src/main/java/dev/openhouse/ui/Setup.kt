@@ -96,7 +96,7 @@ private fun getJson(path: String): JSONObject? = runCatching { JSONObject(Bridge
 internal fun SetupSheet() {
     val step = Openhouse.setupStep ?: return
     val opie = Openhouse.host.hasAssistant()
-    val title = when (step) { "people" -> "Who lives here?"; "place" -> "Where do you live?"; "pin" -> "Choose a PIN"; else -> "Carry on from your phone or computer" }
+    val title = when (step) { "people" -> "Who lives here?"; "place" -> "Where do you live?"; "pin" -> "Choose a PIN"; else -> "Connect your phone or computer to Opie" }
     val last = step == Setup.STEPS.last()
     // The PIN step: its own button chooses one (SettingsLock "setupPin"), and the setup ends once it's kept; Skip, or
     // Done if one is already set.
@@ -291,6 +291,12 @@ private fun DevicesStep() {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.u)) { names.forEach { n -> Chip(n, selected = who == n) { who = n } } }
                 Spacer(Modifier.height(10.u))
             }
+            // What connecting is for, before how: the setup carries on there, where their calendars and photos already are.
+            Text("So you can:", style = calmText(19, FontWeight.Medium))
+            listOf("Use Opie on the go: lists, chores and the calendar from anywhere",
+                "Bring in your calendars and photo albums from where they already are",
+                "Use the AI you already have, like Claude or ChatGPT, to change and add to Opie").forEach { Text("·  $it", style = calmText(19, color = Calm.soft)) }
+            Spacer(Modifier.height(14.u))
             Text("On a phone, scan the code.", style = calmText(Calm.LEAD))
             pair?.let { p ->
                 Text("On a computer, go to ${p.optString("address")} and type", style = calmText(Calm.LEAD))

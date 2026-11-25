@@ -16,7 +16,7 @@ On the tablet:
       geocoder, only with location on), or just the town or the zip code. The address is kept with the household
       (`address`: Opie's for directions and the like, and the Map's once it's on; the Map looks it up then, not
       before); the town or zip is the weather's.
-   3. **Carry on from your phone or computer**: whose it is, then a code. A phone scans it; a computer goes to
+   3. **Connect your phone or computer to Opie** (to use it on the go, bring in calendars and albums, and use their own AI to change it): whose it is, then a code. A phone scans it; a computer goes to
       openhouse.local:8788/phone and types it. Either joins at once as that person's, with the `setup` scope (no
       Allow: the code was only on the tablet). Nothing asks to link the account here: the page is a bookmark on the home Wi-Fi until the tablet is linked,
       then it installs and works away. Linking comes up only when it's needed, Turn on Opie, with why ("Opie's voice
