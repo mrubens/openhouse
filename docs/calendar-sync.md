@@ -1,6 +1,6 @@
 # Two-way calendar sync
 
-Agreed 2026-11-24. Google and iCloud are built (see "What's built" below) but haven't met a real account yet; Outlook
+Agreed 2026-11-24. Google and iCloud are built (see "What's built" below) and in use with real accounts; Outlook
 isn't started. Before this the family's calendars come in by their private iCal
 links (read-only, `bridge/calendar-links.js`, the shell keeps the links sealed and fetches them) and events added on
 the tablet stay on the tablet (`bridge/house.js`, `/house/event`). The goal: an event added or changed on the tablet
