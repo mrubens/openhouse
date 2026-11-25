@@ -100,6 +100,11 @@ Set 3 (made 2026-11-20, `scripts/voice-bundle.sh … 3`): the wake model and onn
 pointer goes on a tablet (`node scripts/release.ts --voice ~/.openhouse/voice/3`). Not yet tried on a device:
 onnxruntime-node 1.20.1 in the runtime's Node on linux-arm64 (it runs on the Mac, and its library is the arm64 build).
 
+Set 10 (made 2026-11-25, `scripts/voice-bundle.sh ~/.cache/openhouse-wake/voice-models-3 ~/.openhouse/voice 10`): set 9
+with the loudness floor at 0.01 (was 0.03: the Galaxy Tab A11 hardly ever reached it, docs/wake-word.md); every other file
+is set 9's. NOT uploaded yet: upload it before a build with this pointer goes out
+(`scripts/cloud.sh node scripts/release.ts --voice ~/.openhouse/voice/10`).
+
 Set 9 (made 2026-11-24): round 6's wake model (`opie.onnx`, y2, 4.3 MB), "Hey Opie" only, at 0.98. `openhouse.voiceUrl`
 points at it from 1.0.27.
 

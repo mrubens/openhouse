@@ -1,1 +1,1 @@
-{ "threshold": 0.98, "gain": 2, "floor": 0.03, "model": "round 6 (y2), Hey Opie only" }
+{ "threshold": 0.98, "gain": 2, "floor": 0.01, "model": "round 6 (y2), Hey Opie only" }

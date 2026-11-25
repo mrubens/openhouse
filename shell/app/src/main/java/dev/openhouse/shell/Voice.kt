@@ -153,6 +153,11 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
          * VOICE_RECOGNITION, and MIC was its source until then (the wake model's gain and floor were set with it).
          */
         const val DEFAULT_SOURCE = MediaRecorder.AudioSource.VOICE_RECOGNITION
-        const val DEFAULT_FX = "agc,ns,aec"
+        /**
+         * The platform effects listening adds: gain control only. On the Galaxy Tab A11 (2026-11-25) its noise suppressor and
+         * echo canceller blank the microphone to exact zeros in a quiet spell and cut off most of the first "Hey Opie" after
+         * it; with gain control alone nothing is blanked, and every try in a replay woke (9 of 9, with the 0.01 floor of voice set 10).
+         */
+        const val DEFAULT_FX = "agc"
     }
 }

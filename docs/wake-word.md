@@ -116,6 +116,11 @@ loudness floor (0.03: a wake needs the microphone's loudest moment in the last 1
 Replaying that day's 15 clips: every adult wake still woke, and both false wakes the replay could reproduce didn't.
 Loud false wakes (a sneeze and coughs, a child calling out, typing) need training, not a floor.
 
+Since set 10 the floor is 0.01. On the Galaxy Tab A11 a person 1.5-2 m away peaks at 0.02-0.04 with the shell's gain
+control alone (its noise suppressor and echo canceller blank the microphone in quiet spells and cut the first words after
+them, so listening adds gain control only), and 0.03 blocked nearly every wake there. On the Tab S10 FE this lets back some
+of the quieter false wakes set 6 stopped (0.01-0.026).
+
 ## Learning a home's own false wakes (opt-in)
 
 A household can let its tablet keep a few seconds around each wake, so the wakes that weren't for it can be learned
