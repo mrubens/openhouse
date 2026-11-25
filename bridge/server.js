@@ -177,6 +177,8 @@ const plugins = pluginsRoutes({ APP_DIR, edits, homeScreen: chat.homeScreen, jso
 chat.homeScreen.addTools(plugins.tools, plugins.call);
 // An app's card on Home (its widget.html): a plugin's app only with "today-card" granted; the household turns each on (home-screen.js today_card).
 apps.setRightsOf(plugins.rightsOf); apps.setFrozenOf(plugins.frozenOf);
+// Home's Whiteboard card: the drawing the Whiteboard app keeps for it (its own data), and a word each time it changes.
+chat.homeScreen.setWhiteboard(() => apps.readData('whiteboard', 'home')); apps.onData((app, name) => chat.homeScreen.appData(app, name));
 chat.homeScreen.setCardApps(() => apps.list().filter((a) => a.today).map((a) => ({ id: a.id, name: a.meta?.name || a.id })));
 plugins.start();
 chat.live.setExtra?.({ tools: plugins.voiceTools, call: plugins.callVoice });

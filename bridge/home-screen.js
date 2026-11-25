@@ -10,6 +10,7 @@
 //
 // GET  /home                   { notes:[{…, page, col, row, size}], places, grid, v }   size: the note's shape ("2x1")
 // GET  /home/wait?v=N          the same, once it changes (or after 25 s)
+// GET  /home/whiteboard        the Whiteboard's drawing for Home's card: {img (a data: picture), w, h, at, empty}
 // POST /home/remove {id}       the family took it down (dragged to the trash: kept a while, so it can be put back)
 // POST /home/putback {key}     put back something the family trashed: a note's id, or a place key
 // POST /home/keep {id, keep}   the family wants it kept (no expiry; the assistant asks before removing)
@@ -65,7 +66,21 @@ export const BUILT_IN_WIDGETS = { calendar: '2x2', chores: '2x2', lists: '2x2', 
 export const PALETTES = ['paper', 'linen', 'sage', 'mist', 'dusk'];
 export const TYPES = ['clean', 'serif', 'round', 'hand'];
 /** Home's own cards (chat/src/home.jsx TODAY_CARDS); an app's card is "app:<its id>". */
-export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'meals', 'lists', 'chores', 'notes', 'photos'];
+export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'meals', 'lists', 'chores', 'notes', 'photos'];
+/**
+ * The cards Home shows, in order, while the household hasn't arranged them (style.json has no "today"; home.jsx
+ * TODAY_DEFAULT). Arranging them in Tabs and look (or set_home, today_card) saves the whole list, and from then on only
+ * they change it: a new default never moves a household's own. Version 2 (2026-11-25): Dinner off (it can be added),
+ * the Whiteboard and a recipe to try on, the list after them (smaller).
+ */
+export const TODAY_DEFAULT = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'chores', 'photos', 'lists', 'notes'];
+/** The cards on Home now, in order: the household's list, else the default with the apps' cards that are on before the photos. */
+export function todayNow(st = {}) {
+  if (Array.isArray(st.today)) return st.today;
+  const d = [...TODAY_DEFAULT], at = d.indexOf('photos');
+  d.splice(at < 0 ? d.length : at, 0, ...(Array.isArray(st.cards) ? st.cards : []).map((x) => 'app:' + x));
+  return d;
+}
 const TAB_ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 const HEX = /^#[0-9a-f]{6}$/i;
 export function cleanLook(s = {}) {
@@ -304,8 +319,15 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     return { style: homeStyle() };
   }
 
+  let boardOf = () => null, boardAt = 0;
+  /** The drawing for Home's card: a picture of it (only an image's data address), its size, and whether it's blank. */
+  function whiteboard() {
+    const b = boardOf() || {};
+    const img = typeof b.img === 'string' && /^data:image\/(png|webp|jpeg);base64,[A-Za-z0-9+/=]+$/.test(b.img) ? b.img : null;
+    return { at: Number(b.at) || 0, empty: !img || b.empty === true, ...(img && b.empty !== true ? { img } : {}), w: Number(b.w) || 0, h: Number(b.h) || 0 };
+  }
   function view() {
-    return { v: version, computer: live.computer, show: live.show, handsFree: handsFree() && { app: live.handsFree.app, until: live.handsFree.until }, sketch: homeScreen.sketch.v, notes: homeScreen.notes, places: homeScreen.places, timers: homeScreen.timers, trash: homeScreen.trash.map((n) => ({ id: n.id, title: n.title })),
+    return { v: version, whiteboard: boardAt, computer: live.computer, show: live.show, handsFree: handsFree() && { app: live.handsFree.app, until: live.handsFree.until }, sketch: homeScreen.sketch.v, notes: homeScreen.notes, places: homeScreen.places, timers: homeScreen.timers, trash: homeScreen.trash.map((n) => ({ id: n.id, title: n.title })),
       grid: { cols: G.COLS, rows: G.ROWS, reserved: G.RESERVED, shapes: G.SHAPES },
       // Apps with a widget (bigger than 1x1 they show it, at 1x1 their icon) and the shape each starts at; agent-made apps' widget layouts.
       style: homeStyle(), appsV, widgets: { builtin: BUILT_IN_WIDGETS, starts: Object.fromEntries(Object.keys(homeScreen.widgets).map((k) => [k, '2x2'])), content: homeScreen.widgets } };
@@ -497,8 +519,8 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
         density: { type: 'string', enum: ['calm', 'snug'], description: 'snug: smaller, more fits' },
         backdrop: { type: 'string', enum: ['none', 'photos'] },
         today: { type: 'array', items: { type: 'string' }, description: 'The cards on the Home tab, in order, as Tabs and look arranges them: the whole list of those to show, from ' + TODAY_CARDS.join(', ') + ', and "app:<id>" for an app\'s own card that is on (today_card turns one on). Leave one out to take it off Home; [] for the usual order.' } } } },
-    { name: 'today_card', description: 'Turn an app\'s own card on Home on or off (a remote for the speakers, a score): only apps that offer one, listed here when you call it with no app. A new one shows only once someone turns it on. on: true to show it, false to take it off. position: where among the cards, from 1 (leave out for the end; give it alone to move one that is on).',
-      inputSchema: { type: 'object', properties: { app: { type: 'string', description: 'The app\'s id' }, on: { type: 'boolean' }, position: { type: 'number' } } } },
+    { name: 'today_card', description: 'Turn a card on Home on or off: one of Home\'s own (' + TODAY_CARDS.join(', ') + '; whiteboard is the drawing, recipes a recipe to try, meals tonight\'s dinner, lists the groceries), or an app\'s own card (a remote for the speakers, a score): only apps that offer one, listed here when you call it with no app. A new one shows only once someone turns it on. on: true to show it, false to take it off. position: where among the cards, from 1 (leave out for the end; give it alone to move one that is on).',
+      inputSchema: { type: 'object', properties: { app: { type: 'string', description: 'The app\'s id, or one of Home\'s own cards' }, on: { type: 'boolean' }, position: { type: 'number' } } } },
     { name: 'take_down_note', description: 'Take a note off Home. Notes the family kept: ask first.', inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } },
   ];
   const extra = []; const extraCall = new Map(); // more tools on this server (the household, the assistant's name, house.js): name -> handler
@@ -517,9 +539,9 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     if (name === 'set_home') {
       if (!Object.keys(a || {}).length) { // nothing to change: how it is now, to change from
         const st = readStyle();
-        return ok(`Now: tabs ${(st.tabs || []).map((x) => x.id || x).join(', ') || 'the usual set'}; Home's cards ${(Array.isArray(st.today) && st.today.length ? st.today : TODAY_CARDS).join(', ')}${(st.cards || []).length ? ` (app cards on: ${st.cards.map((x) => 'app:' + x).join(', ')})` : ''}; look ${st.palette || 'paper'}, ${st.type || 'clean'}, ${st.density || 'calm'}.`);
+        return ok(`Now: tabs ${(st.tabs || []).map((x) => x.id || x).join(', ') || 'the usual set'}; Home's cards ${todayNow(st).join(', ') || 'none'} (could be added: ${TODAY_CARDS.filter((k) => !todayNow(st).includes(k)).join(', ') || 'none'})${(st.cards || []).length ? ` (app cards on: ${st.cards.map((x) => 'app:' + x).join(', ')})` : ''}; look ${st.palette || 'paper'}, ${st.type || 'clean'}, ${st.density || 'calm'}.`);
       }
-      const r = setLook(a || {}, context?.turn || null, context?.who || null);
+      const r = setLook(Array.isArray(a.today) && !a.today.length ? { ...a, today: null } : a || {}, context?.turn || null, context?.who || null); // ([]: the usual cards again)
       if (r.error) return err(r.error);
       const st = r.style, tabs = (st.tabs || []).map((t) => t.name ? `${t.id} ("${t.name}")` : t.id);
       return ok(`Done. Tabs: ${tabs.length ? tabs.join(', ') : 'the usual set'}; look: ${st.palette}, ${st.type}, ${st.density}${st.backdrop === 'photos' ? ', photos behind' : ''}${Array.isArray(st.today) ? `; Home's cards: ${st.today.join(', ')}` : ''}. It's on the screen now.`);
@@ -529,7 +551,15 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
       const line = (cards) => { const on = cards.filter((id) => offer.some((x) => x.id === id)), off = offer.filter((x) => !on.includes(x.id));
         return `On Home: ${on.length ? on.map((id) => `${nameOf(id)} (${id})`).join(', ') : 'no app cards'}. ${off.length ? `Off, and could be on: ${off.map((x) => `${x.name} (${x.id})`).join(', ')}.` : 'No other app offers one.'}`; };
       const id = String(a.app || '');
-      if (!id) return ok(line(cur));
+      // Home's own cards (the whiteboard, a recipe to try, dinner, the list…): on, off or moved in the household's list.
+      const own = () => { const l = todayNow(readStyle()); return `Home's own cards on: ${l.filter((k) => TODAY_CARDS.includes(k)).join(', ') || 'none'}; off: ${TODAY_CARDS.filter((k) => !l.includes(k)).join(', ') || 'none'}.`; };
+      if (!id) return ok(`${line(cur)} ${own()}`);
+      if (TODAY_CARDS.includes(id)) {
+        const l = todayNow(readStyle()), on = a.on === true || (a.on == null && l.includes(id)), rest = l.filter((x) => x !== id);
+        if (on) rest.splice(a.position != null && Number.isFinite(+a.position) ? Math.max(0, Math.min(rest.length, Math.round(+a.position) - 1)) : l.includes(id) ? l.indexOf(id) : rest.length, 0, id);
+        const r = setLook({ today: rest }, context?.turn || null, context?.who || null);
+        return r.error ? err(r.error) : ok(`Done, it's on the screen now (a card shows while its tab is there). ${own()}`);
+      }
       const on = a.on === true || (a.on == null && cur.includes(id)); // position alone: move one that's on
       if (on && !offer.some((x) => x.id === id)) return err(`${id} has no card for Home (an app offers one with a widget.html and "today" in its app.json; a plugin's app also needs "today-card" in its uses). ${line(cur)}`);
       const l = cur.filter((x) => x !== id);
@@ -567,6 +597,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     if (p === '/home/mcp' && req.method === 'POST') { await mcp(req, res); return true; }
     if (req.method === 'GET' && p === '/home') { expire(); json(res, 200, view()); return true; }
     if (req.method === 'GET' && p === '/home/timer') { expire(); json(res, 200, { timers: homeScreen.timers.map(({ label, total, endAt }) => ({ label, total, endAt })) }); return true; }
+    if (req.method === 'GET' && p === '/home/whiteboard') { json(res, 200, whiteboard()); return true; }
     if (req.method === 'GET' && p === '/home/sketch') { json(res, 200, { v: homeScreen.sketch.v, strokes: homeScreen.sketch.strokes }); return true; }
     if (req.method === 'GET' && p === '/home/wait') {
       expire();
@@ -667,6 +698,10 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   handle.token = TOKEN;
   handle.describe = describe;
   handle.style = homeStyle;
+  /** Home's Whiteboard card: the drawing as the Whiteboard app last saved it for Home (its own data, "home": {img, at,
+   *  empty}; server.js from apps.js readData), and when, so every screen's card draws it again as it changes. */
+  handle.setWhiteboard = (read) => { boardOf = read; try { boardAt = Number(read()?.at) || 0; } catch {} };
+  handle.appData = (app, name) => { if (app === 'whiteboard' && name === 'home') { boardAt = Date.now(); tell(); } };
   /** The apps that offer a card on Home ([{id, name}]: server.js, from apps.js list), for today_card. */
   let cardApps = () => [];
   handle.setCardApps = (fn) => { cardApps = fn; };

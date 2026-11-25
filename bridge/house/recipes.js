@@ -2,13 +2,42 @@
 // made into cooking steps (cooking.js), and recipes found on the web.
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { cookSource, readRecipeLink, cookPrompt, COOK_SYSTEM, parseCook, cookAsNotes, youtube, findPrompt, FIND_SYSTEM, parseFound, withPictures } from '../cooking.js';
 import { ROOM, str, keepLines, must } from './util.js';
 import { asData } from '../as-data.js';
 import { RECIPE_LINK_MAX } from '../app-web.js';
 
+/** Opie's starter recipes (defaults/apps/recipes/starters.json: where the built-in apps are, in this checkout or on the
+ *  tablet), already in the box's cooking-steps shape. */
+export function starterRecipes(file = null) {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const d = process.env.DEFAULTS_DIR || path.join(here, '../../defaults'), apps = fs.existsSync(path.join(d, 'apps')) ? path.join(d, 'apps') : d;
+  try { return JSON.parse(fs.readFileSync(file || path.join(apps, 'recipes', 'starters.json'), 'utf8')).recipes || []; } catch { return []; }
+}
+const COOK_V = 2; // the shape of the steps (2: titles, parts, waiting, ahead, full detail)
+
 export default function (house) {
   const { data, save, changed, mealWork, FLYERS } = house;
+  // A new household's box starts with Opie's starters (marked starter: a tap takes one out like any other), once: never
+  // into a box that already has recipes, and never again after (one taken out stays out). starters: the version put in.
+  if (!data.starters) {
+    data.starters = 1;
+    if (!Object.keys(data.recipes).length) {
+      const at = Date.now();
+      for (const x of starterRecipes(house.STARTERS)) {
+        const name = str(x?.name, 80).trim(); if (!name || !Array.isArray(x.steps) || !x.steps.length) continue;
+        const ing = (i) => ({ item: str(i?.item, 80), amount: str(i?.amount, 90) });
+        const cook = { name, serves: str(x.serves, 40), ...(x.minutes > 0 ? { minutes: Math.round(x.minutes) } : {}),
+          ingredients: (x.ingredients || []).map(ing).filter((i) => i.item),
+          steps: x.steps.map((st) => ({ text: str(st.text, 900), ...(st.title ? { title: str(st.title, 50) } : {}), ...(st.wait ? { wait: true } : {}), ...(st.ahead ? { ahead: str(st.ahead, 40) } : {}),
+            ...(st.uses?.length ? { uses: st.uses.map(ing).filter((i) => i.item) } : {}), ...(st.timer?.minutes > 0 ? { timer: { minutes: st.timer.minutes, label: str(st.timer.label, 40) } } : {}) })).filter((st) => st.text) };
+        const r = { text: name, notes: cookAsNotes(cook).slice(0, 4000), at, starter: true };
+        data.recipes[name.toLowerCase()] = { ...r, cook: { ...cook, v: COOK_V, for: cookSource(r), at } };
+      }
+    }
+    try { save(); } catch (e) { console.error('[recipes] starters not saved:', e.message); }
+  }
   const boxFull = () => (Object.keys(data.recipes).length >= ROOM.recipes ? { error: `The recipe box is full (${ROOM.recipes} recipes). Take one out first.`, code: 'full' } : null);
   /** A meal's recipe: a link and/or notes (ingredients, steps); both empty takes it out of the box. */
   function setRecipe(r) {
@@ -32,7 +61,6 @@ export default function (house) {
   }
   /** A recipe turned into cooking steps, once (cooking.js), kept with it as {cook}; a link only is read first (watch
    *  mealWork["cook|meal"]). Again with force, else only when it has none or the recipe changed since. */
-  const COOK_V = 2; // the shape of the steps (2: titles, parts, waiting, ahead, full detail)
   function prepareCook(meal, { force = false } = {}) {
     const text = str(meal, 80).trim(), k = text.toLowerCase(), key = `cook|${k}`, r = data.recipes[k];
     if (!r) return { error: `There's no recipe for ${text || 'that'} yet.` };
@@ -89,7 +117,7 @@ export default function (house) {
   /** A recipe with no photo of its own (typed, pasted, written by the assistant, or a page without one): a photo of the
    *  dish from a recipe for it on the web (the household's text model searches, as findRecipes does; the first page with a picture), once. */
   function photoFor(k) {
-    const r = data.recipes[k]; if (!r || r.photoFrom || (r.image ? !(r.photoAt || r.by === 'assistant') : r.photoAt) || house.noAssistant('')) return; // (once; a photo of its own stays; one found before credits were kept is found again)
+    const r = data.recipes[k]; if (!r || r.starter || r.photoFrom || (r.image ? !(r.photoAt || r.by === 'assistant') : r.photoAt) || house.noAssistant('')) return; // (once; a photo of its own stays; one found before credits were kept is found again)
     r.photoAt = Date.now(); save();
     (async () => {
       const name = r.cook?.name || r.text;

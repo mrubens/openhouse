@@ -118,6 +118,7 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
   const keyOf = (id) => crypto.createHmac('sha256', secret).update('app:' + id).digest('base64url');
   const same = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length === y.length && crypto.timingSafeEqual(x, y); };
 
+  let onData = () => {}; // an app saved one of its things (server.js: Home's whiteboard card hears of the drawing)
   let rightsOf = () => null; // plugins.js rightsOf (server.js): a plugin's app offers a Home card only if it was granted one
   // plugins.js frozenOf: what a shared app's card fixed of its app.json ({background, screens, tablet}), never read live.
   let frozenOf = () => null;
@@ -210,9 +211,10 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
       }
       const text = await readRaw(req);
       if (text == null) { json(res, 413, { error: 'too big' }); return true; }
-      if (text === '' || text === 'null') { try { fs.unlinkSync(dataFile(app, d[1])); } catch {} json(res, 200, { ok: true }); return true; }
+      if (text === '' || text === 'null') { try { fs.unlinkSync(dataFile(app, d[1])); } catch {} onData(app, d[1]); json(res, 200, { ok: true }); return true; }
       try { JSON.parse(text); } catch { json(res, 400, { error: 'json please' }); return true; }
       writeData(app, d[1], text);
+      onData(app, d[1]);
       json(res, 200, { ok: true });
       return true;
     }
@@ -228,5 +230,7 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
     }
     return false;
   }
-  return { handle, kit, caller, list, setRightsOf: (fn) => { rightsOf = fn; }, setFrozenOf: (fn) => { frozenOf = fn; } };
+  /** What an app saved under a name (parsed), or null: for the bridge's own use (Home's whiteboard card, home-screen.js). */
+  const readData = (id, name) => { try { return JSON.parse(fs.readFileSync(dataFile(id, name), 'utf8')); } catch { return null; } };
+  return { handle, kit, caller, list, readData, setRightsOf: (fn) => { rightsOf = fn; }, setFrozenOf: (fn) => { frozenOf = fn; }, onData: (fn) => { onData = fn; } };
 }

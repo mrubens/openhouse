@@ -1,4 +1,4 @@
-import { house } from '/kit/openhouse.js';
+import { house, store } from '/kit/openhouse.js';
 const KEY = 'app.whiteboard.';
 const colors = ['#1d2233', '#3d7bff', '#ff5a4f', '#21b573', '#ffb020', '#9a5cf5'];
 const sizes = [6, 14, 28];
@@ -117,7 +117,7 @@ function redo() { if (strokes.size || !undone.length) return; ops.push(undone.po
 function wipe() { strokes.clear(); commit({ clear: true }); redraw(); }
 
 const saved = localStorage.getItem(KEY + 'img');
-if (saved) { const img = new Image(); img.onload = () => { grow(img.width, img.height); bctx.drawImage(img, 0, 0); redraw(); }; img.src = saved; }
+if (saved) { const img = new Image(); img.onload = () => { grow(img.width, img.height); bctx.drawImage(img, 0, 0); redraw(); store.get('home').then((h) => { if (!h) toHome(); }); }; img.src = saved; } // (a drawing from before Home showed it: once)
 function resize() {
   const r = board.getBoundingClientRect();
   cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
@@ -128,8 +128,22 @@ addEventListener('resize', resize);
 resize();
 mark();
 
-let saveT;
-function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY + 'img', cv.toDataURL()); } catch {} }, 400); }
+let saveT, homeT;
+function save() {
+  clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY + 'img', cv.toDataURL()); } catch {} }, 400);
+  clearTimeout(homeT); homeT = setTimeout(toHome, 1200);
+}
+// Home's Whiteboard card shows what's drawn: a small picture of it, kept by the bridge (the app's own data, "home"), so
+// every screen's card has it and draws it again when it changes. Blank (nothing drawn, or cleared) says so.
+function toHome() {
+  if (!cv.width || !cv.height) return;
+  const k = Math.min(1, 720 / Math.max(cv.width, cv.height));
+  const out = document.createElement('canvas'); out.width = Math.max(1, Math.round(cv.width * k)); out.height = Math.max(1, Math.round(cv.height * k));
+  const g = out.getContext('2d', { willReadFrequently: true }); g.drawImage(cv, 0, 0, out.width, out.height);
+  const px = g.getImageData(0, 0, out.width, out.height).data;
+  let empty = true; for (let i = 3; i < px.length; i += 16) if (px[i] > 8) { empty = false; break; }
+  store.set('home', empty ? { at: Date.now(), empty: true } : { at: Date.now(), img: out.toDataURL('image/png'), w: out.width, h: out.height }).catch(() => {});
+}
 
 function pos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
 cv.addEventListener('pointerdown', (e) => {

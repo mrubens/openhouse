@@ -1,0 +1,260 @@
+{
+  "about": "Opie's starter recipes: put in a new household's recipe box once (bridge/house/recipes.js), marked as starters so they can be taken out like any other. Written for Opie; plain weeknight dishes in the box's cooking-steps shape (bridge/cooking.js parseCook).",
+  "v": 1,
+  "recipes": [
+    {
+      "name": "Lemon Chicken Traybake",
+      "serves": "4",
+      "minutes": 55,
+      "ingredients": [
+        { "item": "chicken thighs, bone-in, skin on", "amount": "8" },
+        { "item": "small potatoes, halved", "amount": "1 ½ lb" },
+        { "item": "red onion, cut in wedges", "amount": "1" },
+        { "item": "garlic cloves, lightly crushed", "amount": "6" },
+        { "item": "lemon", "amount": "1" },
+        { "item": "olive oil", "amount": "3 tbsp" },
+        { "item": "dried oregano", "amount": "2 tsp" },
+        { "item": "salt", "amount": "1 ½ tsp" },
+        { "item": "black pepper", "amount": "½ tsp" },
+        { "item": "green beans, trimmed", "amount": "8 oz" }
+      ],
+      "steps": [
+        { "title": "Heat the oven", "text": "Heat the oven to 425°F (220°C). Line a large rimmed baking sheet with foil if you like an easy clean-up.", "wait": true },
+        { "title": "Toss the potatoes", "text": "On the baking sheet, toss the potatoes, onion and garlic with 2 tbsp of the olive oil, half the salt and the pepper. Spread them out in one layer.", "uses": [{ "item": "small potatoes, halved", "amount": "1 ½ lb" }, { "item": "red onion, cut in wedges", "amount": "1" }, { "item": "garlic cloves, lightly crushed", "amount": "6" }, { "item": "olive oil", "amount": "2 tbsp" }, { "item": "salt", "amount": "¾ tsp" }, { "item": "black pepper", "amount": "½ tsp" }] },
+        { "title": "Season the chicken", "text": "Pat the chicken dry. Rub it with the rest of the oil, the oregano and the rest of the salt, then grate the lemon's zest over it. Set the pieces skin side up on top of the potatoes.", "uses": [{ "item": "chicken thighs, bone-in, skin on", "amount": "8" }, { "item": "olive oil", "amount": "1 tbsp" }, { "item": "dried oregano", "amount": "2 tsp" }, { "item": "salt", "amount": "¾ tsp" }, { "item": "lemon", "amount": "zest" }] },
+        { "title": "Roast", "text": "Cut the zested lemon in quarters and tuck them in around the chicken. Roast until the skin is golden and crisp.", "timer": { "minutes": 30, "label": "Roast the chicken" }, "wait": true },
+        { "title": "Add the beans", "text": "Scatter the green beans into the gaps, turning them in the pan juices. Roast until the chicken reaches 175°F (80°C) inside and the beans are tender.", "uses": [{ "item": "green beans, trimmed", "amount": "8 oz" }], "timer": { "minutes": 12, "label": "Roast with the beans" }, "wait": true },
+        { "title": "Squeeze and serve", "text": "Squeeze the roasted lemon over everything and spoon the pan juices over the chicken before serving." }
+      ]
+    },
+    {
+      "name": "Weeknight Spaghetti Bolognese",
+      "serves": "4 to 6",
+      "minutes": 50,
+      "ingredients": [
+        { "item": "olive oil", "amount": "1 tbsp" },
+        { "item": "onion, finely chopped", "amount": "1" },
+        { "item": "carrot, finely chopped", "amount": "1" },
+        { "item": "celery stalk, finely chopped", "amount": "1" },
+        { "item": "garlic cloves, minced", "amount": "2" },
+        { "item": "ground beef", "amount": "1 lb" },
+        { "item": "tomato paste", "amount": "2 tbsp" },
+        { "item": "crushed tomatoes", "amount": "28 oz can" },
+        { "item": "milk", "amount": "½ cup" },
+        { "item": "dried Italian herbs", "amount": "1 tsp" },
+        { "item": "salt", "amount": "1 tsp" },
+        { "item": "spaghetti", "amount": "1 lb" },
+        { "item": "grated Parmesan", "amount": "to serve" }
+      ],
+      "steps": [
+        { "title": "Soften the vegetables", "text": "Warm the oil in a large pot over medium heat. Cook the onion, carrot and celery, stirring now and then, until soft and starting to turn golden.", "uses": [{ "item": "olive oil", "amount": "1 tbsp" }, { "item": "onion, finely chopped", "amount": "1" }, { "item": "carrot, finely chopped", "amount": "1" }, { "item": "celery stalk, finely chopped", "amount": "1" }], "timer": { "minutes": 8, "label": "Soften the vegetables" } },
+        { "title": "Brown the beef", "text": "Add the garlic and cook for a minute. Add the beef and turn the heat up a little, breaking it into small pieces, until it has lost its pink color.", "uses": [{ "item": "garlic cloves, minced", "amount": "2" }, { "item": "ground beef", "amount": "1 lb" }] },
+        { "title": "Build the sauce", "text": "Stir in the tomato paste and cook for a minute, then add the crushed tomatoes, milk, herbs and salt. The milk makes the sauce softer and less sharp.", "uses": [{ "item": "tomato paste", "amount": "2 tbsp" }, { "item": "crushed tomatoes", "amount": "28 oz can" }, { "item": "milk", "amount": "½ cup" }, { "item": "dried Italian herbs", "amount": "1 tsp" }, { "item": "salt", "amount": "1 tsp" }] },
+        { "title": "Simmer", "text": "Bring it to a gentle bubble, then turn the heat low, partly cover and simmer, stirring now and then, until thick. Taste and add salt if it needs it.", "timer": { "minutes": 25, "label": "Simmer the sauce" }, "wait": true },
+        { "title": "Cook the spaghetti", "text": "While the sauce simmers, cook the spaghetti in a big pot of well-salted boiling water until just tender. Save a mug of the cooking water, then drain.", "uses": [{ "item": "spaghetti", "amount": "1 lb" }], "timer": { "minutes": 10, "label": "Cook the spaghetti" } },
+        { "title": "Toss and serve", "text": "Toss the spaghetti with about half the sauce and a splash of the cooking water so it coats every strand. Serve with the rest of the sauce on top and Parmesan at the table.", "uses": [{ "item": "grated Parmesan", "amount": "to serve" }] }
+      ]
+    },
+    {
+      "name": "Beef Tacos",
+      "serves": "4",
+      "minutes": 25,
+      "ingredients": [
+        { "item": "oil", "amount": "1 tsp" },
+        { "item": "ground beef", "amount": "1 lb" },
+        { "item": "chili powder", "amount": "1 tbsp" },
+        { "item": "ground cumin", "amount": "1 tsp" },
+        { "item": "smoked paprika", "amount": "½ tsp" },
+        { "item": "garlic powder", "amount": "½ tsp" },
+        { "item": "salt", "amount": "¾ tsp" },
+        { "item": "water", "amount": "⅓ cup" },
+        { "item": "small tortillas or taco shells", "amount": "12" },
+        { "item": "shredded lettuce", "amount": "2 cups" },
+        { "item": "tomatoes, diced", "amount": "2" },
+        { "item": "shredded cheddar", "amount": "1 cup" },
+        { "item": "sour cream and salsa", "amount": "to serve" },
+        { "item": "lime, in wedges", "amount": "1" }
+      ],
+      "steps": [
+        { "title": "Set out the toppings", "text": "Put the lettuce, tomatoes, cheese, sour cream, salsa and lime in bowls on the table, so everyone can build their own.", "uses": [{ "item": "shredded lettuce", "amount": "2 cups" }, { "item": "tomatoes, diced", "amount": "2" }, { "item": "shredded cheddar", "amount": "1 cup" }, { "item": "sour cream and salsa", "amount": "to serve" }, { "item": "lime, in wedges", "amount": "1" }] },
+        { "title": "Brown the beef", "text": "Heat the oil in a large skillet over medium-high heat. Add the beef and break it up as it cooks, until browned all over. Spoon off most of the fat.", "uses": [{ "item": "oil", "amount": "1 tsp" }, { "item": "ground beef", "amount": "1 lb" }] },
+        { "title": "Season it", "text": "Sprinkle in the chili powder, cumin, paprika, garlic powder and salt and stir for 30 seconds, then pour in the water. Simmer, stirring, until the liquid is nearly gone and the meat is glossy.", "uses": [{ "item": "chili powder", "amount": "1 tbsp" }, { "item": "ground cumin", "amount": "1 tsp" }, { "item": "smoked paprika", "amount": "½ tsp" }, { "item": "garlic powder", "amount": "½ tsp" }, { "item": "salt", "amount": "¾ tsp" }, { "item": "water", "amount": "⅓ cup" }], "timer": { "minutes": 4, "label": "Simmer the taco meat" } },
+        { "title": "Warm the tortillas", "text": "Warm the tortillas in a dry pan for about 20 seconds a side, or wrapped in a damp towel in the microwave for 30 seconds. Keep them wrapped so they stay soft.", "uses": [{ "item": "small tortillas or taco shells", "amount": "12" }] },
+        { "title": "Fill and eat", "text": "Spoon the beef into the tortillas and let everyone add their toppings, with a squeeze of lime." }
+      ]
+    },
+    {
+      "name": "Vegetable Fried Rice",
+      "serves": "4",
+      "minutes": 25,
+      "ingredients": [
+        { "item": "cooked rice, cold (best from the day before)", "amount": "4 cups" },
+        { "item": "eggs", "amount": "3" },
+        { "item": "neutral oil", "amount": "3 tbsp" },
+        { "item": "green onions, sliced, whites and greens apart", "amount": "4" },
+        { "item": "garlic cloves, minced", "amount": "2" },
+        { "item": "fresh ginger, grated", "amount": "1 tsp" },
+        { "item": "frozen peas and carrots", "amount": "1 ½ cups" },
+        { "item": "red bell pepper, diced", "amount": "1" },
+        { "item": "soy sauce", "amount": "3 tbsp" },
+        { "item": "toasted sesame oil", "amount": "1 tsp" }
+      ],
+      "steps": [
+        { "title": "Loosen the rice", "text": "Break the cold rice up with your fingers so there are no clumps. Rice cooked the day before and chilled fries best; freshly cooked rice turns mushy.", "uses": [{ "item": "cooked rice, cold (best from the day before)", "amount": "4 cups" }], "ahead": "the day before" },
+        { "title": "Scramble the eggs", "text": "Heat 1 tbsp of the oil in a large skillet or wok over medium-high heat. Beat the eggs, pour them in and stir until just set. Tip them onto a plate.", "uses": [{ "item": "neutral oil", "amount": "1 tbsp" }, { "item": "eggs", "amount": "3" }] },
+        { "title": "Cook the vegetables", "text": "Add another 1 tbsp oil, then the onion whites, garlic and ginger for 30 seconds. Add the pepper and the peas and carrots and stir-fry until hot and just tender.", "uses": [{ "item": "neutral oil", "amount": "1 tbsp" }, { "item": "green onions, sliced, whites and greens apart", "amount": "the whites" }, { "item": "garlic cloves, minced", "amount": "2" }, { "item": "fresh ginger, grated", "amount": "1 tsp" }, { "item": "red bell pepper, diced", "amount": "1" }, { "item": "frozen peas and carrots", "amount": "1 ½ cups" }], "timer": { "minutes": 3, "label": "Stir-fry the vegetables" } },
+        { "title": "Fry the rice", "text": "Add the last 1 tbsp oil and the rice. Spread it out and let it sit for a minute so it toasts, then stir and repeat a few times until every grain is hot.", "uses": [{ "item": "neutral oil", "amount": "1 tbsp" }], "timer": { "minutes": 5, "label": "Fry the rice" } },
+        { "title": "Season and finish", "text": "Pour the soy sauce around the edge of the pan, stir in the eggs, breaking them up, and take it off the heat. Stir in the sesame oil and the onion greens.", "uses": [{ "item": "soy sauce", "amount": "3 tbsp" }, { "item": "toasted sesame oil", "amount": "1 tsp" }, { "item": "green onions, sliced, whites and greens apart", "amount": "the greens" }] }
+      ]
+    },
+    {
+      "name": "Chickpea and Spinach Curry",
+      "serves": "4",
+      "minutes": 35,
+      "ingredients": [
+        { "item": "neutral oil", "amount": "2 tbsp" },
+        { "item": "onion, chopped", "amount": "1" },
+        { "item": "garlic cloves, minced", "amount": "3" },
+        { "item": "fresh ginger, grated", "amount": "1 tbsp" },
+        { "item": "mild curry powder", "amount": "2 tbsp" },
+        { "item": "ground cumin", "amount": "1 tsp" },
+        { "item": "diced tomatoes", "amount": "14 oz can" },
+        { "item": "coconut milk", "amount": "14 oz can" },
+        { "item": "chickpeas, drained and rinsed", "amount": "two 15 oz cans" },
+        { "item": "salt", "amount": "1 tsp" },
+        { "item": "baby spinach", "amount": "5 oz" },
+        { "item": "lime", "amount": "½" },
+        { "item": "rice or naan", "amount": "to serve" }
+      ],
+      "steps": [
+        { "title": "Start the rice", "text": "If you're having rice, start it now so it's ready with the curry.", "uses": [{ "item": "rice or naan", "amount": "to serve" }] },
+        { "title": "Cook the onion", "text": "Warm the oil in a large pan over medium heat and cook the onion until soft and golden at the edges.", "uses": [{ "item": "neutral oil", "amount": "2 tbsp" }, { "item": "onion, chopped", "amount": "1" }], "timer": { "minutes": 7, "label": "Cook the onion" } },
+        { "title": "Toast the spices", "text": "Add the garlic, ginger, curry powder and cumin and stir for a minute, until it smells toasty. Add a splash of water if it starts to stick.", "uses": [{ "item": "garlic cloves, minced", "amount": "3" }, { "item": "fresh ginger, grated", "amount": "1 tbsp" }, { "item": "mild curry powder", "amount": "2 tbsp" }, { "item": "ground cumin", "amount": "1 tsp" }] },
+        { "title": "Simmer the sauce", "text": "Stir in the tomatoes, coconut milk, chickpeas and salt. Bring to a gentle simmer and cook, stirring now and then, until the sauce thickens a little.", "uses": [{ "item": "diced tomatoes", "amount": "14 oz can" }, { "item": "coconut milk", "amount": "14 oz can" }, { "item": "chickpeas, drained and rinsed", "amount": "two 15 oz cans" }, { "item": "salt", "amount": "1 tsp" }], "timer": { "minutes": 15, "label": "Simmer the curry" }, "wait": true },
+        { "title": "Wilt the spinach", "text": "Stir in the spinach a handful at a time until it wilts. Squeeze in the lime, taste and add salt if needed. Serve over rice or with warm naan.", "uses": [{ "item": "baby spinach", "amount": "5 oz" }, { "item": "lime", "amount": "½" }] }
+      ]
+    },
+    {
+      "name": "Stovetop Mac and Cheese",
+      "serves": "4",
+      "minutes": 20,
+      "ingredients": [
+        { "item": "elbow macaroni", "amount": "12 oz" },
+        { "item": "butter", "amount": "2 tbsp" },
+        { "item": "flour", "amount": "2 tbsp" },
+        { "item": "milk", "amount": "2 cups" },
+        { "item": "shredded cheddar", "amount": "2 cups" },
+        { "item": "salt", "amount": "½ tsp" },
+        { "item": "mustard powder or Dijon", "amount": "½ tsp" }
+      ],
+      "steps": [
+        { "title": "Cook the macaroni", "text": "Cook the macaroni in a pot of salted boiling water until just tender. Drain it and set it aside.", "uses": [{ "item": "elbow macaroni", "amount": "12 oz" }], "timer": { "minutes": 7, "label": "Cook the macaroni" } },
+        { "title": "Make the sauce base", "text": "In the same pot over medium heat, melt the butter, whisk in the flour and cook for a minute without letting it brown.", "uses": [{ "item": "butter", "amount": "2 tbsp" }, { "item": "flour", "amount": "2 tbsp" }] },
+        { "title": "Add the milk", "text": "Whisk in the milk a little at a time so it stays smooth. Keep stirring until it bubbles and thickens enough to coat a spoon.", "uses": [{ "item": "milk", "amount": "2 cups" }], "timer": { "minutes": 4, "label": "Thicken the sauce" } },
+        { "title": "Melt in the cheese", "text": "Take the pot off the heat and stir in the cheese, salt and mustard until melted and smooth.", "uses": [{ "item": "shredded cheddar", "amount": "2 cups" }, { "item": "salt", "amount": "½ tsp" }, { "item": "mustard powder or Dijon", "amount": "½ tsp" }] },
+        { "title": "Stir and serve", "text": "Stir the macaroni back in until every piece is coated. If it gets thick, loosen it with a splash of milk. Serve right away." }
+      ]
+    },
+    {
+      "name": "Honey Soy Salmon with Rice",
+      "serves": "4",
+      "minutes": 30,
+      "ingredients": [
+        { "item": "jasmine rice", "amount": "1 ½ cups" },
+        { "item": "water", "amount": "2 ¼ cups" },
+        { "item": "salmon fillets", "amount": "4 (about 6 oz each)" },
+        { "item": "soy sauce", "amount": "3 tbsp" },
+        { "item": "honey", "amount": "2 tbsp" },
+        { "item": "garlic clove, grated", "amount": "1" },
+        { "item": "rice vinegar", "amount": "1 tsp" },
+        { "item": "broccoli florets", "amount": "1 lb" },
+        { "item": "olive oil", "amount": "1 tbsp" },
+        { "item": "sesame seeds", "amount": "1 tsp" }
+      ],
+      "steps": [
+        { "title": "Cook the rice", "text": "Rinse the rice, then bring it to a boil with the water in a covered pot. Turn the heat to low and cook until the water is absorbed, then let it stand, covered, off the heat.", "uses": [{ "item": "jasmine rice", "amount": "1 ½ cups" }, { "item": "water", "amount": "2 ¼ cups" }], "timer": { "minutes": 15, "label": "Cook the rice" }, "wait": true },
+        { "title": "Heat the oven", "text": "Heat the oven to 400°F (200°C) and line a baking sheet with parchment.", "wait": true },
+        { "title": "Mix the glaze", "text": "Stir together the soy sauce, honey, garlic and vinegar in a small bowl.", "uses": [{ "item": "soy sauce", "amount": "3 tbsp" }, { "item": "honey", "amount": "2 tbsp" }, { "item": "garlic clove, grated", "amount": "1" }, { "item": "rice vinegar", "amount": "1 tsp" }] },
+        { "title": "Fill the sheet", "text": "Set the salmon skin side down on one side of the sheet and spoon half the glaze over it. Toss the broccoli with the oil and a pinch of salt and spread it on the other side.", "uses": [{ "item": "salmon fillets", "amount": "4 (about 6 oz each)" }, { "item": "broccoli florets", "amount": "1 lb" }, { "item": "olive oil", "amount": "1 tbsp" }] },
+        { "title": "Bake", "text": "Bake until the salmon flakes easily in the thickest part and the broccoli has crisp edges.", "timer": { "minutes": 12, "label": "Bake the salmon" }, "wait": true },
+        { "title": "Glaze and serve", "text": "Spoon the rest of the glaze over the salmon, scatter the sesame seeds on top and serve with the rice and broccoli.", "uses": [{ "item": "sesame seeds", "amount": "1 tsp" }] }
+      ]
+    },
+    {
+      "name": "Chicken Noodle Soup",
+      "serves": "6",
+      "minutes": 45,
+      "ingredients": [
+        { "item": "olive oil or butter", "amount": "2 tbsp" },
+        { "item": "onion, diced", "amount": "1" },
+        { "item": "carrots, sliced", "amount": "3" },
+        { "item": "celery stalks, sliced", "amount": "2" },
+        { "item": "garlic cloves, minced", "amount": "2" },
+        { "item": "chicken broth", "amount": "8 cups" },
+        { "item": "boneless chicken breasts or thighs", "amount": "1 lb" },
+        { "item": "dried thyme", "amount": "1 tsp" },
+        { "item": "bay leaf", "amount": "1" },
+        { "item": "egg noodles", "amount": "4 oz" },
+        { "item": "fresh parsley, chopped", "amount": "2 tbsp" },
+        { "item": "salt and pepper", "amount": "to taste" }
+      ],
+      "steps": [
+        { "title": "Soften the vegetables", "text": "Warm the oil in a large pot over medium heat. Add the onion, carrots and celery and cook until the onion is soft. Stir in the garlic for the last minute.", "uses": [{ "item": "olive oil or butter", "amount": "2 tbsp" }, { "item": "onion, diced", "amount": "1" }, { "item": "carrots, sliced", "amount": "3" }, { "item": "celery stalks, sliced", "amount": "2" }, { "item": "garlic cloves, minced", "amount": "2" }], "timer": { "minutes": 6, "label": "Soften the vegetables" } },
+        { "title": "Poach the chicken", "text": "Pour in the broth, add the whole pieces of chicken, the thyme and the bay leaf. Bring to a boil, then lower to a gentle simmer until the chicken is cooked through.", "uses": [{ "item": "chicken broth", "amount": "8 cups" }, { "item": "boneless chicken breasts or thighs", "amount": "1 lb" }, { "item": "dried thyme", "amount": "1 tsp" }, { "item": "bay leaf", "amount": "1" }], "timer": { "minutes": 15, "label": "Poach the chicken" }, "wait": true },
+        { "title": "Shred the chicken", "text": "Lift the chicken out onto a board and shred it with two forks. Take out the bay leaf.", "uses": [] },
+        { "title": "Cook the noodles", "text": "Bring the soup back to a boil, add the noodles and cook until tender.", "uses": [{ "item": "egg noodles", "amount": "4 oz" }], "timer": { "minutes": 7, "label": "Cook the noodles" } },
+        { "title": "Finish and serve", "text": "Return the chicken to the pot with the parsley. Taste and season with salt and pepper, then ladle into bowls.", "uses": [{ "item": "fresh parsley, chopped", "amount": "2 tbsp" }, { "item": "salt and pepper", "amount": "to taste" }] }
+      ]
+    },
+    {
+      "name": "Tomato Soup and Grilled Cheese",
+      "serves": "4",
+      "minutes": 35,
+      "ingredients": [
+        { "item": "butter", "amount": "4 tbsp" },
+        { "item": "onion, chopped", "amount": "1" },
+        { "item": "garlic cloves, sliced", "amount": "2" },
+        { "item": "whole peeled tomatoes", "amount": "28 oz can" },
+        { "item": "vegetable broth", "amount": "2 cups" },
+        { "item": "sugar", "amount": "1 tsp" },
+        { "item": "salt", "amount": "¾ tsp" },
+        { "item": "heavy cream or milk", "amount": "⅓ cup" },
+        { "item": "sandwich bread", "amount": "8 slices" },
+        { "item": "cheddar, sliced or shredded", "amount": "8 oz" }
+      ],
+      "steps": [
+        { "title": "Cook the onion", "text": "Melt 2 tbsp of the butter in a pot over medium heat and cook the onion and garlic until soft but not brown.", "uses": [{ "item": "butter", "amount": "2 tbsp" }, { "item": "onion, chopped", "amount": "1" }, { "item": "garlic cloves, sliced", "amount": "2" }], "timer": { "minutes": 6, "label": "Cook the onion" } },
+        { "title": "Simmer the tomatoes", "text": "Add the tomatoes with their juice, the broth, sugar and salt. Crush the tomatoes with a spoon and simmer gently.", "uses": [{ "item": "whole peeled tomatoes", "amount": "28 oz can" }, { "item": "vegetable broth", "amount": "2 cups" }, { "item": "sugar", "amount": "1 tsp" }, { "item": "salt", "amount": "¾ tsp" }], "timer": { "minutes": 15, "label": "Simmer the soup" }, "wait": true },
+        { "title": "Blend smooth", "text": "Take the pot off the heat and blend the soup until smooth, with a stick blender or carefully in batches. Stir in the cream and keep it warm on low.", "uses": [{ "item": "heavy cream or milk", "amount": "⅓ cup" }] },
+        { "title": "Make the sandwiches", "text": "Butter one side of each slice of bread with the rest of the butter. Make four sandwiches with the cheese inside and the buttered sides out.", "uses": [{ "item": "sandwich bread", "amount": "8 slices" }, { "item": "cheddar, sliced or shredded", "amount": "8 oz" }, { "item": "butter", "amount": "2 tbsp" }] },
+        { "title": "Grill them", "text": "Cook the sandwiches in a skillet over medium-low heat until deep golden underneath, then turn and cook the other side until the cheese has melted.", "timer": { "minutes": 4, "label": "Grill the first side" } },
+        { "title": "Serve", "text": "Cut the sandwiches into strips for dipping and serve with bowls of the soup." }
+      ]
+    },
+    {
+      "name": "Banana Bread",
+      "serves": "Makes 1 loaf",
+      "minutes": 75,
+      "ingredients": [
+        { "item": "very ripe bananas", "amount": "3" },
+        { "item": "butter, melted", "amount": "⅓ cup" },
+        { "item": "brown sugar", "amount": "¾ cup" },
+        { "item": "egg", "amount": "1" },
+        { "item": "vanilla extract", "amount": "1 tsp" },
+        { "item": "baking soda", "amount": "1 tsp" },
+        { "item": "salt", "amount": "¼ tsp" },
+        { "item": "ground cinnamon", "amount": "½ tsp" },
+        { "item": "all-purpose flour", "amount": "1 ½ cups" },
+        { "item": "chopped walnuts or chocolate chips (optional)", "amount": "½ cup" }
+      ],
+      "steps": [
+        { "title": "Heat the oven", "text": "Heat the oven to 350°F (175°C). Butter a 9 by 5 inch loaf pan, or line it with parchment.", "wait": true },
+        { "title": "Mash the bananas", "text": "In a large bowl, mash the bananas with a fork until mostly smooth, with a few small lumps left.", "uses": [{ "item": "very ripe bananas", "amount": "3" }] },
+        { "title": "Mix the wet", "text": "Stir in the melted butter, then the brown sugar, egg and vanilla until well mixed.", "uses": [{ "item": "butter, melted", "amount": "⅓ cup" }, { "item": "brown sugar", "amount": "¾ cup" }, { "item": "egg", "amount": "1" }, { "item": "vanilla extract", "amount": "1 tsp" }] },
+        { "title": "Fold in the dry", "text": "Sprinkle the baking soda, salt and cinnamon over the bowl and stir them in. Add the flour and fold just until no dry flour shows; a few streaks are fine. Fold in the nuts or chips if using.", "uses": [{ "item": "baking soda", "amount": "1 tsp" }, { "item": "salt", "amount": "¼ tsp" }, { "item": "ground cinnamon", "amount": "½ tsp" }, { "item": "all-purpose flour", "amount": "1 ½ cups" }, { "item": "chopped walnuts or chocolate chips (optional)", "amount": "½ cup" }] },
+        { "title": "Bake", "text": "Scrape the batter into the pan and bake until risen and deep golden, and a skewer pushed into the middle comes out clean.", "timer": { "minutes": 55, "label": "Bake the banana bread" }, "wait": true },
+        { "title": "Cool", "text": "Let it cool in the pan for 10 minutes, then turn it out onto a rack. It slices best once it's nearly cool.", "timer": { "minutes": 10, "label": "Cool in the pan" }, "wait": true }
+      ]
+    }
+  ]
+}

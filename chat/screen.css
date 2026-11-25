@@ -413,6 +413,35 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .h-chip.on { background: var(--h-ink); color: var(--h-sheet); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--h-ink) 50%, transparent); }
 /* in the dark the colored cards come down a little, like the weather's */
 .dark .t-hero, .dark .t-meals, .dark .t-lists, .dark .t-notes { filter: saturate(.88) brightness(.9); }
+/* The Whiteboard on Home (home.jsx BoardCard): its own dotted paper, whatever the palette, the drawing on it whole;
+   blank, a pen's line and what it's for. */
+.t-whiteboard { background: #fdfdfb radial-gradient(rgba(20, 40, 60, .13) calc(var(--u) * 1.4), transparent calc(var(--u) * 1.6)) 0 0 / calc(var(--u) * 26) calc(var(--u) * 26); color: #1d2233; --h-soft: rgba(29, 34, 51, .58); }
+.t-board-img { flex: 1; min-height: 0; width: 100%; object-fit: contain; margin-top: calc(var(--u) * 8); pointer-events: none; }
+.t-board-empty { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; }
+.t-scribble { flex: 1 1 0; min-height: 0; width: 62%; max-width: calc(var(--u) * 230); margin: calc(var(--u) * 6) 0 calc(var(--u) * 10); color: #1d2233; opacity: .78; }
+.t-board-empty .t-line { margin: 0; font-weight: 500; }
+/* A recipe to try (home.jsx RecipeCard): its name, its time first, then what it needs as rows */
+.t-facts { display: flex; align-items: baseline; gap: calc(var(--u) * 14); margin-top: calc(var(--u) * 10); font-size: calc(var(--u) * 17 * var(--s)); color: var(--h-soft); white-space: nowrap; overflow: hidden; flex: none; }
+.t-facts b { color: var(--h-ink); font-weight: 600; }
+.t-pic-card .t-facts b { color: #fff; }
+.t-recipes.t-pic-card { padding: calc(var(--u) * 24 * var(--s)) calc(var(--u) * 26 * var(--s)); text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+.t-recipes.t-pic-card > :not(.t-cover) { position: relative; z-index: 2; }
+.t-recipes.t-pic-card .h-label { margin-bottom: auto; color: rgba(255,255,255,.85); }
+.t-needs { margin-top: calc(var(--u) * 18 * var(--s)); }
+.t-needs .t-row { font-weight: 400; }
+.t-needs .t-row > .t-when { width: auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+/* Nothing there yet (home.jsx): the shape the content will fill, and what to do next in a line */
+.t-invite { flex: none; margin-top: auto; }
+.t-invite .t-big { margin-top: 0; }
+.t-invite .t-soft { white-space: normal; }
+.t-lists .t-invite .t-line { margin: 0; }
+.t-frames { flex: 1 1 0; min-height: 0; width: 100%; max-height: calc(var(--u) * 190); margin: auto 0 calc(var(--u) * 18); color: var(--h-faint); }
+.t-invite-cal { overflow: hidden; }
+.t-ghost { height: calc(var(--u) * 48 * var(--s)); }
+.t-ghost.short { width: 62%; height: calc(var(--u) * 40 * var(--s)); }
+.t-snone.t-ask { display: grid; gap: calc(var(--u) * 4); color: var(--h-ink); border-color: color-mix(in srgb, var(--h-ink) 28%, transparent); cursor: pointer; }
+.t-ask b { font-weight: 500; }
+.t-ask span { font-size: calc(var(--u) * 15.5 * var(--s)); color: var(--h-soft); }
 /*</today>*/
 
 .h-timer-card { width: calc(var(--u) * 460); padding: calc(var(--u) * 36) calc(var(--u) * 40); background: var(--h-sheet); color: var(--h-ink); border-radius: calc(var(--u) * 30); box-shadow: var(--h-lift); display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 16); }

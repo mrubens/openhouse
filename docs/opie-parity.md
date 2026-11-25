@@ -38,6 +38,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Open a tab or app | yes | show_on_screen |
 | Tabs: add, remove, order, rename; the look (palette, colours, type, density, photo backdrop) | **new** | set_home (it was typed-only; "Tabs and look" has no PIN) |
 | Home's cards: order, on or off (Tabs and look) | **new** | set_home today (the order and which show), today_card (an app's own card) |
+| Home's own cards one at a time: the Whiteboard, a recipe to try, Dinner, Groceries… on or off | **new** | today_card with the card's name (whiteboard, recipes, meals, lists…), keeping the rest of the household's order |
+| Home's empty cards: "Add your family's calendar", "Add your photos", a recipe to try | yes | add_calendar, add_photo_album; recipes__cook opens a recipe |
 | Timers: start, +/− minutes, clear | yes | timer (a changed time is cancel and start) |
 | Today's lines (things): take one down | yes | take_down_thing |
 | Notes: open, take down | yes | look_at_notes, take_down_note; put_note and update_note too |
@@ -77,7 +79,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Photos: add photos or an iCloud album | yes | Photos come from a phone; add_photo_album asks for the PIN |
 | Photos: stop keeping an iCloud album | screen | On its card in Photos |
 | Weather: where home is | **new** | update_household location (was typed-only) |
-| Whiteboard: draw, clear, save | no | Drawing is the finger's; the board stays on that device |
+| Whiteboard: draw, clear, save | no | Drawing is the finger's; the board stays on that device (a small picture of it shows on Home's card) |
+| Recipes: take a starter recipe out | yes | remove_recipe; Opie's starters go in a new household's box once and never come back once taken out |
 | TV app | yes | tv (the app itself only shows the week) |
 
 ## Settings (the gear)

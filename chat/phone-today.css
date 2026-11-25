@@ -183,3 +183,41 @@
 .ptoday .t-photo:not(.t-photos) > .t-tile { position: absolute; inset: 0; }
 .ptoday .t-tile .t-vid { position: absolute; right: 10px; bottom: 10px; width: 28px; height: 28px; border-radius: 50%; background: rgba(10, 12, 24, .42); color: #fff; display: grid; place-items: center; pointer-events: none; }
 .ptoday .t-tile .t-vid svg { width: 12px; height: 12px; margin-left: 2px; }
+/* The Whiteboard on Home (home.jsx BoardCard): its own dotted paper, whatever the palette, the drawing on it whole;
+   blank, a pen's line and what it's for. */
+.ptoday .t-whiteboard { background: #fdfdfb radial-gradient(rgba(20, 40, 60, .13) calc(var(--u) * 1.4), transparent calc(var(--u) * 1.6)) 0 0 / calc(var(--u) * 26) calc(var(--u) * 26); color: #1d2233; --h-soft: rgba(29, 34, 51, .58); }
+.ptoday .t-board-img { flex: 1; min-height: 0; width: 100%; object-fit: contain; margin-top: calc(var(--u) * 8); pointer-events: none; }
+.ptoday .t-board-empty { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; }
+.ptoday .t-scribble { flex: 1 1 0; min-height: 0; width: 62%; max-width: calc(var(--u) * 230); margin: calc(var(--u) * 6) 0 calc(var(--u) * 10); color: #1d2233; opacity: .78; }
+.ptoday .t-board-empty .t-line { margin: 0; font-weight: 500; }
+/* A recipe to try (home.jsx RecipeCard): its name, its time first, then what it needs as rows */
+.ptoday .t-facts { display: flex; align-items: baseline; gap: calc(var(--u) * 14); margin-top: calc(var(--u) * 10); font-size: calc(var(--u) * 17 * var(--s)); color: var(--h-soft); white-space: nowrap; overflow: hidden; flex: none; }
+.ptoday .t-facts b { color: var(--h-ink); font-weight: 600; }
+.ptoday .t-pic-card .t-facts b { color: #fff; }
+.ptoday .t-recipes.t-pic-card { padding: calc(var(--u) * 24 * var(--s)) calc(var(--u) * 26 * var(--s)); text-shadow: 0 1px 8px rgba(0,0,0,.5); }
+.ptoday .t-recipes.t-pic-card > :not(.t-cover) { position: relative; z-index: 2; }
+.ptoday .t-recipes.t-pic-card .h-label { margin-bottom: auto; color: rgba(255,255,255,.85); }
+.ptoday .t-needs { margin-top: calc(var(--u) * 18 * var(--s)); }
+.ptoday .t-needs .t-row { font-weight: 400; }
+.ptoday .t-needs .t-row > .t-when { width: auto; max-width: 45%; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+/* Nothing there yet (home.jsx): the shape the content will fill, and what to do next in a line */
+.ptoday .t-invite { flex: none; margin-top: auto; }
+.ptoday .t-invite .t-big { margin-top: 0; }
+.ptoday .t-invite .t-soft { white-space: normal; }
+.ptoday .t-lists .t-invite .t-line { margin: 0; }
+.ptoday .t-frames { flex: 1 1 0; min-height: 0; width: 100%; max-height: calc(var(--u) * 190); margin: auto 0 calc(var(--u) * 18); color: var(--h-faint); }
+.ptoday .t-invite-cal { overflow: hidden; }
+.ptoday .t-ghost { height: calc(var(--u) * 48 * var(--s)); }
+.ptoday .t-ghost.short { width: 62%; height: calc(var(--u) * 40 * var(--s)); }
+.ptoday .t-snone.t-ask { display: grid; gap: calc(var(--u) * 4); color: var(--h-ink); border-color: color-mix(in srgb, var(--h-ink) 28%, transparent); cursor: pointer; }
+.ptoday .t-ask b { font-weight: 500; }
+.ptoday .t-ask span { font-size: calc(var(--u) * 15.5 * var(--s)); color: var(--h-soft); }
+/* the phone's own: each as tall as it needs */
+.ptoday .t-whiteboard { min-height: 210px; }
+.ptoday .t-board-img { flex: none; height: 190px; }
+.ptoday .t-scribble { flex: none; height: 70px; }
+.ptoday .t-recipes.t-pic-card { min-height: 220px; }
+.ptoday .t-needs .t-row:nth-child(n+5) { display: none; }
+.ptoday .t-frames { flex: none; height: 120px; }
+.ptoday .t-invite-cal { background: var(--h-sheet); border-radius: 26px; box-shadow: var(--h-shadow); }
+.ptoday .t-invite-cal .t-sday:nth-child(n+3) { display: none; }
