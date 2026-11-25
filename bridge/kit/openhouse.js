@@ -580,5 +580,39 @@ export const shell = {
   app: APP,
 };
 
+/** An element: h('div', { class, style, tap, hold, ...attributes }, ...children). tap/hold are touch-first presses. */
+export function h(tag, props, ...kids) {
+  const el = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null || v === false || k === 'tap' || k === 'hold') continue;
+    if (k === 'class') el.className = v;
+    else if (k === 'html') el.innerHTML = v;
+    else if (k.startsWith('on')) el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v === true ? '' : v);
+  }
+  if (props?.tap || props?.hold) { press(el, props.tap, props.hold); if (tag !== 'button' && tag !== 'input' && props.tap && !props.role) { el.tabIndex = 0; el.setAttribute('role', 'button'); } }
+  for (const c of kids.flat(Infinity)) if (c != null && c !== false) el.append(c.nodeType ? c : String(c));
+  return el;
+}
+
+/** A tap (finger up without moving) and a hold (about half a second), on any element. */
+export function press(el, tap, hold) {
+  let t = 0, x = 0, y = 0, down = false;
+  const stop = () => { down = false; clearTimeout(t); };
+  el.addEventListener('pointerdown', (e) => {
+    e.stopPropagation(); down = true; x = e.clientX; y = e.clientY;
+    if (hold) t = setTimeout(() => { down = false; hold(e); }, 550);
+  });
+  el.addEventListener('pointermove', (e) => { if (down && Math.hypot(e.clientX - x, e.clientY - y) > 14) stop(); });
+  el.addEventListener('pointercancel', stop);
+  el.addEventListener('pointerleave', stop);
+  el.addEventListener('pointerup', (e) => { const was = down; stop(); if (was) { e.stopPropagation(); tap?.(e); } });
+  el.addEventListener('contextmenu', (e) => e.preventDefault());
+  // A tap doesn't move the keyboard's focus (it stays in the field being typed in); Tab still reaches everything.
+  el.addEventListener('mousedown', (e) => { if (e.target === el || !e.target.closest?.('input, textarea')) e.preventDefault(); });
+  // A keyboard (the cover) works it too: Enter or Space taps.
+  if (tap) el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el && !el.disabled) { e.preventDefault(); tap(e); } });
+}
+
 /** Which version of the kit this is (an app's app.json "kit"). */
 export const version = 1;
