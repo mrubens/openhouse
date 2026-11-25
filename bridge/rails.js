@@ -123,6 +123,18 @@ export function rails(deps) {
     return { ok: true, checked: true, text: s.summary || `${name} is ready.`, usage: s.usage, model: 'cloud', app: s.target };
   }
 
+  /** Things that parse and load but are almost always a slip: a regex literal with \\d, \\s or \\w in it (an escape
+   *  doubled on the way through a tool call: it matches a backslash, not a digit). [] for none. */
+  function slips(app) {
+    const out = [], dir = path.join(appsDir, app);
+    for (const f of fs.readdirSync(dir).filter((x) => /\.m?js$/.test(x))) {
+      fs.readFileSync(path.join(dir, f), 'utf8').split('\n').forEach((line, i) => {
+        if (/(^|[=(,:!&|?;\s])\/(?![/*])[^/\n]*\\\\[dswDSWb][^/\n]*\/[gimsuy]*/.test(line)) out.push(`${f} line ${i + 1}: a regex with a doubled backslash (\\\\d matches a backslash and a d, not a digit): ${line.trim().slice(0, 120)}`);
+      });
+    }
+    return out;
+  }
+
   /** The reviewer's findings for the app this request made or changed: up to 5 lines, [] for none. */
   async function secondLook(s, asked) {
     const dir = path.join(appsDir, s.target), tpl = s.fresh ? path.join(HERE, 'templates', s.kind) : null;
@@ -230,7 +242,8 @@ export function rails(deps) {
         const problems = await staticCheck(appsDir, s.target);
         if (problems.length) return err(`Errors:\n${problems.join('\n')}`);
         const r = await checkBuild(s.target).catch(() => ({ ok: true }));
-        return r.ok ? { text: 'It builds and loads without errors.' } : err(`Errors on the tablet:\n${r.errors}`);
+        const odd = slips(s.target);
+        return r.ok ? { text: `It builds and loads without errors.${odd.length ? `\nBut look at these:\n${odd.join('\n')}` : ''}` } : err(`Errors on the tablet:\n${r.errors}${odd.length ? `\n${odd.join('\n')}` : ''}`);
       }
       case 'look_at_tablet': {
         const r = await look().catch(() => null);
@@ -243,6 +256,8 @@ export function rails(deps) {
         if (!s.target) return err('Nothing was made: call start first.');
         const problems = await staticCheck(appsDir, s.target);
         if (problems.length) return err(`Not yet: fix these first.\n${problems.join('\n')}`);
+        const odd = slips(s.target);
+        if (odd.length && !s.slipsSeen) { s.slipsSeen = true; return err(`Not yet: these look like slips. Fix them (or done again if they're meant).\n${odd.join('\n')}`); }
         // A second look at the code, once, before it's done: what a picture can't show (state that isn't saved, a game
         // that can't end, input that can't work on a touch screen). Its findings go back to the builder to fix.
         if (review && !s.reviewed) {

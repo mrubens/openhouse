@@ -31,11 +31,17 @@ back when a run fails or is cancelled. The builder's agent is `agents/cloud.js r
 3. **Its own files only.** Writes go into the started app's folder, flat, `.js .css .html .json .svg`, 200 KB each, a
    dozen files. A change can't touch what an app may do in `app.json` (`uses`, `reaches`, `background`, `screens`…).
 4. **Checked before it's done.** `check_build` and `done` run the workshop's file checks (`bridge/app-check.js`: every
-   script parses, what `index.html` loads is there) and what the page threw on the tablet. With Device control on
+   script parses, what `index.html` loads is there), what the page threw on the tablet, and slips that load fine (a
+   regex with a doubled backslash, which the eval found in an edit that read as done). With Device control on
    (the default on a set-up tablet: `docs/device-control.md`), the model has `look_at_tablet`, a picture of the screen with the app on it. In the eval, looking was what caught
    pages that loaded without errors but looked broken.
-5. **A budget**: 30 model calls, and a stop when it makes the same call four times.
-6. **A grown-up's yes.** The approval card ("Put Dino Eggs in Apps?", with the PIN) says who asked, what was made, and
+5. **A second look at the code** before it's done (`review`: the same cloud call, `role: review`), once: what a
+   picture can't show, like state that isn't saved, a game that can't end, or input that only works with keys. Its
+   findings go back to the builder to fix. `BUILD_REVIEW=off` leaves it out.
+6. **Each step under 30 seconds.** The service stops a model call at 30 s (its HTTP API), so a long file is written
+   in parts (`write_file`, then `add_to_file`, about 9,000 characters a step).
+7. **A budget**: 40 model calls, and a stop when it makes the same call four times.
+8. **A grown-up's yes.** The approval card ("Put Dino Eggs in Apps?", with the PIN) says who asked, what was made, and
    what it may use. A no, or no answer, puts everything back.
 
 ## What an app made here may do
@@ -69,5 +75,7 @@ bridge's environment) leaves making apps to a computer, as before.
 - Granting an app made here more later (a list it should use) from Settings, rather than by asking for it again.
 - The approval card is the general one. It could show the app running behind it, so whoever says yes sees what
   they're putting in.
+- The cloud's 30 s limit per call is tight for Luna (17–26 s for a whole game file before writing in parts) and
+  rules out Terra. Builds would be safer on a route without it (a Lambda function URL, or a streamed answer).
 - Undo of a build works as for any change. A failed build tells the family it didn't work in one plain sentence.
   There's no "try again with Terra" yet (`docs/luna-build-eval.md` on when that would help).
