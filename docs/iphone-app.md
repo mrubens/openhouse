@@ -5,13 +5,21 @@ iPhone: a real share sheet entry, notes that open the right screen, widgets, and
 
 ## What it is
 
-- **The phone page, in the app.** The household's page from the cloud (`/h/`, `chat/src/phone.jsx`) in a web view, so
-  the app is always the page the household has, with every app and plugin it runs. The page knows it's in the app
+- **The phone page, in the app.** The phone page (`chat/src/phone.jsx`) built into the app and shown in a web view, so
+  the code that holds the phone's key is the code Apple signed, not a copy a server could change. A build phase
+  (`ios/scripts/phone-page.sh`, which runs `chat/phone-page.mjs`; it needs node and `chat`'s packages) puts it in the
+  app as `PhonePage/`, and `ios/App/PhonePage.swift` serves it from the app's own address, `openhouse-app://phone/h/`
+  (a `WKURLSchemeHandler`: the page gets an origin of its own for its storage and its apps' frames, which a file page
+  wouldn't). It is the cloud's `/h/` page otherwise, with the same rules (it connects only to the relay) and every app
+  and plugin it runs, since those come from the tablet. The one thing it needs from the cloud, a big reply's sealed box
+  (`relay-box.ts`), the app fetches for it. The page knows it's in the app
   (`window.openhouseApp`) and leaves out what the app does itself: asking to be put on the home screen, turning on
   Web Push, and setting up the Send to Opie shortcut.
 - **Joining**: the app scans the tablet's code (Settings, Screens, Add a screen, Someone's phone), or takes its link
   pasted. That opens the tablet's own joining page in the web view; once joined, the page goes on to the cloud's copy
-  with the pairing after `#`, as it does in Safari. The app keeps that pairing in the keychain, shared with its
+  with the pairing after `#`, as it does in Safari, and the app takes the pairing from that address and opens its own
+  copy instead. An invite link (the cloud's page with `?for=` and `#pair.key.relay`) joins in the app's own copy too,
+  which hands the pairing to the app. The app keeps that pairing in the keychain, shared with its
   extensions through the app group `group.computer.openhouse.phone`. It takes a pairing only from the clouds it was
   built for (`OPENHOUSE_CLOUD_HOSTS` in `ios/Config/Base.xcconfig`, `cloud.openhouse.computer`; a self-hosted cloud adds
   its host in `Local.xcconfig`; debug builds also take a local cloud on `localhost`), and asks the person before a page
@@ -52,6 +60,9 @@ Bundle ids: `computer.openhouse.phone` and `.share`, `.widgets`, `.notes` under 
 sandbox, Release (TestFlight, the App Store) for production; the tablet passes which one on.
 
 Tests: `ios/Tests/SealTests.swift` checks the keys and boxes against the bridge's own (Product, Test in Xcode).
+
+A Simulator build that should keep its pairing needs signing to run locally (`CODE_SIGN_IDENTITY=-`); with
+`CODE_SIGNING_ALLOWED=NO` it has no keychain and asks to join again on each start.
 
 Trying it in the Simulator against a local cloud and a sample household: run the local service
 (`scripts/cloud.sh node lambda/local.ts --port 8797 --base http://127.0.0.1:8797`), link a bridge to it with Reach from

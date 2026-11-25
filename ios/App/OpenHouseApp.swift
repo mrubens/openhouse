@@ -1,4 +1,4 @@
-// OpenHouse on an iPhone (docs/iphone-app.md): the household's phone page from the cloud in a web view, so the app
+// OpenHouse on an iPhone (docs/iphone-app.md): the household's phone page, the app's own copy (PhonePage.swift), in a web view, so the app
 // is always the page the tablet's household has, plus what a page can't do: notes by APNs, the share sheet, widgets
 // and Siri. Joining is scanning the tablet's code here, which opens the tablet's own joining page in the web view.
 import SwiftUI
@@ -33,12 +33,26 @@ struct OpenHouseApp: App {
 
   init() {
     pairing = PairingStore.load()
-    url = ProcessInfo.processInfo.environment["OPENHOUSE_JOIN"].flatMap(URL.init(string:)) ?? pairing?.pageURL
+    url = pairing.flatMap { PhonePage.url($0) }
+    if let j = ProcessInfo.processInfo.environment["OPENHOUSE_JOIN"].flatMap(URL.init(string:)) { join(j) }
   }
 
   /// A link from the tablet's code (scanned or pasted): its joining page, or the cloud page with a pairing.
+  /// The cloud page an invite came from, while joining by it (the app's page reaches the relay it names).
+  @Published var invitePage: String?
+
   func join(_ u: URL) {
-    if let p = Pairing.from(url: u) { Task { await paired(p) } } else { url = u }
+    if let p = Pairing.from(url: u) { Task { await paired(p) } }
+    // An invite to join from anywhere: joined in the app's own page, never the cloud's.
+    else if let i = Pairing.invite(u) { invitePage = i.page; url = i.join }
+    else { url = u }
+  }
+
+  /// The app's page joined by an invite (WebPage's "joined" message): its pairing, for the invite's household.
+  func joined(_ fragment: String) async {
+    guard let page = invitePage, let p = Pairing.from(fragment: fragment, page: page) else { return }
+    invitePage = nil
+    await paired(p)
   }
 
   /// The page has joined (it went on to the cloud's copy with the pairing after #): keep it, and set up notes. One that
@@ -50,7 +64,8 @@ struct OpenHouseApp: App {
     var p = p
     if !first, let r = pairing?.relayURL { p.relayURL = r }
     if first || pairing != p { PairingStore.save(p); pairing = p }
-    if url == nil || first { url = p.pageURL }
+    // (the app's own copy of the page, never the cloud's: PhonePage.swift)
+    if url == nil || first || !(url.map(PhonePage.isPage) ?? false) { url = PhonePage.url(p) }
     if first {
       WidgetCenter.shared.reloadAllTimelines()
       Task { await Notes.turnOn(p) }
@@ -88,10 +103,7 @@ struct OpenHouseApp: App {
   }
 
   func openNote(_ open: String) {
-    guard let p = pairing, open.range(of: #"^opie:[\w-]{1,40}$"#, options: .regularExpression) != nil,
-          var c = URLComponents(string: p.page) else { return }
-    c.queryItems = [URLQueryItem(name: "open", value: open)]
-    c.fragment = "\(p.id).\(p.key).\(p.relay).\(p.token).\(p.about)"
-    url = c.url
+    guard let p = pairing, open.range(of: #"^opie:[\w-]{1,40}$"#, options: .regularExpression) != nil else { return }
+    url = PhonePage.url(p, query: [URLQueryItem(name: "open", value: open)])
   }
 }

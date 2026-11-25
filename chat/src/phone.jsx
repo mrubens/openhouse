@@ -523,7 +523,11 @@ function AppsList({ apps, tabs, onOpen }) {
 
 const b64u = { enc: (s) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''), dec: (s) => decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))) };
 /** The address of this phone's installable page in the cloud, carrying its pairing (only after #). */
-export const cloudLink = (me) => me?.relay?.page && `${me.relay.page}#${me.id}.${me.key}.${me.relay.relay}.${me.relay.token}.${b64u.enc(JSON.stringify({ person: me.person, scopes: (me.scopes || []).filter((x) => x !== 'setup' || !get(DONE)), kind: 'phone' }))}`;
+export const cloudLink = (me) => me?.relay?.page && `${me.relay.page}#${pairingHash(me)}`;
+const pairingHash = (me) => `${me.id}.${me.key}.${me.relay.relay}.${me.relay.token}.${b64u.enc(JSON.stringify({ person: me.person, scopes: (me.scopes || []).filter((x) => x !== 'setup' || !get(DONE)), kind: 'phone' }))}`;
+/** In the iPhone app (its own copy of this page, ios/App/PhonePage.swift): an invite joined here, so the app keeps the
+ *  pairing too (its widgets, notes and share sheet use it). */
+const tellApp = (w) => { if (IN_APP && w?.relay?.token) try { window.webkit.messageHandlers.joined.postMessage(pairingHash(w)); } catch {} };
 function fromCloudHash() {
   const m = location.hash.slice(1).match(/^([\w-]+)\.([\w-]{43})\.([\w-]+)\.([\w-]+)\.([\w-]+)$/);
   if (!m) return null;
@@ -538,7 +542,7 @@ function App() {
   const c = useMemo(() => me && (CLOUD_RELAY
     ? client({ id: me.id, key: me.key, relay: me.relay, onlyRelay: true, api: location.origin }) // (the cloud's copy: big replies may come as boxes)
     : client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => { const n = { ...(get(STORE) || me), relay: r || undefined }; put(STORE, n); setMe(n); } })), [me?.id, me?.relay?.token]);
-  if (CLOUD_RELAY && !me && invite) return <Join onJoined={(w) => { put(STORE, w); setMe(w); }} />; // an invite, opened anywhere
+  if (CLOUD_RELAY && !me && invite) return <Join onJoined={(w) => { put(STORE, w); setMe(w); tellApp(w); }} />; // an invite, opened anywhere
   if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">OpenHouse</div><h1>Not linked to a home yet</h1><p>On the tablet: Settings, Screens, Add a screen, Someone's phone. Scan the code with this phone's camera.</p></main>;
   if (!c) return <Join removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;
   return <Phone me={me} c={c} onRemoved={() => { put(STORE, null); put(CACHE, null); put(QUEUE, null); setMe(null); setRemoved(true); }} />;

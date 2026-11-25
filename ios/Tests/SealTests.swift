@@ -21,10 +21,27 @@ final class SealTests: XCTestCase {
   }
 
   func testPairingOnlyFromAWholeCloudLink() {
-    let good = URL(string: "https://cloud.example.com/h/#ph1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1.t1.e30")!
-    XCTAssertEqual(Pairing.from(url: good)?.page, "https://cloud.example.com/h/")
-    XCTAssertNil(Pairing.from(url: URL(string: "http://cloud.example.com/h/#ph1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1.t1.e30")!)) // not https
+    let host = Pairing.cloudHosts.first!
+    let good = URL(string: "https://\(host)/h/#ph1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1.t1.e30")!
+    XCTAssertEqual(Pairing.from(url: good)?.page, "https://\(host)/h/")
+    XCTAssertNil(Pairing.from(url: URL(string: "http://\(host)/h/#ph1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1.t1.e30")!)) // not https
+    XCTAssertNil(Pairing.from(url: URL(string: "https://elsewhere.example/h/#ph1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1.t1.e30")!)) // not the app's cloud
     XCTAssertNil(Pairing.from(url: URL(string: "https://cloud.example.com/h/#ph1.short.r1.t1.e30")!))
     XCTAssertNil(Pairing.from(url: URL(string: "http://192.168.1.5:8788/phone/#pair1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8")!))
+  }
+
+  // An invite joins in the app's own page (PhonePage.swift), never the cloud's, and only one from the app's clouds.
+  func testInviteOpensTheAppsOwnPageOnlyFromItsCloud() {
+    let host = Pairing.cloudHosts.first!
+    let i = Pairing.invite(URL(string: "https://\(host)/h/?for=Alex#pair1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1")!)
+    XCTAssertEqual(i?.page, "https://\(host)/h/")
+    XCTAssertEqual(i?.join.scheme, "openhouse-app")
+    XCTAssertEqual(i?.join.fragment, "pair1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1")
+    XCTAssertNil(Pairing.invite(URL(string: "https://elsewhere.example/h/?for=Alex#pair1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1")!))
+    XCTAssertNil(Pairing.invite(URL(string: "https://\(host)/h/#pair1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1.t1.e30")!)) // a pairing, not an invite
+    // What the app's page hands back after joining: a whole pairing, for the invite's cloud.
+    XCTAssertEqual(Pairing.from(fragment: "ph1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1.t1.e30", page: "https://\(host)/h/")?.relay, "r1")
+    XCTAssertNil(Pairing.from(fragment: "ph1.AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8.r1.t1", page: "https://\(host)/h/"))
+    XCTAssertNil(Pairing.from(fragment: "ph1.AAEC.r1.t1.e30", page: "https://\(host)/h/"))
   }
 }

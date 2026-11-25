@@ -28,11 +28,18 @@ targets:
         INFOPLIST_FILE: App/Info.plist
         CODE_SIGN_ENTITLEMENTS: App/OpenHouse.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_USER_SCRIPT_SANDBOXING: NO # (the phone page's build reads chat/)
       configs:
         Debug:
           APS_ENVIRONMENT: development
         Release:
           APS_ENVIRONMENT: production
+    preBuildScripts:
+      - name: Phone page
+        script: '"$SRCROOT/scripts/phone-page.sh"'
+        basedOnDependencyAnalysis: false
+        outputFiles:
+          - $(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/PhonePage/index.html
     dependencies:
       - target: Share
       - target: Widgets

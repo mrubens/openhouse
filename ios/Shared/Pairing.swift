@@ -55,14 +55,38 @@ struct Pairing: Codable, Equatable {
   /// From the cloud page's address, as the Wi-Fi page hands over to it after joining (phone.jsx cloudLink). Only from
   /// the app's own clouds: any other page could otherwise swap this phone onto a home of its choosing.
   static func from(url: URL) -> Pairing? {
-    guard let frag = url.fragment, fromCloud(url) else { return nil }
-    let parts = frag.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
-    let ok = { (s: String) in !s.isEmpty && s.allSatisfy { $0.isLetter && $0.isASCII || $0.isNumber || $0 == "_" || $0 == "-" } }
-    guard parts.count == 5, parts.allSatisfy(ok), parts[1].count == 43, B64.dec(parts[1])?.count == 32 else { return nil }
+    guard let frag = url.fragment, let page = cloudPage(url) else { return nil }
+    return from(fragment: frag, page: page)
+  }
+
+  /// The household's page in one of the app's clouds (its /h/ address, without the query or what's after #).
+  static func cloudPage(_ url: URL) -> String? {
+    guard fromCloud(url) else { return nil }
     var c = URLComponents(url: url, resolvingAgainstBaseURL: false)
     c?.fragment = nil; c?.query = nil
     guard let page = c?.string, page.contains("/h/") || page.hasSuffix("/h") else { return nil }
+    return page
+  }
+
+  /// <id>.<key>.<relay id>.<relay token>.<about>, for the household whose cloud page is `page`.
+  static func from(fragment frag: String, page: String) -> Pairing? {
+    let parts = frag.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
+    let ok = { (s: String) in !s.isEmpty && s.count <= 2000 && s.allSatisfy { $0.isLetter && $0.isASCII || $0.isNumber || $0 == "_" || $0 == "-" } }
+    guard parts.count == 5, parts.allSatisfy(ok), parts[1].count == 43, B64.dec(parts[1])?.count == 32 else { return nil }
     return Pairing(id: parts[0], key: parts[1], relay: parts[2], token: parts[3], about: parts[4], page: page, relayURL: nil)
+  }
+
+  /// An invite to join through the cloud (phone.jsx Invite: the cloud page, ?for=, #<pair>.<key>.<relay id>): the
+  /// cloud page it names and the app's own page to join with.
+  static func invite(_ url: URL) -> (page: String, join: URL)? {
+    guard let frag = url.fragment, let page = cloudPage(url),
+          frag.range(of: #"^[\w-]{1,200}\.[\w-]{43}\.[\w-]{1,200}$"#, options: .regularExpression) != nil else { return nil }
+    var c = URLComponents(string: "openhouse-app://phone/h/")
+    if let who = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "for" })?.value {
+      c?.queryItems = [URLQueryItem(name: "for", value: String(who.prefix(80)))]
+    }
+    c?.fragment = frag
+    return c?.url.map { (page, $0) }
   }
 }
 

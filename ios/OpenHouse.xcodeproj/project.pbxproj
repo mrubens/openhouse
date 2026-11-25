@@ -11,6 +11,7 @@
 		0B8D724BFE0A6050909829A2 /* WebPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45C22FBC8DC4FF151761CFC4 /* WebPage.swift */; };
 		1135F49835D6C53F459556D7 /* JoinView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0597A275470882FDB5CD6E6C /* JoinView.swift */; };
 		1B38148B0EC6BFEB2B54B178 /* Tablet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14CEED865958826BA914C1D /* Tablet.swift */; };
+		2094A3224537108F08618604 /* PhonePage.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE7DF61DCCD653E6374307E5 /* PhonePage.swift */; };
 		28FC0EB50A7A3FD430A11C30 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 824E0B752C763367DBD50358 /* ShareViewController.swift */; };
 		4024939D02D6F65DB0B2F063 /* Tablet.swift in Sources */ = {isa = PBXBuildFile; fileRef = C14CEED865958826BA914C1D /* Tablet.swift */; };
 		42D852872A80238E1F8BB200 /* Widgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07FDE917B105918CE09C65D /* Widgets.swift */; };
@@ -107,6 +108,7 @@
 		C14CEED865958826BA914C1D /* Tablet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tablet.swift; sourceTree = "<group>"; };
 		CCCB7AD0C3EB12CB815A6848 /* Widgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = Widgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		D41848A2900E601ECF4DEC30 /* Notes.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = Notes.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		DE7DF61DCCD653E6374307E5 /* PhonePage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhonePage.swift; sourceTree = "<group>"; };
 		EFE586D664F01C0D6BE01DEA /* Glance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Glance.swift; sourceTree = "<group>"; };
 		F16428705F125E78C841314B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		F93F45B2CCFE3788D7D2B4E0 /* SealTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SealTests.swift; sourceTree = "<group>"; };
@@ -177,6 +179,7 @@
 				9D95109FFD2FE182F214BE64 /* Notes.swift */,
 				BC6C637AD348D5EB626F3384 /* OpenHouse.entitlements */,
 				5645C53300FAC92324A649BD /* OpenHouseApp.swift */,
+				DE7DF61DCCD653E6374307E5 /* PhonePage.swift */,
 				45C22FBC8DC4FF151761CFC4 /* WebPage.swift */,
 			);
 			path = App;
@@ -270,6 +273,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = F6C7457A646A3675D431D071 /* Build configuration list for PBXNativeTarget "OpenHouse" */;
 			buildPhases = (
+				553D02FC5F43437DEE47934B /* Phone page */,
 				436BA65753F1869587931D00 /* Sources */,
 				B03981F30CCD53F402077C55 /* Resources */,
 				3C8CC54AD4B39EAA51DBFFF5 /* Embed Foundation Extensions */,
@@ -365,6 +369,29 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		553D02FC5F43437DEE47934B /* Phone page */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Phone page";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/PhonePage/index.html",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/scripts/phone-page.sh\"";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		17E9C9A77F81B115ABB9731A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -400,6 +427,7 @@
 				9AEF6DB56C245EE1847D7464 /* Notes.swift in Sources */,
 				D86D7A000A435257C7F80AB8 /* OpenHouseApp.swift in Sources */,
 				5AFB5E94F45AB9BC506FEF6E /* Pairing.swift in Sources */,
+				2094A3224537108F08618604 /* PhonePage.swift in Sources */,
 				F47797C05ADCC03C3314344F /* Seal.swift in Sources */,
 				79D8F0D87580A2E3805205DE /* Tablet.swift in Sources */,
 				0B8D724BFE0A6050909829A2 /* WebPage.swift in Sources */,
@@ -458,6 +486,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/OpenHouse.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -735,6 +764,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/OpenHouse.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				INFOPLIST_FILE = App/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
