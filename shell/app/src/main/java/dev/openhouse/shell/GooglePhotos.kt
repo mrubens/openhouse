@@ -163,7 +163,9 @@ object GooglePhotos {
     /** A Google sign-in for the phone page at [page] (its own address, http://<tablet>:<port>/) and its kind: the cloud's
      *  one-time link for the phone to open, asked through the bridge (which holds the tablet's credential), or null. */
     internal fun signInLink(page: String, cal: Boolean): String? = runCatching {
-        val body = JSONObject().put("r", page).apply { if (cal) put("k", "cal") }
+        // On an emulator the "phone" is a computer reaching the page through adb (Handoff): Google comes back to localhost.
+        val back = if (android.os.Build.HARDWARE == "ranchu") page.replace(Regex("^http://[^:/]+"), "http://localhost") else page
+        val body = JSONObject().put("r", back).apply { if (cal) put("k", "cal") }
         JSONObject(dev.openhouse.ui.BridgeClient.post(bridge() + "/cloud/google/start", body.toString()) ?: return null).optString("url")
             .takeIf { it.startsWith("https://") || it.startsWith("http://") }
     }.getOrNull()
