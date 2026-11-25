@@ -142,15 +142,12 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
     companion object {
         const val TAG = "Voice"; private const val RING = 3 * 32000 /* 3 s */
         /**
-         * The audio source for listening on this tablet, measured with someone saying "Hey Opie" from 1.5-2 m (peak level,
-         * of full scale, at the microphone):
-         * - Galaxy Tab S10 FE (SM-X52x): MIC. It was ~40x louder than VOICE_COMMUNICATION and ~2x VOICE_RECOGNITION, and the
-         *   wake model's gain and loudness floor (models/wake/opie.json) were set on it.
-         * - Galaxy Tab A11 (SM-X230, 2026-11-25): VOICE_RECOGNITION 0.15-0.5; MIC 0.003-0.02 (below the wake floor: it
-         *   never woke); VOICE_COMMUNICATION 0.05-0.14; UNPROCESSED ~0.0001 (silent).
-         * Any other tablet: VOICE_RECOGNITION, the source Android tunes for speech recognition.
+         * The audio source for listening, on every tablet: VOICE_RECOGNITION, the one Android tunes for speech recognition.
+         * Measured with someone saying "Hey Opie" from 1.5-2 m (peak, of full scale, at the microphone), on the Galaxy Tab
+         * A11 (2026-11-25): VOICE_RECOGNITION 0.15-0.5; MIC 0.003-0.02 (under the wake model's loudness floor: it never
+         * woke); VOICE_COMMUNICATION 0.05-0.14; UNPROCESSED ~0.0001 (silent). On the Galaxy Tab S10 FE, MIC was ~2x
+         * VOICE_RECOGNITION, and MIC was its source until then (the wake model's gain and floor were set with it).
          */
-        fun defaultSource(model: String = android.os.Build.MODEL ?: ""): Int =
-            if (Regex("^SM-X52\\d").containsMatchIn(model)) MediaRecorder.AudioSource.MIC else MediaRecorder.AudioSource.VOICE_RECOGNITION
+        const val DEFAULT_SOURCE = MediaRecorder.AudioSource.VOICE_RECOGNITION
     }
 }

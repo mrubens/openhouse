@@ -63,7 +63,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
      */
     private var uiUrl = if (BuildConfig.DEBUG) "http://10.0.2.2:5173/" else "http://127.0.0.1:5173/"
     internal var bridge = DEFAULT_BRIDGE
-    // The microphone, streamed to the bridge on this device: the source per tablet, measured (Voice.defaultSource).
+    // The microphone, streamed to the bridge on this device: Voice.DEFAULT_SOURCE.
     // ConfigReceiver's `mic` overrides it (see Voice.kt for the level log).
     /** The tablet's own listening, paused while OpenAI's live voice has the microphone (LiveVoice). */
     internal fun micPaused(on: Boolean) { voice.paused = on }
@@ -73,7 +73,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     internal fun micHeld() = voice.holding && !voice.paused
     internal fun micRecent(ms: Int) = voice.recent(ms)
     internal fun micTap(f: ((ByteArray, Int) -> Unit)?) { voice.tap = f }
-    private val voice = Voice({ bridge }, { getSharedPreferences("shell", MODE_PRIVATE).getInt("mic", Voice.defaultSource()) }, {
+    private val voice = Voice({ bridge }, { getSharedPreferences("shell", MODE_PRIVATE).getInt("mic", Voice.DEFAULT_SOURCE) }, {
         // While the bridge cancels echo: the source with nothing done to the sound, where the device has one (the plain
         // microphone source may still have the maker's noise suppression in it); else the one for voice recognition,
         // which Android requires to be free of gain control and noise suppression. `--ei micPlain N` (adb) overrides.
