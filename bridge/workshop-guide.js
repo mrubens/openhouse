@@ -12,7 +12,15 @@ const APP_SECTIONS = ['The screen', 'Note or app', "The family's things", 'Icons
 const sha = (t) => `sha256:${crypto.createHash('sha256').update(t, 'utf8').digest('hex')}`;
 const NOW = 'For the home screen as it is now (its tabs, look and apps, and which tab the tablet is showing), call get_guide with topic "home".';
 
-export function workshopGuide({ read, homeNow }) {
+// The bridge's own files the guide is made of: each must ship with the bridge (scripts/runtime-assets.sh).
+export const GUIDE_FILES = ['WORKSHOP.md', 'AGENT.md', 'NOTES.md', 'PLUGINS.md', 'DESIGN.md', 'kit/quiet.css'];
+
+export function workshopGuide({ read: readFile, homeNow, log = console.error }) {
+  // A guide file that's missing is said loudly at start, and where its text would be, so a computer's AI knows it's
+  // working without it (and tells the person) instead of getting nothing. The rest of the bridge goes on.
+  const missing = GUIDE_FILES.filter((f) => !readFile(f));
+  if (missing.length) log(`[workshop] MISSING GUIDE FILES: ${missing.join(', ')}. get_guide and the skills are incomplete; this build left them out (scripts/runtime-assets.sh).`);
+  const read = (f) => readFile(f) || `(This OpenHouse is missing its ${f}, so this part of the guide is empty. Tell the person once that the tablet needs an update; go on with care.)`;
   // The tablet assistant's rules (AGENT.md), as they apply on a computer: by section, without the ones about the tablet
   // itself (its other apps and devices, its own reply rules, the code layout it sees), and with no Edit tool to use.
   function agentSections(names) {
