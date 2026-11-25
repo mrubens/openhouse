@@ -190,16 +190,23 @@ object CalendarLinks {
             if (host.isEmpty() || PublicAddress.localName(host)) throw Said("it points into a home network, which isn't read")
             val found = try { java.net.InetAddress.getAllByName(host).toList() } catch (e: Exception) { throw Said("there's no site by that name, or the Wi-Fi is down") }
             if (found.isEmpty() || found.any { PublicAddress.isPrivate(it) }) throw Said("it points into a home network, which isn't read")
-            val at = found.first()
-            val ip = at.hostAddress.substringBefore('%').let { if (at is java.net.Inet6Address) "[$it]" else it }
-            val c = (URL("https", ip, u.port, u.file).openConnection(java.net.Proxy.NO_PROXY) as HttpsURLConnection).apply {
-                connectTimeout = 15_000; readTimeout = 20_000; instanceFollowRedirects = false
-                sslSocketFactory = Pinned(host)
-                hostnameVerifier = HostnameVerifier { _, s -> HttpsURLConnection.getDefaultHostnameVerifier().verify(host, s) }
-                setRequestProperty("Host", if (u.port == -1 || u.port == 443) u.host else "${u.host}:${u.port}")
-                setRequestProperty("User-Agent", "openhouse-calendar/0.1")
+            // Each of its addresses in turn (all of them checked above), until one answers: a site with an IPv6
+            // address first doesn't fail on a Wi-Fi without IPv6, nor a site with one server down.
+            var c: HttpsURLConnection? = null
+            var code = -1
+            for (at in found.take(4)) {
+                val ip = at.hostAddress.substringBefore('%').let { if (at is java.net.Inet6Address) "[$it]" else it }
+                val tried = (URL("https", ip, u.port, u.file).openConnection(java.net.Proxy.NO_PROXY) as HttpsURLConnection).apply {
+                    connectTimeout = if (found.size > 1) 8_000 else 15_000; readTimeout = 20_000; instanceFollowRedirects = false
+                    sslSocketFactory = Pinned(host)
+                    hostnameVerifier = HostnameVerifier { _, s -> HttpsURLConnection.getDefaultHostnameVerifier().verify(host, s) }
+                    setRequestProperty("Host", if (u.port == -1 || u.port == 443) u.host else "${u.host}:${u.port}")
+                    setRequestProperty("User-Agent", "openhouse-calendar/0.1")
+                }
+                code = try { tried.responseCode } catch (e: Exception) { tried.disconnect(); -1 }
+                if (code != -1) { c = tried; break }
             }
-            val code = try { c.responseCode } catch (e: Exception) { throw Said("its site didn't answer") }
+            if (c == null) throw Said("its site didn't answer")
             if (code in 300..399) { u = https(URL(u, c.getHeaderField("Location") ?: throw Said("its site answered with an error ($code)"))); c.disconnect(); return@repeat }
             if (code == 401 || code == 403) throw Said("it asked for a sign-in (copy the calendar's secret or public iCal address instead)")
             if (code == 404 || code == 410) throw Said("there's nothing at that address (a link that was reset stops working)")

@@ -257,7 +257,9 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           // date is the local day, as Google's, so "Tuesday" from Opie and the Calendar app's own date both name it.
           const [uid, utc] = String(e.uid || '').split('|');
           const id = (uid || url).replace(/[^\w.@-]/g, '_').slice(0, 120);
-          const key = utc ? `${id}|${utc}` : id;
+          // (two can share a UTC day where the clocks go forward: a day is 23 hours there. The second gets its time too.)
+          let key = utc ? `${id}|${utc}` : id;
+          if (utc && events[key] && events[key].ev.start !== e.start) key += `T${new Date(e.start).toISOString().slice(11, 16).replace(':', '')}`;
           const rep = rule ? repeatOf(rule) : { repeat: null };
           events[key] = { remote: id, url, etag, raw, ev: { title: e.title, start: e.start, end: e.end || e.start, allDay: e.allDay, ...(e.place ? { place: e.place } : {}), ...(e.notes ? { notes: e.notes } : {}), ...(rep.repeat ? rep : {}), ...(utc ? { date: dayKey(new Date(e.start)) } : {}) } };
         }
