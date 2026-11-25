@@ -75,7 +75,7 @@ function run(cmd, args, opts = {}) {
 /** The plugin's files in a folder of their own (to be thrown away). { dir, commit, done() } */
 /**
  * A plugin's tarball opened into out, read here rather than by tar: only folders and plain files, each inside out
- * (never an absolute path or ..), and never a link of any kind, so nothing is written through one. Throws with words.
+ * (never an absolute path or ..). Links of any kind are left out, never made, so nothing is written through one. Throws with words.
  */
 export function untar(tgz, out) {
   let buf;
@@ -98,6 +98,7 @@ export function untar(tgz, out) {
     const name = paxPath ?? longName ?? (prefix ? prefix + '/' : '') + field(h, 0, 100);
     paxPath = longName = null;
     if (++entries > MAX_FILES * 5) throw new Error('That plugin has too many files.');
+    if (type === '1' || type === '2') continue; // a link: left out, never made (so nothing can be written through one)
     if (type !== '0' && type !== '5' && type !== '7') bad(name);
     const rel = name.replace(/^(\.\/)+/, '').replace(/\/+$/, '');
     if (!rel) continue;

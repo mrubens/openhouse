@@ -284,7 +284,7 @@ test('a tarball from a link: every redirect checked, and nothing in it is a link
   assert.equal((await t.pl.call('add_plugin', { source: 'https://cdn.example.com/x.tgz' })).isError, true, 'a redirect into the home network');
   assert.deepEqual(t.pl.readAll(), {});
 
-  // A link to a folder outside, then a file "through" it: refused before anything is written.
+  // A link to a folder outside, then a file "through" it: the link is left out, so the file lands inside, never outside.
   const d = tmp('evil'), outside = tmp('outside');
   makePlugin(path.join(d, 'package'));
   fs.symlinkSync(outside, path.join(d, 'package', 'apps', 'out'));
@@ -293,11 +293,12 @@ test('a tarball from a link: every redirect checked, and nothing in it is a link
   execFileSync('tar', ['-czf', path.join(d, 'b.tgz'), '-C', d, 'package/apps/out/x.js']);
   const both = Buffer.concat([zlib.gunzipSync(fs.readFileSync(path.join(d, 'a.tgz'))).subarray(0, -1024), zlib.gunzipSync(fs.readFileSync(path.join(d, 'b.tgz')))]);
   const t2 = tablet(served({ 'https://cdn.example.com/evil.tgz': zlib.gzipSync(both) }));
-  assert.equal((await t2.pl.call('add_plugin', { source: 'https://cdn.example.com/evil.tgz' })).isError, true);
+  await t2.pl.call('add_plugin', { source: 'https://cdn.example.com/evil.tgz' });
   assert.deepEqual(fs.readdirSync(outside), []);
   const out = tmp('untar');
-  assert.throws(() => untar(zlib.gzipSync(both), out));
+  untar(zlib.gzipSync(both), out);
   assert.deepEqual(fs.readdirSync(outside), []);
+  assert.ok(fs.lstatSync(path.join(out, 'package/apps/out')).isDirectory()); // (a plain folder, not the link)
 });
 
 test('both versions put together: the household\'s changes and theirs, and never more rights than the update\'s card', async () => {
