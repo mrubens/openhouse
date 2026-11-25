@@ -14,7 +14,7 @@
 // A destination: { id, label, ready() -> {ok, why?, name?}, put(file, meta), list() -> [{id, kind, size, keyId,
 // createdAt, deviceId?, deviceName?}], get(item, toFile), prune?(keepNightly, keepManual) }.
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, holdWrites, releaseWrites } from './store.js';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { newRecoveryCode, keyFromCode, normalCode, encryptFile, decryptFile, pack, run, INCLUDE, VIDEO_BUDGET, keptVideos } from './backup-format.js';
@@ -110,6 +110,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
     if (!d) throw new Error('No such place.');
     job = { kind: 'restore', step: 'checking', startedAt: iso() };
     fs.rmSync(TMP, { recursive: true, force: true }); fs.mkdirSync(TMP, { recursive: true, mode: 0o700 });
+    let held = null, moved = false;
     try {
       const item = (await d.list()).find((b) => b.id === id && (!deviceId || !b.deviceId || b.deviceId === deviceId));
       if (!item) throw new Error("That backup isn't there any more.");
@@ -138,11 +139,18 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
       const entries = (header.entries || []).filter((e) => INCLUDE.includes(e) && fs.existsSync(path.join(out, e)));
       if (!entries.length) throw new Error('the backup is empty');
       job.step = 'putting back';
+      // From here until the bridge starts again, nothing saves over what comes back from what it still holds in
+      // memory (the lists, the reminders, the calendars' outbox...): every write to these is refused (store.js), and
+      // the restart below reads them all again.
+      held = INCLUDE.map((e) => path.join(DISPLAY, e));
+      holdWrites(held, 'A backup is being restored. Try again in a moment, once the tablet has started again.');
       const aside = f('before-restore');
       fs.rmSync(aside, { recursive: true, force: true }); fs.mkdirSync(aside, { recursive: true });
       for (const e of entries) {
-        if (fs.existsSync(path.join(DISPLAY, e))) fs.renameSync(path.join(DISPLAY, e), path.join(aside, e));
-        fs.renameSync(path.join(out, e), path.join(DISPLAY, e));
+        if (fs.existsSync(path.join(DISPLAY, e))) { fs.renameSync(path.join(DISPLAY, e), path.join(aside, e)); moved = true; }
+        // (a file's .bak goes aside with it: it is the version before the one set aside, never a copy of what came back)
+        if (fs.existsSync(path.join(DISPLAY, e + '.bak'))) fs.renameSync(path.join(DISPLAY, e + '.bak'), path.join(aside, e + '.bak'));
+        fs.renameSync(path.join(out, e), path.join(DISPLAY, e)); moved = true;
       }
       if (entries.includes('photos')) keptVideos(path.join(aside, 'photos'), path.join(DISPLAY, 'photos')); // (videos the backup left out stay)
       if (adopt) { setKey(adopt, true); escrowNow().catch(() => {}); } // the family's code is this tablet's code now
@@ -152,6 +160,8 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
       return { ok: true, restarting: true, from: header.createdAt };
     } catch (e) {
       setState({ lastRestore: { at: iso(), ok: false, error: e.message.slice(0, 200) } });
+      // Nothing put back yet: carry on as before. Some of it: start again on what is on disk now, never on memory.
+      if (held && !moved) releaseWrites(held); else if (held) setTimeout(exit, 1500).unref?.();
       throw e;
     } finally { job = null; fs.rmSync(TMP, { recursive: true, force: true }); }
   }

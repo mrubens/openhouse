@@ -17,10 +17,17 @@ import { pipeline } from 'node:stream/promises';
 // history, chats (and the home screen's look, door.json), the household, photos, app data, the house's devices, the
 // chosen model. Not voice/: the wake model, which the display downloads (it held taught voices once; none are kept now). Never: sign-ins for Claude or ChatGPT (in the runtime and the agent's app, outside this
 // folder), the runtime, the bridge and its secret, .cloud/ (the credential) or .backup/ (the key).
+// Also every household store next to the chats: reminders and follow-ups (later.json), the calendars chosen and changes
+// not yet sent to them (calendar-sync.json), the things on Home (things.json), what apps put on the calendar
+// (day-notes.json). Left out on purpose: what is read again by itself (calendar.json, calendar-only.json, the
+// heartbeat's waiting fixes), and the bridge's own folder: pairings, keys and the undo list of this tablet's apps.
 export const INCLUDE = ['webapp', 'chats', 'household.json', 'house.json', 'photos', 'appdata', 'devices.json', 'agent-model.json',
-  'preferences.md', 'heartbeat.json', 'flyers', 'mail.json']; // what the assistant learned, the heartbeat's notes, scanned flyers, email's approved senders (not the messages, mail/)
+  'preferences.md', 'heartbeat.json', 'flyers', 'mail.json', // what the assistant learned, the heartbeat's notes, scanned flyers, email's approved senders (not the messages, mail/)
+  'later.json', 'calendar-sync.json', 'things.json', 'day-notes.json'];
 // .l2s.*: proot's stand-ins for hard links (git makes them); inside the runtime the real files read normally.
-const EXCLUDE = ['node_modules', '.vite', '*.tmp', '.l2s.*'];
+// The store's spare copies (store.js): a .bak of each file (the file itself is what's kept), a save half made (.tmp),
+// one set aside as unreadable (.damaged-<time>).
+const EXCLUDE = ['node_modules', '.vite', '*.tmp', '.l2s.*', '*.json.bak', '*.md.bak', '*.damaged-*'];
 const MAGIC = 'DBK1';
 
 // Recovery codes: 128 random bits in Crockford base32 (no I, L, O, U), 26 characters in groups of four.
