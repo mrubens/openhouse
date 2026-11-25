@@ -79,9 +79,11 @@ struct WebPage: UIViewRepresentable {
     func webView(_ v: WKWebView, decidePolicyFor a: WKNavigationAction) async -> WKNavigationActionPolicy {
       guard let u = a.request.url else { return .cancel }
       if u.scheme == "openhouse" { await MainActor.run { Home.shared.open(u) }; return .cancel }
-      // The joining page went on to the cloud's copy, with the pairing after #: keep it.
+      // The joining page went on to the cloud's copy, with the pairing after #: keep it (from the app's own cloud only;
+      // one that would move this phone to another home only if the person says so).
       if a.targetFrame?.isMainFrame != false, let p = Pairing.from(url: u) {
-        await MainActor.run { Home.shared.paired(p); loaded = u }
+        guard await Home.shared.paired(p) else { return .cancel }
+        await MainActor.run { loaded = u }
         return .allow
       }
       // Within the page (its own address, the tablet's, its frames) stays here; a link out opens in Safari.

@@ -12,7 +12,10 @@ iPhone: a real share sheet entry, notes that open the right screen, widgets, and
 - **Joining**: the app scans the tablet's code (Settings, Screens, Add a screen, Someone's phone), or takes its link
   pasted. That opens the tablet's own joining page in the web view; once joined, the page goes on to the cloud's copy
   with the pairing after `#`, as it does in Safari. The app keeps that pairing in the keychain, shared with its
-  extensions through the app group `group.computer.openhouse.phone`. Joining needs a household that reaches home from
+  extensions through the app group `group.computer.openhouse.phone`. It takes a pairing only from the clouds it was
+  built for (`OPENHOUSE_CLOUD_HOSTS` in `ios/Config/Base.xcconfig`, `cloud.openhouse.computer`; a self-hosted cloud adds
+  its host in `Local.xcconfig`; debug builds also take a local cloud on `localhost`), and asks the person before a page
+  moves a joined phone to a different home. Joining needs a household that reaches home from
   away (the relay, [networking.md](networking.md)); without one, the Wi-Fi page in Safari is the way.
 - **Send to Opie** (`ios/Share`): a share extension for links, words and a photo. It posts to the cloud's `/send` with
   the phone's share key, the same way the Shortcut did (`openhouse-cloud/lambda/send.ts`), and shows Opie's answer. A
