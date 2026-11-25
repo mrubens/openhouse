@@ -136,6 +136,9 @@ async function fetched(b) {
  * Its look (the sky, icons, hours and week) is /kit/weather-look.js and .css, for an app that wants to show it the same way.
  * code is the WMO weather code; rain is the chance of rain in percent; sunrise, sunset and time are local ISO times.
  */
+/** Whether the tablet is still making this app (the builder's state, rails.js making): a template's page shows
+ *  "Making <name>…" meanwhile, not a page half written (bridge/templates). False when it can't tell. */
+export const beingMade = () => (SCREEN ? Promise.resolve(false) : call('/state').then((s) => !!APP && s?.making === APP).catch(() => false));
 export const weather = () => call('/weather').then((w) => (w?.error ? null : w)).catch(() => null);
 /** Why there's no weather: 'no location' (nobody has said where home is) or 'unreachable'; null when there is. */
 export const weatherProblem = () => call('/weather').then((w) => (w?.error === 'no location' ? 'no location' : w?.error ? 'unreachable' : null)).catch(() => 'unreachable');

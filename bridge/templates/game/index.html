@@ -1,11 +1,26 @@
 <!doctype html>
-<html>
+<html class="checking">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Made on the tablet from the game template (bridge/templates/game): this file and game.js (the engine) stay as
        they are; the game is main.js. -->
-  <style>html, body { margin: 0; height: 100%; overflow: hidden; background: #000; touch-action: none; }</style>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #000; touch-action: none; }
+    /* While the tablet is still making it: one quiet line, not a game half written (the kit's beingMade). */
+    #making { display: none; }
+    html.checking canvas, html.making canvas { visibility: hidden; }
+    html.making #making { display: grid; place-items: center; position: fixed; inset: 0; z-index: 2147483647; background: #111;
+      color: rgba(255, 255, 255, .7); font: 500 calc(100vw / 64) system-ui, sans-serif; letter-spacing: -.01em; }
+  </style>
 </head>
-<body><script type="module" src="./main.js"></script></body>
+<body><div id="making">Making NAME…</div>
+<script type="module">
+  import { beingMade } from '/kit/openhouse.js';
+  const root = document.documentElement, shown = () => root.classList.remove('checking');
+  setTimeout(shown, 1500); // (never kept hidden by a slow answer)
+  (async function look() { const on = await beingMade(); root.classList.toggle('making', on); shown(); if (on) setTimeout(look, 1500); })();
+</script>
+<script type="module" src="./main.js"></script>
+</body>
 </html>

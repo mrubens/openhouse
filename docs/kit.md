@@ -133,6 +133,7 @@ reject.
 | `screen` | | `{kind: 'tv' \| 'phone'}` on another screen, else `null` (not a function) |
 | `weather()` | | The weather (shape in the kit), or `null` |
 | `weatherProblem()` | | `'no location'`, `'unreachable'`, or `null` |
+| `beingMade()` | | `true` while the tablet is still making this app (its template's page shows "Making …": docs/building-on-the-tablet.md) |
 | `setLocation(place)` | a ZIP code or a town (the household's own apps) | change |
 | `map.get()` | | The Map's places; rejects when it can't |
 | `map.turnOn(on = true)` | | change |
