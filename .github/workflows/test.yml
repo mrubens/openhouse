@@ -1,0 +1,40 @@
+# The tests on every push and pull request to main: the bridge's and the shell's unit tests.
+# No secrets: the bridge's cloud tests skip without a checkout of the private cloud repo, and the shell's unit tests
+# build unsigned (no release key).
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # (no dependencies: the bridge has no package-lock.json and nothing to install)
+      - run: npm test
+        working-directory: bridge
+
+  shell:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: gradle
+      - uses: android-actions/setup-android@v3
+      - run: ./gradlew -q :app:testReleaseUnitTest
+        working-directory: shell

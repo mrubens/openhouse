@@ -95,7 +95,9 @@ function timesOn(r, start, day) {
   let hours = r.byhour.length ? r.byhour : [s.getHours()];
   if (r.freq === 'HOURLY') {
     const all = []; for (let h = 0; h < 24; h++) all.push(h);
-    hours = all.filter((h) => (!r.byhour.length || r.byhour.includes(h)) && Math.round((new Date(day).setHours(h, s.getMinutes(), 0, 0) - start) / 36e5) % r.interval === 0);
+    // Hours by the clock since its first time (not elapsed: after a DST change "every 2 hours from 8" stays 8, 10, 12).
+    const base = daysBetween(start, day) * 24 - s.getHours();
+    hours = all.filter((h) => (!r.byhour.length || r.byhour.includes(h)) && (base + h) % r.interval === 0);
   }
   const out = [];
   for (const h of [...hours].sort((a, b) => a - b)) for (const m of [...mins].sort((a, b) => a - b)) { const d = new Date(day); d.setHours(h, m, 0, 0); out.push(+d); }
