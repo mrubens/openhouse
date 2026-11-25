@@ -42,6 +42,13 @@ class ProvisioningActivity : Activity() {
         val dpm = getSystemService(DevicePolicyManager::class.java)
         val admin = android.content.ComponentName(this, AdminReceiver::class.java)
         runCatching { dpm.setPermissionGrantState(admin, packageName, android.Manifest.permission.RECORD_AUDIO, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) }
+        // A setup code made for testing (admin.ts household --setup --debug): USB debugging comes on, and stays allowed
+        // under kiosk mode (Kiosk.debugging). A family's own code leaves it off; Settings can still turn it on behind the PIN.
+        if (x?.getString("debug") == "1") {
+            getSharedPreferences("shell", MODE_PRIVATE).edit().putBoolean("debugging", true).commit()
+            runCatching { dpm.setGlobalSetting(admin, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, "1") }
+            runCatching { dpm.setGlobalSetting(admin, android.provider.Settings.Global.ADB_ENABLED, "1") }
+        }
         // Home is the display from now on: when Android's setup finishes it goes Home, and the display starts (and sets
         // the rest up: DeviceOwner.setUp). Not started from here: this runs inside Android's setup, which must finish first.
         runCatching {
