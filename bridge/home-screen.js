@@ -116,7 +116,14 @@ export function requestApp(app) {
   return t && t !== 'today' && t !== 'apps' && t !== 'board' ? t : null;
 }
 const styleFile = () => path.join(process.env.OPENHOUSE_APP_DIR || '', 'apps/home/style.json');
-const readStyle = () => { try { return JSON.parse(fs.readFileSync(styleFile(), 'utf8')) || {}; } catch { return {}; } };
+/** A household set up before the version 2 default (2026-11-25) keeps the cards it had (Dinner on, no Whiteboard or
+ *  recipe): what it saw stays what it sees until someone arranges Home (homeScreenRoutes decides once, home-default.json). */
+export const TODAY_DEFAULT_V1 = ['calendar', 'weather', 'lunch', 'meals', 'lists', 'chores', 'notes', 'photos'];
+let keepV1 = false;
+const readStyle = () => {
+  let s = {}; try { s = JSON.parse(fs.readFileSync(styleFile(), 'utf8')) || {}; } catch {}
+  return keepV1 && !Array.isArray(s.today) ? { ...s, today: [...TODAY_DEFAULT_V1, ...(Array.isArray(s.cards) ? s.cards : []).map((x) => 'app:' + x)] } : s;
+};
 function homeStyle() {
   const s = readStyle();
   return {
@@ -134,6 +141,18 @@ const hasWidget = (key, widgets = {}) => key.startsWith('app:') && !!(BUILT_IN_W
 
 export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
   const FILE = registered('home-screen', path.join(DIR, 'door.json'));
+  // Which default this household's Home has, decided once: one already set up (its family saved) when this came keeps
+  // version 1; a new one gets version 2.
+  {
+    const f = path.join(DIR, 'home-default.json');
+    let v = null; try { v = JSON.parse(fs.readFileSync(f, 'utf8')).v; } catch {}
+    if (v !== 1 && v !== 2) {
+      let setUp = false; try { setUp = (JSON.parse(fs.readFileSync(path.join(DIR, '../household.json'), 'utf8')).family || []).length > 0; } catch {}
+      v = setUp ? 1 : 2;
+      try { fs.writeFileSync(f, JSON.stringify({ v })); } catch (e) { console.error('[home] default not kept:', e.message); }
+    }
+    keepV1 = v === 1;
+  }
   const TOKEN = crypto.randomUUID();
   let version = 1;
   const waiters = new Set();
