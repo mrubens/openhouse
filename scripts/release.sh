@@ -110,10 +110,16 @@ build() {
     "${agent[@]}" -Popenhouse.hostApk="$WORK/host-$vcode.apk" -Popenhouse.updateUrl="$URL" -Popenhouse.appId="$APPID")
   sign "$src/shell/app/build/outputs/apk/release/app-release-unsigned.apk" "$dest"
   [ -z "$HOST_OUT" ] || cp "$WORK/host-$vcode.apk" "$HOST_OUT"
+  # The Claude app's download this display carries (scripts/build-mcpb.sh), for its https copy: the Connect screen links
+  # releases/connect/<first 16 hex of its sha256>/ (bridge/connect-page.js), so it goes up with the release.
+  if [ -n "$EXT_OUT" ] && [ -f "$src/bridge/public/connect/extension.json" ]; then
+    local h; h=$(node -p "require('$src/bridge/public/connect/extension.json').sha256.slice(0, 16)")
+    mkdir -p "$EXT_OUT/$h" && cp "$src/bridge/public/connect/"{openhouse.mcpb,openhouse-mcp.mjs,extension.json} "$EXT_OUT/$h/"
+  fi
 }
 
 APK=display-$VERSION.apk
-HOST_OUT="$OUT/host-$VERSION.apk" build "$REF" "$VERSION" "$CODE" "$OUT/$APK"
+HOST_OUT="$OUT/host-$VERSION.apk" EXT_OUT=$([ -z "$LOCAL" ] && echo "$OUT/connect") build "$REF" "$VERSION" "$CODE" "$OUT/$APK"
 if [ -n "$RESCUE" ]; then
   RESCUE_VERSION=${RESCUE_VERSION:-${RESCUE#v}}
   # Not display-*.apk: a rescue is the release before, installed only to go back (a glob for the display missed it).
@@ -133,6 +139,8 @@ if ('$RESCUE') m.rescue = { version: '$RESCUE_VERSION', versionCode: $((CODE + 1
 fs.writeFileSync(process.argv[2], JSON.stringify(m, null, 2) + '\n');
 EOF
 echo; cat "$OUT/update.json"; echo "In $OUT"
+# The extension's https copy is its own upload, like the voice set: until it's up, the tablet serves its own copy.
+for d in "$OUT"/connect/*/; do [ -d "$d" ] && echo "Extension: AWS_PROFILE=openhouse-admin scripts/cloud.sh node scripts/release.ts --extension \"${d%/}\""; done
 
 if [ "$PUBLISH" = github ]; then
   # update.json goes up as an asset of the newest release: https://github.com/<owner>/<repo>/releases/latest/download/update.json

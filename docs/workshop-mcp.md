@@ -203,10 +203,20 @@ the home network.
 No website yet, so the tablet hands it out. While "Connect Claude or ChatGPT" is open (and only then: the same 10
 minutes as the code, gone when the screen closes or the code is used), the home-network listener serves one page
 (`bridge/connect-page.js`): "Connect Claude or ChatGPT", led by one prompt to copy into any AI that can run commands
-(below), then the Claude app's download of `openhouse.mcpb` with the code and three steps (open the file and Install,
-say "Connect to my OpenHouse" with the code, tap Allow). The
+(below), then the Claude app's download of `openhouse.mcpb` and three steps (open the file and Install, say "Connect
+to my OpenHouse" with the code the tablet shows, tap Allow). The
 download button fires once per visit. It serves that page, the two downloads and the kit's font, nothing else. `scripts/runtime-assets.sh` runs
 `scripts/build-mcpb.sh`, so the download is built into the runtime with the tablet and always matches it.
+
+The page is plain http on the home Wi-Fi, and `openhouse.local` is answered over mDNS, which anyone on the Wi-Fi can
+answer too. So nothing on it is trusted, and it never carries the code: the person reads the code off the tablet's
+own screen and types it. The download button points at the release's https copy of the same file
+(`releases/connect/<first 16 hex of its sha256>/openhouse.mcpb` on the release CDN; `extensionInfo` in
+`bridge/connect-page.js`, from the `extension.json` that `build-mcpb.sh` writes), and the tablet's Connect screen names
+that address itself. The bridge asks the CDN whether the copy is there (a HEAD, nothing of the household in it) and
+serves its own copy only when it isn't: a `--local` build, or a release whose copy wasn't uploaded.
+`scripts/release.sh` puts the files in the release folder (`connect/<hash>/`) and prints the upload, a separate step
+like the voice set's (the cloud's `scripts/release.ts --extension <dir>`).
 
 The Connect screen leads with **On your computer, open openhouse.local:8788**, the IP and port under it, and a QR
 code for the page. What I found getting the address short:
@@ -241,8 +251,9 @@ The stdio script can also pair through the relay with the code (`openhouse-mcp.m
 use the tools from a terminal (`tools`, `call <tool> '<json>'`): a computer's welcome (sealed, `bridge/screens.js`)
 carries its home address and relay id, so a computer that paired through the cloud reaches the tablet either way.
 
-The page shows the code, so while the Connect screen is open anyone on the home Wi-Fi who opens the page could try
-it. The Allow on the tablet, naming the computer, is still the gate.
+Only the tablet's own screen shows the code, and a computer can ask to pair only with it (the pairing's key comes
+from the code). The name on the Allow card is the computer's own choice, so the card also says how it asked: on this
+Wi-Fi, or through OpenHouse's cloud. The Allow, a person's tap, is still the gate.
 
 ## Setting up (Claude Code, Claude Desktop)
 

@@ -14,15 +14,17 @@
 //                                  label "req:<id>". Reply: frames, each [u32 length][sealed], label "res:<id>:<n>:<i>";
 //                                  frame 0 is {status, type}, then data, then an empty end frame (type byte 0, 1, 2).
 // The loopback listener (the display's secret, so the shell's Settings) runs it:
-//   GET  /screens                  {lan, port, screens: [{id, name, scopes, added, seen}], asking: [{pair, name}]}
+//   GET  /screens                  {lan, port, screens: [{id, name, scopes, added, seen}], asking: [{pair, name, via}]}
 //   POST /screens/lan {on}         the home-network listener on or off (screens stay paired)
 //   POST /screens/pair             a new pairing, 10 min: {pair, key, port}; turns the listener on
 //   POST /screens/pair {kind: "computer"}   a computer's pairing (someone's own AI app, workshop.js): {pair, code,
-//                                  port}. A person types the code, so it's short (12 characters, 60 bits); the pairing
+//                                  port, extension}. A person types the code, so it's short (12 characters, 60 bits); the pairing
 //                                  id and one-time key come from it through scrypt (pairingFromCode), so a recorded
 //                                  hello can't be guessed back to the code while the pairing lasts. With {address} (the
 //                                  tablet's own, from the shell): while it lasts, the listener serves the page to add
-//                                  OpenHouse to Claude (connect-page.js) and the bridge answers openhouse.local.
+//                                  OpenHouse to Claude (connect-page.js, without the code) and the bridge answers
+//                                  openhouse.local. extension: the https copy of the Claude app's download, for the
+//                                  tablet's screen to name (null when there's none).
 //   POST /screens/pair/end {pair}  the Connect screen closed: its page and name go now
 //   POST /screens/answer {pair, yes}   a screen that asked to join: let it in, or not
 //   POST /screens/revoke {id}      that screen's key stops working now, and its open requests end
@@ -47,7 +49,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { Readable, Writable } from 'node:stream';
 import { newCode, pairingFromCode } from './pair-code.js';
-import { responder, page as connectPage, downloads, HOSTNAME } from './connect-page.js';
+import { responder, page as connectPage, downloads, extensionCopy, HOSTNAME } from './connect-page.js';
 import * as push from './web-push.js';
 import { homePath } from './home-screen.js';
 
@@ -246,8 +248,9 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
   };
   let setupNamed = false; // openhouse.local answers while the setup's code lasts (a computer types the address)
   // The Connect screen's page (connect-page.js): open with one computer pairing, for as long as it lasts.
-  let connect = null; // { pair, code, address, until }
+  let connect = null; // { pair, address, until, away } (never the code: the page mustn't have it)
   const named = responder();
+  const httpsCopy = extensionCopy(HERE); httpsCopy(); // the download's https copy (connect-page.js): asked once now, so the first Connect screen has it
   const closeConnect = (pair) => { if (!connect || (pair && connect.pair !== pair)) return; connect = null; named.stop(); };
   setInterval(() => { if (connect && connect.until < Date.now()) closeConnect(); }, 15e3).unref();
 
@@ -307,7 +310,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     sweep();
     if (req.method === 'GET' && p === '/screens') {
       json(res, 200, { lan: !!state.lan, listening: !!lan, port: PORT, screens: state.screens.map(pub), invites: state.invites.map((v) => v.person),
-        asking: [...pairs].filter(([, x]) => x.asked && !x.answer).map(([pair, x]) => ({ pair, name: x.name, kind: x.kind, ...(x.person ? { person: x.person } : {}) })) });
+        asking: [...pairs].filter(([, x]) => x.asked && !x.answer).map(([pair, x]) => ({ pair, name: x.name, kind: x.kind, via: x.via, ...(x.person ? { person: x.person } : {}) })) });
       return true;
     }
     if (req.method !== 'POST') return false;
@@ -327,7 +330,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
         do { code = newCode(); ({ pair, key } = pairingFromCode(code)); } while (pairs.has(pair));
         const address = /^\d{1,3}(\.\d{1,3}){3}$/.test(String(b.address || '')) ? String(b.address) : null;
         closeConnect();
-        connect = { pair, code, address, until: Date.now() + 10 * 60e3, away: handle.awayForConnect?.() || null };
+        connect = { pair, address, until: Date.now() + 10 * 60e3, away: handle.awayForConnect?.() || null };
         if (address) named.start(address);
       }
       else if (setup) { // the setup's own: a phone scans it, or a computer types its code at openhouse.local:8788/phone
@@ -345,7 +348,7 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
       startLan();
       if (computer) changed(); // the relay hears of the code (relay.js), for the web connector
       if (setup) pairs.get(pair).until = Date.now() + 30 * 60e3;
-      json(res, 200, computer ? { pair, code, port: PORT, minutes: 10, host: connect.address ? HOSTNAME : null, away: connect.away } : tv ? { pair, port: PORT, minutes: 10 }
+      json(res, 200, computer ? { pair, code, port: PORT, minutes: 10, host: connect.address ? HOSTNAME : null, away: connect.away, extension: httpsCopy()?.url || null } : tv ? { pair, port: PORT, minutes: 10 }
         : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, host: setupNamed ? HOSTNAME : null } : { pair, key: b64(key), port: PORT, minutes: 10, ...(code ? { code } : {}) });
       return true;
     }
@@ -392,7 +395,9 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     }
     let name = 'A screen';
     try { name = String(JSON.parse(opened.toString()).name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) || name; } catch {}
-    x.name = name; x.asked = true;
+    // The name is the caller's own; how it came isn't: on the Wi-Fi, or through the cloud (the web connector). Either
+    // way it had the code, which only the tablet's own screen shows.
+    x.name = name; x.asked = true; x.via = ip.startsWith('relay:') ? 'cloud' : 'wifi';
     console.log('[screens] a screen asks to join');
     if (x.typed || x.pre) answer(String(b.pair), x, true); // a TV whose code someone typed on the tablet; the setup's own code, an invite from it, or a phone's code the tablet showed for someone (whoever scans it is standing at the tablet)
     return { status: 200, json: { ok: true } };
@@ -479,7 +484,8 @@ export function screensRoutes({ HERE, KIT = path.join(HERE, 'kit'), json, body, 
     const head = { 'cache-control': 'no-store', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff' };
     if (p === '/') {
       res.writeHead(200, { ...head, 'content-type': 'text/html; charset=utf-8', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self'; form-action 'none'; frame-ancestors 'none'" });
-      return res.end(connectPage({ code: connect.code, host: connect.address && named.on ? `${HOSTNAME}:${PORT}` : host, away: !!handle.awayOn?.() }));
+      // Never the code: this is plain http on the Wi-Fi (connect-page.js).
+      return res.end(connectPage({ host: connect.address && named.on ? `${HOSTNAME}:${PORT}` : host, away: !!handle.awayOn?.(), extension: httpsCopy() }));
     }
     const d = downloads(HERE), f = p === '/openhouse.mcpb' ? d.mcpb : d.script;
     if (!f) return plain(res, 404, { error: 'not built' });

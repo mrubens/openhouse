@@ -153,9 +153,13 @@ test('the Connect screen\'s page: only while it shows, only its page and downloa
   assert.equal(before.status, 302, 'no page without an open Connect screen');
   const p = await post('/screens/pair', { kind: 'computer', address: '192.168.7.9' });
   assert.equal(p.host, 'openhouse-test.local');
-  const html = await (await fetch(`http://${lan}/`)).text();
-  assert.ok(html.includes(p.code));
+  assert.equal((await fetch(`http://${lan}/`)).status, 200);
   assert.equal((await fetch(`http://${lan}/openhouse.mcpb`)).status, 200);
+  // The code is read off the tablet's own screen: nothing on the home network may carry it (plain http, anyone's).
+  for (const at of ['/', '/openhouse.mcpb', '/openhouse-mcp.mjs', '/screen/', '/phone/', '/pair/about', `/pair/ready?pair=${p.pair}`, `/pair/wait?pair=${p.pair}`]) {
+    const text = await (await fetch(`http://${lan}${at}`)).text();
+    for (const c of [p.code, p.code.replace(/-/g, ''), p.code.toLowerCase()]) assert.ok(!text.includes(c), `${at} has the code`);
+  }
   assert.equal((await fetch(`http://${lan}/home`)).status, 404, 'nothing else');
   await post('/screens/pair/end', { pair: p.pair });
   assert.equal((await fetch(`http://${lan}/openhouse.mcpb`, { redirect: 'manual' })).status, 404, 'gone when the screen closes');
