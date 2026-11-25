@@ -3,7 +3,7 @@
 # update cover), signed with the release key, its rescue build, and the manifest the tablets read (update.json).
 #
 #   scripts/release.sh 0.3.0 --rescue v0.2.0 [--rollout 10] [--min 0.2.0] [--notes "Timers keep going"] \
-#       [--ref HEAD] [--update-url https://…/update.json] [--out dist/0.3.0] [--runtime FILE] [--publish github]
+#       [--ref HEAD] [--update-url https://…/update.json] [--out dist/0.3.0] [--runtime FILE] [--smoke] [--publish github]
 #
 #   --ref REF        what to build (default HEAD), from a clean checkout of it: nothing uncommitted goes out
 #   --rescue REF     the release before (its tag): built again with a version code one above this one's, so a tablet
@@ -14,6 +14,9 @@
 #   --update-url URL where the built display looks for updates (default: openhouse.updateUrl in shell/gradle.properties)
 #   --publish github upload to a GitHub release v<version> with gh (ask first: this is public). Otherwise the folder
 #                    in --out is what to put on a static host, as it is.
+#   --smoke          once built, boot the display and its rescue on an emulator (scripts/smoke.sh: a throwaway one, or
+#                    OPENHOUSE_SMOKE_SERIAL=emulator-NNNN for one already running), and stop before publishing if either
+#                    doesn't come up. Without it, the end says to run scripts/smoke.sh before the release goes out.
 #   --runtime FILE   the Linux runtime (runtime.tar.gz) tablets set up from this release get: its SHA-256 goes in the
 #                    build (only that file is unpacked), and it's copied into --out. Without it, the one already in
 #                    --out; else openhouse.runtimeSha256 in the ref's shell/gradle.properties (the release before's).
@@ -38,8 +41,8 @@ ROOT=$PWD
 BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
 
 VERSION=$1; shift || true
-[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { sed -n '2,28p' "$0"; exit 1; }
-REF=HEAD RESCUE= RESCUE_VERSION= ROLLOUT=100 MIN= NOTES= OUT= PUBLISH= LOCAL= RUNTIME=
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { sed -n '2,31p' "$0"; exit 1; }
+REF=HEAD RESCUE= RESCUE_VERSION= ROLLOUT=100 MIN= NOTES= OUT= PUBLISH= LOCAL= RUNTIME= SMOKE=
 URL=${OPENHOUSE_UPDATE_URL:-$(sed -n 's/^openhouse.updateUrl=//p' shell/gradle.properties)}
 # Releases are built under OpenHouse's own IDs (openhouse.releaseAppId), whatever openhouse.appId says for debug builds.
 APPID=$(sed -n 's/^openhouse.releaseAppId=//p' shell/gradle.properties)
@@ -57,6 +60,7 @@ while [ $# -gt 0 ]; do
     --publish) PUBLISH=$2; shift ;;
     --local) LOCAL=$2; shift ;;
     --runtime) RUNTIME=$2; shift ;;
+    --smoke) SMOKE=1 ;;
     *) echo "unknown option $1" >&2; exit 1 ;;
   esac
   shift
@@ -179,6 +183,18 @@ EOF
 echo; cat "$OUT/update.json"; echo "The runtime it unpacks: $RUNTIME_PIN${RUNTIME:+ (runtime.tar.gz, in the folder)}"; echo "In $OUT"
 # The extension's https copy is its own upload, like the voice set: until it's up, the tablet serves its own copy.
 for d in "$OUT"/connect/*/; do [ -d "$d" ] && echo "Extension: AWS_PROFILE=openhouse-admin scripts/cloud.sh node scripts/release.ts --extension \"${d%/}\""; done
+
+# Booted on an emulator before it goes anywhere: a display or rescue that doesn't come up stops the release here.
+if [ -n "$SMOKE" ]; then
+  scripts/smoke.sh "$OUT" ${OPENHOUSE_SMOKE_SERIAL:+--serial "$OPENHOUSE_SMOKE_SERIAL"}
+else
+  echo "Before it goes out: scripts/smoke.sh \"$OUT\" (boots the display${RESCUE:+ and its rescue} on an emulator)."
+fi
+# Each published release is tagged on what it was built from, so a later --rescue v$VERSION builds exactly that.
+if [ -z "$LOCAL" ]; then
+  SHA=$(git rev-parse "$REF^{commit}")
+  echo "Once it's published, tag it: git tag -a v$VERSION $SHA -m \"OpenHouse $VERSION\" && git push origin v$VERSION"
+fi
 
 if [ "$PUBLISH" = github ]; then
   # update.json goes up as an asset of the newest release: https://github.com/<owner>/<repo>/releases/latest/download/update.json
