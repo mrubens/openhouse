@@ -295,7 +295,7 @@ private fun TypeBox(note: String) {
                     },
                     readOnly = cover, // with the keyboard cover, its keys come straight in (see coverKey), so no on-screen keyboard or its toolbar
                     textStyle = quietText(21, color = Color(0xFFFBF9F5)), singleLine = false, maxLines = 4, cursorBrush = SolidColor(Color(0xFFFBF9F5)), // one line, growing as they write
-                    keyboardOptions = NoSuggestions.copy(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { send() }),
+                    keyboardOptions = TextKeys.copy(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { send() }),
                 )
             }
             // Send, once there's something to send (nothing on the tablet hears words to dictate now).

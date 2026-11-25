@@ -135,12 +135,11 @@ internal fun FamilySheet() {
 
 @Composable
 internal fun Field(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier.fillMaxWidth(), focus: FocusRequester? = null, words: Boolean = false) {
-    // A name: each word starts with a capital, which the no-suggestions keyboard (a password type) never does itself.
-    val change: (String) -> Unit = if (!words) onChange else { t -> onChange(if (t.length > value.length) capWords(t) else t) }
+    val change = onChange
     Box(modifier.clip(RoundedCornerShape(12.u)).background(Color(0xFFF1EEE6)).border(1.u, Color(0xFFDAD5CA), RoundedCornerShape(12.u)).padding(horizontal = 14.u, vertical = 11.u)) {
         if (value.isEmpty()) Text(hint, style = quietText(18, color = PaperLook.inkSoft.copy(alpha = .6f)), maxLines = 1)
         val cover = coverAttached()
-        BasicTextField(value, change, Modifier.fillMaxWidth().let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, change, null) }, readOnly = cover, singleLine = true, keyboardOptions = NoSuggestions, textStyle = quietText(18), cursorBrush = SolidColor(PaperLook.ink))
+        BasicTextField(value, change, Modifier.fillMaxWidth().let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, change, null) }, readOnly = cover, singleLine = true, keyboardOptions = if (words) NameKeys else TextKeys, textStyle = quietText(18), cursorBrush = SolidColor(PaperLook.ink))
     }
 }
 
@@ -152,12 +151,9 @@ internal fun Field(value: String, onChange: (String) -> Unit, hint: String, modi
     Text("+ $t", style = quietText(17, FontWeight.Medium, Color(0xFFB5562F)), modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable(onClick = onClick).padding(vertical = 6.u, horizontal = 4.u))
 }
 
-/** Each word's first letter capitalized ("maya jones" -> "Maya Jones"); the rest as typed. */
-internal fun capWords(t: String) = t.split(' ').joinToString(" ") { w -> w.replaceFirstChar { it.uppercaseChar() } }
-
-/** No suggestion bar or autocorrect: people type on the keyboard cover, and the bar just gets in the way.
- *  (The password type is what makes keyboards like Samsung's and Gboard hide suggestions; the text still shows.) */
-internal val NoSuggestions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Password, autoCorrectEnabled = false)
+/** The standard keyboard, with its suggestions and capitals: a sentence, and a name (each word capitalized). */
+internal val TextKeys = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences)
+internal val NameKeys = KeyboardOptions(capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Words)
 
 /** The keyboard cover is attached (its keys type; no on-screen keyboard wanted). */
 @Composable
