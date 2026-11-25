@@ -1,7 +1,7 @@
 # Privacy
 
 The privacy policy for Opie: the tablet, the iPhone app and the hosted cloud. The page people read is the cloud's
-copy at openhouse.computer/privacy (`openhouse-cloud/lambda/privacy.ts`); keep the two the same. Draft of 2026-11-25,
+copy at openhouse.computer/privacy (`openhouse-cloud/lambda/privacy.ts`); keep the two the same. Draft of 2026-11-25, Google section added,
 not yet published.
 
 ---
@@ -58,6 +58,24 @@ Everything here starts only when the household links its tablet to an account.
 - **The website:** if you ask for a beta invite, the email address and answers you give.
 
 The service runs on Amazon Web Services in the United States. Only the people who run Opie can reach it.
+
+## Google accounts
+
+A household can connect its Google Calendar or pick photos from Google Photos. Opie asks Google only for what that
+needs:
+
+- **Google Calendar** (`calendar.events` and `calendar.calendarlist.readonly`): to list the calendars the household
+  chooses, show their events on the tablet, and add or change the events someone asks for there.
+- **Google Photos** (`photospicker.mediaitems.readonly`): to copy the photos someone picks onto the tablet, once.
+
+Events and photos go between the tablet and Google directly. Our service only completes Google's sign-in, because the
+sign-in's secret has to stay off the tablet. It keeps no tokens, events or photos. The calendar's refresh token stays
+on the tablet, sealed, and the household can remove access at any time from the tablet or from their Google account.
+
+Opie's use and transfer of information received from Google APIs adheres to the
+Google API Services User Data Policy (developers.google.com/terms/api-services-user-data-policy), including
+the Limited Use requirements. We don't sell it, use it for advertising, or use it to train AI models, and no person
+reads it except, with the household's permission, to help with a problem they report.
 
 ## Companies that help run it
 
