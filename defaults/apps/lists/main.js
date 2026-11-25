@@ -93,6 +93,8 @@ function confirmCard(title, yes, onYes, no = 'Keep it', onNo = null) {
     h('div', { class: 'actions' }, btn(no, () => { close(); onNo?.(); }, { soft: true }), btn(yes, () => { close(); onYes(); }, { color: 'var(--accent)' })),
   ], { onOutside: (close) => { close(); onNo?.(); } });
 }
+/** What the tablet said no to (a list that's full): its reason, and OK. */
+function told(r) { if (r?.error) openCard((close) => [h('h2', null, r.error), h('div', { class: 'actions' }, btn('OK', close))]); }
 /** Asks for a few words with the keyboard (an item, a chore, a meal). extra(): more choices under the field. */
 function ask({ title, hint = '', initial = '', extra = null, onDone }) {
   const input = h('input', { class: 'field', placeholder: hint, enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
@@ -134,7 +136,7 @@ const findList = (name) => H.lists.find((l) => l.name === name || l.id === name)
 function addTo(list) {
   ask({ title: `Add to ${list}`, hint: same(list, 'Groceries') ? 'Milk' : '', onDone: (text) => {
     findList(list)?.items.push({ id: 'new-' + Date.now(), text, done: false, who: null }); draw();
-    house.addItem(list, text);
+    house.addItem(list, text).then(told);
   } });
 }
 
@@ -210,7 +212,7 @@ function addField(l) {
       const list = findList(f.dataset.list), text = f.value.trim(); if (!list || !text) return;
       f.value = '';
       if (!list.items.some((it) => !it.done && same(it.text, text))) list.items.push({ id: 'new-' + Date.now(), text, done: false, who: null });
-      draw(); house.addItem(list.name, text);
+      draw(); house.addItem(list.name, text).then(told);
     });
     fields.set(l.id, f);
   }

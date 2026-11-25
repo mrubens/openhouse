@@ -15,8 +15,11 @@ Everything is behind the PIN, under Settings → Backups, and off until someone 
 
 A backup holds the display folder's family data: `webapp/` (their apps, with git history, so undo survives a
 restore), `chats/` (conversations and the home screen's look, `door.json`), `household.json`, `house.json`,
-`photos/`, `appdata/`, `voice/`, `devices.json` and `agent-model.json`. The list is `INCLUDE` in
-`bridge/backup-format.js`.
+`photos/`, `appdata/`, `devices.json`, `agent-model.json`, what the assistant learned (`preferences.md`), the
+heartbeat's notes, scanned flyers, email's approved senders, reminders and follow-ups (`later.json`), the chosen
+calendars and changes not yet sent to them (`calendar-sync.json`), the things on Home (`things.json`) and what apps
+put on the calendar (`day-notes.json`). The list is `INCLUDE` in `bridge/backup-format.js`. The stores' spare copies
+(`.bak`, `.tmp`, `.damaged-*`) are left out: the file itself is what's kept.
 
 It never holds:
 - the sign-ins for Claude or ChatGPT (in the runtime and the agent's app, outside the display folder);
@@ -38,7 +41,9 @@ The tablet packs the family's data with `tar` and encrypts it with AES-256-GCM. 
 The header is authenticated too. `keyId` is a hash of the key, so a restore can tell which recovery code fits
 without revealing anything about the key. A restore decrypts to a temporary file and unpacks it only after the tag
 checks out. Then it puts back only the entries listed in `INCLUDE`, keeps what was there in `.backup/before-restore/`
-until the next restore, and restarts the bridge. The format is the same in every place, so a backup copied by hand
+until the next restore, and restarts the bridge. From the moment it starts putting files back until the bridge has
+restarted, every save to those files is refused (`holdWrites` in `bridge/store.js`), so nothing the bridge still held in
+memory is written over what came back; after the restart everything is read again from the restored files. The format is the same in every place, so a backup copied by hand
 from one place to another still restores.
 
 ## The key: a recovery code the family keeps

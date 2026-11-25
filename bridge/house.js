@@ -56,6 +56,9 @@ import { asData } from './as-data.js';
 import { cookSource, readRecipeLink, cookPrompt, COOK_SYSTEM, parseCook, cookAsNotes, youtube, findPrompt, FIND_SYSTEM, parseFound, withPictures } from './cooking.js';
 
 const DAY = 86400e3;
+// How much a list and the recipe box hold. Past it, an add is refused with the reason (a 400 for a tap, an error a
+// tool says), never made room for by dropping the oldest.
+export const ROOM = { listItems: 500, recipes: 300 };
 /** Each person's color, in the order the family is listed, unless they chose one (household.json family[].color).
  *  The one palette: the apps (kit), the home screen and its widgets all take a person's color from /house. */
 export const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'];
@@ -369,10 +372,15 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     l.items.find((i) => str(i.text).toLowerCase().includes(str(ref).toLowerCase()) && str(ref).length > 2);
   const arr = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]).map((x) => str(x)).filter(Boolean);
 
+  /** A refusal (an { error } answer) in work done in the background: thrown, so its mealWork says why. */
+  const must = (r) => { if (r?.error) throw new Error(r.error); return r; };
   function changeList(a) {
     const l = findList(a.list, arr(a.add).length > 0 || a.create);
     if (!l) return { error: `No list "${str(a.list)}". Lists: ${data.lists.map((x) => x.name).join(', ')}.` };
     const did = [];
+    { const adding = new Set(arr(a.add).filter((t) => !l.items.some((i) => same(i.text, t))).map((t) => t.toLowerCase()));
+      if (adding.size && l.items.length + adding.size > ROOM.listItems)
+        return { error: `${l.name} is full (${ROOM.listItems} things). Clear the checked ones or take some off first.`, code: 'full' }; }
     if (a.byAisle !== undefined) { l.byAisle = !!a.byAisle; did.push(a.byAisle ? 'sorted by aisle' : 'in the order added'); }
     for (const t of arr(a.add)) {
       const was = l.items.find((i) => same(i.text, t));
@@ -397,7 +405,6 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (a.clearChecked) { const n = l.items.filter((i) => i.done).length; l.items = l.items.filter((i) => !i.done); did.push(`cleared ${n} checked`); }
     if (a.rename) { const n = str(a.rename, 40).trim(); if (n && !data.lists.some((x) => x !== l && same(x.name, n))) l.name = n; else if (n) did.push(`there's already a list called ${n}`); }
     if (a.deleteList) data.lists = data.lists.filter((x) => x !== l);
-    l.items = l.items.slice(-200);
     save();
     return { ok: true, list: l.name, did };
   }
@@ -450,7 +457,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         if (now !== was) for (const m of [data.done, data.skipped]) for (const k of Object.keys(m)) m[k] = m[k].map((y) => (y === was ? now : y));
         did.push(`changed ${c.task}`);
       }
-      saveChores(list);
+      try { saveChores(list); } catch (e) { if (e.code === 'full') return { error: e.message, code: 'full' }; throw e; }
     }
     // Skipped for a day (away, sick): not left to do, no stars, and it doesn't count against anyone.
     for (const [refs, value] of [[a.skip, true], [a.unskip, false]]) for (const x of (refs ? [].concat(refs) : []).filter((y) => str(y?.task))) {
@@ -629,6 +636,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     const s = SLOTS.filter((x) => arr(list).some((y) => same(y, x)));
     data.mealSlots = s.length ? s : ['dinner']; save(); return { ok: true, slots: data.mealSlots };
   }
+  const boxFull = () => (Object.keys(data.recipes).length >= ROOM.recipes ? { error: `The recipe box is full (${ROOM.recipes} recipes). Take one out first.`, code: 'full' } : null);
   /** A meal's recipe: a link and/or notes (ingredients, steps); both empty takes it out of the box. */
   function setRecipe(r) {
     const text = str(r?.meal, 80).trim(); if (!text) return { error: 'which meal?' };
@@ -636,14 +644,13 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (link && !/^https?:\/\//i.test(link)) return { error: 'A link starts with http:// or https://' };
     if (!link && !notes) { delete data.recipes[k]; save(); return { ok: true, did: [`took ${text}'s recipe out`] }; }
     const was = data.recipes[k], unchanged = !!was && cookSource(was) === cookSource({ link, notes });
+    if (!was && boxFull()) return boxFull();
     // Its cooking steps (cooking.js) stay while it's the same recipe; a changed one is read again.
     // by: 'assistant' when the assistant wrote it (for its credit); photoFrom: the page its photo came from (photoFor)
     const by = r.by === 'assistant' ? 'assistant' : unchanged ? was.by : undefined;
     data.recipes[k] = { text: was?.text || text, ...(link ? { link } : {}), ...(notes ? { notes } : {}), at: Date.now(), ...(by ? { by } : {}),
       ...(unchanged && was.photoFrom ? { photoFrom: was.photoFrom, photoAt: was.photoAt } : {}),
       ...(unchanged && was.cook ? { cook: was.cook } : {}), ...(unchanged && was.video ? { video: was.video } : {}), ...(unchanged && was.image ? { image: was.image, picsAt: was.picsAt } : {}), ...(r.video && youtube(r.video) ? { video: youtube(r.video) } : !unchanged && youtube(link) ? { video: youtube(link) } : {}) };
-    const keys = Object.keys(data.recipes);
-    if (keys.length > 150) delete data.recipes[keys.sort((a, b) => data.recipes[a].at - data.recipes[b].at)[0]];
     save();
     if (!unchanged && !r.quiet && !noAssistant('')) setTimeout(() => prepareCook(text), 50).unref?.();
     return { ok: true, did: [`saved the recipe for ${text}`] };
@@ -794,6 +801,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     try { if (!/^https?:$/.test(new URL(l).protocol)) throw 0; } catch { return { error: 'That isn’t a link.' }; }
     { const no = noAssistant('Adding a recipe from a link'); if (no) return { error: no }; }
     if (str(meal)) { const x = setRecipe({ meal, link: l, quiet: true }); if (x.error) return x; return prepareCook(meal); }
+    if (boxFull()) return boxFull();
     if (mealWork.link?.state === 'working') return { error: 'Still reading the last link.' };
     mealWork.link = { state: 'working', link: l }; changed();
     (async () => {
@@ -806,7 +814,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   async function saveLink(l, page = null) {
     page ||= await readRecipeLink(l);
     const name = str(page.name, 60) || new URL(l).hostname.replace(/^www\./, '');
-    setRecipe({ meal: name, link: l, notes: page.text.length < 4000 && /\bIngredients\b/.test(page.text) ? page.text : '', video: page.video || '', quiet: true });
+    must(setRecipe({ meal: name, link: l, notes: page.text.length < 4000 && /\bIngredients\b/.test(page.text) ? page.text : '', video: page.video || '', quiet: true }));
     mealWork.link = { state: 'done', meal: name };
     changed(); prepareCook(name);
   }
@@ -818,6 +826,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (!text) return { error: 'Nothing to add.' };
     if (/^\S+\.\S+$/.test(text) && !/\n/.test(text)) return addRecipeLink({ link: text }); // one word with a dot in it: a link
     { const no = noAssistant('Adding a recipe'); if (no) return { error: no }; }
+    if (boxFull()) return boxFull(); // (before the work of finding or writing one: a new one wouldn't fit)
     if (mealWork.link?.state === 'working') return { error: 'Still adding the last one.' };
     mealWork.link = { state: 'working' }; changed();
     (async () => {
@@ -837,7 +846,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         const notes = v.pasted ? text.slice(0, 4000) : (await answer(`Write a simple family recipe for "${name || text.slice(0, 200)}". First a line "Ingredients", then one ingredient per line starting with "- ", then a line "Steps", then numbered steps. Plain text, under 1500 characters.`,
           'You write short, reliable home recipes for a family. Reply with only the recipe. Use no tools.')).trim();
         if (!name || !notes) throw new Error('Couldn’t make a recipe from that.');
-        setRecipe({ meal: name, notes, quiet: true, ...(v.pasted ? {} : { by: 'assistant' }) });
+        must(setRecipe({ meal: name, notes, quiet: true, ...(v.pasted ? {} : { by: 'assistant' }) }));
         mealWork.link = { state: 'done', meal: name };
         changed(); prepareCook(name); photoFor(name.toLowerCase());
       } catch (e) { mealWork.link = { state: 'error', text: String(e.message || e).slice(0, 160) }; changed(); }
@@ -874,7 +883,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         const prompt = `Write a simple family recipe for "${text}". First a line "Ingredients", then one ingredient per line starting with "- ", then a line "Steps", then numbered steps. Plain text, no markdown headings or bold, under 1500 characters.`;
         const notes = (await answer(prompt, 'You write short, reliable home recipes for a family. Reply with only the recipe. Use no tools.')).trim();
         if (!notes) throw new Error('no recipe');
-        setRecipe({ meal: text, link: data.recipes[text.toLowerCase()]?.link, notes, by: 'assistant' });
+        must(setRecipe({ meal: text, link: data.recipes[text.toLowerCase()]?.link, notes, by: 'assistant' }));
         mealWork[key] = { state: 'done' };
       } catch (e) { mealWork[key] = { state: 'error', text: String(e.message || e).slice(0, 120) }; }
       changed();
@@ -898,7 +907,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         const said = await answer(recipe ? `${prompt}\nTheir recipe for it:\n${recipe}` : prompt, sys);
         const items = JSON.parse(said.match(/\[[\s\S]*\]/)?.[0] || '[]').map((x) => str(x, 40)).filter(Boolean).slice(0, 12);
         const fresh = items.filter((t) => !groceries.items.some((i) => !i.done && same(i.text, t)));
-        if (fresh.length) changeList({ list: 'Groceries', add: fresh });
+        if (fresh.length) must(changeList({ list: 'Groceries', add: fresh }));
         mealWork[key] = { state: 'done', added: fresh };
       } catch (e) { mealWork[key] = { state: 'error', text: String(e.message || e).slice(0, 120) }; }
       changed();
@@ -992,7 +1001,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
           'Type it out: first a line "Ingredients", then one ingredient per line starting with "- ", then a line "Steps", then numbered steps. Plain text, no markdown. Keep its amounts and words; leave out stories and ads. If you can\'t read a recipe in it, reply only NONE.';
         const notes = (await answer(prompt, 'You type recipes from photos for a family. Reply with only the recipe.', photoBytes())).trim();
         if (!notes || /^NONE\b/.test(notes)) throw new Error('Couldn’t read a recipe in that photo. Try closer, straight on.');
-        setRecipe({ meal: text, link: data.recipes[text.toLowerCase()]?.link, notes: notes.slice(0, 4000) });
+        must(setRecipe({ meal: text, link: data.recipes[text.toLowerCase()]?.link, notes: notes.slice(0, 4000) }));
         mealWork[key] = { state: 'done' };
       } catch (e) { mealWork[key] = { state: 'error', text: String(e.message || e).slice(0, 120) }; }
       changed();

@@ -16,6 +16,21 @@ const warned = new Set(); // (each is said once in the log, not on every read)
 const stamp = (f) => { try { const s = fs.statSync(f); return `${s.size}:${s.mtimeMs}`; } catch { return null; } };
 const warn = (key, msg) => { if (!warned.has(key)) { warned.add(key); console.error('[store]', msg); } };
 
+// While a restore puts the backup's files in place (backup.js), nothing may save over them from what this process
+// still holds in memory: a write under a held path is refused (it throws, so a tap or a tool gets an answer) until the
+// bridge starts again on what came back. held: path -> why.
+const held = new Map();
+/** Refuse every write to these files and folders (and what's in them) from now on, with this reason. */
+export function holdWrites(paths, why) { for (const p of paths) held.set(path.resolve(p), why); }
+/** Writes to them again (a restore that failed before anything was put back). */
+export function releaseWrites(paths) { for (const p of paths) held.delete(path.resolve(p)); }
+function heldWhy(file) {
+  if (!held.size) return null;
+  const f = path.resolve(file);
+  for (const [p, why] of held) if (f === p || f.startsWith(p + path.sep)) return why;
+  return null;
+}
+
 function parseFile(f) { // { ok, value } | { missing } | { bad }
   let text;
   try { text = fs.readFileSync(f, 'utf8'); } catch (e) { return e.code === 'ENOENT' ? { missing: true } : { bad: true, error: e }; }
@@ -45,6 +60,8 @@ function parsesNow(file) {
 /** Replace a file's contents in one step. json: the file holds JSON, so an unparseable one is set aside, never
  *  overwritten or kept as the .bak. mode: the file's permissions (0o600 for keys). */
 export function writeFileAtomic(file, text, { bak = false, mode, json = false } = {}) {
+  const why = heldWhy(file);
+  if (why) throw Object.assign(new Error(why), { code: 'held' });
   const tmp = file + '.tmp';
   const fd = fs.openSync(tmp, 'w', mode ?? 0o666);
   try {

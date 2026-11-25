@@ -159,7 +159,7 @@ export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = n
     if (!g) throw new Error(`Couldn't find ${address} on the map. Try a street address.`);
     const rest = places().filter((p) => (isHome ? !p.home : p.home || key(p.name) !== key(name)));
     const p = { name, address, lat: g.lat, lon: g.lon, ...(isHome ? { home: true } : {}) };
-    savePlaces([...rest, p].slice(0, 40));
+    savePlaces([...rest, p]); // (past the Map's room it's refused, with the reason: board.js ROOM)
     return p;
   }
   function forgetPlace(name) {
