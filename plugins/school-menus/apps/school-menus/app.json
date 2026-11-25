@@ -1,5 +1,6 @@
 {
   "name": "School food",
+  "kit": 1,
   "tabIcon": "basket",
   "background": true,
   "uses": [

@@ -1,10 +1,16 @@
-// The kit for the family's apps: the house's data (lists, chores, meals, calendar, photos, rewards, routines), timers,
-// speaking, and the few things only the display can do. Import it in an app's main.js:
+// The kit for the family's apps, version 1 (docs/kit.md lists all of it): the house's data (lists, chores, meals,
+// calendar, photos, rewards, routines), timers, speaking, and the few things only the display can do. An app made for
+// it says "kit": 1 in its app.json and gets this one at /kit/openhouse.js (also /kit/v1/openhouse.js) after a later
+// version comes: nothing here changes in a way that breaks an app made for it. Import it in an app's main.js:
 //
 //   import { house, store, timer, say, phone, shell } from '/kit/openhouse.js';
 //   (an app for a TV says "screens": ["tv"] in its app.json: it reads the house the same way, and changes nothing)
 //   house.subscribe((h) => draw(h));        // now and whenever anything changes (the assistant, another screen)
 //   house.addItem('Groceries', 'Milk');      house.check('Groceries', item.id, true)
+//
+// Every change (house.addItem, store.set, timer.start, today.show…) resolves, never rejects: to the bridge's answer,
+// or when it didn't happen to { ok: false, error, status } (error: the bridge's reason, in words to show, "Groceries
+// is full…", or null; status: the HTTP status, 0 when it didn't reach the tablet). Test r?.ok === false.
 //
 // The data lives in the bridge (bridge/house.js), never in the app, so an app can be rewritten or deleted without
 // losing any of it. The app's page runs in the shell's web view, which hands it a key that only opens these routes.
@@ -85,8 +91,8 @@ if (SCREEN) addEventListener('message', (e) => {
   if (m.oh === 'key' && typeof m.key === 'string') dispatchEvent(new KeyboardEvent('keydown', { key: m.key, bubbles: true, cancelable: true }));
 });
 function viaScreen(path, body) {
-  if (body !== undefined && screen.kind !== 'phone') return Promise.reject(new Error(`${path}: read only on a TV`));
-  if (body instanceof Blob) return Promise.reject(new Error(`${path}: not from a phone yet`));
+  if (body !== undefined && screen.kind !== 'phone') return Promise.reject(Object.assign(new Error(`${path}: read only on a TV`), { status: 403, reason: null }));
+  if (body instanceof Blob) return Promise.reject(Object.assign(new Error(`${path}: not from a phone yet`), { status: 403, reason: null }));
   return new Promise((resolve) => {
     const id = ++asks; asked.set(id, resolve);
     window.parent.postMessage({ oh: 'call', id, m: body === undefined ? 'GET' : 'POST', p: path, ...(body !== undefined ? { b: body } : {}) }, '*');
@@ -113,9 +119,13 @@ async function call(path, body, raw = false) {
   if (!r.ok) throw await failed(path, r);
   return raw ? r : r.json();
 }
-/** A change that doesn't stop the app: its answer, or { error } when it was refused (error: the bridge's reason to show,
- *  "Groceries is full…"; null when it just didn't get there). */
-const send = (path, body) => call(path, body).catch((e) => { console.warn(e.message); return { error: e.reason || null }; });
+/** What a change resolves to when it didn't happen: { ok: false, error: the bridge's reason to show ("Groceries is
+ *  full…") or null, status: the HTTP status, 0 when it didn't get there }. */
+const refused = (e) => { console.warn(e?.message || e); return { ok: false, error: typeof e?.reason === 'string' ? e.reason : null, status: e?.status || 0 }; };
+/** A change that doesn't stop the app: its answer, or refused(). */
+const send = (path, body) => call(path, body).catch(refused);
+/** A change with nothing to send (blank text): resolves null, and nothing is asked. */
+const nothing = () => Promise.resolve(null);
 /** POST /apps/fetch, its answer whatever the status (its error is in the body). */
 async function fetched(b) {
   if (SCREEN) return viaScreen('/apps/fetch', b);
@@ -136,7 +146,7 @@ export const weather = () => call('/weather').then((w) => (w?.error ? null : w))
 /** Why there's no weather: 'no location' (nobody has said where home is) or 'unreachable'; null when there is. */
 export const weatherProblem = () => call('/weather').then((w) => (w?.error === 'no location' ? 'no location' : w?.error ? 'unreachable' : null)).catch(() => 'unreachable');
 /** Where home is, for the weather: a ZIP code or a town (the family's own apps only). */
-export const setLocation = (place) => call('/household/location', { location: String(place || '') });
+export const setLocation = (place) => send('/household/location', { location: String(place || '') });
 /**
  * The Map's places (bridge/maps.js, the family's own apps only): get() is { on, home: {name, label, lat, lon},
  * places: [{name, address, lat, lon, minutes, miles}], shown: what Opie last showed, today: events with a place
@@ -145,13 +155,13 @@ export const setLocation = (place) => call('/household/location', { location: St
  */
 export const map = {
   get: () => call('/map'),
-  turnOn: (on = true) => call('/map/on', { on }),
-  save: (name, address, home = false, placeId = '') => call('/map/place', { name, address, home, ...(placeId ? { placeId } : {}) }),
+  turnOn: (on = true) => send('/map/on', { on }),
+  save: (name, address, home = false, placeId = '') => send('/map/place', { name, address, home, ...(placeId ? { placeId } : {}) }),
   /** Addresses for what's typed so far, nearest home first ([{id, text}]; none on a tablet without the cloud). save() takes a picked one's id. */
   suggest: (q) => call(`/map/suggest?q=${encodeURIComponent(q)}`).then((r) => r?.suggestions || []).catch(() => []),
-  remove: (name) => call('/map/place/remove', { name }),
+  remove: (name) => send('/map/place/remove', { name }),
   route: (lat, lon) => call(`/map/route?lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}`),
-  clear: () => call('/map/clear', {}),
+  clear: () => send('/map/clear', {}),
 };
 const listeners = new Set();
 let data = null, polling = false;
@@ -192,21 +202,21 @@ export const house = {
   dayKey: (d = new Date()) => iso(d, true),
 
   // lists
-  addItem: (list, text, who = null) => text?.trim() && send('/house/list', { list, add: [text.trim()], who }),
+  addItem: (list, text, who = null) => !text?.trim() ? nothing() : send('/house/list', { list, add: [text.trim()], who }),
   check: (list, id, done = true) => send('/house/list', { list, [done ? 'check' : 'uncheck']: [id] }),
   removeItem: (list, id) => send('/house/list', { list, remove: [id] }),
   clearChecked: (list) => send('/house/list', { list, clearChecked: true }),
-  addList: (name) => name?.trim() && send('/house/list', { list: name.trim(), create: true }),
+  addList: (name) => !name?.trim() ? nothing() : send('/house/list', { list: name.trim(), create: true }),
   deleteList: (list) => send('/house/list', { list, deleteList: true }),
   /** Show a list by store section (data.lists[].byAisle; each item's .aisle, in data.aisles' order) or as added. */
   byAisle: (list, on = true) => send('/house/list', { list, byAisle: !!on }),
-  renameList: (list, name) => name?.trim() && send('/house/list', { list, rename: name.trim() }),
+  renameList: (list, name) => !name?.trim() ? nothing() : send('/house/list', { list, rename: name.trim() }),
   /** Change an item: { text?, who? } (who null: nobody's). */
   editItem: (list, id, to) => send('/house/list', { list, edit: [{ id, ...to }] }),
   // chores (a chore is {who, task})
   /** by: for a chore anyone can do (no who), who did it: the stars are theirs. */
   choreDone: (who, task, done = true, by = null) => send('/house/chore', { done: { who, task, ...(by ? { by } : {}) }, value: done }),
-  addChore: (who, task, days = [], stars = 1) => task?.trim() && send('/house/chore', { add: { who, task: task.trim(), days, stars } }),
+  addChore: (who, task, days = [], stars = 1) => !task?.trim() ? nothing() : send('/house/chore', { add: { who, task: task.trim(), days, stars } }),
   /** Change a chore: to = { task?, who?, days?, stars? } (today's tick goes with it). */
   updateChore: (who, task, to) => send('/house/chore', { update: { who, task, to } }),
   /** Skip a chore today (away, sick): not left to do, no stars. */
@@ -238,7 +248,7 @@ export const house = {
   // the calendar: events added on the display, and those in a two-way calendar (editable: Google or iCloud signed in on
   // the display); calendars read from a link are read-only. calendar: where a new one goes (a key from
   // data.calendarTargets, or 'here' for only the display); left out, the person's own two-way calendar, else the default.
-  addEvent: ({ title, start, end = null, allDay = false, who = null, also = [], repeat = null, until = null, place = '', notes = '', countdown = false, remind = null, calendar = null }) => title?.trim() && send('/house/event', {
+  addEvent: ({ title, start, end = null, allDay = false, who = null, also = [], repeat = null, until = null, place = '', notes = '', countdown = false, remind = null, calendar = null }) => !title?.trim() ? nothing() : send('/house/event', {
     add: { title: title.trim(), start: iso(new Date(start), allDay), ...(end && !allDay ? { end: iso(new Date(end), false) } : {}), allDay, who, ...(also?.length ? { also } : {}), repeat, ...(until ? { until } : {}), place, notes, countdown, ...(remind != null ? { remind } : {}), ...(calendar ? { calendar } : {}) } }),
   /** Change an event (added here, or editable): its id and only what changes (start/end as times; repeat 'none' to
    *  stop; date: which time of a repeating one it was changed from). */
@@ -262,7 +272,7 @@ export const house = {
   orderFromApps: (ids) => send('/house/settings', { fromAppsOrder: ids }),
   setReminders: ({ remind, aloud } = {}) => send('/house/settings', { ...(remind !== undefined ? { remind: remind == null ? false : remind } : {}), ...(aloud !== undefined ? { remindAloud: !!aloud } : {}) }),
   // rewards (someone says yes on the display's own card, with the PIN: nothing in an app can say yes for them)
-  addReward: (title, stars, who = null) => title?.trim() && send('/house/reward', { add: { title: title.trim(), stars, who } }),
+  addReward: (title, stars, who = null) => !title?.trim() ? nothing() : send('/house/reward', { add: { title: title.trim(), stars, who } }),
   removeReward: (id) => send('/house/reward', { remove: id }),
   redeem: (who, id) => send('/house/reward', { redeem: { who, id } }),
   /** Only for an ask with manual: true (a display with no card for it). */
@@ -311,7 +321,7 @@ export const house = {
   },
   /** Into Photos: { ok, name }, the photo's name there (the same picture again gives the one already there, not a copy).
    *  A video too (name it .mp4 or .mov; 80 MB at most): Photos keeps it with a still, which photo() and thumb() give. */
-  addPhoto: (blob, name = 'photo.jpg') => call('/house/photo?name=' + encodeURIComponent(name), blob),
+  addPhoto: (blob, name = 'photo.jpg') => send('/house/photo?name=' + encodeURIComponent(name), blob),
   /** Is this one of the photos a video? (photo() and thumb() give its still; video() an address to play it.) */
   isVideo: (name) => /\.(mp4|mov|m4v)$/i.test(String(name || '')),
   /** An address for <video src> that plays one of the videos in Photos (it lasts a few hours), or null where it can't
@@ -331,9 +341,9 @@ export const house = {
   renameAlbum: (id, name) => send('/house/photo/album', { rename: { id, name } }),
   removeAlbum: (id) => send('/house/photo/album', { remove: id }),
   inAlbum: (id, photos, on = true) => send('/house/photo/album', { put: { id, photos, on } }),
-  /** On a grown-up's own phone: keep an iCloud shared album here by its public link, with no PIN ({ added } or
-   *  { error }; a kid's phone or another screen gets an error). On the display, phone.addAlbum() asks there. */
-  addAlbumLink: (link) => call('/phone/album', { link }).catch((e) => ({ error: e.message })),
+  /** On a grown-up's own phone: keep an iCloud shared album here by its public link, with no PIN ({ added }, or
+   *  { ok: false, error } like any change; a kid's phone or another screen gets that). On the display, phone.addAlbum() asks there. */
+  addAlbumLink: (link) => send('/phone/album', { link }),
   /** A line shown with a photo on the idle screen and in the slideshow (data.captions); '' takes it off. */
   caption: (name, text) => send('/house/photo/caption', { name, text }),
   /** Where an album's photos show: { sleep: the sleep screen, all: Photos' All } (false leaves them out; an app's own
@@ -348,7 +358,7 @@ export const house = {
  *  screens. Values are JSON, up to 8 MB each. For quick per-device things (a high score) localStorage is fine too. */
 export const store = {
   async get(name) { try { return await call('/appdata/' + name); } catch { return null; } },
-  set: (name, value) => call('/appdata/' + name, value === undefined ? null : value),
+  set: (name, value) => send('/appdata/' + name, value === undefined ? null : value),
   /** What the app saved before it was a web page ({files: {name: text}, prefs: {file: {key: value}}}), once: call
    *  done() after taking it in, and it isn't offered again. Null when there's nothing. */
   async legacy() {
@@ -411,8 +421,8 @@ export function onAction(handler, every = 2000) {
  * Each set() replaces the app's whole set of that kind, from two weeks back to three months on; [] takes them off.
  * They're never synced to Google or iCloud, and go when the app does.
  */
-export const days = { set: (list) => call('/calendar/days', { days: Array.isArray(list) ? list : [] }).catch((e) => console.warn(e.message)) };
-export const events = { set: (list) => call('/calendar/events', { events: Array.isArray(list) ? list : [] }).catch((e) => console.warn(e.message)) };
+export const days = { set: (list) => send('/calendar/days', { days: Array.isArray(list) ? list : [] }) };
+export const events = { set: (list) => send('/calendar/events', { events: Array.isArray(list) ? list : [] }) };
 
 /**
  * One short line of this app's own on Home, with the reminders and suggestions ("Lunch: Popcorn Chicken · Tacos
@@ -422,8 +432,8 @@ export const events = { set: (list) => call('/calendar/events', { events: Array.
  * The line is on the sleep screen too, under the events; { sleep: false } keeps it to Home (a busy or live line).
  */
 export const today = {
-  show: (text, until = null, { sleep } = {}) => call('/today/line', { text: String(text || ''), until: until instanceof Date ? until.getTime() : until, ...(sleep === false ? { sleep: false } : {}) }).catch((e) => console.warn(e.message)),
-  clear: () => call('/today/line', { off: true }).catch((e) => console.warn(e.message)),
+  show: (text, until = null, { sleep } = {}) => send('/today/line', { text: String(text || ''), until: until instanceof Date ? until.getTime() : until, ...(sleep === false ? { sleep: false } : {}) }),
+  clear: () => send('/today/line', { off: true }),
 };
 
 /**
@@ -443,7 +453,7 @@ export const today = {
 export const devices = {
   list: ({ state = false } = {}) => call('/apps/devices', { state }).then((r) => r.devices || []).catch((e) => { console.warn(e.message); return []; }),
   get: (id) => call('/apps/devices/get', { id }).then((r) => (r.ok ? r : null)).catch((e) => { console.warn(e.message); return null; }),
-  do: (id, action, args = {}) => call('/apps/devices/do', { id, action, args }).catch((e) => ({ ok: false, text: e.message, limited: /: 429$/.test(e.message) })),
+  do: (id, action, args = {}) => call('/apps/devices/do', { id, action, args }).catch((e) => ({ ...refused(e), text: e.reason || e.message, limited: e.status === 429 })),
 };
 
 /**
@@ -484,8 +494,8 @@ export const web = {
  * app.json.
  */
 export const reach = {
-  ask: (host, key = null) => call('/apps/reach', { host: String(host || ''), ...(key ? { key } : {}) }).catch((e) => ({ ok: false, error: e.message })),
-  forget: (host) => call('/apps/reach/forget', { host: String(host || '') }).catch((e) => ({ ok: false, error: e.message })),
+  ask: (host, key = null) => send('/apps/reach', { host: String(host || ''), ...(key ? { key } : {}) }),
+  forget: (host) => send('/apps/reach/forget', { host: String(host || '') }),
 };
 
 // ---- the rest ----------------------------------------------------------------------------------------------
@@ -518,9 +528,7 @@ export const handsFree = (o) => send('/home/handsfree', o ? { note: String(o.not
 export const askApp = (app, action, args = {}) => call('/apps/ask', { app, action, args }).then((r) => r?.text ?? null).catch(() => null);
 
 /** Say something out loud in the assistant's voice (the display says it: its live voice, or the tablet's speech engine). */
-export async function say(text, who = null) {
-  try { await call('/voice/say', { text, who }); } catch (e) { console.warn(e.message); }
-}
+export const say = (text, who = null) => send('/voice/say', { text, who });
 
 /** A card with a QR code for a phone on the home Wi-Fi: 'photos' (from its camera roll into the family's photos), 'flyer', or
  *  'list' (a list to take to the store; arg: its name). Only on the display. */
@@ -571,3 +579,6 @@ export const shell = {
   canOpenApps: inHome,
   app: APP,
 };
+
+/** Which version of the kit this is (an app's app.json "kit"). */
+export const version = 1;

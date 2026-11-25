@@ -391,8 +391,8 @@ async function saveCopy() {
   finish(); persist();
   const ts = Date.now(), file = `Drawing-${ts}.png`, key = `save-${ts}`, rec = record();
   const blob = await new Promise((resolve, reject) => sheet.toBlob((b) => (b ? resolve(b) : reject(new Error('no image'))), 'image/png'));
-  await house.addPhoto(blob, file);
-  await store.set(key, rec);
+  if ((await house.addPhoto(blob, file))?.ok === false) throw new Error('not kept in Photos');
+  if ((await store.set(key, rec))?.ok === false) throw new Error('not saved');
   const name = (await waitForPhoto(file)) || file; // the bridge puts its own prefix on the name
   // Merge with what's there (and what this screen already knew), so no earlier entry is ever dropped.
   savesCache = { ...((await store.get('saves')) || {}), ...savesCache, [name]: key };

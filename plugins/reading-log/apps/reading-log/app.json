@@ -1,5 +1,6 @@
 {
   "name": "Reading log",
+  "kit": 1,
   "tabIcon": "book-open",
   "background": true,
   "today": {

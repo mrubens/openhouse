@@ -18,16 +18,21 @@ const TOKEN = 'test-token', H = { 'x-openhouse-token': TOKEN, 'content-type': 'a
 
 let child, url, root;
 const get = (p, h = H) => fetch(url + p, { headers: h });
+const KIT_V2 = '// the kit, version 2\nexport const house = {};\n';
 const asApp = (app, key) => ({ 'x-openhouse-app': app, 'x-openhouse-key': key, 'content-type': 'application/json' });
 
 before(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-apps-'));
   fs.cpSync(BRIDGE, path.join(root, 'bridge'), { recursive: true, filter: (f) => !/[\\/](node_modules|test|public)$|\.jsonl$|undo\.json$|screens\.json$/.test(f) });
+  // A kit version 2 as a later release would add it, so version 1 is seen kept for an app that names it.
+  fs.writeFileSync(path.join(root, 'bridge/kit/openhouse-v2.js'), KIT_V2);
+  const kv = path.join(root, 'bridge/kit-version.js');
+  fs.writeFileSync(kv, fs.readFileSync(kv, 'utf8').replace("{ 1: 'openhouse.js' }", "{ 1: 'openhouse.js', 2: 'openhouse-v2.js' }").replace('KIT_LATEST = 1', 'KIT_LATEST = 2'));
   fs.mkdirSync(path.join(root, 'bridge/public/screen'), { recursive: true });
   fs.writeFileSync(path.join(root, 'bridge/public/screen/index.html'), '<!doctype html><title>home</title>');
   const app = path.join(root, 'webapp');
   fs.mkdirSync(app); initRepo(app);
-  for (const [id, meta] of [['lists', { name: 'Lists' }], ['snack-attack', { name: 'Snack Attack' }]]) {
+  for (const [id, meta] of [['lists', { name: 'Lists' }], ['snack-attack', { name: 'Snack Attack' }], ['jot', { name: 'Jot', kit: 1 }]]) {
     fs.mkdirSync(path.join(app, 'apps', id), { recursive: true });
     fs.writeFileSync(path.join(app, 'apps', id, 'index.html'), '<!doctype html>');
     fs.writeFileSync(path.join(app, 'apps', id, 'app.json'), JSON.stringify(meta));
@@ -78,6 +83,17 @@ test('an app\'s key opens the house, the home screen, timers and speaking, and n
     const res = await fetch(url + p, { method: m, headers: h, ...(m === 'POST' ? { body: '{}' } : {}) });
     assert.equal(res.status, 403, `${m} ${p}`);
   }
+});
+
+test('an app gets the kit version its app.json names; /kit/openhouse.js is the newest for the rest', async () => {
+  const v1 = fs.readFileSync(path.join(BRIDGE, 'kit/openhouse.js'), 'utf8');
+  const kit = (p, h = {}) => fetch(url + p, { headers: h }).then(async (r) => [r.status, await r.text()]);
+  assert.deepEqual(await kit('/kit/v1/openhouse.js'), [200, v1]);
+  assert.deepEqual(await kit('/kit/openhouse.js', { referer: 'http://127.0.0.1:5173/apps/jot/main.js' }), [200, v1], 'jot says "kit": 1');
+  assert.deepEqual(await kit('/kit/openhouse.js', { 'x-openhouse-host': 'jot.localhost:5173' }), [200, v1], 'on its own origin too');
+  assert.deepEqual(await kit('/kit/openhouse.js', { referer: 'http://127.0.0.1:5173/apps/lists/main.js' }), [200, KIT_V2], 'one that names none');
+  assert.deepEqual(await kit('/kit/openhouse.js'), [200, KIT_V2]);
+  assert.equal((await fetch(url + '/kit/v9/openhouse.js')).status, 404);
 });
 
 test('a wrong key, or one app\'s key for another, opens nothing', async () => {

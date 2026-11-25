@@ -1,5 +1,6 @@
 {
   "name": "Bus times",
+  "kit": 1,
   "tabIcon": "clock",
   "background": true,
   "today": { "size": "small" },

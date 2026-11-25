@@ -1,6 +1,6 @@
 {
   "name": "air-quality",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "The US Air Quality Index for home, with a line on Home only on bad days, and an answer for the voice.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",

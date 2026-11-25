@@ -60,8 +60,8 @@ const saveBtn = el('btn save', 'Save', async (b) => {
     const g = out.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, out.width, out.height); g.drawImage(cv, 0, 0);
     const blob = await new Promise((done) => out.toBlob(done, 'image/png'));
     const d = new Date(), pad = (n) => String(n).padStart(2, '0');
-    await house.addPhoto(blob, `whiteboard-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.png`);
-    ok = true;
+    const r = await house.addPhoto(blob, `whiteboard-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.png`);
+    ok = r?.ok !== false;
   } catch {}
   saving = false; b.textContent = ok ? 'Saved to Photos' : 'Couldn’t save';
   clearTimeout(saveMsgT); saveMsgT = setTimeout(() => { b.textContent = 'Save'; }, 2500);

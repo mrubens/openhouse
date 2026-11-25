@@ -18,7 +18,10 @@
 // POST /appdata/import?app=<id>  (the display only) what an app saved before it was a web page, handed over once by its
 //                                old window: {files: {name: text}, prefs: {file: {key: value}}}, kept as legacy.json
 // GET /kit/<file>                the kit: openhouse.js, openhouse.css, fonts (no key: plain code and fonts)
+// GET /kit/v1/openhouse.js       the kit's version 1 by name; /kit/openhouse.js is the one the app's app.json "kit"
+//                                names (the page asking, by its address), else the newest (kit-version.js, docs/kit.md)
 import fs from 'node:fs';
+import { kitFile } from './kit-version.js';
 import { writeFileAtomic } from './store.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -155,13 +158,22 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
     return h == null || /^(127\.0\.0\.1|localhost|\[::1\]|10\.0\.2\.2)$/.test(h) ? id : null;
   }
 
+  /** The kit version the app asking for the kit was made for (its app.json "kit"), by the page's address: a shared
+   *  app's own <id>.localhost, else /apps/<id>/ in its Referer. Null when it can't tell or the app names none. */
+  function kitOf(req) {
+    let id = /^([a-z0-9][a-z0-9-]{0,60})\.localhost$/.exec(String(req.headers['x-openhouse-host'] || '').toLowerCase().replace(/:\d+$/, ''))?.[1];
+    if (!id) { try { id = /^\/apps\/([a-z0-9][a-z0-9-]{0,60})\//.exec(new URL(req.headers.referer).pathname)?.[1]; } catch {} }
+    if (!id || !ID.test(id)) return null;
+    try { const k = JSON.parse(fs.readFileSync(path.join(APP_DIR, 'apps', id, 'app.json'), 'utf8')).kit; return Number.isInteger(k) ? k : null; } catch { return null; }
+  }
   /** Kit files: no key needed (served to the apps' own origin, the dev server's). */
   function kit(req, res, url) {
     const m = req.method === 'GET' && url.pathname.match(/^\/kit\/([\w.-]+(?:\/[\w.-]+)?)$/);
     if (!m) return false;
+    const rel = kitFile(m[1], m[1] === 'openhouse.js' ? kitOf(req) : null);
     const roots = [path.join(HERE, 'kit'), path.join(HERE, '../shell/app/src/main/assets')]; // fonts: copied into kit/ on the device; the shell's own in a checkout
-    for (const root of roots) {
-      const f = path.join(root, path.normalize(m[1]).replace(/^(\.\.[/\\])+/, ''));
+    for (const root of rel ? roots : []) {
+      const f = path.join(root, path.normalize(rel).replace(/^(\.\.[/\\])+/, ''));
       if (f.startsWith(root + path.sep) && fs.existsSync(f) && fs.statSync(f).isFile()) {
         res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', 'access-control-allow-origin': '*', 'cache-control': 'no-cache' });
         res.end(fs.readFileSync(f));

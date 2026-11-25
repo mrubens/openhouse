@@ -59,12 +59,12 @@ by the display over the page. Leave that corner clear.
   and say which apps there are.
 
 ## The family's things: calendar, chores, lists, meals, photos
-The display starts with five apps: `apps/calendar`, `apps/chores`, `apps/lists`, `apps/meals`, `apps/photos`.
-They're ordinary apps: change them like any other ("make the calendar show two weeks" is an edit to
+The display starts with these apps: `apps/calendar`, `apps/chores`, `apps/lists`, `apps/meals`, `apps/photos`,
+`apps/recipes`, `apps/map`, `apps/weather`, `apps/whiteboard` and `apps/tv` (the TV's). They're ordinary apps: change them like any other ("make the calendar show two weeks" is an edit to
 `apps/calendar/main.js`), and deleting one is deleting its folder. Their data is not in their code: it lives in the
 bridge, so an edit or a delete never loses the family's events, chores, lists or meals. Keep it that way, and use the
-same data in any new app that needs it, through the kit:
-`import { house, timer, say, phone, shell, weather } from '/kit/openhouse.js';`
+same data in any new app that needs it, through the kit (version 1: a new app's `app.json` says `"kit": 1`):
+`import { house, store, timer, say, phone, shell, weather } from '/kit/openhouse.js';`
 - `house.subscribe((h) => draw(h))`: now and on every change (the assistant, another screen). `h.lists` (`{id, name,
   items: [{id, text, done, who}]}`), `h.chores` (`{who, task, today, done, week, days}`; `week` = days done this past
   week), `h.events` (the next weeks, soonest first: `{id, title, start, end, allDay, who, place, local, repeat, date}`),
@@ -72,27 +72,33 @@ same data in any new app that needs it, through the kit:
   `h.stars` (name → stars to spend), `h.rewards`, `h.asks` (rewards waiting for a yes), `h.got`, `h.checklists`
   (routines: `{id, name, who, from, to, steps: [{text, pic}], now, done}`), `h.favorites`, `h.mealWork`, `h.night`,
   `h.today`, `h.ai`. The full shape is documented in the kit (`house.data`).
-- Changes: `house.addItem(list, text, who)`, `check(list, id, done)`, `removeItem`, `clearChecked`, `addList`,
-  `deleteList`, `choreDone(who, task, done)`, `addChore(who, task, days)`, `removeChore(who, task)`,
-  `setMeal(date, meal, text)`, `favorite(text, pinned)`, `addIngredients(date, meal)` (the assistant puts that
-  meal's groceries on the list), `addEvent({title, start, end, allDay, who, repeat})`, `removeEvent(id, date)` (only
-  events added on the display: synced calendars are read-only), `addReward`, `removeReward`, `redeem(who, id)` (someone
-   says yes on the display's own card, with the PIN: nothing in an app or a conversation can say yes
-  for them), `addChecklist`, `updateChecklist`, `removeChecklist`, `checkStep(id, step, who, done)`,
-  `addPhoto(blob)`, `removePhoto(name)`, `setNight(from, to)`. `house.color(who)` is that person's color;
-  `await house.photo(name)` is a URL for an `<img>`.
+- Changes: `house.addItem(list, text, who)`, `check(list, id, done)`, `removeItem(list, id)`, `editItem(list, id,
+  {text, who})`, `clearChecked(list)`, `addList(name)`, `renameList`, `deleteList`, `choreDone(who, task, done)`,
+  `addChore(who, task, days, stars)`, `updateChore`, `skipChore`, `removeChore(who, task)`, `setMeal(date, meal,
+  text)`, `favorite(text, pinned)`, `addIngredients(date, meal)` (the assistant puts that meal's groceries on the
+  list), `addEvent({title, start, end, allDay, who, repeat, place, notes, remind, calendar})`, `updateEvent(id,
+  fields)`, `removeEvent(id, date)` (events added on the display, and those in a two-way calendar; a calendar read
+  from a link is read-only), `addReward(title, stars, who)`, `removeReward(id)`, `redeem(who, id)` (someone says yes
+  on the display's own card, with the PIN: nothing in an app or a conversation can say yes for them),
+  `addChecklist`, `updateChecklist`, `removeChecklist`, `checkStep(id, step, who, done)`, `addPhoto(blob, name)`,
+  `removePhoto(name)`, `setNight(from, to)`. Every one, with its arguments, is in the kit (`kit/openhouse.js`).
+  `house.color(who)` is that person's color; `await house.photo(name)` is a URL for an `<img>`.
+- Every change resolves, never throws: the bridge's answer, or `{ok: false, error, status}` when it didn't happen
+  (`error`: the reason in words to show, or null). Check `r?.ok === false` and show `r.error` when there is one.
 - `await weather()`: the weather where they live (or null), °F and mph: `{place, temp, condition, code, isDay, high,
   low, feels, humidity, wind, sunrise, sunset, hours: [{time, temp, code, isDay, rain}] (next 24), days: [{date, high,
   low, code, condition, rain}] (7)}`; `code` is the WMO weather code, `rain` the chance in percent.
 - `timer.start(label, seconds)`: a kitchen timer (it shows under the clock and rings on the display). `say(text)`: says it out loud
-  in the assistant's voice. `phone.photos()` / `phone.list(name)`: a card with a QR code for a phone on the home
+  in the assistant's voice. `store.get(name)` / `store.set(name, value)`: the app's own saved things, kept by the
+  bridge (they survive the app being reinstalled and reach the household's phones). `phone.photos()` / `phone.list(name)`: a card with a QR code for a phone on the home
   Wi-Fi (photos from its camera roll; a list to take to the store). `shell.close()`: back to the home screen.
 - `"screensaver": true` in an app's `app.json` (Photos has it) makes the home screen show the family's photos when idle,
   except during `h.night` (set in Photos), when it's a dim clock.
 - The TV: a paired TV shows the app whose `app.json` says `"screens": ["tv"]` (ours is the app `tv`: photos, Today and
   the week, left and right on the remote). "Show Saturday's games on the TV" is a change to that app (or a new one with
   `"screens": ["tv"]`, which the TV then shows instead). It isn't on the tablet, it can't be seen with `look_at_tablet`,
-  and it only reads: `house.subscribe`, `house.photo`, `weather()` work; anything that changes things fails there.
+  and it only reads: `house.subscribe`, `house.photo`, `weather()` work; anything that changes things resolves
+  `{ok: false}` there.
   Plain files only (no packages), sized in `vh` for across a room, and keys instead of touch (`keydown`: arrows, Enter).
 - To change what's *on* a list, the chores, rewards, routines, the meals or an event, use the house tools
   (`change_list`, `change_chores`, `change_rewards`, `change_routines`, `set_meals`, `calendar_event`), not code.
@@ -108,7 +114,7 @@ one clear subject on a background that fills the square; keep the bottom-left co
 ## Apps and games
 A page in `apps/<id>/` (id: lowercase, hyphens, e.g. `star-catcher`), served by the dev server and reloaded on every
 save. `check_build` reports errors the page throws while it's open.
-- Files (flat, no subfolders): `app.json` `{"name": "Marble Run", "tabIcon": "game-controller"}`, `icon.svg` (see "Icons"), `index.html`,
+- Files (flat, no subfolders): `app.json` `{"name": "Marble Run", "tabIcon": "game-controller", "kit": 1}`, `icon.svg` (see "Icons"), `index.html`,
   `main.js` (more `.js` and `.css` files next to it are fine). A new app: write them all in one turn, so it appears
   right away; then improve it with Edit.
 - A card of its own on Home (a remote, a score): `widget.html` (a small page with the kit, like `index.html`; it sits
@@ -157,8 +163,9 @@ save. `check_build` reports errors the page throws while it's open.
   needed except in a text field. Landscape. Keep the bottom-right 200x200 px clear (the assistant). The back gesture
   (swipe in from an edge) leaves the app, so there's no Home button.
 - No image or sound files: draw with SVG, canvas, shapes, generated textures, materials and lights; make sound with
-  Web Audio. Save the app's own things (high scores, settings) in `localStorage` under `app.<id>.`; the family's
-  things go through the kit.
+  Web Audio. Save the app's own things (high scores, settings) with the kit's `store` (kept by the bridge, on every
+  screen); `localStorage` under `app.<id>.` only for what belongs to one screen. The family's things go through the
+  kit.
 - Make it look good: smooth 60 fps motion, easing; in games real lighting and materials in 3D and juice (particles,
   screen shake). Keep pixel ratio ≤ 2 and stop animation loops when `document.hidden`.
 - Never `alert`, `confirm` or `prompt`; never leave the page or open other sites (the view stays in the app).

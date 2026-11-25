@@ -1,6 +1,6 @@
 {
   "name": "game-schedule",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Each kid's team games from the team's calendar link (TeamSnap, GameChanger, SportsEngine...): on the calendar, a leave-by time on Home on game days, and from the voice.",
   "keywords": ["openhouse-plugin"],
   "license": "MIT",
