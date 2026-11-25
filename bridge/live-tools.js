@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { forModel, fromModel } from './tool-args.js';
 import { readPage, READ_PAGE_TOOL } from './read-page.js';
+import { asData } from './as-data.js';
 
 /** The home screen's tools a voice may use: what a person can tap on the tablet without the PIN, and asking for what
  *  needs it (docs/opie-parity.md). Never an app's code (that's a computer's: workshop.js). */
@@ -226,7 +227,8 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     return r;
   }
   async function callTool1(name, args, ctx = {}) {
-    if (name === READ_PAGE_TOOL.name) { const p = await readPage(args?.url); return p.error ? { text: p.error, isError: true } : { text: `${p.title ? p.title + '\n' : ''}${p.url}\n\n${p.text}`, isError: false }; }
+    // A page is someone else's words: marked as data (as-data.js), never as ours.
+    if (name === READ_PAGE_TOOL.name) { const p = await readPage(args?.url); return p.error ? { text: p.error, isError: true } : { text: asData(`${p.title ? p.title + '\n' : ''}${p.url}\n\n${p.text}`, 'the text of a web page'), isError: false }; }
     if (name === 'weather') {
       try { const w = await weather.current(); return { text: JSON.stringify({ ...w, hours: (w.hours || []).slice(0, 12) }), isError: false }; }
       catch { return { text: "The weather isn't available right now.", isError: true }; }
@@ -237,7 +239,10 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === SCREEN_TOOL.name && tvDevices?.screen) { const r = await tvDevices.screen(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === 'bluetooth' && tvDevices?.bluetooth) { const r = await tvDevices.bluetooth(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (name === 'tv' && tvDevices) { const r = await tvDevices.tv(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
-    if (extra && extraTools().some((t) => t.name === name)) return extra.call(name, args || {});
+    if (extra && extraTools().some((t) => t.name === name)) { // an app's voice action: what the app says back is its words, marked as data
+      const r = await extra.call(name, args || {});
+      return r?.said != null ? { text: asData(`${r.app}: ${r.said}`, `what one of the apps answered${r.shared ? ' (an app from a link)' : ''}`, { max: 2000 }), isError: !!r.isError } : r;
+    }
     if (device && device.names.includes(name)) return device.call(name, args || {});
     if (name === 'timer' && homeScreen.timers) {
       const t = homeScreen.timers, a = args || {};

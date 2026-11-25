@@ -7,6 +7,7 @@
 // text). The steps are written by the household's own assistant (the cloud's text model, house.js answer), the
 // service they already use; nothing else is sent anywhere. Only public https pages are read, never the home network
 // (app-web.js publicGet: every redirect checked again, and the address checked is the one reached).
+import { asData } from './as-data.js';
 import crypto from 'node:crypto';
 import { publicGet, pinnedFetch } from './app-web.js';
 
@@ -143,10 +144,13 @@ export function parseFound(said) {
 
 /** What the assistant is asked, and how it answers (JSON only). */
 export const COOK_SYSTEM = 'You turn a recipe into the steps a family cooks from, shown all on one page in the kitchen and read aloud. Reply with only JSON, nothing else. Use no tools.';
-/** links: the page's links (linksFromHtml), on the first read; the recipes it builds on are asked for as needs. */
-export function cookPrompt(meal, source, links = []) {
-  return `The recipe for "${meal}":\n\n${String(source).slice(0, 24000)}\n\n` +
-    (links.length ? `Links on its page:\n${links.map((l) => `- ${l.text}: ${l.url}`).join('\n').slice(0, 6000)}\n\n` : '') +
+/** links: the page's links (linksFromHtml), on the first read; the recipes it builds on are asked for as needs.
+ *  also: our own words about it, outside the recipe's (a recipe made for another one). */
+export function cookPrompt(meal, source, links = [], also = '') {
+  // The recipe is a page's words (or someone's paste): marked as data (as-data.js), never as ours.
+  const recipe = `The recipe for "${String(meal).slice(0, 200)}":\n\n${String(source).slice(0, 24000)}` +
+    (links.length ? `\n\nLinks on its page:\n${links.map((l) => `- ${l.text}: ${l.url}`).join('\n').slice(0, 6000)}` : '');
+  return `${asData(recipe, 'a recipe, from its page or as someone wrote it', { max: 31000 })}\n\n${also ? also + '\n\n' : ''}` +
     'Write it as JSON: {"name": "...", "serves": "4", "minutes": 45, "ingredients": [{"item": "ground cumin", "amount": "2 tsp"}], ' +
     '"steps": [{"title": "Simmer the sauce", "part": "Sauce", "text": "...", "uses": [{"item": "ground cumin", "amount": "1 tsp"}], "timer": {"minutes": 20, "label": "Simmer the sauce"}, "hands": "busy", "ahead": "the day before"}]' +
     (links.length ? ', "needs": [{"name": "Classic Pizza Sauce", "url": "https://..."}]' : '') + '}.\n' +
