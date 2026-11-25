@@ -19,6 +19,10 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
     @Volatile var enabled = true
     /** Restart the microphone (e.g. after changing the audio source). */
     fun restart() { restartReq = true }
+    /** The source it has open now (-1: none), so a settings change only reopens the microphone when it's a different one. */
+    @Volatile var openSource = -1; private set
+    /** Reopen only if the source it would choose now isn't the one it has open (adb's settings broadcasts, even a token fetch, used to reopen it). */
+    fun restartIfChanged() { val now = if (dev.openhouse.ui.MicMode.plain) plainSource() else source(); if (holding && now != openSource) restart() }
     @Volatile private var restartReq = false
     @Volatile var paused = false
     /** The screen is off (the cover closed, or the power button): the microphone is let go until it's on again. */
@@ -66,6 +70,7 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
             if (!enabled || paused || screenOff) { sleep(500); continue }
             var rec: AudioRecord? = null
             var conn: HttpURLConnection? = null
+            val opened = System.currentTimeMillis()
             try {
                 conn = dev.openhouse.ui.BridgeClient.open(bridge() + "/voice/stream").apply {
                     requestMethod = "POST"; doOutput = true; setChunkedStreamingMode(3200)
@@ -77,7 +82,7 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
                 runCatching { dev.openhouse.ui.MicMode.set(org.json.JSONObject(dev.openhouse.ui.BridgeClient.getText(bridge() + "/voice/status", 1500, 3000)).optBoolean("echo")) }
                 val plain = dev.openhouse.ui.MicMode.plain
                 val src = if (plain) plainSource() else source()
-                holding = true
+                holding = true; openSource = src
                 rec = AudioRecord(src, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(min, rate * 2))
                 if (rec.state != AudioRecord.STATE_INITIALIZED) throw IllegalStateException("microphone unavailable")
                 // The platform's voice processing: gain, noise suppression, and echo cancelling (so it
@@ -116,10 +121,12 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
                 letGo(rec); rec = null // before waiting on the bridge's reply, so the microphone is free at once
                 out.close(); conn.responseCode
             } catch (e: Exception) {
-                if (running) { Log.w(TAG, "listening stopped: $e"); sleep(3000) } // the bridge may still be starting
+                // The bridge may still be starting: wait a moment. But a stream that ran a while and broke is opened again at
+                // once (every second deaf can be the request after its name).
+                if (running) { Log.w(TAG, "listening stopped: $e"); if (System.currentTimeMillis() - opened < 10_000) sleep(3000) }
             } finally {
                 dev.openhouse.ui.MicClock.ended()
-                letGo(rec)
+                letGo(rec); openSource = -1
                 conn?.disconnect()
             }
         }
@@ -132,5 +139,18 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
 
     private fun sleep(ms: Long) = runCatching { Thread.sleep(ms) }
 
-    companion object { const val TAG = "Voice"; private const val RING = 3 * 32000 /* 3 s */ }
+    companion object {
+        const val TAG = "Voice"; private const val RING = 3 * 32000 /* 3 s */
+        /**
+         * The audio source for listening on this tablet, measured with someone saying "Hey Opie" from 1.5-2 m (peak level,
+         * of full scale, at the microphone):
+         * - Galaxy Tab S10 FE (SM-X52x): MIC. It was ~40x louder than VOICE_COMMUNICATION and ~2x VOICE_RECOGNITION, and the
+         *   wake model's gain and loudness floor (models/wake/opie.json) were set on it.
+         * - Galaxy Tab A11 (SM-X230, 2026-11-25): VOICE_RECOGNITION 0.15-0.5; MIC 0.003-0.02 (below the wake floor: it
+         *   never woke); VOICE_COMMUNICATION 0.05-0.14; UNPROCESSED ~0.0001 (silent).
+         * Any other tablet: VOICE_RECOGNITION, the source Android tunes for speech recognition.
+         */
+        fun defaultSource(model: String = android.os.Build.MODEL ?: ""): Int =
+            if (Regex("^SM-X52\\d").containsMatchIn(model)) MediaRecorder.AudioSource.MIC else MediaRecorder.AudioSource.VOICE_RECOGNITION
+    }
 }

@@ -356,7 +356,9 @@ function allowedOrigin(req) {
   return !!m && (m[1].endsWith('.localhost') ? vite : [...vite, '8787', String(PORT)]).includes(m[2]); // (other ports: a hub sharing a computer)
 }
 
-http.createServer(guarded('bridge', async (req, res) => {
+// requestTimeout 0: the microphone is one upload that lasts as long as it listens (/voice/stream), and Node's default
+// (5 minutes for a whole request) cut it every 5 minutes, deaf for a few seconds each time. Headers still have a minute.
+http.createServer({ requestTimeout: 0 }, guarded('bridge', async (req, res) => {
   req.url = homePath(req.url); // /door/... is /home/... (home-screen.js)
   const url = new URL(req.url, 'http://x');
   if (!allowedOrigin(req)) { res.writeHead(403); return res.end(); }
