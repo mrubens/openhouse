@@ -194,8 +194,10 @@ internal object LiveVoice {
             w.evaluateJavascript("stop()", null)
             main.postDelayed({ runCatching { (w.parent as? android.view.ViewGroup)?.removeView(w); w.destroy() } }, 500)
         }
-        act?.let { volumeOut(it); watchMode(it, false); val ma = it; main.postDelayed({ if (web == null) callMode(ma, false) }, 600) } // (after its WebRTC has let go)
-        act?.micPaused(false)
+        // Call mode goes once its WebRTC has let go, and only then does the tablet's own listening open the microphone again:
+        // opened while still in call mode (the Galaxy Tab A11), it stayed on the call's path, ~10x quieter and without
+        // echo cancelling, and no "Hey Opie" got past the wake model's loudness floor until it was next reopened.
+        act?.let { volumeOut(it); watchMode(it, false); val ma = it; main.postDelayed({ if (web == null) { callMode(ma, false); ma.micPaused(false) } }, 600) }
     }
 
     /** What went wrong with the live voice just now, for the bubble (Buddy), and when. */
