@@ -115,6 +115,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   }
   function changed() {
     version++;
+    if (!waiters.size) return; // (nobody waiting: no view to work out)
     const out = view();
     for (const w of waiters) w(out);
     waiters.clear();
@@ -130,18 +131,28 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     data.events = data.events.filter((e) => e.repeat ? !e.until || e.until >= cut : new Date(e.end || e.start) > Date.now() - 60 * DAY);
   }
 
-  const household = () => board.householdView();
+  // household.json, read once for a whole view (the family, the chores, the events kept there) and not again for each
+  // part of it: board.snapshot() when the board has one, else its two reads. Outside a view, read when asked.
+  let seen = null;
+  const snapshot = () => (board.snapshot ? board.snapshot() : { view: board.householdView(), events: board.calendarEvents() });
+  const household = () => (seen ? (seen.s ||= snapshot()).view : board.householdView());
+  const calendarEvents = () => (seen ? (seen.s ||= snapshot()).events : board.calendarEvents());
   function view() {
-    const h = household();
+    const outer = seen;
+    seen ||= {};
+    try { return viewNow(); } finally { seen = outer; }
+  }
+  function viewNow() {
+    const h = household(), events = house.events(), reminders = house.reminders(Date.now(), events);
     return {
       v: version, today: dayKey(), family: (h.family || []).map((f, i) => ({ name: f.name, note: f.note || '', color: f.color || PEOPLE[i % PEOPLE.length] })),
       streaks: house.streaks(), lists: data.lists.map((l) => ({ ...l, byAisle: l.byAisle ?? l.id === 'groceries', items: l.items.map((i) => ({ ...i, aisle: aisleOf(i.text) })) })), aisles: [...AISLES.map(([a]) => a), 'Other'], chores: house.chores(), stars: house.starsView(), rewards: data.rewards, asks: data.asks, got: data.got.slice(0, 5),
       checklists: house.checklists(), meals: data.meals, favorites: house.favorites(), mealWork, recipes: data.recipes, recipeFind: house.recipeFindNow(), mealSlots: data.mealSlots,
-      events: house.events(), dayNotes: (() => { try { return notes ? notes.byDay() : {}; } catch { return {}; } })(), fromApps: (() => { try { return notes ? notes.apps() : []; } catch { return []; } })(), photos: house.photos(), calendars: (h.calendars || []).length + (board.sync?.calendars().filter((c) => c.mode !== 'off').length || 0),
+      events, dayNotes: (() => { try { return notes ? notes.byDay() : {}; } catch { return {}; } })(), fromApps: (() => { try { return notes ? notes.apps() : []; } catch { return []; } })(), photos: house.photos(), calendars: (h.calendars || []).length + (board.sync?.calendars().filter((c) => c.mode !== 'off').length || 0),
       calendarTargets: board.sync?.targets() || [], // two-way calendars new events can go into (calendar-sync.js)
-      things: (() => { try { return things ? things.strip({ events: house.events(), reminders: house.reminders() }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Home)
+      things: (() => { try { return things ? things.strip({ events, reminders }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Home)
       night: data.settings.night === false ? null : data.settings.night || NIGHT,
-      reminders: house.reminders(), flyer: house.flyerNow(), calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
+      reminders, flyer: house.flyerNow(), calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
       removed: house.removedPhotos(), albums: data.albums, linked: house.albums.view(), captions: data.captions, screensaver: house.screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
       ai: !['off', 'none'].includes(agentName()) && !!currentAgent,
     };
@@ -149,7 +160,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
 
   // The parts (house/*.js), each over the same data; what one needs of another it finds on house when it's called.
   const house = { DIR, WORK, PHOTOS, FLYERS, data, board, homeScreen, currentAgent, agentName, things, notes, appName, mealWork,
-    save, changed, view, prune, household, appEvents, rev: () => rev };
+    save, changed, view, prune, household, calendarEvents, appEvents, rev: () => rev };
   for (const part of [assistantPart, listsPart, choresPart, rewardsPart, routinesPart, mealsPart, recipesPart, flyersPart, eventsPart, settingsPart, mediaPart, toolsPart])
     Object.assign(house, part(house));
 

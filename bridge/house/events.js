@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import { DAY, REPEATS, dayKey, midnightAfter, wholeDays, validDay, str, same, arr } from './util.js';
 
 export default function (house) {
-  const { data, save, changed, prune, board, appEvents } = house;
+  const { data, save, changed, prune, board, appEvents, calendarEvents } = house;
   let unlockedUntil = 0; // the PIN was given on the display: apps may change the calendar until then
   // Events added here can repeat; each time it comes up is one event (same id, its own start).
   function occurrences(e, from, to) {
@@ -41,7 +41,7 @@ export default function (house) {
     const all = data.settings.remind ?? null;
     const remindOf = (e) => { if (e.allDay || e.fromApp) return null; /* (an app's events: read-only, no chime) */ const m = e.local ? e.remind ?? all : e.uid && data.reminds[e.uid] !== undefined ? data.reminds[e.uid] : all; return m == null || m < 0 ? null : m; };
     const whose = (e) => (e.calendar && e.uid && data.whose[e.uid.replace(/\|.*$/, '')] ? { ...e, ...data.whose[e.uid.replace(/\|.*$/, '')] } : e); // (a repeat's times share one)
-    return [...board.calendarEvents().map(whose).map((e) => (e.uid && counted(e.uid) ? { ...e, countdown: true } : e)), ...local, ...appEvents()]
+    return [...calendarEvents().map(whose).map((e) => (e.uid && counted(e.uid) ? { ...e, countdown: true } : e)), ...local, ...appEvents()]
       .filter((e) => new Date(e.end || e.start) > from && new Date(e.start) < to)
       .map((e) => { // remind: its own minutes (the household's when absent); remindAt: when it's due
         const own = !e.local && e.uid && data.reminds[e.uid] !== undefined ? { remind: data.reminds[e.uid] } : {}, m = remindOf(e);
@@ -50,10 +50,10 @@ export default function (house) {
       .sort((a, b) => new Date(a.start) - new Date(b.start));
   }
   const remindKey = (e) => `${e.uid || e.id}|${e.start}`;
-  /** The reminders due now: from their time until ten minutes after the start (or the end, if sooner), unless put away. */
-  function reminders(now = Date.now()) {
+  /** The reminders due now: from their time until ten minutes after the start (or the end, if sooner), unless put away. [list]: the events, when a view has them already. */
+  function reminders(now = Date.now(), list = events()) {
     const away = new Set(data.reminded);
-    return events().filter((e) => e.remindAt && new Date(e.remindAt) <= now && now < Math.min(new Date(e.start).getTime() + 10 * 60e3, new Date(e.end || e.start).getTime() + 60e3) && !away.has(remindKey(e)))
+    return list.filter((e) => e.remindAt && new Date(e.remindAt) <= now && now < Math.min(new Date(e.start).getTime() + 10 * 60e3, new Date(e.end || e.start).getTime() + 60e3) && !away.has(remindKey(e)))
       .map((e) => ({ key: remindKey(e), title: e.title, start: e.start, who: [e.who, ...(e.also || [])].filter(Boolean).join(' & ') || null, ...(e.place ? { place: e.place } : {}) }));
   }
   // ---- events added on the display ----
