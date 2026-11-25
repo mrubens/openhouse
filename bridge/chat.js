@@ -11,7 +11,7 @@
 // GET  /chat/...                 the conversation page (public/chat; the start of a phone page)
 import * as G from './grid.js';
 import fs from 'node:fs';
-import { readJson, writeJson, writeFileAtomic } from './store.js';
+import { readJson, writeJson, writeFileAtomic, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -411,7 +411,10 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     if (req.method === 'GET' && p === '/memory') { json(res, 200, { remembered: readPrefs(), days: Object.entries(days.all()).sort((a, b) => (a[0] < b[0] ? 1 : -1)).map(([day, d]) => ({ day, text: d.text })) }); return true; }
     if (req.method === 'POST' && p === '/memory/forget') {
       const b = await body(req);
-      if (b.day) { const ok = days.forget(String(b.day)); json(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'not found' }); return true; }
+      if (b.day) {
+        let ok; try { ok = days.forget(String(b.day)); } catch (e) { if (!e?.unsaved) throw e; const u = unsaved(e); json(res, u.status, { error: u.error }); return true; }
+        json(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'not found' }); return true;
+      }
       const t = String(b.text || '').trim(), all = readPrefs(), keep = all.filter((x) => x !== t);
       if (keep.length === all.length) { json(res, 404, { error: 'not found' }); return true; }
       writeFileAtomic(PREFS, keep.map((x) => '- ' + x).join('\n') + (keep.length ? '\n' : ''), { bak: true });

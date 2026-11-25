@@ -54,7 +54,13 @@ export function dayNotes({ DIR, now = () => Date.now(), onChange = () => {} }) {
   let prefs = { show: () => 'today', order: () => [] }; // the household's (house.js)
   st = { byApp: {}, first: {}, ...readJson(FILE, {}) };
   for (const s of Object.values(st.byApp)) s.items = (s.items || []).map((x) => (x.label ? x : x.date && { date: x.date, ...noteOf(x, s.name), ...(x.who ? { who: x.who } : {}) })).filter((x) => x && x.text); // kept before notes had a label
-  const save = () => { try { writeJson(FILE, st); } catch (e) { console.error('[day-notes]', e.message); } onChange(); };
+  // A save that's refused or fails takes the change back in memory too, and throws (marked unsaved: store.js unsaved
+  // says what to answer), so the app is told and what shows is what's on disk.
+  const save = (before) => {
+    try { writeJson(FILE, st); }
+    catch (e) { st = before; console.error('[day-notes]', e.message); throw Object.assign(e, { unsaved: true }); }
+    onChange();
+  };
   const range = () => { const t = now(); return { from: dayKey(new Date(t - 14 * DAY)), to: dayKey(new Date(t + 92 * DAY)) }; };
   const entry = (app, name) => {
     st.first[app] ||= now();
@@ -72,8 +78,9 @@ export function dayNotes({ DIR, now = () => Date.now(), onChange = () => {} }) {
       const pics = picsOf(x, imageOk);
       return { date, ...n, ...(who ? { who } : {}), ...(pics ? { pics } : {}) };
     }).filter(Boolean).slice(0, PER_APP);
+    const before = structuredClone(st);
     const s = entry(app, name); s.items = list; s.name = plain(name, 40) || app; s.at = now(); tidy(app);
-    save();
+    save(before);
     return list.length;
   }
   /** An app's whole set of events, replacing the one before. {date or start, end?, allDay?, title, place?, who?}. */
@@ -101,12 +108,13 @@ export function dayNotes({ DIR, now = () => Date.now(), onChange = () => {} }) {
       start = t0.toISOString(); end = new Date(t1 && t1 > t0 ? t1 : +t0 + 3600e3).toISOString();
       return { title, start, end, allDay: false, ...extra(x) };
     }).filter(Boolean).slice(0, EVENTS_PER_APP);
+    const before = structuredClone(st);
     const s = entry(app, name); s.events = list; s.name = plain(name, 40) || app; s.at = now(); tidy(app);
-    save();
+    save(before);
     return list.length;
   }
   const extra = (x) => { const place = plain(x?.place, 120), who = plain(x?.who, 40); return { ...(place ? { place } : {}), ...(who ? { who } : {}) }; };
-  const drop = (app) => { if (st.byApp[app]) { delete st.byApp[app]; save(); } };
+  const drop = (app) => { if (st.byApp[app]) { const before = structuredClone(st); delete st.byApp[app]; save(before); } };
 
   /** The apps that put anything on the calendar, in the household's order (else by when each first did), with how each shows. */
   function apps() {

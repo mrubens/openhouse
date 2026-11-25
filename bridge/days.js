@@ -24,7 +24,8 @@ export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
   const TALK = path.join(DIR, 'talk'), FILE = registered('days', path.join(DIR, 'days.json'));
   let days = {};
   days = readJson(FILE, {})?.days || {};
-  const save = () => { try { writeJson(FILE, { days }); } catch (e) { console.error('[days]', e.message); } };
+  // The error when a save is refused or fails (marked unsaved: store.js unsaved says what to answer), else null.
+  const save = () => { try { writeJson(FILE, { days }); return null; } catch (e) { console.error('[days]', e.message); return Object.assign(e, { unsaved: true }); } };
   const lines = (day) => { try { return fs.readFileSync(path.join(TALK, `${day}.jsonl`), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; } };
 
   /** One thing said or found (recentTalk's onAdd). */
@@ -35,7 +36,7 @@ export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
   /** Each day with talk not yet summed up: its lines rewritten. ai({instructions, input, tools, tier}) as the hourly review's.
    *  Returns [{day, ok, cost, tier, error?}]; the caller logs the cost. */
   async function summarize({ ai, tier = 'flex' }) {
-    const done = [];
+    const done = [], summed = [];
     let files = []; try { files = fs.readdirSync(TALK).filter((f) => /^\d{4}-\d{2}-\d{2}\.jsonl$/.test(f)).sort(); } catch {}
     for (const f of files) {
       const day = f.slice(0, 10), all = lines(day), d = days[day];
@@ -49,11 +50,13 @@ export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
         days[day] = { text, at: clock(), upto: all.at(-1).at };
         done.push({ day, ok: true, cost: reviewCost(r.usage, ran), tier: ran, tokens: r.usage });
       }
-      if (clock() - new Date(`${day}T00:00:00`).getTime() > 2 * DAY && days[day]?.upto >= (all.at(-1)?.at || 0)) try { fs.unlinkSync(path.join(TALK, f)); } catch {}
+      if (clock() - new Date(`${day}T00:00:00`).getTime() > 2 * DAY && days[day]?.upto >= (all.at(-1)?.at || 0)) summed.push(f);
     }
     const oldest = dayKey(new Date(clock() - keepDays * DAY));
     for (const k of Object.keys(days)) if (k < oldest) delete days[k];
-    save();
+    // A day's talk goes only once its lines are on disk; lines that couldn't be saved stay in memory and are saved
+    // the next time, their talk kept till then.
+    if (!save()) for (const f of summed) try { fs.unlinkSync(path.join(TALK, f)); } catch {}
     return done;
   }
 
@@ -68,10 +71,13 @@ export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
     }
     return out.join('\n');
   }
-  /** A day's lines taken out (Settings), and its talk with them. */
+  /** A day's lines taken out (Settings), and its talk with them. A save that's refused or fails changes nothing and
+   *  throws (marked unsaved). */
   function forget(day) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || (!days[day] && !fs.existsSync(path.join(TALK, `${day}.jsonl`)))) return false;
-    delete days[day]; save();
+    const was = days[day];
+    delete days[day];
+    const e = save(); if (e) { if (was) days[day] = was; throw e; }
     try { fs.unlinkSync(path.join(TALK, `${day}.jsonl`)); } catch {}
     return true;
   }

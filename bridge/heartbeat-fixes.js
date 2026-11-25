@@ -6,7 +6,7 @@
 // file: heartbeat-fixes.json next to the chats. A fix: { id, app, name, errors: [text], log: [{at, text}], changes:
 // [recent changes], at, seen (the last time the app threw), status: pending | working | done | dismissed, by?, sha? }
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import { asData } from './as-data.js';
@@ -16,27 +16,32 @@ const KEEP = 30;
 export function fixQueue({ DIR, now = () => Date.now() }) {
   const FILE = registered('heartbeat-fixes', path.join(DIR, '../heartbeat-fixes.json'));
   let list = readJson(FILE, []); if (!Array.isArray(list)) list = [];
-  const save = () => { try { writeJson(FILE, list); } catch {} };
+  // A save that's refused or fails takes the change back in memory too, and throws (marked unsaved: store.js unsaved
+  // says what to answer).
+  const save = (before) => {
+    try { writeJson(FILE, list); }
+    catch (e) { list = before; console.error('[fixes]', e.message); throw Object.assign(e, { unsaved: true }); }
+  };
   const open = () => list.filter((f) => f.status === 'pending' || f.status === 'working');
 
   /** An app is broken: a fix waits (one per app; the same app breaking again adds to its log). */
   function add({ app, name, errors = [], log = [], changes = [] }) {
-    const t = now();
+    const t = now(), before = structuredClone(list);
     let f = open().find((x) => x.app === app);
     if (f) {
       f.errors = [...new Set([...f.errors, ...errors])].slice(-5);
       f.log = [...f.log, ...log].slice(-20);
       f.seen = t;
-      save();
+      save(before);
       return { fix: f, fresh: false };
     }
     f = { id: `fix-${t.toString(36)}`, app, name: name || app, errors: [...new Set(errors)].slice(-5), log: log.slice(-20), changes: changes.slice(0, 5), at: t, seen: t, status: 'pending' };
     list = [f, ...list].slice(0, KEEP);
-    save();
+    save(before);
     return { fix: f, fresh: true };
   }
   const get = (id) => list.find((f) => f.id === id) || null;
-  function set(id, patch) { const f = get(id); if (!f) return null; Object.assign(f, patch, { updated: now() }); save(); return f; }
+  function set(id, patch) { const before = structuredClone(list), f = get(id); if (!f) return null; Object.assign(f, patch, { updated: now() }); save(before); return f; }
 
   const describe = (f) => `${f.id}: ${f.name} (apps/${f.app}) is broken, noticed ${new Date(f.at).toISOString()}${f.status === 'working' ? `, being fixed by ${f.by || 'someone'}` : ''}.\n` +
     asData(`Errors:\n${f.errors.map((e) => `- ${e}`).join('\n')}` +
@@ -58,7 +63,7 @@ export function fixQueue({ DIR, now = () => Date.now() }) {
       const f = get(String(a.id || ''));
       if (!f || !['pending', 'working'].includes(f.status)) return err(`No waiting fix ${a.id}.`);
       if (!['done', 'dismissed'].includes(a.status)) return err('status: done or dismissed');
-      set(f.id, { status: a.status, by: context?.who || f.by || null });
+      try { set(f.id, { status: a.status, by: context?.who || f.by || null }); } catch (e) { if (!e?.unsaved) throw e; return err(unsaved(e).error); }
       return ok(`Closed ${f.id} (${a.status}).`);
     }
     return err(`unknown tool ${name}`);
