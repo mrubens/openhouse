@@ -102,7 +102,7 @@ function side() {
       <div class="m-big">${clock(e.leaveBy)}<small>leave by</small></div>
       <b>${esc(e.title)}</b><span class="m">${clock(e.start)} · ${esc(short(e.place))} · ${mins(e.minutes)} drive</span></button>`; };
   const rest = today.filter((e) => !e.leaveBy);
-  s.innerHTML = `<h1>Map</h1><div class="sub">${h ? esc(h.own ? short(h.label) : h.label) + ' · typical drive times' : 'Home isn\'t set yet'}</div>
+  s.innerHTML = `<h1>Map</h1><div class="sub">${h ? esc(h.own ? short(h.label) : h.label) : 'Home isn\'t set yet'}</div>
     ${card}${today.filter((e) => e.leaveBy).map(go).join('')}
     ${rest.length ? `<div class="q-label">Today</div><div class="m-rows">${rest.map((e) => row('ev', e.i, 'clock', e.title, `${clock(e.start)} · ${e.place}`, e.lat == null ? (data.looking ? 'Finding…' : 'Not on the map') : '')).join('')}</div>` : ''}
     <div class="q-label">Places</div><div class="m-rows">
