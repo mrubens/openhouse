@@ -28,7 +28,7 @@ import { isTab, homePath } from './home-screen.js';
 import { builderRoutes } from './builder.js';
 import { screensRoutes } from './screens.js';
 import { appsRoutes, onScreen, appAllowed, houseFor } from './apps.js';
-import { appFetch, reachMatches } from './app-web.js';
+import { appFetch, reachMatches, recipeLinkRefused } from './app-web.js';
 import { pluginsRoutes } from './plugins.js';
 import { workshopRoutes, reopenChanges } from './workshop.js';
 import { webMcpRoutes } from './web-mcp.js';
@@ -347,6 +347,18 @@ http.createServer(guarded('bridge', async (req, res) => {
   .listen(PORT, process.env.BRIDGE_HOST || '127.0.0.1', () => { listening = true; console.log(`bridge on :${PORT}, app ${APP_DIR}, agent ${agentName()}`); });
 
 /** A response whose JSON passes through fn first (the house's data, cut to what a plugin's app may see). */
+/** A shared app's answers from /house/*: the house in them cut to what its card allows (apps.js houseFor), whatever the status. */
+function houseCut(res, rights) {
+  let head = [200, {}];
+  return Object.assign(Object.create(res), {
+    writeHead: (code, h) => { head = [code, h || {}]; return res; },
+    end: (b) => {
+      let out = b;
+      try { const v = b && JSON.parse(String(b)); if (v && typeof v === 'object' && v.house && typeof v.house === 'object') out = JSON.stringify({ ...v, house: houseFor(v.house, rights) }); } catch {}
+      res.writeHead(head[0], head[1]); res.end(out);
+    },
+  });
+}
 function onlyThe(res, fn) {
   let head = [200, {}];
   return Object.assign(Object.create(res), {
@@ -393,7 +405,16 @@ async function appCall(req, res, url, app) {
     } catch (e) { if (!e?.unsaved) throw e; const u = unsaved(e); return json(res, u.status, { error: u.error }); } // (not saved: not shown either)
     return r ? json(res, 200, { ok: true, text: r.item.text, until: r.item.until }) : json(res, 400, { error: 'Say what it is.' });
   }
+  // A recipe from a link is read by the tablet and given back: for a shared app, only from hosts it reaches (its card says
+  // which); the body, read here once, is passed on as it came.
+  if (rights && req.method === 'POST' && /^\/house\/(recipe-link|meal)$/.test(url.pathname)) {
+    const b = await body(req), no = recipeLinkRefused(url.pathname, b, plugins.reachesOf(app));
+    if (no) return json(res, 403, no);
+    return route(Object.assign(Readable.from([JSON.stringify(b)]), { method: req.method, url: req.url, headers: req.headers, socket: req.socket }), houseCut(res, rights), url);
+  }
   if (rights && /^\/house(\/wait)?$/.test(url.pathname)) return route(req, onlyThe(res, (v) => (v?.same === true ? { v: v.v, same: true } : houseFor(v, rights))), url); // (nothing changed: only that)
+  // Any other house answer that carries the house (a change's reply: {..., house}, also on a refusal) is cut the same way.
+  if (rights && url.pathname.startsWith('/house/')) return route(req, houseCut(res, rights), url);
   return route(req, res, url);
 }
 

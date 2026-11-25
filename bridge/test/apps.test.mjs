@@ -151,6 +151,18 @@ test('the home\'s devices: only for an app granted "devices", with no addresses,
   assert.equal((await (await post('remote', '/apps/devices/do', { id: 'mac-aabbccddeeff', action: 'pause' })).json()).ok, false, 'not by the real id');
 });
 
+test("a shared app's house changes: its recipe links only from hosts it reaches, and the house in any answer cut to its card", async () => {
+  const plugins = path.join(root, 'webapp/plugins');
+  fs.mkdirSync(plugins, { recursive: true });
+  fs.writeFileSync(path.join(plugins, 'lister.json'), JSON.stringify({ kind: 'shared', title: 'Lister', apps: { lister: { uses: ['lists', 'meals'] } } }));
+  const post = async (p, b) => fetch(url + p, { method: 'POST', headers: { ...asApp('lister', await keyFor('lister')), 'x-openhouse-host': 'lister.localhost:5173' }, body: JSON.stringify(b) });
+  assert.equal((await post('/house/recipe-link', { link: 'https://recipes.example.com/soup' })).status, 403, 'a host it does not reach');
+  const r = await post('/house/list', { list: 'Groceries', add: ['Milk'] });
+  const v = await r.json();
+  assert.ok(v.house, 'the change answers with the house');
+  assert.equal(v.house.chores, undefined, 'but not the parts its card does not cover');
+});
+
 test('a key works only from its own app\'s origin: a shared app\'s from <id>.localhost, ours not from a shared app\'s', async () => {
   fs.mkdirSync(path.join(root, 'webapp/plugins'), { recursive: true });
   fs.writeFileSync(path.join(root, 'webapp/plugins/thief.json'), JSON.stringify({ kind: 'shared', title: 'Thief', apps: { thief: { uses: [] } } }));
