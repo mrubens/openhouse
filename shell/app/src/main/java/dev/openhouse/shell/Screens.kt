@@ -173,6 +173,9 @@ internal object Screens {
             val address = "${ip.hostAddress}:$port"
             // The page to add OpenHouse to Claude (bridge/connect-page.js), at the bridge's own name when it has one.
             val named = p.optString("host").takeIf { it.isNotEmpty() && !p.isNull("host") }?.let { "$it:$port" }
+            // The Claude app's download over https (the release's copy of the very file this tablet carries). The page is
+            // plain http on the Wi-Fi, so this screen, not the page, is where the code and that address are to be trusted.
+            val extension = p.optString("extension").takeIf { it.startsWith("https://") }
             // Two steps, left; the page's QR code, right.
             fun step(n: Int, head: String, body: android.view.View) = Calm.row(a).apply {
                 gravity = Gravity.TOP
@@ -184,6 +187,10 @@ internal object Screens {
                     addView(Calm.text(a, named ?: address, 34f, 600).apply { setTextIsSelectable(true) })
                     if (named != null) addView(Calm.text(a, "or $address", 17f, 400, Calm.SOFT).apply { setTextIsSelectable(true) })
                     addView(Calm.text(a, "It has a prompt to paste into your assistant.", 17f, 400, Calm.SOFT))
+                    if (extension != null) {
+                        addView(Calm.text(a, "The Claude app's download is at", 17f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(a, 12), 0, 0) })
+                        addView(Calm.text(a, extension.removePrefix("https://"), 17f, 500).apply { setTextIsSelectable(true) })
+                    }
                     if (connector != null) {
                         addView(Calm.text(a, "Or in Claude or ChatGPT, anywhere (a phone too), add a connector at", 17f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(a, 12), 0, 0) })
                         addView(Calm.text(a, connector, 22f, 600).apply { setTextIsSelectable(true) })
@@ -221,7 +228,7 @@ internal object Screens {
             thread {
                 while (open && System.currentTimeMillis() < until) {
                     val asking = get(a)?.optJSONArray("asking")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.firstOrNull { it.optString("pair") == pair } }
-                    if (asking != null) { main.post { d.dismiss(); confirm(a, pair, asking.optString("name"), computer = true) }; return@thread }
+                    if (asking != null) { main.post { d.dismiss(); confirm(a, pair, asking.optString("name"), computer = true, via = asking.optString("via")) }; return@thread }
                     Thread.sleep(1000)
                 }
                 main.post { d.dismiss() }
@@ -251,7 +258,7 @@ internal object Screens {
             .setNegativeButton("Cancel", null).show().also { a.immersive() }
     }
 
-    private fun confirm(a: MainActivity, pair: String, name: String, computer: Boolean = false, tv: Boolean = false) {
+    private fun confirm(a: MainActivity, pair: String, name: String, computer: Boolean = false, tv: Boolean = false, via: String = "") {
         if (tv) {
             CalmDialog(a).setTitle("Let “$name” show photos and the calendar?").setMessage("It can't change anything.")
                 .setMore("A TV shows the photos, the calendar, today's chores, dinner and the grocery list. Linked devices, in Settings, removes it.")
@@ -261,7 +268,9 @@ internal object Screens {
             return
         }
         if (computer) {
+            // The name is the computer's own choice; how it asked isn't, and it could ask only with the code from this screen.
             CalmDialog(a).setTitle("Let “$name” change this OpenHouse?")
+                .setMessage(when (via) { "cloud" -> "It typed this tablet's code, through OpenHouse's cloud."; "wifi" -> "It typed this tablet's code, on this Wi-Fi."; else -> null })
                 .setRights(listOf("data" to "The lists, calendar, chores, notes and timers", "devices" to "The speakers and TVs", "apps" to "Makes and changes apps and tabs"))
                 .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
                 .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }

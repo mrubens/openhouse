@@ -2,8 +2,13 @@
 // network by the screens listener (screens.js) only while the tablet's "Connect Claude or ChatGPT" screen is open:
 // the same window as the pairing code. It serves this page and the two downloads, nothing else.
 //
+// The page is plain http on the Wi-Fi, so it never carries the code (the person reads it off the tablet's own screen
+// and types it) and nothing on it is trusted: the extension's download is the release copy over https
+// (extensionCopy), the very file this tablet carries, and the tablet's own screen names that address too. The copy
+// served here is only for when there's no https one (a local build, or a release whose copy isn't up).
+//
 // GET /                    the page: a prompt to paste into any assistant (setupPrompt: the cloud's connector and
-//                          its docs), and the Claude Desktop download with the code and three steps
+//                          its docs), and the Claude Desktop download with three steps
 // GET /openhouse.mcpb      the Claude Desktop extension (scripts/build-mcpb.sh, built into the runtime)
 // GET /openhouse-mcp.mjs   the same thing as one script
 //
@@ -93,15 +98,17 @@ export const CONNECTOR = process.env.CONNECT_MCP_URL || 'https://cloud.openhouse
 export const DOCS = process.env.CONNECT_DOCS_URL || 'https://cloud.openhouse.computer/docs';
 
 /** The prompt to paste into any assistant: add the connector, sign in with the code, read the guide, work out the
- *  rest. No local address in it, so it works from anywhere. */
-export function setupPrompt(code) {
-  return `Add the OpenHouse MCP server at ${CONNECTOR} (when it asks me to sign in, I'll type the code ${code} from our tablet, then tap Allow there), then read the OpenHouse docs at ${DOCS} and work out how you can best use OpenHouse to help us.`;
+ *  rest. No local address in it, so it works from anywhere; no code either (it's on the tablet's screen). */
+export function setupPrompt() {
+  return `Add the OpenHouse MCP server at ${CONNECTOR} (when it asks me to sign in, I'll type the code our tablet shows, then tap Allow there), then read the OpenHouse docs at ${DOCS} and work out how you can best use OpenHouse to help us.`;
 }
 
-export function page({ code, host, away = false }) {
+export function page({ host, away = false, extension = null }) {
   // away: whether the tablet has "Use it away from home" on (opening the Connect screen turns it on for a linked
-  // tablet: relay.js); the cloud's connector reaches it only through that.
-  const prompt = setupPrompt(code);
+  // tablet: relay.js); the cloud's connector reaches it only through that. extension: the https copy of the download
+  // (extensionCopy), when there is one.
+  const prompt = setupPrompt();
+  const get = extension?.url || '/openhouse.mcpb';
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Connect your AI assistant</title>
 <style>
@@ -119,8 +126,6 @@ p { margin: 0; color: var(--soft); }
 .btn svg { width: 20px; height: 20px; }
 .small { font-size: 15px; color: var(--soft); margin-top: 8px; }
 .small b { color: var(--ink); font-weight: 600; }
-.code { margin: 20px 0 0; font-size: 17px; color: var(--soft); }
-.code b { color: var(--ink); font: 600 22px/1.2 ui-monospace, 'SF Mono', Menlo, monospace; letter-spacing: .06em; margin-left: 8px; }
 ol { margin: 16px 0 0; padding: 0; list-style: none; counter-reset: s; }
 ol li { counter-increment: s; display: grid; grid-template-columns: 36px 1fr; gap: 6px 14px; padding: 14px 0; border-top: 1px solid var(--line); }
 ol li::before { content: counter(s); width: 28px; height: 28px; border-radius: 14px; background: var(--tint); display: grid; place-items: center; font-size: 14px; font-weight: 600; }
@@ -135,11 +140,10 @@ section { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--line)
 <section>
 <h2>The Claude app</h2>
 <p>For the Claude app on a Mac or Windows computer.</p>
-<a class="btn soft" id="get" href="/openhouse.mcpb" download="openhouse.mcpb"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 17h12"/></svg>Download OpenHouse for Claude</a>
-<div class="code">Your code<b>${esc(code)}</b></div>
+<a class="btn soft" id="get" href="${esc(get)}" download="openhouse.mcpb"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 17h12"/></svg>Download OpenHouse for Claude</a>
 <ol>
 <li><span>Open the file you downloaded. Claude asks to install OpenHouse: choose Install.</span></li>
-<li><span>In Claude, say “Connect to my OpenHouse” and give it the code.</span></li>
+<li><span>In Claude, say “Connect to my OpenHouse” and give it the code the tablet shows.</span></li>
 <li><span>Tap Allow on the tablet.</span></li>
 </ol>
 </section>
@@ -169,5 +173,40 @@ export function downloads(HERE) {
   return {
     mcpb: pick(path.join(HERE, 'public/connect/openhouse.mcpb'), path.join(HERE, '../dist/openhouse.mcpb')),
     script: pick(path.join(HERE, 'public/connect/openhouse-mcp.mjs'), path.join(HERE, '../connect/dist/openhouse-mcp.mjs')),
+  };
+}
+
+// ---- the https copy of the download ----
+// The release's own copy (scripts/release.sh puts it in the release folder; the cloud's release.ts --extension uploads
+// it): releases/connect/<the first 16 hex of its sha256>/openhouse.mcpb, never overwritten, so the address names these
+// exact bytes. scripts/build-mcpb.sh writes the hash next to the downloads (extension.json).
+export const RELEASES = process.env.CONNECT_RELEASES_URL || 'https://d15yaylh7unz6h.cloudfront.net/releases';
+
+/** {sha256, url, script} for the built downloads, from extension.json; null without one. */
+export function extensionInfo(HERE) {
+  for (const f of [path.join(HERE, 'public/connect/extension.json'), path.join(HERE, '../dist/extension.json')]) {
+    try {
+      const x = JSON.parse(fs.readFileSync(f, 'utf8'));
+      if (!/^[0-9a-f]{64}$/.test(x.sha256 || '')) continue;
+      const base = `${RELEASES}/connect/${x.sha256.slice(0, 16)}`;
+      return { sha256: x.sha256, url: `${base}/openhouse.mcpb`, script: `${base}/openhouse-mcp.mjs` };
+    } catch {}
+  }
+  return null;
+}
+
+/** The https copy, once it's known to be there (a HEAD, at most every 10 minutes, never waited on): null until then,
+ *  and for a build whose copy was never uploaded. Only the release CDN is asked, and nothing of the household goes. */
+export function extensionCopy(HERE, { fetch: get = globalThis.fetch } = {}) {
+  let checked = 0, found = null, hash = null;
+  return () => {
+    const info = extensionInfo(HERE);
+    if (!info) return null;
+    if (info.sha256 !== hash) { hash = info.sha256; found = null; checked = 0; }
+    if (!found && Date.now() - checked > 10 * 60e3) {
+      checked = Date.now();
+      get(info.url, { method: 'HEAD', signal: AbortSignal.timeout(5000) }).then((r) => { if (r.ok && hash === info.sha256) found = info; }, () => {});
+    }
+    return found;
   };
 }
