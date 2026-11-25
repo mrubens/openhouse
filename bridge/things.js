@@ -13,6 +13,7 @@
 // file: things.json next to the chats: { items: [{id, kind, text, until, key?, app?, open?, ask?, by, at}], gone: {id: at} }
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
@@ -32,7 +33,7 @@ const askText = (t) => plain(t).slice(0, 160) || null;
 const brokenText = (name) => `${name} has a problem: ask Claude or ChatGPT to fix it`;
 
 export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} }) {
-  const FILE = path.join(DIR, '../things.json');
+  const FILE = registered('things', path.join(DIR, '../things.json'));
   let st = { items: [], gone: {} };
   st = { ...st, ...readJson(FILE, {}) };
   const save = () => { try { writeJson(FILE, st); } catch (e) { console.error('[things]', e.message); } onChange(); };

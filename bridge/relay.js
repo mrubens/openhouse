@@ -19,6 +19,7 @@
 //   GET  /relay/me                  {url, relay, token}: where to go and its token, or {off: true}
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
@@ -29,7 +30,7 @@ export const okRelayUrl = (u) => /^wss:\/\/[a-z0-9.-]+(:\d+)?(\/[\w./-]*)?$/i.te
 const okHandoff = (b) => /^http:\/\/(10|127|192\.168|172\.(1[6-9]|2\d|3[01]))(\.\d{1,3}){1,3}:\d{2,5}$/.test(b);
 
 export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () => {}, WS = globalThis.WebSocket, now = Date.now, backoff = [2e3, 5e3, 15e3, 60e3, 300e3], pingMs = 4 * 60e3, maxAgeMs = 110 * 60e3 }) {
-  const FILE = path.join(DISPLAY, '.cloud', 'relay.json');
+  const FILE = registered('relay', path.join(DISPLAY, '.cloud', 'relay.json'));
   const read = () => readJson(FILE, {}, { bak: false });
   const save = (v) => { fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 }); writeJson(FILE, v, { bak: false, mode: 0o600 }); };
 

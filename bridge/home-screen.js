@@ -30,6 +30,7 @@
 // file: door.json next to the chats (its first name, kept so tablets and backups need no move).
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import * as G from './grid.js';
@@ -117,7 +118,7 @@ const DEFAULT_SHAPE = (key, widgets = {}) => (key === 'clock' ? '2x1' : key === 
 const hasWidget = (key, widgets = {}) => key.startsWith('app:') && !!(BUILT_IN_WIDGETS[key.slice(4)] || widgets[key.slice(4)]);
 
 export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null }) {
-  const FILE = path.join(DIR, 'door.json');
+  const FILE = registered('home-screen', path.join(DIR, 'door.json'));
   const TOKEN = crypto.randomUUID();
   let version = 1;
   const waiters = new Set();

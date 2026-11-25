@@ -7,8 +7,13 @@
 // readJson: a file that doesn't parse is never read as empty: its .bak is read instead. If neither parses the
 // caller's default comes back, and the next save sets the unreadable file aside (<file>.damaged-<time>) instead
 // of writing over it, so nothing on disk is ever lost to a default.
+//
+// Each store is declared in stores.js (backed up or not, .bak or not, its schema version and migration). A file
+// whose "$v" is newer than this code knows was saved by a later release (the tablet then went back to its rescue
+// build): it is read as it is, and every save to it is refused, so its newer shape is never written over.
 import fs from 'node:fs';
 import path from 'node:path';
+import { storeOf } from './stores.js';
 
 const good = new Map(); // file -> "size:mtime" of the version last read or written whole by this process
 const damaged = new Set(); // files read as unparseable with no readable .bak: the next save sets them aside
@@ -31,6 +36,57 @@ function heldWhy(file) {
   return null;
 }
 
+// --- schema versions (stores.js) ---
+const V = '$v';
+const versionOf = (x) => (x && typeof x === 'object' && !Array.isArray(x) && Number.isInteger(x[V]) ? x[V] : 0);
+const unstamp = (x) => { if (!(x && typeof x === 'object' && !Array.isArray(x) && V in x)) return x; const { [V]: _, ...rest } = x; return rest; };
+const versions = new Map(); // file -> { at: stamp, v } of the version on disk, last read or written
+const unmigrated = new Map(); // file -> why: its migration failed, so it is not saved over
+const said = new Map(); // file -> when a refused save was last logged
+function loud(file, msg) {
+  const t = Date.now();
+  if (t - (said.get(file) || 0) < 60e3) return;
+  said.set(file, t);
+  console.error('[store] !!!', msg);
+}
+const newerWhy = (file, v, known) => `${path.basename(file)} was saved by a newer OpenHouse (its version ${v}; this one knows ${known}). It is not saved over until that version is back.`;
+/** The stored value as this code's shape: "$v" taken out, an older one migrated, a newer one as it is. */
+function shaped(file, value, entry, fromBak) {
+  const v = versionOf(value), known = entry?.version || 0;
+  if (!fromBak) versions.set(file, { at: stamp(file), v });
+  value = unstamp(value);
+  if (!entry) return value;
+  if (!fromBak) unmigrated.delete(file);
+  if (v > known) { loud(file, `${file}${fromBak ? '.bak' : ''}: ${newerWhy(file, v, known)} Reading it best-effort; refusing every save to it.`); return value; }
+  if (v < known && entry.migrate) {
+    try { return entry.migrate(value, v); }
+    catch (e) {
+      unmigrated.set(file, `${path.basename(file)} couldn't be brought up to date (${e.message}). It is not saved over.`);
+      loud(file, `${file}: migrating from version ${v} to ${known} failed (${e.message}): refusing every save to it`);
+    }
+  }
+  return value;
+}
+/** The schema version of a file on disk now (0 when it has none or is missing; null when it doesn't parse). */
+function diskVersion(file) {
+  const s = stamp(file);
+  if (!s) return 0;
+  const k = versions.get(file);
+  if (k && k.at === s) return k.v;
+  const p = parseFile(file);
+  const v = p.ok ? versionOf(p.value) : null;
+  versions.set(file, { at: s, v });
+  return v;
+}
+/** Why a save to this store's file is refused, or null. */
+function refused(file, entry) {
+  const known = entry.version || 0;
+  let v = diskVersion(file);
+  if (v == null) v = diskVersion(file + '.bak') ?? 0; // (unreadable: what is read is its .bak)
+  if (v > known) return newerWhy(file, v, known);
+  return unmigrated.get(file) || null;
+}
+
 function parseFile(f) { // { ok, value } | { missing } | { bad }
   let text;
   try { text = fs.readFileSync(f, 'utf8'); } catch (e) { return e.code === 'ENOENT' ? { missing: true } : { bad: true, error: e }; }
@@ -38,13 +94,15 @@ function parseFile(f) { // { ok, value } | { missing } | { bad }
 }
 
 /** The file's contents, else its .bak's, else `fallback` (missing, or unreadable with no good .bak). */
-export function readJson(file, fallback, { bak = true } = {}) {
+export function readJson(file, fallback, { bak } = {}) {
+  const entry = storeOf(file);
+  bak ??= entry?.bak ?? true;
   const main = parseFile(file);
-  if (main.ok) { good.set(file, stamp(file)); damaged.delete(file); warned.delete(file); return main.value; }
+  if (main.ok) { good.set(file, stamp(file)); damaged.delete(file); warned.delete(file); return shaped(file, main.value, entry, false); }
   if (main.bad) warn(file, `${file} is unreadable (${main.error.message})${bak ? '; reading its .bak' : ''}`);
   if (bak) {
     const b = parseFile(file + '.bak');
-    if (b.ok) { if (main.missing) warn(file, `${file} is missing; reading its .bak`); return b.value; }
+    if (b.ok) { if (main.missing) warn(file, `${file} is missing; reading its .bak`); return shaped(file, b.value, entry, true); }
   }
   if (main.bad) { damaged.add(file); warn(file + '!', `${file} has no readable copy; it is kept aside at the next save`); }
   return typeof fallback === 'function' ? fallback() : fallback;
@@ -83,7 +141,17 @@ export function writeFileAtomic(file, text, { bak = false, mode, json = false } 
   if (json) good.set(file, stamp(file));
 }
 
-/** Save a value as JSON (space: indent; newline: end with one). Keeps a .bak of the previous version unless bak: false. */
-export function writeJson(file, value, { bak = true, mode, space, newline = false } = {}) {
+/** Save a value as JSON (space: indent; newline: end with one). Keeps a .bak of the previous version unless bak: false
+ *  (or its store in stores.js says so). Stamps the store's schema version; refuses (throws, code 'newer') a file a
+ *  newer release saved. */
+export function writeJson(file, value, { bak, mode, space, newline = false } = {}) {
+  const entry = storeOf(file);
+  bak ??= entry?.bak ?? true;
+  if (entry) {
+    const known = entry.version || 0, why = refused(file, entry);
+    if (why) { loud(file, `refused a save to ${file}: ${why}`); throw Object.assign(new Error(why), { code: 'newer' }); }
+    if (known > 0 && value && typeof value === 'object' && !Array.isArray(value)) value = { [V]: known, ...unstamp(value) };
+  }
   writeFileAtomic(file, JSON.stringify(value, null, space) + (newline ? '\n' : ''), { bak, mode, json: true });
+  if (entry) versions.set(file, { at: stamp(file), v: versionOf(value) });
 }

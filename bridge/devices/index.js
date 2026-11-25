@@ -11,6 +11,7 @@
 // Saved in display/devices.json: the devices, the recipes the agent wrote, and pairings (TV tokens).
 import fs from 'node:fs';
 import { readJson, writeJson } from '../store.js';
+import { registered } from '../stores.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import crypto from 'node:crypto';
@@ -88,7 +89,7 @@ function guess(ev, me) {
 
 // --- the store ----------------------------------------------------------------------------------
 export function devicesRoutes({ HERE: BRIDGE, json, body }) {
-  const FILE = path.resolve(process.env.DEVICES_FILE || path.join(BRIDGE, '../devices.json'));
+  const FILE = registered('devices', path.resolve(process.env.DEVICES_FILE || path.join(BRIDGE, '../devices.json')));
   const MCP_FILE = path.join(path.dirname(FILE), 'home-mcp.json');
   const PORT = Number(process.env.PORT || 8787);
   let db = { scannedAt: null, devices: [], recipes: {}, pairing: {}, certs: {} };

@@ -7,12 +7,13 @@
 // [recent changes], at, seen (the last time the app threw), status: pending | working | done | dismissed, by?, sha? }
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 
 const KEEP = 30;
 
 export function fixQueue({ DIR, now = () => Date.now() }) {
-  const FILE = path.join(DIR, '../heartbeat-fixes.json');
+  const FILE = registered('heartbeat-fixes', path.join(DIR, '../heartbeat-fixes.json'));
   let list = readJson(FILE, []); if (!Array.isArray(list)) list = [];
   const save = () => { try { writeJson(FILE, list); } catch {} };
   const open = () => list.filter((f) => f.status === 'pending' || f.status === 'working');

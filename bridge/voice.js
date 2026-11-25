@@ -24,6 +24,7 @@
 
 import fs from 'node:fs';
 import { writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import { fork } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -72,7 +73,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
   };
   const emit = (ev) => { vlog('to-display', ev); const s = `data: ${JSON.stringify(ev)}\n\n`; for (const c of clients) c.write(s); };
   // How loud speech is at the microphone, kept so the listener doesn't start deaf to quiet speech after a restart.
-  const MIC_LEVEL = path.join(DIR, 'voice-mic-level.json');
+  const MIC_LEVEL = registered('voice-mic-level', path.join(DIR, 'voice-mic-level.json'));
   const micLevel = () => { try { const j = JSON.parse(fs.readFileSync(MIC_LEVEL, 'utf8')); return typeof j === 'number' ? j : j?.usual ?? null; } catch { return null; } };
   // Waking to "Hey Opie" is a setting, off until a family switches it on: a tap is how it listens.
   const WAKE_ON = path.join(DIR, 'voice-wake.on');

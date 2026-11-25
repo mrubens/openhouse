@@ -13,6 +13,7 @@
 // file: day-notes.json next to the chats: { byApp: { [app]: { name, at, items: [note], events: [event] } }, first: { [app]: ms } }
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 
 const DAY = 864e5, PER_APP = 120, EVENTS_PER_APP = 200;
@@ -47,7 +48,7 @@ export function picsOf(x, imageOk = () => false) {
 }
 
 export function dayNotes({ DIR, now = () => Date.now(), onChange = () => {} }) {
-  const FILE = path.join(DIR, '../day-notes.json');
+  const FILE = registered('day-notes', path.join(DIR, '../day-notes.json'));
   let st = { byApp: {}, first: {} }, alive = () => true; // alive(app): is it still there (one taken off leaves nothing)
   let prefs = { show: () => 'today', order: () => [] }; // the household's (house.js)
   st = { byApp: {}, first: {}, ...readJson(FILE, {}) };

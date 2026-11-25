@@ -5,6 +5,7 @@
 // Both are on the tablet only (and in its backups, with the rest of chats/); they go to OpenAI only as context.
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
+import { registered } from './stores.js';
 import path from 'node:path';
 import { reviewCost } from './heartbeat-review.js';
 
@@ -20,7 +21,7 @@ const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${Stri
 const textOf = (out) => (out || []).filter((o) => o.type === 'message').flatMap((o) => o.content || []).filter((c) => c.type === 'output_text').map((c) => c.text).join('');
 
 export function dayMemory({ DIR, clock = () => Date.now(), keepDays = 7 }) {
-  const TALK = path.join(DIR, 'talk'), FILE = path.join(DIR, 'days.json');
+  const TALK = path.join(DIR, 'talk'), FILE = registered('days', path.join(DIR, 'days.json'));
   let days = {};
   days = readJson(FILE, {})?.days || {};
   const save = () => { try { writeJson(FILE, { days }); } catch (e) { console.error('[days]', e.message); } };
