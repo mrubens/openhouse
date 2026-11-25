@@ -216,22 +216,31 @@ object DeviceServer {
                 // The shell's own card (ApprovalCard): with Device control off (a tablet set up by QR code) it's a
                 // window of the display, so plugin adds and rewards are asked there too.
                 if (acc == null && MainActivity.live == null) return 200 to """{"yes":false,"why":"the display isn't showing"}"""
-                // "pin": a yes that needs the PIN when the lock is on (a reward the kids saved stars for).
-                val parent = b.optBoolean("pin") && ParentPin.isSet(ctx)
+                // "pin": a yes that needs the PIN when the lock is on (a reward the kids saved stars for). "grownup": a
+                // yes that always needs the PIN, lock or not (an app made on the tablet going in, bridge/build-waits.js);
+                // a tablet with no PIN yet asks whoever is there to choose one on the card first.
+                val grownUp = b.optBoolean("grownup")
+                val parent = grownUp || (b.optBoolean("pin") && ParentPin.isSet(ctx))
+                // "later": the card also has "Not now", which (like no answer) leaves it waiting: "answered" says which.
+                // "no": the word for its no. "waitMs": how long it stays up (90 s by default, at most 10 minutes).
+                val later = b.optBoolean("later")
+                val noWord = b.optString("no").trim().take(24).ifEmpty { null }
+                val waitMs = b.optLong("waitMs", 90_000).coerceIn(10_000, 600_000)
                 // The card's words (docs/ux.md): a verb for the yes, what it may do as a list (always shown), and
                 // the rest behind More. All of them, as the voice model gets them: one too long to show is a no, never cut.
                 val rights = b.optJSONArray("rights")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { it.optString("kind").take(20) to it.optString("text") } }.orEmpty()
                 val title = b.optString("title"); val detail = b.optString("detail"); val more = b.optString("more").ifBlank { null }
-                ApprovalCard.tooLong(title, detail, more, rights)?.let { return 200 to JSONObject().put("yes", false).put("why", "the card can't show all of it: $it").toString() }
+                ApprovalCard.tooLong(title, detail, more, rights)?.let { return 200 to JSONObject().put("yes", false).put("answered", true).put("why", "the card can't show all of it: $it").toString() }
                 val yesWord = b.optString("yes").trim().take(20).ifEmpty { "Allow" }
                 // Under the tools' lock: no device tool runs while the card is up, so none can answer it.
                 if (!lock.tryLock(60, java.util.concurrent.TimeUnit.SECONDS)) return 200 to JSONObject().put("yes", false).put("why", "the display is busy with $busyWith").toString()
-                val yes = try {
+                val said = try {
                     busyWith = "a question on screen for the people here"
-                    ApprovalCard.ask(title, detail, parent = parent, yes = yesWord, rights = rights, more = more, danger = b.optBoolean("danger"))
+                    ApprovalCard.answer(title, detail, timeoutMs = waitMs, parent = parent, yes = yesWord, rights = rights, more = more,
+                        danger = b.optBoolean("danger"), grownUp = grownUp, later = later, no = noWord)
                 } finally { busyWith = null; lock.unlock() }
                 acc?.hideStatus()
-                200 to JSONObject().put("yes", yes).toString()
+                200 to JSONObject().put("yes", said == ApprovalCard.Answer.YES).put("answered", said != ApprovalCard.Answer.NONE).toString()
             }
             // A phone hand-off link from one of the family's apps (Photos, Lists), through the share sheet. The apps run
             // as their own packages, which can't see which apps are browsers or let anything into kiosk: the shell can.

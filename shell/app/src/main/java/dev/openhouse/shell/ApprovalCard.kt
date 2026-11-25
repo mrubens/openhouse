@@ -81,16 +81,34 @@ object ApprovalCard {
      * goes in. Within the grace after an unlock (ParentGrace) the card just asks.
      */
     fun ask(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false, yes: String = "Allow",
-            rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false): Boolean = synchronized(ASKING) {
+            rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false): Boolean =
+        answer(title, detail, timeoutMs, parent, yes, rights, more, danger) == Answer.YES
+
+    /** What the card's people said: yes, no, or nothing (no answer in time, "Not now" on a [later] card, nowhere to show it). */
+    enum class Answer { YES, NO, NONE }
+
+    /**
+     * [ask], telling a no from no answer. [later]: the card has "Not now" (answers NONE: it's asked again later, as an app
+     * made on the tablet waits on Home) besides its no, worded [no]. [grownUp]: the yes always takes the PIN, lock or
+     * not; with no PIN set yet the card asks whoever is there to choose one (PinPrompt.choose, with its recovery code),
+     * then comes back, and the time it took doesn't count against [timeoutMs] (up to 10 minutes more).
+     */
+    fun answer(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false, yes: String = "Allow",
+               rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false,
+               grownUp: Boolean = false, later: Boolean = false, no: String? = null): Answer = synchronized(ASKING) {
         val host = DeviceAccess.instance?.let { acc -> Host(acc, acc::showOverlay, acc::hideOverlay) }
             ?: MainActivity.live?.let(::displayHost)
-            ?: return false.also { Log.i(TAG, "nowhere to ask \"$title\"") }
+            ?: return Answer.NONE.also { Log.i(TAG, "nowhere to ask \"$title\"") }
         val c = host.c
         val done = CountDownLatch(1)
         val asking = dev.openhouse.ui.PersonCards.open(title)
-        var said = false
+        var said = Answer.NONE
         var shown: View? = null
-        main.post {
+        val choosing = java.util.concurrent.atomic.AtomicBoolean(false) // choosing a PIN on the display: the card is down, and its time stands still
+        fun hide() { shown?.let { v -> runCatching { host.hide(v) }; (v.parent as? ViewGroup)?.removeView(v) }; shown = null }
+        fun answer(a: Answer) { if (done.count == 0L) return; said = a; done.countDown() }
+        lateinit var put: () -> Unit
+        put = {
             // The shared look (Calm), as the shell's own dialogs; the house rules in docs/ux.md: the title is the
             // question, one short line, the rights as a list (never behind More), then the verb.
             val K = dev.openhouse.ui.Calm
@@ -110,20 +128,37 @@ object ApprovalCard {
             more?.takeIf { it.isNotBlank() }?.let { col.addView(dev.openhouse.ui.Calm.Capped(c, K.px(c, 240)).apply { addView(K.more(c, it)); isVerticalScrollBarEnabled = false },
                 android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(c, 8) }) }
             val row = K.row(c, 8).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; setPadding(0, K.px(c, 28), 0, 0) }
-            fun answer(a: Boolean) { if (done.count == 0L) return; said = a; done.countDown() }
-            val needPin = parent && ParentPin.isSet(c) && !ParentGrace.isOpen()
-            if (needPin) { // a yes: the PIN is the yes
+            // The quiet ones: its no, and on a [later] card "Not now", which leaves it waiting.
+            fun quiet() {
+                if (later) row.addView(K.quiet(c, no ?: "No") { answer(Answer.NO) })
+                row.addView(K.quiet(c, "Not now") { answer(if (later) Answer.NONE else Answer.NO) })
+            }
+            val noPinYet = grownUp && !ParentPin.isSet(c)
+            val needPin = (parent || grownUp) && ParentPin.isSet(c) && !ParentGrace.isOpen()
+            if (noPinYet) { // a grown-up's yes needs a PIN, and there's none yet: choosing one is the first step
+                col.addView(K.text(c, "This needs a grown-up's PIN, and the tablet has none yet. Choose one, then ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(c, 20), 0, 0) })
+                quiet()
+                var byHand: () -> Boolean = { false }
+                row.addView(K.primary(c, "Choose a PIN") {
+                    if (!byHand()) return@primary
+                    val act = MainActivity.live ?: return@primary
+                    choosing.set(true); hide()
+                    if (!act.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) KioskApps.goHome()
+                    val back = { choosing.set(false); if (done.count > 0L) put() }
+                    PinPrompt.choose(act, act, then = back, back = back)
+                }.also { byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
+            } else if (needPin) { // a yes: the PIN is the yes
                 col.addView(K.text(c, "Type the PIN to ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(c, 20), 0, 0) })
                 val pad = dev.openhouse.ui.PinPad(c, ParentPin.length(c)) { p, entry ->
-                    if (ParentPin.check(c, entry)) answer(true) else PinPrompt.showLock(p, c, "Wrong PIN")
+                    if (ParentPin.check(c, entry)) answer(Answer.YES) else PinPrompt.showLock(p, c, "Wrong PIN")
                 }
                 PinPrompt.showLock(pad, c, null)
                 col.addView(pad, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = K.px(c, 8) })
-                row.addView(K.quiet(c, "Not now") { answer(false) })
+                quiet()
             } else {
-                row.addView(K.quiet(c, "Not now") { answer(false) })
+                quiet()
                 var byHand: () -> Boolean = { false }
-                row.addView((if (danger) K::danger else K::primary)(c, yes) { if (byHand()) answer(true) }
+                row.addView((if (danger) K::danger else K::primary)(c, yes) { if (byHand()) answer(Answer.YES) }
                     .also { byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
             }
             col.addView(row)
@@ -132,14 +167,21 @@ object ApprovalCard {
                 addView(col, android.widget.FrameLayout.LayoutParams(K.px(c, 760), -2, Gravity.CENTER))
                 isClickable = true // swallow taps meant for what's underneath
             }
-            if (runCatching { host.show(dim) }.onFailure { Log.w(TAG, "couldn't show the card: $it") }.isFailure) { answer(false); return@post }
-            shown = dim; Log.i(TAG, "asking: $title")
+            if (runCatching { host.show(dim) }.onFailure { Log.w(TAG, "couldn't show the card: $it") }.isFailure) answer(Answer.NONE)
+            else { shown = dim; Log.i(TAG, "asking: $title") }
         }
-        val answered = try { done.await(timeoutMs, TimeUnit.MILLISECONDS) } finally {
-            main.post { shown?.let { v -> runCatching { host.hide(v) }; (v.parent as? ViewGroup)?.removeView(v) }; shown = null }
+        main.post { put() }
+        try { // no answer in [timeoutMs] of the card being up (time choosing a PIN doesn't count, up to 10 minutes of it)
+            var up = 0L; var aside = 0L
+            while (!done.await(500, TimeUnit.MILLISECONDS)) {
+                if (choosing.get()) aside += 500 else up += 500
+                if (up >= timeoutMs || aside >= 600_000) break
+            }
+        } finally {
+            main.post { hide() }
             dev.openhouse.ui.PersonCards.close(asking)
         }
-        Log.i(TAG, "approval \"$title\": ${if (!answered) "timed out" else if (said) "yes" else "no"}")
-        answered && said
+        Log.i(TAG, "approval \"$title\": ${when (said) { Answer.YES -> "yes"; Answer.NO -> "no"; Answer.NONE -> "no answer" }}")
+        said
     }
 }
