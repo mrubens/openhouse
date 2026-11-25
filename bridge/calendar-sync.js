@@ -173,8 +173,26 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     ];
   }
   const vcal = (lines) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//OpenHouse//Calendar//EN', 'BEGIN:VEVENT', ...lines, 'END:VEVENT', 'END:VCALENDAR', ''].map(fold).join('\r\n');
+  /** The EXDATE line taking one time off a series that starts [dtstart] (its DTSTART line): [at], that time's own
+   *  start (ISO), written the way DTSTART is (in its TZID, in UTC, floating, or a VALUE=DATE day), read as calendar.js
+   *  reads it. Without [at] (a change queued before it was kept), [date] with DTSTART's time of day. */
+  function exdateLine(dtstart, at, date) {
+    const m = String(dtstart).match(/^DTSTART([^:]*):(\d{8})(T\d{6})?(Z)?/i);
+    const params = m ? m[1] : ';VALUE=DATE', allDay = !m || !m[3] || /;VALUE=DATE(?!-)/i.test(params);
+    if (!at || isNaN(Date.parse(at))) return `EXDATE${params}:${String(date).replace(/-/g, '')}${m && !allDay ? m[3] + (m[4] || '') : ''}`;
+    const d = new Date(at);
+    const local = (x) => `${dayKey(x).replace(/-/g, '')}T${pad(x.getHours())}${pad(x.getMinutes())}${pad(x.getSeconds())}`;
+    if (allDay) return `EXDATE${params}:${dayKey(d).replace(/-/g, '')}`; // calendar.js: an all-day time starts at local midnight
+    if (m[4]) return `EXDATE${params}:${d.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}`;
+    const tzid = params.match(/;TZID=([^;:]+)/i)?.[1];
+    if (!tzid) return `EXDATE${params}:${local(d)}`; // floating: this device's wall clock
+    try {
+      const q = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: tzid, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(d).map((x) => [x.type, x.value]));
+      return `EXDATE${params}:${q.year}${q.month}${q.day}T${q.hour}${q.minute}${q.second}`;
+    } catch { return `EXDATE${params}:${local(d)}`; } // a zone name Intl doesn't know: calendar.js reads it as this device's
+  }
   /** An event's file changed in place: the master VEVENT's own properties swapped for [f]'s, the rest (alarms,
-   *  attendees, moved times) kept. With [exdate]: only that time taken off a repeating one. */
+   *  attendees, moved times) kept. With [exdate] ({ date, at }): only that time taken off a repeating one. */
   function patchIcs(raw, f, exdate) {
     const text = String(raw).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
     const lines = text.split(/\r?\n/);
@@ -189,9 +207,8 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           if (isMaster) {
             const uid = (buf.find((x) => /^UID:/i.test(x)) || '').slice(4);
             if (exdate) {
-              const s = buf.find((x) => /^DTSTART/i.test(x)) || '', m = s.match(/^DTSTART([^:]*):(\d{8})(T\d{6}Z?)?/i);
-              const v = m ? (m[3] ? exdate.replace(/-/g, '') + m[3] : exdate.replace(/-/g, '')) : exdate.replace(/-/g, '');
-              buf.splice(buf.length, 0, `EXDATE${m ? m[1] : ';VALUE=DATE'}:${v}`);
+              const x = typeof exdate === 'string' ? { date: exdate } : exdate;
+              buf.push(exdateLine(buf.find((l) => /^DTSTART/i.test(l)) || '', x.at, x.date));
             } else {
               const mine = new Set(['UID', 'DTSTAMP', 'DTSTART', 'DTEND', 'DURATION', 'SUMMARY', 'LOCATION', 'DESCRIPTION', ...(f.repeat === 'custom' ? [] : ['RRULE'])]);
               const tzid = (buf.find((x) => /^DTSTART;/i.test(x)) || '').match(/;TZID=([^;:]+)/i)?.[1] || null;
@@ -268,9 +285,9 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
       if (r.status >= 300) throw httpError(r);
       return { ok: true, etag: r.etag };
     },
-    async remove(a, c, item, date) {
+    async remove(a, c, item, date, at) {
       const r = date && item.ev?.repeat
-        ? await req(a.id, 'PUT', item.url, { body: patchIcs(item.raw, null, date), headers: { 'content-type': 'text/calendar; charset=utf-8', ...(item.etag ? { 'if-match': item.etag } : {}) } })
+        ? await req(a.id, 'PUT', item.url, { body: patchIcs(item.raw, null, { date, at }), headers: { 'content-type': 'text/calendar; charset=utf-8', ...(item.etag ? { 'if-match': item.etag } : {}) } })
         : await req(a.id, 'DELETE', item.url, { headers: item.etag ? { 'if-match': item.etag } : {} });
       if (r.status === 412) return { conflict: true };
       if (r.status === 404 || r.status === 410) return { ok: true, already: true };
@@ -445,7 +462,8 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     if (f.queued && !date) { st.outbox = st.outbox.filter((o) => o !== f.queued); save(); changed(); return { ok: true, removed: [id] }; }
     if (!f.item) return { error: `No event ${id}.` };
     const one = date && f.item.ev.repeat ? date : null;
-    queue({ op: 'remove', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, date: one });
+    // [start]: that time's own start, so iCloud's EXDATE names it exactly ([date] is its id, the day in UTC).
+    queue({ op: 'remove', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, date: one, ...(one && f.item.ev.date === one ? { start: f.item.ev.start } : {}) });
     return one ? { ok: true, removed: [], skipped: one } : { ok: true, removed: [id] };
   }
 
@@ -468,7 +486,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
             r = o.op === 'add' ? await prov(a).add(a, c, o.remote, o.fields)
               : !item ? { gone: true }
               : o.op === 'update' ? await prov(a).update(a, c, item, { ...item.ev, ...o.fields })
-              : await prov(a).remove(a, c, item, o.date);
+              : await prov(a).remove(a, c, item, o.date, o.start || (o.date && item.ev.date === o.date ? item.ev.start : null));
           } catch (e) {
             st.sent = [{ op: o.op, at: now(), trail: [...trail], error: str(e.message, 60) }, ...(st.sent || [])].slice(0, 8);
             o.tries++; o.next = now() + Math.min(30 * MIN, 15e3 * 2 ** Math.min(o.tries, 7)); did = true;

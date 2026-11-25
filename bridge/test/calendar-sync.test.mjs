@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { calendarSync } from '../calendar-sync.js';
+import { parse } from '../calendar.js';
 
 const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'oh-sync-')), 'calendar-sync.json');
 
@@ -76,3 +77,45 @@ test('a change made while Google can\'t be reached waits, through a restart, and
   assert.equal(after.status().waiting, 0);
   after.stop();
 });
+
+/** A pretend iCloud calendar (CalDAV) holding one event file, behind a pretend shell; the file's text is `ics`. */
+function fakeCalDav(ics) {
+  const d = { ics, puts: [] };
+  const ms = (xml) => ({ status: 207, body: `<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav">${xml}</d:multistatus>` });
+  const ok = (href, prop) => `<d:response><d:href>${href}</d:href><d:propstat><d:prop>${prop}</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>`;
+  d.shell = async (p, b) => {
+    if (p === '/calendar/accounts') return { accounts: [{ id: 'a1', provider: 'caldav', name: 'Alex', server: 'https://caldav.example.com/' }] };
+    if (p !== '/calendar/request') return { error: 'no' };
+    const u = new URL(b.url);
+    if (b.method === 'PROPFIND' && /current-user-principal/.test(b.body)) return ms(ok('/', '<d:current-user-principal><d:href>/1/principal/</d:href></d:current-user-principal>'));
+    if (b.method === 'PROPFIND' && /calendar-home-set/.test(b.body)) return ms(ok('/1/principal/', '<c:calendar-home-set><d:href>/1/calendars/</d:href></c:calendar-home-set>'));
+    if (b.method === 'PROPFIND') return ms(ok('/1/calendars/home/', '<d:displayname>Home</d:displayname><d:resourcetype><d:collection/><c:calendar/></d:resourcetype>'));
+    if (b.method === 'REPORT') return ms(ok('/1/calendars/home/swim.ics', `<d:getetag>"${d.puts.length}"</d:getetag><c:calendar-data>${d.ics.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</c:calendar-data>`));
+    if (b.method === 'PUT' && u.pathname === '/1/calendars/home/swim.ics') { d.puts.push(b.body); d.ics = b.body; return { status: 204, headers: { etag: `"${d.puts.length}"` } }; }
+    return { status: 405, body: '' };
+  };
+  return d;
+}
+const series = (rule) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'BEGIN:VEVENT', 'UID:swim-1', 'DTSTART;TZID=America/Los_Angeles:20261110T170000',
+  'DTEND;TZID=America/Los_Angeles:20261110T180000', `RRULE:${rule}`, 'SUMMARY:Swim', 'END:VEVENT', 'END:VCALENDAR', ''].join('\r\n');
+
+for (const [rule, kind] of [['FREQ=DAILY', 'daily'], ['FREQ=WEEKLY', 'weekly']]) {
+  test(`removing one day of a ${kind} 5 PM event behind UTC takes off that day on iCloud, not the next`, async () => {
+    const d = fakeCalDav(series(rule)), FILE = tmp(), now = () => Date.parse('2026-12-01T12:00:00Z');
+    const s = calendarSync({ FILE, shell: d.shell, now, log: () => {} });
+    assert.ok((await s.discover('a1')).ok);
+    await s.pull();
+    // Tuesday Dec 8, 5 PM in Los Angeles: already Dec 9 in UTC.
+    const one = s.events().find((e) => e.start === '2026-12-09T01:00:00.000Z');
+    assert.ok(one?.editable && one.date);
+    assert.ok(s.remove(one.id, one.date)?.ok);
+    await s.flush();
+    assert.equal(d.puts.length, 1);
+    assert.match(d.puts[0], /\r\nEXDATE;TZID=America\/Los_Angeles:20261208T170000\r\n/);
+    const starts = parse(d.ics, Date.parse('2026-12-01'), Date.parse('2026-12-31')).map((e) => e.start);
+    assert.ok(!starts.includes('2026-12-09T01:00:00.000Z'), 'that day is gone');
+    assert.ok(starts.includes(kind === 'daily' ? '2026-12-10T01:00:00.000Z' : '2026-12-16T01:00:00.000Z'), 'the next one stays');
+    assert.ok(starts.includes(kind === 'daily' ? '2026-12-08T01:00:00.000Z' : '2026-12-02T01:00:00.000Z'), 'the one before stays');
+    s.stop();
+  });
+}
