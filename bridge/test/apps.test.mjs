@@ -160,3 +160,14 @@ test('a calendar note\'s photos come only from hosts its app reaches, over https
   assert.deepEqual(pics.map((p) => !!p.image), [true, false, false, false]);
   assert.equal(picsOf({ pics: [{ text: 'A', image: 'https://images.nutrislice.com/a.jpg' }] })[0].image, undefined); // no reaches: no photos
 });
+
+test('an app reports only its own page\'s errors, whatever app its report names; the display names the app', async () => {
+  const lists = asApp('lists', await keyFor('lists'));
+  const report = (h, text) => fetch(url + '/apperror', { method: 'POST', headers: h, body: JSON.stringify({ app: 'snack-attack', text }) });
+  assert.equal((await report(lists, 'marker-from-lists')).status, 200);
+  assert.equal((await report(H, 'marker-from-display')).status, 200);
+  const r = await (await fetch(url + '/workshop/mcp', { method: 'POST', headers: H, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'check_build', arguments: { app: 'snack-attack' } } }) })).json();
+  const said = JSON.stringify(r.result);
+  assert.ok(said.includes('marker-from-display'), said);
+  assert.ok(!said.includes('marker-from-lists'), 'another app\'s report never lands on this one');
+});
