@@ -10,7 +10,7 @@ Every game for the kids' teams, on the family's calendar, with when to leave.
 - **Today:** on a game day, one line until it starts: "Sam's Soccer: leave by 5:35 for 6:00 at Lincoln Park".
 - **The voice:** "when's Sam's next game?", "is there a game this weekend?"
 
-Leave-by times come from the drive time the household gives each team, not from the Map: OpenHouse's Map is for the
+Leave-by times come from the drive time the household gives each team, not from the Map: Opie's Map is for the
 household's own apps, not a plugin's. A league's web page (no calendar link) isn't read.
 
 ## What it asks for

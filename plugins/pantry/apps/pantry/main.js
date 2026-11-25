@@ -1,6 +1,6 @@
 // Pantry and freezer: what's on hand, kept by voice ("we have two bags of frozen peas", "we used the last of the rice")
 // or by tap, and dinner ideas from it: the household's own meals (its recipe box and favorites, from Meals), each
-// weighed against what's here by OpenHouse's small judgments (kit decide), and one tap (or "let's do that") puts it on
+// weighed against what's here by Opie's small judgments (kit decide), and one tap (or "let's do that") puts it on
 // tonight's dinner in Meals.
 //
 // The voice gives the item, where and how many as arguments (app.json actions); which kept item a spoken one means,
@@ -101,7 +101,7 @@ function draw() {
   put($app, top, h('div', { class: 'body' },
     h('div', { class: 'cols', style: '--n:2' }, PLACES.map(col)),
     ideas ? h('section', { class: 'ideas' }, h('div', { class: 'label' }, 'Dinner from what’s here'), idea,
-      ideas.plain ? h('p', { class: 'hint' }, 'Matched by the recipes’ ingredients only: turn on OpenHouse’s cloud for better ideas.') : null) : null));
+      ideas.plain ? h('p', { class: 'hint' }, 'Matched by the recipes’ ingredients only: turn on Opie’s cloud for better ideas.') : null) : null));
 }
 function openAdd() {
   const name = h('input', { class: 'field', placeholder: 'Frozen peas' });

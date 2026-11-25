@@ -11,7 +11,7 @@ A family quiz with Opie as the host.
 
 **On the TV:** not yet. A TV layout from a plugin (`"screens": ["tv"]`) would replace the TV's own home layout for as
 long as it's installed, and a TV app can't read its own app's data yet, so it couldn't follow the game. Trivia night
-plays on the tablet until OpenHouse can show a TV app only while it's in use.
+plays on the tablet until Opie can show a TV app only while it's in use.
 
 ## What it asks for
 
