@@ -62,7 +62,7 @@ export { newCode, pairingFromCode };
 
 /** What each scope lets a screen do. Never: undo, restore, deleting apps, the builder, the agents' MCP, devices, the household, voices, calendars, screens. */
 const RULES = [
-  ['door', 'GET', /^\/(home|home\/wait|home\/sketch|weather|board|house|house\/wait|apps|state)$/],
+  ['door', 'GET', /^\/(home|home\/wait|home\/sketch|home\/whiteboard|weather|board|house|house\/wait|apps|state)$/],
   ['door', 'GET', /^\/house\/photo\/[^/]{1,120}$/],
   ['door', 'GET', /^\/screens\/apps$/], // the apps for this kind of screen (a TV's layout, a phone's tabs)
   ['door', 'GET', /^\/screens\/app-files$/], // one app's files, for a phone's frame (appFiles)
