@@ -29,7 +29,7 @@ import { screensRoutes } from './screens.js';
 import { appsRoutes, onScreen, appAllowed, houseFor } from './apps.js';
 import { appFetch, reachMatches } from './app-web.js';
 import { pluginsRoutes } from './plugins.js';
-import { workshopRoutes } from './workshop.js';
+import { workshopRoutes, reopenChanges } from './workshop.js';
 import { webMcpRoutes } from './web-mcp.js';
 import { heartbeat } from './heartbeat.js';
 import { appChecks, dataReader } from './heartbeat-checks.js';
@@ -90,6 +90,12 @@ const { emit, setState } = events;
 // before, newest first. Kept on disk, so "undo" still works after a restart.
 const edits = editLock({ APP_DIR, UNDO_FILE: path.join(HERE, 'undo.json'), onLanded: (text) => { events.state = { ...events.state, lastChange: text }; } });
 const git = edits.git;
+// Boot order for the edit lock: a change a computer had open when the bridge stopped (an update installed mid-change)
+// takes the lock back first, before the file watcher, the builder or the plugins' start-up step (plugins.start, below)
+// can take it. Each of those checkpoints what nobody holds, which would commit the open change's files as
+// "checkpoint": no longer undoable and left out of list_changes. The plugins' step then finds the lock busy and runs
+// again once the change is done (plugins.js start). The workshop itself (workshopRoutes, below) adopts these.
+const reopened = reopenChanges({ HERE, edits });
 edits.watch();
 const builder = builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json });
 
@@ -276,7 +282,7 @@ setInterval(() => { buzz.tick().catch(() => {}); }, 30e3).unref();
 
 // Someone's own AI app on a computer (Claude, ChatGPT), paired like a screen, changes the apps with the assistant's
 // tools (workshop.js, docs/workshop-mcp.md).
-const workshop = workshopRoutes({ HERE, APP_DIR, homeScreen: chat.homeScreen, edits, plugins, fixes, approve: shellApprove, events, checkBuild: builder.checkBuild, deviceServer: chat.deviceServer, whoOf: (id) => screens.who(id), live: chat.live, devices, json, body }); // live, devices: the household's tools for a connected agent
+const workshop = workshopRoutes({ HERE, APP_DIR, homeScreen: chat.homeScreen, edits, reopened, plugins, fixes, approve: shellApprove, events, checkBuild: builder.checkBuild, deviceServer: chat.deviceServer, whoOf: (id) => screens.who(id), live: chat.live, devices, json, body }); // live, devices: the household's tools for a connected agent
 // The tablet's own connector for Claude or ChatGPT, with no OpenHouse cloud: behind the household's own https address
 // (a Tailscale Funnel, a tunnel), off until someone turns it on (web-mcp.js, docs/web-chat-building.md).
 const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });

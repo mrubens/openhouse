@@ -53,7 +53,7 @@ before(async () => {
   mdnsPort = 20000 + Math.floor(Math.random() * 20000);
   startBridge = async () => {
     child = spawn(process.execPath, [path.join(root, 'bridge/server.js')], {
-      env: { ...process.env, PORT: String(port), SCREENS_PORT: String(lanPort), SCREENS_HOST: '127.0.0.1', AGENT: 'fake', VOICE_DIR: path.join(root, 'novoice'), OPENHOUSE_TOKEN: TOKEN, APP_DIR: app, CONNECT_HOSTNAME: 'openhouse-test.local', CONNECT_MDNS_PORT: String(mdnsPort) },
+      env: { ...process.env, PORT: String(port), SCREENS_PORT: String(lanPort), SCREENS_HOST: '127.0.0.1', AGENT: 'fake', VOICE_DIR: path.join(root, 'novoice'), OPENHOUSE_TOKEN: TOKEN, APP_DIR: app, DEFAULTS_DIR: path.join(BRIDGE, '../defaults'), CONNECT_HOSTNAME: 'openhouse-test.local', CONNECT_MDNS_PORT: String(mdnsPort) },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     child.stdout.on('data', (d) => (out += d)); child.stderr.on('data', (d) => (out += d));
@@ -114,19 +114,28 @@ test('pairing: the code from the tablet, someone says yes, then the tablet\'s to
   for (const t of ['start_editing', 'write_file', 'done_editing']) assert.ok(tools.includes(t), t);
 });
 
+// The real boot order: our built-in apps (defaults/, DEFAULTS_DIR above) are synced at every start, and that step
+// takes the edit lock too; it must not commit the open change before the workshop has it back.
 test('an open change survives the bridge restarting (an update installed mid-change)', async () => {
+  const start = git('rev-parse', 'HEAD');
   assert.ok(!(await mcp.call('start_editing', { what: 'A clock tab' })).error);
   await mcp.call('write_file', { path: 'apps/clock/index.html', content: '<!doctype html><script type="module" src="./main.js"></script>' });
   child.kill(); await new Promise((r) => child.on('exit', r));
   await startBridge();
+  assert.equal(git('rev-parse', 'HEAD'), start, 'nothing committed over the open change at start-up');
+  assert.match(git('status', '--porcelain'), /apps\/clock\//, 'its files are still uncommitted, still its own');
   assert.match((await get('/home')).computer?.text || '', /A clock tab/, 'still shown as being changed');
   const w = await mcp.call('write_file', { path: 'apps/clock/main.js', content: 'export const x = 1;' });
   assert.ok(!w.error, w.text);
-  const before = Number(git('rev-list', '--count', 'HEAD'));
   await mcp.call('set_home', { tabs: ['today', 'clock', 'apps'] });
   assert.ok(!(await mcp.call('done_editing', {})).error);
-  assert.equal(Number(git('rev-list', '--count', 'HEAD')), before + 1, 'what was written before and after the restart is one change');
-  await mcp.call('undo_latest');
+  assert.equal(Number(git('rev-list', '--count', `${start}..HEAD`)), 1, 'what was written before and after the restart is one change');
+  assert.deepEqual(git('show', '--name-only', '--format=', 'HEAD').split('\n').filter((f) => f.startsWith('apps/clock/')).sort(), ['apps/clock/index.html', 'apps/clock/main.js']);
+  const listed = JSON.parse((await mcp.call('list_changes')).text);
+  assert.equal(listed[0].id, git('rev-parse', '--short', 'HEAD'), 'listed as the latest change');
+  assert.ok(!(await mcp.call('undo_latest')).error);
+  assert.ok(!fs.existsSync(path.join(app, 'apps/clock')), 'undo takes back all of it');
+  assert.equal(git('status', '--porcelain'), '');
 });
 
 test('the family\'s undo takes back a computer\'s change too', async () => {

@@ -541,12 +541,19 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
       return { added, updated, commit: c };
     } catch (e) { edits.finish(owner, false); return { error: e.message }; }
   }
-  /** At start-up: the one-time move (if it hasn't happened), then this release's built-ins. */
+  /**
+   * At start-up: the one-time move (if it hasn't happened), then this release's built-ins. When the edit lock is held
+   * (a computer's change open since before the restart: server.js takes it back first), both wait for it and run
+   * once it's free, rather than committing over that change.
+   */
+  let retry = null;
   function start() {
+    const again = !!retry; clearTimeout(retry); retry = null;
     const m = migrate();
-    if (m.error) log('not moved to plugins:', m.error);
-    const s = syncBuiltins();
-    if (s.error) log('built-ins not updated:', s.error);
+    if (m.error && !(m.busy && again)) log('not moved to plugins:', m.error);
+    const s = m.busy ? { error: m.error, busy: true } : syncBuiltins();
+    if (s.error && !m.busy && !(s.busy && again)) log('built-ins not updated:', s.error);
+    if (m.busy || s.busy) { retry = setTimeout(start, 15e3); retry.unref?.(); }
     return { migrate: m, sync: s };
   }
 

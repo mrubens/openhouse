@@ -36,7 +36,24 @@ const MODERN = ['2026-07-28'];
 const LEGACY = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const SKILLS_EXT = 'io.modelcontextprotocol/skills';
 
-export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = null, fixes = null, approve = async () => null, events, checkBuild, deviceServer = () => null, whoOf = () => null, live = null, devices = null, json, body, idleMs = 10 * 60e3, log = (...a) => console.log('[workshop]', ...a) }) {
+/**
+ * Changes a computer had open when the bridge stopped take the edit lock again, as theirs. server.js calls this first
+ * thing at start-up, before anything else may take the lock: the plugins' start-up step (plugins.js start) and the
+ * builder take it with a checkpoint, which would commit the open change's files as "checkpoint" (no longer undoable,
+ * left out of list_changes). workshopRoutes picks these up; [{ key, x, turn }].
+ */
+export function reopenChanges({ HERE, edits, log = (...a) => console.log('[workshop]', ...a) }) {
+  const saved = readJson(path.join(HERE, 'workshop-open.json'), null);
+  const out = [];
+  if (saved && typeof saved === 'object') for (const [key, x] of Object.entries(saved)) {
+    const turn = { id: `w${Date.now()}-${key}`, kind: 'chat', who: x.name, text: x.what, conversation: null, started: x.started || Date.now() };
+    if (!edits.tryAcquire(turn)) { log(`couldn't reopen ${x.name}'s change "${x.what}": another is being made`); continue; }
+    out.push({ key, x, turn });
+  }
+  return out;
+}
+
+export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = null, plugins = null, fixes = null, approve = async () => null, events, checkBuild, deviceServer = () => null, whoOf = () => null, live = null, devices = null, json, body, idleMs = 10 * 60e3, log = (...a) => console.log('[workshop]', ...a) }) {
   const { emit, setState } = events; // the tablet's assistant shows the builder's state; a computer's change keeps out of it
   const guided = new Set(); // computers that read how apps are made (get_guide topic apps)
   // Open changes, kept on disk so one survives the bridge restarting (an update installed mid-change): its files are
@@ -343,17 +360,16 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, plugins = nul
   }
 
   // Changes that were open when the bridge stopped: open again, with what was written since as theirs.
-  const saved = readJson(OPEN_FILE, null);
-  if (saved) try {
-    for (const [key, x] of Object.entries(saved)) {
-      const turn = { id: `w${Date.now()}-${key}`, kind: 'chat', who: x.name, text: x.what, conversation: null, started: x.started || Date.now() };
-      if (!edits.tryAcquire(turn)) { log(`couldn't reopen ${x.name}'s change "${x.what}": another is being made`); continue; }
+  // (Their lock is taken back by reopenChanges, at start-up before anything else; without it, here.)
+  try {
+    const again = reopened || reopenChanges({ HERE, edits, log });
+    for (const { key, x, turn } of again) {
       const n = { turn, what: x.what, name: x.name, before: new Set(x.before || []), shown: new Set(), fresh: new Set(x.fresh || []), timer: null, fix: x.fix || null };
       open.set(key, n); touch(n);
       homeScreen.computerNote(`From ${x.name}: ${x.what}`);
       log(`${x.name}'s change "${x.what}" is open again`);
     }
-    keep();
+    if (again.length || fs.existsSync(OPEN_FILE)) keep();
   } catch {}
 
   /**
