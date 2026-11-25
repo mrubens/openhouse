@@ -151,8 +151,17 @@ scripts/release.sh 0.4.0 --rescue v0.3.0 --rollout 10 --notes "Timers keep going
 
 It builds from a clean checkout of `--ref` (default `HEAD`; nothing uncommitted goes out), bundles the bridge, signs
 the agent's app and puts it inside, signs the display, builds the rescue from the `--rescue` ref with the next
-version code, and writes `update.json` into `dist/<version>/`. Tag each release (`git tag v0.4.0`) so the next one
-can name it as its rescue. `--publish github` uploads the folder to a GitHub release `v0.4.0` with `gh`; the tablets'
+version code, and writes `update.json` into `dist/<version>/`. Tag each published release on the commit it was built
+from (`release.sh` prints the `git tag -a v0.4.0 <commit>` and push to run) so the next one can name it as its rescue
+and build exactly that code.
+
+Before it goes out, boot both APKs on an emulator: `scripts/smoke.sh dist/0.4.0` (or `release.sh --smoke`, which
+stops before `--publish` on a failure). It makes a throwaway emulator (no window; `--serial emulator-NNNN` uses one
+already running, and anything that isn't an emulator is refused), installs the display, serves it the folder's
+`runtime.tar.gz` over adb, waits for the bridge's `/state` and the home page, then installs the rescue over it as a
+tablet going back would and checks it the same way; any `FATAL EXCEPTION` in OpenHouse's processes fails it. Updates
+are pointed at nowhere so the emulator never takes the published release. 1.0.30 and its rescue: about 90 s in all
+on an M-series Mac. It doesn't check the updater, kiosk mode or voice. `--publish github` uploads the folder to a GitHub release `v0.4.0` with `gh`; the tablets'
 URL is then `https://github.com/<owner>/<repo>/releases/latest/download/update.json`. Otherwise copy the folder to
 the static host as it is. Either way the URL is only a setting: a managed cloud can serve the same `update.json`
 later (and decide the rollout per tablet itself).
