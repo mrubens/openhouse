@@ -153,6 +153,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         home.layer.visibility = View.VISIBLE; home.start()
         timers.showPills(false) // the home screen draws the timers itself; the pills are for over apps
         Watchdog.start(this) // once per process: an activity recreated keeps the one that's running
+        watchCover()
 
         // As the tablet's owner (set up from the QR), Opie grants itself the microphone and notifications, as a moved
         // tablet does (Move.kt), so Android's own question doesn't come up over the welcome screen.
@@ -298,7 +299,17 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     internal fun reloadHome(first: Boolean = false) = home.reload(first)
     internal fun toast(t: String) = android.widget.Toast.makeText(this, t, android.widget.Toast.LENGTH_SHORT).show()
 
+    // Just updated (the cover went up a moment ago): if this display isn't in front within a few seconds, the cover
+    // outstayed its update (UpdateCover.clearStuck).
+    private var resumedOnce = false
+    private fun watchCover() {
+        val at = getSharedPreferences("shell", MODE_PRIVATE).getLong("covered_at", 0L)
+        if (at <= 0 || System.currentTimeMillis() - at > 5 * 60_000L) return
+        main.postDelayed({ if (!resumedOnce && !isFinishing) UpdateCover.clearStuck(this) }, 6000)
+    }
+
     override fun onResume() {
+        resumedOnce = true; getSharedPreferences("shell", MODE_PRIVATE).edit().remove("covered_at").apply()
         super.onResume(); DeviceOwner.enterKiosk(this, kioskPaused); apps.stubAppId = null; AppStubs.front = null // back from an app's own window
         KioskApps.revokeTemporary() // Settings or a store opened with a yes: not reachable from kiosk any more
         Buddy.covering = false // an update that didn't happen (the display is still this one)

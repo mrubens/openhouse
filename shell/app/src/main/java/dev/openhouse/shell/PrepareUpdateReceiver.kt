@@ -46,7 +46,24 @@ internal object UpdateCover {
             dpm.addPersistentPreferredActivity(admin, homeFilter(), cover())
         }.onFailure { Log.w("Shell", "update cover: $it") }
         runCatching { ctx.startActivity(Intent(Intent.ACTION_MAIN).setComponent(cover()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK).putExtra("at", System.currentTimeMillis())) }
+        ctx.getSharedPreferences("shell", Context.MODE_PRIVATE).edit().putLong("covered_at", System.currentTimeMillis()).apply()
         Log.i("Shell", "covered for an update")
+    }
+
+    /**
+     * A cover that outstayed its update: the new display is running but stays behind the cover. The cover can miss the
+     * update's end (a second one Android opened as home mid-install doesn't know when the update began) and then holds
+     * the screen for its full three minutes, putting itself back in front. As the tablet's owner, close the cover app
+     * (hiding it stops it at once; it's shown again straight after) and come to the front.
+     */
+    fun clearStuck(act: android.app.Activity) {
+        val dpm = act.getSystemService(DevicePolicyManager::class.java)
+        val admin = ComponentName(act, AdminReceiver::class.java)
+        if (!dpm.isDeviceOwnerApp(act.packageName) || !present(act)) return
+        Log.w("Shell", "the update cover stayed up: closing it")
+        runCatching { dpm.setApplicationHidden(admin, MainActivity.HOST_PKG, true) }
+        runCatching { dpm.setApplicationHidden(admin, MainActivity.HOST_PKG, false) }
+        runCatching { act.startActivity(Intent(act, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)) }
     }
 
     /** Home back to the display, the face back, the display in front. */
