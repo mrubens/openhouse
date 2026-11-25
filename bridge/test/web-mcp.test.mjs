@@ -85,6 +85,11 @@ test('signing in is the tablet code and Allow; then MCP reaches the workshop, un
   const c = (await get('/screens')).screens.find((s) => s.name === 'A test app on this computer');
   await post('/screens/revoke', { id: c.id });
   assert.equal((await mcp(r2.access_token, { id: 1, method: 'tools/list' })).status, 401);
+  // Code tries are counted by the address that connected, whatever a header says it is.
+  const sid2 = /const sid="([^"]+)"/.exec(await (await pub('/oauth/authorize?' + q)).text())[1];
+  const said = [];
+  for (let i = 0; i < 12; i++) said.push((await pub('/oauth/pair', { method: 'POST', headers: { 'content-type': 'application/json', 'x-forwarded-for': `198.51.100.${i}` }, body: JSON.stringify({ sid: sid2, code: 'K7QM-2XD9-HPA4' }) })).status);
+  assert.ok(said.includes(429), said.join(' '));
   // Off: the listener goes.
   await post('/webmcp', { on: false });
   await assert.rejects(fetch(web + '/mcp', { method: 'POST' }));
