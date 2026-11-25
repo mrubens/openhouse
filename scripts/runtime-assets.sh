@@ -22,3 +22,12 @@ cp -R defaults/apps "$A/defaults"
 cp -R defaults/ports "$A/ports" # apps from before apps were web pages, rewritten (defaults/ports/README.md)
 COPYFILE_DISABLE=1 tar --no-xattrs -czf "$A/webapp.tgz" -C webapp --exclude node_modules --exclude dist --exclude .git --exclude MEMORY.md --exclude CLAUDE.md --exclude 'apps/*' .
 du -sh "$A"
+# Every file the bridge imports must be in the bundle (a folder left out here once kept the bridge from starting).
+node -e '
+const fs = require("fs"), path = require("path"); let bad = [];
+const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : e.name.endsWith(".js") ? [path.join(d, e.name)] : []);
+for (const f of walk(process.argv[1])) for (const m of fs.readFileSync(f, "utf8").matchAll(/(?:^|[;\s])(?:import|export)\s[^;]*?from\s+["\x27](\.{1,2}\/[^"\x27]+)["\x27]|import\(\s*["\x27](\.{1,2}\/[^"\x27]+)["\x27]\s*\)/gm)) {
+  const t = path.resolve(path.dirname(f), m[1] || m[2]); if (!fs.existsSync(t)) bad.push(`${path.relative(process.argv[1], f)} -> ${m[1] || m[2]}`);
+}
+if (bad.length) { console.error("missing from the bundle:\n  " + bad.join("\n  ")); process.exit(1); }
+' "$A/bridge"
