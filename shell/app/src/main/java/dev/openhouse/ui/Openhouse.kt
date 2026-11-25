@@ -238,6 +238,7 @@ object Openhouse : AnswerActions {
                 timers = runCatching { host.timers() }.getOrDefault(emptyList())
                 if (timers.any { it.ringing }) touch()
                 if (now < appInUseUntil) lastTouch = now // an app in use hands-free (cooking): the screen stays as it is
+                if (showWelcome || setupStep != null) { lastTouch = now; if (idle) idle = false } // the welcome or setup showing: never the resting screen under it
                 if (!idle && now - lastTouch > IDLE_MS && answer?.live != true && !speaking) idle = true
                 main.postDelayed(this, 1000)
             }

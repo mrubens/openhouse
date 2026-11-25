@@ -282,10 +282,52 @@ const DONE = 'openhouse.phone.setupDone';
 const kidOrPet = (note) => /^\d{1,2}$/.test(String(note || '').trim()) || /\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(note || ''));
 function SetupFlow({ me, c, h, onDone }) {
   const computer = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  // It carries on the tablet's setup rather than repeating it: the tablet's step ({step, photos?}, GET /setup/step)
+  // says what's wanted here now. A calendar or an album: its link is copied on this phone or computer, so the box for it
+  // is here while the tablet shows that step. Any other step: carry on at the tablet. Once the tablet's setup is over:
+  // what's only for here (invites, apps). undefined: not known yet; null: a tablet from before, with no step to follow
+  // (then all four, as before).
+  const [tablet, setTablet] = useState(undefined);
+  useEffect(() => {
+    let live = true, t = null;
+    const look = async () => {
+      try {
+        const r = await c.json('GET', '/setup/step');
+        if (live && r.status === 200) setTablet(r.json || { step: null });
+        else if (live && (r.status === 403 || r.status === 404)) setTablet(null);
+      } catch { if (live) setTablet((x) => (x === undefined ? null : x)); } // not in touch: the four steps, as before
+      if (live) t = setTimeout(look, 2500);
+    };
+    look();
+    return () => { live = false; clearTimeout(t); };
+  }, []);
   const [i, setI] = useState(0);
-  const steps = ['calendars', 'photos', 'invite', 'apps']; // (then the home screen, as for every phone: AddToHome)
+  const steps = tablet === null ? ['calendars', 'photos', 'invite', 'apps'] : ['invite', 'apps']; // (then the home screen, as for every phone: AddToHome)
   const next = () => (i + 1 < steps.length ? setI(i + 1) : onDone());
   const family = (h.house?.family || []).filter((f) => !mine(me, f.name));
+  const step = tablet?.step;
+  if (tablet === undefined) return <main className="join setup"><div className="brand">Opie</div><p className="soft">…</p></main>;
+  if (step) return (
+    <main className="join setup">
+      <div className="brand">Opie</div>
+      {step === 'calendar' && <AddLink c={c} kind="calendar" family={h.house?.family || []} />}
+      {step === 'photos' && <>
+        <AddLink c={c} kind="album" />
+        <h2>Photos from {computer ? 'this computer' : 'this phone'}</h2>
+        {tablet.photos
+          ? <a className="go" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
+          : <p className="soft">To send photos from here, tap From your phone on the tablet, then Let phones send photos.</p>}
+      </>}
+      {step !== 'calendar' && step !== 'photos' && <>
+        <h1>Connected</h1>
+        <p>Carry on at the tablet. When it asks for a calendar or photos, you send them from here: this page follows along.</p>
+      </>}
+      <div className="setuprow">
+        <span className="grow" />
+        <button className="quiet" onClick={onDone}>Go to Opie</button>
+      </div>
+    </main>
+  );
   return (
     <main className="join setup">
       <div className="brand">Opie</div>
@@ -354,11 +396,18 @@ function Invite({ c, family }) {
     {link && <><p className="soft">Send {link.who} this link:</p><input readOnly value={link.url} onFocus={(e) => e.target.select()} /></>}
   </>;
 }
+/** A second app to ask for, from who lives here: a rota needs nothing more than their names, so Opie can build it
+ *  without asking anything back. */
+function rotaExample(family = []) {
+  const names = family.filter((f) => String(f.name || '').trim() && !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || ''))).map((f) => String(f.name).trim()).slice(0, 4);
+  const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
+  return list ? `Make a rota for who sets the table each night: ${list}` : 'Make a rota for who sets the table each night';
+}
 /** Setup's last step: asking Opie is the way to a new app; a computer's Claude or ChatGPT is for bigger work. */
 function Apps({ computer, family }) {
   return <>
     <h1>Make your own apps</h1>
-    <p>Ask Opie for one at the tablet, out loud or typed: “{makeExample(family)}”, or “Make a chore chart with stars for the week”. Opie builds it there, and it goes in Apps once a grown-up says yes.</p>
+    <p>Ask Opie for one at the tablet, out loud or typed: “{makeExample(family)}”, or “{rotaExample(family)}”. Opie builds it there, and it goes in Apps once a grown-up says yes.</p>
     <p className="soft">For bigger work, connect Claude or ChatGPT{computer ? ' on this computer' : ' on a computer'}: add the connector cloud.opie.house/mcp, then ask it for a game, a tracker or a new tab.</p>
   </>;
 }

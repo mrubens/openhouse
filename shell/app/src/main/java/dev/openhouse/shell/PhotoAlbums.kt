@@ -271,20 +271,22 @@ object PhotoAlbums {
     }.getOrDefault(emptyMap())
 
     // --- Settings' screens ------------------------------------------------------------------
-    /** Paste the album's link here (or send it from a phone). Behind the PIN. */
-    fun add(a: Activity, immersive: () -> Unit) {
+    /** Add an album from its link: sent from a phone, where the link is copied (pasting here is the small way, for a
+     *  tablet with a keyboard cover). Behind the PIN. */
+    fun add(a: Activity, immersive: () -> Unit) = addFromPhone(a, immersive)
+
+    /** Paste or type the album's link here (a tablet with a keyboard cover). */
+    fun paste(a: Activity, immersive: () -> Unit) {
         val link = Calm.field(a, "https://photos.icloud.com/shared/album/…").apply {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_URI or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
             runCatching { (a.getSystemService(android.content.ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(a)?.toString())?.let { AlbumLink.clean(it) }?.let { setText(it) } }
         }
-        // Sending it from a phone is a quiet link, where to find the link is behind More (docs/ux.md).
-        var d: android.app.Dialog? = null
+        // Where to find the link is behind More (docs/ux.md).
         val col = Calm.column(a, 12).apply {
             addView(link)
-            addView(Calm.row(a, 0).apply { addView(Calm.quiet(a, "Send it from a phone") { d?.dismiss(); addFromPhone(a, immersive) }.apply { setPadding(0, 0, Calm.px(a, 28), 0) }) })
             addView(Calm.more(a, HELP))
         }
-        d = CalmDialog(a).setTitle("Add an iCloud album").setView(col).setWidth(760f)
+        CalmDialog(a).setTitle("Add an iCloud album").setView(col).setWidth(760f)
             .setPositiveButton("Add") { _, _ ->
                 val u = AlbumLink.clean(link.text.toString())
                 if (u == null) { notAlbum(a, immersive); return@setPositiveButton }
@@ -327,10 +329,15 @@ object PhotoAlbums {
         val info = JSONObject().put("title", "Add an iCloud album").put("field", "Shared album link").put("hint", "https://photos.icloud.com/shared/album/…")
             .put("help", HELP).put("done", "Sent. Check the tablet.")
         val h = Handoff(a, info, onSecret = { got = it; dialog?.dismiss() }, onEnd = { if (got == null) dialog?.dismiss() })
-        if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
+        if (!h.start()) { paste(a, immersive); return } // no Wi-Fi: no phone to send it from
         val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
-        val col = Calm.qr(a, qr, Calm.caption(a, "Scan with a phone on this Wi-Fi, and paste the album's link there."), 360) { Handoff.share(a, h.url!!) }
-        dialog = CalmDialog(a).setTitle("Add an iCloud album").setView(col).setNegativeButton("Cancel", null)
+        val col = Calm.column(a, 12).apply {
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            addView(Calm.qr(a, qr, Calm.caption(a, "Copy the album's link on your iPhone, then scan this with it on this Wi-Fi and send the link."), 360) { Handoff.share(a, h.url!!) })
+            addView(Calm.quiet(a, "Paste it here instead") { dialog?.dismiss(); paste(a, immersive) })
+            addView(Calm.more(a, HELP))
+        }
+        dialog = CalmDialog(a).setTitle("Send an album from your phone").setView(col).setNegativeButton("Cancel", null)
             .setOnDismissListener {
                 h.stop()
                 got?.let { msg ->

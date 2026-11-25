@@ -18,20 +18,30 @@ On the tablet:
       geocoder, only with location on), or just the town or the zip code. The address is kept with the household
       (`address`: Opie's for directions and the like, and the Map's once it's on; the Map looks it up then, not
       before); the town or zip is the weather's.
-   3. **Do you have a family calendar?** Google, iCloud, Outlook, Another link, or Start one here, each with what to
-      do in a few numbered lines and the tablet's own screen for it: Google signs in through the account
-      (`CalendarAccounts`, two-way) on a linked tablet, else its Secret address in iCal format, pasted
-      (`CalendarLinks`, read once before it's kept, or sent from a phone); iCloud signs in with an app-specific
-      password (two-way); Outlook and the rest are a link. What's been added shows below as it comes in.
-   4. **Put your photos on the tablet?** An iCloud shared album's link (`PhotoAlbums`), Google Photos' picker on a
-      linked tablet (`GooglePhotos`), or From a phone (the lasting share code, `PhotoShare`). The albums and photos
-      that came in show below, the newest as small pictures.
-   5. **Connect your phone or computer to Opie** (to use it on the go, add more calendars and albums and invite the
-      family, and use their own AI to change it): whose it is, then a code. A phone scans it; a computer goes to
-      openhouse.local:8788/phone and types it. Either joins at once as that person's, with the `setup` scope (no
-      Allow: the code was only on the tablet). Nothing asks to link the account here: the page is a bookmark on the
-      home Wi-Fi until the tablet is linked, then it installs and works away. The tablet lists what's been done there
-      as it comes in (connected, calendars, albums, invited), and makes a fresh code when one has been used.
+   3. **Connect your phone or computer** (since 2026-11-25 before the calendar and photos, whose links are copied on
+      a phone or computer, never on the tablet: one code reaches it for the whole setup): whose it is, then two ways
+      in, each its own line. A phone scans the code; a computer goes to **opie.local:8788** and types the code (the
+      bridge answers `opie.local`, and `openhouse.local` from before, over mDNS while the code lasts, and the bare
+      address goes to the page for the code: `connect-page.js`, `screens.js`). Android won't let an app listen on port
+      80, so the port stays in the address. The tablet's raw Wi-Fi address is never shown; without the name answered, a
+      phone it is. Either joins at once as that person's, with the `setup` scope (no Allow: the code was only on the
+      tablet). The card shows who's connected, and makes a fresh code when one has been used. The phone or computer
+      then **follows the tablet's setup** rather than starting its own (`chat/src/phone.jsx` SetupFlow, GET
+      `/setup/step`): on the calendar step it shows the box for a calendar's link, on the photos step the one for an
+      album's link and, once photos from phones are on, Choose photos; on any other step, "carry on at the tablet". Once
+      the tablet's setup is over, it offers what's only for there: inviting the family, and making apps. (A tablet from
+      before, with no step to follow, gets the four steps as before.)
+   4. **Do you have a family calendar?** Google, iCloud, Outlook, Another link, or Start one here, each with what to
+      do in a few numbered lines: Google signs in through the account (`CalendarAccounts`, two-way) on a linked
+      tablet, else its Secret address in iCal format, copied on the computer and pasted into Opie there (the connected
+      phone or computer, `/setup/calendar`); iCloud signs in with an app-specific password (two-way); Outlook and the
+      rest are a link, sent the same way. With nothing connected yet, **Connect a phone or computer** goes back to
+      step 3 and Next there comes back. **Paste it here instead** is the small way, for a tablet with a keyboard cover.
+      What's been added shows below as it comes in.
+   5. **Put your photos on the tablet?** An iCloud shared album's link (sent from the connected phone or computer, or
+      pasted here), Google Photos' picker on a linked tablet (`GooglePhotos`), or From your phone: Let phones send
+      photos (a person's yes here, `PhotoShare.turnOn`), then the connected phone shows Choose photos (no second code
+      to scan). The albums and photos that came in show below, the newest as small pictures.
    6. **Choose a PIN** ("For grown-ups: settings and approvals"): PIN Lock on, so Settings and approving a new app
       ask for it. Skip leaves the lock off (Settings, PIN Lock, later). On a linked tablet there's no recovery code
       to keep, since the account page resets the PIN; unlinking shows one first.
@@ -123,7 +133,7 @@ Three things make it one moment:
 | Provision | tablet + a screen showing the QR | reset or unbox; tap the welcome screen 6×; Wi-Fi if asked; scan `provision-qr.sh`'s code; two Android consent screens; wait for the APK, then the runtime download |
 | First run | tablet | family names, wake name (Opie), PIN, voices |
 | AI | tablet (+ phone) | "Which AI does your family use?" Claude: sign in in the tablet's browser or on a phone (Handoff page), copy the code, paste it back. ChatGPT: a device code typed on a phone. OpenRouter: a key from a phone |
-| Computer link | tablet + computer | PIN → Connect Claude or ChatGPT → on the computer open `openhouse.local:8788` → download `.mcpb` or copy a one-liner → new session → "connect to my Opie" + 12-character code → Allow on the tablet |
+| Computer link | tablet + computer | PIN → Connect Claude or ChatGPT → on the computer open `opie.local:8788` → download `.mcpb` or copy a one-liner → new session → "connect to my Opie" + 12-character code → Allow on the tablet |
 
 That's four separate starts, each with its own code and wait. The phone is there only because the tablet has no
 keyboard, and the computer, which has one, comes last. It's also asked "which AI?" twice: once on the tablet, and once
