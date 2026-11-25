@@ -6,7 +6,7 @@ and one key, and the backups can go to one or more places:
 | Place | Status | Who it's for |
 |---|---|---|
 | **A USB drive** plugged into the tablet | Built | Everyone, with no account and no cloud. Self-hosters included. |
-| **The cloud** (OpenHouse's) | Built | Families who linked the tablet (Settings → Account) |
+| **The cloud** (Opie's) | Built | Families who linked the tablet (Settings → Account) |
 | **A shared folder on a home computer or NAS** (SMB) | Designed, below | Families with a Mac, PC or NAS at home |
 
 Everything is behind the PIN, under Settings → Backups, and off until someone turns a place on.
@@ -61,8 +61,8 @@ show the code again from Backups.
 - **Same tablet:** restoring needs nothing more, because the code is kept on the tablet.
 - **New tablet:** someone types the code. That tablet then keeps the code for its own backups.
 
-**Keeping a copy with OpenHouse (key escrow): off by default.** It is offered once, when the cloud is first turned on,
-and can be changed later under Backups. The screen says that with a copy kept, OpenHouse could open the family's
+**Keeping a copy with Opie (key escrow): off by default.** It is offered once, when the cloud is first turned on,
+and can be changed later under Backups. The screen says that with a copy kept, Opie could open the family's
 backups. If the family turns it on:
 - the tablet sends the code to the service;
 - the service checks that the code fits its key id, then keeps it under the family;

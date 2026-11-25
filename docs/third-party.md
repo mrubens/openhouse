@@ -1,6 +1,6 @@
 # Third-party software and data
 
-OpenHouse is MIT-licensed (`LICENSE`). These are the things in this repo, or put into its builds, that someone else
+Opie is MIT-licensed (`LICENSE`). These are the things in this repo, or put into its builds, that someone else
 made, with their licenses. Anything marked **check** needs a decision before or soon after the repo is public.
 
 ## In this repo
@@ -42,7 +42,7 @@ versions and source links in `shell/app/src/main/assets/licenses/README.txt`, wh
 
 ## Services, not software
 
-OpenAI's live voice and text model (through the OpenHouse cloud), Nutrislice's public menu API
+OpenAI's live voice and text model (through the Opie cloud), Nutrislice's public menu API
 (School lunch plugin), Open-Meteo for the weather and place search, OpenFreeMap tiles, Nominatim and the OSM routing service for the Map
 app (OpenStreetMap data, ODbL: the map shows its attribution), iCloud shared albums and calendar links:
 used over the network under their own terms, nothing of theirs is in the repo.

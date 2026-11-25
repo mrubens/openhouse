@@ -138,7 +138,7 @@ Assistant shortcuts, location ("when I'm near the shop"). None of those is neede
 Push without trusting anyone:
 - Web Push payloads are encrypted for the phone (RFC 8291). The push service (Apple's, Google's, Mozilla's) sees only
   that a message came and how big it is.
-- The tablet can sign and send them itself (its own VAPID key), straight to the phone's push address. No OpenHouse
+- The tablet can sign and send them itself (its own VAPID key), straight to the phone's push address. No Opie
   server is involved and the note never passes through ours.
 - What the push service learns: that this phone gets a push at this time. That's a service the person chose by
   allowing notifications on their own phone, so it fits the rule.
@@ -152,7 +152,7 @@ Push without trusting anyone:
   it isn't a login.
 - **Steps for a household:**
   1. On the tablet: Settings → Family → Sam → Add Sam's phone. Someone's PIN. The tablet shows a QR code.
-  2. Sam scans it with the phone's camera. The page opens and says "Add OpenHouse to your home screen" with the two
+  2. Sam scans it with the phone's camera. The page opens and says "Add Opie to your home screen" with the two
      taps for iPhone or Android.
   3. Opened from the home screen, it asks "Get a note when the tablet has one for you?" (Allow is the phone's own
      prompt).
@@ -227,7 +227,7 @@ an app, show photos), not only through `ask_opie`. "Turn off the TV" should be i
 Turning a TV on or off asks nothing. Opening an app or putting something on the screen while someone is watching
 asks the room first, the way risky device actions do today.
 
-**Setup for a household:** Settings → Devices → Look for devices, then tap the TV → "Use with OpenHouse". The TV asks
+**Setup for a household:** Settings → Devices → Look for devices, then tap the TV → "Use with Opie". The TV asks
 Allow (Samsung, LG) or shows a code to type on the tablet (Android TV). That's once per TV.
 
 **Privacy:** all local. TV control is between the tablet and the TV on the Wi-Fi; nothing goes to our cloud or the
@@ -259,7 +259,7 @@ It does keep the bridge running and the Wi-Fi multicast lock held, which TV disc
 4. **Google Cast:** the sender in the bridge, our receiver on the cloud. Needs a real Chromecast to test, and the
    Cast developer registration.
 
-Each of these is off until someone turns it on: phones by adding one, the TV by "Use with OpenHouse".
+Each of these is off until someone turns it on: phones by adding one, the TV by "Use with Opie".
 
 ## Open questions
 

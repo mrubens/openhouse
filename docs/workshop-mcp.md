@@ -1,4 +1,4 @@
-# Customizing OpenHouse from Claude or ChatGPT (the workshop MCP)
+# Customizing Opie from Claude or ChatGPT (the workshop MCP)
 
 Status: first slice built (home network, Claude Code and Claude Desktop; from anywhere through the relay when the
 tablet has Use it away from home on: [networking.md](networking.md)). The claude.ai and ChatGPT connectors are
@@ -18,8 +18,8 @@ assistant stays for everyday things (lists, timers, the calendar, notes) and sma
 
 1. On the tablet: Settings (PIN) > **Connect Claude or ChatGPT**. It shows an address and a one-time code, e.g.
    `192.168.1.23:8788  K7QM-2XD9-HPA4`, good for 10 minutes.
-2. On the computer, once: add the OpenHouse MCP to Claude Code or Claude Desktop (see "Setting up" below).
-3. Tell Claude: "pair with my OpenHouse, 192.168.1.23:8788 K7QM-2XD9-HPA4".
+2. On the computer, once: add the Opie MCP to Claude Code or Claude Desktop (see "Setting up" below).
+3. Tell Claude: "pair with my Opie, 192.168.1.23:8788 K7QM-2XD9-HPA4".
 4. The tablet asks: **Let "Sam's MacBook" change the apps and home screen?** Allow / No.
 5. From then on: "make a whiteboard tab that looks like Chores". The tablet shows the change being made (the usual
    "working" card, from the computer), the new tab appears, and "undo that" (from the computer or the tablet) takes
@@ -86,7 +86,7 @@ The new ones exist only because the desktop has no turn and no file system on th
 
 ### Instructions
 
-The MCP `initialize` reply carries short instructions: what OpenHouse is, that a family is watching, and to call
+The MCP `initialize` reply carries short instructions: what Opie is, that a family is watching, and to call
 `get_guide` before changing anything. `get_guide` comes in two parts, so moving a tab doesn't mean reading the whole
 rulebook: by default the computer's own guide (`bridge/WORKSHOP.md`: how to work, its rules), the home screen as it is
 now, how to change it and how notes on Home read (`bridge/NOTES.md`); with `topic: "apps"`, how apps are made and the
@@ -151,7 +151,7 @@ skills yet, and ChatGPT only partly. They show as `openhouse:working-here`, `ope
 remembers for 7 days that a stdio server didn't speak 2026-07-28; `MCP_PROTOCOL_NEGOTIATION=auto` asks again sooner
 (after updating `~/.openhouse/openhouse-mcp.mjs`). Everyone else uses the plugin below, or `get_guide`.
 
-### The OpenHouse plugin (ChatGPT, the Claude apps)
+### The Opie plugin (ChatGPT, the Claude apps)
 
 ChatGPT has skills but doesn't load them over MCP, and the Claude apps' connectors don't either, so the same skills
 also ship as a plugin that bundles them with the connector. The split:
@@ -204,7 +204,7 @@ No website yet, so the tablet hands it out. While "Connect Claude or ChatGPT" is
 minutes as the code, gone when the screen closes or the code is used), the home-network listener serves one page
 (`bridge/connect-page.js`): "Connect Claude or ChatGPT", led by one prompt to copy into any AI that can run commands
 (below), then the Claude app's download of `openhouse.mcpb` and three steps (open the file and Install, say "Connect
-to my OpenHouse" with the code the tablet shows, tap Allow). The
+to my Opie" with the code the tablet shows, tap Allow). The
 download button fires once per visit. It serves that page, the two downloads and the kit's font, nothing else. `scripts/runtime-assets.sh` runs
 `scripts/build-mcpb.sh`, so the download is built into the runtime with the tablet and always matches it.
 
@@ -226,12 +226,12 @@ code for the page. What I found getting the address short:
   Wi-Fi multicast lock meanwhile. On this Mac, macOS resolved a name answered by the same code over the real Wi-Fi.
 - **Port 80 doesn't.** Binding it from the runtime fails with `EACCES` (Android keeps ports below 1024 for the system),
   so the port stays: `openhouse.local:8788`.
-- Two OpenHouses on one network would both claim the name while their Connect screens are open; the IP line covers that.
+- Two Opie tablets on one network would both claim the name while their Connect screens are open; the IP line covers that.
 
 ### The setup prompt (any assistant)
 
 The page's main option ("Connect your AI assistant") is one sentence to paste into Claude Code, Codex, claude.ai,
-ChatGPT or another assistant (`setupPrompt` in `bridge/connect-page.js`): add the OpenHouse MCP server at
+ChatGPT or another assistant (`setupPrompt` in `bridge/connect-page.js`): add the Opie MCP server at
 `https://cloud.openhouse.computer/mcp` (the cloud's web connector, below), sign in with the code shown, tap Allow on the
 tablet, then read `https://cloud.openhouse.computer/docs` and work out how best to use it. No local address, so it works
 from anywhere. The docs page is the guide for assistants as one Markdown page (openhouse-cloud
@@ -253,11 +253,11 @@ carries its home address and relay id, so a computer that paired through the clo
 
 Only the tablet's own screen shows the code, and a computer can ask to pair only with it (the pairing's key comes
 from the code). The name on the Allow card is the computer's own choice, so the card also says how it asked: on this
-Wi-Fi, or through OpenHouse's cloud. The Allow, a person's tap, is still the gate.
+Wi-Fi, or through Opie's cloud. The Allow, a person's tap, is still the gate.
 
 ## Setting up (Claude Code, Claude Desktop)
 
-**Claude Desktop: the OpenHouse extension.** `scripts/build-mcpb.sh` makes `dist/openhouse.mcpb` (about 24 KB, never
+**Claude Desktop: the Opie extension.** `scripts/build-mcpb.sh` makes `dist/openhouse.mcpb` (about 24 KB, never
 committed): `connect/openhouse-mcp.mjs` bundled with only what it imports (the screen client and cipher from
 `chat/src`, `bridge/pair-code.js`, `connect/mdns.mjs`), run by Claude Desktop's own Node, so a family needs no
 checkout and no Node. Opening the file in Claude Desktop installs it. Not signed or published yet.
@@ -266,7 +266,7 @@ checkout and no Node. Opening the file in Claude Desktop installs it. Not signed
 instructions tell the model to ask for the code the tablet shows (the gear, Tablet settings, Connect Claude or
 ChatGPT). It finds the tablet on the Wi-Fi by itself: while the code shows, the tablet advertises `_openhouse._tcp`
 over Bonjour (Android's NsdManager), and the extension asks every network this computer is on, then tries the code on
-each OpenHouse that answers (only the one showing that code knows it). If nothing answers (a Wi-Fi that blocks
+each Opie that answers (only the one showing that code knows it). If nothing answers (a Wi-Fi that blocks
 multicast, a guest network), it asks for the address shown under the code and pairs with both. The tablet's dialog
 also shows the address and code as a QR code.
 
@@ -296,7 +296,7 @@ tool_timeout_sec = 180   # a change can wait up to a minute for the tablet's own
 ```
 
 Until it's on npm, use `command = "node"` and `args = ["/path/to/openhouse/connect/dist/openhouse-mcp.mjs"]` (after
-`scripts/build-mcpb.sh`). Pairing works the same (ask Codex to connect to your OpenHouse, give it the code). Codex
+`scripts/build-mcpb.sh`). Pairing works the same (ask Codex to connect to your Opie, give it the code). Codex
 reads an MCP server's tools once, when it starts, so right after pairing it reaches the tablet's tools through
 `use_tablet_tool`, which the pairing answer explains; from the next Codex session they're ordinary tools. Pairing
 waits at most 100 seconds for Allow (Codex gives a tool 120 by default); if Allow comes later, asking to pair again
@@ -309,7 +309,7 @@ The pairing is kept in `~/.config/openhouse/pairing.json` (readable only by you)
 
 Claude Code (headless, `claude -p`) with this MCP, against an emulator through `adb forward tcp:18788 tcp:8788`:
 
-1. Settings > Connect Claude or ChatGPT showed the address and code; "Pair with my OpenHouse, 127.0.0.1:18788
+1. Settings > Connect Claude or ChatGPT showed the address and code; "Pair with my Opie, 127.0.0.1:18788
    <code>" from Claude Code; the tablet asked "Let “Sam's MacBook Pro” change the apps and home screen?"; Allow.
 2. "Add a whiteboard tab that looks like Chores": it read the guide and the Chores app, opened a change, wrote the
    app, added the tab, checked it, looked at the screen, fixed a detail and finished. About 110 seconds, one change.
@@ -326,7 +326,7 @@ The tablet doesn't need its own assistant signed in for any of this: the compute
 
 Second round (the extension): the `.mcpb` passed `mcpb validate`, unpacked with `mcpb unpack` and its server ran
 from outside the repo. Claude Code ran that unpacked server the way Claude Desktop does and paired with the code
-alone ("Connect to my OpenHouse. The tablet says 1MCT-ZA9V-ZYP5."), found by Bonjour. The emulator's network can't
+alone ("Connect to my Opie. The tablet says 1MCT-ZA9V-ZYP5."), found by Bonjour. The emulator's network can't
 carry multicast to the Mac, so a `dns-sd -P` advert on the Mac stood in for the tablet's; whether the tablet's own
 advert reaches a Mac on real Wi-Fi is still to be seen on a real tablet. Then "put the Photos tab first" and
 "undo that last change" both landed on the emulator. Installing into the real Claude Desktop app was left to a person.

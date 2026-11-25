@@ -27,7 +27,7 @@ These guard the household, so they keep everything a parent must see, shorter:
   `rights: [{kind, text}]` to the shell's `/approve`). Kinds: from (where it comes from, reviewed or not), data,
   devices, cloud, web, offline, voice, watch, background, tv, look, tabs, apps, new (a right an update adds).
 - **Never behind More:** a right, the website's host, a device's or app's name, where a plugin comes from and whether
-  OpenHouse reviewed it. Behind More: version and commit, our notes about files left out, the plugin's own description.
+  it was reviewed for Opie's list. Behind More: version and commit, our notes about files left out, the plugin's own description.
 - The PIN stays where it was. With the lock on, the card shows the PIN pad and "Type the PIN to add." The verb on the
   button is the same one.
 - Not now and the verb, nothing else.

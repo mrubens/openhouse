@@ -191,7 +191,7 @@ socket), and remote help. Tailscale stays possible later for self-installers as 
 5. **Phone list pages** as a second step: the page's `/i` and `/s` fall back to the relay; the bridge passes them to
    the shell's `Handoff` on the tablet.
 
-Left for later: remote help (a time-limited "computer" pairing for OpenHouse support, granted on the tablet), a
+Left for later: remote help (a time-limited "computer" pairing for Opie support, granted on the tablet), a
 browsable `https://<household>.openhouse.computer`, push notifications, the claude.ai/ChatGPT connectors.
 
 ## Decided (2026-11-19)

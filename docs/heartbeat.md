@@ -98,7 +98,7 @@ itself, so nothing from a plugin ever runs as code.
 - Optional: `after` and `before` (HH:MM), and `for` (who it's about).
 - No count limit of ours. A check that doesn't fit is left out, and `GET /heartbeat` lists why under `checkProblems`.
 - **Where they're read from** (every app is a plugin, docs/plugins.md §11):
-  - The household's own apps and OpenHouse's are read live from `app.json`.
+  - The household's own apps and Opie's are read live from `app.json`.
   - An app from a link keeps the checks its card showed. The card says "it looks out for: …". They're fixed when
     it's added (`webapp/plugins/<name>.json`, `apps.<id>.checks`, `plugins.checksOf`), so editing its app.json can't
     add one. Checks that don't fit are left out, with a note on the card.

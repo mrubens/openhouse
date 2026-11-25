@@ -12,11 +12,11 @@ the tablet", and from a phone, that it's on the tablet itself. The rules that do
   album link someone sent, the account that entered the link code: `ui/PersonCards.kt`), every device tool is refused, reading the screen included, and Opie
   tells them it's theirs to answer. The card's yes also takes only a real touch, not an injected one.
 - What is person-only (`DeviceServer.personOnly`: turning on email, allowing a held email, Opie uses apps and other
-  switches that widen what Opie may do, ways out of OpenHouse, saying yes to a calendar or album someone sent, or to the account that entered the link code) needs a
+  switches that widen what Opie may do, ways out of Opie, saying yes to a calendar or album someone sent, or to the account that entered the link code) needs a
   person's own tap, PIN or not. Opie can open the screen; the tap is theirs.
 - PIN Lock itself (turning it off, changing the PIN, Forgot PIN? and its Reset with your account, whose code card is
   a person card with the PIN pad's mark) and leaving kiosk mode: Opie only opens the screen. Asking Opie to
-  take off the lock that guards against Opie makes no sense, and leaving kiosk mode takes the tablet out of OpenHouse.
+  take off the lock that guards against Opie makes no sense, and leaving kiosk mode takes the tablet out of Opie.
 
 `test/house.test.mjs` checks the PIN can't be got round: Opie's change to a locked calendar or a reward goes through
 the card, and a no (or no card) leaves things as they were.
@@ -25,7 +25,7 @@ Opie's tools: `LIVE_TOOLS` and the voice's own tools in `bridge/live-tools.js` (
 tablet_screen, home_devices, tv, bluetooth, message_family, show_on_screen, the apps' voice actions); the home screen's
 in `bridge/home-screen.js` and `bridge/chat.js`; the house's in `bridge/house.js`; the map's in `bridge/maps.js`;
 using the screen and other apps in `bridge/device-tools.js` (look_at_screen, tap, type, scroll: the fallback for
-anything without a tool of its own, in OpenHouse's own screens even with "Opie uses apps" off). Typed turns get the
+anything without a tool of its own, in Opie's own screens even with "Opie uses apps" off). Typed turns get the
 same tools (`chat.js` textTools).
 
 Key: **yes** a tool does it; **screen** only by opening the screen and tapping there; **no, on purpose** stays a
@@ -94,7 +94,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Advanced: Updates, home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
 | Advanced: PIN Lock, leave kiosk mode, erase this tablet | no, on purpose | Opie only opens the screen (above); with no PIN set, erase and the ways out (Wi-Fi settings after the first setup, Unlink, Restore too) ask a person to set one first |
 | The PIN's recovery code: shown when a PIN is chosen, Forgot PIN?, PIN recovery code | no, on purpose | Like the PIN: only a person sees or types it. Its card and box count as a PIN pad (nothing Opie does lands while they're up) and "I've kept it" takes a real finger. Opie can open the PIN pad; Forgot PIN? is the person's |
-| Advanced: Opie uses apps, device control, USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave OpenHouse |
+| Advanced: Opie uses apps, device control, USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave Opie |
 | Advanced: check-ins (how often, what they look for) | yes | heartbeat_settings |
 | Night hours | yes | night_hours |
 | Volume (no row: the tablet's buttons) | yes | volume |

@@ -1,4 +1,4 @@
-# Open-sourcing OpenHouse: checklist
+# Open-sourcing Opie: checklist
 
 Prepared 2026-11-23. The plan: this repo (tablet, bridge, web apps, plugins) goes public under MIT as a fresh repo
 with one commit; the current history stays in a private archive; the cloud stays private in

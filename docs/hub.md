@@ -1,7 +1,7 @@
-# OpenHouse as a hub
+# Opie as a hub
 
 2026-11-20. For tinkerers who want the house everywhere (phones, laptops, the TV, an old tablet) rather than on one
-screen: OpenHouse on a small computer in a closet, a Raspberry Pi, a NUC, a Mac mini, Docker on a NAS, with no screen of
+screen: Opie on a small computer in a closet, a Raspberry Pi, a NUC, a Mac mini, Docker on a NAS, with no screen of
 its own.
 The household's phones and computers are its screens and its controls. It is the do-it-yourself path in the open
 source; what we sell is still the set-up tablet.
@@ -35,7 +35,7 @@ phones, laptops, the TV, an old tablet: browsers, each paired with its own key
 ├─ /tv       a TV's layout (it only shows)
 └─ /hub/     the hub's settings, on a settings device only
 
-OpenHouse cloud (optional): live voice and typed questions (OpenAI), cloud backups, the relay from away
+Opie cloud (optional): live voice and typed questions (OpenAI), cloud backups, the relay from away
 ```
 
 It is the tablet's bridge, unchanged in what it does. `OPENHOUSE_HUB=1` (set by `hub/start.sh`) adds the few things the
@@ -114,7 +114,7 @@ code on the settings page), and more settings devices.
 curl -fsSL https://raw.githubusercontent.com/mrubens/openhouse/main/hub/install.sh | sudo bash
 ```
 
-Or from a checkout: `sudo hub/install.sh`. It installs git and Node 22, clones OpenHouse into `/opt/openhouse`, builds
+Or from a checkout: `sudo hub/install.sh`. It installs git and Node 22, clones Opie into `/opt/openhouse`, builds
 it, and starts it as the `openhouse` service, with its data in `/var/lib/openhouse`. The code is in
 `journalctl -u openhouse` and `/var/lib/openhouse/hub-setup.txt`. Backups go to `/var/lib/openhouse/backups` unless
 `OPENHOUSE_BACKUP_DIR` is set in `/etc/default/openhouse` (a USB drive's mount point, say). Update from the settings page,
@@ -141,7 +141,7 @@ curl -fsSL https://raw.githubusercontent.com/mrubens/openhouse/main/hub/install-
 ```
 
 Natively, not in Docker, so it finds the devices on the Wi-Fi. It needs Apple's command line tools (for git; it opens
-their installer if they're missing), puts OpenHouse in `~/OpenHouse` with its own Node, the household's things in
+their installer if they're missing), puts Opie in `~/OpenHouse` with its own Node, the household's things in
 `~/Library/Application Support/OpenHouse Hub`, and starts it at login as a LaunchAgent (`computer.openhouse.hub`). It runs
 under `caffeinate`, so the Mac doesn't go to sleep while the hub runs; a laptop still sleeps with its lid shut, so a Mac
 that stays on (a mini) is the right kind. If macOS asks whether node may accept incoming connections, Allow: that's

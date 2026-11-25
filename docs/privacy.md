@@ -1,12 +1,12 @@
 # Privacy
 
-The privacy policy for OpenHouse: the tablet, the iPhone app and the hosted cloud. The page people read is the cloud's
+The privacy policy for Opie: the tablet, the iPhone app and the hosted cloud. The page people read is the cloud's
 copy at openhouse.computer/privacy (`openhouse-cloud/lambda/privacy.ts`); keep the two the same. Draft of 2026-11-24,
 not yet published.
 
 ---
 
-**OpenHouse keeps a household's things in the household's own home: on its tablet (or hub).** Our hosted service, and
+**Opie keeps a household's things in the household's own home: on its tablet (or hub).** Our hosted service, and
 the iPhone app, only help the household's devices reach it. We don't sell data, show ads or use tracking or analytics
 in the app.
 
@@ -25,13 +25,13 @@ in the app.
 - **Send to Opie (the share sheet).** What you share (a link, words or a photo) goes through our service to the
   household's tablet, which answers. It's readable by our service on its way, as anything sent over https to a service
   is, and it isn't written down there.
-- **Siri and Shortcuts.** A question asked with "Ask OpenHouse" goes to the household's tablet, as if typed in the app.
+- **Siri and Shortcuts.** A question asked with "Ask Opie" goes to the household's tablet, as if typed in the app.
 - **The microphone.** Used only when you talk to Opie. See below for where speech goes.
 
 ## Opie, the assistant
 
 What someone asks Opie goes to the AI service the household chose for it: their own Claude or ChatGPT subscription, or
-OpenHouse's cloud assistant, which uses OpenAI through our service. Talking out loud with the cloud assistant streams
+Opie's cloud assistant, which uses OpenAI through our service. Talking out loud with the cloud assistant streams
 the audio to OpenAI for the conversation. Those services handle it under their own terms; our service passes it on and
 doesn't keep what's said or asked.
 
@@ -57,7 +57,7 @@ Everything here starts only when the household links its tablet to an account.
   arrives.
 - **The website:** if you ask for a beta invite, the email address and answers you give.
 
-The service runs on Amazon Web Services in the United States. Only the people who run OpenHouse can reach it.
+The service runs on Amazon Web Services in the United States. Only the people who run Opie can reach it.
 
 ## Deleting
 

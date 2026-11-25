@@ -10,7 +10,7 @@ are at the end.
 
 ## Recommendation in one paragraph
 
-**An OpenHouse plugin is a pi package with one more key.** It is a folder with a `package.json`:
+**An Opie plugin is a pi package with one more key.** It is a folder with a `package.json`:
 - pi's own `pi` key carries the assistant's pieces (skills, prompt templates), and pi loads them its own way.
 - An `openhouse` key carries the tablet's pieces (apps, a look, device recipes), and the bridge installs them.
 
@@ -26,7 +26,7 @@ Shared apps run with fewer rights than the family's own apps:
 
 Assistant skills come next, through pi's `--skill` and with pi's other discovery switched off. Code that runs outside
 an app's page never comes from a plugin: no pi extensions, bridge drivers or heartbeat code. That code arrives only
-through OpenHouse updates, or as data the bridge validates (device recipes, and later data-only checks). Hosting
+through Opie updates, or as data the bridge validates (device recipes, and later data-only checks). Hosting
 starts as "any public git URL". An index on openhouse.computer comes later, and it is a catalog of reviewed commits,
 not a store.
 
@@ -79,7 +79,7 @@ not a store.
 - auto-install from settings
 - auto-discovery in folders the agent itself can write
 
-## 2. What a "customization" is in OpenHouse today
+## 2. What a "customization" is in Opie today
 
 All paths are under the display folder (`files/display/` in the shell).
 
@@ -115,7 +115,7 @@ start. pi now starts with `--no-extensions --no-skills --no-prompt-templates --n
 bridge names (`-e builtin:mcp`, pi-web-access). That is the base plugin skills build on: the bridge adds `--skill`
 paths for installed plugins, and nothing else gets in.
 
-## 3. The shareable unit: an OpenHouse plugin
+## 3. The shareable unit: an Opie plugin
 
 A plugin is a folder, a git repo or a tarball:
 
@@ -195,13 +195,13 @@ in through the house tools. It is left out of v1.
 | Prompt template | v2, maybe | as skills (`--prompt-template`). There's no `/` on a tablet, so little use beyond the workshop | — | — |
 | Device recipe | **v2** | `save_recipe` with recipe.js's `validate()`; risky actions still ask | the bridge, as data, to the device's own LAN address | remove the recipe |
 | Heartbeat check | later | needs a **data-only check format** first: "when <house data condition> then a finding with this text", e.g. "no chores ticked by 7 PM". Interpreted by the bridge, never executed | the bridge | remove |
-| pi extension | **no** (only ours) | only as part of an OpenHouse update, pinned in the image like pi-web-access | — | — |
-| Device driver (JS) | **no** | OpenHouse update | — | — |
+| pi extension | **no** (only ours) | only as part of an Opie update, pinned in the image like pi-web-access | — | — |
+| Device driver (JS) | **no** | Opie update | — | — |
 
 For skills, it is pi's mechanism rather than a parallel one. The bridge decides *which* skill folders exist. Pi does
 the rest with its own `--skill`: discovery, the descriptions in the prompt, and reading `SKILL.md` on demand.
 Families' skills are the same files people share for pi, Claude Code and Codex, so the skill ecosystem comes for free.
-The one OpenHouse rule is about tools: a skill can only *ask*, and the tools enforce what's allowed. For example,
+The one Opie rule is about tools: a skill can only *ask*, and the tools enforce what's allowed. For example,
 "use put_note for the meet schedule" works, while "run this script" fails because a shared skill's `scripts/` are not
 copied.
 
@@ -294,7 +294,7 @@ There is no `npm install` and nothing runs.
   - `look_at_plugin` and `add_plugin` show up in the workshop's tool list, with the same card on the tablet.
   - `export_plugin {apps, look?, skills?}` goes the other way. It returns the plugin's files to the computer, where
     Claude or Codex writes them to a folder and, if the person asks, pushes them to *their own* GitHub repo with
-    their own `git`. OpenHouse never publishes anything.
+    their own `git`. Opie never publishes anything.
 - **From a link on openhouse.computer (later):** the index page for a plugin shows the README, the preview, what it
   uses, and a QR code. Scanning it with the family's phone hands the link to the tablet (the phone hand-off that
   exists for flyers and recipes), and the tablet shows the card.
@@ -421,7 +421,7 @@ Each plugin is `webapp/plugins/<name>.json`, one file per plugin:
 
 | Kind | Name | Rights | Version | Comes from |
 |---|---|---|---|---|
-| `builtin`, OpenHouse's own | `openhouse-<app>` | own (all app routes) | `version` in the app's `app.json` in `defaults/apps`, else a content hash | each release's `defaults/apps` |
+| `builtin`, Opie's own | `openhouse-<app>` | own (all app routes) | `version` in the app's `app.json` in `defaults/apps`, else a content hash | each release's `defaults/apps` |
 | `local`, the household's own | the app id | own | `1.0.<number of its changes>`, counted from git | the assistant, the workshop, a hand edit |
 | `shared`, from a link | its package name | only what the card granted: `uses`, `reaches`, `actions` | its `package.json` | `add_plugin` (§9) |
 
@@ -462,7 +462,7 @@ More about each path:
 - Settings' `GET /plugins` still lists only the shared ones, so the shell's Plugins menu is unchanged.
   `?all=1` lists every plugin. The menu can also call `/plugins/reset` and `/plugins/undo`.
 - Our updates and the move are commits made with `quiet`: "undo" never takes them back. `undo_plugin` also skips
-  our own commits (`Starting apps…`, `OpenHouse added/updated…`, the move), so it can't empty a built-in. Taking
+  our own commits (`Starting apps…`, `Opie added/updated…`, the move), so it can't empty a built-in. Taking
   ours off is `remove_plugin`.
 - `device/runtime-start.sh` no longer seeds or updates the starting apps. The bridge does it at start-up, from
   `display/defaults` (`scripts/runtime-assets.sh` still copies `defaults/apps` there). The ports block (`Moved to
@@ -780,7 +780,7 @@ app.json, refused for anything but a plain host or for an app that didn't say so
 
 ## 19. A list to choose from, and the household's own versions (2026-11-23)
 
-**OpenHouse's list (the gallery).** Settings, Plugins, "Add a plugin" shows the plugins OpenHouse has reviewed: name,
+**Opie's list (the gallery).** Settings, Plugins, "Add a plugin" shows the plugins on Opie's reviewed list: name,
 a line on what it does, a picture if it has one, and what it uses and reaches in the card's words. One that's on the
 tablet says so and opens its own page (Remove). "From a link" stays at the bottom for anything else.
 - The list is `index.json` next to the tarballs on the plugin CDN (`releases/plugins/index.json`). Each entry:
@@ -791,7 +791,7 @@ tablet says so and opens its own page (Remove). "From a link" stays at the botto
 - The tablet fetches the list only when someone opens it or asks Opie (kept 10 minutes). It takes only entries whose
   tarball and picture are https on the list's own host and that carry a sha256 (`cleanCatalog`), installs only from
   that tarball, and refuses it if its sha256 differs. The card is made from the tarball itself, never from the list's
-  words, and says "Reviewed by OpenHouse". The manifest keeps `source: "catalog:<name>"`, `sha256` and `reviewed`.
+  words, and says it was reviewed for the list. The manifest keeps `source: "catalog:<name>"`, `sha256` and `reviewed`.
 - Adding from the list is the same three steps as a link: `look_at_plugin`, the card, `add_plugin`, with the list's name
   as the source (`add_plugin {source: "laundry"}`). Opie's `find_plugins` reads the same list ("what plugins are
   there?"), so "add the laundry one" is the same card and PIN.

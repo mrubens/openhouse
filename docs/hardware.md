@@ -1,6 +1,6 @@
 # Cheaper tablets to test (November 2026)
 
-OpenHouse used to need a strong tablet for on-device speech recognition (Parakeet 0.6B) and a coding agent. Both are gone or going. What the tablet runs now is light: the Node bridge in a 100 MB proot runtime, the home screen in a WebView, the small "Opie" wake-word model, and audio streamed to OpenAI's live voice through our cloud. A cheaper tablet could do this. The only question that no spec sheet answers is the microphones.
+Opie used to need a strong tablet for on-device speech recognition (Parakeet 0.6B) and a coding agent. Both are gone or going. What the tablet runs now is light: the Node bridge in a 100 MB proot runtime, the home screen in a WebView, the small "Opie" wake-word model, and audio streamed to OpenAI's live voice through our cloud. A cheaper tablet could do this. The only question that no spec sheet answers is the microphones.
 
 The current tablet is a **Samsung Galaxy Tab S10 FE (SM-X520)**, bought for $362.99 on sale (list $499.99). Its microphone peaked at 0.026 of full scale, so the listener's auto-gain runs at its 8× cap (docs/tablet-setup-report.md in the session notes). That's the baseline to beat or match.
 

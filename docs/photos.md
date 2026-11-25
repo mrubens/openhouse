@@ -1,7 +1,7 @@
 # Getting the household's photos onto the tablet
 
 Status: three ways are built and on main, all off until someone adds or turns them on: iCloud shared albums,
-photos from phones any time ("Share to OpenHouse"), and Google Photos through Google's picker. None has run on a
+photos from phones any time ("Share to Opie"), and Google Photos through Google's picker. None has run on a
 real tablet. The iCloud and Google parts haven't seen a real album or a real Google account yet. What needs the
 operator is at the end of this page.
 
@@ -14,7 +14,7 @@ Photos app's **Add photos** card offers all four ways in:
 | From a phone, now | anyone at home | the card's QR code (as before) | the home Wi-Fi |
 | From the household's phones, any time | phones that keep a page | PIN: Photo albums, Phones | the home Wi-Fi; anywhere and the Android share sheet with Reach from away on |
 | An iCloud shared album | households with iPhones | PIN: Photo albums (or Add photos, or a phone, or the computer) | an album with Public Website on |
-| Pick in Google Photos | Google Photos users | PIN: Add photos, Pick in Google Photos | OpenHouse's Google project (not made yet), the tablet linked to the cloud |
+| Pick in Google Photos | Google Photos users | PIN: Add photos, Pick in Google Photos | Opie's Google project (not made yet), the tablet linked to the cloud |
 
 ## 1. iCloud shared albums
 
@@ -87,7 +87,7 @@ it has run out, resolve fails and the album gets the quiet line ("isn't shared a
 its photos stay. The 30 days was chosen when sharing it (the share sheet offers a choice); a household can pick a longer one. Paging past one
 page hasn't been seen on a real album (the test album had one photo).
 
-## 2. Photos from phones, any time ("Share to OpenHouse")
+## 2. Photos from phones, any time ("Share to Opie")
 
 One lasting link per household (`PhotoShare.kt`), behind the PIN in Photo albums, **Phones** (or the Photos
 app's Add photos). It's off until someone turns it on; **New link** cuts off every phone that has the old one;
@@ -103,7 +103,7 @@ The page is `assets/share.html`, the same code served two ways:
   `https://cloud.openhouse.computer/p/#<key>.<relay>.<token>`. It goes through the relay (with a lasting token the
   shell sends again every 6 hours, `/relay/handoff {token, page: 'p'}`; New link and Turn off take the old one off at once,
   `/relay/handoff/end`), so it works anywhere. It can be installed,
-  and on **Android** it's a Web Share Target: Photos (or any app), Share, OpenHouse. The service worker
+  and on **Android** it's a Web Share Target: Photos (or any app), Share, Opie. The service worker
   (`/p/sw.js`, `openhouse-cloud/lambda/share-page.ts`) only puts what was shared in the phone's own cache; the page then
   shrinks each photo to 2200 px, seals it with the key and sends it.
 
@@ -125,14 +125,14 @@ Since Google's 2025 Library API changes, an app can no longer read a user's libr
 Google's **Picker**, where the person chooses photos, and read only those. So this is "pick and copy", not a synced
 album: to add more, pick again.
 
-**Who owns what.** OpenHouse owns one Google Cloud project and its OAuth client (a web application). The client's
+**Who owns what.** Opie owns one Google Cloud project and its OAuth client (a web application). The client's
 secret is the only reason any of this touches our cloud: the household never makes a Google project, and the tablet
 never holds a long-lived Google credential.
 
 **What the household sees:**
 1. On the tablet, behind the PIN: Add photos, Pick in Google Photos. The tablet shows a QR code
    (`GooglePhotos.kt`, its page `assets/google.html`, on the home Wi-Fi, sealed like every phone page).
-2. On the phone: **Sign in to Google**. Google's consent screen names OpenHouse and one permission ("see the photos
+2. On the phone: **Sign in to Google**. Google's consent screen names Opie and one permission ("see the photos
    you select"). Then **Choose in Google Photos**: Google's own picker opens in a new tab (the Google Photos app on
    Android). They pick and tap Done.
 3. The phone page and the tablet's card count along, "Copying 12 of 30…", then "Done". The photos are in Photos.
@@ -154,7 +154,7 @@ never holds a long-lived Google credential.
   into Photos, deletes the session, and forgets the token. It's in memory only, for one run (an hour at most). Up to
   300 photos a run; videos are skipped.
 
-Off until set up: without the Google parameter, `/g/start` says "Google Photos isn't connected to OpenHouse yet", and
+Off until set up: without the Google parameter, `/g/start` says "Google Photos isn't connected to Opie yet", and
 the phone page says to link the tablet to the cloud if it isn't. Tests: `openhouse-cloud/test/google.test.ts` (Google's token
 endpoint stood in). The tablet's side compiles but hasn't talked to Google.
 
@@ -165,11 +165,11 @@ web client `575678758294-valnl6vl1b8t58fpceo1sqhn1v28m67m.apps.googleusercontent
 a cloud deploy, then a first real pick. Step 4 is done too (the parameter, version 1).
 
 The steps, each the operator's to do:
-1. **A Google Cloud project** for OpenHouse (any name; an organization if there is one). Enable the **Google
+1. **A Google Cloud project** for Opie (any name; an organization if there is one). Enable the **Google
    Photos Picker API**.
-2. **The OAuth consent screen** (Google Auth Platform): app name OpenHouse, a support email, the logo, home page
+2. **The OAuth consent screen** (Google Auth Platform): app name Opie, a support email, the logo, home page
    `https://openhouse.computer`, a privacy policy URL (needed for verification; it should say that photos go from
-   Google straight to the household's tablet and that OpenHouse keeps no token), authorized domain
+   Google straight to the household's tablet and that Opie keeps no token), authorized domain
    `openhouse.computer`, and the one scope `.../auth/photospicker.mediaitems.readonly`.
 3. **An OAuth client**, type Web application, redirect URI `https://cloud.openhouse.computer/g/done` (for local
    testing also `http://localhost:8790/g/done`; `openhouse-cloud/lambda/local.ts` reads `GOOGLE_CLIENT_ID` and

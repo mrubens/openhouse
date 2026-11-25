@@ -89,7 +89,7 @@ throws the rest away.
   shows only "Waiting: mail from `newsletter@maple-elementary.example`", with Allow and Delete. Allow approves the
   sender and reads that message; anything not allowed is deleted after 3 days. Held mail isn't kept in the cloud any
   longer than other mail. Past 10 a day, the rest from unknown senders are dropped.
-- **Mail sent straight from a school** (the household gave the school its OpenHouse address): the school's sending
+- **Mail sent straight from a school** (the household gave the school its Opie address): the school's sending
   address gets added like a person's, under "Others". Its domain has to pass SPF or DKIM like anyone's.
 - **Forwarded mail** comes from the person who forwarded it, so it's their address that counts; what the message
   says it was originally from doesn't matter.

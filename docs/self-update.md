@@ -12,9 +12,9 @@ the display is replaced).
 
 ## The name, in one place
 
-The product is **OpenHouse**, on openhouse.computer (decided 2026-11-19, provisional: the name is revisited before
-the beta, and the IDs are permanent once a release reaches a tablet; updates.openhouse.computer's DNS is set up,
-nothing is uploaded there yet). These settings in `shell/gradle.properties` carry it:
+The product is **Opie** (renamed from OpenHouse on 2026-11-25; the assistant in it was already Opie), on
+openhouse.computer (decided 2026-11-19; the domain and IDs stay as they are, and the IDs are permanent once a
+release reaches a tablet; updates.openhouse.computer's DNS is set up, nothing is uploaded there yet). These settings in `shell/gradle.properties` carry it:
 
 - `openhouse.releaseAppId` = `computer.openhouse`: the package IDs releases are built under (`release.sh` passes it
   as `openhouse.appId`): `<id>.shell` (the display), `.agent`, `.host` (the cover) and `.app.<id>` (each family app).
@@ -31,7 +31,7 @@ nothing is uploaded there yet). These settings in `shell/gradle.properties` carr
   endpoint, or a static `update.json` served at that address: a static host ignores the query). Its DNS is set up;
   no release is uploaded there yet. `release.sh --update-url` overrides it.
 
-Two more for moving tablets off the prototype's IDs ("Moving to OpenHouse", below): `openhouse.movedFrom` =
+Two more for moving tablets off the prototype's IDs ("Moving to Opie", below): `openhouse.movedFrom` =
 `dev.openhouse`, and `openhouse.releaseCert`, the release key's certificate SHA-256 .
 
 ## A release
@@ -169,7 +169,7 @@ Before it goes out, boot both APKs on an emulator: `scripts/smoke.sh dist/0.4.0`
 stops before `--publish` on a failure). It makes a throwaway emulator (no window; `--serial emulator-NNNN` uses one
 already running, and anything that isn't an emulator is refused), installs the display, serves it the folder's
 `runtime.tar.gz` over adb, waits for the bridge's `/state` and the home page, then installs the rescue over it as a
-tablet going back would and checks it the same way; any `FATAL EXCEPTION` in OpenHouse's processes fails it. Updates
+tablet going back would and checks it the same way; any `FATAL EXCEPTION` in Opie's processes fails it. Updates
 are pointed at nowhere so the emulator never takes the published release. 1.0.30 and its rescue: about 90 s in all
 on an M-series Mac. It doesn't check the updater, kiosk mode or voice. `--publish github` uploads the folder to a GitHub release `v0.4.0` with `gh`; the tablets'
 URL is then `https://github.com/<owner>/<repo>/releases/latest/download/update.json`. Otherwise copy the folder to
@@ -193,7 +193,7 @@ That's `1.0.6-local.1`, version code 1000611 (1.0.6's + 10 + N, N from 1 to 79):
 
 Made 2026-11-18 (certificate SHA-256 `0b24b214…eedd8`). Never in the repo. `scripts/release-key.sh` makes it once, in
 `~/.openhouse/release/release.jks` (PKCS12, alias `release`; the key made 2026-11-18 says `CN=Roo Home release, O=Roo Code Inc.`, from before the
-name changed, which nothing shows and nothing checks; new keys say `CN=OpenHouse release`), makes a random
+name changed, which nothing shows and nothing checks; new keys say `CN=OpenHouse release`, from before the product became Opie), makes a random
 password and keeps it in the Mac's login keychain (item `roo-home-release-key`), and prints the certificate's SHA-256
 for `openhouse.releaseCert`. Keep the key file and the password in the password manager as well; lose the key and no
 tablet takes an update again without being reset. `release.sh` reads `OPENHOUSE_RELEASE_KS`,
@@ -212,13 +212,13 @@ those files go on. Debug builds carry neither and take what they're given (`tabl
 `release.sh --runtime <runtime.tar.gz>` builds with that file's hash and copies it into the release folder (a
 `runtime.tar.gz` already there is used the same way); a new runtime's hash goes in `gradle.properties` too.
 
-No lineage for OpenHouse's IDs: no tablet ever ran a debug build under `computer.openhouse.*`, so releases are signed with
+No lineage for Opie's IDs: no tablet ever ran a debug build under `computer.openhouse.*`, so releases are signed with
 the release key alone (v2 and v3), and nothing signed with a debug key can pass as ours. `release-key.sh --lineage`
 still makes the debug-to-release lineage for a package that tablets ran debug builds of (`OPENHOUSE_LINEAGE` in
 `release.sh`): what it lets the debug key keep is in git history (installed-data and permission; not rollback, auth or
 shared UID).
 
-## Moving to OpenHouse (`Move.kt`, `scripts/move-tablet.sh`)
+## Moving to Opie (`Move.kt`, `scripts/move-tablet.sh`)
 
 Tablets set up during the prototype run `dev.openhouse.shell`, debug-signed, as device owner, with the family's data
 in its private folder. Android never renames a package, and a new package can't read the old one's files, so the old
@@ -226,9 +226,9 @@ display hands everything over itself, without a factory reset:
 
 1. **The handover build.** `move-tablet.sh` builds the old display once more from this checkout under the old ID with
    `-Popenhouse.moveTo=computer.openhouse -Popenhouse.releaseCert=<sha>` (debug-signed, like the tablet's own) and
-   installs it, then OpenHouse's update cover and display (from a `release.sh` folder). Once the new display is
+   installs it, then Opie's update cover and display (from a `release.sh` folder). Once the new display is
    installed and signed with the release key, the old one lets it into kiosk mode and opens its `MoveActivity`
-   ("Moving to OpenHouse…").
+   ("Moving to Opie…").
 2. **The data.** The new display asks the old one (`MoveOut`, a content provider that answers only
    `computer.openhouse.shell` signed with the certificate built in) to stop its runtime, then reads its data folder as
    one tar through a pipe: `files/` (the family's folder, the runtime), `shared_prefs/`, `no_backup/`, but not the
@@ -324,7 +324,7 @@ wizard). With 1.0.0's code, Android downloaded the APK from the CDN, checked its
 device owner. With 1.0.1 (from this Mac's own server, not yet the CDN: a run from the live page's code was cut off
 when its emulator was closed), with the setup wizard's last step sent by hand (`ADMIN_POLICY_COMPLIANCE`) and the code's
 `runtime_url` given over adb (the extras bundle can't be passed with `am`), the display was Home in kiosk mode,
-asked for a PIN, downloaded and unpacked the runtime, and opened OpenHouse's first run ("Which AI does your
+asked for a PIN, downloaded and unpacked the runtime, and opened Opie's first run ("Which AI does your
 family use?"). 1.0.0 failed here: a release's built-in bridge address was the emulator's computer (10.0.2.2), which
 only tablets set up over adb overrode, so its runtime never started; 1.0.1 defaults to the tablet's own.
 
@@ -346,11 +346,11 @@ is on the CDN at `releases/voice/1/` (every file checked against `voice.json`).
 1. A new tablet, or one reset to factory settings. Don't add a Google or Samsung account.
 2. On the first welcome screen, tap the same spot six times. A QR scanner opens.
 3. Connect to Wi-Fi if it asks, then scan the code at https://updates.openhouse.computer/setup. Accept the "This device
-   belongs to your organization" screens. The tablet downloads OpenHouse (about 24 MB, then the 211 MB runtime) and
+   belongs to your organization" screens. The tablet downloads Opie (about 24 MB, then the 211 MB runtime) and
    opens it.
 4. On the tablet: set the PIN, then pick the AI and sign in.
 
-5. Device control, once (the assistant using other apps): Settings → Device control → switch on "OpenHouse
+5. Device control, once (the assistant using other apps): Settings → Device control → switch on "Opie
    assistant" in Android's settings and tap Allow. Home brings the display and kiosk mode back.
 
 That's all: from 1.0.7 a tablet set up from the code needs no computer. What `tablet-setup.sh` did over USB, and what
@@ -447,12 +447,12 @@ built from the fix: handed over in about 10 s, and after it only `computer.openh
 enabled and bound; reopening the old display was refused by kiosk mode. The new display then asked the Mac for a
 runtime, the old one having been removed for the test.
 
-### Moving to OpenHouse (2026-11-19, OpenHouse 1.0.0 as released)
+### Moving to Opie (2026-11-19, Opie 1.0.0 as released)
 
 On a read-only copy of the emulator set up like a prototype tablet (`display-agentbox`: the old display as device
 owner in lock task, family app launcher entries, the assistant's app, a 696 MB family folder of about 6,900 files),
 with main's debug build installed over it first with `install-display.sh` (as the family's deploys do: it updated
-`dev.openhouse.shell` in place), then the real OpenHouse 1.0.0 (`release.sh`, signed with the release key) and a
+`dev.openhouse.shell` in place), then the real Opie 1.0.0 (`release.sh`, signed with the release key) and a
 stand-in sign-in in the old assistant app:
 
 - `move-tablet.sh -s emulator-5610 --release ~/.openhouse/releases/1.0.0 --no-backup`: handed over each time; the
@@ -474,7 +474,7 @@ build (tried in the earlier run below). The emulator's 7.7 GB can't hold two cop
 so the old assistant's runtime and, after the handover, the old display's runtime copy were removed by hand; with the
 disk full, the family apps' new launcher entries failed to write (ENOSPC), which `move-tablet.sh`'s 4 GB margin is for.
 
-### Moving to OpenHouse, first tried under the com.roocode.home IDs (2026-11-18)
+### Moving to Opie, first tried under the com.roocode.home IDs (2026-11-18)
 
 On a read-only copy of the emulator set up like a prototype tablet (`display-agentbox`: the old display as device
 owner in lock task, 13 family app launcher entries, the assistant's app, a 1.8 GB runtime, a 696 MB family folder of

@@ -5,39 +5,39 @@ Friday's pizza", "set a 5 minute timer in Clock"). It reads the screen through A
 and the floating face moves next to each thing it touches, saying what it's doing ("Tapping “Reorder”"), with a Stop
 button. It never finishes the last step that costs money or reaches other people: it stops there and the person taps it.
 
-## OpenHouse's own screen (2026-11-21)
+## Opie's own screen (2026-11-21)
 
-Opie can open and move between tabs, and use OpenHouse itself as well as other apps.
+Opie can open and move between tabs, and use its own screens as well as other apps.
 
 - `show_on_screen {what}` puts the screen on a tab or one of the household's apps (an app that isn't a tab opens full
-  screen), from wherever it is: OpenHouse comes to the front from another Android app (device server `/front`), an app
+  screen), from wherever it is: Opie comes to the front from another Android app (device server `/front`), an app
   open full screen closes, the Settings list closes. Its `what` is an enum of the tabs and apps there are now, with
   their names in the description, rebuilt for every conversation. Offered without device control too.
-- `look_at_screen`, `tap`, `type` and `scroll` work on OpenHouse's own pages (the tabs and apps are web pages: their
-  elements come through accessibility), with device control on; "Opie uses apps" isn't needed for OpenHouse's own screen.
+- `look_at_screen`, `tap`, `type` and `scroll` work on Opie's own pages (the tabs and apps are web pages: their
+  elements come through accessibility), with device control on; "Opie uses apps" isn't needed for Opie's own screen.
   Chromium only builds a page's accessibility for a service that asks for more than window changes, so the service asks
   for every event while Opie is using the screen and goes back to window changes two minutes after its last action.
-- `type` with `submit` in OpenHouse's own page sends a real Enter key to the focused element (its fields add on
+- `type` with `submit` in Opie's own page sends a real Enter key to the focused element (its fields add on
   keydown); nothing leaves the house, so the "written, not sent" rule is for other apps only. An app open full screen
   runs in its own process, where this isn't possible yet: there Opie taps the page's own button.
-- **Never Settings, a PIN or OpenHouse's own questions.** While the Settings list, any of OpenHouse's dialogs
+- **Never Settings, a PIN or Opie's own questions.** While the Settings list, any of Opie's dialogs
   (CalmDialog: Settings' rows, PINs, "Is this OK?") or a PIN pad (in any window: the pad carries a marker its windows
   are checked for) is up, the screen list says so instead of listing them, and taps, typing and scrolling there are
   refused. Opie can't enter or get round the PIN.
 - Nothing matches words in what people say: whether someone wants it to stop is the model's call
   (`stop_using_apps`, which halts like the Stop button). (The first version matched "stop" words; removed.)
 
-## Anything a person can do in OpenHouse (2026-11-21, later)
+## Anything a person can do in Opie (2026-11-21, later)
 
-Opie can do anything a person can do within OpenHouse's own application.
+Opie can do anything a person can do within its own app.
 
-- Settings and OpenHouse's own dialogs are now Opie's to use too (they were off limits in the first version). Its
+- Settings and its own dialogs are now Opie's to use too (they were off limits in the first version). Its
   limits are a person's: Settings' rows ask for the PIN when the lock is on, and a PIN pad is the one thing Opie can't
   see or touch (any window with one: the screen list says a PIN is being asked for, every action is refused).
 - A few controls are a person's own, whoever's tap it is: Device control, Opie uses apps, Home network, USB debugging,
   Android settings, Leave kiosk mode, and "Add" on a calendar or album someone sent. They check
   `DeviceServer.personOnly` and do nothing when Opie's tap set them off in the last 2.5 s; Opie hears why.
-- Hard to take back on OpenHouse's screen (a button labelled delete, remove, reset...): the tap answers "ask them
+- Hard to take back on Opie's screen (a button labelled delete, remove, reset...): the tap answers "ask them
   first", and goes through only with `confirmed: true` after a spoken yes. (Other apps keep the on-screen "Is this OK?".)
 - Direct tools first: `timer` (start, list, cancel: what the screen's timers do), `show_on_screen`, and the household
   tools; look, tap, type and scroll for the rest.
@@ -79,7 +79,7 @@ its own token).
 | `tap {id | x,y, long?}` | Taps an element or a point. |
 | `type {text, id?, submit?}` | Types into a field. `submit` presses enter only in a search box. |
 | `scroll {direction, id?}` | Scrolls. |
-| `press {back | home}` | Back, or home to OpenHouse. |
+| `press {back | home}` | Back, or home to Opie. |
 
 Every action answers with what's on screen afterwards, so a step is usually one call. The rules the assistant gets are
 in `DEVICE_RULES` (device-tools.js): say what it's about to do in a few words, work from the screen it's given, stop and
@@ -104,7 +104,7 @@ Enforced in the shell (where the bridge can't change them), and again where the 
   kiosk); installing goes through `install_app` only.
 - **Other risky taps ask.** Delete, remove, share, call, allow, accept and the like still show the "Is this OK?" card
   (as before), and wait for a person.
-- **Stop.** The face's Stop button halts at once and goes back to OpenHouse. Asking Opie to stop has it call
+- **Stop.** The face's Stop button halts at once and goes back to Opie's home screen. Asking Opie to stop has it call
   `stop_using_apps`, which halts at once and stays where it is; typed Stop does too. A stopped run refuses every
   further action until the next request.
 - **Limits.** At most 60 actions for one request and 40 a minute; then it stops and says where it got to. A typed turn
@@ -120,7 +120,7 @@ picture can't be recognised. Keep to well-made apps; Opie is told to stop at any
 ## Kiosk
 
 An app Opie opens or installs is added to the tablet's apps (AppStore's list: it shows in Apps, and the kiosk's lock
-task list lets it open). Back from an app's first screen and Home both land on OpenHouse; the kiosk stays locked.
+task list lets it open). Back from an app's first screen and Home both land on Opie; the kiosk stays locked.
 
 ## Cost and latency
 
@@ -138,12 +138,12 @@ emulator wasn't linked to a cloud account):
 - Clock: "Let Opie open Clock?" card, yes, opened; Timer tab, 5, 0, 0, Start. Opening Messages a second time needed no
   card (it had become an added app).
 - "Opie, stop" via `/live/said`: the next tap was refused; the next request worked again. The face's Stop button:
-  the next tap answered "Stopped: Someone pressed Stop on the screen", and the tablet went back to OpenHouse.
+  the next tap answered "Stopped: Someone pressed Stop on the screen", and the tablet went back to Opie.
 - Messages: started a chat to 555-0100 (the "Send to 555-0100" row was allowed after narrowing the rule), typed
   "Running late, home by 6" with submit: written, not sent; tapping "Send SMS" by number, by its parent and by
   coordinates: all refused.
 - Installed Fossify Calculator through `install_app` (Aurora fetched and set up, the app installed by the shell),
-  opened it, 7 × 6 = 42, Home and Back both landed on OpenHouse with lock task mode still LOCKED.
+  opened it, 7 × 6 = 42, Home and Back both landed on Opie with lock task mode still LOCKED.
 - The speech log had each tool call, its result and the shell's action line.
 
 Not tried: a real model (live voice or typed) driving a whole task, the picture description (needs the cloud),

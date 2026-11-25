@@ -37,9 +37,9 @@ restore the accounts are signed in again anyway (the sign-ins never leave the ta
 - **Google first**, then iCloud, then Outlook. One sync engine is shared, so the later providers are small.
 - **Google scope: the calendars they pick.** `calendar.events` (see, add, change and delete events) plus
   `calendar.calendarlist.readonly` (to list their calendars and pick). Events made on a phone can be changed or
-  deleted from the tablet. The narrower `calendar.app.created` (only a calendar OpenHouse makes) was turned down:
+  deleted from the tablet. The narrower `calendar.app.created` (only a calendar Opie makes) was turned down:
   everything made on a phone would stay read-only here.
-- **The refresh token is sealed on the tablet; the cloud only refreshes.** Refreshing needs OpenHouse's client
+- **The refresh token is sealed on the tablet; the cloud only refreshes.** Refreshing needs Opie's client
   secret, which can't ship in a public app. The tablet sends the sealed refresh token to the cloud about once an hour;
   the cloud adds the secret, asks Google for an access token, returns it and keeps nothing. Events go between the
   tablet and Google directly, never through the cloud.
@@ -109,7 +109,7 @@ which to show, which are two-way, whose each is, and the default for new events.
 (its relay key), rate-limited per tablet, logging nothing of the token. An `invalid_grant` answer (revoked, or
 Google's 7-day expiry for apps still in testing) tells the tablet to ask for a new sign-in on that account.
 
-**What the user sets up** (in the OpenHouse Google Cloud project, which Google Photos needs too):
+**What the user sets up** (in the Opie Google Cloud project, which Google Photos needs too):
 
 1. Enable the Google Calendar API; add the two scopes to the consent screen.
 2. The Web OAuth client with `https://openhouse.computer/g/done` as its redirect, in Parameter Store as now.
@@ -137,7 +137,7 @@ The same code works for other CalDAV servers (Fastmail, Nextcloud) with their ow
 ## Outlook
 
 Microsoft Graph with `Calendars.ReadWrite` and `offline_access`, for personal Microsoft accounts and work ones. An
-Entra app registration owned by OpenHouse, as a public client: no secret, so no cloud. Microsoft's device-code
+Entra app registration owned by Opie, as a public client: no secret, so no cloud. Microsoft's device-code
 sign-in works where Google's doesn't for calendars: the tablet shows a short code, the person enters it at
 microsoft.com/devicelogin on a phone. The refresh token is sealed in the shell. Publisher verification (tied to a
 Microsoft Partner account) removes the "unverified" label; work tenants may need their admin's consent anyway.

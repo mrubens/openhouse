@@ -39,7 +39,7 @@ iPhone: a real share sheet entry, notes that open the right screen, widgets, and
   items off on the widget). They ask the tablet themselves through the relay, sealed with the phone's key
   (`ios/Shared/Tablet.swift`, the same requests as the page), every 20 minutes and when the app opens; the last answer
   is kept for when home doesn't answer. Tapping one opens that tab.
-- **Siri and Shortcuts** (`ios/App/AskOpie.swift`): "Ask OpenHouse", an App Intent that sends a typed turn to Opie as
+- **Siri and Shortcuts** (`ios/App/AskOpie.swift`): "Ask Opie", an App Intent that sends a typed turn to Opie as
   this phone's person (`POST /chat`) and says the answer.
 
 ## Building
@@ -82,8 +82,8 @@ both widgets with the household's events and list, Milk ticked off on the widget
    `{"keyId": "…", "teamId": "…", "key": "-----BEGIN PRIVATE KEY-----\n…"}`, at `/home-cloud/apns-key`
    (`openhouse-cloud/docs/cloud.md`). Until it's there, the cloud answers 503 and notes on iPhones don't go; the page's
    Web Push still works from Safari's home-screen copy.
-3. App Store Connect: the app record is **OpenHouse: Household AI** ("OpenHouse" was taken; the home screen still says
-   OpenHouse), with an internal TestFlight group, Household, that gets each uploaded build by itself. Upload: Archive
+3. App Store Connect: the app record is **OpenHouse: Household AI** (named before the product became Opie; "OpenHouse" was
+   taken; the home screen says Opie), with an internal TestFlight group, Household, that gets each uploaded build by itself. Upload: Archive
    in Xcode (or `xcodebuild archive`, then `-exportArchive` with method `app-store-connect` and destination `upload`).
 
 ## Export compliance
@@ -114,7 +114,7 @@ the review notes. The hub needs no open ports: phones reach it through the cloud
    their own. `--new-phone` makes a new link; remove the old phone on the settings page to end the old one.
 4. Paste the link into the app on a phone to check it, then into the review notes.
 
-OpenHouse's own demo household runs on AWS, in the cloud's stack with `demoHub: on` (`openhouse-cloud/lib/demo-hub.ts`:
+Opie's own demo household runs on AWS, in the cloud's stack with `demoHub: on` (`openhouse-cloud/lib/demo-hub.ts`:
 a t4g.small with no inbound ports, about $17 a month). Its family and hub credential are made by the operator with
 `scripts/cloud.sh node scripts/demo-hub.ts` (no sign-up; the family has no members), and its first start does steps 1
 to 3 by itself, with the nightly run in cron. Its link: `AWS_PROFILE=openhouse-admin scripts/cloud.sh node
@@ -138,16 +138,16 @@ Before the first submission:
 
 In App Store Connect (an Account Holder, Admin or App Manager does these):
 1. **TestFlight, Test Information** (left side, under General Information):
-   - Beta App Description: "OpenHouse is a household's shared screen and assistant. This app is the household's
+   - Beta App Description: "Opie is a household's shared screen and assistant. This app is the household's
      page on an iPhone: the day, lists, meals and apps, Opie the assistant, a share sheet entry, widgets and Siri.
-     Join with the code your OpenHouse tablet shows."
+     Join with the code your Opie tablet shows."
    - Feedback Email: the address testers' feedback goes to.
    - Marketing URL: `https://openhouse.computer`. Privacy Policy URL: `https://openhouse.computer/privacy`.
    - Beta App Review Information: contact name, phone and email. Sign-in required: off (there's no account in the
      app). Review notes:
-     "The app is the phone companion to a household's OpenHouse tablet, so it needs a household to join. Use our
+     "The app is the phone companion to a household's Opie tablet, so it needs a household to join. Use our
      demo household: open the app, tap 'Or paste its link', and paste this link: <the demo link, from `scripts/demo-hub.ts link`>. You'll be Sam in a
-     sample household. Try Today and the tabs, Talk to Opie, the Today and Groceries widgets, 'Ask OpenHouse' in
+     sample household. Try Today and the tabs, Talk to Opie, the Today and Groceries widgets, 'Ask Opie' in
      Shortcuts, and Send to Opie from Safari's share sheet."
    - Save.
 2. **TestFlight, External Testing, +**: a group named "Friends", Create.

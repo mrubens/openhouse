@@ -1,4 +1,4 @@
-# OpenHouse on a phone
+# Opie on a phone
 
 2026-11-20. The story for each person's phone, and what the first slice built. The page is `chat/src/phone.jsx`
 (served by the tablet at `/phone/`, and by the cloud at `/h/` through the relay). How it pairs and pushes is in
@@ -16,7 +16,7 @@ phone is the screen, and it is the same page.
 Someone opens their invite link (or scans the tablet's code), taps Join, and someone says yes on the tablet. Then:
 
 ```
- OpenHouse                       Sam
+ Opie                       Sam
  Thursday, November 20
 
  Swim in 15 minutes               ← the things: at most three
@@ -160,7 +160,7 @@ again; it needs removing and adding again after the cloud deploy.
 
 - **On an iPhone**: a shortcut, Send to Opie, in the share sheet for links, text and photos. It posts what was shared
   to the cloud's `/send` and shows Opie's answer as a notification. A photo is made a JPEG no wider than 1600 first.
-- **On Android**: OpenHouse is already in the share sheet (the page's `share_target`); what's shared goes to Opie the
+- **On Android**: Opie is already in the share sheet (the page's `share_target`); what's shared goes to Opie the
   same way, and the answer shows in the Opie sheet.
 - **What Opie does with it is its call**: it gets "(Shared from their phone's share sheet...)" and the item, as a typed
   turn from that person, with the household's tools (`save_recipe` is new: a recipe's link into the box). A photo is

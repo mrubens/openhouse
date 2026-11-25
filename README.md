@@ -1,8 +1,8 @@
-<img src="brand/logo.svg" width="64" height="64" alt="OpenHouse logo">
+<img src="brand/logo.svg" width="64" height="64" alt="Opie logo">
 
-# OpenHouse
+# Opie
 
-OpenHouse turns an Android tablet into the screen your household shares: the calendar, what's for dinner, the
+Opie turns an Android tablet into the screen your household shares: the calendar, what's for dinner, the
 grocery list, chores, photos, the weather. Every tab on it is a small web app, and you can change any of them, or
 make new ones, by asking an AI.
 
@@ -60,8 +60,8 @@ Android tablet (kiosk mode)
    ├─ bridge    a Node server: the household's data, the apps, conversations, voice tools
    └─ apps      web pages, one folder each, versioned with git
 
-OpenHouse cloud (optional)   live voice, accounts, backups, updates, reaching home from away
-Your computer                Claude or ChatGPT, connected through the OpenHouse connector
+Opie cloud (optional)   live voice, accounts, backups, updates, reaching home from away
+Your computer                Claude or ChatGPT, connected through the Opie connector
 ```
 
 Apps get a small JavaScript kit for the household's data, the calendar, Today, voice actions and devices on the home
@@ -69,7 +69,7 @@ network. Every change to an app is a git commit with who asked for it.
 
 Voice: the wake word is a small model of our own ([docs/wake-word.md](docs/wake-word.md)), built on
 [openWakeWord](https://github.com/dscripka/openWakeWord)'s features. After it wakes, the conversation is OpenAI's live
-voice, through the household's OpenHouse account ([docs/assistant.md](docs/assistant.md)).
+voice, through the household's Opie account ([docs/assistant.md](docs/assistant.md)).
 
 The cloud isn't in this repo. Without it, the tablet still runs on your home network: the home screen, the apps,
 plugins, backups to a USB drive, and building from a computer. [docs/cloud.md](docs/cloud.md) says what the tablet

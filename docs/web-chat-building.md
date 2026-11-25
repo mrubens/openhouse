@@ -1,4 +1,4 @@
-# Changing OpenHouse from claude.ai or ChatGPT (the web connector)
+# Changing Opie from claude.ai or ChatGPT (the web connector)
 
 Status (2026-11-20): **works with the real claude.ai** on a real tablet (1.0.9-local.11): sign-in with the
 tablet's code and Allow, then tool calls through the relay. Deployed at `https://cloud.openhouse.computer/mcp`. The
@@ -9,7 +9,7 @@ workshop doesn't answer. Neither stopped it.
 
 ## The goal
 
-Someone who has only ChatGPT (chatgpt.com or its app) or Claude (claude.ai or its app) can change their OpenHouse
+Someone who has only ChatGPT (chatgpt.com or its app) or Claude (claude.ai or its app) can change their Opie
 screen: add or change apps and tabs, change the look, and make and share plugins. That works from a phone too. They
 need no Claude Code, no Codex, no computer set up and no file to install.
 
@@ -23,7 +23,7 @@ connectors are remote MCP servers on a public https address behind OAuth, so the
 
 ## What the person does
 
-Once, on the tablet: **the gear → Account** must be linked to an OpenHouse account, with **Reach from away
+Once, on the tablet: **the gear → Account** must be linked to an Opie account, with **Reach from away
 from home** on. The connector reaches the tablet through the relay ([networking.md](networking.md)).
 
 Then the same screen that pairs a Mac does it. **The gear → Screens and computers → Add a screen → A
@@ -34,12 +34,12 @@ connector address next to the usual code:
 
 **In Claude** (claude.ai, or the Claude desktop app; any plan, and Free allows one custom connector):
 
-1. Settings → Connectors (Customize → Connectors) → **Add custom connector**. Name: OpenHouse. URL:
+1. Settings → Connectors (Customize → Connectors) → **Add custom connector**. Name: Opie. URL:
    `https://cloud.openhouse.computer/mcp`. Add, then **Connect**.
-2. A page from OpenHouse opens: "Connect Claude to your OpenHouse". Type the code the tablet shows and press Connect.
-3. The tablet asks **Let "Claude" use this OpenHouse?** Tap **Allow**. The page says "Connected" and goes back to
+2. A page from Opie opens: "Connect Claude to your Opie". Type the code the tablet shows and press Connect.
+3. The tablet asks **Let "Claude" use this Opie?** Tap **Allow**. The page says "Connected" and goes back to
    Claude.
-4. In any chat, on the web, the desktop app or the **Claude phone app**, turn on OpenHouse in the tools menu and ask:
+4. In any chat, on the web, the desktop app or the **Claude phone app**, turn on Opie in the tools menu and ask:
    "Add a countdown tab to the winter holidays." Claude asks before using a tool until you choose "Always allow"
    for it.
 
@@ -48,11 +48,11 @@ haven't checked whether it can be added from the phone app.
 
 **In ChatGPT** (chatgpt.com; works on a real account, 2026-11-20):
 
-1. **chatgpt.com/plugins** → **Add** (top right) → **Add custom MCP server**. Name: OpenHouse. URL:
+1. **chatgpt.com/plugins** → **Add** (top right) → **Add custom MCP server**. Name: Opie. URL:
    `https://cloud.openhouse.computer/mcp`. Authentication: OAuth. There was no developer-mode switch to turn on
    first on the account tried (a "Work" profile).
 2. Steps 2 and 3 above: the code, then **Allow** on the tablet, which names "ChatGPT".
-3. In a chat, pick OpenHouse and ask. ChatGPT asks before each tool that changes something; "Remember" holds for the
+3. In a chat, pick Opie and ask. ChatGPT asks before each tool that changes something; "Remember" holds for the
    rest of that chat. Tools that only look are marked read-only, so they don't ask.
 
 ChatGPT signed in through its client-ID metadata document (`https://chatgpt.com/oauth/client.json`). Which plans
@@ -169,7 +169,7 @@ Building from Claude or ChatGPT (or any AI) is free for everyone with the right 
   linked tablet with Use it away from home on. Nothing in the connector or the relay checks a subscription or an
   allowance (checked 2026-11-20: `relay.ts` and `connector.ts` only ask that the tablet is linked), and nothing should.
   It costs us about two cents a tablet-month.
-- **With no OpenHouse cloud at all: "Your own address".** The tablet serves the same connector itself
+- **With no Opie cloud at all: "Your own address".** The tablet serves the same connector itself
   (`bridge/web-mcp.js`): the same OAuth sign-in with the tablet's code and Allow, and MCP straight into the workshop.
   It runs on a listener of its own, port 8789, which answers only OAuth and `/mcp`: no screens, pairing or files. It
   is off until someone turns it on with an https address. Your own networking makes that port public over
@@ -251,7 +251,7 @@ A release-signed local build (1.0.9-local.40) went on an emulator, linked to the
 
 ## Lessons from the first real try (2026-11-20)
 
-1. Claude signed in (the code and Allow both worked), then said "OpenHouse returned an error when connecting". The
+1. Claude signed in (the code and Allow both worked), then said "Opie returned an error when connecting". The
    calls had reached the tablet.
 2. A second try said "The tablet said no" right after Allow, although the tablet had added it.
 3. Cause: API Gateway's WebSocket API runs each message in its own Lambda invocation, so the relay can pass a

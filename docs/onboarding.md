@@ -6,7 +6,7 @@ On the tablet:
 
 1. **Setup page** (updates.openhouse.computer/setup, `scripts/setup-page.sh`): reset the tablet, tap the welcome
    screen six times, scan the code, tap through Android's screens.
-2. **Getting OpenHouse ready**: the runtime downloads (a few minutes).
+2. **Getting Opie ready**: the runtime downloads (a few minutes).
 3. **Welcome**: one line ("Say “Hey Opie” or just type, and Opie answers. What you say after “Hey Opie” goes to
    OpenAI.") and **Turn on Opie** or **Without Opie**. No PIN step: the lock is off until someone turns it on.
 4. **Setup** (`ui/Setup.kt`), one step at a time, each with Back, Skip and Next, and Later to leave it:
@@ -19,7 +19,7 @@ On the tablet:
       openhouse.local:8788/phone and types it. Either joins at once as that person's, with the `setup` scope (no
       Allow: the code was only on the tablet). Nothing asks to link the account here: the page is a bookmark on the home Wi-Fi until the tablet is linked,
       then it installs and works away. Linking comes up only when it's needed, Turn on Opie, with why ("Opie's voice
-      comes through your OpenHouse account"). The tablet lists
+      comes through your Opie account"). The tablet lists
       what's been done there as it comes in (connected, calendars, albums, invited), and makes a fresh code when one
       has been used.
 
@@ -35,7 +35,7 @@ On the tablet:
 
 On the phone or computer (`chat/src/phone.jsx`, SetupFlow), five steps with Next and Back:
 
-1. **Keep OpenHouse here**: the app version (installable, from the cloud) when the tablet is linked, else a bookmark
+1. **Keep Opie here**: the app version (installable, from the cloud) when the tablet is linked, else a bookmark
    that works on the home Wi-Fi.
 2. **Your calendars**: paste a calendar's link (where to find it in Google, iCloud, Outlook), say whose. It goes
    straight in (`POST /setup/calendar`, no card on the tablet unless its lock is on).
@@ -58,12 +58,12 @@ Status: proposal, 2026-11-19. The sign-in relay (way 1's key piece) is built and
 
 ## Short answer
 
-**Make adding OpenHouse to Claude the whole setup.** Today there are two setups, the tablet's AI and the computer
+**Make adding Opie to Claude the whole setup.** Today there are two setups, the tablet's AI and the computer
 link. Instead, there's one conversation in the AI app the parent already uses on their computer:
 
 1. On openhouse.computer: **Add to Claude**. Open the file and click Install (or paste one line into Claude Code or
    Codex).
-2. In Claude: "Set up my OpenHouse." A page with a QR code opens on the computer. Type the Wi-Fi password there.
+2. In Claude: "Set up my Opie." A page with a QR code opens on the computer. Type the Wi-Fi password there.
 3. At the tablet: tap the welcome screen six times, scan the laptop's screen, and tap through Android's two consent
    screens. Then wait. Claude says what the tablet is doing.
 4. In Claude, which is still in the same chat: "Your tablet's up. Click Authorize in the browser tab I just opened."
@@ -77,7 +77,7 @@ Claude, and Codex means ChatGPT. It's about 15 actions, compared with about 40 t
 
 Three things make it one moment:
 
-- **The computer makes the setup QR.** The OpenHouse extension draws the provisioning QR code on the computer, with a
+- **The computer makes the setup QR.** The Opie extension draws the provisioning QR code on the computer, with a
   fresh secret `S` inside it. The tablet scans it, so the tablet and this computer are paired the moment it comes up.
   Seeing the screen is the proof that the parent is in the room. Nothing goes through a server.
 - **The computer catches the tablet's sign-in.** The tablet runs its own login, as now. Its sign-in link is opened in
@@ -94,7 +94,7 @@ Three things make it one moment:
 | Provision | tablet + a screen showing the QR | reset or unbox; tap the welcome screen 6×; Wi-Fi if asked; scan `provision-qr.sh`'s code; two Android consent screens; wait for the APK, then the runtime download |
 | First run | tablet | family names, wake name (Opie), PIN, voices |
 | AI | tablet (+ phone) | "Which AI does your family use?" Claude: sign in in the tablet's browser or on a phone (Handoff page), copy the code, paste it back. ChatGPT: a device code typed on a phone. OpenRouter: a key from a phone |
-| Computer link | tablet + computer | PIN → Connect Claude or ChatGPT → on the computer open `openhouse.local:8788` → download `.mcpb` or copy a one-liner → new session → "connect to my OpenHouse" + 12-character code → Allow on the tablet |
+| Computer link | tablet + computer | PIN → Connect Claude or ChatGPT → on the computer open `openhouse.local:8788` → download `.mcpb` or copy a one-liner → new session → "connect to my Opie" + 12-character code → Allow on the tablet |
 
 That's four separate starts, each with its own code and wait. The phone is there only because the tablet has no
 keyboard, and the computer, which has one, comes last. It's also asked "which AI?" twice: once on the tablet, and once
@@ -202,7 +202,7 @@ computer.
 ### 3. One family account (later)
 
 The parent signs in at `cloud.openhouse.computer`. The setup QR carries a link token, so the tablet comes up already
-linked. claude.ai or ChatGPT on the web then adds OpenHouse as a remote connector (the planned relay in
+linked. claude.ai or ChatGPT on the web then adds Opie as a remote connector (the planned relay in
 `docs/workshop-mcp.md`) by signing in with the same email. This reaches the browser-only families that way 1 can't,
 and it works away from home. But it's opt-in (it's a service the family's data passes through), it adds an email round
 trip, and the relay isn't built. It's best offered as a checkbox in way 1 or 2 ("reach it from anywhere, keep

@@ -1,6 +1,6 @@
 # The cloud service
 
-The first slice of OpenHouse's managed cloud: linking a tablet to a family account, encrypted backups, health
+The first slice of Opie's managed cloud: linking a tablet to a family account, encrypted backups, health
 check-ins and tablet updates. Its code (AWS CDK: Lambda, API Gateway, DynamoDB, S3, CloudFront) is in a private repo of its own,
 mrubens/openhouse-cloud, with its operator docs (AWS setup, deploying, releases, costs, voice). This page is what
 the tablet sees of it and what it keeps.
