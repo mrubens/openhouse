@@ -26,6 +26,68 @@ Everything that crosses the Wi-Fi today is **sealed end to end** with a key only
 So whatever carries the bytes between a phone or computer and the tablet never needs to be trusted with their
 contents. That changes the comparison: the carrier only has to get bytes there, and keep strangers from costing us money.
 
+## Who serves the code that holds a device's key
+
+Sealing protects what crosses the network, but the page that does the sealing holds the key, so it is only as safe
+as whoever serves that page's code. Where each device's code comes from (2026-11-25):
+
+| Device | Its code comes from | Over |
+|---|---|---|
+| The iPhone app | the app itself: the phone page built into it (`chat/phone-page.mjs`, served at `openhouse-app://phone/h/` by `ios/App/PhonePage.swift`) | nothing: Apple-signed |
+| A phone or screen's browser at home, with the tablet's https name | the tablet | https, `t-<random>.<lan domain>` with the tablet's own Let's Encrypt certificate |
+| The same without it (no cloud link, a router that refuses such names, no internet to look the name up) | the tablet | plain http on the Wi-Fi |
+| A phone's browser away from home (the cloud's `/h/`, and list and photo pages: `/l`, `/p/`) | the cloud | https |
+| A computer's MCP | the package installed on the computer | (its own code) |
+
+What's left, known and accepted:
+- **Browser phones away from home trust the cloud's code.** The cloud's copy of the phone page is the code that holds
+  the phone's key there, so a compromised cloud could serve one that leaks it. The cloud never sees the key otherwise
+  (it stays after `#`), and the relay only ever carries sealed bytes. The iPhone app is the path that doesn't trust the
+  cloud's code: its page is in the app. (Android phones have no app yet.)
+- **Plain http where there's no https name.** Someone on the Wi-Fi could change the page a browser loads over plain
+  http. Screens and phones joined before the name existed stay on their http address (their storage is that origin's;
+  moving them would mean joining again); new codes and links use the https name.
+- The iPhone app's joining step opens the tablet's joining page (`/phone/`) in the app, so it is as safe as that page's
+  address: the https name when the tablet has one.
+
+### An https address at home
+
+Each linked tablet gets a name of its own whose DNS answer is its address on the Wi-Fi, and a certificate for it,
+so a browser at home gets the tablet's pages over TLS with no warning and no setup.
+
+- **The name**: `t-<10 random letters>.<lanDomain>` (e.g. under `lan.openhouse.computer`). Random, not the tablet's
+  id: certificates are public (Certificate Transparency), so the name says nothing about whose it is. Its A record is
+  the tablet's private address (only RFC 1918 addresses are accepted, so the domain never names anyone else's server).
+- **The cloud** (`openhouse-cloud/lambda/lan.ts`) keeps the records in a Route 53 zone of their own and only for a
+  linked tablet, by its Device credential: `POST /v1/lan/name {ip}`, `/v1/lan/challenge {value}`,
+  `/v1/lan/challenge/done`, `/v1/lan/forget`. One name per tablet (a name is never handed out again); 12 address
+  changes and 10 challenges an hour per tablet. Unlinking, revoking or deleting the account removes the records.
+- **The tablet** (`bridge/lan-tls.js`, `bridge/acme.js`: ACME with only `node:crypto`) makes its own keys, asks Let's
+  Encrypt for the certificate, and proves the name by DNS-01: the cloud puts the challenge's digest in
+  `_acme-challenge.<name>`. The cloud never has the key, and couldn't use the certificate without it. Keys and the
+  certificate are in `.lan-tls/` next to the cloud link (mode 600, not in backups). It renews when a third of the
+  certificate is left (every ~60 days for Let's Encrypt's 90), with a new key each time; failures wait 1, 6, then 24
+  hours before trying again. The shell tells the bridge its address (`POST /screens/address`, when the network
+  changes); a hub can set `LAN_ADDRESS`. `LAN_TLS=off` turns it off.
+- **Serving**: the home network's port (8788) answers both: a connection that starts with a TLS handshake gets https
+  with the certificate, any other plain http (`bridge/screens.js`). A hub with its own certificate (`HUB_TLS_CERT`)
+  stays https only, as before.
+- **Links and QR codes** use `https://<name>:8788` only while the tablet, looking its name up through the router as a
+  phone would, gets its own address back (checked every 30 minutes). Otherwise they stay `http://<address>:8788`.
+  That covers routers that drop public names pointing at home addresses (DNS rebinding protection), and the internet
+  being down. Once it has a certificate the tablet keeps serving it with no internet or cloud; only renewing needs them.
+  Computers keep their plain address: their MCP code is their own, and they seal everything.
+
+Before many households (Let's Encrypt's limits, checked 2026-11-25 on letsencrypt.org/docs/rate-limits):
+- 50 new certificates per registered domain every 7 days, shared by every account. All tablets' names are under
+  one registered domain, so that's ~50 new tablets a week. Renewals of the same name are exempt from it (and fully
+  exempt when the client uses ARI, which `acme.js` doesn't yet). The fix is Let's Encrypt's rate-limit adjustment
+  form for the domain (https://isrg.formstack.com/forms/rate_limit_adjustment_request); it takes a week or two.
+- The Public Suffix List is not the way: it refuses entries whose only purpose is getting around a CA's limits.
+- 5 certificates per exact name a week, 5 failed validations per name an hour, 10 new accounts per IP every 3 hours:
+  none matter for one tablet, which keeps one account and renews every ~60 days.
+- Let's Encrypt's account is made by each tablet, with no email, agreeing to its Subscriber Agreement.
+
 ## The three ways
 
 ### 1. Tailscale on the tablet
