@@ -205,7 +205,6 @@ object DeviceServer {
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
     private val HOME_PATHS = setOf("/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still")
-    private val approveLock = Object()
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -222,8 +221,13 @@ object DeviceServer {
                 // the rest behind More.
                 val rights = b.optJSONArray("rights")?.let { a -> (0 until minOf(a.length(), 40)).mapNotNull { a.optJSONObject(it) }.map { it.optString("kind").take(20) to it.optString("text").take(300) } }.orEmpty()
                 val yesWord = b.optString("yes").trim().take(20).ifEmpty { "Allow" }
-                val yes = synchronized(approveLock) { acc.approve(b.optString("title").take(120), b.optString("detail").take(if (b.optBoolean("pin")) 3000 else 200), parent = parent,
-                    yes = yesWord, rights = rights, more = b.optString("more").take(3000).ifBlank { null }, danger = b.optBoolean("danger")) }
+                // Under the tools' lock: no device tool runs while the card is up, so none can answer it.
+                if (!lock.tryLock(60, java.util.concurrent.TimeUnit.SECONDS)) return 200 to JSONObject().put("yes", false).put("why", "the display is busy with $busyWith").toString()
+                val yes = try {
+                    busyWith = "a question on screen for the people here"
+                    acc.approve(b.optString("title").take(120), b.optString("detail").take(if (b.optBoolean("pin")) 3000 else 200), parent = parent,
+                        yes = yesWord, rights = rights, more = b.optString("more").take(3000).ifBlank { null }, danger = b.optBoolean("danger"))
+                } finally { busyWith = null; lock.unlock() }
                 acc.hideStatus()
                 200 to JSONObject().put("yes", yes).toString()
             }
@@ -318,7 +322,8 @@ object DeviceServer {
             "tools/list" -> JSONObject().put("tools", TOOLS)
             "tools/call" -> {
                 val name = params.optString("name")
-                if (!lock.tryLock(20, java.util.concurrent.TimeUnit.SECONDS)) JSONObject().put("content", org.json.JSONArray().put(JSONObject().put("type", "text").put("text", "The display is still busy with $busyWith; try again in a moment."))).put("isError", true)
+                DeviceRules.whileCard(dev.openhouse.ui.PersonCards.showing())?.let { text(it, true) }
+                    ?: if (!lock.tryLock(20, java.util.concurrent.TimeUnit.SECONDS)) JSONObject().put("content", org.json.JSONArray().put(JSONObject().put("type", "text").put("text", "The display is still busy with $busyWith; try again in a moment."))).put("isError", true)
                 else try { busyWith = name; call(name, params.optJSONObject("arguments") ?: JSONObject()) } finally { busyWith = null; lock.unlock() }
             }
             else -> return 200 to err(id, -32601, "unknown method")
@@ -376,6 +381,9 @@ object DeviceServer {
 
     private fun call1(name: String, a: JSONObject): JSONObject {
         stopped?.let { return text("Stopped: $it Don't continue; say so in one sentence.", true) }
+        // A card a person answers (DeviceAccess.approve, a device asking to pair, a link someone sent) is up: nothing on
+        // screen, reading it included, until it's gone.
+        DeviceRules.whileCard(dev.openhouse.ui.PersonCards.showing())?.let { return text(it, true) }
         // The camera's sheet is a person's to answer: while it's up Opie neither sees the screen nor touches it (CameraLook).
         if (CameraLook.showing) return text("Not done: the tablet is asking the people here about the camera, and only they answer it. Wait for look_with_camera to finish.", true)
         val acc = DeviceAccess.instance

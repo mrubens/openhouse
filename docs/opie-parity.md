@@ -8,6 +8,9 @@ the tablet", and from a phone, that it's on the tablet itself. The rules that do
 - The PIN is only ever typed by a person on the tablet. Opie never sees it, never takes it from what someone says,
   and nothing it does lands while a PIN pad is up (`DeviceServer.ownPrivate`); its tools can't answer the card
   (one tool runs at a time, and the card's own call is the one waiting).
+- While a card that waits for a person's answer is up (the "Is this OK?" card, a device asking to pair, a calendar or
+  album link someone sent: `ui/PersonCards.kt`), every device tool is refused, reading the screen included, and Opie
+  tells them it's theirs to answer. The card's yes also takes only a real touch, not an injected one.
 - What is person-only (`DeviceServer.personOnly`: turning on email, allowing a held email, Opie uses apps and other
   switches that widen what Opie may do, ways out of OpenHouse, saying yes to a calendar or album someone sent) needs a
   person's own tap, PIN or not. Opie can open the screen; the tap is theirs.

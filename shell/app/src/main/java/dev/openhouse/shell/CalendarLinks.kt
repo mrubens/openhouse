@@ -222,7 +222,7 @@ object CalendarLinks {
     fun offer(a: Activity, withPin: (() -> Unit) -> Unit, who: String, url: String, from: String, immersive: () -> Unit, done: (Boolean) -> Unit, name: String = "", only: String = "") {
         var answered = false
         val finish = { yes: Boolean -> if (!answered) { answered = true; done(yes) } }
-        CalmDialog(a).setTitle("Add ${name.ifBlank { label(who) }}?")
+        CalmDialog(a).setForPerson().setTitle("Add ${name.ifBlank { label(who) }}?")
             .setMessage(listOfNotNull(runCatching { URL(url).host }.getOrNull(), only.takeIf { it.isNotBlank() }?.let { "Only: $it" }, from.takeIf { it.isNotBlank() }?.let { "Sent by $it." }).joinToString("\n"))
             .setPositiveButton("Add") { _, _ -> if (DeviceServer.personOnly("Adding a calendar someone sent")) { finish(false); return@setPositiveButton }; withPin { thread { add(who, url, name, only); sync() }; finish(true) } }
             .setNegativeButton("Not now") { _, _ -> finish(false) }

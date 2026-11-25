@@ -47,6 +47,13 @@ internal object DeviceRules {
         pkg in setOf("com.android.vending", "com.sec.android.app.samsungapps", "com.amazon.venezia", "org.fdroid.fdroid",
             "com.huawei.appmarket", "com.google.android.packageinstaller", "com.android.packageinstaller", AppStore.AURORA)
 
+    /** A card waiting for a person's own answer is up ([card], its title; dev.openhouse.ui.PersonCards): every device
+     *  tool is refused until it's gone, so nothing Opie does on screen can answer it. Null when none is up. */
+    fun whileCard(card: String?): String? = card?.let {
+        "Not done: the tablet is asking the people here “${it.trimEnd('?')}?”, and a person needs to answer the card on screen. " +
+            "Tell them it's theirs to answer on the tablet; nothing on screen can be done until it's gone."
+    }
+
     /** What the refusal says, for the assistant to pass on. */
     fun refusal(what: String) = "Not done: Opie never taps “$what” (paying, ordering, buying, sending or deleting an account is the person's own tap). " +
         "Stop here. Tell them it's ready and that they can tap “$what” themselves when they're happy with it."
