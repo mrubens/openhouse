@@ -89,14 +89,14 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     if (r.status !== 200 || r.json?.status !== 'linked') throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}` });
     if (base !== defaultApi) write('config.json', { api: base });
     write('device.json', { api: base, deviceId: r.json.deviceId, credential: r.json.credential, family: r.json.family?.name || '', name: r.json.name, linkedAt: iso(), rotatedAt: iso(), via: 'setup' });
-    setState({ unlinkedAt: null, unlinkedWhy: null });
+    setState({ unlinkedAt: null, unlinkedWhy: null, unlinkedHere: null });
     return status();
   }
 
   /** The service's answer that carries the tablet's credential (a code's poll, or a yes to the account that claimed it). */
   function keep(base, j) {
     write('device.json', { api: base, deviceId: j.deviceId, credential: j.credential, family: j.family?.name || '', name: j.name, linkedAt: iso(), rotatedAt: iso() });
-    setState({ unlinkedAt: null, unlinkedWhy: null });
+    setState({ unlinkedAt: null, unlinkedWhy: null, unlinkedHere: null });
   }
 
   // A code someone types on the web. The tablet asks the service to confirm: once the code is claimed, the poll says
@@ -328,6 +328,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         await reply(res, async () => {
           try { await call('POST', '/v1/device/unlink'); } catch (e) { if (e.code !== 'unlinked') throw e; }
           fs.rmSync(f('device.json'), { force: true });
+          setState({ unlinkedHere: iso() }); // (unlinked for good: its https name's certificate goes too, lan-tls.js)
           fs.rmSync(f('voice.json'), { force: true }); // better voice needs the family account
           return { ok: true };
         });
@@ -391,7 +392,12 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // The tablet's own https name at home (lan-tls.js; openhouse-cloud lambda/lan.ts).
   const lan = (what, b) => call('POST', `/v1/lan/${what}`, b ?? {});
   const linked = () => !!device();
-  return { lan, linked, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  /** Unlinked for certain: the service said this tablet was revoked, or someone unlinked it here. Not any other 401
+   *  (a credential it doesn't know may be a hiccup on either side), after which a relink can pick up where it was. */
+  const revoked = () => { if (device()) return false; const s = state(); return s.unlinkedWhy === 'revoked' || !!s.unlinkedHere; };
+  /** Which link this is (a relink is a new one). */
+  const linkId = () => device()?.deviceId || null;
+  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

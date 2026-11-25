@@ -68,7 +68,12 @@ so a browser at home gets the tablet's pages over TLS with no warning and no set
   certificate are in `.lan-tls/` next to the cloud link (mode 600, not in backups). It renews when a third of the
   certificate is left (every ~60 days for Let's Encrypt's 90), with a new key each time; failures wait 1, 6, then 24
   hours before trying again. The shell tells the bridge its address (`POST /screens/address`, when the network
-  changes); a hub can set `LAN_ADDRESS`. `LAN_TLS=off` turns it off.
+  changes); a hub can set `LAN_ADDRESS`. A step that can't reach the cloud (a new address while the internet is down)
+  is tried again after 1, 3, 10, then every 30 minutes. The certificate goes only when the tablet is unlinked for
+  certain (revoked, or unlinked on the tablet); after another refused credential it stays, and a relink asks for the
+  same name back (`keep`). `LAN_TLS=off` turns it off.
+- **Connections** on that port must send a request's headers within 20 s, its body within 60 s, and anything at all
+  within 3 minutes; turning the home network off closes them all.
 - **Serving**: the home network's port (8788) answers both: a connection that starts with a TLS handshake gets https
   with the certificate, any other plain http (`bridge/screens.js`). A hub with its own certificate (`HUB_TLS_CERT`)
   stays https only, as before.

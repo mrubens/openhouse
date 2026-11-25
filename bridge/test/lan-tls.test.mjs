@@ -61,8 +61,9 @@ async function fakeCa(dir) {
 
 function fakeCloud() {
   const calls = [];
-  let linked = true;
-  return { calls, unlink: () => { linked = false; }, linked: () => linked,
+  let linked = true, revoked = false, id = 'd1';
+  return { calls, unlink: (forGood = true) => { linked = false; revoked = forGood; }, relink: (to) => { linked = true; revoked = false; id = to; },
+    linked: () => linked, revoked: () => !linked && revoked, linkId: () => (linked ? id : null),
     async lan(what, b) { calls.push([what, b]); if (what === 'name') return { name: 't-abcdefghjk.lan.example.com', ip: b.ip }; return { ok: true }; } };
 }
 
@@ -102,7 +103,15 @@ test('gets its own certificate: key made and kept here, the cloud sees only the 
     const before = ca.seen.length;
     await t.kick();
     assert.equal(ca.seen.length, before);
-    // Unlinked (the cloud took the name away): the certificate and the name go here too.
+    // A 401 that isn't a revoke: the certificate stays; linked again, it asks for the name it had.
+    cloud.unlink(false);
+    await t.check(); await t.kick();
+    assert.ok(t.tls(), 'kept');
+    cloud.relink('d2');
+    await t.kick();
+    assert.deepEqual(cloud.calls.at(-1), ['name', { ip: '192.168.1.20', keep: 't-abcdefghjk.lan.example.com' }]);
+    assert.ok(t.tls());
+    // Revoked (the cloud took the name away): the certificate and the name go here too.
     cloud.unlink();
     await t.check();
     assert.equal(t.tls(), null);
