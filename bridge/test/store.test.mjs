@@ -60,6 +60,31 @@ test('a cut-off save or an unreadable store keeps the previous contents', async 
   }
 });
 
+test('a short write (a full disk) leaves the file and its .bak as they were', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-short-')), f = path.join(root, 'later.json');
+  const errors = console.error; console.error = () => {};
+  const write = fs.writeSync;
+  const read = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
+  try {
+    writeJson(f, { items: [1] }); writeJson(f, { items: [1, 2] }); // (.bak: the first)
+    // The disk fills partway: writeSync writes some of what it's given, then nothing, without throwing.
+    let calls = 0;
+    fs.writeSync = (fd, buf, off = 0, len = buf.length - off) => (calls++ ? 0 : write(fd, buf, off, Math.max(1, len >> 1)));
+    try { assert.throws(() => writeJson(f, { items: [1, 2, 3] })); } finally { fs.writeSync = write; }
+    assert.deepEqual(read(f), { items: [1, 2] });
+    assert.deepEqual(read(f + '.bak'), { items: [1] });
+    assert.ok(!fs.existsSync(f + '.tmp'));
+
+    // Only the .bak's copy runs short: the save goes in, and the .bak is still a whole earlier version.
+    let n = 0;
+    fs.writeSync = (fd, buf, off = 0, len = buf.length - off) => (n++ === 0 ? write(fd, buf, off, len) : 0);
+    try { writeJson(f, { items: [1, 2, 3] }); } finally { fs.writeSync = write; }
+    assert.deepEqual(read(f), { items: [1, 2, 3] });
+    assert.deepEqual(read(f + '.bak'), { items: [1] });
+    assert.ok(!fs.existsSync(f + '.bak.tmp'));
+  } finally { fs.writeSync = write; console.error = errors; fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 test('a store saved by a newer release is never saved over by this one', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'store-v-')), DIR = path.join(root, 'chats');
   fs.mkdirSync(DIR);

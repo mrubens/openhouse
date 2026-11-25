@@ -115,24 +115,42 @@ function parsesNow(file) {
   return !!parseFile(file).ok;
 }
 
+/** Write all of buf to f (new or replaced), on disk, and check it's all there; on any failure f is removed and this
+ *  throws. (fs.writeSync can write less than it was given, as on a full disk.) */
+function writeWhole(f, buf, mode) {
+  try {
+    const fd = fs.openSync(f, 'w', mode ?? 0o666);
+    try {
+      if (mode != null) fs.fchmodSync(fd, mode);
+      for (let at = 0; at < buf.length;) {
+        const n = fs.writeSync(fd, buf, at, buf.length - at);
+        if (!(n > 0)) throw Object.assign(new Error(`could not write ${f} (wrote ${at} of ${buf.length} bytes)`), { code: 'short' });
+        at += n;
+      }
+      fs.fsyncSync(fd);
+      const size = fs.fstatSync(fd).size;
+      if (size !== buf.length) throw Object.assign(new Error(`${f} is ${size} bytes, not ${buf.length}`), { code: 'short' });
+    } finally { fs.closeSync(fd); }
+  } catch (e) { try { fs.rmSync(f, { force: true }); } catch {} throw e; }
+}
+
 /** Replace a file's contents in one step. json: the file holds JSON, so an unparseable one is set aside, never
  *  overwritten or kept as the .bak. mode: the file's permissions (0o600 for keys). */
 export function writeFileAtomic(file, text, { bak = false, mode, json = false } = {}) {
   const why = heldWhy(file);
   if (why) throw Object.assign(new Error(why), { code: 'held' });
   const tmp = file + '.tmp';
-  const fd = fs.openSync(tmp, 'w', mode ?? 0o666);
-  try {
-    if (mode != null) fs.fchmodSync(fd, mode);
-    fs.writeSync(fd, text);
-    fs.fsyncSync(fd);
-  } finally { fs.closeSync(fd); }
+  // The whole new version goes to file.tmp and is checked there first: a short write (a full disk) or any other
+  // failure leaves the file and its .bak as they were, and throws.
+  writeWhole(tmp, Buffer.from(text), mode);
   if (fs.existsSync(file)) {
     if (json && (damaged.has(file) || !parsesNow(file))) {
       const aside = `${file}.damaged-${Date.now()}`;
       try { fs.renameSync(file, aside); console.error('[store]', `${file} was unreadable; kept it as ${path.basename(aside)}`); } catch {}
     } else if (bak) {
-      try { fs.copyFileSync(file, file + '.bak'); if (mode != null) fs.chmodSync(file + '.bak', mode); } catch (e) { console.error('[store] no .bak for', file, e.message); }
+      // Copied whole to .bak.tmp first, so a failed copy never replaces a good .bak with a part of one.
+      try { writeWhole(file + '.bak.tmp', fs.readFileSync(file), mode); fs.renameSync(file + '.bak.tmp', file + '.bak'); }
+      catch (e) { try { fs.rmSync(file + '.bak.tmp', { force: true }); } catch {} console.error('[store] no .bak for', file, e.message); }
     }
   }
   fs.renameSync(tmp, file);
