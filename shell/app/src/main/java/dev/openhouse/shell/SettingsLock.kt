@@ -2,7 +2,8 @@ package dev.openhouse.shell
 
 // The shell's rows of Settings (the list is ui/Sheets.kt, SettingsSheet; docs/settings.md) and the optional lock:
 // off by default, so nothing everyday asks for a PIN. Turned on, it is a PIN (ParentPin), and the rows it locks ask for
-// it before they open. Erasing the tablet and the ways out of OpenHouse need one set first (withPinSet). The dialogs
+// it before they open. Erasing the tablet, the ways out of OpenHouse, unlinking and restoring need one set first
+// (withPinSet); a forgotten PIN is reset with its recovery code (PinPrompt.forgot). The dialogs
 // open over the list, so closing one comes back to it.
 
 import android.content.Intent
@@ -23,15 +24,16 @@ internal class SettingsLock(private val act: MainActivity) {
         PinPrompt.ask(act, act, title, ok)
     }
 
-    /** Erasing the tablet and the ways out of OpenHouse (leaving kiosk mode, Android settings, USB debugging): with the
-     *  lock on, straight to [ok] (This tablet already asked for the PIN). With it off, they wait for someone to set a
-     *  PIN, so taps alone never reach them; once it's chosen, [ok]. */
-    fun withPinSet(ok: () -> Unit) {
-        if (on) return ok()
+    /** Erasing the tablet, the ways out of OpenHouse (leaving kiosk mode, Android settings, USB debugging, Wi-Fi
+     *  settings after the first setup), unlinking and restoring a backup: with the lock on, the PIN (straight on within
+     *  the two minutes after it, as when This tablet just asked). With it off, they wait for someone to set a PIN and
+     *  keep its recovery code, so taps alone never reach them; once it's chosen, [ok]. [back]: they didn't. */
+    fun withPinSet(back: () -> Unit = { tablet() }, ok: () -> Unit) {
+        if (on) return PinPrompt.ask(act, act, "PIN", ok, cancelled = back)
         CalmDialog(act).setTitle("Set a PIN first")
             .setMessage("This needs PIN Lock on, so only someone who knows the PIN can do it.")
-            .setPositiveButton("Set a PIN") { _, _ -> PinPrompt.choose(act, act, then = { changed(); ok() }) }
-            .setNegativeButton("Cancel") { _, _ -> tablet() }.show()
+            .setPositiveButton("Set a PIN") { _, _ -> PinPrompt.choose(act, act, then = { changed(); ok() }, back = back) }
+            .setNegativeButton("Cancel") { _, _ -> back() }.show()
     }
 
     /** A row of Settings (the ids are SettingsSheet's). */
@@ -85,9 +87,15 @@ internal class SettingsLock(private val act: MainActivity) {
 
     // --- the lock ------------------------------------------------------------------------------------------------
 
-    private fun turnOn() = PinPrompt.choose(act, act, then = { changed(); tablet() })
+    private fun turnOn() = PinPrompt.choose(act, act, then = { changed(); tablet() }, back = { tablet() })
 
     private fun turnOff() = PinPrompt.ask(act, act, "Turn off the lock", { ParentPin.clear(act); changed(); tablet() })
+
+    /** A new recovery code for the PIN (one set before codes, or the old one lost): after the PIN; the old code stops
+     *  working once they've kept the new one. */
+    private fun newCode() = withPin {
+        PinPrompt.showCode(act, RecoveryCode.new(), keep = { ParentPin.setRecovery(act, it); act.toast("New recovery code kept"); tablet() }, back = { tablet() })
+    }
 
     /** The lock went on or off (the calendar's own lock goes off with it, never on). */
     fun changed() { syncCalendar(); Openhouse.settingsChanged() }
@@ -261,6 +269,7 @@ internal class SettingsLock(private val act: MainActivity) {
             head("Lock and updates"),
             CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },
         ) + (if (on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            CalmDialog.Row("PIN recovery code", value = if (ParentPin.hasRecovery(act)) null else "None") to person("PIN recovery code") { newCode() },
             CalmDialog.Row("Calendar needs the PIN", value = onOff(House.calendarLock)) to { withPin { setCalendarLock(!House.calendarLock); again() } },
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Updates", value = Updater.installedVersion(act)) to { updates() },

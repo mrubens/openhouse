@@ -142,7 +142,8 @@ internal class CloudMenu(private val act: MainActivity) {
         }
     }
 
-    private fun unlink() {
+    /** Behind a PIN, set first if there's none (SettingsLock.withPinSet): unlinked, the account's way back in goes. */
+    private fun unlink() = act.lock.withPinSet(back = { show() }) {
         CalmDialog(act).setTitle("Unlink this tablet?").setMessage("Its backups stay in the account.")
             .setPositiveButton("Unlink") { _, _ -> thread { val r = post("/cloud/unlink"); ui { if (r?.optBoolean("ok") == true) act.toast("Unlinked") else say("Unlink", r?.optString("error") ?: noBridge) } } }
             .setNegativeButton("Cancel", null).open()

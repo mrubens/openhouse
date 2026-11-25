@@ -361,7 +361,19 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         override fun setting(id: String) { main.post { lock.open(id) } }
         override fun settingValues() = lock.values()
         override fun locked() = lock.on
-        override fun wifi() { main.post { lock.withPin { leaveKiosk(); startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)) } } } // Home brings kiosk back
+        // Android's Wi-Fi settings leave kiosk mode (Home brings it back), so after the first setup they're behind the
+        // same rule as the other ways out (SettingsLock.withPinSet). Before it (no household saved yet: the welcome
+        // screen's Join Wi-Fi, a tablet arriving from elsewhere), there's no PIN to ask for and they open as they are.
+        override fun wifi() {
+            thread {
+                val firstSetup = runCatching { !JSONObject(dev.openhouse.ui.BridgeClient.getText("$bridge/household", 1500, 3000)).optBoolean("setup", true) }
+                    .getOrDefault(dev.openhouse.ui.Openhouse.showWelcome)
+                main.post {
+                    val open = { leaveKiosk(); startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)) }
+                    if (firstSetup) lock.withPin { open() } else lock.withPinSet(back = {}) { open() }
+                }
+            }
+        }
         // The assistant is OpenAI's, through the family's account (Settings → Voice): no sign-in on the tablet.
         override fun setUpAssistant() { main.post { CloudVoiceMenu(this@MainActivity).turnOn(linkNow = dev.openhouse.ui.Openhouse.setupStep == null) } } // first run: no lock yet; in setup, linking waits for its last step
         override fun hasAssistant() = LiveVoice.chosen
