@@ -48,6 +48,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Lists card: tick, untick, add | yes | change_list |
 | An app's day notes: week, today only, off | **new** | calendar_event settings.app_notes |
 | Sleep now (the moon) | **new** | tablet_screen sleep |
+| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and a grown-up says yes on the tablet's card, with the PIN, before it goes in (docs/building-on-the-tablet.md) |
 
 ## The built-in apps
 

@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/kit/openhouse.css">
+  <!-- Made on the tablet from the tab template (bridge/templates/tab): this file stays as it is. The app is main.js
+       (it fills #app) and app.css (its own look). The quiet kit comes last, so its sizes win: --u is one pixel of a
+       1536-wide screen, a phone's size under 700 px, and in a tab the home screen's. -->
+  <style>
+    :root { --u: calc(100vw / 1536); }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    body { user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+    #app { position: fixed; inset: 0; display: flex; flex-direction: column; padding: calc(30 * var(--u)) calc(44 * var(--u)) calc(24 * var(--u)); }
+  </style>
+  <link rel="stylesheet" href="./app.css">
+  <link rel="stylesheet" href="/kit/quiet.css">
+  <link rel="stylesheet" href="/kit/narrow.css">
+</head>
+<body><div id="app"></div><script type="module" src="./main.js"></script></body>
+</html>

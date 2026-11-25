@@ -1,7 +1,8 @@
 // The builder: an agent making or changing an app when it was asked outright (POST /request), with its progress
-// streamed to the screens, under the same lock as every other change (edits.js). The tablet has no coding agent now
-// (making apps is a computer's: workshop.js), so on a tablet /request only says so; a stand-in agent (AGENT=fake)
-// still runs here, which is how the edit lock is tested. check_build and the apps' errors (/apperror) are for everyone.
+// streamed to the screens, under the same lock as every other change (edits.js). On a tablet the agent is the cloud's
+// text model on rails (agents/cloud.js run, rails.js: docs/building-on-the-tablet.md); with that off, /request only
+// says a computer makes apps (workshop.js). A stand-in agent (AGENT=fake) runs here too, which is how the edit lock is
+// tested. check_build and the apps' errors (/apperror) are for everyone.
 //
 // POST /request {text, who?, app?, crash?, context?}  start a run; app = the app open on screen
 // POST /cancel                 stop the run and put back what it changed
@@ -193,7 +194,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
 
     // An app's page must load without errors. Feed what it threw back to the same agent session (up to 3 tries).
     let fixRounds = 0;
-    while (result.ok && touchedApps.size && events.state.state === 'working' && fixRounds < 3) {
+    while (result.ok && !result.checked && touchedApps.size && events.state.state === 'working' && fixRounds < 3) { // (checked: the agent did this itself, before a parent's yes: rails.js)
       emit({ type: 'phase', name: 'checking' });
       const failed = [];
       for (const app of touchedApps) {
@@ -254,12 +255,31 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     return true;
   }
 
+  /** Whether a request can be built here: a stand-in agent (AGENT=fake), or the cloud's model on rails (agents/cloud.js). */
+  async function buildsHere() {
+    const n = agentName();
+    if (n === 'none' || n === 'off') return false;
+    return n !== 'cloud' || (await import('./agents/cloud.js')).buildsHere();
+  }
+  /** Start making or changing an app from the bridge itself (the typed assistant's route, the voice's make_app): { ok } or { busy }. */
+  async function request(text, who = null, ctx = {}) {
+    text = String(text || '').trim();
+    if (!text || !(await buildsHere())) return { ok: false };
+    if (events.state.state === 'working') return { ok: false, busy: true };
+    startRun(text, who, { app: requestApp(ctx.app), ...ctx }).catch((e) => {
+      console.error(e);
+      emit({ type: 'done', ok: false, text: e.message });
+      setState({ state: 'idle', request: null, base: null });
+    });
+    return { ok: true };
+  }
+
   async function handle(req, res, url, b) {
     switch (url.pathname) {
       case '/request': {
         const text = String(b.text || '').trim();
         if (!text) return json(res, 400, { error: 'empty' });
-        if (['cloud', 'none', 'off'].includes(agentName())) { // no coding agent here: say where apps are made
+        if (!(await buildsHere())) { // no coding agent here: say where apps are made
           const { NEEDS_COMPUTER } = await import('./agents/cloud.js');
           emit({ type: 'done', spoken: !!b.spoken, ok: false, text: NEEDS_COMPUTER, ms: 0 });
           return json(res, 202, { ok: true });
@@ -287,5 +307,5 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     }
     return false;
   }
-  return { handle, checkBuild, appError, errors: () => [...appErrors].flatMap(([app, l]) => l.map((e) => ({ app, ...e }))), abort: () => abort?.abort(), forgetSession: () => { sessionId = null; } };
+  return { handle, request, checkBuild, appError, errors: () => [...appErrors].flatMap(([app, l]) => l.map((e) => ({ app, ...e }))), abort: () => abort?.abort(), forgetSession: () => { sessionId = null; } };
 }

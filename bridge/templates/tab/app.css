@@ -1,0 +1,5 @@
+/* This app's own look. Sizes in var(--u) (one pixel of a 1536-wide screen; a phone's size under 700 px), colors from
+   the household's palette: var(--bg), var(--card), var(--ink), var(--fg2), var(--tint), var(--hair), var(--accent),
+   var(--shadow), corners var(--r-panel). The quiet kit's pieces: .top, .title, .btn, .btn.soft, .chip, .q-rows, .q-check. */
+.body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: calc(16 * var(--u)); }
+.panel { background: var(--card); border-radius: var(--r-panel); box-shadow: var(--shadow); padding: calc(24 * var(--u)) calc(28 * var(--u)); }

@@ -633,7 +633,10 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     const stamp = stampOf();
     if (stamp !== cache.stamp) {
       const rights = new Map();
-      for (const e of Object.values(readAll())) if (e.kind === 'shared') for (const [id, a] of Object.entries(e.apps || {})) rights.set(id, new Set((a.uses || []).filter((u) => USES.includes(u))));
+      for (const e of Object.values(readAll())) for (const [id, a] of Object.entries(e.apps || {})) {
+        // A shared app's card granted its groups; an app made on the tablet (madeHere) only what a parent's yes granted.
+        if (e.kind === 'shared' || (e.kind === 'local' && a.limited)) rights.set(id, new Set((a.uses || []).filter((u) => USES.includes(u))));
+      }
       cache = { stamp, rights };
     }
     return cache.rights.get(app) || null;
@@ -642,6 +645,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   /** What a shared app's card fixed of its app.json: {background, screens, tablet, reaches}; null for ours and the household's. */
   function frozenOf(app) {
     const o = ownerOf(app);
+    if (o?.e.kind === 'local' && o.e.apps[app]?.limited) return { background: false, screens: undefined, tablet: false, reaches: [] }; // made on the tablet: none of it
     if (o?.e.kind !== 'shared') return null;
     const a = o.e.apps[app] || {};
     return { background: a.background === true, screens: a.screens?.length ? a.screens : undefined, tablet: a.tablet === true, reaches: reachesOf(app) };
@@ -651,9 +655,29 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
    *  household's, from its app.json "reaches". */
   function reachesOf(app) {
     const o = ownerOf(app);
+    if (o?.e.kind === 'local' && o.e.apps[app]?.limited) return []; // made on the tablet: no websites, whatever its app.json says
     const raw = o?.e.kind === 'shared' ? [...(o.e.apps[app]?.reaches || []), ...(o.e.apps[app]?.chosen || []).map((c) => c.host)] : appMeta(path.join(appsDir, app)).reaches;
     return (list(raw) || []).filter((h) => typeof h === 'string').map((h) => h.toLowerCase()).filter(reachOk).slice(0, 14);
   }
+
+  /**
+   * An app made on the tablet (rails.js), marked before its change is committed, in the same commit (undo takes both):
+   * the household's own, but with the rights of one from a link that was granted only [uses] (none by default), no
+   * websites, and its own origin. A change to an app that already has its own rights (ours, the household's) leaves
+   * them as they were; one to a limited app adds [uses] to what it had. Returns whether the app is limited now.
+   */
+  function madeHere(id, { uses = [] } = {}) {
+    if (!ID.test(id) || id === 'home' || !migrated()) return false;
+    const all = readAll(), o = ownerOf(id, all), granted = (Array.isArray(uses) ? uses : []).filter((u) => USES.includes(u));
+    if (o && !(o.e.kind === 'local' && o.e.apps[id]?.limited)) return false;
+    if (o) o.e.apps[id] = { ...o.e.apps[id], uses: [...new Set([...(o.e.apps[id].uses || []), ...granted])] };
+    else { const name = freeName(id, all); all[name] = { kind: 'local', title: appName(id), created: now(), apps: { [id]: { limited: true, uses: granted } } }; }
+    const name = o ? o.name : Object.keys(all).find((n) => all[n].apps?.[id]);
+    save(name, all[name]); cache.stamp = null;
+    return true;
+  }
+  /** Whether an app is one made on the tablet, with only what it was granted. */
+  const limited = (id) => { const o = ownerOf(id); return !!(o?.e.kind === 'local' && o.e.apps[id]?.limited); };
 
   // ---- a website chosen at setup (app.json "reaches": [{setup, why}]) ----
   const asking = new Set(); // one card at a time per app
@@ -1339,5 +1363,5 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     return false;
   }
 
-  return { handle, tools, call, card, rightsOf, frozenOf, askReach, forgetReach, inspect, put, update, merge, keepOurs, gallery, check, remove, reset, undoPlugin, installed, describe, exportFiles, summary, reconcile, migrate, unmigrate, syncBuiltins, start, readAll, ownerOf: (id) => ownerOf(id), checksOf, reachesOf, voiceTools, callVoice, DIR, MARK };
+  return { handle, tools, call, card, rightsOf, frozenOf, madeHere, limited, askReach, forgetReach, inspect, put, update, merge, keepOurs, gallery, check, remove, reset, undoPlugin, installed, describe, exportFiles, summary, reconcile, migrate, unmigrate, syncBuiltins, start, readAll, ownerOf: (id) => ownerOf(id), checksOf, reachesOf, voiceTools, callVoice, DIR, MARK };
 }
