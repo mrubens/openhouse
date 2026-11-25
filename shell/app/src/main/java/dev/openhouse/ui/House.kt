@@ -121,8 +121,10 @@ object House {
         if (started) return; started = true
         scope.launch {
             while (true) {
-                val j = runCatching { JSONObject(get(if (v == 0) "/house" else "/house/wait?v=$v")) }.getOrNull()
+                val j = runCatching { JSONObject(get(if (v == 0) "/house" else "/house/wait?v=$v&same=1")) }.getOrNull()
                 if (j == null) { delay(3000); continue }
+                v = j.optInt("v", v) // the bridge's own version now (after a restart it starts somewhere new)
+                if (j.optBoolean("same")) continue // nothing changed: what it has is still so
                 apply(j)
             }
         }

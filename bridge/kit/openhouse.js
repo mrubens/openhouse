@@ -169,7 +169,7 @@ async function follow() {
   if (polling) return; polling = true;
   let v = -1;
   for (;;) {
-    try { data = await call(v < 0 ? '/house' : `/house/wait?v=${v}`); v = data.v; for (const f of listeners) f(data); }
+    try { const r = await call(v < 0 ? '/house' : `/house/wait?v=${v}&same=1`); v = r.v; if (r.same) continue; data = r; for (const f of listeners) f(data); } // (same: nothing changed)
     catch { await new Promise((r) => setTimeout(r, 3000)); }
   }
 }

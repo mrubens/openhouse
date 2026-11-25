@@ -92,7 +92,8 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     if (!quiet) curate('household'); // a chore ticked on or off isn't worth a curation
     return h;
   }
-  const householdView = () => { const h = read(HOUSE, null); return { setup: !!h, family: h?.family || [], location: h?.location || '', address: h?.address || '', calendars: cal.labels(), chores: h?.chores || [], routines: h?.routines || [], calendar: cal.status() }; };
+  const viewOf = (h) => ({ setup: !!h, family: h?.family || [], location: h?.location || '', address: h?.address || '', calendars: cal.labels(), chores: h?.chores || [], routines: h?.routines || [], calendar: cal.status() });
+  const householdView = () => viewOf(read(HOUSE, null));
 
   function context() {
     const h = household(), now = new Date();
@@ -137,6 +138,8 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   handle.householdView = householdView;
   /** Synced calendars plus events in household.json (house.js adds the display's own). */
   handle.calendarEvents = () => [...(read(HOUSE, {}).events || []), ...cal.events(), ...sync.events()];
+  /** Both from one read of household.json (house.js: once for a whole /house view). */
+  handle.snapshot = () => { const h = read(HOUSE, null); return { view: viewOf(h), events: [...(h?.events || []), ...cal.events(), ...sync.events()] }; };
   handle.sync = sync;
   sync.start(() => handle.onCalendar?.()); // house.js redraws every screen
   homeScreen.migrate(load().pins); // pins from before the home screen had notes
