@@ -16,8 +16,13 @@ import android.widget.TextView
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
-import java.net.HttpURLConnection
+import java.net.Socket
 import java.net.URL
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SNIHostName
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 import java.security.KeyStore
 import java.util.UUID
 import javax.crypto.Cipher
@@ -93,10 +98,11 @@ object CalendarLinks {
         tmp.renameTo(file)
     }
 
-    /** A calendar link as people paste it (webcal:// too), or null if it isn't one. */
+    /** A calendar link as people paste it, or null if it isn't one. Always read over https: webcal:// (what Google,
+     *  iCloud and Outlook hand out for subscribing) and http:// links are the same address over https. */
     fun clean(raw: String): String? {
-        val u = raw.trim().replace(Regex("^webcals?://", RegexOption.IGNORE_CASE), "https://")
-        return u.takeIf { it.length <= 2000 && Regex("^https?://[^\\s/]+\\S*$", RegexOption.IGNORE_CASE).matches(it) }
+        val u = raw.trim().replace(Regex("^(webcals?|https?)://", RegexOption.IGNORE_CASE), "https://")
+        return u.takeIf { it.length <= 2000 && Regex("^https://[^\\s/]+\\S*$", RegexOption.IGNORE_CASE).matches(it) }
     }
 
     @Synchronized fun add(who: String, url: String, name: String = "", only: String = "") {
@@ -141,21 +147,65 @@ object CalendarLinks {
         if (a.length() > 0) Log.i(TAG, "moved ${a.length()} link(s) out of the household")
     }
 
+    /** An https address of [u] (http is read as https), or why it can't be read. */
+    private fun https(u: URL): URL = when (u.protocol.lowercase()) {
+        "https" -> u
+        "http" -> URL("https", u.host, if (u.port == 80) -1 else u.port, u.file)
+        else -> throw Said("Only https")
+    }
+
+    /**
+     * A link someone sent, read the way the bridge reads one (publicGet in bridge/app-web.js): https only, every hop
+     * (each redirect too) a name whose addresses are all public, never the home network or this tablet, and connected
+     * to at exactly the address checked, so a name can't answer one way to the check and another to the read.
+     */
     private fun fetch(url: String): String {
-        var u = URL(url)
-        repeat(5) {
-            val c = (u.openConnection() as HttpURLConnection).apply {
+        var u = https(URL(url))
+        repeat(6) { // the link, and up to five redirects
+            if (u.userInfo != null) throw Said("No sign-ins in the address")
+            val host = PublicAddress.bare(u.host)
+            if (host.isEmpty() || PublicAddress.localName(host)) throw Said("Not the home network")
+            val found = try { java.net.InetAddress.getAllByName(host).toList() } catch (e: Exception) { throw Said("Couldn't find it") }
+            if (found.isEmpty() || found.any { PublicAddress.isPrivate(it) }) throw Said("Not the home network")
+            val at = found.first()
+            val ip = at.hostAddress.substringBefore('%').let { if (at is java.net.Inet6Address) "[$it]" else it }
+            val c = (URL("https", ip, u.port, u.file).openConnection(java.net.Proxy.NO_PROXY) as HttpsURLConnection).apply {
                 connectTimeout = 15_000; readTimeout = 20_000; instanceFollowRedirects = false
+                sslSocketFactory = Pinned(host)
+                hostnameVerifier = HostnameVerifier { _, s -> HttpsURLConnection.getDefaultHostnameVerifier().verify(host, s) }
+                setRequestProperty("Host", if (u.port == -1 || u.port == 443) u.host else "${u.host}:${u.port}")
                 setRequestProperty("User-Agent", "openhouse-calendar/0.1")
             }
             val code = try { c.responseCode } catch (e: Exception) { throw Said("Couldn't reach it") }
-            if (code in 300..399) { u = URL(u, c.getHeaderField("Location") ?: throw Said("HTTP $code")); c.disconnect(); return@repeat }
+            if (code in 300..399) { u = https(URL(u, c.getHeaderField("Location") ?: throw Said("HTTP $code"))); c.disconnect(); return@repeat }
             if (code != 200) throw Said("HTTP $code")
             val bytes = c.inputStream.use { s -> val o = java.io.ByteArrayOutputStream(); val buf = ByteArray(16384); var n = 0
                 while (true) { val r = s.read(buf); if (r < 0) break; n += r; if (n > 8_000_000) throw Said("Too big"); o.write(buf, 0, r) }; o.toByteArray() }
             return String(bytes, Charsets.UTF_8)
         }
         throw Said("Too many redirects")
+    }
+
+    /**
+     * TLS for a connection made to the checked address: the server is asked for [host] (SNI) and the handshake is
+     * done here, before the connection sends anything; the certificate is checked for [host] (fetch's verifier).
+     * Only the layered socket (over the connection already made to the address) is ever used.
+     */
+    private class Pinned(private val host: String) : SSLSocketFactory() {
+        private val d = HttpsURLConnection.getDefaultSSLSocketFactory()
+        override fun getDefaultCipherSuites(): Array<String> = d.defaultCipherSuites
+        override fun getSupportedCipherSuites(): Array<String> = d.supportedCipherSuites
+        override fun createSocket(s: Socket, ignored: String?, port: Int, autoClose: Boolean): Socket =
+            (d.createSocket(s, host, port, autoClose) as SSLSocket).apply {
+                if (!host.contains(':') && !host.all { it.isDigit() || it == '.' })
+                    sslParameters = sslParameters.apply { serverNames = listOf(SNIHostName(host)) }
+                startHandshake()
+            }
+        private fun no(): Nothing = throw java.io.IOException("only over a checked address")
+        override fun createSocket(h: String?, p: Int): Socket = no()
+        override fun createSocket(h: String?, p: Int, la: java.net.InetAddress?, lp: Int): Socket = no()
+        override fun createSocket(a: java.net.InetAddress?, p: Int): Socket = no()
+        override fun createSocket(a: java.net.InetAddress?, p: Int, la: java.net.InetAddress?, lp: Int): Socket = no()
     }
 
     private fun post(path: String, body: JSONObject): String? = runCatching {
