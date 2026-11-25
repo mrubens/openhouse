@@ -127,6 +127,8 @@ test('an open change survives the bridge restarting (an update installed mid-cha
   assert.match((await get('/home')).computer?.text || '', /A clock tab/, 'still shown as being changed');
   const w = await mcp.call('write_file', { path: 'apps/clock/main.js', content: 'export const x = 1;' });
   assert.ok(!w.error, w.text);
+  assert.ok((await mcp.call('write_file', { path: 'apps/home/style.json', content: '{}' })).error, 'the look only through set_home');
+  assert.ok((await mcp.call('edit_file', { path: 'apps/home/style.json', old: '{', new: '{ ' })).error);
   await mcp.call('set_home', { tabs: ['today', 'clock', 'apps'] });
   assert.ok(!(await mcp.call('done_editing', {})).error);
   assert.equal(Number(git('rev-list', '--count', `${start}..HEAD`)), 1, 'what was written before and after the restart is one change');

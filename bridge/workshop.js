@@ -268,8 +268,9 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
         const rel = String(a.path || '').replace(/^\/+/, '');
         const file = insideApps(APP_DIR, rel);
         if (!file) return err('Only under apps/ (e.g. "apps/whiteboard/main.js").');
-        const app = path.relative(fs.realpathSync(appsDir), file).split(path.sep)[0]; // insideApps resolves links (/var is /private/var on a Mac)
+        const inApps = path.relative(fs.realpathSync(appsDir), file).split(path.sep), app = inApps[0]; // insideApps resolves links (/var is /private/var on a Mac)
         if (name === 'delete_file' && app === 'home') return err('Never apps/home (tabs and the look: set_home).');
+        if (app === 'home' && inApps.slice(1).join('/').toLowerCase() === 'style.json') return err('Not apps/home/style.json: tabs and the look go through set_home.');
         if (!edits.claim(c.turn)) return err(edits.busyText() || 'Someone else is changing the apps.');
         if (name === 'delete_file') {
           if (!fs.existsSync(file)) return err(`No file ${rel}.`);

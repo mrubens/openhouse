@@ -97,8 +97,11 @@ tablet bridge ◀──wss (dialed out, authenticated with the tablet's cloud de
   reaches the workshop tools from anywhere until someone removes it on the tablet (today: only from the Wi-Fi); that
   is the real change, so the switch stays off until someone turns it on or opens the Connect screen, and the Screens list shows when each device last came in from
   away. A stolen tablet credential lets someone pose as the tablet to the relay but not open anything a device sends.
-  A compromised relay sees sealed bytes; it can drop or delay them, not read or forge them (the counters and keys are
-  between device and tablet).
+  A compromised relay sees sealed bytes; it can drop or delay them, not read them, and not make up a request from a
+  device (the counters and keys are between device and tablet). With one exception: a phone set up with Send to Opie
+  (docs/phones.md) hands the cloud its share key with each share, so a compromised cloud could make up shares from
+  that phone. Those reach one route only, `POST /phone/share`: a typed turn to Opie as that person, never twice the
+  same, and over once the phone is removed in Settings. Nothing else a phone can do is open to it.
 - **Privacy:** our servers see which tablet a paired device talks to (by random ids), when, how many bytes, and IP
   addresses. Never contents. Nothing is logged but counts; no payloads in logs.
 - **Who it works for:** our-tablet cloud households, with nothing to install. Open-source self-installers deploy the
