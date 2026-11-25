@@ -74,6 +74,23 @@ export function reachMatches(host, reaches) {
   });
 }
 
+/**
+ * A recipe's link from a shared app: POST /house/recipe-link {link}, /house/meal {recipe: {link}} or {addText} that is
+ * a link (house/recipes.js addRecipeText). The bridge reads that page, and what it read lands in the recipes the app
+ * sees, so it is the web through the bridge like /apps/fetch: only a host the app's card said it reaches. null when it
+ * may (no link in it is the house's to answer), else {error}. A redirect from that host elsewhere is followed as for any
+ * recipe page: the host's own server could read that page itself, and a page on the home network is never read.
+ */
+export function recipeLinkRefused(pathname, b, reaches) {
+  const t = String(b?.addText ?? '').trim();
+  const l = String((pathname === '/house/recipe-link' ? b?.link : b?.recipe?.link ?? (/^\S+\.\S+$/.test(t) ? t : '')) ?? '').trim();
+  if (!l) return null;
+  let host = '';
+  try { host = new URL(/^https?:\/\//i.test(l) ? l : 'https://' + l).host; } catch {}
+  if (host && reachMatches(host, reaches)) return null;
+  return { error: reaches?.length ? `This app doesn't reach ${host || 'that link'}.` : "This app doesn't reach the internet." };
+}
+
 const aborted = () => Object.assign(new Error('aborted'), { name: 'AbortError' });
 /**
  * A GET to url that connects to exactly the address already checked (address, family), never looking the name up
