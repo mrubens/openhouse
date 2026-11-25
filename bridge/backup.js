@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import { readJson, writeJson, holdWrites, releaseWrites } from './store.js';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { quietRepo } from './edits.js';
 import { newRecoveryCode, keyFromCode, normalCode, encryptFile, decryptFile, pack, run, INCLUDE, VIDEO_BUDGET, keptVideos } from './backup-format.js';
 
 export const KEEP = { nightly: 7, manual: 5 };
@@ -137,6 +138,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
       fs.rmSync(tgz, { force: true });
       // Only what a backup may hold; what is there now is kept aside in .backup/before-restore until the next one.
       const entries = (header.entries || []).filter((e) => INCLUDE.includes(e) && fs.existsSync(path.join(out, e)));
+      for (const e of entries) quietRepo(path.join(out, e)); // a repo that comes back (webapp/) runs nothing of its own
       if (!entries.length) throw new Error('the backup is empty');
       job.step = 'putting back';
       // From here until the bridge starts again, nothing saves over what comes back from what it still holds in

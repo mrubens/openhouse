@@ -15,8 +15,35 @@ import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 
+/**
+ * For every git the bridge runs on the household's repos: nothing in the repo itself runs (hooks, a file monitor, a
+ * signing program), whatever its .git holds, as when it came back from a backup.
+ */
+export const GIT_SAFE = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c', 'commit.gpgSign=false', '-c', 'tag.gpgSign=false'];
+
+// Settings in a repo's own config that name a program or bring in more config: none are ours, so none stay.
+const RUNS = /^(filter|diff|merge|difftool|mergetool|include|includeif|credential|gpg|alias|url|remote|uploadpack|receive|sequence|pager|core\.(hookspath|fsmonitor|sshcommand|pager|editor|askpass|gitproxy|attributesfile|worktree)$|commit\.gpgsign$|tag\.gpgsign$)/i;
+/**
+ * A repo that came from somewhere else (a backup being restored): its hooks gone, and its config left with nothing
+ * that runs a program, with hooks pointed nowhere. Reading the config here runs nothing (git config --file).
+ */
+export function quietRepo(repo) {
+  const dotGit = path.join(repo, '.git');
+  if (!fs.existsSync(dotGit) || !fs.lstatSync(dotGit).isDirectory()) return false;
+  fs.rmSync(path.join(dotGit, 'hooks'), { recursive: true, force: true });
+  const cfg = path.join(dotGit, 'config');
+  if (fs.existsSync(cfg)) {
+    const c = (...a) => execFileSync('git', ['config', '--file', cfg, ...a], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    let keys = [];
+    try { keys = c('--name-only', '--list').split('\n').filter(Boolean); } catch { fs.rmSync(cfg); } // unreadable: git makes a plain one
+    for (const k of new Set(keys)) if (RUNS.test(k)) { try { c('--unset-all', k); } catch {} }
+  }
+  if (fs.existsSync(cfg)) execFileSync('git', ['config', '--file', cfg, 'core.hooksPath', '/dev/null'], { stdio: 'ignore' });
+  return true;
+}
+
 export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit = null, log = (...a) => console.log('[edits]', ...a) }) {
-  const git = (...args) => execFileSync('git', ['-c', 'user.name=display', '-c', 'user.email=display@local', ...args], {
+  const git = (...args) => execFileSync('git', [...GIT_SAFE, '-c', 'user.name=display', '-c', 'user.email=display@local', ...args], {
     cwd: APP_DIR, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
   }).trim();
   const dirty = () => !!git('status', '--porcelain');

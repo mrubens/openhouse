@@ -26,6 +26,7 @@ import { cleanLook, DEFAULT_TABS, isTab } from './home-screen.js';
 import { USES } from './apps.js';
 import { validateChecks } from './heartbeat-checks.js';
 import { publicGet } from './app-web.js';
+import { GIT_SAFE } from './edits.js';
 
 const ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(:\d{1,5})?$/;
@@ -881,7 +882,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
       for (const h of git('log', '-40', '--format=%H', '--', `apps/${id}`).split('\n').filter(Boolean)) {
         const names = git('ls-tree', '--name-only', h, `apps/${id}/`).split('\n').filter(Boolean).map((x) => path.basename(x));
         if (names.length !== Object.keys(a.files || {}).length || !names.every((n) => a.files[n])) continue;
-        const files = Object.fromEntries(names.map((n) => [n, execFileSync('git', ['show', `${h}:apps/${id}/${n}`], { cwd: APP_DIR, maxBuffer: 1e7 })]));
+        const files = Object.fromEntries(names.map((n) => [n, execFileSync('git', [...GIT_SAFE, 'show', `${h}:apps/${id}/${n}`], { cwd: APP_DIR, maxBuffer: 1e7 })]));
         if (same(hashes(files), a.files)) return files;
       }
     } catch {}
