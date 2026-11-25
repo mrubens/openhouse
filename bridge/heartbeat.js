@@ -289,7 +289,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
           if (!r.fresh) { done.push({ key: f.key, did: `already waiting (${r.fix.id})`, v }); continue; }
         }
       }
-      // A broken app: one line on Home, in code, no text model ("Drawing has a problem: ask Claude or ChatGPT to fix
+      // A broken app: one line on Home, in code, no text model ("Drawing has a problem: ask Opie to fix
       // it"), while its fix waits (things.js shows the fix) or, with none queued, while it's failing.
       if (f.kind === 'crash' && things) {
         const name = f.text.match(/^The (.*?) app/)?.[1] || f.app;

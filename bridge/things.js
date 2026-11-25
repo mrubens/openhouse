@@ -4,7 +4,7 @@
 //  - a suggestion from the heartbeat or the hourly review ("Leave by 4:50 for Ducks at MSU", "Nothing planned for
 //    dinner"): until its moment passes, or the check that found it stops finding it (dinner got planned);
 //  - a countdown to a one-off event ("Trip to Chicago in 4 days"): until it starts (never a daily or weekly event);
-//  - a broken app ("Drawing has a problem: ask Claude or ChatGPT to fix it"): while its fix waits, or while it's failing.
+//  - a broken app ("Drawing has a problem: ask Opie to fix it"): while its fix waits, or while it's failing.
 //  - an app's own line ("Lunch: Popcorn Chicken · Tacos tomorrow", kit today.show): one per app, until it says.
 //  - an app made on the tablet waiting for a grown-up's yes ("Reading Streak is waiting for a grown-up", build-waits.js):
 //    first, until it's answered or put back after a day; a tap ("build") shows its card again.
@@ -32,7 +32,7 @@ export function untilText(start, now) {
 const STOP = new Set(['the', 'one', 'that', 'this', 'about', 'thing', 'take', 'down', 'got', 'for', 'and', 'line']);
 const tabId = (t) => (/^[a-z0-9][a-z0-9-]{0,39}$/.test(String(t || '').trim().toLowerCase()) ? String(t).trim().toLowerCase() : null);
 const askText = (t) => plain(t).slice(0, 160) || null;
-const brokenText = (name) => `${name} has a problem: ask Claude or ChatGPT to fix it`;
+const brokenText = (name) => `${name} has a problem: ask Opie to fix it`;
 
 export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} }) {
   const FILE = registered('things', path.join(DIR, '../things.json'));
