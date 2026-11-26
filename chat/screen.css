@@ -500,7 +500,7 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 /* The sleep screen (screen.jsx Ambient): one of their photos edge to edge, the time large at the foot, and what's next
    on a glass panel at the right: the next thing on its coral card, then the day's lines. */
 .ambient { position: fixed; inset: 0; background: linear-gradient(180deg, #151a47 0%, #2a2b68 28%, #573c7a 54%, #9a5577 76%, #cc7a6a 100%); color: #fff; overflow: hidden; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
-.ambient > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.ambient > img, .ambient > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; } /* (a video too: it plays over its still) */
 .ambient > img.ambient-back { inset: -8%; width: 116%; height: 116%; object-fit: cover; filter: blur(calc(var(--u) * 50)) brightness(.6) saturate(1.3); } /* the photo whole, never cropped: its blur fills the margins */
 .ambient::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,10,24,.25) 0, rgba(8,10,24,0) 30%, rgba(8,10,24,.1) 50%, rgba(8,10,24,.78) 100%); }
 .ambient.night { background: #0b0b0d; } .ambient.night .ambient-time, .ambient.night .ambient-side { opacity: .6; }

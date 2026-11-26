@@ -810,7 +810,7 @@ export function useClipUrl(c, name) {
     setUrl(null);
     if (!name || !globalThis.OpenhouseDisplay) return;
     let stop = false;
-    c.json('GET', '/house/photo/' + encodeURIComponent(name) + '?play=1').then((r) => { if (!stop && r?.url) setUrl(r.url); }).catch(() => {});
+    c.json('GET', '/house/photo/' + encodeURIComponent(name) + '?play=1').then((r) => { if (!stop && r?.json?.url) setUrl(r.json.url); }).catch(() => {});
     return () => { stop = true; };
   }, [name]);
   return url;
