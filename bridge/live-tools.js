@@ -107,6 +107,15 @@ export const SCREEN_TOOL = { name: 'tablet_screen', description: "The tablet's s
     'or put it to sleep now, dark as at night until someone touches it ("go to sleep", "turn the screen off"). get says the brightness. For when the screen goes dark every night, that is night_hours.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'brightness', 'sleep'] },
     level: { type: 'string', enum: ['Automatic', 'Low', 'Medium', 'High', 'Full', 'brighter', 'dimmer'], description: 'For brightness' } } } };
+/** Music, audiobooks and podcasts in the tablet's media apps: devices/index.js mediaDo (the shell's /media, Media.kt). */
+export const MUSIC_TOOL = { name: 'music', description: "Music, audiobooks and podcasts on the tablet, in its media apps (the ones someone added and signed in to): " +
+    'search plays something (what, and which app by its name when they said or it matters; otherwise the app they last played from), ' +
+    'play resumes, pause, next, previous, seek some seconds back (negative) or forward ("back 30 seconds"), stop, or status: what is playing and which media apps the tablet has. ' +
+    'A book goes to an audiobook app, music to a music app; if the app they need isn\'t there, say so and offer to add it (install_app).',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['status', 'search', 'play', 'pause', 'next', 'previous', 'seek', 'stop'] },
+    query: { type: 'string', description: 'For search: what to play, as they said it ("Abbey Road", "some jazz for dinner", "the second Harry Potter book")' },
+    focus: { type: 'string', enum: ['artist', 'album', 'song', 'playlist', 'genre'], description: 'For search, only when it is clearly one of these' },
+    app: { type: 'string', description: 'Which media app, by its name as on the tablet' }, seconds: { type: 'number', description: 'For seek: negative is back' } } } };
 /** The house's other devices (speakers, streamers, printers...), as Settings' Linked devices buttons work them: devices/index.js devicesDo. */
 export const DEVICES_TOOL = { name: 'home_devices', description: "The house's devices the tablet found on the Wi-Fi and over Bluetooth (speakers, streamers, printers...), as Settings' Linked devices shows them: " +
     'list them with what each can do, then act: one of a device\'s actions (play, pause, volume_up, set_volume with params {"level": 20}, power_off...), or name one as the family calls it. ' +
@@ -204,7 +213,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const extraTools = () => { try { return extra?.tools() || []; } catch { return []; } };
   const btTools = () => { try { return tvDevices?.bluetoothOn?.() ? [BT_TOOL] : []; } catch { return []; } };
   const volumeTools = () => (tvDevices?.volume ? [VOLUME_TOOL] : []);
-  const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.devices ? [DEVICES_TOOL] : [])] : []);
+  const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.devices ? [DEVICES_TOOL] : []), ...(tvDevices.media ? [MUSIC_TOOL] : [])] : []);
   const family = () => { try { return (household?.read?.()?.family || []).filter((f) => f?.name); } catch { return []; } };
   const messageTools = () => { const n = [...new Set(family().map((f) => String(f.name)))]; return phones && n.length ? [messageTool(n)] : []; };
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
@@ -243,6 +252,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === GO_AWAY_TOOL.name) return { text: 'Ending now. Say nothing more, or just "Okay."', isError: false };
     if (name === 'volume' && tvDevices?.volume) { const r = await tvDevices.volume(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === DEVICES_TOOL.name && tvDevices?.devices) { const r = await tvDevices.devices(args || {}); return { text: r.text, isError: !r.ok }; }
+    if (name === MUSIC_TOOL.name && tvDevices?.media) { const r = await tvDevices.media(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === SCREEN_TOOL.name && tvDevices?.screen) { const r = await tvDevices.screen(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === 'bluetooth' && tvDevices?.bluetooth) { const r = await tvDevices.bluetooth(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (name === 'tv' && tvDevices) { const r = await tvDevices.tv(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }

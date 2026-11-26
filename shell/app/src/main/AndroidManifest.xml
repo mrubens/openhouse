@@ -71,6 +71,12 @@
             <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/device_access" />
         </service>
+        <!-- Music and audiobooks (Media.kt, docs/music.md): Android shows other apps' media sessions only to a notification
+             listener. It ignores the notifications themselves. -->
+        <service android:name=".MediaListener" android:exported="true" android:label="Opie now playing"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter><action android:name="android.service.notification.NotificationListenerService" /></intent-filter>
+        </service>
         <service android:name=".KeepOnline" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="The household display runs its local server (the home screen, voice and sync) in this app; it must stay reachable on the network while another app is in front." />

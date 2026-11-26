@@ -314,6 +314,11 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("Opie uses apps", value = if (!deviceOn) "Needs device control" else onOff(DeviceServer.appsOn(act))) to person("Opie uses apps") {
                 if (deviceOn) DeviceServer.setAppsOn(act, !DeviceServer.appsOn(act)); again()
             },
+        ) + (if (Media.listening(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            // Opie seeing what the media apps play (Media.kt, docs/music.md): set up over adb (tablet-setup.sh), or here,
+            // on Android's own page, with the PIN. Shown only while it's off.
+            CalmDialog.Row("Now playing", value = "Off") to person("Now playing") { withPinSet { act.leaveKiosk(); act.startActivity(Media.settingsIntent(act)) } },
+        )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Check-ins", value = hb?.let { everyLabel(it) } ?: "") to { hb?.let { checkins(it) } },
             head("For developers"),
             CalmDialog.Row("Home network", value = onOff(lan)) to person("Home network") { thread { CloudSetup.post("${act.bridge}/screens/lan", JSONObject().put("on", !lan)) }; again() },

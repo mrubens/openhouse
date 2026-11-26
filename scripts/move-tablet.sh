@@ -92,6 +92,7 @@ A install -r "$DISPLAY" | tail -1
 A shell pm grant "$NEW.shell" android.permission.WRITE_SECURE_SETTINGS
 A shell pm grant "$NEW.shell" android.permission.RECORD_AUDIO 2>/dev/null || true
 A shell pm grant "$NEW.shell" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+A shell cmd notification allow_listener "$NEW.shell/dev.openhouse.shell.MediaListener" 2>/dev/null || true # music: what's playing (docs/music.md)
 A shell dumpsys deviceidle whitelist "+$NEW.shell" >/dev/null
 A shell cmd appops set "$NEW.shell" RUN_ANY_IN_BACKGROUND allow 2>/dev/null || true
 
