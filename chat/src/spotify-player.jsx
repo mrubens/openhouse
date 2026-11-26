@@ -59,7 +59,7 @@ export function SpotifyPlayer({ shell }) {
     const place = () => {
       const b = box.current; if (!b) return;
       if (on && pausedAt && Date.now() - pausedAt > PAUSED_FOR) { setOn(false); report({ stopped: true }); }
-      const slot = on && document.querySelector('[data-spotify-slot]'), r = slot?.getBoundingClientRect();
+      const slot = on ? document.querySelector('[data-spotify-slot]') : null, r = slot ? slot.getBoundingClientRect() : null; // (not `on && ...`: false has no rect)
       if (r && r.width > 0) Object.assign(b.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', visibility: 'visible' });
       else Object.assign(b.style, { left: '-4000px', top: '0px', width: '600px', visibility: 'hidden' });
     };
