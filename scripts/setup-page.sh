@@ -1,6 +1,7 @@
 #!/bin/bash
 # The setup page: one quiet, self-contained HTML page with a release's setup code (scripts/provision-qr.sh) and how to
-# use it. No scripts, no outside requests, the code inline as SVG, so it works under the cloud service's strict CSP.
+# use it: the short version of docs/setup.md, which it links to. No scripts, no outside requests (links only), the code
+# inline as SVG, so it works under the cloud service's strict CSP.
 #
 #   scripts/setup-page.sh <qr.svg> <out.html> [version]
 set -eo pipefail
@@ -30,7 +31,9 @@ cat <<'HTML'
   .code svg { display: block; width: 100%; height: auto; }
   ol { padding-left: 1.25rem; margin: 0 0 2rem; }
   li { margin: 0 0 .5rem; }
+  .warn { margin: 0 0 1.5rem; }
   .note { color: var(--soft); font-size: .875rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+  .note a { color: var(--ink); }
 </style>
 </head>
 <body>
@@ -38,16 +41,17 @@ cat <<'HTML'
 <h1>Set up Opie</h1>
 HTML
 echo "<p class=\"sub\">Turn a tablet into your household's Opie${VERSION:+ (version $VERSION)}.</p>"
+echo '<p class="warn">This erases the tablet and makes it Opie'"'"'s. It takes 30 to 45 minutes, mostly downloads. You need Wi-Fi.</p>'
 echo '<div class="code">'; cat "$SVG"; echo '</div>'
 cat <<'HTML'
 <ol>
-  <li>Start with a new tablet, or reset it to factory settings.</li>
-  <li>On the first welcome screen, tap the same spot six times.</li>
+  <li>Remove any Google or Samsung account from the tablet, then reset it from Android's settings. A new tablet needs neither.</li>
+  <li>On the first welcome screen, tap the same spot six times. A code scanner opens.</li>
   <li>Connect to Wi-Fi if it asks, then scan this code.</li>
-  <li>Tap through Android's screens. "Belongs to an organization" means Opie looks after it. It's still yours.</li>
-  <li>Wait a few minutes while it gets ready, then tap Turn on Opie.</li>
+  <li>Tap through Android's screens. "Belongs to your organization" means Opie looks after the tablet. It's still yours.</li>
+  <li>Wait while it downloads and gets ready. It's done when it says Welcome to Opie.</li>
 </ol>
-<p class="note">This sets up the whole tablet, so use one with nothing else on it.</p>
+<p class="note">To undo it: Settings, Advanced, Erase this tablet. <a href="https://github.com/mrubens/openhouse/blob/main/docs/setup.md">The full guide</a> has every step and what to do when one gets stuck. <a href="https://github.com/mrubens/openhouse/blob/main/docs/tablets.md">Tablets we've tested</a>.</p>
 </main>
 </body>
 </html>

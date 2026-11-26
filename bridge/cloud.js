@@ -59,7 +59,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       setState({ unlinkedAt: iso(), unlinkedWhy: r.json?.error || 'unknown' });
       throw Object.assign(new Error('This tablet was unlinked from the family account.'), { code: 'unlinked' });
     }
-    if (r.status >= 300) throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}` });
+    if (r.status >= 300) throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}`, ...(Number(r.json?.retryAfter) > 0 ? { retryAfter: Number(r.json.retryAfter) } : {}) });
     return r.json;
   }
 
@@ -236,7 +236,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     // offWhy: why it went off here when it wasn't this tablet's own Off ("family": from the web). The shell turning it
     // on by itself (CloudSetup.autoVoice) reads it, so it never undoes an Off said somewhere else.
     return { linked: !!device(), on: liveOn(), provider: 'openai-live', vendor: svc?.vendor || mine.vendor || null, available: svc ? !!svc.available : null,
-      offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null,
+      offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null, asked: svc?.asked || null,
       over, used: svc?.used || null, limits: svc?.limits || null, using: voice.used(), voiceName: mine.voiceName || 'marin' };
   }
   async function voiceSet(on) {
@@ -322,6 +322,8 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       case '/cloud/report': await reply(res, () => sendReport(b)); return true;
       case '/cloud/link/token': await reply(res, () => linkToken(String(b.token || ''), String(b.api || ''), String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
       case '/cloud/voice': await reply(res, () => voiceSet(!!b.on)); return true;
+      // A household that set up its own tablet asks for Opie's voice (the service keeps the ask; its owner turns it on).
+      case '/cloud/voice/ask': await reply(res, async () => { lastVoiceStatus = await call('POST', '/v1/voice/ask'); return voiceStatus(false); }); return true;
       case '/cloud/voice/name': await reply(res, async () => { const v = String(b.voice || '').toLowerCase(); if (!/^[a-z]{2,20}$/.test(v)) throw new Error('voice'); write('voice.json', { ...(read('voice.json') || {}), voiceName: v }); return voiceStatus(false); }); return true;
       // OpenAI's live voice (the trial): the shell's WebRTC offer to the service, which starts the session with OpenAI
       // (the key stays there) and answers with OpenAI's SDP; and, when the session ends, what it cost (OpenAI's count).

@@ -4,7 +4,8 @@ package dev.openhouse.ui
 // where the tablet is), connecting a phone or a computer (one code; the phone page then follows these steps:
 // chat/src/phone.jsx SetupFlow), the household's calendar (Google, iCloud, Outlook or a link sent from that phone or
 // computer, or none), photos (an iCloud shared album, Google Photos, or from that phone), a PIN for settings and
-// approvals (PIN Lock, which can be skipped), and last talking to Opie:
+// approvals (PIN Lock, which can be skipped), two of Android's own settings a tablet set up by its household would
+// otherwise never find (letting Opie use other apps, and the charge limit), and last talking to Opie:
 // what to say, which voice, and turning the voice on. One step on screen at a time, each with Back, Skip and Next.
 //
 // Quiet until that last step: nothing is said aloud and nothing listens (Setup.hushed: no microphone, no wake word,
@@ -42,7 +43,7 @@ internal object Setup {
     // Connecting a phone or computer comes before the calendar and photos: their links are copied there, not on the
     // tablet, so those steps send them from the phone or computer already connected (it follows the tablet's step:
     // chat/src/phone.jsx SetupFlow), with one code for it all.
-    val STEPS = listOf("people", "place", "devices", "calendar", "photos", "pin", "voice")
+    val STEPS = listOf("people", "place", "devices", "calendar", "photos", "pin", "android", "voice")
 
     /** A later step that sent someone back to connect a phone or computer: Next there comes back here. */
     private var resume: String? = null
@@ -102,6 +103,7 @@ internal fun SetupSheet() {
     val title = when (step) {
         "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a family calendar?"
         "photos" -> "Put your photos on the tablet?"; "pin" -> "Choose a PIN"; "voice" -> "Talk to Opie"
+        "android" -> "Two of Android's settings"
         else -> "Connect your phone or computer"
     }
     // The PIN step: its own button chooses one (SettingsLock "setupPin"), and the setup goes on once it's kept; Skip, or
@@ -139,6 +141,7 @@ internal fun SetupSheet() {
                             "calendar" -> CalendarStep()
                             "photos" -> PhotosStep()
                             "pin" -> PinStep(pinSet)
+                            "android" -> AndroidStep()
                             else -> DevicesStep()
                         }
                     }
@@ -369,6 +372,8 @@ private class VoiceUi {
     var voice by mutableStateOf("marin")
     var problem by mutableStateOf<String?>(null)
     var busy by mutableStateOf(false)
+    /** When the household asked for Opie's voice (the service's), while it doesn't have it. */
+    var asked by mutableStateOf<String?>(null)
 }
 
 @Composable
@@ -390,6 +395,7 @@ private fun VoiceStep(v: VoiceUi) {
             if (state in setOf("looking", "unlinked", "noBridge")) {
                 val st = withContext(Dispatchers.IO) { getJson("/cloud/voice?check=1", 15_000) }
                 if (state == "looking") st?.optString("voiceName")?.takeIf { it.isNotBlank() }?.let { voice = it }
+                v.asked = st?.optString("asked")?.takeIf { !st.isNull("asked") && it.isNotBlank() }
                 state = when {
                     st == null -> "noBridge"
                     st.optBoolean("on") -> "on"
@@ -404,7 +410,21 @@ private fun VoiceStep(v: VoiceUi) {
     Column(verticalArrangement = Arrangement.spacedBy(22.u)) {
         when (state) {
             "looking" -> Text("…", style = calmText(Calm.LEAD, color = Calm.soft))
-            "notYet" -> Text("Opie's voice isn't on for your household yet. When it is, the tablet asks you here, or you can turn it on in Settings, Voice.", style = calmText(Calm.LEAD))
+            "notYet" -> {
+                Text("Opie's voice isn't on for your household yet. When it is, the tablet asks you here, or you can turn it on in Settings, Voice.", style = calmText(Calm.LEAD))
+                // Ask for it: the service keeps the ask under the household and emails it once it's on (openhouse-cloud docs/beta.md).
+                val asked = v.asked
+                if (asked != null) Soft("You asked on ${asked.take(10)}. We'll email you when it's on.")
+                else {
+                    Soft("We're turning it on for households a few at a time.")
+                    SoftButton("Ask for Opie's voice") {
+                        Openhouse.scope.launch(Dispatchers.IO) {
+                            val r = runCatching { JSONObject(Openhouse.post("/cloud/voice/ask") ?: "{}") }.getOrNull()
+                            withContext(Dispatchers.Main) { if (r != null && !r.has("error")) v.asked = r.optString("asked").ifBlank { java.time.LocalDate.now().toString() } else v.problem = r?.optString("error")?.ifBlank { null } ?: "The tablet's software isn't answering right now." }
+                        }
+                    }
+                }
+            }
             "unlinked" -> {
                 Text("Opie's voice comes through an Opie account. Link this tablet to one, then choose a voice in Settings, Voice.", style = calmText(Calm.LEAD))
                 Soft("Linking is in Settings, Account, too.")
@@ -485,6 +505,36 @@ private fun PinStep(set: Boolean) {
         Text(if (set) "PIN Lock is on. Settings and approving new apps ask for the PIN."
             else "With a PIN, only someone who knows it can change Settings or approve a new app. Without one, anyone at the tablet can. You can set it later in Settings, PIN Lock.",
             style = calmText(19, color = Calm.soft))
+    }
+}
+
+/**
+ * Two of Android's own settings that a tablet set up from the code can't turn on by itself (docs/setup.md): letting
+ * Opie use other apps (its accessibility service: no device-owner API turns one on) and the charge limit (each maker
+ * has its own, with no screen an app can open directly, so Android's settings open and the path for the model shows:
+ * docs/tablets.md). Both leave kiosk mode for Android's settings; Home comes back here. Either can be skipped.
+ */
+@Composable
+private fun AndroidStep() {
+    var control by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        while (true) { control = withContext(Dispatchers.IO) { Openhouse.host.settingValues()["deviceControl"] == "On" }; delay(2000) }
+    }
+    val samsung = android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+    Column(verticalArrangement = Arrangement.spacedBy(28.u)) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
+            Text("Let Opie use other apps", style = calmText(21, FontWeight.Medium))
+            Soft("So it can open an app or press its buttons when you ask, like a TV remote. Without it, the rest of Opie works.")
+            if (control) Text("On", style = calmText(19, FontWeight.Medium, Calm.soft))
+            else { HowTo(listOf("Tap Open Android's settings.", "Tap Opie assistant, switch it on and tap Allow.", "Press Home to come back.")); SoftButton("Open Android's settings") { Openhouse.host.setting("setupDeviceControl") } }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
+            Text("Stop charging at 80%", style = calmText(21, FontWeight.Medium))
+            Soft("It's plugged in all day, and a battery kept full wears out sooner.")
+            HowTo(if (samsung) listOf("Tap Open Android's settings.", "Tap Battery, then Battery protection, and choose Maximum.", "Press Home to come back.")
+                else listOf("Tap Open Android's settings.", "Look in Battery for a charge limit or battery protection. docs/tablets.md has the path for each tablet we know.", "Press Home to come back."))
+            SoftButton("Open Android's settings") { Openhouse.host.setting("setupCharge") }
+        }
     }
 }
 

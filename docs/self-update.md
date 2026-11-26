@@ -348,17 +348,11 @@ is on the CDN at `releases/voice/1/` (every file checked against `voice.json`).
 
 ### Setting up a new tablet from the page
 
-1. A new tablet, or one reset to factory settings. Don't add a Google or Samsung account.
-2. On the first welcome screen, tap the same spot six times. A QR scanner opens.
-3. Connect to Wi-Fi if it asks, then scan the code at https://updates.openhouse.computer/setup. Accept the "This device
-   belongs to your organization" screens. The tablet downloads Opie (about 24 MB, then the 211 MB runtime) and
-   opens it.
-4. On the tablet: set the PIN, then pick the AI and sign in.
+The steps are in [setup.md](setup.md) (the setup page, opie.house/setup, is its short version). The setup's
+"Two of Android's settings" step covers device control and the charge limit; the child-process limit below is shown
+only once it has stopped the runtime.
 
-5. Device control, once (the assistant using other apps): Settings → Device control → switch on "Opie
-   assistant" in Android's settings and tap Allow. Home brings the display and kiosk mode back.
-
-That's all: from 1.0.7 a tablet set up from the code needs no computer. What `tablet-setup.sh` did over USB, and what
+From 1.0.7 a tablet set up from the code needs no computer. What `tablet-setup.sh` did over USB, and what
 a QR-set-up tablet does instead:
 
 - **The update cover**: the display carries it (built and signed with it by `release.sh`) and installs it as owner
@@ -371,14 +365,17 @@ a QR-set-up tablet does instead:
   for a while, as on any tablet.
 - **Device control** (`WRITE_SECURE_SETTINGS`): no owner API grants it or turns an accessibility service on, so someone
    switches it on once, as in step 5. Android's restricted settings don't block it for an app the setup
-  installed. Without it the assistant can't use other apps; everything else works.
+  installed. Without it the assistant can't use other apps; everything else works. The setup's Android step
+  (ui/Setup.kt AndroidStep) opens Android's page for it.
 - **The phantom-process limit**: the one thing that truly needs adb (`settings_enable_monitor_phantom_procs`, a
   global setting no owner API reaches). Android 12+ may stop an app's child processes beyond 32 across all apps, or
   ones using a lot of CPU. The runtime runs about a dozen (proot, Node for the bridge and the dev server, pi, SearXNG,
   esbuild, the shells around them) and the assistant's app about five more, so the count stays under the limit;
   the CPU rule may still stop a busy one on a Samsung tablet, and the display's watchdog starts the runtime again
   (seconds of the assistant or voice not answering). A household that hits it can switch the limit off once in
-  Developer options ("Disable child process restrictions", Android 14+), no computer needed.
+  Developer options ("Disable child process restrictions", Android 14+), no computer needed. Only a tablet that seems
+  to have hit it is told how: a server that was answering vanished without the shell stopping it while the limit is
+  on (Runtime.lost), after which Settings → Advanced shows "Opie's software was stopped by Android" with the steps.
 - **The voice models**: downloaded by the display itself (docs/voice-models.md).
 
 Tried 2026-11-19 with 1.0.7 on a wiped emulator from the code (runtime URL and PIN sent over adb only because

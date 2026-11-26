@@ -4,8 +4,8 @@
 
 On the tablet:
 
-1. **Setup page** (updates.openhouse.computer/setup, `scripts/setup-page.sh`): reset the tablet, tap the welcome
-   screen six times, scan the code, tap through Android's screens.
+1. **Setup page** (opie.house/setup, `scripts/setup-page.sh`): the steps up to here are [setup.md](setup.md)'s,
+   not repeated here.
 2. **Getting Opie ready**: the runtime downloads (a few minutes).
 3. **Welcome**: one line (who lives here, calendars and photos, Opie's voice last) and **Get started**.
 4. **Setup** (`ui/Setup.kt`), one step at a time, each with Back, Skip and Next, and Later to leave it. It's quiet
@@ -47,7 +47,11 @@ On the tablet:
    6. **Choose a PIN** ("For grown-ups: settings and approvals"): PIN Lock on, so Settings and approving a new app
       ask for it. Skip leaves the lock off (Settings, PIN Lock, later). On a linked tablet there's no recovery code
       to keep, since the account page resets the PIN; unlinking shows one first.
-   7. **Talk to Opie**, the only step with a voice: "say “Hey Opie”, then what you'd like", three things to ask in
+   7. **Two of Android's settings** (`AndroidStep`, since 2026-11-26): Let Opie use other apps (Android's
+      accessibility page for the Opie assistant; "On" once it is) and Stop charging at 80% (Android's settings, with
+      the path for a Samsung, else a pointer to [tablets.md](tablets.md)). Each leaves kiosk mode, behind the PIN if
+      one was chosen; Home comes back. Both can be skipped.
+   8. **Talk to Opie**, the only step with a voice: "say “Hey Opie”, then what you'd like", three things to ask in
       the household's words ("Add milk to the list", "What's on tomorrow?", and an app in the children's names when
       the household has any: `PluginsMenu.example`), OpenAI's live voices in rows of six (all in view, nothing off the edge), and the line the tablet always
       uses: "What you say after “Hey Opie” goes to OpenAI." **Turn on Opie's voice** (a person's tap, behind the PIN
@@ -55,8 +59,8 @@ On the tablet:
       try ("Say “Hey Opie, what's the weather?”") with Opie's face showing it listening; picking another voice then
       says a line in it. **Not now** ends the setup with the voice off, kept as an Off (`OpieChoice`), so it isn't
       turned on by itself later: Settings → Voice. Without a voice to turn on, it says why and how, and offers Done:
-      the household's account doesn't have it yet ("Opie's voice isn't on for your household yet"; the tablet asks
-      once when it does), or the tablet isn't linked (Link this tablet, or Settings → Account, then Settings →
+      the household's account doesn't have it yet ("Opie's voice isn't on for your household yet", with **Ask for
+      Opie's voice**: the service keeps the ask and emails the household once it's on; the tablet asks once when it does), or the tablet isn't linked (Link this tablet, or Settings → Account, then Settings →
       Voice).
 
       The voices can't be heard before Turn on: they're OpenAI's live voices, played only in a live session, and the

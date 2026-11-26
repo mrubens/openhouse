@@ -178,7 +178,30 @@ object Runtime {
         }
     }
 
-    private fun kill(pids: List<Int>) { pids.forEach { android.os.Process.killProcess(it) }; if (pids.isNotEmpty()) Log.i(TAG, "stopped ${pids.size} runtime processes") }
+    private fun kill(pids: List<Int>) { stoppedAt = System.currentTimeMillis(); pids.forEach { android.os.Process.killProcess(it) }; if (pids.isNotEmpty()) Log.i(TAG, "stopped ${pids.size} runtime processes") }
+
+    // --- Android's child-process limit (docs/setup.md, "When it's stuck") ---------------------------------------
+    // Android 12 and later may stop an app's child processes (the runtime is all children of the shell), and only
+    // Developer options' "Disable child process restrictions" (Android 14+) switches that off; no owner API reaches
+    // it. So the steps are shown only to a tablet where it seems to have happened: a server that was answering is
+    // gone, the shell didn't stop it, and the limit is still on. Kept in the shell's preferences, read by Settings.
+    @Volatile private var stoppedAt = 0L
+    private val up = HashSet<Int>()
+
+    /** Android has the child-process limit on, with a switch in Developer options to turn it off (Android 14+). */
+    fun childLimitOn(c: Context): Boolean = android.os.Build.VERSION.SDK_INT >= 34 &&
+        runCatching { android.provider.Settings.Global.getString(c.contentResolver, "settings_enable_monitor_phantom_procs") }.getOrNull() != "false"
+
+    /** The runtime was lost this way at least once, and the limit is still on: Settings → Advanced shows the steps. */
+    fun childLimitHit(c: Context): Boolean = childLimitOn(c) && c.getSharedPreferences("shell", Context.MODE_PRIVATE).getLong("runtime_lost_at", 0L) > 0L
+
+    private fun lost(port: Int) {
+        if (!::ctx.isInitialized) return
+        val c = ctx
+        if (System.currentTimeMillis() - stoppedAt < 60_000 || !childLimitOn(c)) return
+        Log.w(TAG, "the server on $port went away without being stopped (Android's child-process limit is on)")
+        c.getSharedPreferences("shell", Context.MODE_PRIVATE).edit().putLong("runtime_lost_at", System.currentTimeMillis()).apply()
+    }
 
     /** Stop everything in the runtime (a running agent too). */
     fun stopAll() = kill(ours())
@@ -221,8 +244,8 @@ object Runtime {
                 connectTimeout = 2000; readTimeout = 4000; responseCode } }
             val e = r.exceptionOrNull()
             when {
-                e == null -> strikes.remove(port)
-                e is java.net.ConnectException -> { strikes.remove(port); start = true } // not running
+                e == null -> { strikes.remove(port); up.add(port) }
+                e is java.net.ConnectException -> { strikes.remove(port); start = true; if (up.remove(port)) lost(port) } // not running
                 else -> { // listening, not answering
                     val n = (strikes[port] ?: 0) + 1; strikes[port] = n
                     if (n >= 6) { Log.w(TAG, "the server on $port is stuck: restarting it"); kill(ours(processOf.getValue(port))); strikes.remove(port); start = true }

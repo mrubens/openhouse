@@ -1,0 +1,52 @@
+# Tablets for Opie
+
+Opie runs on an Android tablet you buy yourself. This is the short list of the ones we know about. To set one up,
+follow [the setup guide](setup.md).
+
+| Tablet | State | Since |
+|---|---|---|
+| **Samsung Galaxy Tab S10 FE**, Wi-Fi (SM-X520) | **Works** | Opie is built on it. Release and date of its full test run: to be recorded |
+| **Samsung Galaxy Tab A11+**, Wi-Fi (SM-X230) | **Being tested** | Voice fixes for it are in. It moves up once its results are in [hardware.md](hardware.md) |
+| **Xiaomi** tablets on HyperOS (Redmi Pad 2 Pro and others) | **Doesn't work** | HyperOS refuses the setup that makes Opie the tablet's owner, and lets Home leave kiosk mode |
+| Anything else | Not tried | Tell us what happened: [the "My tablet" form](https://github.com/mrubens/openhouse/issues/new?template=my-tablet.yml) |
+
+What the states mean:
+
+- **Works**: all eight tests in [hardware.md](hardware.md) ("What to test on each") passed on a named release, which is
+  written here with the date. Opie's releases carry this list, so a tablet that isn't on it says "We haven't tested
+  this tablet" at Welcome and in Settings → Advanced. It never stops you setting it up.
+- **Being tested**: we have one and are running those tests. It may work fine; we just can't say yet.
+- **Doesn't work**: it failed a test that can't be worked around, so don't buy one for Opie.
+
+Prices change too fast to list. When a price appears in this repo it carries its date (as in [hardware.md](hardware.md)).
+
+## Trying a tablet that isn't listed
+
+It has a fair chance of working if it has:
+
+- **Android 10 or later.** That's the least the app installs on. Android 15 or 16, with years of security updates
+  still to come, is what we'd buy.
+- **Setup by QR code as the device owner.** Android's own: tap the first welcome screen six times and a code scanner
+  opens. Most tablets with Google's Android have it; some makers' own versions remove or break it (Xiaomi's HyperOS).
+- **6 GB of memory or more** (6–8 GB, [hardware.md](hardware.md)).
+- **A charge limit**, since it stays plugged in. Not needed, but the battery lasts longer.
+
+Then follow [the setup guide](setup.md) and fill in [the "My tablet" form](https://github.com/mrubens/openhouse/issues/new?template=my-tablet.yml)
+either way. A tablet that works for several people is one we'll test.
+
+## The charge limit on each
+
+The setup's "Two of Android's settings" step opens Android's settings; this is where the limit is.
+
+- **Samsung (One UI 8: the Tab S10 FE and A11+):** Settings → Battery → Battery protection → **Maximum**, which stops
+  charging at 80% (One UI lets some models choose 80–95%). "Basic" charges to 100% and only tops up from 95%.
+- **Others:** look in Battery for "charge limit", "battery protection" or "optimized charging". Tell us the path on
+  the form and we'll add it here.
+
+## For whoever updates this list
+
+- A model moves to **Works** only with the eight tests' results in [hardware.md](hardware.md), and the release they ran
+  on and the date written in the table above.
+- Add its model number to `shell/app/src/main/java/dev/openhouse/shell/Tablets.kt` at the same time, so the next
+  release stops calling it untested.
+- Keep the list to two or three models. No household details here (the repo's `CLAUDE.md`).

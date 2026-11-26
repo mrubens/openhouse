@@ -89,6 +89,9 @@ export function lanTls({ DIR, cloud, PORT, directory = process.env.LAN_ACME_DIRE
     // again after a relink, for the name it had: keep, which the cloud gives back where it can).
     const link = linkId();
     if (!state.name || state.ip !== ip || (link && state.link && state.link !== link)) {
+      // Refused a new name for now (the service's or the household's new names this week): asked again only once it
+      // said, with no name meanwhile (the tablet works at its plain address).
+      if (!state.name && state.nameAfter > now()) { later(state.nameAfter - now() + 1000); return; }
       const keep = state.name || state.was || null;
       const r = await cloud.lan('name', { ip, ...(keep ? { keep } : {}) });
       save({ name: r.name, ip: r.ip, link, was: null }); onChange();
@@ -131,6 +134,7 @@ export function lanTls({ DIR, cloud, PORT, directory = process.env.LAN_ACME_DIRE
   function kick() {
     busy ??= step().then(() => { misses = 0; }, (e) => {
       if (e.code === 'unlinked') { if (gone()) forget(false); return; }
+      if (e.retryAfter && !state.name) { save({ nameAfter: now() + e.retryAfter * 1000 }); log('no new name until', new Date(state.nameAfter).toISOString()); later(e.retryAfter * 1000 + 1000); return; }
       log('not now:', e.message);
       again();
     }).finally(() => { busy = null; });
