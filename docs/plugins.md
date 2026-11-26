@@ -87,7 +87,7 @@ All paths are under the display folder (`files/display/` in the shell).
 |---|---|---|---|---|---|
 | **An app** | `webapp/apps/<id>/`: flat files `app.json` (`{"name"}`, optional `screensaver`, `tabIcon`: chat/src/tab-icons.js, `today`: §15), `icon.svg`, `index.html`, `main.js`, more js/css, optional `widget.html` (its card on Home, §15) | the assistant, the builder, the workshop MCP `write_file` | git, one commit per change (`bridge/edits.js`) | yes | **Yes.** It's a folder, and the family's data isn't in it (next row) |
 | The app's data | lists, chores, meals, events, rewards in `house.json` (`bridge/house.js`); app-private data in `appdata/<id>/*.json` | the app, through `/kit/openhouse.js` | no | yes | No. It is the family's |
-| **Tabs and look** | `webapp/apps/home/style.json`: `tabs`, `palette` (paper/linen/sage/mist/dusk), `colors {bg, sheet, ink, accent}`, `type` (clean/serif/round/hand), `density`, `backdrop` | `set_home`, the Tabs and look sheet (`setLook`) | git | yes | **Yes**, the look keys. The tabs are a suggestion (they name the family's own apps) |
+| **Tabs and look** | `webapp/apps/home/style.json`: `tabs`, `palette` (paper/linen/sage/mist/dusk), `colors {bg, sheet, ink, accent}`, `type` (clean/serif/round/hand), `density`, `backdrop` | `set_home` (asking Opie) | git | yes | **Yes**, the look keys. The tabs are a suggestion (they name the family's own apps) |
 | Notes, widgets, timers | `chats/door.json` (its first name) | the assistant, the family | trash and `put_back` | yes | No, these are this week's |
 | **The assistant's rules** | `bridge/CHAT.md`, `NOTES.md`, `AGENT.md`, `CURATE.md`, `HEARTBEAT.md`, `chat-prompt.md`: shipped, replaced on every update | us | — | no | No. They're ours |
 | The family's preferences | `preferences.md`: up to 40 one-line bullets, injected as "they win over the defaults" | `remember_preference` | no | yes (since c1792f6) | Not really. They're personal ("Leo is allergic to nuts") |
@@ -643,7 +643,7 @@ For an app that's most useful at a glance or a tap (a remote for the speakers, a
   in its address, so the kit works there with what the app was granted. Its address says `?today=small` or `wide`.
   The page sits on the card's tint (`bg`), keeps about 22 px at the sides, and takes its own taps; a tap on blank space
   does nothing. Kit `shell.openApp(id)` works from it too.
-- **The household turns it on**: none show until someone does, in "Tabs and look" (Cards on Home: add, order, take
+- **The household turns it on**: none show until someone does, by asking Opie (Cards on Home: add, order, take
   off) or by holding the app in Apps (Add to Home). Opie, the text assistant and the workshop use `today_card`
   (`{app, on, position}`; with no app it lists what's on and what could be). Kept as `cards` (app ids, in order) in
   `apps/home/style.json` with the tabs and the look (`POST /home/look {cards}`), so undo takes it back.

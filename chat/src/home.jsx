@@ -5,9 +5,9 @@
 // important bit of each tab, each opening its tab.
 //
 // What's personal is data in apps/home/style.json (bridge/home-screen.js, cleanLook): which tabs and in what order, the
-// palette or the family's own colors, the type, the density and a photo backdrop. The assistant edits that file; the
-// "Tabs and look" sheet here (hold a tab, or the sliders below the tabs) writes it through POST /home/look, so "undo"
-// takes either back.
+// palette or the family's own colors, the type, the density and a photo backdrop. The assistant edits that file
+// (set_home: "move Meals up", "a darker look"); there's no sheet for it on Home for now (the user: through Opie, not
+// a clunky panel).
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Widget } from './home-widgets.jsx';
 import { SpotifySlot, useSpotifyOn } from './spotify-player.jsx';
@@ -130,7 +130,6 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
     if (tabs.some((x) => x.id === t)) go(t); else if (homeScreen.show.open && appBy.has(t)) shell?.openApp(t); }, [showAt]);
   // Back to the first tab when the screen has rested, as a glance is what it's for.
   useEffect(() => { if (idle && tabs[0]) go(tabs[0].id); }, [idle]);
-  const [arranging, setArranging] = useState(false);
   const [timerOpen, setTimerOpen] = useState(null);
   // A minute more or less (or five more): the same timer, ending later or sooner (the shell's ringing follows /home/timer).
   const moveTimer = (t, secs) => {
@@ -138,13 +137,6 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
     setTimerOpen(endAt);
     c.json('POST', '/home/timer', { cancel: t.endAt }).then(() => c.json('POST', '/home/timer', { start: { label: t.label, total, endAt } })).catch(() => {});
   };
-  const held = useRef(0);
-  const hold = (id) => ({
-    onPointerDown: () => { clearTimeout(held.current); held.current = setTimeout(() => { held.current = -1; setArranging(true); }, 650); },
-    onPointerUp: () => { if (held.current !== -1) { clearTimeout(held.current); go(id); } held.current = 0; },
-    onPointerLeave: () => { if (held.current !== -1) clearTimeout(held.current); },
-    onPointerCancel: () => clearTimeout(held.current),
-  });
   if (idle) return ambient;
   // Someone's AI (Claude, ChatGPT, a computer) is changing an app (workshop.js): its tab pulses gently, or Apps for
   // one that isn't a tab (a new app goes there first). No words: the family sees where, and it stops when it's done.
@@ -160,7 +152,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
         {/* Tap a timer to change or clear it (a small sheet over the screen). */}
         {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b><TimeLeft t={t} /></b></button>)}
         <nav className="h-tabs">
-          {tabs.map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '') + (making(t.id) ? ' making' : '')} {...hold(t.id)}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
+          {tabs.map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '') + (making(t.id) ? ' making' : '')} onClick={() => go(t.id)}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
         </nav>
         <BatteryLine shell={shell} />
         <div className="h-tools">
@@ -170,7 +162,6 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           {/* Type a question (no keyboard needed), at the left, where Opie shows up while it's busy; sleep the screen. */}
           {shell?.type && <button className="h-tool h-type" onClick={() => shell.type()} aria-label="Type to Opie"><Keys /></button>}
           {shell?.sleep && <button className="h-tool" onClick={() => shell.sleep()} aria-label="Sleep"><Moon /></button>}
-          <button className="h-tool" onClick={() => setArranging(true)} aria-label="Tabs and look"><Sliders /></button>
           {shell && <button className="h-tool" onClick={() => shell.settings()} aria-label="Settings"><Gear /></button>}
         </div>
       </aside>
@@ -206,7 +197,6 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
             </div>
           </div>
         </div>); })()}
-      {arranging && <Arrange c={c} st={st} tabs={tabs} apps={apps} nameOf={nameOf} onClose={() => setArranging(false)} />}
     </div>
   );
 }
@@ -391,7 +381,7 @@ function useFit() {
   return ref;
 }
 
-/** Home's own cards (bridge/home-screen.js TODAY_CARDS): every one there is, the order Tabs and look offers them in. */
+/** Home's own cards (bridge/home-screen.js TODAY_CARDS): every one there is, the order Opie offers them in. */
 export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'meals', 'lists', 'chores', 'notes', 'photos'];
 /** The ones a household that never arranged its Home sees, in order (home-screen.js TODAY_DEFAULT, version 2): Dinner
  *  is off (it can be added), the Whiteboard and a recipe to try are on, the list comes after them, smaller. Arranging
@@ -924,86 +914,7 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
   );
 }
 
-// ---- Tabs and look --------------------------------------------------------------------------------------------
-function Arrange({ c, st, tabs, apps, nameOf, onClose }) {
-  const [mine, setMine] = useState({ tabs: tabs.map((t) => (t.name ? { id: t.id, name: t.name } : { id: t.id })), palette: st.palette, colors: st.colors || {}, type: st.type, density: st.density, backdrop: st.backdrop, cards: st.cards || [], today: Array.isArray(st.today) ? st.today : null });
-  const [busy, setBusy] = useState(null);
-  const save = (part) => {
-    const next = { ...mine, ...part }; setMine(next);
-    c.json('POST', '/home/look', part).then((r) => setBusy(r.status === 409 ? r.json?.text || 'Busy' : null)).catch(() => {});
-  };
-  const white = (mine.colors?.accent || '').toLowerCase() === WHITE;
-  const shown = new Set(mine.tabs.map((t) => t.id));
-  const more = [{ id: 'today' }, { id: 'apps' }, ...apps.filter((a) => a.web !== false).map((a) => ({ id: a.id }))].filter((t) => !shown.has(t.id));
-  const moved = (list, i, by) => { const l = [...list]; const [x] = l.splice(i, 1); l.splice(Math.max(0, Math.min(l.length, i + by)), 0, x); return l; };
-  const move = (i, by) => save({ tabs: moved(mine.tabs, i, by) });
-  // The apps' own cards on Home: the ones on, in order, and the others that offer one.
-  const offers = apps.filter((a) => a.today), cardName = (id) => offers.find((a) => a.id === id)?.meta?.name || id;
-  const onCards = mine.cards.filter((id) => offers.some((a) => a.id === id)), offCards = offers.filter((a) => !onCards.includes(a.id));
-  // Home's cards, its own and the apps': the ones showing, in order, then the rest to add back.
-  const order = todayOrder(mine).filter((k) => !k.startsWith('app:') || onCards.includes(k.slice(4)));
-  const offToday = TODAY_CARDS.filter((k) => !order.includes(k));
-  const todayName = (k) => (k.startsWith('app:') ? cardName(k.slice(4)) : TODAY_NAMES[k]);
-  const setToday = (list) => { const apps = list.filter((k) => k.startsWith('app:')).map((k) => k.slice(4)); save({ today: list, cards: apps }); };
-  return (
-    <div className="h-veil" onClick={onClose}>
-      <div className="h-arrange" onClick={(e) => e.stopPropagation()}>
-        <div className="h-arr-col">
-          <div className="h-label">Tabs</div>
-          {mine.tabs.map((t, i) => (
-            <div key={t.id} className="h-arr-row">
-              <span className="h-grow">{nameOf(t)}</span>
-              <button className="h-mini" disabled={i === 0} onClick={() => move(i, -1)} aria-label="Up"><Chevron up /></button>
-              <button className="h-mini" disabled={i === mine.tabs.length - 1} onClick={() => move(i, 1)} aria-label="Down"><Chevron /></button>
-              <button className="h-mini" disabled={mine.tabs.length < 2} onClick={() => save({ tabs: mine.tabs.filter((x) => x.id !== t.id) })} aria-label="Remove"><Cross /></button>
-            </div>
-          ))}
-          {more.length > 0 && <div className="h-chips">{more.map((t) => <button key={t.id} className="h-chip" onClick={() => save({ tabs: [...mine.tabs, t] })}>+ {nameOf(t)}</button>)}</div>}
-        </div>
-        <div className="h-arr-col">
-          <div className="h-label">On Home</div>
-          {order.map((k, i) => (
-            <div key={k} className="h-arr-row">
-              <span className="h-grow">{todayName(k)}</span>
-              <button className="h-mini" disabled={i === 0} onClick={() => setToday(moved(order, i, -1))} aria-label="Up"><Chevron up /></button>
-              <button className="h-mini" disabled={i === order.length - 1} onClick={() => setToday(moved(order, i, 1))} aria-label="Down"><Chevron /></button>
-              <button className="h-mini" onClick={() => setToday(order.filter((x) => x !== k))} aria-label="Take off Home"><Cross /></button>
-            </div>
-          ))}
-          {(offToday.length > 0 || offCards.length > 0) && <div className="h-chips">
-            {offToday.map((k) => <button key={k} className="h-chip" onClick={() => setToday([...order, k])}>+ {TODAY_NAMES[k]}</button>)}
-            {offCards.map((a) => <button key={a.id} className="h-chip" onClick={() => setToday([...order, 'app:' + a.id])}>+ {a.meta?.name || a.id}</button>)}
-          </div>}
-        </div>
-        <div className="h-arr-col">
-          <div className="h-label">Colour</div>
-          <div className="h-swatches">{Object.entries(PALETTES).map(([k, p]) => (
-            <button key={k} className={'h-swatch' + (mine.palette === k ? ' on' : '')} style={{ background: p.bg }} onClick={() => save({ palette: k, colors: white ? { accent: WHITE } : {} })} aria-label={k}>
-              <span style={{ background: p.sheet }} /><i style={{ background: p.accent }} />
-            </button>
-          ))}</div>
-          <div className="h-label h-gap">Accent</div>
-          <div className="h-swatches">
-            <button className={'h-dot' + (white ? '' : ' on')} style={{ background: (PALETTES[mine.palette] || PALETTES.paper).accent }} onClick={() => { const { accent, ...rest } = mine.colors || {}; save({ colors: rest }); }} aria-label="The colour's own" />
-            <button className={'h-dot white' + (white ? ' on' : '')} onClick={() => save({ colors: { ...(mine.colors || {}), accent: WHITE } })} aria-label="White" />
-          </div>
-          <div className="h-label h-gap">Type</div>
-          <div className="h-swatches">{Object.entries(FACES).map(([k, f]) => (
-            <button key={k} className={'h-face' + (mine.type === k ? ' on' : '')} style={{ fontFamily: f }} onClick={() => save({ type: k })}>Aa</button>
-          ))}</div>
-          <div className="h-label h-gap">Spacing</div>
-          <div className="h-seg">{[['calm', 'Roomy'], ['snug', 'Snug']].map(([k, w]) => <button key={k} className={mine.density === k ? 'on' : ''} onClick={() => save({ density: k })}>{w}</button>)}</div>
-          <div className="h-label h-gap">Behind</div>
-          <div className="h-seg">{[['none', 'Plain'], ['photos', 'Photos']].map(([k, w]) => <button key={k} className={mine.backdrop === k ? 'on' : ''} onClick={() => save({ backdrop: k })}>{w}</button>)}</div>
-          {busy && <div className="h-soft h-gap">{busy}</div>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 const Keys = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8" /></svg>;
 const Moon = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>;
-const Sliders = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></svg>;
 const Chevron = ({ up }) => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={up ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'} /></svg>;
 const Cross = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M7 7l10 10M17 7L7 17" /></svg>;

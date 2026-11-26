@@ -36,8 +36,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Tapping | Opie | Notes |
 | --- | --- | --- |
 | Open a tab or app | yes | show_on_screen |
-| Tabs: add, remove, order, rename; the look (palette, colours, type, density, photo backdrop) | **new** | set_home (it was typed-only; "Tabs and look" has no PIN) |
-| Home's cards: order, on or off (Tabs and look) | **new** | set_home today (the order and which show), today_card (an app's own card) |
+| Tabs: add, remove, order, rename; the look (palette, colours, type, density, photo backdrop) | **new** | set_home (it was typed-only); Opie only since 2026-11-26: Home has no panel for it |
+| Home's cards: order, on or off (Opie only since 2026-11-26) | **new** | set_home today (the order and which show), today_card (an app's own card) |
 | Home's own cards one at a time: the Whiteboard, a recipe to try, Dinner, Groceries… on or off | **new** | today_card with the card's name (whiteboard, recipes, meals, lists…), keeping the rest of the household's order |
 | Home's empty cards: "Add your family's calendar", "Add your photos", a recipe to try | yes | add_calendar, add_photo_album; recipes__cook opens a recipe |
 | Timers: start, +/− minutes, clear | yes | timer (a changed time is cancel and start) |

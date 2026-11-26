@@ -24,8 +24,8 @@ the same line about OpenAI, a person's tap behind the PIN when the lock is on. T
 microphone, nothing said aloud). Its **Not now** is an Off, kept like this row's, so the voice isn't turned on by
 itself later; this row is the way to turn it on then.
 
-"Tabs and look" stays its own button beside the gear (and holding a tab): it is the home screen's, already has no
-text, and is used more than any of the above.
+The tabs, the look and Home's cards have no panel on Home for now (since 2026-11-26, the user: "that stuff can just go
+through Opie instead of needing a clunky UI"): asking Opie does them (`set_home`, `today_card`).
 
 ## What happened to each old setting
 
