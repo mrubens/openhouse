@@ -493,8 +493,9 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
                         Mood.Asleep -> floatArrayOf(0.3f, 0.6f, 0.8f, 0.45f)[i % 4] * 0.6f
                         // standing low in an arc when the room is quiet (bars, not dots: dots are thinking), rising with their voice
                         Mood.Listening -> {
+                            val breath = 0.06f * sin((p * 2f + i * 0.12f) * 2 * PI).toFloat() // alive while the room is quiet
                             val wobble = 0.85f + 0.15f * sin((p * 6f + i * 0.37f) * 2 * PI).toFloat()
-                            0.3f * arc(i) + 0.7f * level[0] * arc(i) * wobble
+                            arc(i) * (0.5f + breath + 0.5f * level[0] * wobble)
                         }
                         Mood.Talking -> if (outNow >= 0f) {
                             val wobble = 0.8f + 0.2f * sin((p * 7f + i * 0.41f) * 2 * PI).toFloat()
@@ -503,7 +504,7 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
                         else -> { // thinking: dots, a ripple running through them left to right, twice a turn
                             val x = ((p * 2f) % 1f) * (n + 3) - 1.5f - i
                             val bump = if (abs(x) < 1.5f) ((kotlin.math.cos(x / 1.5f * PI).toFloat() + 1f) / 2f) else 0f
-                            (bw / size.height) * (1f + 1.4f * bump)
+                            (bw / size.height) * (1f + 2.2f * bump)
                         }
                     }.coerceIn(bw / size.height, 1f) * size.height
                     val x = i * (bw + gap)
