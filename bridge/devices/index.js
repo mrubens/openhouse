@@ -612,6 +612,30 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     return { ok: true, text: what === 'brightness' ? `Brightness now ${r.brightness}.` : `The brightness is ${r.brightness}.` };
   }
   handle.screen = screenDo;
+  /** Music and audiobooks in the tablet's media apps (the voice's "music" tool): the shell's /media (Media.kt,
+   *  docs/music.md). What the apps say (titles, artists) is theirs: marked as data. */
+  async function mediaDo({ do: what = 'status', app, query, focus, seconds } = {}) {
+    const r = await shell('/media', { do: what, app: String(app || ''), query: String(query || ''), focus: String(focus || ''), seconds: Number(seconds) || 0 }, 20_000);
+    if (!r) return { ok: false, text: 'Music needs the tablet (the shell isn\'t answering).' };
+    const apps = (r.apps || []).map((a) => a.name + (a.search ? '' : ' (can\'t be asked for something to play: it opens instead)'));
+    if (r.missing) return { ok: false, text: `${r.error} Say so, and offer to add it (install_app); someone then signs in to it once on the tablet.${apps.length ? ` Media apps on the tablet: ${apps.join(', ')}.` : ''}` };
+    const none = 'No music or audiobook app is on the tablet yet. One can be added (install_app, or Apps → Add apps), and someone signs in to it once on the tablet.';
+    const said = (n) => n ? asData([n.title, n.artist, n.album].filter(Boolean).join(' · ') || '(no title)', `what ${String(n.app).slice(0, 40)} shows (${n.state})`, { max: 300 }) : '';
+    const list = apps.length ? ` Media apps on the tablet: ${apps.join(', ')}.` : '';
+    if (r.error) return { ok: false, text: r.apps && !apps.length ? none : `${r.error}${list}${r.now ? ` ${said(r.now)}` : ''}` };
+    if (what === 'status') {
+      if (!apps.length && !r.now) return { ok: true, text: none };
+      const min = (s) => Math.round(s / 60);
+      const where = r.now?.positionS != null ? ` (${min(r.now.positionS)} of ${r.now.lengthS ? min(r.now.lengthS) : '?'} min)` : '';
+      const lines = [r.now ? `${r.now.app}: ${r.now.state}${where}. ${said(r.now)}` : r.anyPlaying ? 'Something is playing.' : 'Nothing is playing.',
+        ...(r.others || []).map((o) => `Also playing in ${o.app}: ${said(o)}`),
+        list.trim() + (r.last ? ` Last played from ${r.last}.` : ''),
+        r.sees ? '' : 'The tablet can\'t see what the apps play yet (Settings → This tablet → Now playing), so it only sends play, pause and skip.'];
+      return { ok: true, text: lines.filter(Boolean).join('\n') };
+    }
+    return { ok: true, text: `${r.done}${r.now ? ` ${said(r.now)}` : ''}` };
+  }
+  handle.media = mediaDo;
   /** The voice's "home_devices" tool: what the Linked devices sheet's buttons do (speakers, streamers, printers...),
    *  for any device; risky actions ask the people in the room first, as there (act's who: 'voice'). */
   async function devicesDo({ do: what = 'list', device, action, params, name } = {}) {

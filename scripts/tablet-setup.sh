@@ -45,6 +45,8 @@ say "2/7 Permissions: microphone, settings (device control, keep-alive)"
 adb shell pm grant $PKG android.permission.RECORD_AUDIO
 adb shell pm grant $PKG android.permission.WRITE_SECURE_SETTINGS
 adb shell pm grant $PKG android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+# Seeing what the media apps play (docs/music.md): no app can switch its own notification listener on.
+adb shell cmd notification allow_listener $PKG/dev.openhouse.shell.MediaListener 2>/dev/null || true
 
 say "3/7 Keep the runtime alive (child-process limit, battery, screen)"
 # Android 12+ kills an app's child processes beyond 32, or when they use a lot of CPU. The whole

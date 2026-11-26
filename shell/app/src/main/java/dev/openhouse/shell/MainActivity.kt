@@ -305,7 +305,8 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     // Just updated (the cover went up a moment ago): if this display isn't in front within a few seconds, the cover
     // outstayed its update (UpdateCover.clearStuck).
     // (It can come to the front for a moment and be covered again, so what counts is being in front when it looks.)
-    private var inFront = false
+    /** Opie's own screen is in front (Media: a media app that came up to start playing goes behind it again). */
+    @Volatile internal var inFront = false
     private fun watchCover() {
         val prefs = getSharedPreferences("shell", MODE_PRIVATE)
         val at = prefs.getLong("covered_at", 0L)

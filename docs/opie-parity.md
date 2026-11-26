@@ -22,7 +22,7 @@ the tablet", and from a phone, that it's on the tablet itself. The rules that do
 the card, and a no (or no card) leaves things as they were.
 
 Opie's tools: `LIVE_TOOLS` and the voice's own tools in `bridge/live-tools.js` (timer, weather, read_page, volume,
-tablet_screen, home_devices, tv, bluetooth, message_family, show_on_screen, the apps' voice actions); the home screen's
+tablet_screen, home_devices, tv, bluetooth, music, message_family, show_on_screen, the apps' voice actions); the home screen's
 in `bridge/home-screen.js` and `bridge/chat.js`; the house's in `bridge/house.js`; the map's in `bridge/maps.js`;
 using the screen and other apps in `bridge/device-tools.js` (look_at_screen, tap, type, scroll: the fallback for
 anything without a tool of its own, in Opie's own screens even with "Opie uses apps" off). Typed turns get the
@@ -82,6 +82,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Whiteboard: draw, clear, save | no | Drawing is the finger's; the board stays on that device (a small picture of it shows on Home's card) |
 | Recipes: take a starter recipe out | yes | remove_recipe; Opie's starters go in a new household's box once and never come back once taken out |
 | TV app | yes | tv (the app itself only shows the week) |
+| A media app from Apps (music, audiobooks, podcasts): play something, pause, skip, back 30 seconds, what's playing | **new** | music (docs/music.md): plays from a search in the app, or opens one that can't take a search; the system's own media apps open only for someone, as from Apps |
 
 ## Settings (the gear)
 
@@ -108,6 +109,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Advanced: check-ins (how often, what they look for) | yes | heartbeat_settings |
 | Night hours | yes | night_hours |
 | Volume (no row: the tablet's buttons) | yes | volume |
+| Advanced: Now playing (shown while Opie can't see what the media apps play) | no, on purpose | personOnly: it widens what Opie may see; Android's own page, with the PIN |
 | Plugins: find, look at, add, update, remove | **new** | find_plugins, look_at_plugin, add_plugin, update_plugin, remove_plugin: each change asks on the tablet, with the PIN |
 
 ## The phone page
