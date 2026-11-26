@@ -136,3 +136,5 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Answer an "Is this OK?" card, type the PIN, set or change it | no, on purpose | A person's own tap on a settings device; Opie never sees the PIN |
 | Their own OpenAI key in or out | no, on purpose | The key is typed by a person and goes straight to the keeper |
 | Remove a calendar or an album | no | On the settings page only for now (on a tablet it's Settings too) |
+| Sign in to iCloud or Google calendars, choose which show, pick Google Photos | no, on purpose | A sign-in is typed or done by a person, as on the tablet |
+| Listen for "Hey Opie" on a screen, Go back to the version before | no | The screen's own microphone permission; Go back is on the settings page only |

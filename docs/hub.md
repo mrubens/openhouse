@@ -15,8 +15,9 @@ backup went to the folder, and restoring it restarted the hub with everything in
 started from `hub/start.sh` under `caffeinate`, answered on the Mac's Wi-Fi address, and a scan found the 6 devices on
 the Wi-Fi (the same scan from Docker Desktop found 2, the VM's own). The LaunchAgent itself, a real Pi, Docker on Linux
 and WSL are untried.
-2026-11-26: the keeper, the setup from the settings device, the cards and the PIN (below). Signing in to calendars,
-Google Photos, cards on phones and the wake word aren't on the hub yet. The pages still say "the
+2026-11-26: the keeper, the setup from the settings device, the cards (settings devices and grown-ups' phones), the
+PIN, two-way Google and iCloud calendars, Google Photos, "Hey Opie" on a screen that says yes, and going back from a
+bad update (below). The pages still say "the
 tablet" in places (the phone's notes, the TV's empty view, the cloud backup's hint); the join page already says "the
 hub's settings page" on a hub.
 
@@ -56,9 +57,10 @@ Claude or ChatGPT on a computer, and the connector at the household's own addres
 | Settings | the shell's, behind the PIN | `/hub/` on a settings device (below), behind the PIN once one is set |
 | First setup | on the tablet, or from a phone with the setup code | type the code the hub printed when it started, then the same steps on that device |
 | Calendar and album links, the own OpenAI key, the PIN | the shell, sealed with Android's keystore | the keeper (`hub/keeper.mjs`), sealed, beside the data folder |
-| "Is this OK?" cards | on the tablet | on the settings page |
+| "Is this OK?" cards | on the tablet | on the settings page and grown-ups' phones |
+| Two-way calendars, Google Photos | the shell's sign-ins | the keeper's, signed in from the settings device |
 | Saying yes to a new device | Allow on the tablet | Allow on the settings page |
-| Opie | wake word on the tablet, or a tap | a tap on the pill, in any browser that may use the microphone |
+| Opie | wake word on the tablet, or a tap | a tap on the pill, in any browser that may use the microphone; "Hey Opie" on a screen that listens |
 | Backups to a drive | a USB drive the shell owns | a folder: a mounted drive, a share, a Docker volume (`OPENHOUSE_BACKUP_DIR`) |
 | Updates | the shell's self-update | Docker: a newer image. Linux or a Mac: Update on the settings page (git pull, build, restart) |
 | The bridge's secret | a new one each boot from the shell | one kept in the data folder (`.bridge-token`, 0600) |
@@ -87,20 +89,36 @@ by hand) those answer that they can't.
   OpenAI key), the PIN, the voice, then invites for the family. The hub's bridge moves the steps on itself
   (`hub-setup.json` in the data folder).
 - **"Is this OK?" cards.** What the tablet asks someone there (a workshop fix, a plugin, an app made here, a calendar
-  sent by the assistant) shows on the settings page, with Allow and No; one that needs the PIN asks for it there. Nobody
+  sent by the assistant) shows on the settings page and on grown-ups' phones (`chat/src/asks.jsx`), with its yes and No; one that needs the PIN asks for it there. Nobody
   answering is a no. On a hub, a fix from the workshop never goes in without a yes.
 - **The PIN.** Once one is set (in the setup or on the settings page), a settings device asks for it before changing
   settings, and again after 10 minutes. Cards that need it ask for it on the card. A lost PIN: run
   `hub/owner-code.sh --forget-pin` on the hub.
 
+- **Signing in to calendars and Google Photos.** iCloud: the Apple ID and an app-specific password, typed on the
+  settings device, kept by the keeper, which signs every CalDAV request the bridge's `calendar-sync.js` makes. Google
+  (calendars and photos, on a hub linked to an Opie account): the sign-in opens on the settings device and comes back
+  from the cloud to the hub's own bare address (`http://<hub>:8788/#gc=…`, the same `/g/done` a tablet's page gets),
+  where `chat/hub-back.js` hands it to the settings page, which sends it sealed to the keeper. The keeper keeps a
+  calendar's refresh token, or picks with Google's Picker and copies the photos, the token in memory only. Which
+  calendars show is chosen on the settings page. The cloud only sends back to an `http://` address, so a hub on its own
+  https (`HUB_TLS_CERT`) signs in to Google from its http address.
+- **"Hey Opie".** A screen (`/screen/`, on https or localhost so it may use the microphone) offers once to listen for
+  its name. Then it sends its microphone, a third of a second at a time and sealed, to the hub's wake model
+  (`/voice/listen`, the tablet's `voice-worker.js`), and the name starts Opie's live voice on that screen. The sound
+  is scored and dropped. `hub/build.sh` fetches the model (about 4 MB) and onnxruntime-node into `runtime/hub-voice`.
+- **A bad update.** `hub/update.sh` keeps the version before; if the new one stops within a minute of starting,
+  `hub/start.sh` goes back to it by itself, once. The settings page has Go back too.
+
 Not on the hub yet:
-- **Signing in to calendars** (two-way Google and iCloud) **and Google Photos.** They're the shell's on a tablet (with
-  the account's Google sign-in); on a hub, calendars and albums come in by their links only.
-- **Cards on grown-ups' phones.** The cards show on settings devices only.
-- **The wake word.** The model runs in the bridge already (`voice-worker.js`), but a hub would also have to hold the
-  live session itself (WebRTC in Node, a speaker) for "Opie" to be said to it. A tap on a phone or laptop works today.
+- **A microphone on the hub itself.** "Hey Opie" is heard by a screen that's listening, not by the hub's own box.
+- **Speech out on its own.** What Opie says unasked (a follow-up's time, an app's `say`) goes to the tablet's speaker;
+  a hub has none, and screens don't say it yet.
+- **The devices sheet, mail attachments, health check-ins** to the cloud: the tablet's shell does these; untouched here.
 - **A separate user for the keeper on Linux.** It runs as the hub's user, in its own folder; a user of its own would
   keep even code run as the hub's user away from what it keeps.
+- Untried: a real Google sign-in (needs a linked hub), a real "Hey Opie" (synthetic voices don't wake the model, and
+  the test browser blocks the microphone), Linux, Docker, the LaunchAgent.
 
 ## Live voice from other devices
 
