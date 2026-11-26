@@ -70,6 +70,13 @@ internal class SettingsLock(private val act: MainActivity) {
             // The setup's last step: PIN Lock on (with a recovery code unless linked), then the setup ends. Only while that
             // step is showing: anywhere else a first PIN is firstPin's.
             "setupPin" -> if (on) dev.openhouse.ui.Setup.next() else if (Openhouse.setupStep == "pin") PinPrompt.choose(act, act, then = { changed(); dev.openhouse.ui.Setup.next() })
+            // The setup's Android step (ui/Setup.kt AndroidStep): only while it shows, a first setup's way out to Android's
+            // own settings, as Join Wi-Fi is before the first setup (MainActivity.wifi); behind the PIN if one was chosen.
+            "setupDeviceControl" -> if (Openhouse.setupStep == "android") {
+                if (act.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED) { DeviceOwner.setDeviceControl(act, true); changed() }
+                else withPin { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            }
+            "setupCharge" -> if (Openhouse.setupStep == "android") withPin { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
             "reloadHome" -> act.reloadHome()
             "reloadHomeFirst" -> act.reloadHome(first = true) // the setup's end: on Home, whichever tab showed during it
         }
@@ -93,6 +100,18 @@ internal class SettingsLock(private val act: MainActivity) {
                     }
                 }
             }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
+    }
+
+    /** Android's child-process limit, after it seems to have stopped the runtime (Runtime.childLimitHit): the steps to
+     *  switch it off, which only Developer options can (docs/setup.md). Android settings, behind the PIN as always. */
+    private fun childLimit() {
+        CalmDialog(act).setTitle("Android stopped Opie's software")
+            .setMessage("Android limits how much an app may run in the background, and it stopped part of Opie. Opie started it again, but it can happen again. To switch the limit off, once:\n\n" +
+                "1. In Android's settings, open About tablet (on a Samsung, then Software information) and tap Build number seven times.\n" +
+                "2. Go back, open Developer options, and switch on Disable child process restrictions.\n" +
+                "3. Press Home to come back.")
+            .setPositiveButton("Open Android's settings") { _, _ -> withPinSet { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) } }
+            .setNegativeButton("Not now") { _, _ -> tablet() }.show()
     }
 
     private fun erase() {
@@ -157,6 +176,7 @@ internal class SettingsLock(private val act: MainActivity) {
         val m = mutableMapOf<String, String>()
         m["lock"] = if (on) "On" else "Off"
         m["updates"] = Updater.installedVersion(act)
+        m["deviceControl"] = if (DeviceAccess.instance != null) "On" else "Off" // the setup's Android step (ui/Setup.kt)
         m["brightness"] = Brightness.label(act)
         m["time"] = Clock.label(act)
         m["albums"] = count(runCatching { PhotoAlbums.list().size }.getOrDefault(0)) // the setup's progress (ui/Setup.kt)
@@ -303,6 +323,13 @@ internal class SettingsLock(private val act: MainActivity) {
         val items = listOf<Pair<CalmDialog.Row, () -> Unit>>(
             head("Help"),
             CalmDialog.Row("Send a report") to person("Send a report") { report() },
+        ) + (if (Tablets.tested) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            // A model not on this release's list (Tablets.kt, docs/tablets.md): said once, quietly, never blocking.
+            CalmDialog.Row("We haven't tested this tablet", value = Tablets.model) to {},
+        )) + (if (!Runtime.childLimitHit(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            // Shown only once Android seems to have stopped the runtime with its child-process limit (Runtime.lost).
+            CalmDialog.Row("Opie's software was stopped by Android") to { childLimit() },
+        )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             head("Lock and updates"),
             CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },
         ) + (if (on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
