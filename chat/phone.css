@@ -12,7 +12,7 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.4
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 .soft { color: var(--soft); }
 .brand { font-weight: 700; letter-spacing: -.02em; }
-.join { max-width: 440px; margin: 0 auto; padding: 32px 22px; }
+.join { max-width: 440px; margin: 0 auto; padding: calc(32px + env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); }
 .join .brand { margin-bottom: 44px; }
 .join h1 { font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; margin: 0 0 12px; }
 .join p { color: var(--soft); margin: 0 0 24px; }
@@ -56,7 +56,7 @@ nav button span { max-width: 100%; white-space: nowrap; overflow: hidden; text-o
 nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9%, transparent); font-weight: 700; }
 .tab-icon { width: 25px; height: 25px; flex: none; display: block; }
 .more { position: fixed; inset: 0; z-index: 30; pointer-events: none; visibility: hidden; transition: visibility 0s .3s; }
-.more-veil { position: absolute; inset: 0; background: rgba(40,34,24,.45); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); opacity: 0; transition: opacity .25s; }
+.more-veil { position: absolute; inset: 0; background: rgba(40,34,24,.45); opacity: 0; transition: opacity .25s; } /* (no blur: a blur of the whole page, apps' frames and all, is slow on a phone) */
 .more-list { position: absolute; top: 0; bottom: 0; left: 0; width: min(78vw, 304px); box-sizing: border-box; background: var(--card); color: var(--ink); overflow-y: auto; scrollbar-width: none; transform: translateX(-100%); transition: transform .28s cubic-bezier(.3,.7,.2,1);
   padding: calc(34px + env(safe-area-inset-top)) 14px calc(88px + var(--navb)); border-radius: 0 34px 34px 0; box-shadow: 30px 0 60px -20px rgba(40,30,10,.5); display: flex; flex-direction: column; gap: 1px; }
 .more.open { pointer-events: auto; visibility: visible; transition: none; }
@@ -70,9 +70,10 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .more-row.here { background: var(--tint); color: var(--ink); font-weight: 650; }
 .more-foot { font-size: 15px; font-weight: 550; margin-top: 4px; }
 
-/* An app's tab: its frame fills the space between the top and the tabs */
-.app.framed { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: env(safe-area-inset-top) 0 calc(76px + var(--navb)); max-width: none; }
-.app.framed.asks { padding-bottom: calc(136px + var(--navb)); }
+/* An app's tab: its frame fills the space between the top and the tabs, and round it (under the status bar, behind the tabs)
+   is the app's own background (--fbg, which its frame tells: phone-apps.jsx), so the frame has no edge. Opie's buttons float
+   over the foot of the app, as they do over Today, rather than take a band of their own. */
+.app.framed, .app.framed.asks { height: 100vh; height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; padding: env(safe-area-inset-top) 0 calc(76px + var(--navb)); max-width: none; background: var(--fbg, var(--bg)); }
 /* (iOS Safari can size a frame to its page instead of its box, wider or taller than the screen, which pushes the page and
    its fixed tabs past the bottom: the frame sits in a box that cuts it to the space it has.) */
 .appframe { flex: 1; min-height: 0; position: relative; overflow: hidden; }
@@ -137,7 +138,7 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .turn .said { margin-top: 10px; }
 .turn .said p { margin: 0 0 8px; }
 .askrow { display: flex; gap: 8px; align-items: center; }
-.askrow input { flex: 1; min-width: 0; font: inherit; padding: 13px 16px; border: 0; border-radius: 999px; background: var(--tint); color: inherit; outline-color: var(--ink); }
+.askrow input { flex: 1; min-width: 0; font: inherit; padding: 13px 16px; border: 0; border-radius: 999px; background: var(--tint); color: inherit; outline: none; }
 .askrow .go.small { width: auto; padding: 12px 20px; }
 .askrow .go:disabled { opacity: .35; }
 
@@ -165,5 +166,32 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .listbar { display: flex; justify-content: flex-end; margin: -2px 0 2px; }
 .listbar .quiet { color: var(--soft); font-size: 15px; padding: 6px 2px; }
 .appframe[hidden] { display: none; }
-/* Opie's mark only, round, the size of the keyboard button beside it (talk.jsx) */
-.opie-pill{width:46px;padding:0;justify-content:center}
+/* Opie's mark only, round, the size of the keyboard button beside it (talk.jsx); a faint light edge so it shows over a
+   dark app too (Weather at night) */
+.opie-pill{width:46px;padding:0;justify-content:center;box-shadow:0 6px 20px rgba(42,40,38,.18),0 0 0 1px rgba(255,255,255,.22)}
+
+/* A phone on its side (short and wide): the tabs a rail down the left, inside the safe area; Opie's buttons at the bottom
+   right; an app's frame the full height and a tall phone's width (its own background either side), so every app keeps
+   just the layout it has upright (narrow.css; wider, some of their cards come apart); Today in two columns, the
+   calendar beside the rest, as on the tablet. */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root { --rail: 70px; --railx: max(10px, env(safe-area-inset-left)); --side: calc(var(--railx) + var(--rail) + 10px); }
+  nav { left: var(--railx); right: auto; top: max(10px, env(safe-area-inset-top)); bottom: max(10px, env(safe-area-inset-bottom)); width: var(--rail); height: auto; flex-direction: column; border-radius: 35px; }
+  nav button { flex: 1; max-height: 66px; width: 100%; border-radius: 30px; font-size: 10.5px; }
+  .tab-icon { width: 23px; height: 23px; }
+  .app { max-width: none; padding-left: var(--side); padding-right: max(10px, env(safe-area-inset-right)); padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .app.asks { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+  header { padding-top: 16px; }
+  .status { margin-top: 10px; }
+  .app .opie-talk, .opie { left: auto; right: max(16px, env(safe-area-inset-right)); transform: none; bottom: max(12px, env(safe-area-inset-bottom)); }
+  .app.framed, .app.framed.asks { padding: 0 max(0px, env(safe-area-inset-right)) env(safe-area-inset-bottom) var(--side); align-items: center; }
+  .app.framed > .appframe, .app.framed > .openbar { width: 100%; max-width: 460px; box-sizing: border-box; }
+  .more-list { width: min(60vw, 440px); padding: 14px 14px 14px calc(var(--side) - 6px); border-radius: 0 34px 34px 0; }
+  .more-head { padding-bottom: 8px; }
+  .more-row { height: 46px; font-size: 18px; }
+  .title { margin-top: 16px; }
+  .app-grid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+  .sheet { max-height: 94vh; max-height: 94dvh; padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+  /* (Today's two columns: phone-today.css, after its own one-column rules) */
+  .page { padding-left: 6px; padding-right: 6px; }
+}

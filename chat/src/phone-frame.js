@@ -128,7 +128,33 @@ function page() {
     s.src = URL.createObjectURL(new Blob([text], { type: 'text/javascript' })); s.textContent = ''; void rel;
   }
   for (const s of doc.querySelectorAll('style')) s.textContent = css('index.html', s.textContent);
+  // On a phone the apps' unit (narrow.css, under 700 px) stops at a tall phone's, so a wider frame doesn't make their type
+  // grow with it.
+  const cap = doc.createElement('style');
+  cap.textContent = '@media (max-width: 700px) { html:root:root { --u: min(calc(100vw / 560), .8px); } }';
+  doc.body.append(cap);
   return '<!doctype html>' + doc.documentElement.outerHTML;
+}
+
+/** The app's own background (what's behind its page), for the phone's page to paint round the frame in the same color:
+ *  under the status bar and the tabs. Told when it changes. */
+function tellBackground() {
+  let was = '';
+  const look = () => {
+    // (what's painted across the top of the page: the last layer there as wide as the page with a color of its own, a sky
+    // drawn behind the words included; a panel or a card narrower than the page isn't it)
+    let bg = '';
+    for (const el of [document.documentElement, ...document.querySelectorAll('body, body *')].slice(0, 600)) {
+      const r = el.getBoundingClientRect();
+      if (r.top > 1 || r.bottom < 2 || r.left > 1 || r.width < innerWidth * 0.95) continue;
+      const st = getComputedStyle(el), c = st.backgroundColor, g = /gradient/.test(st.backgroundImage) && st.backgroundImage.match(/rgb\([\d, ]+\)/)?.[0];
+      if (/^rgb\(/.test(c)) bg = c; // (an opaque one: a see-through one shows what's under it)
+      else if (g) bg = g; // (a gradient: its first color, the top's)
+    }
+    if (bg && bg !== was) { was = bg; parent.postMessage({ oh: 'bg', bg }, '*'); }
+  };
+  for (const t of [50, 400, 1500]) setTimeout(look, t);
+  setInterval(look, 10e3); // (an app that changes its look: a dark sky at night)
 }
 
 function failed(text) { parent.postMessage({ oh: 'failed', text: String(text || '').slice(0, 300) }, '*'); }
@@ -144,5 +170,6 @@ addEventListener('message', function first(e) {
   addEventListener('error', (ev) => failed(ev.message || 'error')); // (the page notes it; the app may well go on)
   document.write(html);
   document.close();
+  tellBackground();
 });
 parent.postMessage({ oh: 'ready' }, '*');

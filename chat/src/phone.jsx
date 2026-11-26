@@ -5,7 +5,7 @@
 // Served by the tablet at /phone/ on the Wi-Fi; installable and with notifications only from an https address
 // (the cloud's copy, a next step) or localhost.
 import { createRoot } from 'react-dom/client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { pair, relayPair, client, Removed } from './screen-client.js';
 import { Talk, canTalk } from './talk.jsx';
 import { pairingFromCode } from './scrypt.js';
@@ -20,9 +20,11 @@ import { paletteOf, worldOf } from './look.js';
 const CLOUD_RELAY = document.querySelector('meta[name="openhouse-relay"]')?.content || '';
 // Inside the iPhone app (ios/, docs/iphone-app.md): it turns on notes, the share sheet and the home screen itself.
 const IN_APP = !!window.openhouseApp;
-const STORE = 'openhouse.phone', CACHE = 'openhouse.phone.house', QUEUE = 'openhouse.phone.queue';
+const STORE = 'openhouse.phone', CACHE = 'openhouse.phone.house', CACHE_AT = 'openhouse.phone.house-at', QUEUE = 'openhouse.phone.queue';
 const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const put = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+/** A setState updater that keeps the value it has when the new one is the same (a poll's answer, unchanged): no re-render. */
+const same = (v) => (was) => (JSON.stringify(was) === JSON.stringify(v) ? was : v);
 const mine = (me, who) => String(who || '').toLowerCase() === String(me?.person || '').toLowerCase();
 
 // ---- joining ----------------------------------------------------------------------------------------------
@@ -65,7 +67,8 @@ function Join({ onJoined, removed }) {
 // ---- data: live when it can be, the last copy when it can't, and changes that wait ----------------------
 function useHouse(c, onRemoved) {
   const [house, setHouse] = useState(() => get(CACHE)?.house || null), [homeScreen, setHomeScreen] = useState(null), [messages, setMessages] = useState([]);
-  const [up, setUp] = useState(null), [at, setAt] = useState(() => get(CACHE)?.at || null), [waiting, setWaiting] = useState(() => get(QUEUE, []).length);
+  // (when what it shows was last so: a ref, not state, as it changes with every answer and only shows when home is out of touch)
+  const [up, setUp] = useState(null), at = useRef(get(CACHE_AT) || get(CACHE)?.at || null), [waiting, setWaiting] = useState(() => get(QUEUE, []).length);
   const flushing = useRef(false);
   async function flush() {
     if (flushing.current) return; flushing.current = true;
@@ -79,7 +82,7 @@ function useHouse(c, onRemoved) {
       }
     } catch (e) { if (e instanceof Removed) onRemoved(); } finally { flushing.current = false; }
   }
-  const keepHouse = (h) => { setHouse(h); const t = Date.now(); setAt(t); put(CACHE, { house: h, at: t }); };
+  const keepHouse = (h) => { setHouse(h); const t = Date.now(); at.current = t; put(CACHE, { house: h, at: t }); put(CACHE_AT, t); };
   useEffect(() => {
     let stop = false;
     (async () => {
@@ -89,15 +92,16 @@ function useHouse(c, onRemoved) {
           const r = await c.json('GET', v < 0 ? '/house' : `/house/wait?v=${v}&same=1`);
           if (r.status !== 200) throw new Error();
           v = r.json.v;
-          if (r.json.same) { const t = Date.now(); setAt(t); put(CACHE, { ...get(CACHE), at: t }); } // nothing changed: what it shows is still so
+          // Nothing changed: what it shows is still so. (Only the time is kept, not the whole house again: this comes often.)
+          if (r.json.same) { const t = Date.now(); at.current = t; put(CACHE_AT, t); }
           else keepHouse(r.json);
           setUp(true); flush();
         } catch (e) { if (e instanceof Removed) { stop = true; return onRemoved(); } setUp(false); v = -1; if (!stop) await new Promise((r) => setTimeout(r, 4000)); }
       }
     })();
-    (async () => { while (!stop) { try { const r = await c.json('GET', '/home'); if (r.status === 200) setHomeScreen(r.json); } catch {} await new Promise((r) => setTimeout(r, 60e3)); } })();
+    (async () => { while (!stop) { try { const r = await c.json('GET', '/home'); if (r.status === 200) setHomeScreen(same(r.json)); } catch {} await new Promise((r) => setTimeout(r, 60e3)); } })();
     // What Opie was asked to tell this phone's person lately ("tell Alex dinner's ready"): screens.js /phone/messages.
-    (async () => { while (!stop) { try { const r = await c.json('GET', '/phone/messages'); if (r.status === 200) setMessages(r.json.messages || []); } catch {} await new Promise((r) => setTimeout(r, 60e3)); } })();
+    (async () => { while (!stop) { try { const r = await c.json('GET', '/phone/messages'); if (r.status === 200) setMessages(same(r.json.messages || [])); } catch {} await new Promise((r) => setTimeout(r, 60e3)); } })();
     const back = () => { if (!document.hidden) flush(); };
     addEventListener('online', back); document.addEventListener('visibilitychange', back);
     return () => { stop = true; removeEventListener('online', back); document.removeEventListener('visibilitychange', back); };
@@ -109,7 +113,7 @@ function useHouse(c, onRemoved) {
   }
   /** A change an app made with no signal: it goes, marked with that app, when the phone is back in touch. */
   const later = ({ p, b, a }) => { const q = [...get(QUEUE, []), { p, b, a }]; put(QUEUE, q); setWaiting(q.length); setUp(false); };
-  return { house, homeScreen, messages, up, at, waiting, change, later };
+  return { house, homeScreen, messages, up, at: at.current, waiting, change, later };
 }
 
 // ---- the tabs --------------------------------------------------------------------------------------------
@@ -488,6 +492,9 @@ function Phone({ me, c, onRemoved }) {
   const [want, setTab] = useState(() => (shared ? 'today' : get('openhouse.phone.tab') || 'today'));
   const [opened, setOpened] = useState(null); // an app from Apps (or one an app opened) that isn't a tab
   const [more, setMore] = useState(false);
+  // Each app's own background (its frame tells it), painted round its frame: under the status bar and the tabs.
+  const [bgs, setBgs] = useState(() => get('openhouse.phone.bgs', {}));
+  const onBg = useCallback((id, bg) => setBgs((b) => { if (b[id] === bg) return b; const n = { ...b, [id]: bg }; put('openhouse.phone.bgs', n); return n; }), []);
   const [asking, setAsking] = useState(() => (openedConvo && canAsk(me) ? { convo: openedConvo } : !!shared && canAsk(me)));
   useEffect(() => {
     if (openedConvo) history.replaceState(null, '', location.pathname + location.hash);
@@ -522,9 +529,9 @@ function Phone({ me, c, onRemoved }) {
   const open = (id) => { if (tabs.some((t) => t.id === id)) return go(id); const a = (apps || []).find((x) => x.id === id); if (a) { setMore(false); setOpened(a); } };
   const bar = tabs.length > 5 ? tabs.slice(0, 4) : tabs;
   const cur = opened ? null : tabs.find((t) => t.id === tab);
-  const frames = alive.map((a) => <AppFrame key={a.id} c={c} app={(apps || []).find((x) => x.id === a.id) || a} style={style} hidden={showing?.id !== a.id} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} />);
+  const frames = alive.map((a) => <AppFrame key={a.id} c={c} app={(apps || []).find((x) => x.id === a.id) || a} style={style} hidden={showing?.id !== a.id} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} onBg={onBg} />);
   return (
-    <div className={'app' + (canAsk(me) ? ' asks' : '') + (showing ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={phoneVars(style, opened ? opened.id : tab)}>
+    <div className={'app' + (canAsk(me) ? ' asks' : '') + (showing ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={{ ...phoneVars(style, opened ? opened.id : tab), ...(showing && bgs[showing.id] ? { '--fbg': bgs[showing.id] } : {}) }}>
       {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
       {opened && <div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>}
       {frames}

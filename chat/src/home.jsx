@@ -416,10 +416,13 @@ function WeatherCard({ w, now, dim, className, ...rest }) {
     // Where its height comes from its own content (a phone's Today, one card under another), a layout changes the
     // height that chose it, and it flipped back and forth many times a second (the user: the screen shook). So a size
     // that would undo the last change within two seconds isn't taken: it stays put.
+    // Wide needs room for its two columns too: a page can say how wide that is (--wide-from, px; the phone's Today does,
+    // where a card the width of the screen is still too narrow for it).
     let last = 'cell', prev = null, at = 0;
+    const from = parseFloat(getComputedStyle(el).getPropertyValue('--wide-from')) || 0;
     const o = new ResizeObserver(() => {
       const r = el.getBoundingClientRect(); if (!r.width || !r.height) return;
-      const next = r.width > r.height * 1.45 ? 'wide' : r.height > r.width * 1.45 ? 'tall' : 'cell';
+      const next = r.width > r.height * 1.45 && r.width >= from ? 'wide' : r.height > r.width * 1.45 ? 'tall' : 'cell';
       if (next === last) return;
       if (next === prev && Date.now() - at < 2000) return;
       prev = last; last = next; at = Date.now(); setSize(next);

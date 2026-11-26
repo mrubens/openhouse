@@ -42,7 +42,12 @@ struct WebPage: UIViewRepresentable {
     v.allowsBackForwardNavigationGestures = false
     v.scrollView.contentInsetAdjustmentBehavior = .never
     v.isOpaque = false
-    v.backgroundColor = .systemBackground
+    // The page's own off-white (phone.css --bg) behind it, not the system's white or black: what shows for a moment as
+    // the phone turns, or past the top of the page when it's pulled down.
+    let paper = UIColor(red: 0xf1 / 255, green: 0xee / 255, blue: 0xe8 / 255, alpha: 1)
+    v.backgroundColor = paper
+    v.scrollView.backgroundColor = paper
+    v.underPageBackgroundColor = paper
     #if DEBUG
     v.isInspectable = true
     #endif

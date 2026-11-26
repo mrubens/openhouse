@@ -19,14 +19,14 @@ export function usePhoneApps(c, homeScreen) {
     let stop = false;
     (async () => {
       while (!stop) {
-        try { const r = await c.json('GET', '/screens/apps'); if (r.status === 200 && Array.isArray(r.json)) { setApps(r.json); put(APPS, r.json); } } catch {}
+        try { const r = await c.json('GET', '/screens/apps'); if (r.status === 200 && Array.isArray(r.json)) { setApps((was) => (JSON.stringify(was) === JSON.stringify(r.json) ? was : r.json)); put(APPS, r.json); } } catch {}
         await new Promise((ok) => setTimeout(ok, 60e3));
       }
     })();
     return () => { stop = true; };
   }, [c]);
   const [style, setStyle] = useState(() => get(STYLE, null));
-  useEffect(() => { if (homeScreen?.style) { setStyle(homeScreen.style); put(STYLE, homeScreen.style); } }, [homeScreen?.style]);
+  useEffect(() => { if (homeScreen?.style) { setStyle((was) => (JSON.stringify(was) === JSON.stringify(homeScreen.style) ? was : homeScreen.style)); put(STYLE, homeScreen.style); } }, [homeScreen?.style]);
   return { apps, style };
 }
 
@@ -67,6 +67,8 @@ export function appBundle(c, app) {
 const FRAME = document.querySelector('meta[name="openhouse-relay"]') ? '/h/frame.html' : '/phone/frame.html';
 const lsKey = (id) => 'openhouse.phone.ls.' + id;
 const houseKey = (id) => 'openhouse.phone.house.' + id; // what this app last saw of the house (as cut for it), for no signal
+const houseAt = (id) => 'openhouse.phone.house-at.' + id; // when that was last so (apart: the house is big, and 'still so' comes often)
+const keptAt = (id, kept) => Math.max(kept?.at || 0, get(houseAt(id), 0));
 /** What the kit takes from its address: the household's colors and type, and that it's on a phone. */
 export function frameHash(style, app) {
   const p = paletteOf(style);
@@ -77,9 +79,10 @@ const WAITS = /^\/house\/(list|chore)$/;
 
 /**
  * One app, running in its frame. onOpen(id): it asked for another of the household's apps (an app from a link may
- * open only itself); onQueue({p, b, a}): a change to send later; onClose: its own Close.
+ * open only itself); onQueue({p, b, a}): a change to send later; onClose: its own Close; onBg(id, color): its page's
+ * background, to paint round the frame.
  */
-export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQueue, onRemoved }) {
+export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQueue, onRemoved, onBg }) {
   const ref = useRef(null);
   const [gen, setGen] = useState(0), [state, setState] = useState('loading');
   // Hidden (kept running for a quick way back), it asks for nothing: its calls wait until it shows again, so a kept app
@@ -111,14 +114,14 @@ export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQue
       // with what's new, as the version it gives is old).
       const kept0 = method === 'GET' && p === '/house' && !firstHouse && get(houseKey(app.id));
       if (method === 'GET' && p === '/house') firstHouse = true;
-      if (kept0 && Date.now() - kept0.at < 7 * 864e5) { mark('data'); mark('house'); return to({ oh: 'reply', id: m.id, status: 200, type: 'application/json', body: kept0.body }); }
+      if (kept0 && Date.now() - keptAt(app.id, kept0) < 7 * 864e5) { mark('data'); mark('house'); return to({ oh: 'reply', id: m.id, status: 200, type: 'application/json', body: kept0.body }); }
       const t1 = performance.now();
       try {
         const r = await c.request(method, p, method === 'POST' ? m.b ?? {} : undefined, { app: app.id, big: method === 'GET' && p.startsWith('/house/photo/') });
         if (method === 'GET' && r.status === 200 && /^\/house(\/wait)?(\?|$)/.test(p)) {
           const text = new TextDecoder().decode(r.body), same = text.length < 100 && (() => { try { return JSON.parse(text).same === true; } catch { return false; } })();
-          const was = same && get(houseKey(app.id)); // nothing changed ({v, same}): the house it keeps is still so
-          if (!same) put(houseKey(app.id), { body: text, at: Date.now() }); else if (was) put(houseKey(app.id), { ...was, at: Date.now() });
+          // (nothing changed ({v, same}): the house it keeps is still so; only the time is written, not the house again)
+          if (!same) { put(houseKey(app.id), { body: text, at: Date.now() }); put(houseAt(app.id), null); } else put(houseAt(app.id), Date.now());
         }
         const body = r.body.buffer.slice(r.body.byteOffset, r.body.byteOffset + r.body.byteLength);
         to({ oh: 'reply', id: m.id, status: r.status, type: r.type, body }, [body]);
@@ -146,6 +149,7 @@ export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQue
       else if (m.oh === 'ls' && m.data && typeof m.data === 'object') { const s = JSON.stringify(m.data); if (s.length < 2e6) put(lsKey(app.id), m.data); }
       else if (m.oh === 'failed') console.warn(`[${app.id}]`, String(m.text || '').slice(0, 300));
       else if (m.oh === 'close') onClose?.();
+      else if (m.oh === 'bg' && /^rgba?\([\d., ]+\)$/.test(String(m.bg || ''))) onBg?.(app.id, m.bg);
       else if (m.openhouse === 'open' && /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(m.app || ''))) { if (!app.shared || m.app === app.id) onOpen?.(String(m.app)); }
     };
     addEventListener('message', on);

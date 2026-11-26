@@ -119,6 +119,11 @@
       html:root .foot .btn { height: calc(56 * var(--u)); font-size: calc(21 * var(--u)); padding: 0 calc(22 * var(--u)); }
       .foot .gl { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
     }
+    /* A phone on its side: too short for the list to scroll on its own under the add field, so the whole list scrolls. */
+    @media (max-width: 700px) and (max-height: 500px) {
+      html:root .lc.cur { overflow-y: auto; scrollbar-width: none; }
+      html:root .lc .items { flex: none; overflow: visible; }
+    }
   </style>
   <link rel="stylesheet" href="/kit/quiet.css">
   <link rel="stylesheet" href="/kit/narrow.css">
