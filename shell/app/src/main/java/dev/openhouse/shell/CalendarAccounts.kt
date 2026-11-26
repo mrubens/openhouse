@@ -210,6 +210,26 @@ object CalendarAccounts {
         }
     }
 
+    /** iCloud from the setup's phone or computer (DeviceServer /setup/icloud): the Apple ID and app-specific password
+     *  typed there, sealed on the way, checked here before they're kept; then which calendars to show, on the tablet.
+     *  null once it signed in, else what went wrong, for that phone. Runs off the main thread. */
+    fun addICloudFrom(a: Activity, user: String, pass: String, who: String, immersive: () -> Unit): String? {
+        val u = user.trim().take(200); val p = pass.replace(" ", "").trim().take(100)
+        if (u.length < 3 || p.length < 8) return "Both are needed: the Apple ID and an app-specific password."
+        val names = familyNames()
+        val w = who.trim().let { t -> names.firstOrNull { it.equals(t, true) } ?: t }.take(40)
+        val acct = Account(UUID.randomUUID().toString().take(8), "caldav", if (w.isNotBlank()) "$w's iCloud" else "iCloud", w, ICLOUD, u, p)
+        put(acct)
+        val (code, text) = bridgePost("/calendar/sync/discover", JSONObject().put("account", acct.id))
+        if (code != 200) {
+            remove(acct.id)
+            val j = runCatching { JSONObject(text) }.getOrDefault(JSONObject())
+            return if (j.optBoolean("signin")) "That didn't sign in. Check the Apple ID, and use an app-specific password (not the Apple ID's own)." else j.optString("error", "Couldn't reach the calendars. Try again in a moment.")
+        }
+        main.post { calendars(a, acct.id, immersive) }
+        return null
+    }
+
     /** Kept, its calendars found (the sign-in checked on the way), then which to show. Dropped again if it didn't sign in. */
     private fun signedIn(a: Activity, acct: Account, immersive: () -> Unit) {
         val wait = CalmDialog(a).setTitle("Finding the calendars…").setCancelable(false).show().also { immersive() }
@@ -229,7 +249,7 @@ object CalendarAccounts {
     }
 
     /** Google: a phone on the home Wi-Fi signs in (Google won't let a tablet's page do it), through Opie's cloud. */
-    fun addGoogle(a: Activity, cloud: String, immersive: () -> Unit) {
+    fun addGoogle(a: Activity, cloud: String, immersive: () -> Unit, remote: ((String?) -> Unit)? = null) {
         var dialog: android.app.Dialog? = null
         var got: String? = null
         var state = JSONObject().put("state", "start").put("kind", "cal")
@@ -244,10 +264,12 @@ object CalendarAccounts {
                 if (got == null) { got = t; state = JSONObject().put("state", "signedin").put("kind", "cal"); main.post { dialog?.dismiss() } }
             },
             onEnd = { if (got == null) main.post { dialog?.dismiss() } })
-        if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
+        if (!h.start()) { remote?.invoke(null); CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
         self = h.url!!.substringBefore('#')
-        val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
-        val col = Calm.qr(a, qr, Calm.caption(a, "Scan with a phone on this Wi-Fi to sign in to Google. Then choose the calendars here."), 360) { Handoff.share(a, h.url!!) }
+        // From the setup's phone or computer (DeviceServer /setup/google): the sign-in opens there, with no code to scan.
+        remote?.invoke(h.url!!)
+        val col = if (remote != null) Calm.column(a).apply { addView(Calm.caption(a, "Sign in to Google on the phone or computer: it's open there now. Then choose the calendars here.")) }
+            else Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }, Calm.caption(a, "Scan with a phone on this Wi-Fi to sign in to Google. Then choose the calendars here."), 360) { Handoff.share(a, h.url!!) }
         dialog = CalmDialog(a).setTitle("Google Calendar").setWidth(560f).setView(col).setNegativeButton("Cancel", null)
             .setOnDismissListener {
                 val t = got

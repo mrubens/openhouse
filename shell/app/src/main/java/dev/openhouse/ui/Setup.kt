@@ -300,12 +300,12 @@ private fun CalendarStep() {
         }
     }
     val how = when (pick) {
-        "google" -> if (linked) HowItGoes(listOf("Tap Sign in with Google.", "Scan the code with a phone on this Wi-Fi, and sign in to Google there.", "Choose which calendars to show."),
-            "Two-way: what's added here shows in Google Calendar too.", "Sign in with Google", "calendarGoogle")
+        "google" -> if (linked) HowItGoes(listOf(if (device != null) "On $device, tap Sign in with Google, and sign in there." else "Connect a phone or computer, and sign in to Google there.", "Choose which calendars to show here."),
+            "Two-way: what's added here shows in Google Calendar too.", null, null)
             else HowItGoes(listOf("On your computer, open Google Calendar, then Settings.", "Under Settings for my calendars, choose the calendar, then Integrate calendar.", "Copy the Secret address in iCal format.", sendLine(device, "it")),
             "Read only: what's added here stays on the tablet. Once the tablet is linked to an Opie account, it can sign in to Google for two-way.", null, null, "calendarPaste")
-        "icloud" -> HowItGoes(listOf("On appleid.apple.com, go to Sign-In and Security, then App-Specific Passwords, and make one.", "Tap Sign in to iCloud, and type your Apple ID and that password.", "Choose which calendars to show."),
-            "Two-way: what's added here shows on your iPhone too. The password stays sealed on this tablet.", "Sign in to iCloud", "calendarICloud")
+        "icloud" -> HowItGoes(listOf("On appleid.apple.com, go to Sign-In and Security, then App-Specific Passwords, and make one.", if (device != null) "On $device, tap iCloud, and type your Apple ID and that password." else "Connect a phone or computer, and type your Apple ID and that password there.", "Choose which calendars to show here."),
+            "Two-way: what's added here shows on your iPhone too. The password stays sealed on this tablet.", null, null)
         "outlook" -> HowItGoes(listOf("In Outlook on the web, open Settings, then Calendar, then Shared calendars.", "Under Publish a calendar, choose the calendar and Can view all details, then Publish.", "Copy the ICS link.", sendLine(device, "it")),
             "Read only: what's added here stays on the tablet.", null, null, "calendarPaste")
         "link" -> HowItGoes(listOf("Find the calendar's iCal or ICS link on your phone or computer: a school, team or club calendar usually has one.", sendLine(device, "the link")), "Read only.", null, null, "calendarPaste")
@@ -348,7 +348,7 @@ private fun PhotosStep() {
     val how = when (pick) {
         "icloud" -> HowItGoes(listOf("In Photos on your iPhone or Mac, open a shared album, or make one.", "In its sharing settings, turn on Public Website, and copy the link.", sendLine(device, "it")),
             "New photos in the album come to the tablet by themselves.", null, null, "albumPaste")
-        "google" -> HowItGoes(listOf("Tap Pick from Google Photos, and scan the code with a phone on this Wi-Fi.", "Sign in to Google there.", "Pick the photos for the tablet."), "They're copied to the tablet.", "Pick from Google Photos", "googlePhotos")
+        "google" -> HowItGoes(listOf(if (device != null) "On $device, tap Pick from Google Photos." else "Connect a phone or computer, and tap Pick from Google Photos there.", "Sign in to Google there.", "Pick the photos for the tablet."), "They're copied to the tablet.", null, null)
         "phone" -> when {
             device == null -> HowItGoes(listOf("Connect your phone, then choose the photos there."), null, "Connect a phone or computer", "connect")
             page == null -> HowItGoes(listOf("Tap Let phones send photos, and say yes.", "On $device, choose the photos to send."), "Then the household's phones can send photos here any time.", "Let phones send photos", "photoPhonesOn")

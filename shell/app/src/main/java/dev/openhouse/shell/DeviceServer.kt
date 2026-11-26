@@ -204,7 +204,7 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/openai", "/ownkey", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
+    private val HOME_PATHS = setOf("/openai", "/ownkey", "/setup/google", "/setup/icloud", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -301,6 +301,21 @@ object DeviceServer {
             "/openai" -> OwnKey.forward(b.optString("kind"), (b.optJSONObject("body") ?: JSONObject()).toString())
             // The household's own OpenAI key, sent from the phone or computer the tablet is being set up from (bridge
             // /setup/openai): checked and kept here (the PIN first, with the lock on); never logged, never answered back.
+            // The setup's phone or computer (bridge /setup/google, /setup/icloud): a Google sign-in that opens there (its
+            // address back, for the phone to open), and an iCloud sign-in typed there; the calendars are chosen here.
+            "/setup/google" -> {
+                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                val cloud = b.optString("cloud").takeIf { it.startsWith("https://") || it.startsWith("http://10.0.2.2") } ?: return 409 to """{"error":"Link the tablet to your Opie account first."}"""
+                val got = java.util.concurrent.LinkedBlockingQueue<String>()
+                handler.post { if (b.optString("kind") == "photos") GooglePhotos.showFor(a, a::immersive, cloud) { got.offer(it ?: "") } else CalendarAccounts.addGoogle(a, cloud, a::immersive) { got.offer(it ?: "") } }
+                val url = got.poll(15, java.util.concurrent.TimeUnit.SECONDS)
+                if (url.isNullOrEmpty()) 409 to """{"error":"The tablet isn't on Wi-Fi."}""" else 200 to JSONObject().put("url", url).toString()
+            }
+            "/setup/icloud" -> {
+                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                val why = CalendarAccounts.addICloudFrom(a, b.optString("user"), b.optString("pass"), b.optString("who"), a::immersive)
+                if (why == null) 200 to """{"ok":true}""" else 400 to JSONObject().put("error", why).toString()
+            }
             "/ownkey" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
                 val got = java.util.concurrent.LinkedBlockingQueue<String>()

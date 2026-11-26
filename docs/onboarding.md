@@ -34,6 +34,12 @@ On the tablet:
       `/setup/household`; the address field starts with the tablet's guess from Android's location, `/setup/guess`).
       The tablet shows what's come in. The address is kept with the household (`address`: Opie's for directions and
       the like, and the Map's); the town or zip is the weather's.
+   Everything signed in to is done on the phone or computer too (since 2026-11-26): **Link to your Opie account**
+   (`/setup/link`: the link page opens there, and the tablet asks no yes, since that code shows only there), **Sign in
+   with Google** for the calendar and **Pick from Google Photos** (`/setup/google`: the tablet's Google page opens
+   there instead of a code to scan; the calendars are chosen at the tablet) and **iCloud** (`/setup/icloud`: the Apple
+   ID and app-specific password typed there, sealed to the shell's `CalendarAccounts.addICloudFrom`, never kept by
+   the bridge). The tablet's steps say which to tap there.
    4. **Do you have a family calendar?** Google, iCloud, Outlook, Another link, or Start one here, each with what to
       do in a few numbered lines: Google signs in through the account (`CalendarAccounts`, two-way) on a linked
       tablet, else its Secret address in iCal format, copied on the computer and pasted into Opie there (the connected

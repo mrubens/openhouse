@@ -118,10 +118,12 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // which account claimed it and who ({status: 'confirm', family, by}), and the credential comes only after someone at
   // the tablet says yes (linkAnswer, from Settings → Account's person card). An older service that doesn't know
   // confirm answers 'linked' straight away, as before.
-  async function linkStart(name) {
+  // confirm: someone at the tablet says yes to the account that claimed the code (the code is on the tablet's screen,
+  // for anyone to see). Not for the setup's own phone or computer (/setup/link), the only place that code ever shows.
+  async function linkStart(name, { confirm = true } = {}) {
     const base = api();
     if (!base) throw new Error('No cloud address is set.');
-    const r = await request(base + '/v1/link/start', { method: 'POST', body: JSON.stringify({ name, confirm: true }) });
+    const r = await request(base + '/v1/link/start', { method: 'POST', body: JSON.stringify({ name, confirm }) });
     if (r.status !== 200) throw new Error(r.json?.error || `the service answered ${r.status}`);
     const l = { api: base, display: r.json.display, url: r.json.url, poll: r.json.pollToken, until: now() + r.json.expiresIn * 1000, confirm: null };
     linking = l;
@@ -436,7 +438,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const revoked = () => { if (device()) return false; const s = state(); return s.unlinkedWhy === 'revoked' || !!s.unlinkedHere; };
   /** Which link this is (a relink is a new one). */
   const linkId = () => device()?.deviceId || null;
-  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

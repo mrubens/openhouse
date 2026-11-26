@@ -360,3 +360,16 @@ test("the household's own OpenAI key: the bridge only hears whether there is one
   assert.equal(t.cloud.own(), false);
   assert.equal(t.cloud.liveOn(), false); // and goes with it, with no account to fall back on
 });
+
+test("linking from the setup's own phone or computer: its code goes only there, so a sign-in there links with no yes at the tablet", { skip: !svc && 'no cloud service' }, async () => {
+  const D = display(), t = tablet(D);
+  assert.equal((await t.call('POST', '/cloud/config', { api: svc.url.replace('localhost', '127.0.0.1') })).code, 200);
+  await signIn('setup@example.com');
+  const s = await t.cloud.linkFromSetup();
+  assert.match(s.display, /^[A-Z0-9]{4}-[A-Z0-9]{4}$/);
+  assert.equal((await web('/v1/account/claim', { code: s.display })).status, 200);
+  let st;
+  for (let i = 0; i < 40 && !(st = (await t.call('GET', '/cloud/status')).obj).linked; i++) await new Promise((r) => setTimeout(r, 250));
+  assert.equal(st.linked, true);
+  assert.deepEqual(await t.cloud.linkFromSetup(), { linked: true }); // linked already: nothing new started
+});

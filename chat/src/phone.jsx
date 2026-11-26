@@ -316,15 +316,20 @@ function SetupFlow({ me, c, h, onDone }) {
   if (step) return (
     <main className="join setup">
       <div className="brand">Opie</div>
-      {step === 'calendar' && <AddLink c={c} kind="calendar" family={h.house?.family || []} />}
+      {step === 'calendar' && <>
+        <h1>Your calendars</h1>
+        <SignIns c={c} family={h.house?.family || []} />
+        <AddLink c={c} kind="calendar" family={h.house?.family || []} sub />
+      </>}
       {step === 'photos' && <>
         <AddLink c={c} kind="album" />
+        <GooglePhotosHere c={c} />
         <h2>Photos from {computer ? 'this computer' : 'this phone'}</h2>
         {tablet.photos
           ? <a className="go" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
           : <p className="soft">To send photos from here, tap From your phone on the tablet, then Let phones send photos.</p>}
       </>}
-      {step === 'ai' && <AddKey c={c} computer={computer} />}
+      {step === 'ai' && <><AddKey c={c} computer={computer} /><h2>Or Opie's voice through an account</h2><LinkAccount c={c} /></>}
       {step === 'people' && <SetupPeople c={c} />}
       {step === 'place' && <SetupPlace c={c} />}
       {!['calendar', 'photos', 'ai', 'people', 'place'].includes(step) && <>
@@ -359,7 +364,79 @@ const HOW = {
   calendar: { title: 'Your calendars', hint: 'Calendar link (iCal)', help: 'Google Calendar: Settings, your calendar, Secret address in iCal format. iCloud: share the calendar as Public, then copy its link. Outlook: Publish a calendar, ICS link.', path: '/setup/calendar' },
   album: { title: 'Photos', hint: 'iCloud shared album link', help: 'In Photos, a shared album, then its sharing settings: turn on Public Website, then copy the link.', path: '/setup/album' },
 };
-function AddLink({ c, kind, family = [] }) {
+/** Linking the tablet to an Opie account, from here: its link page opens here (the code never shows on the tablet). */
+function LinkAccount({ c, onLinked }) {
+  const [state, setState] = useState(null);
+  async function go() {
+    setState('…');
+    try {
+      const r = await c.json('POST', '/setup/link', {});
+      if (r.json?.linked) { setState('Linked.'); onLinked?.(); return; }
+      if (r.status !== 200 || !r.json?.url) return setState(r.json?.error || 'That didn’t work.');
+      window.open(r.json.url, '_blank', 'noopener');
+      setState('Sign in on the page that opened. The tablet links once you have.');
+    } catch { setState('The tablet isn’t in touch right now.'); }
+  }
+  return <>
+    <button className="quiet" onClick={go}>Link to your Opie account</button>
+    {state && <p className="soft">{state}</p>}
+  </>;
+}
+/** Calendars you sign in to, from here: Google (its sign-in opens here; the tablet's account must be linked) and
+ *  iCloud (the Apple ID and an app-specific password, typed here and sealed to the tablet). Which calendars to show is
+ *  chosen at the tablet. */
+function SignIns({ c, family = [] }) {
+  const [linked, setLinked] = useState(null), [g, setG] = useState(null), [ic, setIc] = useState(false), [f, setF] = useState({ user: '', pass: '', who: '' }), [st, setSt] = useState(null);
+  useEffect(() => { c.json('GET', '/setup/household').then((r) => setLinked(!!r.json?.linked)).catch(() => setLinked(false)); }, []);
+  async function google() {
+    setG('…');
+    try {
+      const r = await c.json('POST', '/setup/google', {});
+      if (r.status !== 200 || !r.json?.url) return setG(r.json?.error || 'That didn’t work.');
+      window.open(r.json.url, '_blank', 'noopener'); setG('Sign in to Google on the page that opened, then choose the calendars on the tablet.');
+    } catch { setG('The tablet isn’t in touch right now.'); }
+  }
+  async function icloud() {
+    setSt('sending');
+    try {
+      const r = await c.json('POST', '/setup/icloud', f);
+      if (r.status === 200) { setF({ user: '', pass: '', who: '' }); setIc(false); setSt('Signed in. Choose the calendars on the tablet.'); }
+      else setSt(r.json?.error || 'That didn’t work.');
+    } catch { setSt('The tablet isn’t in touch right now.'); }
+  }
+  return <>
+    <div className="setuprow">
+      {linked ? <button className="quiet" onClick={google}>Sign in with Google</button> : linked === false && <LinkAccount c={c} onLinked={() => setLinked(true)} />}
+      <button className="quiet" onClick={() => setIc(!ic)}>iCloud</button>
+    </div>
+    {linked === false && <p className="soft">Google Calendar signs in through your Opie account (two-way). Without one, add its secret iCal address below (read only).</p>}
+    {g && <p className="soft">{g}</p>}
+    {ic && <>
+      <p>Make an app-specific password at appleid.apple.com (Sign-In and Security). It goes straight to the tablet, sealed, and only reaches iCloud’s calendars.</p>
+      <input value={f.user} onChange={(e) => setF({ ...f, user: e.target.value })} placeholder="Apple ID (email)" type="email" autoCapitalize="off" autoComplete="off" />
+      <input value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} placeholder="App-specific password" type="password" autoComplete="off" />
+      {family.length > 0 && <div className="chips">{family.map((p) => <button key={p.name} className={'chip' + (f.who === p.name ? ' on' : '')} onClick={() => setF({ ...f, who: f.who === p.name ? '' : p.name })}>{p.name}</button>)}</div>}
+      <button className="go" disabled={st === 'sending' || f.user.length < 3 || f.pass.length < 8} onClick={icloud}>{st === 'sending' ? 'Signing in…' : 'Sign in to iCloud'}</button>
+    </>}
+    {st && st !== 'sending' && <p className="soft">{st}</p>}
+  </>;
+}
+/** Google Photos, picked from here (the tablet's account linked): its sign-in and picker open here; the tablet copies them. */
+function GooglePhotosHere({ c }) {
+  const [linked, setLinked] = useState(null), [st, setSt] = useState(null);
+  useEffect(() => { c.json('GET', '/setup/household').then((r) => setLinked(!!r.json?.linked)).catch(() => setLinked(false)); }, []);
+  if (!linked) return null;
+  async function go() {
+    setSt('…');
+    try {
+      const r = await c.json('POST', '/setup/google', { kind: 'photos' });
+      if (r.status !== 200 || !r.json?.url) return setSt(r.json?.error || 'That didn’t work.');
+      window.open(r.json.url, '_blank', 'noopener'); setSt('Sign in to Google and pick the photos on the page that opened.');
+    } catch { setSt('The tablet isn’t in touch right now.'); }
+  }
+  return <><h2>Google Photos</h2><button className="quiet" onClick={go}>Pick from Google Photos</button>{st && <p className="soft">{st}</p>}</>;
+}
+function AddLink({ c, kind, family = [], sub = false }) {
   const how = HOW[kind];
   const [link, setLink] = useState(''), [who, setWho] = useState(''), [state, setState] = useState(null), [added, setAdded] = useState([]);
   async function add() {
@@ -371,7 +448,7 @@ function AddLink({ c, kind, family = [] }) {
     } catch { setState('The tablet isn’t in touch right now. Try again at home.'); }
   }
   return <>
-    <h1>{how.title}</h1>
+    {sub ? <h2>Or a calendar's link</h2> : <h1>{how.title}</h1>}
     <p>{how.help}</p>
     <input value={link} onChange={(e) => { setLink(e.target.value); setState(null); }} placeholder={how.hint} inputMode="url" autoCapitalize="off" autoComplete="off" />
     {kind === 'calendar' && family.length > 0 && <div className="chips">{family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || ''))).map((f) => <button key={f.name} className={'chip' + (who === f.name ? ' on' : '')} onClick={() => setWho(who === f.name ? '' : f.name)}>{f.name}</button>)}</div>}

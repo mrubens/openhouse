@@ -38,14 +38,18 @@ object GooglePhotos {
         }
     }
 
-    private fun card(a: Activity, immersive: () -> Unit, cloud: String?) {
+    /** From the setup's phone or computer (DeviceServer /setup/google, photos): the sign-in and picking open there, with
+     *  no code to scan; this card follows along. [remote] gets the page's address (null: no Wi-Fi). */
+    fun showFor(a: Activity, immersive: () -> Unit, cloud: String, remote: (String?) -> Unit) = card(a, immersive, cloud, remote)
+
+    private fun card(a: Activity, immersive: () -> Unit, cloud: String?, remote: ((String?) -> Unit)? = null) {
         val me = ++run
         token = null; link = null; state = JSONObject().put("state", "start")
         var self: String? = null // this page's own address, where the sign-in comes back to
         var dialog: android.app.Dialog? = null
         // Beside the code: what to do on the phone, and a line that follows along (waiting, picking, copying, done).
         val status = Calm.text(a, "Waiting for a phone…", 20f, 500, Calm.SOFT)
-        val stepViews = listOf("Scan the code with a phone on this Wi-Fi", "Sign in to Google", "Pick the photos for the tablet").mapIndexed { i, t -> step(a, i + 1, t) }
+        val stepViews = listOf(if (remote != null) "Open it on the phone or computer" else "Scan the code with a phone on this Wi-Fi", "Sign in to Google", "Pick the photos for the tablet").mapIndexed { i, t -> step(a, i + 1, t) }
         fun at(n: Int, line: String) = main.post {
             status.text = line
             stepViews.forEachIndexed { i, v -> v.alpha = if (n < 0 || i >= n) 1f else .4f } // done steps fade
@@ -59,14 +63,15 @@ object GooglePhotos {
                 if (run == me) { token = t; at(2, "Signed in. Pick the photos on the phone."); thread(name = "google-photos") { pickAndCopy(me) { n, s -> at(n, s) } } }
             },
             onEnd = { dialog?.dismiss() })
-        if (!h.start()) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
+        if (!h.start()) { remote?.invoke(null); CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
         self = h.url!!.substringBefore('#')
+        remote?.invoke(h.url!!)
         if (cloud == null) status.text = "Google Photos isn't available right now."
         val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
         val steps = Calm.column(a, 22).apply { stepViews.forEach { addView(it) }; addView(Calm.gap(a, 0, 6)); addView(status) }
         val body = Calm.row(a, 48).apply {
             gravity = android.view.Gravity.CENTER_VERTICAL
-            addView(Calm.qr(a, qr, null, 300))
+            if (remote == null) addView(Calm.qr(a, qr, null, 300))
             addView(steps, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
         }
         dialog = CalmDialog(a).setTitle("Photos from Google Photos").setWidth(900f).setView(body)

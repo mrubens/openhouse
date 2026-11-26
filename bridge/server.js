@@ -482,7 +482,7 @@ async function route(req, res, url) {
     // its Next moves the tablet on (Setup.kt looks at /setup/want).
     if (url.pathname === '/setup/household' && req.method === 'GET') {
       const h = chat.live.setupHousehold?.read?.() || {};
-      json(res, 200, { family: (h.family || []).map((f) => ({ name: f.name, note: f.note || '' })), location: h.location || null, address: h.address || null, guess: chat.live.setupGuess?.() || null }); return true;
+      json(res, 200, { family: (h.family || []).map((f) => ({ name: f.name, note: f.note || '' })), location: h.location || null, address: h.address || null, guess: chat.live.setupGuess?.() || null, linked: !!cloud.status().linked }); return true;
     }
     if (url.pathname === '/setup/household' && req.method === 'POST') {
       const b = await body(req), put = {};
@@ -490,6 +490,24 @@ async function route(req, res, url) {
       if (typeof b.location === 'string') { put.location = b.location.trim().slice(0, 100); put.address = String(b.address || '').trim().slice(0, 200); }
       try { chat.live.setupHousehold?.save?.(put); } catch (e) { json(res, 400, { error: e.message }); return true; }
       json(res, 200, { ok: true }); return true;
+    }
+    // The rest of what's signed in to is done there too: linking to an Opie account (the link page opens there, and no
+    // yes is asked at the tablet: its code shows only there), Google's sign-in (it opens there; the calendars are
+    // chosen at the tablet) and iCloud's (typed there, sealed, straight on to the shell, never kept here).
+    if (url.pathname === '/setup/link' && req.method === 'POST') {
+      try { json(res, 200, await cloud.linkFromSetup()); } catch (e) { json(res, 400, { error: 'The tablet couldn\'t reach Opie\'s service just now. Try again in a minute.' }); }
+      return true;
+    }
+    if (url.pathname === '/setup/google' && req.method === 'POST') {
+      const st = cloud.status();
+      if (!st.linked) { json(res, 409, { error: 'Link the tablet to your Opie account first.' }); return true; }
+      const r = await calendar.toShell('/setup/google', { cloud: st.api, kind: (await body(req)).kind === 'photos' ? 'photos' : 'calendar' });
+      json(res, r.error ? 400 : 200, r); return true;
+    }
+    if (url.pathname === '/setup/icloud' && req.method === 'POST') {
+      const b = await body(req);
+      const r = await calendar.toShell('/setup/icloud', { user: String(b.user || '').slice(0, 200), pass: String(b.pass || '').slice(0, 100), who: String(b.who || '').slice(0, 40) });
+      json(res, r.error ? 400 : 200, r); return true;
     }
     if (url.pathname === '/setup/go' && req.method === 'POST') { chat.live.setupWant?.((await body(req)).step); json(res, 200, { ok: true }); return true; }
     if (req.method === 'POST' && /^\/setup\/(calendar|album|invite|openai)$/.test(url.pathname)) {
