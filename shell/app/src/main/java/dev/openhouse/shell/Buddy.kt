@@ -425,51 +425,30 @@ private fun Bubble(label: String?, text: String, foot: String?, left: Float, lis
     }
 }
 
-/** The assistant's button: a round voice control with bars in it. Asleep: a soft button, the bars flat and still (so it
- *  costs nothing while it waits, which is nearly all day). Listening: dark, the bars breathing low. Hearing: the bars
- *  move. Talking: the accent color, the bars moving with its voice. Thinking or working: a slow wave across the bars.
- *  Replied: the bars at rest in the accent color. */
+/** The assistant's button, one look per state, each with one thing moving, so it reads from across the room:
+ *  - listening (and hearing them): dark, its bars standing low and rising with their voice ("your turn");
+ *  - thinking (and working: its text model, a tool, an app it's using): light, a row of dots with a ripple running
+ *    through it ("on it"; dots, never bars, so it can't be taken for listening);
+ *  - talking: the accent color, its bars moving with its own voice ("my turn").
+ *  At rest it isn't shown. Typing has its own box, and a finished answer its card. */
 @Composable
 private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> Unit)? = null, onSwipe: ((Float) -> Unit)? = null, wide: Boolean = false) {
-    // One indicator, three states: listening (dark, the bars follow the room), thinking (dark, a slow wave), talking (the
-    // accent color, the bars move with its voice); otherwise at rest. Hearing is listening, working is thinking, and a
-    // finished answer is rest (it used to have a look of its own).
     @Suppress("NAME_SHADOWING") val mood = when (mood) { Mood.Typing, Mood.Replied -> Mood.Asleep; Mood.Hearing -> Mood.Listening; Mood.Working -> Mood.Thinking; else -> mood }
     val awake = mood != Mood.Asleep
     // Only awake does anything animate every frame; asleep follows `now` (five ticks a second) and stays still.
     val phase: State<Float>? = if (awake) rememberInfiniteTransition(label = "bars").animateFloat(0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing), RepeatMode.Restart), label = "p") else null
-    val ink = Color(0xFF2A2826); val accent = Color(0xFFB5562F); val soft = Color(0xFFE4DED3)
-    val bg by animateColorAsState(when (mood) { Mood.Asleep, Mood.Typing, Mood.Replied -> soft; Mood.Talking -> accent; else -> ink }, tween(220), label = "bg")
-    val barColor by animateColorAsState(when (mood) { Mood.Asleep, Mood.Typing -> Color(0xFF5F584F).copy(alpha = .7f); Mood.Replied -> accent; else -> Color(0xFFFBF9F5) }, tween(220), label = "bar")
+    val ink = Color(0xFF2A2826); val accent = Color(0xFFB5562F); val soft = Color(0xFFE4DED3); val paper = Color(0xFFFBF9F5)
+    val bg by animateColorAsState(when (mood) { Mood.Asleep -> soft; Mood.Talking -> accent; Mood.Thinking -> paper; else -> ink }, tween(260), label = "bg")
+    val barColor by animateColorAsState(when (mood) { Mood.Asleep -> Color(0xFF5F584F).copy(alpha = .7f); Mood.Thinking -> ink; else -> paper }, tween(260), label = "bar")
     val tapState = rememberUpdatedState(Triple(onTap, onSwipe, onLongPress))
     val level = remember { floatArrayOf(0f, 0f) }
     // wide: a horizontal pill at the bottom centre of the home screen (the user: "a more horizontal thing"); otherwise the
-    // round button (over apps, where it moves beside what it taps).
+    // round button (over apps).
     val shape = if (wide) RoundedCornerShape(26.u) else CircleShape
     Box(if (wide) Modifier.size(172.u, 76.u) else Modifier.size(92.u), contentAlignment = Alignment.Center) {
-        // (in the ink's gray, not the accent: a reddish outline read as odd, the user)
-        // Connected to OpenAI's live voice: a thin ring around the button, so it's plain the line is open; while it thinks
-        // (or is still connecting), an arc runs round the ring. (The user: "it's not clear that it's connected and thinking".)
-        val live = LiveVoice.active; val ringW = 3.u; val ringR = 32.u
-        if (wide && (live || mood == Mood.Thinking)) Canvas(Modifier.size(158.u, 64.u)) {
-            // the pill's outline: steady while connected, breathing while it thinks
-            val w = ringW.toPx(); val r = ringR.toPx()
-            val p = phase?.value ?: 0f
-            val thinking = mood == Mood.Thinking || (live && LiveVoice.mood == null)
-            val a = if (thinking) 0.35f + 0.65f * ((sin(p * 4f * 2 * PI).toFloat() + 1f) / 2f) else .28f
-            drawRoundRect(ink.copy(alpha = a * .45f), Offset(w / 2, w / 2), Size(size.width - w, size.height - w), androidx.compose.ui.geometry.CornerRadius(r), style = Stroke(w))
-        }
-        if (!wide && (live || mood == Mood.Thinking)) Canvas(Modifier.size(74.u)) {
-            val w = ringW.toPx(); val r = size.minDimension / 2 - w
-            val tl = Offset(size.width / 2 - r, size.height / 2 - r); val sz = Size(r * 2, r * 2)
-            if (live) drawArc(ink.copy(alpha = .14f), 0f, 360f, false, tl, sz, style = Stroke(w))
-            if (mood == Mood.Thinking || (live && LiveVoice.mood == null)) {
-                val p = phase?.value ?: 0f
-                drawArc(ink.copy(alpha = .55f), p * 720f - 90f, 100f, false, tl, sz, style = Stroke(w, cap = StrokeCap.Round))
-            }
-        }
         Box(
-            (if (wide) Modifier.size(144.u, 52.u) else Modifier.size(58.u)).shadow(if (Openhouse.appOpen) 6.u else 0.u, shape).clip(shape).background(bg)
+            (if (wide) Modifier.size(144.u, 52.u) else Modifier.size(58.u)).shadow(if (Openhouse.appOpen || mood == Mood.Thinking) 6.u else 0.u, shape).clip(shape).background(bg)
+                .border(1.u, ink.copy(alpha = if (mood == Mood.Thinking) .10f else 0f), shape) // (light on a white page: a hairline keeps its edge)
                 .pointerInput(Unit) { // one detector: tap, long press, or a sideways flick (two detectors fought over it)
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
@@ -499,34 +478,35 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
             contentAlignment = Alignment.Center,
         ) {
             Canvas(if (wide) Modifier.size(92.u, 26.u) else Modifier.size(30.u, 28.u)) {
-                val n = if (mood == Mood.Asleep || mood == Mood.Typing || mood == Mood.Replied) 4 else if (wide) 9 else 5
+                val n = if (mood == Mood.Asleep) 4 else if (wide) 9 else 5
                 val bw = if (wide) size.width * 0.06f else size.width * 0.13f; val gap = (size.width - n * bw) / (n - 1)
-                val arc = { i: Int -> 0.5f + 0.5f * sin(PI * (i + 0.5) / n).toFloat() } // taller in the middle
+                val arc = { i: Int -> if (n == 5) floatArrayOf(0.6f, 0.85f, 1f, 0.85f, 0.6f)[i] else 0.5f + 0.5f * sin(PI * (i + 0.5) / n).toFloat() } // taller in the middle
                 val p = phase?.value ?: 0f
-                // Listening or hearing: the bars follow the microphone, a little smoothed (quick up, slower down).
-                val target = if (mood == Mood.Listening || mood == Mood.Hearing) dev.openhouse.ui.MicLevel.shown() else 0f
+                // Listening: the bars follow the microphone, a little smoothed (quick up, slower down).
+                val target = if (mood == Mood.Listening) dev.openhouse.ui.MicLevel.shown() else 0f
                 level[0] += (target - level[0]) * (if (target > level[0]) 0.5f else 0.15f)
                 // Talking: its own voice as the page measures it (OpenAI's live voice); without that, the bars' own rhythm.
                 val outNow = if (mood == Mood.Talking) dev.openhouse.ui.OutLevel.shown() else -1f
                 if (outNow >= 0f) level[1] += (outNow - level[1]) * (if (outNow > level[1]) 0.6f else 0.2f)
                 for (i in 0 until n) {
                     val h = when (mood) {
-                        Mood.Asleep, Mood.Typing, Mood.Replied -> floatArrayOf(0.3f, 0.6f, 0.8f, 0.45f)[i % 4] * 0.6f // at rest, but still audio
-                        Mood.Listening, Mood.Hearing -> { // the room's level, shaped across the bars, each a little alive
-                            val shape = if (n == 5) floatArrayOf(0.55f, 0.85f, 1f, 0.8f, 0.6f)[i] else arc(i)
+                        Mood.Asleep -> floatArrayOf(0.3f, 0.6f, 0.8f, 0.45f)[i % 4] * 0.6f
+                        // standing low in an arc when the room is quiet (bars, not dots: dots are thinking), rising with their voice
+                        Mood.Listening -> {
+                            val breath = 0.06f * sin((p * 2f + i * 0.12f) * 2 * PI).toFloat() // alive while the room is quiet
                             val wobble = 0.85f + 0.15f * sin((p * 6f + i * 0.37f) * 2 * PI).toFloat()
-                            0.18f + 0.82f * level[0] * shape * wobble
+                            arc(i) * (0.5f + breath + 0.5f * level[0] * wobble)
                         }
-                        Mood.Talking -> if (outNow >= 0f) { // its own voice, measured: shaped across the bars, each a little alive
-                            val shape = if (n == 5) floatArrayOf(0.6f, 0.9f, 1f, 0.85f, 0.65f)[i] else arc(i)
+                        Mood.Talking -> if (outNow >= 0f) {
                             val wobble = 0.8f + 0.2f * sin((p * 7f + i * 0.41f) * 2 * PI).toFloat()
-                            0.2f + 0.8f * level[1] * shape * wobble
-                        } else { // its own voice: lively, each bar at its own pace
-                            val k = floatArrayOf(5f, 7f, 6f, 8f, 4.5f)[i % 5]
-                            0.35f + 0.6f * abs(sin((p * k + i * 0.37f) * 2 * PI).toFloat())
+                            0.2f + 0.8f * level[1] * arc(i) * wobble
+                        } else { val k = floatArrayOf(5f, 7f, 6f, 8f, 4.5f)[i % 5]; 0.35f + 0.6f * abs(sin((p * k + i * 0.37f) * 2 * PI).toFloat()) }
+                        else -> { // thinking: dots, a ripple running through them left to right, twice a turn
+                            val x = ((p * 2f) % 1f) * (n + 3) - 1.5f - i
+                            val bump = if (abs(x) < 1.5f) ((kotlin.math.cos(x / 1.5f * PI).toFloat() + 1f) / 2f) else 0f
+                            (bw / size.height) * (1f + 2.2f * bump)
                         }
-                        else -> 0.25f + 0.75f * ((sin((p * 2.5f - i * 0.22f) * 2 * PI).toFloat() + 1f) / 2f) // thinking, working: a wave across the bars
-                    }.coerceIn(0.15f, 1f) * size.height
+                    }.coerceIn(bw / size.height, 1f) * size.height
                     val x = i * (bw + gap)
                     drawRoundRect(barColor, Offset(x, (size.height - h) / 2), Size(bw, h), androidx.compose.ui.geometry.CornerRadius(bw / 2))
                 }

@@ -59,6 +59,7 @@ class ConfigReceiver : BroadcastReceiver() {
         if (intent.getBooleanExtra("token", false)) resultData = BridgeToken.get(ctx)
         if (intent.getBooleanExtra("settings", false)) dev.openhouse.ui.Openhouse.ui { dev.openhouse.ui.Openhouse.showSettings = true }
         if (intent.hasExtra("listen")) MainActivity.live?.setListening(intent.getBooleanExtra("listen", true))
+        if (android.os.Build.HARDWARE == "ranchu") intent.getStringExtra("liveMood")?.let { LiveVoice.pretend(it); return } // emulator only: a live session's look, for screenshots
         intent.getStringExtra("say")?.let { dev.openhouse.ui.Openhouse.sayAloud(it); return }
         // As if someone were saying this right now (for checking how it looks; it goes nowhere).
         intent.getStringExtra("partial")?.let { t -> dev.openhouse.ui.Openhouse.ui { val o = dev.openhouse.ui.Openhouse; o.partial = t; o.hearingAt = System.currentTimeMillis() }; return }

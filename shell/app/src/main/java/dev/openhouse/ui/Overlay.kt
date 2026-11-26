@@ -108,6 +108,16 @@ fun ShellOverlay() {
                 AnimatedVisibility(o.typing == null && (mine != null || built != null || (o.now < shownUntil && !saying && !dotsOnly)), enter = fadeIn(), exit = fadeOut()) {
                     Caption(false, null, mine, built)
                 }
+                // The live voice couldn't connect, or ended before it answered: said here, as over apps (Buddy), not just
+                // the button going away. A tap puts it away.
+                val trouble = dev.openhouse.shell.LiveVoice.problemNow(o.now)?.takeIf { o.typing == null && mine == null }
+                AnimatedVisibility(trouble != null, enter = fadeIn(), exit = fadeOut()) {
+                    val bubble = AssistantCardShape
+                    Text(trouble ?: "", style = quietText(20, FontWeight.Normal, PaperLook.ink), maxLines = 3,
+                        modifier = Modifier.widthIn(max = 560.u).shadow(18.u, bubble).clip(bubble).background(Color.White)
+                            .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { dev.openhouse.shell.LiveVoice.putProblemAway() }
+                            .padding(horizontal = 26.u, vertical = 18.u))
+                }
                 // Off the internet for more than a moment (not a blip): why it can't answer, and the way back on.
                 if (o.net != Net.Online && o.now - o.netSince > 15_000 && o.typing == null && mine == null) OfflineNote()
             }

@@ -45,7 +45,17 @@ internal object LiveVoice {
         set(v) { val was = field; field = v; if (was != v) onChosen?.invoke(v) }
     @Volatile var onChosen: ((Boolean) -> Unit)? = null
     /** A session is open. */
-    val active: Boolean get() = web != null
+    val active: Boolean get() = web != null || pretending
+    /** On an emulator (adb: ConfigReceiver's liveMood), a session's look without one, so each state can be seen and
+     *  screenshotted: the mood, and levels that move as a voice would. "off" ends it. */
+    @Volatile private var pretending = false
+    fun pretend(m: String) = main.post {
+        if (m == "off") { pretending = false; mood = null; caption = ""; return@post }
+        if (m.startsWith("problem:")) { trouble(m.removePrefix("problem:")); return@post }
+        val was = pretending; pretending = true; mood = m
+        if (!was) thread { var t = 0.0; while (pretending) { t += 0.08; val v = (0.5 + 0.5 * kotlin.math.sin(t * 5)).toFloat()
+            if (mood == "talking") dev.openhouse.ui.OutLevel.set(0.02f + 0.12f * v) else dev.openhouse.ui.MicLevel.set(if (mood == "hearing") 0.004f + 0.05f * v else 0.0025f); Thread.sleep(80) } }
+    }
     /** While a session runs, what it's doing, from its own events (the assistant's face and bubble: Buddy):
      *  listening, hearing (someone's talking), thinking (it handed the request over, nothing said yet), talking. Null: no session. */
     @Volatile var mood: String? = null; private set
@@ -205,6 +215,7 @@ internal object LiveVoice {
     @Volatile var problem = ""; private set
     @Volatile var problemAt = 0L; private set
     private fun trouble(text: String) { Log.i(TAG, "problem: $text"); problem = text; problemAt = System.currentTimeMillis() }
+    fun putProblemAway() { problem = "" }
     fun problemNow(now: Long) = problem.takeIf { it.isNotEmpty() && now - problemAt < 15_000 }
 
     /** The microphone switch was turned off (Settings): a session going now ends. */
