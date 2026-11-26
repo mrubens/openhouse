@@ -2,8 +2,9 @@
 
 Opie plays music, audiobooks and podcasts in the tablet's own media apps and works their buttons: "play Abbey Road",
 "put on my audiobook", "pause", "skip this one", "back 30 seconds", "what's playing?". The family adds the apps the
-usual way (Apps → Add apps, or Opie's `install_app`, through Aurora Store) and signs in to each once on the tablet.
-Nothing is built for any one app.
+usual way (Opie's `install_app`, or Apps → Add apps, which suggests a few under "Music and books": Spotify, Audible,
+YouTube Music, Pocket Casts, Libby; both go through Aurora Store with the same card) and signs in to each once on the
+tablet. The suggestions are only that: nothing is built for any one app, and any media app works.
 
 ## How it fits together
 

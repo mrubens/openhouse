@@ -63,6 +63,14 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
     }
     /** A card's rights, (kind, words) ([Calm.rights]). */
     private fun rightsOf(a: JSONArray?) = objs(a).map { it.optString("kind") to it.optString("text") }
+    /** Suggested media apps (name, package, what it's for). Not a list of what works: any app that plays from a
+     *  search or has a media library does (Media.kt). */
+    private val SUGGESTED_MEDIA = listOf(
+        Triple("Spotify", "com.spotify.music", "Music and podcasts"),
+        Triple("Audible", "com.audible.application", "Audiobooks"),
+        Triple("YouTube Music", "com.google.android.apps.youtube.music", "Music"),
+        Triple("Pocket Casts", "au.com.shiftyjelly.pocketcasts", "Podcasts"),
+        Triple("Libby", "com.overdrive.mobile.android.libby", "Library audiobooks and ebooks"))
     private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
     private fun objs(a: JSONArray?) = a?.let { x -> (0 until x.length()).map { x.getJSONObject(it) } }.orEmpty()
     private fun strs(a: JSONArray?) = a?.let { x -> (0 until x.length()).map { x.getString(it) } }.orEmpty()
@@ -222,6 +230,17 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
                 rows.addView(line(e.optString("title"), detail, pics[e.optString("name")]) { if (here != null) installedOne(here.optString("name")) else look(e.optString("name")) })
             }
             if (shown.isEmpty()) rows.addView(Calm.text(c, error ?: if (list.isEmpty()) "Opie's list is empty right now." else "Nothing called that.", 19f, 400, Calm.SOFT).apply { setPadding(Calm.px(c, 16), Calm.px(c, 16), 0, Calm.px(c, 16)) })
+            // A few known-good Android apps for music and books (docs/music.md): suggestions only, any media app works.
+            val media = SUGGESTED_MEDIA.filter { m -> words.all { "${m.first} ${m.third}".lowercase().contains(it) } }
+            if (media.isNotEmpty()) {
+                rows.addView(Calm.eyebrow(c, "Music and books").apply { setPadding(Calm.px(c, 16), Calm.px(c, 22), 0, Calm.px(c, 6)) })
+                for ((name, pkg, about) in media) {
+                    val here = AppStore.installed(pkg)
+                    rows.addView(line(name, if (here) "On this tablet" else about, null) {
+                        if (!here) addAndroid(pkg, name) else if (!KioskApps.openApp(pkg)) say(name, "It didn't open. Try it from Apps.")
+                    })
+                }
+            }
             rows.addView(line("From a link", "A git or .tgz link someone shared", null) { askLink() })
         }
         val search = Calm.field(c, "Search", 22f).apply {
@@ -271,6 +290,21 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             .setNegativeButton(if (fromApps) "Close" else "Back") { _, _ -> if (!fromApps) show() }.show()
         // the search box shouldn't bring up the keyboard by itself (CalmDialog focuses the first field)
         search.clearFocus(); dialog?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+    }
+
+    /** An Android app from Google Play, through Aurora Store: the same steps (and the same card, with the PIN when
+     *  it's on) as Opie's install_app. */
+    private fun addAndroid(pkg: String, name: String) {
+        val acc = DeviceAccess.instance ?: return say(name, "Adding apps needs Opie's screen access, and it's off on this tablet. Turn it on in Settings, This tablet.")
+        act.toast("Adding $name…")
+        thread {
+            val r = runCatching { AuroraInstall.installApp(acc, pkg, name) }.getOrNull()
+            val t = r?.optJSONArray("content")?.optJSONObject(0)?.optString("text").orEmpty()
+            ui {
+                if (r == null || r.optBoolean("isError")) say("$name wasn't added", t.substringBefore("\n\n").ifBlank { "Something went wrong. Try again, or ask Opie to add it." })
+                else say("$name is on the tablet", "It's in Apps. Open it once to sign in; then Opie can play from it.")
+            }
+        }
     }
 
     private fun installedOne(name: String) = thread {
