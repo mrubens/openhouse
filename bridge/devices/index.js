@@ -635,20 +635,22 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     const a = String(app || '').trim().toLowerCase(), names = (st.apps || []).map((x) => String(x.name).toLowerCase());
     // Spotify named, or no app named and Spotify is the one they last played from (or the only way the tablet has)
     if (a ? a !== 'spotify' : !(st.last ? String(st.last).toLowerCase() === 'spotify' : !names.some((n) => n !== 'spotify'))) return null;
-    let found = null; try { found = await spotifyLink(query, focus); } catch (e) { console.warn('[music] spotify search:', e.message); }
-    if (!found) return null;
+    // Signed in, Spotify plays in its player on Home only, never its app (the user): what isn't found is said so.
+    const notFound = { error: "Couldn't find that on Spotify. Say so, and ask how else they'd put it." };
+    let found = null; try { found = await spotifyLink(query, focus); } catch (e) { console.warn('[music] spotify search:', e.message); return { error: "Couldn't search Spotify just now." }; }
+    if (!found) return notFound;
     // Is it what they asked for? A search can come back with something near it (a podcast episode for a song): the
     // model judges Spotify's own name for it against their words, and the app's own search plays it otherwise.
     if (found.name) {
       let same = '';
       try { same = String(await finder(`They asked to play: ${asData(query, 'what they asked to play', { max: 300 })}\nSpotify's link is for: ${asData(found.name, "Spotify's name for it", { max: 200 })}\nIs that what they asked for (yes or no)?`, 'Reply with one word: yes or no.', { webSearch: false })); } catch {}
-      if (!/^\s*yes\b/i.test(same)) { console.warn('[music] spotify link not a match'); return null; }
+      if (!/^\s*yes\b/i.test(same)) { console.warn('[music] spotify link not a match'); return notFound; }
     }
     const r = await shell('/media', { do: 'spotify', url: found.link, name: found.name || '' }, 30_000);
-    return r ? { ...r, found } : null;
+    return r ? { ...r, found } : { error: 'The tablet isn\'t answering.' };
   }
   async function mediaDo({ do: what = 'status', app, query, focus, seconds } = {}) {
-    if (what === 'search') { const r = await spotifyFirst(app, query, focus); if (r?.done) return { ok: true, text: `${r.done}${r.found?.name ? ' ' + asData(r.found.name, "Spotify's name for it", { max: 200 }) : ''}` }; }
+    if (what === 'search') { const r = await spotifyFirst(app, query, focus); if (r) return r.done ? { ok: true, text: `${r.done}${r.found?.name ? ' ' + asData(r.found.name, "Spotify's name for it", { max: 200 }) : ''}` } : { ok: false, text: String(r.error || "Spotify's player didn't start.") }; }
     const r = await shell('/media', { do: what, app: String(app || ''), query: String(query || ''), focus: String(focus || ''), seconds: Number(seconds) || 0 }, 20_000);
     if (!r) return { ok: false, text: 'Music needs the tablet (the shell isn\'t answering).' };
     const apps = (r.apps || []).map((a) => a.name + (a.search ? '' : ' (can\'t be asked for something to play: it opens instead)'));
