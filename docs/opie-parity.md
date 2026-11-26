@@ -127,3 +127,12 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Ask Opie, share text or a link to Opie | yes | That is Opie |
 | Turn notifications on, add to home screen, the iPhone shortcut | no | The phone's own permissions, given by the person holding it |
 | Setup: a calendar link and whose it is, an album, invite someone | yes / no | add_calendar takes who; inviting someone uses the phone's share sheet, so it stays there |
+
+## A hub's settings page (docs/hub.md)
+
+| What someone taps | Opie | How, or why not |
+| --- | --- | --- |
+| Add a calendar or an iCloud album | yes | add_calendar, add_photo_album: a card on the settings page asks a person (the PIN for an album, once one is set) |
+| Answer an "Is this OK?" card, type the PIN, set or change it | no, on purpose | A person's own tap on a settings device; Opie never sees the PIN |
+| Their own OpenAI key in or out | no, on purpose | The key is typed by a person and goes straight to the keeper |
+| Remove a calendar or an album | no | On the settings page only for now (on a tablet it's Settings too) |
