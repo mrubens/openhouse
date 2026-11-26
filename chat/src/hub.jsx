@@ -1,11 +1,16 @@
 // A hub's settings (docs/hub.md, bridge/hub.js): what the tablet's Settings do, in a browser on a device paired as the
 // hub's settings device (scope 'admin'). The first one types the code the hub printed when it started; it can add more.
-// Every request is sealed to the hub like a screen's (screen-client.js). Here: the household's devices, the Opie
-// account and live voice, backups, reaching it from away, and updates.
+// Every request is sealed to the hub like a screen's (screen-client.js). First the setup (setup-flow.jsx, the steps a
+// tablet's phone shows, driven by the hub's bridge: hub-shell.js), then: the "Is this OK?" cards, the household's
+// devices, calendars and albums, the Opie account and live voice, their own OpenAI key, the PIN, backups, reaching it
+// from away, and updates. With a PIN set, changing settings asks for it first (for 10 minutes).
 import { createRoot } from 'react-dom/client';
 import { useEffect, useMemo, useState } from 'react';
 import { pair, client, Removed } from './screen-client.js';
 import { pairingFromCode } from './scrypt.js';
+import { SetupFlow, AddLink, AddKey, onTheHub } from './setup-flow.jsx';
+
+onTheHub();
 
 const STORE = 'openhouse.hub';
 const get = (k) => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } };
@@ -206,16 +211,128 @@ function Updates({ c, onRemoved }) {
   );
 }
 
+/** The "Is this OK?" cards (hub-shell.js hubAsks): what the tablet would ask someone there, asked here. */
+function Asks({ c, onRemoved }) {
+  const [a, reload] = useGet(c, '/hub/asks', 3000, onRemoved), [pin, setPin] = useState({}), [err, setErr] = useState({});
+  if (!a?.asks?.length) return null;
+  async function answer(x, b) {
+    const r = await c.json('POST', '/hub/asks/answer', { id: x.id, ...b, pin: pin[x.id] || '' });
+    setErr({ ...err, [x.id]: r.status === 200 ? '' : r.json?.error || 'That didn\'t work.' }); reload();
+  }
+  return (
+    <section>
+      {a.asks.map((x) => (
+        <div className="card ask" key={x.id}>
+          <div className="t">{x.title}</div>
+          {x.detail && <p className="soft small pre">{x.detail}</p>}
+          {x.rights?.length > 0 && <ul className="rights small">{x.rights.map((r, i) => <li key={i}>{r.text}</li>)}</ul>}
+          {x.more && <details className="small"><summary className="soft">More</summary><p className="pre">{x.more}</p></details>}
+          {x.pin && <input className="field" type="password" inputMode="numeric" maxLength={8} autoComplete="off" placeholder="PIN" value={pin[x.id] || ''} onChange={(e) => setPin({ ...pin, [x.id]: e.target.value.replace(/\D/g, '') })} />}
+          <div className="btns">
+            <button className="go small" disabled={x.pin && (pin[x.id] || '').length < 4} onClick={() => answer(x, { yes: true })}>{x.yes}</button>
+            <button className="plain" onClick={() => answer(x, { yes: false })}>{x.no || 'No'}</button>
+            {x.later && <button className="plain" onClick={() => answer(x, { yes: false, later: true })}>Not now</button>}
+          </div>
+          {err[x.id] && <p className="soft">{err[x.id]}</p>}
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** The calendars and iCloud albums the keeper holds (without their links), and adding one by its link. */
+function Calendars({ c, k, onRemoved }) {
+  const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [adding, setAdding] = useState(null);
+  const remove = async (what, id, name) => { if (!confirm(`Remove ${name}?`)) return; await c.json('POST', `/hub/${what}/remove`, { id }); reload(); };
+  if (k?.error) return <section><h2>Calendars and photos</h2><p className="soft">{k.error}</p></section>;
+  return (
+    <section className="setup">
+      <h2>Calendars and photos</h2>
+      <ul className="list">
+        {(l?.calendars || []).map((x) => <li key={x.id}><div><div>{x.name || (x.who ? `${x.who}'s calendar` : 'A calendar')}</div>{x.problem && <div className="soft small">{x.problem}</div>}</div><button className="plain" onClick={() => remove('calendar', x.id, x.name || 'this calendar')}>Remove</button></li>)}
+        {(l?.albums || []).map((x, i) => <li key={x.id}><div><div>{(l.albums.length > 1 ? `Shared album ${i + 1}` : 'A shared album')}</div>{x.problem && <div className="soft small">{x.problem}</div>}</div><button className="plain" onClick={() => remove('album', x.id, 'this album')}>Remove</button></li>)}
+      </ul>
+      {adding ? <><AddLink c={c} kind={adding} family={h?.family || []} heading={false} /><button className="plain" onClick={() => { setAdding(null); reload(); }}>Done</button></>
+        : <div className="btns wrap"><button className="pill" onClick={() => setAdding('calendar')}>Add a calendar</button><button className="pill" onClick={() => setAdding('album')}>Add an iCloud album</button></div>}
+    </section>
+  );
+}
+
+/** Their own OpenAI key (kept by the keeper, never here or on this page once sent) and the PIN. */
+function Keeper({ c, k, reload }) {
+  const [a, setA] = useState(''), [b, setB] = useState(''), [old, setOld] = useState(''), [st, setSt] = useState(null), [pinOpen, setPinOpen] = useState(false);
+  const computer = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if (!k || k.error) return null;
+  async function setPin() {
+    if (a.length < 4) return setSt('4 to 8 digits.');
+    if (a !== b) return setSt('The two don’t match.');
+    const r = await c.json('POST', '/hub/pin', { pin: a, old });
+    if (r.status !== 200) return setSt(r.json?.error || 'That didn’t work.');
+    setA(''); setB(''); setOld(''); setSt(null); setPinOpen(false); reload();
+  }
+  return <>
+    <section className="setup">
+      <h2>Opie’s AI</h2>
+      {k.openai ? <ul className="list"><li><div>Your own OpenAI key</div><button className="plain" onClick={async () => { if (confirm('Remove your key? Opie stops using your OpenAI account at once.')) { await c.json('POST', '/hub/openai/remove', {}); reload(); } }}>Remove</button></li></ul>
+        : <AddKey c={c} computer={computer} />}
+    </section>
+    <section className="setup">
+      <h2>PIN</h2>
+      {!pinOpen ? <><p className="soft small">{k.pin ? 'Changing settings here asks for it.' : 'With one, changing settings here asks for it first.'}</p><button className="pill" onClick={() => setPinOpen(true)}>{k.pin ? 'Change the PIN' : 'Choose a PIN'}</button></> : <>
+        {k.pin && <input className="field" type="password" inputMode="numeric" maxLength={8} value={old} onChange={(e) => setOld(e.target.value.replace(/\D/g, ''))} placeholder="The PIN now" autoComplete="current-password" />}
+        <input className="field" type="password" inputMode="numeric" maxLength={8} value={a} onChange={(e) => { setA(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="4 to 8 digits" autoComplete="new-password" />
+        <input className="field" type="password" inputMode="numeric" maxLength={8} value={b} onChange={(e) => { setB(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="Again" autoComplete="new-password" />
+        <div className="btns"><button className="pill" onClick={setPin}>Set</button><button className="plain" onClick={() => setPinOpen(false)}>Cancel</button></div>
+        {st && <p className="soft">{st}</p>}</>}
+    </section>
+  </>;
+}
+
+/** With a PIN set: this device changes settings only after it (for 10 minutes). */
+function Locked({ c, onOpen }) {
+  const [pin, setPin] = useState(''), [st, setSt] = useState(null);
+  async function go(e) {
+    e.preventDefault();
+    const r = await c.json('POST', '/hub/unlock', { pin });
+    if (r.status === 200) { setPin(''); onOpen(); } else setSt(r.json?.error || 'That didn’t work.');
+  }
+  return (
+    <form className="join" onSubmit={go}>
+      <h1>Type the PIN</h1>
+      <input className="code" type="password" inputMode="numeric" maxLength={8} value={pin} onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="PIN" autoComplete="current-password" autoFocus />
+      <button className="go" disabled={pin.length < 4}>Open</button>
+      {st && <p className="soft">{st}</p>}
+    </form>
+  );
+}
+
+/** The setup, on the hub's first settings device: the same steps a tablet's phone shows, the hub's bridge moving them on. */
+function Setup({ me, c, onDone }) {
+  const [house, setHouse] = useState({});
+  useEffect(() => { let t; const load = () => c.json('GET', '/house').then((r) => r.status === 200 && setHouse(r.json || {})).catch(() => {}); load(); t = setInterval(load, 5000); return () => clearInterval(t); }, [c]);
+  return <SetupFlow me={me} c={c} h={{ house }} onDone={onDone} />;
+}
+
 function Hub({ me, c, onRemoved }) {
+  const admin = !!me.scopes?.includes('admin');
+  const [step, setStep] = useState(undefined), [k, reloadK] = useGet(c, '/hub/keeper', 60e3, onRemoved);
+  useEffect(() => { if (admin) c.json('GET', '/setup/step').then((r) => setStep(r.status === 200 ? r.json?.step || null : null)).catch(() => setStep(null)); else setStep(null); }, [c]);
+  if (step === undefined) return <main className="join"><div className="brand">Opie hub</div><p className="soft">…</p></main>;
+  if (step) return <Setup me={me} c={c} onDone={() => { setStep(null); reloadK(); }} />;
   return (
     <div className="app hub">
       <header><span className="brand">Opie hub</span><a className="soft" href="/screen/">Home screen</a></header>
       <div className="page">
-        {!me.scopes?.includes('admin') ? <p>This device isn't one of the hub's settings devices.</p> : <>
-          <Devices c={c} onRemoved={onRemoved} />
-          <Account c={c} onRemoved={onRemoved} />
-          <Backups c={c} onRemoved={onRemoved} />
-          <Updates c={c} onRemoved={onRemoved} />
+        {!admin ? <p>This device isn't one of the hub's settings devices.</p> : <>
+          <Asks c={c} onRemoved={onRemoved} />
+          {k?.locked ? <Locked c={c} onOpen={reloadK} /> : <>
+            <Devices c={c} onRemoved={onRemoved} />
+            <Calendars c={c} k={k} onRemoved={onRemoved} />
+            <Account c={c} onRemoved={onRemoved} />
+            <Keeper c={c} k={k} reload={reloadK} />
+            <Backups c={c} onRemoved={onRemoved} />
+            <Updates c={c} onRemoved={onRemoved} />
+          </>}
         </>}
       </div>
     </div>

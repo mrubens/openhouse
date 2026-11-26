@@ -17,3 +17,5 @@
 .field, .join .code { width: 100%; font: inherit; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #fff; color: inherit; margin: 10px 0; }
 .join form { display: grid; gap: 12px; }
 code { font-size: 14px; background: var(--tint); padding: 1px 5px; border-radius: 5px; }
+.pre { white-space: pre-line; }
+.rights { margin: 0 0 10px; padding-left: 18px; }
