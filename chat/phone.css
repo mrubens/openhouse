@@ -209,3 +209,13 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .setup .personrow input { margin: 0; }
 /* A step's own action (Add, Sign in, Turn on): tinted, so Next stays the one filled button. */
 .setup .go.act { background: var(--tint); color: var(--ink); box-shadow: none; }
+/* A hub's "Is this OK?" cards on a grown-up's phone (src/asks.jsx): over everything, at the top. */
+.app > .asks-cards { position: fixed; z-index: 50; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px; max-height: 80vh; overflow: auto; }
+.asks-cards .card { background: var(--card); border-radius: 18px; padding: 16px; box-shadow: 0 12px 40px -12px rgba(0, 0, 0, .35); margin-bottom: 10px; }
+.asks-cards .t { font-weight: 600; margin-bottom: 6px; }
+.asks-cards .pre { white-space: pre-line; }
+.asks-cards .rights { margin: 0 0 10px; padding-left: 18px; }
+.asks-cards .field { width: 100%; font: inherit; padding: 12px 14px; border: 0; border-radius: 12px; background: var(--tint); margin: 8px 0; box-sizing: border-box; }
+.asks-cards .btns { display: flex; gap: 14px; align-items: center; margin-top: 8px; }
+.asks-cards .go.small { width: auto; padding: 10px 20px; }
+.asks-cards .plain { color: var(--soft); padding: 8px 0; }

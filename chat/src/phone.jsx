@@ -14,6 +14,7 @@ import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { Today as TabletToday, lookVars } from './home.jsx';
 import { paletteOf, worldOf } from './look.js';
 import { SetupFlow } from './setup-flow.jsx';
+import { Asks } from './asks.jsx';
 
 // Served by Opie's cloud (https, installable, notes by push): everything goes through the relay, and the
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
@@ -402,6 +403,7 @@ function Phone({ me, c, onRemoved }) {
   return (
     <div className={'app' + (canAsk(me) ? ' asks' : '') + (showing ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={{ ...phoneVars(style, opened ? opened.id : tab), ...(showing && bgs[showing.id] ? { '--fbg': bgs[showing.id] } : {}) }}>
       {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
+      {canAsk(me) && <Asks c={c} />}{/* a hub's "Is this OK?" cards, for a grown-up's phone */}
       {opened && <div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>}
       {frames}
       {showing ? (alive.some((a) => a.id === showing.id) ? null : <div className="page"><p className="soft">Loading…</p></div>)

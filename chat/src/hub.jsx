@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useMemo, useState } from 'react';
 import { pair, client, Removed } from './screen-client.js';
 import { pairingFromCode } from './scrypt.js';
+import { Asks } from './asks.jsx';
 import { SetupFlow, AddLink, AddKey, SignIns, GooglePhotosHere, onTheHub } from './setup-flow.jsx';
 
 onTheHub();
@@ -211,35 +212,6 @@ function Updates({ c, onRemoved }) {
   );
 }
 
-/** The "Is this OK?" cards (hub-shell.js hubAsks): what the tablet would ask someone there, asked here. */
-function Asks({ c, onRemoved }) {
-  const [a, reload] = useGet(c, '/hub/asks', 3000, onRemoved), [pin, setPin] = useState({}), [err, setErr] = useState({});
-  if (!a?.asks?.length) return null;
-  async function answer(x, b) {
-    const r = await c.json('POST', '/hub/asks/answer', { id: x.id, ...b, pin: pin[x.id] || '' });
-    setErr({ ...err, [x.id]: r.status === 200 ? '' : r.json?.error || 'That didn\'t work.' }); reload();
-  }
-  return (
-    <section>
-      {a.asks.map((x) => (
-        <div className="card ask" key={x.id}>
-          <div className="t">{x.title}</div>
-          {x.detail && <p className="soft small pre">{x.detail}</p>}
-          {x.rights?.length > 0 && <ul className="rights small">{x.rights.map((r, i) => <li key={i}>{r.text}</li>)}</ul>}
-          {x.more && <details className="small"><summary className="soft">More</summary><p className="pre">{x.more}</p></details>}
-          {x.pin && <input className="field" type="password" inputMode="numeric" maxLength={8} autoComplete="off" placeholder="PIN" value={pin[x.id] || ''} onChange={(e) => setPin({ ...pin, [x.id]: e.target.value.replace(/\D/g, '') })} />}
-          <div className="btns">
-            <button className="go small" disabled={x.pin && (pin[x.id] || '').length < 4} onClick={() => answer(x, { yes: true })}>{x.yes}</button>
-            <button className="plain" onClick={() => answer(x, { yes: false })}>{x.no || 'No'}</button>
-            {x.later && <button className="plain" onClick={() => answer(x, { yes: false, later: true })}>Not now</button>}
-          </div>
-          {err[x.id] && <p className="soft">{err[x.id]}</p>}
-        </div>
-      ))}
-    </section>
-  );
-}
-
 /** The calendars and iCloud albums the keeper holds (without their links), and adding one by its link. */
 function Calendars({ c, k, onRemoved }) {
   const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [sync, reloadSync] = useGet(c, '/calendar/sync', 0, onRemoved), [adding, setAdding] = useState(null);
@@ -379,7 +351,7 @@ function Hub({ me, c, onRemoved }) {
       <header><span className="brand">Opie hub</span><a className="soft" href="/screen/">Home screen</a></header>
       <div className="page">
         {!admin ? <p>This device isn't one of the hub's settings devices.</p> : <>
-          <Asks c={c} onRemoved={onRemoved} />
+          <Asks c={c} />
           {k?.locked ? <Locked c={c} onOpen={reloadK} /> : <>
             <Devices c={c} onRemoved={onRemoved} />
             <Calendars c={c} k={k} onRemoved={onRemoved} />
