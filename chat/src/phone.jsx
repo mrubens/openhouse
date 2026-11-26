@@ -462,7 +462,9 @@ function AddLink({ c, kind, family = [], sub = false }) {
  *  (/setup/go). What was saved before shows. */
 function SetupPeople({ c }) {
   const [rows, setRows] = useState(null), [state, setState] = useState(null);
-  useEffect(() => { c.json('GET', '/setup/household').then((r) => setRows(r.json?.family?.length ? r.json.family : [{ name: '', note: '' }])).catch(() => setRows([{ name: '', note: '' }])); }, []);
+  // At least five rows, so most households fill it in without adding any.
+  const five = (l) => [...l, ...Array.from({ length: Math.max(0, 5 - l.length) }, () => ({ name: '', note: '' }))];
+  useEffect(() => { c.json('GET', '/setup/household').then((r) => setRows(five(r.json?.family || []))).catch(() => setRows(five([]))); }, []);
   if (!rows) return <p className="soft">…</p>;
   const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   async function next() {
