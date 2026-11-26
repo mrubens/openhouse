@@ -103,7 +103,7 @@ const RULES = [
   ['admin', 'POST', /^\/(relay|hub\/update|webmcp)$/], ['admin', 'GET', /^\/webmcp$/], // the connector at the household's own address (web-mcp.js)
   // On a hub the settings device is also the setup's (hub-shell.js drives the steps), answers the "Is this OK?" cards,
   // keeps the PIN and the household's own OpenAI key (in the keeper, hub/keeper.mjs: never here).
-  ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|pin|voice)$/],
+  ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|google|icloud|pin|voice)$/],
   ['ask', 'GET', /^\/hub\/asks$/], ['ask', 'POST', /^\/hub\/asks\/answer$/], // a hub's cards on grown-ups' phones too (not kids' or TVs)
     ['admin', 'GET', /^\/hub\/(asks|keeper|calendars|google-photos)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove|google|calendar\/account\/remove)$/],
   ['admin', 'GET', /^\/calendar\/sync$/], ['admin', 'POST', /^\/calendar\/sync\/(set|now)$/], // which of a signed-in account's calendars show (calendar-sync.js)
