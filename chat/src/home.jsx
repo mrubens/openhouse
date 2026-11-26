@@ -613,6 +613,7 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   return (
     <div className="h-today">
       {!showCal && <Things c={c} things={h.things} className="t-things t-things-head" go={go} tabs={tabs} ask={shell?.ask} />}
+      {!showCal && shell?.media && <NowPlaying shell={shell} />}
       <div className={'t-grid' + (showCal ? ' with-cal' : '')}>
         {showCal && <div className="t-calcol">
         <div {...card('calendar')}>
@@ -643,12 +644,47 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
         </div>
         {/* the day's other notes from the apps, the next thing under its events */}
         {dayNotes.filter((n) => n !== pictured).map((n, i) => <DayNote key={n.app + i} c={c} house={h} n={n} day={notesDay} openApp={openApp} />)}
+        {shell?.media && <NowPlaying shell={shell} />}
         </div>}
         <div className="t-side">{rows.map((r, i) => <div key={i} className="t-siderow" style={{ flexGrow: tall[i], maxHeight: rows.length > 1 && r.some((x) => x.key === 'weather') ? '50%' : undefined, gridTemplateColumns: r.map((x) => `minmax(0, ${wide(x)}fr)`).join(' ') }}>{r}</div>)}</div>
       </div>
     </div>
   );
 }
+
+/** Now playing (Media.kt forHome): what a media app on the tablet plays, while it plays and for a while after it's
+ *  paused, with its cover and buttons; a tap opens the app. Asked every few seconds while Home is up; it shows only
+ *  when the tablet can see the apps (Settings → This tablet → Now playing). The app's titles are shown as text. */
+const PAUSED_FOR = 15 * 60e3;
+const isOn = (n) => n?.state === 'playing' || n?.state === 'starting';
+function NowPlaying({ shell }) {
+  const [now, setNow] = useState(null), seen = useRef(0);
+  const ask = () => { const n = shell.media('status')?.now; if (isOn(n)) seen.current = Date.now(); setNow(n && (n.title || n.app) ? n : null); };
+  useEffect(() => { ask(); const x = setInterval(() => { if (!document.hidden) ask(); }, 4000); return () => clearInterval(x); }, []);
+  const on = isOn(now);
+  if (!now || (!on && (now.state !== 'paused' || Date.now() - seen.current > PAUSED_FOR))) return null;
+  const tap = (e, what) => { e.stopPropagation(); shell.media(what); if (what === 'play') seen.current = Date.now();
+    if (what === 'play' || what === 'pause') setNow({ ...now, state: what === 'play' ? 'playing' : 'paused' }); setTimeout(ask, 700); setTimeout(ask, 2000); };
+  const at = now.lengthS > 0 && now.positionS != null ? Math.min(100, (100 * now.positionS) / now.lengthS) : null;
+  return <div role="button" tabIndex={0} className="t-card t-now" onClick={() => now.pkg && shell.openApp('android:' + now.pkg)}>
+    {now.art ? <img className="t-now-art" src={now.art} alt="" draggable={false} /> : <span className="t-now-art none"><Note /></span>}
+    <div className="t-now-text">
+      <div className="h-label">{now.app}{now.elsewhere ? ' · on another device' : ''}</div>
+      <div className="t-now-title">{now.title || now.app}</div>
+      {now.artist && <div className="t-soft">{now.artist}</div>}
+    </div>
+    <div className="t-now-btns">
+      <span role="button" aria-label="Back" onClick={(e) => tap(e, 'previous')}><Skip back /></span>
+      <span role="button" className="main" aria-label={on ? 'Pause' : 'Play'} onClick={(e) => tap(e, on ? 'pause' : 'play')}>{on ? <PauseIcon /> : <PlayIcon />}</span>
+      <span role="button" aria-label="Next" onClick={(e) => tap(e, 'next')}><Skip /></span>
+    </div>
+    {at != null && <i className="t-now-bar" style={{ width: at + '%' }} />}
+  </div>;
+}
+const PlayIcon = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><path d="M8 5.5v13l11-6.5z" /></svg>;
+const PauseIcon = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor"><rect x="6.5" y="5" width="4" height="14" rx="1" /><rect x="13.5" y="5" width="4" height="14" rx="1" /></svg>;
+const Skip = ({ back }) => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="currentColor" style={back ? { transform: 'scaleX(-1)' } : undefined}><path d="M5 6v12l9-6z" /><rect x="15.5" y="6" width="3" height="12" rx="1" /></svg>;
+const Note = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></svg>;
 
 /** The things on Home (the bridge's things.js): a reminder due, a suggestion, a countdown, a broken app; one line
  *  each, at most three, most urgent first, each gone once it no longer matters. A tap does what it's about: its tab

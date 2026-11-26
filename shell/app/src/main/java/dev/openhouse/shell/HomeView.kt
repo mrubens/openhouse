@@ -103,6 +103,11 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         }).toString()
         /** A phone card over the home, for an app in one of its tabs: "photos", "flyer", or "list" (arg: its name). */
         @JavascriptInterface fun phone(g: String?, kind: String, arg: String) { if (ok(g) && kind in setOf("photos", "flyer", "list", "recipe", "pin", "calendar", "album", "share", "google", "unlink", "link")) main.post { when (kind) { "unlink" -> (act as? MainActivity)?.stopAlbum(arg); "share" -> (act as? MainActivity)?.sharePhotos(); "google" -> (act as? MainActivity)?.googlePhotos(); "pin" -> o.unlockCalendar(); "calendar" -> (act as? MainActivity)?.addCalendar(); "album" -> (act as? MainActivity)?.addAlbum(); else -> o.phoneCard = kind to arg.take(if (kind == "link") 600 else 80) } } }
+        /** Home's Now playing card: "status" (Media.forHome), or a button (play, pause, next, previous). */
+        @JavascriptInterface fun media(g: String?, what: String): String {
+            if (!ok(g)) return "{}"
+            return runCatching { if (what == "status") Media.forHome().toString() else { Media.tapFromHome(what); "{}" } }.getOrDefault("{}")
+        }
         @JavascriptInterface fun video(g: String?, url: String) { if (ok(g)) main.post { (act as? MainActivity)?.playVideo(url) } }
     }
     /** An Android app's own icon as a PNG data URL, for the home screen's page (drawn once per app). */

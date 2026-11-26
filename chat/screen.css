@@ -310,6 +310,20 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .t-calcol { display: flex; flex-direction: column; gap: calc(var(--u) * 18); min-width: 0; min-height: 0; }
 .t-calcol > .t-card { flex: 1; }
 .t-calcol > .t-card.t-daynote { flex: none; padding: calc(var(--u) * 18 * var(--s)) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 20 * var(--s)); }
+/* Now playing (home.jsx NowPlaying): a slim card under the calendar, its cover, what it is, and its buttons */
+.t-calcol > .t-card.t-now, .t-card.t-now { flex: none; flex-direction: row; align-items: center; gap: calc(var(--u) * 16); padding: calc(var(--u) * 14) calc(var(--u) * 16); }
+.h-today > .t-now { margin: 0 0 calc(var(--u) * 14); }
+.t-now-art { width: calc(var(--u) * 64); height: calc(var(--u) * 64); border-radius: calc(var(--u) * 14); object-fit: cover; flex: none; background: var(--h-tint); }
+.t-now-art.none { display: grid; place-items: center; color: var(--h-soft); padding: calc(var(--u) * 18); box-sizing: border-box; }
+.t-now-text { flex: 1; min-width: 0; }
+.t-now-text .h-label { margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-now-title { font-size: calc(var(--u) * 19 * var(--s)); font-weight: 650; letter-spacing: -.01em; margin-top: calc(var(--u) * 3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.t-now-text .t-soft { margin-top: calc(var(--u) * 1); font-size: calc(var(--u) * 15 * var(--s)); }
+.t-now-btns { display: flex; align-items: center; gap: calc(var(--u) * 4); flex: none; }
+.t-now-btns > span { width: calc(var(--u) * 44); height: calc(var(--u) * 44); padding: calc(var(--u) * 12); box-sizing: border-box; border-radius: 50%; color: var(--h-ink); }
+.t-now-btns > span.main { width: calc(var(--u) * 52); height: calc(var(--u) * 52); padding: calc(var(--u) * 14); background: var(--h-ink); color: var(--h-sheet); }
+.t-now-btns > span:active { transform: scale(.92); }
+.t-now-bar { position: absolute; left: 0; bottom: 0; height: calc(var(--u) * 3); background: var(--h-soft); opacity: .5; transition: width 4s linear; }
 .t-calendar { padding: 0; }
 .t-hero { flex: none; margin: 0; padding: calc(var(--u) * 24 * var(--s)) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 6 * var(--s)); }
 .t-next { margin: calc(var(--u) * 10) 0 calc(var(--u) * 12); font-size: calc(var(--u) * 46 * var(--s)); font-weight: 700; line-height: 1; letter-spacing: -.03em; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; padding-bottom: .08em; }

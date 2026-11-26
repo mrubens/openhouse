@@ -98,6 +98,9 @@ object Media {
         return s.position + ((SystemClock.elapsedRealtime() - s.lastPositionUpdateTime) * s.playbackSpeed).toLong()
     }
 
+    /** Playing on another device the app controls (Spotify Connect, a cast): its session says so as remote playback. */
+    private fun away(c: MediaController) = c.playbackInfo?.playbackType == MediaController.PlaybackInfo.PLAYBACK_TYPE_REMOTE
+
     private fun describe(c: MediaController): JSONObject {
         val m = c.metadata; val s = c.playbackState
         fun t(k: String) = m?.getString(k)?.takeIf { it.isNotBlank() }
@@ -106,6 +109,7 @@ object Media {
             PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING -> "starting"; PlaybackState.STATE_ERROR -> "error"; else -> "other"
         }
         return JSONObject().put("app", label(c.packageName)).put("state", state)
+            .putOpt("elsewhere", true.takeIf { away(c) })
             .putOpt("title", t(MediaMetadata.METADATA_KEY_TITLE) ?: t(MediaMetadata.METADATA_KEY_DISPLAY_TITLE))
             .putOpt("artist", t(MediaMetadata.METADATA_KEY_ARTIST) ?: t(MediaMetadata.METADATA_KEY_AUTHOR) ?: t(MediaMetadata.METADATA_KEY_DISPLAY_SUBTITLE))
             .putOpt("album", t(MediaMetadata.METADATA_KEY_ALBUM))
@@ -125,6 +129,39 @@ object Media {
             .putOpt("now", now?.let(::describe))
             .put("others", JSONArray(s.filter { it.sessionToken != now?.sessionToken && playing(it) }.map(::describe)))
             .put("anyPlaying", runCatching { ctx.getSystemService(AudioManager::class.java).isMusicActive }.getOrDefault(false))
+    }
+
+    // --- Home's Now playing card (chat/src/home.jsx NowPlaying, through HomeView's media call) ----------------------
+    private var artFor: String? = null
+    private var artUrl: String? = null
+
+    /** What's playing for Home's card: as for Opie's status, with the app's package (a tap opens it) and its cover,
+     *  small, as a data: URL (made again only when the title changes). Nothing when the tablet can't see the apps. */
+    fun forHome(): JSONObject {
+        val c = current() ?: return JSONObject().put("sees", listening())
+        val o = describe(c).put("pkg", c.packageName)
+        val m = c.metadata
+        val key = c.packageName + "|" + (m?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "")
+        if (key != artFor) { artFor = key; artUrl = runCatching { m?.let(::cover) }.getOrNull() }
+        artUrl?.let { o.put("art", it) }
+        return JSONObject().put("sees", true).put("now", o)
+    }
+
+    private fun cover(m: MediaMetadata): String? {
+        val b = m.getBitmap(MediaMetadata.METADATA_KEY_ART) ?: m.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART) ?: m.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON) ?: return null
+        val side = 240; val k = side.toFloat() / maxOf(b.width, b.height)
+        val small = if (k < 1) android.graphics.Bitmap.createScaledBitmap(b, (b.width * k).toInt().coerceAtLeast(1), (b.height * k).toInt().coerceAtLeast(1), true) else b
+        val out = java.io.ByteArrayOutputStream(); small.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, out)
+        return "data:image/jpeg;base64," + android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+    }
+
+    /** A button on Home's card: at once, without waiting to see the new state (the page asks again just after). */
+    fun tapFromHome(what: String) {
+        val c = current()
+        if (c == null) { if (what == "play") key(KeyEvent.KEYCODE_MEDIA_PLAY); return }
+        val tc = c.transportControls
+        when (what) { "play" -> tc.play(); "pause" -> tc.pause(); "next" -> tc.skipToNext(); "previous" -> tc.skipToPrevious(); else -> return }
+        remember(c.packageName)
     }
 
     // --- doing ------------------------------------------------------------------------------------------------------
@@ -196,7 +233,7 @@ object Media {
         // A play key, as a headset's after a restart: Android gives it to the app that last played, and lets that app
         // start its player from it (an app can't start one from a broadcast the shell sends it).
         // (An explicit media-button broadcast to the app doesn't do: Android 12+ won't let it start its player from one.)
-        if (!listening()) { key(KeyEvent.KEYCODE_MEDIA_PLAY); return done("Sent play to the media app that last played (the tablet can't see whether ${target.label} started).") }
+        if (!listening()) { key(KeyEvent.KEYCODE_MEDIA_PLAY); val r = waitPlaying(target.pkg, "${target.label} is playing.", 4000); return if (r.has("done")) r else openInstead(target, "It didn't start on its own") }
         if (sessions().none(::playing)) { // (with something playing, the key would go to that)
             key(KeyEvent.KEYCODE_MEDIA_PLAY)
             val r = waitPlaying(target.pkg, "${target.label} is playing.", 4000)
@@ -232,8 +269,7 @@ object Media {
         ctx.startActivity(i)
         val r = waitPlaying(target.pkg, "${target.label} is playing.", 10_000)
         // It came up over Opie to start: Opie back in front, the music going on behind it.
-        if (home && r.has("done")) { SystemClock.sleep(if (listening()) 800 else 3000); main.post { KioskApps.goHome() } }
-        if (!listening()) return done("Asked ${target.label} to play it (the tablet can't see whether it started).")
+        if (home && r.has("done")) { SystemClock.sleep(if (listening()) 800 else 1500); main.post { KioskApps.goHome() } }
         return if (r.has("done")) r else JSONObject().put("error", "${target.label} opened but isn't playing: it may need someone to sign in on the tablet, or it didn't find that.")
     }
 
@@ -251,10 +287,17 @@ object Media {
 
     /** Wait until [pkg] plays (when the shell can see it); then it's the app they last played from. */
     private fun waitPlaying(pkg: String, text: String, ms: Long = 5000): JSONObject {
-        if (!listening()) { remember(pkg); return done(text) }
+        // Without the listener (Now playing off) it can't see the app, but it can hear whether the tablet makes sound:
+        // that, not a guess, says whether it started.
+        if (!listening()) {
+            val am = ctx.getSystemService(AudioManager::class.java); val end = SystemClock.elapsedRealtime() + ms
+            while (SystemClock.elapsedRealtime() < end) { if (am.isMusicActive) { remember(pkg); return done("$text (The tablet hears it playing; it can't see what: Settings → This tablet → Now playing.)") }; SystemClock.sleep(400) }
+            return JSONObject().put("error", "${label(pkg)} didn't start playing on the tablet: no sound from it. It may be playing on another device it used last (a phone: its device list switches it to this tablet), or need someone to sign in to it on the tablet, or it didn't find that.")
+        }
         val end = SystemClock.elapsedRealtime() + ms
         while (SystemClock.elapsedRealtime() < end) {
-            sessions().firstOrNull { it.packageName == pkg && playing(it) }?.let { remember(pkg); return done(text, it) }
+            sessions().firstOrNull { it.packageName == pkg && playing(it) }?.let { remember(pkg)
+                return done(if (away(it)) "${label(pkg)} is playing, but on another device (its last one, such as a phone), not the tablet. ${label(pkg)}'s device list on the tablet (or on that phone) switches it to this tablet." else text, it) }
             SystemClock.sleep(400)
         }
         return JSONObject().put("error", "${label(pkg)} didn't start playing.").putOpt("now", current(pkg)?.let(::describe))
