@@ -65,6 +65,20 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
         }
     }
 
+    /** The household doesn't have Opie's voice yet: Ask for it (kept by the service, which emails the household once
+     *  it's on: openhouse-cloud docs/beta.md), or, once asked, when. */
+    private fun notYetAsk(asked: String?) {
+        val d = CalmDialog(act).setTitle("Opie's voice")
+        if (asked != null) return d.setMessage("$notYet You asked on ${asked.take(10)}. We'll email you when it's on.").setPositiveButton("Close", null).show().let {}
+        d.setMessage("$notYet We're turning it on for households a few at a time. Ask, and we'll email you when yours is on.")
+            .setPositiveButton("Ask for Opie's voice") { _, _ ->
+                thread {
+                    val (code, r) = CloudSetup.post("${act.bridge}/cloud/voice/ask", JSONObject())
+                    ui { if (code == 200) act.toast("Asked. We'll email you when it's on") else say(r?.optString("error")?.ifEmpty { null } ?: noBridge) }
+                }
+            }.setNegativeButton("Not now", null).show()
+    }
+
     /** Voice: Off. The live voice, Hey Opie and the microphone all off. */
     private fun off() {
         set(false)
@@ -82,7 +96,7 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
             when {
                 v == null -> say(noBridge)
                 !v.optBoolean("linked") -> CloudMenu(act).startLink("Opie's voice comes through your Opie account.") { turnOn() }
-                v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> say(notYet)
+                v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> notYetAsk(v.optString("asked").takeIf { !v.isNull("asked") && it.isNotBlank() })
                 else -> set(true)
             }
         }

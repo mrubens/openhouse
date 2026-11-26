@@ -59,8 +59,8 @@ On the tablet:
       try ("Say “Hey Opie, what's the weather?”") with Opie's face showing it listening; picking another voice then
       says a line in it. **Not now** ends the setup with the voice off, kept as an Off (`OpieChoice`), so it isn't
       turned on by itself later: Settings → Voice. Without a voice to turn on, it says why and how, and offers Done:
-      the household's account doesn't have it yet ("Opie's voice isn't on for your household yet"; the tablet asks
-      once when it does), or the tablet isn't linked (Link this tablet, or Settings → Account, then Settings →
+      the household's account doesn't have it yet ("Opie's voice isn't on for your household yet", with **Ask for
+      Opie's voice**: the service keeps the ask and emails the household once it's on; the tablet asks once when it does), or the tablet isn't linked (Link this tablet, or Settings → Account, then Settings →
       Voice).
 
       The voices can't be heard before Turn on: they're OpenAI's live voices, played only in a live session, and the

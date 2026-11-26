@@ -372,6 +372,8 @@ private class VoiceUi {
     var voice by mutableStateOf("marin")
     var problem by mutableStateOf<String?>(null)
     var busy by mutableStateOf(false)
+    /** When the household asked for Opie's voice (the service's), while it doesn't have it. */
+    var asked by mutableStateOf<String?>(null)
 }
 
 @Composable
@@ -393,6 +395,7 @@ private fun VoiceStep(v: VoiceUi) {
             if (state in setOf("looking", "unlinked", "noBridge")) {
                 val st = withContext(Dispatchers.IO) { getJson("/cloud/voice?check=1", 15_000) }
                 if (state == "looking") st?.optString("voiceName")?.takeIf { it.isNotBlank() }?.let { voice = it }
+                v.asked = st?.optString("asked")?.takeIf { !st.isNull("asked") && it.isNotBlank() }
                 state = when {
                     st == null -> "noBridge"
                     st.optBoolean("on") -> "on"
@@ -407,7 +410,21 @@ private fun VoiceStep(v: VoiceUi) {
     Column(verticalArrangement = Arrangement.spacedBy(22.u)) {
         when (state) {
             "looking" -> Text("…", style = calmText(Calm.LEAD, color = Calm.soft))
-            "notYet" -> Text("Opie's voice isn't on for your household yet. When it is, the tablet asks you here, or you can turn it on in Settings, Voice.", style = calmText(Calm.LEAD))
+            "notYet" -> {
+                Text("Opie's voice isn't on for your household yet. When it is, the tablet asks you here, or you can turn it on in Settings, Voice.", style = calmText(Calm.LEAD))
+                // Ask for it: the service keeps the ask under the household and emails it once it's on (openhouse-cloud docs/beta.md).
+                val asked = v.asked
+                if (asked != null) Soft("You asked on ${asked.take(10)}. We'll email you when it's on.")
+                else {
+                    Soft("We're turning it on for households a few at a time.")
+                    SoftButton("Ask for Opie's voice") {
+                        Openhouse.scope.launch(Dispatchers.IO) {
+                            val r = runCatching { JSONObject(Openhouse.post("/cloud/voice/ask") ?: "{}") }.getOrNull()
+                            withContext(Dispatchers.Main) { if (r != null && !r.has("error")) v.asked = r.optString("asked").ifBlank { java.time.LocalDate.now().toString() } else v.problem = r?.optString("error")?.ifBlank { null } ?: "The tablet's software isn't answering right now." }
+                        }
+                    }
+                }
+            }
             "unlinked" -> {
                 Text("Opie's voice comes through an Opie account. Link this tablet to one, then choose a voice in Settings, Voice.", style = calmText(Calm.LEAD))
                 Soft("Linking is in Settings, Account, too.")
