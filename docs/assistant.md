@@ -16,17 +16,21 @@ Both cloud paths need the tablet linked to a family account and OpenAI chosen (S
 bridge's `agentName()` is then `cloud`. Otherwise it's `none` (`agents/none.js`): a typed turn says how someone
 turns it on, and the apps hide what needs it (`/house` `ai: false`). Safe mode is `off`.
 
-**The household's own OpenAI key** (`own`, in part): Settings → Voice, or the setup's voice step where Opie cloud's
-voice isn't available, takes a key behind the PIN (`shell/…/OwnKey.kt`). The shell checks it with one free call
-(the list of models: a wrong key, a key without access and an account out of credit each get their own words),
-keeps it sealed in its no-backup files with a keystore key, and tells the bridge only that one is in (`POST
-/cloud/own {on}`, which refuses anything else in the body). `agentName()` is then `own`: the same assistant, with
-`ai`, `decide` and the live start going to the shell's route (`DeviceServer` `/openai`), which adds the key and
-reaches only fixed paths at api.openai.com. Opie cloud's voice is off for that tablet while a key is in. Not built
-yet: what those three requests carry (the model names, the live session's words, Decisions, the review's tier and
-the prices for a spend estimate and a monthly stop) is the cloud's today, so the route's calls are empty and the
-three answer `own_not_ready`; getting the key on by a QR code from the phone, and the line on Today when it stops
-working, come with them.
+**The household's own OpenAI key** (`own`): for a tablet without Opie's cloud voice (not linked, or not let in
+yet), the first setup's **Set up Opie's AI** step, or Settings → Voice. The key is pasted on the phone or computer
+connected for the setup (the box opens there as the step shows: `chat/src/phone.jsx` `AddKey`, sealed on the home
+Wi-Fi to the bridge's `/setup/openai`, passed straight on to the shell and never written or logged), or pasted on the
+tablet with a keyboard cover. The shell (`shell/…/OwnKey.kt`) checks it with one free call (the list of models: a
+wrong key, a key without access and an account out of credit each get their own words), asks for the PIN first when
+the lock is on, keeps it sealed in its no-backup files with a keystore key, and tells the bridge only that one is in
+(`POST /cloud/own {on}`, which refuses anything else in the body). The voice comes on with the key (it's the
+household's yes to OpenAI on their own account) and goes with it when there's no account to fall back on.
+
+`agentName()` is then `own`: the same assistant, with `ai`, `decide` and the live start built by
+`bridge/own-openai.js` (the cloud's own requests, models, live prompts and search words, moved here 2026-11-26) and
+sent through the shell's route (`DeviceServer` `/openai`), which adds the key and reaches only three fixed paths at
+api.openai.com (`/v1/live/sessions`, `/v1/responses`, `/v1/decisions`). Opie's cloud is never asked while a key is in,
+and nothing is counted here: OpenAI bills the household, and a budget on the key at OpenAI is the stop.
 
 ## A typed turn
 

@@ -204,7 +204,7 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/openai", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
+    private val HOME_PATHS = setOf("/openai", "/ownkey", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -299,6 +299,17 @@ object DeviceServer {
             // The household's own OpenAI key (OwnKey): the bridge's call, sent on to a fixed path at OpenAI with the key
             // added here; never logged, and the key never comes back.
             "/openai" -> OwnKey.forward(b.optString("kind"), (b.optJSONObject("body") ?: JSONObject()).toString())
+            // The household's own OpenAI key, sent from the phone or computer the tablet is being set up from (bridge
+            // /setup/openai): checked and kept here (the PIN first, with the lock on); never logged, never answered back.
+            "/ownkey" -> {
+                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                val got = java.util.concurrent.LinkedBlockingQueue<String>()
+                handler.post { OwnKey.offer(a, b.optString("key")) { got.offer(it ?: "") } }
+                val why = got.poll(100, java.util.concurrent.TimeUnit.SECONDS)
+                when { why == null -> 200 to JSONObject().put("added", false).put("error", "Nobody answered on the tablet.").toString()
+                    why.isEmpty() -> 200 to JSONObject().put("added", true).toString()
+                    else -> 400 to JSONObject().put("added", false).put("error", why).toString() }
+            }
             "/say" -> { acc?.status(b.optString("text").take(120)); 200 to "{}" }
             // "Opie, stop" (bridge device-tools.js): what it's doing in an app stops now; the next request starts fresh.
             // Opie back in front (from another Android app), for Opie showing one of its tabs (bridge show_on_screen).

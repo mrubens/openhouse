@@ -31,13 +31,16 @@ import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { request } from './backup-format.js';
+import { toShell } from './shell-call.js';
+import { ownOpenAI } from './own-openai.js';
 
 // The service a tablet links to unless someone sets another (Settings → Account → Address). Filled in after the
 // first deploy (openhouse-cloud/scripts/deploy.sh prints it); empty means Settings asks for an address.
 export const DEFAULT_API = 'https://cloud.openhouse.computer';
 const DAY = 86400e3;
 
-export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', backupBits = () => ({}), fixesFile = null, now = Date.now, tick = 15 * 60e3, defaultApi = process.env.OPENHOUSE_CLOUD_URL || DEFAULT_API }) {
+export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', backupBits = () => ({}), fixesFile = null, now = Date.now, tick = 15 * 60e3, defaultApi = process.env.OPENHOUSE_CLOUD_URL || DEFAULT_API,
+  openai = (kind, body) => toShell('/openai', { kind, body }, { file: process.env.DEVICE_MCP_CONFIG, ms: 125e3 }).then((r) => r || { status: 0, body: null }) }) {
   const DIR = path.join(DISPLAY, '.cloud');
   const f = (n) => path.join(DIR, n);
   const read = (n) => readJson(f(n), null, { bak: false }); // (keys: no .bak copies lying around)
@@ -226,14 +229,16 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // that hasn't turned it on; turned off on the account page, it's off here at the next check.
   let lastVoiceStatus = null;
   // The household's own OpenAI key (docs/assistant.md): the shell keeps it sealed and says only whether one is in
-  // (POST /cloud/own {on}); the bridge never holds it. With one in, everything goes the own-key way and Opie cloud's
-  // voice is off for this tablet (the two aren't blended).
+  // (POST /cloud/own {on}); the bridge never keeps it. With one in, everything goes the own-key way (own-openai.js,
+  // through the shell's route that adds the key), linked or not, and Opie cloud's voice isn't used (the two aren't blended).
   const ownOn = () => read('own.json')?.on === true;
-  const liveOn = () => !ownOn() && !!device() && !!read('voice.json')?.on && read('voice.json')?.provider === 'openai-live'; // (an older "on" was for Deepgram, which is gone)
+  const own = ownOpenAI({ openai });
+  const liveOn = () => (ownOn() || !!device()) && !!read('voice.json')?.on && read('voice.json')?.provider === 'openai-live'; // (an older "on" was for Deepgram, which is gone)
   const voice = { used: () => (liveOn() ? 'live' : 'off') };
   async function voiceStatus(check) {
     const mine = read('voice.json') || {};
     let svc = lastVoiceStatus;
+    if (ownOn()) return { linked: !!device(), own: true, on: liveOn(), provider: 'openai-live', vendor: 'OpenAI', available: true, offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null, asked: null, over: null, used: null, limits: null, using: voice.used(), voiceName: mine.voiceName || 'marin' };
     if (check && device()) { try { svc = lastVoiceStatus = await call('GET', '/v1/voice'); } catch {} }
     if (svc && svc.on === false && mine.on) { write('voice.json', { ...mine, on: false, offAt: iso(), offWhy: 'family' }); mine.on = false; } // turned off from the web
     const over = svc?.used && svc?.limits && svc.used.cents >= svc.limits.cents ? 'month' : null;
@@ -244,8 +249,8 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       over, used: svc?.used || null, limits: svc?.limits || null, using: voice.used(), voiceName: mine.voiceName || 'marin' };
   }
   async function voiceSet(on) {
-    if (on && !device()) throw new Error('Link the tablet to an account first (Settings → Account).');
-    if (device()) { try { lastVoiceStatus = await call('POST', '/v1/voice/setting', { on }); } catch (e) { if (on) throw e; } }
+    if (on && !device() && !ownOn()) throw new Error('Link the tablet to an account first (Settings → Account), or use your own OpenAI key (Settings → Voice).');
+    if (device() && !ownOn()) { try { lastVoiceStatus = await call('POST', '/v1/voice/setting', { on }); } catch (e) { if (on) throw e; } }
     const { offWhy, offAt, ...was } = read('voice.json') || {}; // (an Off from the web is answered by this one)
     write('voice.json', { ...was, on, provider: 'openai-live', vendor: lastVoiceStatus?.vendor || null, at: iso() }); // (keeps the chosen voice)
     return voiceStatus(false);
@@ -331,7 +336,12 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the tablet only' }); return true; }
         if (typeof b.on !== 'boolean' || Object.keys(b).length !== 1) { json(res, 400, { error: 'on only' }); return true; }
         if (b.on) write('own.json', { on: true, at: iso() }); else fs.rmSync(f('own.json'), { force: true });
-        json(res, 200, { own: ownOn() }); return true;
+        // A key put in (a grown-up, with the PIN) is the household's yes to OpenAI on their own account: the voice comes on
+        // with it, and goes off with the key where there's no account to fall back on.
+        const v = read('voice.json') || {};
+        if (b.on && !v.on) write('voice.json', { ...v, on: true, provider: 'openai-live', vendor: 'OpenAI', at: iso() });
+        if (!b.on && !device() && v.on) write('voice.json', { ...v, on: false, at: iso() });
+        json(res, 200, { own: ownOn(), voice: await voiceStatus(false) }); return true;
       }
       case '/cloud/voice': await reply(res, () => voiceSet(!!b.on)); return true;
       // A household that set up its own tablet asks for Opie's voice (the service keeps the ask; its owner turns it on).
@@ -340,7 +350,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       // OpenAI's live voice (the trial): the shell's WebRTC offer to the service, which starts the session with OpenAI
       // (the key stays there) and answers with OpenAI's SDP; and, when the session ends, what it cost (OpenAI's count).
       // (One line per start, its outcome only, for when a device says it couldn't connect: no words, no addresses.)
-      case '/cloud/live/start': await reply(res, () => { if (ownOn()) return ownNotYet(); if (!liveOn()) throw Object.assign(new Error('off'), { code: 'off' }); const s = req.liveSetup || b; return call('POST', '/v1/voice/live/start', { sdp: String(b.sdp || ''), name: String(b.name || ''), instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], idleTimeoutS: Number(b.idleTimeoutS) || undefined, voice: read('voice.json')?.voiceName || undefined }).then((r) => { console.log(`[cloud] live start ok${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); return r; }, (e) => { console.log(`[cloud] live start failed: ${e.code || ''} ${String(e.message || '').slice(0, 80)}${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); throw e; }); }); return true;
+      case '/cloud/live/start': await reply(res, () => { if (ownOn()) return liveOn() ? own.liveStart({ ...b, ...(req.liveSetup ? { instructions: req.liveSetup.instructions, tools: req.liveSetup.tools } : {}), voice: read('voice.json')?.voiceName }) : Promise.reject(Object.assign(new Error('off'), { code: 'off' })); if (!liveOn()) throw Object.assign(new Error('off'), { code: 'off' }); const s = req.liveSetup || b; return call('POST', '/v1/voice/live/start', { sdp: String(b.sdp || ''), name: String(b.name || ''), instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], idleTimeoutS: Number(b.idleTimeoutS) || undefined, voice: read('voice.json')?.voiceName || undefined }).then((r) => { console.log(`[cloud] live start ok${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); return r; }, (e) => { console.log(`[cloud] live start failed: ${e.code || ''} ${String(e.message || '').slice(0, 80)}${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); throw e; }); }); return true;
       // An app's small question (the kit's decide(); apps.js lets only the family's own apps and those that declare
       // "decide" reach this): {input, questions} -> {answers}.
       case '/cloud/decide': await reply(res, () => decide(b.input, Array.isArray(b.questions) ? b.questions : [])); return true;
@@ -348,6 +358,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         // backend: what the session's text model used (live-session.cjs), as numbers and its model's name, nothing said.
         const k = b.backend && typeof b.backend === 'object' ? b.backend : {};
         const backend = { model: String(k.model || '').slice(0, 60), ...Object.fromEntries(['input_tokens', 'output_tokens', 'cached_tokens', 'cache_write_tokens', 'ttl_12h_tokens', 'searches'].map((f) => [f, Math.max(0, Math.round(Number(k[f]) || 0))])) };
+        if (ownOn()) { json(res, 200, { ok: true, own: true }); return true; } // (OpenAI bills the household directly: nothing to count here)
         await reply(res, () => call('POST', '/v1/voice/live/usage', { sessionId: String(b.sessionId || ''), seconds: Number(b.seconds) || 0, backend })); return true;
       }
       case '/cloud/unlink':
@@ -362,17 +373,14 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     }
     json(res, 404, { error: 'not found' }); return true; // the body is read: nothing after this may read it again
   }
-  // The own-key way for the three calls, through the shell's route to OpenAI (DeviceServer /openai). Not built yet: what
-  // the requests to OpenAI carry is the cloud's today, and copying it here waits for the owner's yes.
-  const ownNotYet = () => Promise.reject(Object.assign(new Error('Your own OpenAI key isn\'t working in this version yet.'), { code: 'own_not_ready' }));
   /** The cloud assistant's next step (agents/cloud.js): the model's output for the conversation so far. */
-  const ai = (q) => (ownOn() ? ownNotYet() : call('POST', '/v1/ai/respond', q));
+  const ai = (q) => (ownOn() ? own.respond(q) : call('POST', '/v1/ai/respond', q));
   /** OpenAI Decisions through the service: {answers}. Only once the family chose OpenAI (the service checks). */
-  const decide = (input, questions) => (ownOn() ? ownNotYet() : call('POST', '/v1/decide', { input: String(input || ''), questions }));
+  const decide = (input, questions) => (ownOn() ? own.decide(input, questions) : call('POST', '/v1/decide', { input: String(input || ''), questions }));
   /** The tablet's assistant (typed turns, flyers, the heartbeat's notes) is the cloud's text model: linked, OpenAI chosen (server.js agentName). */
   const brainOn = () => liveOn();
   /** The household's own key is in (agentName 'own'). */
-  const own = () => ownOn();
+  const ownKey = () => ownOn();
   /** The relay (relay.js): where to dial out to, and the credential it says hello with. */
   const relayAddress = () => call('GET', '/v1/relay');
   /** A box a device left in the cloud's storage for this tablet (relay.js, k 'b': a photo, too big to go in relay
@@ -428,7 +436,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const revoked = () => { if (device()) return false; const s = state(); return s.unlinkedWhy === 'revoked' || !!s.unlinkedHere; };
   /** Which link this is (a relink is a new one). */
   const linkId = () => device()?.deviceId || null;
-  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

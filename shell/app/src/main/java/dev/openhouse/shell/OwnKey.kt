@@ -25,18 +25,18 @@ import kotlin.concurrent.thread
  * since the keystore's key doesn't travel). The bridge hears only whether one is in (POST /cloud/own {on}) and asks
  * OpenAI through [forward], which reaches only OpenAI's own address and only the calls in [CALLS]. Entering, changing
  * and removing it are a grown-up's, behind the PIN.
- *
- * The requests themselves (what each of the three calls carries) are the cloud's today; until they're copied here
- * with the owner's yes, [CALLS] is empty and every forward is refused.
+ * The key comes in typed or pasted here ([menu]) or sent from the phone or computer the tablet is being set up from
+ * ([offer]: the setup's Opie's AI step, bridge /setup/openai): on the home Wi-Fi, sealed, straight here.
+ * What each call carries is built by the bridge (bridge/own-openai.js, the cloud's requests).
  */
 object OwnKey {
     private const val TAG = "OwnKey"
     private const val ALIAS = "openhouse-own-openai-key"
     const val OPENAI = "https://api.openai.com"
 
-    /** The kinds of call the bridge may make with the key, each to one fixed path at [OPENAI]. Empty until the requests
-     *  move here (live start, its hangup, the assistant's responses, Decisions). */
-    private val CALLS: Map<String, String> = emptyMap()
+    /** The kinds of call the bridge may make with the key, each to one fixed path at [OPENAI]: the live voice's start,
+     *  the assistant's next step, Decisions. (A live session ends by its idle timeout or when the tablet hangs up.) */
+    private val CALLS: Map<String, String> = mapOf("live" to "/v1/live/sessions", "responses" to "/v1/responses", "decisions" to "/v1/decisions")
 
     private lateinit var ctx: Context
     fun init(c: Context) { if (!::ctx.isInitialized) ctx = c.applicationContext }
@@ -115,8 +115,8 @@ object OwnKey {
         }.getOrElse { 502 to JSONObject().put("error", "openai unreachable").toString() }
     }
 
-    /** Tells the bridge whether a key is in (only that). */
-    private fun tellBridge(bridge: String, on: Boolean) = runCatching { CloudSetup.post("$bridge/cloud/own", JSONObject().put("on", on)) }
+    /** Tells the bridge whether a key is in (only that); the voice follows at once (on with a key, CloudSetup.refreshVoice). */
+    private fun tellBridge(bridge: String, on: Boolean) = runCatching { CloudSetup.post("$bridge/cloud/own", JSONObject().put("on", on)); CloudSetup.refreshVoice(ctx, bridge) }
 
     // --- the grown-up's screens: put a key in, change it, take it out (behind the PIN) -------------------------
 
@@ -147,6 +147,25 @@ object OwnKey {
                     }
                 }
             }.setNegativeButton("Cancel", null).show()
+    }
+
+    /**
+     * A key sent from the phone or computer the tablet is being set up from (DeviceServer /ownkey): checked, then kept,
+     * with the PIN first if the lock is on. [done]: null once it's in, else what went wrong, in words for that phone.
+     */
+    fun offer(act: MainActivity, raw: String, done: (String?) -> Unit) {
+        val key = clean(raw) ?: return done("That isn't an OpenAI key. A key starts with sk- and is one long line: copy all of it.")
+        val go = {
+            thread {
+                when (val r = check(key)) {
+                    is Check.Ok -> { write(key); tellBridge(act.bridge, true); act.runOnUiThread { act.toast("Your OpenAI key works. Opie uses it now") }; done(null) }
+                    is Check.No -> done(r.say)
+                }
+            }
+            Unit
+        }
+        if (!act.lock.on) return go()
+        PinPrompt.ask(act, act, "Use the OpenAI key sent from the phone?", { go() }, cancelled = { done("Nobody typed the PIN on the tablet, so the key wasn't kept.") })
     }
 
     private fun remove(act: MainActivity) {

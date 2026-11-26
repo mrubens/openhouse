@@ -51,7 +51,11 @@ On the tablet:
       accessibility page for the Opie assistant; "On" once it is) and Stop charging at 80% (Android's settings, with
       the path for a Samsung, else a pointer to [tablets.md](tablets.md)). Each leaves kiosk mode, behind the PIN if
       one was chosen; Home comes back. Both can be skipped.
-   8. **Talk to Opie**, the only step with a voice: "say “Hey Opie”, then what you'd like", three things to ask in
+   8. **Set up Opie's AI** (`AiStep`, since 2026-11-26): where the household doesn't have Opie's voice through its
+      account, the household's own OpenAI key, pasted on the phone or computer connected for the setup (its box opens
+      there) or here with a keyboard cover ([assistant.md](assistant.md)). Nothing to do with the account's voice or a
+      key already in. Can be skipped.
+   9. **Talk to Opie**, the only step with a voice: "say “Hey Opie”, then what you'd like", three things to ask in
       the household's words ("Add milk to the list", "What's on tomorrow?", and an app in the children's names when
       the household has any: `PluginsMenu.example`), OpenAI's live voices in rows of six (all in view, nothing off the edge), and the line the tablet always
       uses: "What you say after “Hey Opie” goes to OpenAI." **Turn on Opie's voice** (a person's tap, behind the PIN

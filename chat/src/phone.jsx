@@ -322,9 +322,10 @@ function SetupFlow({ me, c, h, onDone }) {
           ? <a className="go" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
           : <p className="soft">To send photos from here, tap From your phone on the tablet, then Let phones send photos.</p>}
       </>}
-      {step !== 'calendar' && step !== 'photos' && <>
+      {step === 'ai' && <AddKey c={c} computer={computer} />}
+      {step !== 'calendar' && step !== 'photos' && step !== 'ai' && <>
         <h1>Connected</h1>
-        <p>Carry on at the tablet. When it asks for a calendar or photos, you send them from here: this page follows along.</p>
+        <p>Carry on at the tablet. When it asks for a calendar, photos or an OpenAI key, you send them from here: this page follows along.</p>
       </>}
       <div className="setuprow">
         <span className="grow" />
@@ -372,6 +373,27 @@ function AddLink({ c, kind, family = [] }) {
     <button className="go" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>{state === 'sending' ? (kind === 'album' ? 'Looking at it…' : 'Reading it…') : 'Add'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}
     {added.map((a, k) => <p key={k} className="soft">Added: {a}</p>)}
+  </>;
+}
+/** The household's own OpenAI key, for the tablet's Opie's AI step: sent straight to the tablet on the home Wi-Fi,
+ *  sealed, where it's checked and kept (OwnKey.kt). Never kept on this page, and never shown again. */
+function AddKey({ c, computer }) {
+  const [key, setKey] = useState(''), [state, setState] = useState(null);
+  async function send() {
+    setState('sending');
+    try {
+      const r = await c.json('POST', '/setup/openai', { key: key.trim() });
+      if (r.status === 200 && r.json?.added) { setKey(''); setState('done'); }
+      else setState(r.json?.error || 'That didn’t work.');
+    } catch { setState('The tablet isn’t in touch right now. Try again at home.'); }
+  }
+  if (state === 'done') return <><h1>Your OpenAI key</h1><p>The tablet has it and it works. Carry on at the tablet.</p></>;
+  return <>
+    <h1>Your OpenAI key</h1>
+    <p>Make a key at platform.openai.com, under API keys{computer ? '' : ' (on this phone, in a browser)'}, copy it, and paste it here. It goes straight to the tablet; OpenAI bills your account. Set a monthly budget for it at OpenAI too.</p>
+    <input type="password" value={key} onChange={(e) => { setKey(e.target.value); setState(null); }} placeholder="sk-…" autoCapitalize="off" autoComplete="off" autoCorrect="off" spellCheck={false} />
+    <button className="go" disabled={!/^sk-\S{20,}$/.test(key.trim()) || state === 'sending'} onClick={send}>{state === 'sending' ? 'Checking it…' : 'Send to the tablet'}</button>
+    {state && state !== 'sending' && <p className="soft">{state}</p>}
   </>;
 }
 function Invite({ c, family }) {

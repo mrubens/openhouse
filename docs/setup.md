@@ -45,12 +45,15 @@ A brand-new tablet, still in its box, needs neither step.
 1. **Welcome to Opie**, with Get started. If the tablet says "We haven't tested this tablet" under it, it isn't on
    [the list](tablets.md) yet; carry on.
 2. The setup, one step at a time (each can be skipped, and Later leaves it): who lives here, where you live,
-   connecting your phone or computer, your calendar, your photos, a PIN, two of Android's settings, and talking to
-   Opie.
+   connecting your phone or computer, your calendar, your photos, a PIN, two of Android's settings, Opie's AI, and
+   talking to Opie.
    - **Two of Android's settings** opens Android's settings for each: letting Opie use other apps (switch on "Opie
      assistant" and tap Allow), and stopping charging at 80% ([where it is on each tablet](tablets.md#the-charge-limit-on-each)).
      Press Home to come back. Without the first, Opie can't open or press buttons in other apps; everything else works.
-   - **Talking to Opie** needs Opie's voice. It's turned on for households a few at a time: on a tablet linked to an
+   - **Set up Opie's AI**: Opie's voice and assistant run on OpenAI. Make a key at platform.openai.com (API keys) and
+     paste it into Opie on the phone or computer you connected: it goes straight to the tablet, and OpenAI bills your
+     account. Set a monthly budget for the key at OpenAI too.
+   - **Talking to Opie** needs Opie's AI: your own OpenAI key, or Opie's voice through an account. It's turned on for households a few at a time: on a tablet linked to an
      account it says "Opie's voice isn't on for your household yet" until it is, and turns on by itself after that.
 3. **The home screen**: Today, then your tabs (calendar, chores, lists, meals, photos). Pressing Home always comes back
    here. That's it: no cable or computer needed after the code.

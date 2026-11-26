@@ -84,7 +84,7 @@ const RULES = [
   ['notify', 'GET', /^\/phone\/messages$/], // what Opie was asked to tell this phone's person lately (message_family, live-tools.js)
   // 'setup': the phone or computer someone set the tablet up from (the setup's own code, scanned or typed): adds
   // calendars and albums (server.js, straight to the shell) and invites the rest of the family (handle.invite).
-  ['setup', 'POST', /^\/setup\/(calendar|album|invite)$/],
+  ['setup', 'POST', /^\/setup\/(calendar|album|invite|openai)$/],
   ['setup', 'GET', /^\/setup\/step$/], // which setup step the tablet shows, to follow it
   // 'voice': talking to Opie from this device (chat/src/live-voice.js, docs/hub.md): the same live voice the tablet has,
   // its session started through the cloud (server.js /live/start) and its tools run here. A browser gives a page the

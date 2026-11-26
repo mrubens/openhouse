@@ -73,7 +73,7 @@ function tablet(D, opts = {}) {
   const json = (res, code, obj) => { res.code = code; res.obj = obj; };
   const body = async (req) => req.b || {};
   let backups = null;
-  const cloud = cloudRoutes({ DISPLAY: D, tick: 0, json, body, agentName: () => 'cloud', backupBits: () => backups.bits() });
+  const cloud = cloudRoutes({ DISPLAY: D, tick: 0, json, body, agentName: () => 'cloud', backupBits: () => backups.bits(), ...(opts.openai ? { openai: opts.openai } : {}) });
   backups = backupRoutes({ DISPLAY: D, tick: 0, json, body, destinations: [cloud.destination, driveDestination({ DISPLAY: D })], escrow: cloud.escrow, exit: () => { exited++; }, ...opts });
   const call = async (method, p, b) => { const res = {}; const h = p.startsWith('/cloud/') ? cloud : backups; assert.ok(await h.handle({ method, b }, res, new URL('http://x' + p)), p); return res; };
   return { cloud, backups, call, exited: () => exited };
@@ -86,11 +86,13 @@ async function web(p, b) {
   const sc = r.headers.get('set-cookie'); if (sc) cookie = sc.split(';')[0];
   return { status: r.status, json: await r.json().catch(() => null) };
 }
+async function letIn(email) { const fid = (await svc.store.get(`USER#${email}`, 'PROFILE'))?.familyId; if (fid) await svc.store.update(`FAMILY#${fid}`, 'META', { cloud: true }); }
 async function signIn(email) {
   cookie = '';
   await web('/v1/auth/start', { email });
   const t = new URL(/https?:\S+/.exec(svc.mail.sent.at(-1).text)[0]).searchParams.get('t');
   assert.equal((await web('/v1/auth/finish', { token: t })).status, 200);
+  await letIn(email); // (the service lets households in by hand: admin.ts cloud)
 }
 /** A code entered on the web, then the account that claimed it waiting for an answer at the tablet: [ok] links it. */
 async function claimed(t) {
@@ -336,7 +338,8 @@ test("a forgotten PIN reset through the account: only the shell asks, and a yes 
 });
 
 test("the household's own OpenAI key: the bridge only hears whether there is one, never the key, and taking it out ends that way at once", async () => {
-  const D = display(), t = tablet(D);
+  const sent = [];
+  const D = display(), t = tablet(D, { openai: async (kind, body) => { sent.push({ kind, body }); return { status: 200, body: { output: [{ type: 'message', role: 'assistant', content: [] }], usage: {} } }; } });
   const KEY = 'sk-proj-TESTKEYnevershown0123456789';
   // A key sent here by mistake (anything but {on}) is refused and kept nowhere; a paired device can't say either.
   assert.equal((await t.call('POST', '/cloud/own', { on: true, key: KEY })).code, 400);
@@ -346,10 +349,14 @@ test("the household's own OpenAI key: the bridge only hears whether there is one
   assert.equal(t.cloud.own(), false);
   assert.equal((await t.call('POST', '/cloud/own', { on: true })).code, 200);
   assert.equal(t.cloud.own(), true);
-  assert.equal(t.cloud.liveOn(), false); // Opie cloud's voice is off while a key is in
-  await assert.rejects(t.cloud.ai({ input: [{ role: 'user', content: 'hi' }] }), (e) => e.code === 'own_not_ready');
+  assert.equal(t.cloud.liveOn(), true); // the voice comes on with the key, unlinked
+  // Unlinked, the assistant and Decisions go to OpenAI through the shell's route, which adds the key: the bridge's call carries none.
+  assert.equal((await t.cloud.ai({ input: [{ role: 'user', content: 'hi' }] })).output[0].type, 'message');
+  assert.deepEqual(sent.map((c) => c.kind), ['responses']);
+  assert.ok(!JSON.stringify(sent).includes('sk-'));
   const everything = (dir) => fs.readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => fs.readFileSync(path.join(e.parentPath ?? e.path, e.name), 'utf8')).join('\n');
   assert.ok(!everything(D).includes(KEY));
   assert.equal((await t.call('POST', '/cloud/own', { on: false })).code, 200);
   assert.equal(t.cloud.own(), false);
+  assert.equal(t.cloud.liveOn(), false); // and goes with it, with no account to fall back on
 });

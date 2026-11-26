@@ -43,7 +43,7 @@ internal object Setup {
     // Connecting a phone or computer comes before the calendar and photos: their links are copied there, not on the
     // tablet, so those steps send them from the phone or computer already connected (it follows the tablet's step:
     // chat/src/phone.jsx SetupFlow), with one code for it all.
-    val STEPS = listOf("people", "place", "devices", "calendar", "photos", "pin", "android", "voice")
+    val STEPS = listOf("people", "place", "devices", "calendar", "photos", "pin", "android", "ai", "voice")
 
     /** A later step that sent someone back to connect a phone or computer: Next there comes back here. */
     private var resume: String? = null
@@ -103,7 +103,7 @@ internal fun SetupSheet() {
     val title = when (step) {
         "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a family calendar?"
         "photos" -> "Put your photos on the tablet?"; "pin" -> "Choose a PIN"; "voice" -> "Talk to Opie"
-        "android" -> "Two of Android's settings"
+        "android" -> "Two of Android's settings"; "ai" -> "Set up Opie's AI"
         else -> "Connect your phone or computer"
     }
     // The PIN step: its own button chooses one (SettingsLock "setupPin"), and the setup goes on once it's kept; Skip, or
@@ -142,6 +142,7 @@ internal fun SetupSheet() {
                             "photos" -> PhotosStep()
                             "pin" -> PinStep(pinSet)
                             "android" -> AndroidStep()
+                            "ai" -> AiStep()
                             else -> DevicesStep()
                         }
                     }
@@ -399,7 +400,7 @@ private fun VoiceStep(v: VoiceUi) {
                 state = when {
                     st == null -> "noBridge"
                     st.optBoolean("on") -> "on"
-                    !st.optBoolean("linked") -> "unlinked"
+                    !st.optBoolean("linked") && !st.optBoolean("own") -> "unlinked"
                     st.has("available") && !st.isNull("available") && !st.optBoolean("available") -> "notYet"
                     else -> "ready"
                 }
@@ -507,6 +508,41 @@ private fun PinStep(set: Boolean) {
         Text(if (set) "PIN Lock is on. Settings and approving new apps ask for the PIN."
             else "With a PIN, only someone who knows it can change Settings or approve a new app. Without one, anyone at the tablet can, and the first person to choose a PIN later decides. Best chosen now, while you're setting it up.",
             style = calmText(19, color = Calm.soft))
+    }
+}
+
+/**
+ * Opie's AI: its voice and assistant run on OpenAI, either through the Opie account (once the household is let in) or
+ * on the household's own OpenAI key (OwnKey.kt), sent from the phone or computer connected for the setup (the box for
+ * it opens there: chat/src/phone.jsx AddKey, the bridge's /setup/openai), or pasted here with a keyboard cover. Looked
+ * at every few seconds, so a key sent from the phone shows here at once. Skipping leaves Opie without its voice and
+ * assistant until one is set up (Settings, Voice).
+ */
+@Composable
+private fun AiStep() {
+    var st by remember { mutableStateOf<JSONObject?>(null) }
+    val device = connectedDevice()
+    LaunchedEffect(Unit) { while (true) { st = withContext(Dispatchers.IO) { getJson("/cloud/voice?check=1", 15_000) }; delay(2500) } }
+    val own = st?.optBoolean("own") == true
+    val cloud = !own && st?.optBoolean("linked") == true && st?.optBoolean("available") == true
+    Column(verticalArrangement = Arrangement.spacedBy(16.u)) {
+        when {
+            st == null -> Text("Looking…", style = calmText(Calm.LEAD))
+            own -> { Text("Opie uses your own OpenAI key.", style = calmText(Calm.LEAD)); Soft("What it hears and does goes to OpenAI on your account, and OpenAI bills you. You can change or remove the key in Settings, Voice.") }
+            cloud -> { Text("Opie's AI comes with your Opie account.", style = calmText(Calm.LEAD)); Soft("Nothing to set up here.") }
+            else -> {
+                Text("Opie's voice and assistant run on OpenAI. Use your own OpenAI key, and OpenAI bills your account.", style = calmText(Calm.LEAD))
+                HowTo(listOf("On a phone or computer, make a key at platform.openai.com, under API keys.",
+                    if (device != null) "On $device, paste it into Opie: the box for it is open there now." else "Connect that phone or computer, and paste the key into Opie there.",
+                    "Set a monthly budget for the key at OpenAI too."))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.u)) {
+                    if (device == null) SoftButton("Connect a phone or computer") { Setup.connectFirst() }
+                    Text("Paste it here instead", style = calmText(19, FontWeight.Medium, Calm.soft),
+                        modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { Openhouse.host.setting("ownKey") }.padding(vertical = 8.u))
+                }
+                if (st?.optBoolean("linked") == true) Soft("Or ask for Opie's voice through your Opie account at the next step.")
+            }
+        }
     }
 }
 

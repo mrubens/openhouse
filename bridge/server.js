@@ -478,8 +478,14 @@ async function route(req, res, url) {
     // added with no card on the tablet unless its lock is on), and invites for the family.
     // Which step the tablet's setup shows: the setup phone or computer follows it (chat/src/phone.jsx SetupFlow).
     if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, chat.live.setupShown?.() || { step: null }); return true; }
-    if (req.method === 'POST' && /^\/setup\/(calendar|album|invite)$/.test(url.pathname)) {
+    if (req.method === 'POST' && /^\/setup\/(calendar|album|invite|openai)$/.test(url.pathname)) {
       const b = await body(req);
+      // The household's own OpenAI key (the setup's Opie's AI step): straight on to the shell, which checks and keeps it
+      // (OwnKey.kt). Passed through, never written, logged or answered back here.
+      if (url.pathname === '/setup/openai') {
+        const r = await calendar.toShell('/ownkey', { key: String(b.key || '').trim().slice(0, 400) });
+        json(res, r.error ? 400 : 200, r.error ? { added: false, error: r.error } : r); return true;
+      }
       if (url.pathname === '/setup/invite') {
         const r = screens.invite(b.person, b.grownup !== false);
         if (!r.error) { const via = relay?.inviteVia?.(); if (via) { Object.assign(r, via); relay.changed(); } } // a link that works from anywhere
