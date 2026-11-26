@@ -266,7 +266,7 @@ object Media {
         val quiet = current(target.pkg)?.takeIf { it.playbackState?.actions?.and(PlaybackState.ACTION_PLAY_FROM_SEARCH) != 0L } ?: browse(target)?.takeIf { it.playbackState?.actions?.and(PlaybackState.ACTION_PLAY_FROM_SEARCH) != 0L }
         if (quiet != null) {
             quiet.transportControls.playFromSearch(query, extras)
-            val r = waitPlaying(target.pkg, "${target.label} is playing.")
+            val r = waitPlaying(target.pkg, "${target.label} is playing.").let { if (it.has("done")) it else nudge(target.pkg, it) }
             if (r.has("done")) return r
         }
         if (!target.search) return openInstead(target, "${target.label} can't be asked for something to play")
@@ -275,7 +275,7 @@ object Media {
         KioskApps.allowInKiosk(target.pkg)
         val i = Intent(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH).setPackage(target.pkg).putExtras(extras).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         ctx.startActivity(i)
-        val r = waitPlaying(target.pkg, "${target.label} is playing.", 10_000)
+        val r = waitPlaying(target.pkg, "${target.label} is playing.", 10_000).let { if (it.has("done")) it else nudge(target.pkg, it) }
         // It came up over Opie to start: Opie back in front, the music going on behind it.
         if (home && r.has("done")) { SystemClock.sleep(if (listening()) 800 else 1500); main.post { KioskApps.goHome() } }
         return if (r.has("done")) r else JSONObject().put("error", "${target.label} opened but isn't playing: it may need someone to sign in on the tablet, or it didn't find that.")
@@ -294,6 +294,13 @@ object Media {
     }
 
     /** Wait until [pkg] plays (when the shell can see it); then it's the app they last played from. */
+    /** An app that found it but left it paused (Spotify opens its search on the song, paused): play, once. */
+    private fun nudge(pkg: String, failed: JSONObject): JSONObject {
+        val c = current(pkg)?.takeIf { it.metadata != null && !playing(it) } ?: return failed
+        c.transportControls.play()
+        return waitPlaying(pkg, "${label(pkg)} is playing.", 4000).let { if (it.has("done")) it else failed }
+    }
+
     private fun waitPlaying(pkg: String, text: String, ms: Long = 5000): JSONObject {
         // Without the listener (Now playing off) it can't see the app, but it can hear whether the tablet makes sound:
         // that, not a guess, says whether it started.
