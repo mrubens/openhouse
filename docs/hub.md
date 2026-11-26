@@ -15,7 +15,8 @@ backup went to the folder, and restoring it restarted the hub with everything in
 started from `hub/start.sh` under `caffeinate`, answered on the Mac's Wi-Fi address, and a scan found the 6 devices on
 the Wi-Fi (the same scan from Docker Desktop found 2, the VM's own). The LaunchAgent itself, a real Pi, Docker on Linux
 and WSL are untried.
-Calendars, shared albums, approval cards and the wake word aren't on the hub yet (below). The pages still say "the
+2026-11-26: the keeper, the setup from the settings device, the cards and the PIN (below). Signing in to calendars,
+Google Photos, cards on phones and the wake word aren't on the hub yet. The pages still say "the
 tablet" in places (the phone's notes, the TV's empty view, the cloud backup's hint); the join page already says "the
 hub's settings page" on a hub.
 
@@ -52,8 +53,10 @@ Claude or ChatGPT on a computer, and the connector at the household's own addres
 |---|---|---|
 | Where it runs | proot Ubuntu inside the Android app | Linux arm64 or x86_64 (installed, or Docker) or a Mac, natively |
 | Its own screen | the kiosk home screen | none: every screen is a browser |
-| Settings | the shell's, behind the PIN | `/hub/` on a settings device (below) |
-| First setup | on the tablet, or from a phone with the setup code | type the code the hub printed when it started |
+| Settings | the shell's, behind the PIN | `/hub/` on a settings device (below), behind the PIN once one is set |
+| First setup | on the tablet, or from a phone with the setup code | type the code the hub printed when it started, then the same steps on that device |
+| Calendar and album links, the own OpenAI key, the PIN | the shell, sealed with Android's keystore | the keeper (`hub/keeper.mjs`), sealed, beside the data folder |
+| "Is this OK?" cards | on the tablet | on the settings page |
 | Saying yes to a new device | Allow on the tablet | Allow on the settings page |
 | Opie | wake word on the tablet, or a tap | a tap on the pill, in any browser that may use the microphone |
 | Backups to a drive | a USB drive the shell owns | a folder: a mounted drive, a share, a Docker volume (`OPENHOUSE_BACKUP_DIR`) |
@@ -63,15 +66,41 @@ Claude or ChatGPT on a computer, and the connector at the household's own addres
 Not on the hub, by design: control of Android apps (device_action, the shell's accessibility service) and Android's
 Bluetooth. The hub reaches devices on the Wi-Fi as the tablet's bridge does (TVs, speakers, printers: `bridge/devices`).
 
-Not on the hub yet (each is held by the tablet's shell today, so each needs its own piece):
-- **Calendars and shared photo albums.** The shell keeps their links, out of the bridge's reach, and reads them. A hub
-  needs a small keeper of its own in the same spirit (not the bridge's data folder the assistant reaches).
-- **Approval cards.** "Add this plugin?", a fix from the workshop and the other yes-or-no cards ask someone at the
-  tablet. On a hub they're refused for now ("can't ask"); they should go to the settings devices.
+### The keeper (what the tablet's shell keeps)
+
+The tablet's shell keeps a few things out of the bridge's reach: the calendar links, the iCloud albums' links, the
+household's own OpenAI key and the PIN. On a hub that's the keeper, `hub/keeper.mjs`: its own process, started by
+`hub/start.sh` from the code (not the data folder's copy), on loopback with a token made at each start. What it keeps
+is sealed (AES-256-GCM) in its own folder beside the data folder, never inside it, so the assistant's file tools and
+backups never reach it (`OPENHOUSE_KEEPER_DIR`: `<data>-keeper` by default; Docker `/keeper`; a Mac
+`~/Library/Application Support/OpenHouse Keeper`). The seal key is in the login Keychain on a Mac and in a 0600 file
+in the keeper's folder on Linux. Like the shell, it reads the calendars and albums itself and hands the bridge only
+what they say, and it adds the OpenAI key to the bridge's calls at OpenAI's fixed addresses; nothing it keeps is ever
+answered back. The bridge reaches it through `toShell` as it reaches the tablet's shell (`bridge/hub-shell.js`), so
+add_calendar, add_photo_album, the own key and the setup work the same way. On a hub with no keeper (a bridge started
+by hand) those answer that they can't.
+
+### Setup, cards and the PIN
+
+- **The setup.** The first settings device (the code from the console) goes straight into the same setup a tablet's
+  phone shows (`chat/src/setup-flow.jsx`): who lives here, where, calendar links, iCloud albums, Opie's AI (their own
+  OpenAI key), the PIN, the voice, then invites for the family. The hub's bridge moves the steps on itself
+  (`hub-setup.json` in the data folder).
+- **"Is this OK?" cards.** What the tablet asks someone there (a workshop fix, a plugin, an app made here, a calendar
+  sent by the assistant) shows on the settings page, with Allow and No; one that needs the PIN asks for it there. Nobody
+  answering is a no. On a hub, a fix from the workshop never goes in without a yes.
+- **The PIN.** Once one is set (in the setup or on the settings page), a settings device asks for it before changing
+  settings, and again after 10 minutes. Cards that need it ask for it on the card. A lost PIN: run
+  `hub/owner-code.sh --forget-pin` on the hub.
+
+Not on the hub yet:
+- **Signing in to calendars** (two-way Google and iCloud) **and Google Photos.** They're the shell's on a tablet (with
+  the account's Google sign-in); on a hub, calendars and albums come in by their links only.
+- **Cards on grown-ups' phones.** The cards show on settings devices only.
 - **The wake word.** The model runs in the bridge already (`voice-worker.js`), but a hub would also have to hold the
   live session itself (WebRTC in Node, a speaker) for "Opie" to be said to it. A tap on a phone or laptop works today.
-- **A PIN on the settings page,** for a settings device that's a shared laptop. Today the settings device's pairing is
-  the key: give it only to a grown-up's own device.
+- **A separate user for the keeper on Linux.** It runs as the hub's user, in its own folder; a user of its own would
+  keep even code run as the hub's user away from what it keeps.
 
 ## Live voice from other devices
 
@@ -209,8 +238,9 @@ On the hub itself: `docker exec openhouse /opt/openhouse/hub/owner-code.sh`; on 
 - `hub/start.sh`: the hub's start, shared by Docker, Linux and the Mac. `hub/build.sh`: building from a checkout.
 - `hub/install.sh` (Linux), `hub/install-mac.sh`, `hub/update.sh`, `hub/owner-code.sh`.
 - `hub/demo.mjs`: the demo household for the iPhone app's review ([iphone-app.md](iphone-app.md)).
+- `hub/keeper.mjs` (the keeper), `bridge/hub-shell.js` (the shell's paths on a hub: the keeper, the cards, the setup's steps, the PIN lock).
 - `bridge/hub.js` (`/hub`, updates, the settings code), `bridge/folder-backup.js`, `screens.js` (the `voice` and `admin`
   scopes, https), `server.js` (live voice's start through the cloud for a device; the settings routes on a hub).
-- `chat/src/hub.jsx` (the settings page), `chat/src/talk.jsx` (Opie's pill), `chat/src/live-voice.js`,
+- `chat/src/hub.jsx` (the settings page), `chat/src/setup-flow.jsx` (the setup's steps, shared with the phone page), `chat/src/talk.jsx` (Opie's pill), `chat/src/live-voice.js`,
   `chat/live/live-session.cjs` (the session, shared with the tablet).
 - `bridge/test/hub.test.mjs`.

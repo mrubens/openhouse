@@ -45,7 +45,7 @@ export function SetupFlow({ me, c, h, onDone }) {
       {step === 'calendar' && <>
         <h1>Your calendars</h1>
         {!HUB && <SignIns c={c} family={h.house?.family || []} />}
-        <AddLink c={c} kind="calendar" family={h.house?.family || []} sub={!HUB} />
+        <AddLink c={c} kind="calendar" family={h.house?.family || []} sub={!HUB} heading={!HUB} />
       </>}
       {step === 'photos' && <>
         <AddLink c={c} kind="album" />
