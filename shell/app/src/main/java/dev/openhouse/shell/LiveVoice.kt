@@ -119,6 +119,7 @@ internal object LiveVoice {
         setupTask = java.util.concurrent.FutureTask { runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText("${a.bridge}/live/setup?how=$how", 2000, 5000)) }.getOrNull() }.also { thread { it.run(); mark("setup fetched") } }
         volumeIn(a)
         watchMode(a, true)
+        holdFocus(a, true)
         // Android's call mode from the start, once: the session's microphone (handOff, a few seconds in) used to switch it,
         // and that came just before the first reply and swallowed its first words (the log: "audio mode 3" ~1 s before
         // "reply 1: voice"). After the chime, so the chime isn't cut.
@@ -197,7 +198,7 @@ internal object LiveVoice {
         // Call mode goes once its WebRTC has let go, and only then does the tablet's own listening open the microphone again:
         // opened while still in call mode (the Galaxy Tab A11), it stayed on the call's path, ~10x quieter and without
         // echo cancelling, and no "Hey Opie" got past the wake model's loudness floor until it was next reopened.
-        act?.let { volumeOut(it); watchMode(it, false); val ma = it; main.postDelayed({ if (web == null) { callMode(ma, false); ma.micPaused(false) } }, 600) }
+        act?.let { volumeOut(it); watchMode(it, false); val ma = it; main.postDelayed({ if (web == null) { callMode(ma, false); holdFocus(ma, false); ma.micPaused(false) } }, 600) }
     }
 
     /** What went wrong with the live voice just now, for the bubble (Buddy), and when. */
@@ -229,6 +230,21 @@ internal object LiveVoice {
             am.addOnModeChangedListener(a.mainExecutor, l); modeListener = l
         }
     }.onFailure { Log.w(TAG, "audio mode: $it") }
+    /** Android's audio focus for the conversation, as an assistant (transient): whatever was playing (music, a book, a
+     *  podcast) pauses while someone talks to Opie and carries on after, as the apps themselves do it. Something Opie
+     *  starts during the conversation takes the focus over, and keeps playing. */
+    private var focus: android.media.AudioFocusRequest? = null
+    private fun holdFocus(a: MainActivity, on: Boolean) = runCatching {
+        val am = audio(a)
+        if (on) {
+            if (focus != null) return@runCatching
+            val f = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+                .setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ASSISTANT)
+                    .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SPEECH).build())
+                .setOnAudioFocusChangeListener({ }, main).build()
+            focus = f; mark("audio focus ${am.requestAudioFocus(f)}")
+        } else focus?.let { am.abandonAudioFocusRequest(it); focus = null }
+    }.onFailure { Log.w(TAG, "audio focus: $it") }
     /** Call mode (MODE_IN_COMMUNICATION) for the session, and back to what it was after; only if this set it. */
     private var modeBefore = -1
     private fun callMode(a: MainActivity, on: Boolean) = runCatching {
