@@ -105,6 +105,10 @@ While it's being made, and until the yes, nothing of it runs with more than that
 - A change to an app with its own rights (ours, the household's) is never written into that app: it's made in a
   draft, `apps/<id>--draft`, a copy limited the same way, which is what shows on screen. The yes swaps the draft in
   (build-waits.js `promote`) and takes the draft's mark away; a no or a day drops it.
+- A change to an app that is limited already (one from a link, or one made here and never granted anything) is
+  written into it live, with no draft and no yes, on purpose: it can't read the family's things or reach websites
+  and is on its own origin, so the most a change can do is what it shows, to the person who asked for it, standing
+  there. A yes for every tweak to a kid's own game would cost much and guard little (2026-11-26).
 - The tablet's page server serves a limited app made here on its own origin, as one from a link
   (`device/vite.config.mjs` grants).
 - A build the bridge stopped in the middle of (an update, a crash) is put back on the next start

@@ -99,10 +99,13 @@ One switch, PIN Lock: Off or On.
   button, Android's own (saved networks, forgetting one, and a tap from the rest of Android's settings), is a way out
   as above. During the first setup, before the household is saved (the welcome screen's Join Wi-Fi, a tablet arriving
   from somewhere else), the button opens Android's Wi-Fi settings, since there's no PIN to ask for yet.
-- **The first PIN:** chosen in the first setup's Choose a PIN step, or later from PIN Lock or "Set a PIN
-  first" only on a tablet linked to an account, which can reset it if it's forgotten. On an unlinked tablet, anyone
-  at it could choose one and tap past its recovery code, locking everyone else out of Account, Erase and Android's
-  settings, so those say to link the tablet first (Account).
+- **The first PIN:** chosen in the first setup's Choose a PIN step (no account needed), or later from PIN Lock or
+  "Set a PIN first". A linked tablet's account can reset it if it's forgotten. On an unlinked tablet (one set up
+  without an account, as a do-it-yourself tablet may be, now that the cloud lets households in a few at a time) a
+  later first PIN is still allowed, after a line that it's for a grown-up of the household and that the recovery code
+  is its only way back. Whoever chooses it first holds Settings, and nothing at the tablet tells a grown-up from
+  anyone else, so the setup's step says it's best chosen then (2026-11-26; until 2026-11-25 an unlinked tablet
+  refused a PIN outside setup).
 - **On:** turning it on chooses a PIN (typed twice), then shows its recovery code (below). Rows marked with a small
   lock ask for it, then stay open for two minutes as before. The same PIN is the yes on the "Is this OK?" card for the
   ways out above, for adding apps, for a reward that needs a yes, and for changing the calendar. Those ways out ask

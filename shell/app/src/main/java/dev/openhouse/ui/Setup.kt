@@ -503,7 +503,7 @@ private fun PinStep(set: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(14.u)) {
         Text("It guards Settings and saying yes to new apps.", style = calmText(Calm.LEAD))
         Text(if (set) "PIN Lock is on. Settings and approving new apps ask for the PIN."
-            else "With a PIN, only someone who knows it can change Settings or approve a new app. Without one, anyone at the tablet can. You can set it later in Settings, PIN Lock.",
+            else "With a PIN, only someone who knows it can change Settings or approve a new app. Without one, anyone at the tablet can, and the first person to choose a PIN later decides. Best chosen now, while you're setting it up.",
             style = calmText(19, color = Calm.soft))
     }
 }

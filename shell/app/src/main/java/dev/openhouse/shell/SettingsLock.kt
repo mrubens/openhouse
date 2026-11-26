@@ -135,9 +135,12 @@ internal class SettingsLock(private val act: MainActivity) {
         act.runOnUiThread {
             if (linked) return@runOnUiThread PinPrompt.choose(act, act, then = then, back = back)
             // Not linked (set up without an account, as a do-it-yourself tablet may be): the PIN still comes with a
-            // recovery code to keep, its only way back, so say that first rather than refusing a PIN outright.
+            // recovery code to keep, its only way back, so say that first rather than refusing a PIN outright. With no
+            // account behind it, whoever chooses the first PIN holds the tablet's settings (setup's PIN step is the time
+            // meant for it, docs/settings.md), so this says so: a warning, not a wall, as nothing at the tablet tells a
+            // grown-up from anyone else.
             CalmDialog(act).setTitle("Choose a PIN")
-                .setMessage("This tablet isn't linked to an Opie account, so a forgotten PIN can only be reset with the recovery code shown next. Keep it somewhere safe, away from the tablet.")
+                .setMessage("Whoever chooses this PIN decides who can change Settings and approve apps, so it's for a grown-up of the household.\n\nThis tablet isn't linked to an Opie account, so a forgotten PIN can only be reset with the recovery code shown next. Keep it somewhere safe, away from the tablet.")
                 .setPositiveButton("Continue") { _, _ -> PinPrompt.choose(act, act, then = then, back = back) }
                 .setNegativeButton("Link it first") { _, _ -> CloudMenu(act).show() }.show()
             act.immersive()
