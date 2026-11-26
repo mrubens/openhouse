@@ -323,6 +323,12 @@ internal class SettingsLock(private val act: MainActivity) {
             // on Android's own page, with the PIN. Shown only while it's off.
             CalmDialog.Row("Now playing", value = "Off") to person("Now playing") { withPinSet { nowPlaying() } },
         )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            // The tablet's own Spotify player (SpotifyEmbed, docs/music.md): signed in on Spotify's own page; signing out is the person's too.
+            CalmDialog.Row("Spotify", value = if (SpotifyEmbed.signedIn()) "Signed in" else "Sign in") to person("Spotify") {
+                if (!SpotifyEmbed.signedIn()) SpotifyEmbed.signIn(act) { again() }
+                else CalmDialog(act).setTitle("Sign out of Spotify?").setMessage("Opie then plays Spotify through its app again, until someone signs in here.")
+                    .setPositiveButton("Sign out") { _, _ -> SpotifyEmbed.signOut(); again() }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
+            },
             CalmDialog.Row("Check-ins", value = hb?.let { everyLabel(it) } ?: "") to { hb?.let { checkins(it) } },
             head("For developers"),
             CalmDialog.Row("Home network", value = onOff(lan)) to person("Home network") { thread { CloudSetup.post("${act.bridge}/screens/lan", JSONObject().put("on", !lan)) }; again() },

@@ -312,6 +312,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   };
   handle.tools = house.TOOLS;
   handle.view = view;
+  handle.answer = (...a) => house.answer(...a); // one answer from the assistant (the music tool's Spotify search: devices/index.js)
   handle.changed = changed;
   handle.tick = tick; // (tests: what the 30 s clock does)
   handle.events = () => house.events(); // the calendar as screens get it (tests)

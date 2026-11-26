@@ -183,6 +183,7 @@ chat.homeScreen.setCardApps(() => apps.list().filter((a) => a.today).map((a) => 
 plugins.start();
 chat.live.setExtra?.({ tools: plugins.voiceTools, call: plugins.callVoice });
 chat.live.setTv?.(devices);
+devices.setFinder?.((prompt, sys) => chat.house.answer(prompt, sys, [], { webSearch: true })); // (the music tool finding a Spotify link)
 // What apps put on the calendar (day-notes.js): Opie knows the next week's notes (and the events, with the others), and an app taken off takes them with it.
 // Is an app with notes on the calendar still there: the apps listed once a couple of seconds, not once per app per read
 // (each listing reads every app's folder; with a few apps' notes, GET /house took seconds and the watchdog restarted the bridge).

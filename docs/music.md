@@ -45,6 +45,24 @@ opens.
 **Not playing after all**: when the app came up but nothing played within ten seconds, Opie says it may need someone
 to sign in on the tablet, or didn't find that.
 
+## Spotify on the tablet itself
+
+Spotify keeps its media service to its own list of apps, so through its app Opie can only hand it a search, which
+brings Spotify's screen up (and Spotify may play on whichever of the household's devices was last used). Once someone
+signs in to Spotify in Opie (Settings → Advanced → Spotify, or the `music` tool's `spotify_sign_in`, which puts
+Spotify's own sign-in page on the screen), Spotify plays on the tablet without its app instead:
+
+- **Shell** (`SpotifyEmbed.kt`): Spotify's player for websites (its Embed, `open.spotify.com/embed/...`) loaded in a
+  web view nobody sees, its play button pressed; what it plays read from its media element and the media session it
+  sets. Signed in with Premium, whole songs play; signed out, only 30-second previews, so it's used only when signed
+  in. `POST /media {do: 'spotify', url, name?}` plays a link; while it's the one in use, the other buttons and Home's
+  Now playing card work it.
+- **Bridge** (`devices/index.js` spotifyFirst): a `search` meant for Spotify (named, or the app they last played from)
+  asks the assistant, with its web search, for the thing's `open.spotify.com` link, and Spotify's oEmbed for its name.
+  Without a link, a sign-in, or the cloud, it goes to Spotify's app as before.
+- **Limits**: no next and previous where Spotify's page has none (a single song); the household's own private
+  playlists aren't found by web search, so those go to the app.
+
 ## Seeing what's playing
 
 Android shows other apps' media sessions only to a notification listener, so the shell is one (`MediaListener`). It

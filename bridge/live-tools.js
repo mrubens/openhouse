@@ -111,8 +111,9 @@ export const SCREEN_TOOL = { name: 'tablet_screen', description: "The tablet's s
 export const MUSIC_TOOL = { name: 'music', description: "Music, audiobooks and podcasts on the tablet, in its media apps (the ones someone added and signed in to): " +
     'search plays something (what, and which app by its name when they said or it matters; otherwise the app they last played from), ' +
     'play resumes, pause, next, previous, seek some seconds back (negative) or forward ("back 30 seconds"), stop, or status: what is playing and which media apps the tablet has. ' +
-    'A book goes to an audiobook app, music to a music app; if the app they need isn\'t there, say so and offer to add it (install_app).',
-  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['status', 'search', 'play', 'pause', 'next', 'previous', 'seek', 'stop'] },
+    'A book goes to an audiobook app, music to a music app; if the app they need isn\'t there, say so and offer to add it (install_app). ' +
+    'Spotify plays on the tablet without its app coming up once someone signs in to Spotify in Opie: spotify_sign_in puts its sign-in page on the screen for them (Settings → Advanced → Spotify does too).',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['status', 'search', 'play', 'pause', 'next', 'previous', 'seek', 'stop', 'spotify_sign_in'] },
     query: { type: 'string', description: 'For search: what to play, as they said it ("Abbey Road", "some jazz for dinner", "the second Harry Potter book")' },
     focus: { type: 'string', enum: ['artist', 'album', 'song', 'playlist', 'genre'], description: 'For search, only when it is clearly one of these' },
     app: { type: 'string', description: 'Which media app, by its name as on the tablet' }, seconds: { type: 'number', description: 'For seek: negative is back' } } } };

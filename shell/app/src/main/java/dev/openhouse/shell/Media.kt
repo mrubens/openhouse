@@ -85,6 +85,11 @@ object Media {
         ctx.getSystemService(MediaSessionManager::class.java).getActiveSessions(listener(ctx))
     }.getOrElse { Log.w(TAG, "sessions: $it"); emptyList() }.filter { it.packageName != ctx.packageName }
 
+    @Volatile private var otherAt = 0L // when another app was last seen playing (SpotifyEmbed.inUse)
+    private fun embed() = SpotifyEmbed.inUse(otherAt)
+    /** The tablet's own Spotify player starting: the apps that play, paused (one thing at a time). */
+    fun pauseOthers() { Thread { sessions().filter(::playing).forEach { it.transportControls.pause() } }.start() }
+
     private fun playing(c: MediaController) = c.playbackState?.state.let { it == PlaybackState.STATE_PLAYING || it == PlaybackState.STATE_BUFFERING || it == PlaybackState.STATE_CONNECTING }
     /** Something to say about: playing, or paused with a title (not a session left over with nothing in it). */
     private fun real(c: MediaController) = playing(c) || (c.playbackState?.state == PlaybackState.STATE_PAUSED && c.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) != null)
@@ -120,13 +125,15 @@ object Media {
 
     fun status(): JSONObject {
         val apps = apps(); val s = sessions()
-        s.firstOrNull(::playing)?.let { remember(it.packageName) }
+        s.firstOrNull(::playing)?.let { remember(it.packageName); otherAt = SystemClock.elapsedRealtime() }
         val now = current()
+        val e = if (embed()) SpotifyEmbed.now() else null
         return JSONObject()
             .put("sees", listening())
             .put("apps", JSONArray(apps.map { JSONObject().put("name", it.label).put("search", it.search) }))
             .putOpt("last", last()?.let { p -> apps.firstOrNull { it.pkg == p }?.label })
-            .putOpt("now", now?.let(::describe))
+            .putOpt("now", e ?: now?.let(::describe))
+            .put("spotifyPlayer", JSONObject().put("signedIn", SpotifyEmbed.signedIn()))
             .put("others", JSONArray(s.filter { it.sessionToken != now?.sessionToken && playing(it) }.map(::describe)))
             .put("anyPlaying", runCatching { ctx.getSystemService(AudioManager::class.java).isMusicActive }.getOrDefault(false))
     }
@@ -145,6 +152,8 @@ object Media {
     /** What's playing for Home's card: as for Opie's status, with the app's package (a tap opens it) and its cover,
      *  small, as a data: URL (made again only when the title changes). Nothing when the tablet can't see the apps. */
     fun forHome(): JSONObject {
+        if (sessions().any(::playing)) otherAt = SystemClock.elapsedRealtime()
+        if (embed()) SpotifyEmbed.now()?.let { return JSONObject().put("sees", true).put("now", it) }
         val c = current() ?: return JSONObject().put("sees", listening())
             .put("anyPlaying", runCatching { ctx.getSystemService(AudioManager::class.java).isMusicActive }.getOrDefault(false))
         val o = describe(c).put("pkg", c.packageName)
@@ -165,6 +174,7 @@ object Media {
 
     /** A button on Home's card: at once, without waiting to see the new state (the page asks again just after). */
     fun tapFromHome(what: String) {
+        if (embed()) { Thread { SpotifyEmbed.button(what) }.start(); return }
         val c = current()
         if (c == null) { if (what == "play") key(KeyEvent.KEYCODE_MEDIA_PLAY); return }
         val tc = c.transportControls
@@ -179,6 +189,13 @@ object Media {
     private fun act(b: JSONObject): JSONObject {
         val what = b.optString("do", "status")
         if (what == "status") return status()
+        // The tablet's own Spotify player (SpotifyEmbed): a link Opie found, its sign-in, and its buttons while it's in use.
+        if (what == "spotify") return SpotifyEmbed.play(b.optString("url"), b.optString("name").ifBlank { null })
+        if (what == "spotify_sign_in") { val a = MainActivity.live ?: return JSONObject().put("error", "The tablet's screen isn't up.")
+            if (SpotifyEmbed.signedIn()) return JSONObject().put("done", "Spotify is already signed in on the tablet.")
+            main.post { SpotifyEmbed.signIn(a) }; return JSONObject().put("done", "Spotify's sign-in is on the tablet's screen: someone signs in there (Opie never sees it).") }
+        val wantSpotify = b.optString("app").trim().let { it.isEmpty() || it.equals("Spotify", true) }
+        if (embed() && wantSpotify && what in setOf("play", "pause", "stop", "next", "previous", "seek")) return SpotifyEmbed.button(what, b.optDouble("seconds", 0.0))
         val apps = apps()
         val want = b.optString("app").trim()
         val app = if (want.isEmpty()) null else named(want, apps)

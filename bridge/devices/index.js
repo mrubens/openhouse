@@ -614,7 +614,34 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   handle.screen = screenDo;
   /** Music and audiobooks in the tablet's media apps (the voice's "music" tool): the shell's /media (Media.kt,
    *  docs/music.md). What the apps say (titles, artists) is theirs: marked as data. */
+  // The tablet's own Spotify player (Media.kt, SpotifyEmbed.kt), once someone signed in to Spotify in Opie: the thing's
+  // Spotify link, found with the assistant's web search, plays there without Spotify's app coming up.
+  let finder = null;
+  handle.setFinder = (f) => { finder = f; };
+  const SPOTIFY_LINK = /https:\/\/open\.spotify\.com\/(?:intl-[\w-]+\/)?(?:track|album|playlist|artist|show|episode|audiobook)\/[A-Za-z0-9]{10,40}/;
+  async function spotifyLink(query, focus) {
+    const said = await finder(`Find this on Spotify: ${asData(query, 'what they asked to play', { max: 300 })}${focus ? `\nIt is a ${focus}.` : ''}\nReply with only the open.spotify.com link of the best match (a song, album, playlist, artist, podcast, episode or audiobook), or none.`,
+      'You find things on Spotify with web search and reply with one open.spotify.com link and nothing else, or none.');
+    const link = String(said || '').match(SPOTIFY_LINK)?.[0];
+    if (!link) return null;
+    let name = null; // Spotify's own name for it (its oEmbed): what to say back
+    try { const r = await fetch(`https://open.spotify.com/oembed?url=${encodeURIComponent(link)}`, { signal: AbortSignal.timeout(5000) }); if (r.ok) name = String((await r.json())?.title || '').slice(0, 200) || null; } catch {}
+    return { link, name };
+  }
+  async function spotifyFirst(app, query, focus) {
+    if (!finder || !query) return null;
+    const st = await shell('/media', { do: 'status' }, 8000);
+    if (!st?.spotifyPlayer?.signedIn) return null;
+    const a = String(app || '').trim().toLowerCase(), names = (st.apps || []).map((x) => String(x.name).toLowerCase());
+    // Spotify named, or no app named and Spotify is the one they last played from (or the only way the tablet has)
+    if (a ? a !== 'spotify' : !(st.last ? String(st.last).toLowerCase() === 'spotify' : !names.some((n) => n !== 'spotify'))) return null;
+    let found = null; try { found = await spotifyLink(query, focus); } catch (e) { console.warn('[music] spotify search:', e.message); }
+    if (!found) return null;
+    const r = await shell('/media', { do: 'spotify', url: found.link, name: found.name || '' }, 30_000);
+    return r ? { ...r, found } : null;
+  }
   async function mediaDo({ do: what = 'status', app, query, focus, seconds } = {}) {
+    if (what === 'search') { const r = await spotifyFirst(app, query, focus); if (r?.done) return { ok: true, text: `${r.done}${r.found?.name ? ' ' + asData(r.found.name, "Spotify's name for it", { max: 200 }) : ''}` }; }
     const r = await shell('/media', { do: what, app: String(app || ''), query: String(query || ''), focus: String(focus || ''), seconds: Number(seconds) || 0 }, 20_000);
     if (!r) return { ok: false, text: 'Music needs the tablet (the shell isn\'t answering).' };
     const apps = (r.apps || []).map((a) => a.name + (a.search ? '' : ' (can\'t be asked for something to play: it opens instead)'));
