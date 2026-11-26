@@ -81,6 +81,7 @@ object SpotifyEmbed {
             }
             SystemClock.sleep(400)
         }
+        send(JSONObject().put("do", "stop")) // (so it can't start later, over whatever plays instead)
         return JSONObject().put("error", "Spotify's player on the tablet didn't start.").putOpt("now", now())
     }
     private fun done(t: String) = JSONObject().put("done", t).putOpt("now", now())
@@ -109,6 +110,9 @@ object SpotifyEmbed {
         if (on) { if (playing()) { pausedForVoice = true; send(JSONObject().put("do", "pause")) } }
         else if (pausedForVoice) { pausedForVoice = false; if (!playing() && state.has("uri")) send(JSONObject().put("do", "play")) }
     }
+
+    /** An app plays while this is paused: it goes from Home (the app's card shows instead). */
+    fun yieldTo() { if (now() != null && !playing()) { state = JSONObject(state.toString()).put("stopped", true); send(JSONObject().put("do", "stop")) } }
 
     /** Another app started: this one pauses (one thing playing). */
     fun pauseForOther() { if (playing()) send(JSONObject().put("do", "pause")) }

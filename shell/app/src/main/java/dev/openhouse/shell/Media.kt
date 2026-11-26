@@ -86,7 +86,13 @@ object Media {
     }.getOrElse { Log.w(TAG, "sessions: $it"); emptyList() }.filter { it.packageName != ctx.packageName }
 
     @Volatile private var otherAt = 0L // when another app was last seen playing (SpotifyEmbed.inUse)
-    private fun embed() = SpotifyEmbed.inUse(otherAt)
+    /** Spotify's player on Home is the one in use: it plays, or it played last and no app plays now. An app that plays
+     *  while it's paused takes over (its card on Home, the buttons), and the player on Home goes. */
+    private fun embed(): Boolean {
+        if (SpotifyEmbed.playing()) return true
+        if (sessions().any(::playing)) { otherAt = SystemClock.elapsedRealtime(); SpotifyEmbed.yieldTo(); return false }
+        return SpotifyEmbed.inUse(otherAt)
+    }
     /** The tablet's own Spotify player starting: the apps that play, paused (one thing at a time). */
     fun pauseOthers() { Thread { sessions().filter(::playing).forEach { it.transportControls.pause() } }.start() }
 

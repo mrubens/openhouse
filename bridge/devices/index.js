@@ -637,6 +637,13 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     if (a ? a !== 'spotify' : !(st.last ? String(st.last).toLowerCase() === 'spotify' : !names.some((n) => n !== 'spotify'))) return null;
     let found = null; try { found = await spotifyLink(query, focus); } catch (e) { console.warn('[music] spotify search:', e.message); }
     if (!found) return null;
+    // Is it what they asked for? A search can come back with something near it (a podcast episode for a song): the
+    // model judges Spotify's own name for it against their words, and the app's own search plays it otherwise.
+    if (found.name) {
+      let same = '';
+      try { same = String(await finder(`They asked to play: ${asData(query, 'what they asked to play', { max: 300 })}\nSpotify's link is for: ${asData(found.name, "Spotify's name for it", { max: 200 })}\nIs that what they asked for (yes or no)?`, 'Reply with one word: yes or no.', { webSearch: false })); } catch {}
+      if (!/^\s*yes\b/i.test(same)) { console.warn('[music] spotify link not a match'); return null; }
+    }
     const r = await shell('/media', { do: 'spotify', url: found.link, name: found.name || '' }, 30_000);
     return r ? { ...r, found } : null;
   }

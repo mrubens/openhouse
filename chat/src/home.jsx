@@ -618,7 +618,8 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   return (
     <div className="h-today">
       {!showCal && <Things c={c} things={h.things} className="t-things t-things-head" go={go} tabs={tabs} ask={shell?.ask} />}
-      {!showCal && (spotifyOn ? <SpotifySlot /> : shell?.media && <NowPlaying shell={shell} />)}
+      {!showCal && spotifyOn && <SpotifySlot />}
+      {!showCal && shell?.media && <NowPlaying shell={shell} />}
       <div className={'t-grid' + (showCal ? ' with-cal' : '')}>
         {showCal && <div className="t-calcol">
         <div {...card('calendar')}>
@@ -649,7 +650,8 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
         </div>
         {/* the day's other notes from the apps, the next thing under its events */}
         {dayNotes.filter((n) => n !== pictured).map((n, i) => <DayNote key={n.app + i} c={c} house={h} n={n} day={notesDay} openApp={openApp} />)}
-        {spotifyOn ? <SpotifySlot /> : shell?.media && <NowPlaying shell={shell} />}
+        {spotifyOn && <SpotifySlot />}
+        {shell?.media && <NowPlaying shell={shell} />}
         </div>}
         <div className="t-side">{rows.map((r, i) => <div key={i} className="t-siderow" style={{ flexGrow: tall[i], maxHeight: rows.length > 1 && r.some((x) => x.key === 'weather') ? '50%' : undefined, gridTemplateColumns: r.map((x) => `minmax(0, ${wide(x)}fr)`).join(' ') }}>{r}</div>)}</div>
       </div>
