@@ -652,19 +652,37 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   );
 }
 
-/** Now playing (Media.kt forHome): what a media app on the tablet plays, while it plays and for a while after it's
- *  paused, with its cover and buttons; a tap opens the app. Asked every few seconds while Home is up; it shows only
- *  when the tablet can see the apps (Settings → Advanced → Now playing). The app's titles are shown as text. */
-const PAUSED_FOR = 15 * 60e3;
+/** Now playing (Media.kt forHome): what a media app on the tablet plays, while it plays and for a few minutes after it's
+ *  paused, with its cover and buttons; a tap opens the app, its x closes it until something else plays (or the paused
+ *  one plays again). Asked every few seconds while Home is up. While the tablet can't see the apps (Advanced → Now
+ *  playing off) and something plays, it offers to turn that on, once: closed, it doesn't ask again. The app's titles
+ *  are shown as text. */
+const PAUSED_FOR = 5 * 60e3;
 const isOn = (n) => n?.state === 'playing' || n?.state === 'starting';
+const CLOSED = 'openhouse.nowplaying.closed', OFFER = 'openhouse.nowplaying.offer';
 function NowPlaying({ shell }) {
-  const [now, setNow] = useState(null), seen = useRef(0);
-  const ask = () => { const n = shell.media('status')?.now; if (isOn(n)) seen.current = Date.now(); setNow(n && (n.title || n.app) ? n : null); };
-  useEffect(() => { ask(); const x = setInterval(() => { if (!document.hidden) ask(); }, 4000); return () => clearInterval(x); }, []);
-  const on = isOn(now);
-  if (!now || (!on && (now.state !== 'paused' || Date.now() - seen.current > PAUSED_FOR))) return null;
-  const tap = (e, what) => { e.stopPropagation(); shell.media(what); if (what === 'play') seen.current = Date.now();
-    if (what === 'play' || what === 'pause') setNow({ ...now, state: what === 'play' ? 'playing' : 'paused' }); setTimeout(ask, 700); setTimeout(ask, 2000); };
+  const [r, setR] = useState(null), seen = useRef(0);
+  const [closed, setClosed] = useState(() => { try { return JSON.parse(store.get(CLOSED) || 'null'); } catch { return null; } });
+  const [offerGone, setOfferGone] = useState(() => !!store.get(OFFER));
+  const ask = () => { const x = shell.media('status') || {}; if (isOn(x.now)) seen.current = Date.now(); setR(x); };
+  useEffect(() => { ask(); const t = setInterval(() => { if (!document.hidden) ask(); }, 4000); return () => clearInterval(t); }, []);
+  const now = r?.now && (r.now.title || r.now.app) ? r.now : null;
+  const stop = (e) => e.stopPropagation();
+  if (!now) {
+    if (!r || r.sees !== false || !r.anyPlaying || offerGone) return null;
+    const close = (e) => { stop(e); setOfferGone(true); store.set(OFFER, '1'); };
+    return <div role="button" tabIndex={0} className="t-card t-now" onClick={() => shell.media('setup')}>
+      <span className="t-now-art none"><Note /></span>
+      <div className="t-now-text"><div className="h-label">Now playing</div><div className="t-now-title">Show what's playing</div><div className="t-soft">One switch, with the PIN</div></div>
+      <div className="t-now-btns"><span role="button" className="t-now-go" onClick={(e) => { stop(e); shell.media('setup'); }}>Turn on</span><span role="button" aria-label="Close" onClick={close}><Cross /></span></div>
+    </div>;
+  }
+  const on = isOn(now), key = (now.pkg || now.app) + '|' + (now.title || '');
+  if (!on && (now.state !== 'paused' || Date.now() - seen.current > PAUSED_FOR)) return null;
+  if (closed?.key === key && !(closed.paused && on)) return null; // (closed while paused, it's back once it plays again)
+  const tap = (e, what) => { stop(e); shell.media(what); if (what === 'play') seen.current = Date.now();
+    if (what === 'play' || what === 'pause') setR({ ...r, now: { ...now, state: what === 'play' ? 'playing' : 'paused' } }); setTimeout(ask, 700); setTimeout(ask, 2000); };
+  const close = (e) => { stop(e); const c = { key, paused: !on }; setClosed(c); store.set(CLOSED, JSON.stringify(c)); };
   const at = now.lengthS > 0 && now.positionS != null ? Math.min(100, (100 * now.positionS) / now.lengthS) : null;
   return <div role="button" tabIndex={0} className="t-card t-now" onClick={() => now.pkg && shell.openApp('android:' + now.pkg)}>
     {now.art ? <img className="t-now-art" src={now.art} alt="" draggable={false} /> : <span className="t-now-art none"><Note /></span>}
@@ -677,6 +695,7 @@ function NowPlaying({ shell }) {
       <span role="button" aria-label="Back" onClick={(e) => tap(e, 'previous')}><Skip back /></span>
       <span role="button" className="main" aria-label={on ? 'Pause' : 'Play'} onClick={(e) => tap(e, on ? 'pause' : 'play')}>{on ? <PauseIcon /> : <PlayIcon />}</span>
       <span role="button" aria-label="Next" onClick={(e) => tap(e, 'next')}><Skip /></span>
+      <span role="button" className="t-now-close" aria-label="Close" onClick={close}><Cross /></span>
     </div>
     {at != null && <i className="t-now-bar" style={{ width: at + '%' }} />}
   </div>;

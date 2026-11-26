@@ -28,6 +28,9 @@ internal class SettingsLock(private val act: MainActivity) {
      *  settings after the first setup), unlinking and restoring a backup: with the lock on, the PIN (straight on within
      *  the two minutes after it, as when This tablet just asked). With it off, they wait for someone to set a PIN
      *  (firstPin), so taps alone never reach them; once it's chosen, [ok]. [back]: they didn't. */
+    /** Android's own page for Now playing (Media.kt), and back to Opie by itself the moment it's switched on. */
+    private fun nowPlaying() { act.leaveKiosk(); act.startActivity(Media.settingsIntent(act)); Media.backWhenOn(act) }
+
     fun withPinSet(back: () -> Unit = { tablet() }, ok: () -> Unit) {
         if (on) return PinPrompt.ask(act, act, "PIN", ok, cancelled = back)
         CalmDialog(act).setTitle("Set a PIN first")
@@ -47,6 +50,7 @@ internal class SettingsLock(private val act: MainActivity) {
             "email" -> withPin { EmailMenu(act).show() }
             "lock" -> if (on) turnOff() else turnOn()
             "tablet" -> withPin { tablet() }
+            "nowplaying" -> if (!Media.listening(act)) withPinSet(back = {}) { nowPlaying() } // Home's Now playing card
             "memory" -> memory()
             "brightness" -> Brightness.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "time" -> withPin { Clock.choose(act, act::immersive) { Openhouse.settingsChanged() } }
@@ -317,7 +321,7 @@ internal class SettingsLock(private val act: MainActivity) {
         ) + (if (Media.listening(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
             // Opie seeing what the media apps play (Media.kt, docs/music.md): set up over adb (tablet-setup.sh), or here,
             // on Android's own page, with the PIN. Shown only while it's off.
-            CalmDialog.Row("Now playing", value = "Off") to person("Now playing") { withPinSet { act.leaveKiosk(); act.startActivity(Media.settingsIntent(act)) } },
+            CalmDialog.Row("Now playing", value = "Off") to person("Now playing") { withPinSet { nowPlaying() } },
         )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Check-ins", value = hb?.let { everyLabel(it) } ?: "") to { hb?.let { checkins(it) } },
             head("For developers"),

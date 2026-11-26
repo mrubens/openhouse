@@ -106,6 +106,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         /** Home's Now playing card: "status" (Media.forHome), or a button (play, pause, next, previous). */
         @JavascriptInterface fun media(g: String?, what: String): String {
             if (!ok(g)) return "{}"
+            if (what == "setup") { main.post { o.host.setting("nowplaying") }; return "{}" } // the card's Turn on: the PIN, then Android's page
             return runCatching { if (what == "status") Media.forHome().toString() else { Media.tapFromHome(what); "{}" } }.getOrDefault("{}")
         }
         @JavascriptInterface fun video(g: String?, url: String) { if (ok(g)) main.post { (act as? MainActivity)?.playVideo(url) } }

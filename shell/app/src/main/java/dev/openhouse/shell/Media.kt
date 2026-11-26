@@ -131,6 +131,13 @@ object Media {
             .put("anyPlaying", runCatching { ctx.getSystemService(AudioManager::class.java).isMusicActive }.getOrDefault(false))
     }
 
+    /** After someone opens Android's page for it: Opie comes back to the front as soon as it's on (Android's page
+     *  never goes back by itself), for three minutes. */
+    fun backWhenOn(c: Context) = Thread {
+        val end = SystemClock.elapsedRealtime() + 180_000
+        while (SystemClock.elapsedRealtime() < end) { if (listening(c)) { SystemClock.sleep(500); main.post { KioskApps.goHome() }; return@Thread }; SystemClock.sleep(400) }
+    }.start()
+
     // --- Home's Now playing card (chat/src/home.jsx NowPlaying, through HomeView's media call) ----------------------
     private var artFor: String? = null
     private var artUrl: String? = null
@@ -139,6 +146,7 @@ object Media {
      *  small, as a data: URL (made again only when the title changes). Nothing when the tablet can't see the apps. */
     fun forHome(): JSONObject {
         val c = current() ?: return JSONObject().put("sees", listening())
+            .put("anyPlaying", runCatching { ctx.getSystemService(AudioManager::class.java).isMusicActive }.getOrDefault(false))
         val o = describe(c).put("pkg", c.packageName)
         val m = c.metadata
         val key = c.packageName + "|" + (m?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: "")

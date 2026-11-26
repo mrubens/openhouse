@@ -323,6 +323,8 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .t-now-btns > span { width: calc(var(--u) * 44); height: calc(var(--u) * 44); padding: calc(var(--u) * 12); box-sizing: border-box; border-radius: 50%; color: var(--h-ink); }
 .t-now-btns > span.main { width: calc(var(--u) * 52); height: calc(var(--u) * 52); padding: calc(var(--u) * 14); background: var(--h-ink); color: var(--h-sheet); }
 .t-now-btns > span:active { transform: scale(.92); }
+.t-now-btns > span.t-now-close { width: calc(var(--u) * 36); height: calc(var(--u) * 36); padding: calc(var(--u) * 10); color: var(--h-soft); margin-left: calc(var(--u) * 2); }
+.t-now-btns > span.t-now-go { width: auto; height: auto; border-radius: 999px; padding: calc(var(--u) * 12) calc(var(--u) * 20); background: var(--h-ink); color: var(--h-sheet); font-size: calc(var(--u) * 16); font-weight: 650; white-space: nowrap; }
 .t-now-bar { position: absolute; left: 0; bottom: 0; height: calc(var(--u) * 3); background: var(--h-soft); opacity: .5; transition: width 4s linear; }
 .t-calendar { padding: 0; }
 .t-hero { flex: none; margin: 0; padding: calc(var(--u) * 24 * var(--s)) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 6 * var(--s)); }
