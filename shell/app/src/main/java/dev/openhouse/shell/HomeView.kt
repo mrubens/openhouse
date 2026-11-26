@@ -57,6 +57,8 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         @JavascriptInterface fun settings(g: String?) { if (ok(g)) main.post { o.showSettings = true } }
         /** The Apps tab's "Add apps": Opie's list of plugins (the same as Settings, Plugins); adding asks for the PIN. */
         @JavascriptInterface fun plugins(g: String?) { if (ok(g)) main.post { (act as? MainActivity)?.let { PluginsMenu(it, fromApps = true).gallery() } } }
+        /** The Apps tab's "Android apps": Aurora Store (MainActivity.openAurora: a yes first). */
+        @JavascriptInterface fun aurora(g: String?) { if (ok(g)) main.post { (act as? MainActivity)?.openAurora() } }
         /** The Apps tab's "Make an app": the typing box, its note an example, "Make " already typed (PluginsMenu.makeApp). */
         @JavascriptInterface fun makeApp(g: String?, note: String) { if (ok(g)) main.post { PluginsMenu.makeApp(note.take(200)) } }
         @JavascriptInterface fun type(g: String?) { if (ok(g)) main.post { o.openTyping() } } // the sidebar's keyboard button

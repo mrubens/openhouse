@@ -26,6 +26,15 @@ import kotlin.concurrent.thread
 internal object AuroraInstall {
     private const val TAG = "DeviceServer"
     private val ctx get() = DeviceServer.ctx
+    /** Aurora Store itself, opened from Apps (someone already said yes, with the PIN when it's on): got and set up
+     *  first if need be. What they install there still asks on the shell's card (AppStore). null: open. */
+    fun openStore(acc: DeviceAccess): String? {
+        AppStore.ensureAurora { acc.status(it) }?.let { return it }
+        setUpAurora(acc)?.let { return "Aurora Store's first run didn't finish. Try again." }
+        if (!AppStore.auroraMayInstall()) allowAuroraInstalls(acc)
+        return if (KioskApps.openApp(AppStore.AURORA, parentOk = true)) null else "Aurora Store didn't open."
+    }
+
     /** Find the app in Aurora Store and press Install; the shell installs what Aurora downloads (see AppStore). */
     fun installApp(acc: DeviceAccess, pkg: String, given: String): JSONObject {
         if (!Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z0-9_]+)+").matches(pkg)) return DeviceServer.text("Give the app's name; install_app finds it.", true)

@@ -499,6 +499,15 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
     fun closeApp() { apps.close(); timers.showPills(false) }
 
+    /** Apps → Android apps: Aurora Store, after a yes (the PIN when it's on), got and set up first if it isn't yet. */
+    fun openAurora() {
+        val acc = DeviceAccess.instance ?: return toast("Opie's access to the tablet is off, so Aurora Store can't open")
+        thread {
+            if (!acc.approve("Open Aurora Store?", "Android apps from Google Play. Each one you install asks here first.", parent = ParentPin.isSet(this), yes = "Open")) return@thread
+            AuroraInstall.openStore(acc)?.let { e -> main.post { toast(e) } }
+        }
+    }
+
     /** An Android app from the board. One that leads out of kiosk mode (Settings, a store) needs the PIN on the card. */
     private fun openAndroidApp(pkg: String) {
         if (!KioskApps.needsParent(pkg)) { KioskApps.openApp(pkg); return }
