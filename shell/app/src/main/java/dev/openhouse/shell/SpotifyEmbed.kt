@@ -152,7 +152,7 @@ object SpotifyEmbed {
      *  never sees it). It closes by itself once signed in. [done]: signed in or not. */
     @SuppressLint("SetJavaScriptEnabled")
     fun signIn(act: MainActivity, done: (Boolean) -> Unit = {}) {
-        val box = FrameLayout(act).apply { setBackgroundColor(Color.WHITE); isClickable = true }
+        val box = FrameLayout(act).apply { setBackgroundColor(Color.WHITE); isClickable = true; tag = MainActivity.OWN_FIELDS } // (the keyboard cover's keys reach its fields)
         lateinit var close: () -> Unit
         val w = WebView(act).apply {
             setUp(this)
