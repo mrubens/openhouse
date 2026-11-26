@@ -397,7 +397,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     if (await voice(req, res, url)) return true;
     if (await weather(req, res, url)) return true;
     if ((p === '/map' || p.startsWith('/map/')) && await map(req, res, url)) return true;
-    if ((p.startsWith('/live/') || p === '/setup/step') && await live(req, res, url)) return true;
+    if ((p.startsWith('/live/') || p === '/setup/step' || p === '/setup/want' || p === '/setup/guess') && await live(req, res, url)) return true;
     if ((p === '/house' || p.startsWith('/house/')) && await house(req, res, url)) return true;
     if (p.startsWith('/home') && await homeScreen(req, res, url)) return true;
     // pages: /chat/ (the conversation page, the start of a phone page) and /app/ (its bundle)
