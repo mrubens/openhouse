@@ -59,7 +59,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       setState({ unlinkedAt: iso(), unlinkedWhy: r.json?.error || 'unknown' });
       throw Object.assign(new Error('This tablet was unlinked from the family account.'), { code: 'unlinked' });
     }
-    if (r.status >= 300) throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}` });
+    if (r.status >= 300) throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}`, ...(Number(r.json?.retryAfter) > 0 ? { retryAfter: Number(r.json.retryAfter) } : {}) });
     return r.json;
   }
 
