@@ -355,7 +355,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   }
   const calendars = () => Object.entries(st.calendars).filter(([, c]) => acc(c.account)).map(([key, c]) => ({ key, ...c, account: c.account, accountName: acc(c.account)?.name || '', provider: acc(c.account)?.provider, default: st.default === key, events: Object.keys(st.cache[key] || {}).length, read: st.reads?.[key] || null }));
   /** Where new events can go: two-way calendars (and which is the default). */
-  const targets = () => calendars().filter((c) => twoWay(st.calendars[c.key])).map((c) => ({ key: c.key, name: calName(c), who: c.who || null, default: c.default }));
+  const targets = () => calendars().filter((c) => twoWay(st.calendars[c.key])).map((c) => ({ key: c.key, name: calName(c), who: c.who || null, default: c.default, color: c.color || null }));
   /** Where an event for [who] goes: their own two-way calendar, else the household's default; null: stays on the tablet. */
   function targetFor(who) {
     const t = targets();

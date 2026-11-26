@@ -633,8 +633,9 @@ const LENGTHS = [[0, 'All day'], [15, '15 min'], [30, '30 min'], [45, '45 min'],
 /** "Until" for a repeating event, from its start: [days, label]; null: always. */
 const UNTILS = [[null, 'Always'], [28, '4 weeks'], [91, '3 months'], [182, '6 months'], ['june', 'End of the school year'], ['dec', 'End of the year']];
 
-/** Add an event (e: null) or change one added here: what, which day, the time and how long, where, notes, whose,
- *  whether it repeats and until when, and a countdown. One card, all of it in reach without a keyboard but the words. */
+/** Add an event (e: null) or change one added here. One quiet list: what, then a row each for when, which calendar,
+ *  whose, repeats, reminder and countdown, showing what's chosen; a row opens its choices when tapped (one at a time).
+ *  A new event's calendar is always chosen by someone (no guess): Add waits for it. */
 function eventForm(e = null, startDay = null, startMin = null) {
   const today = dayStart(Date.now());
   const was = e ? { day: dayStart(e.t0), min: e.allDay ? -1 : new Date(e.t0).getHours() * 60 + new Date(e.t0).getMinutes(), len: e.allDay ? 0 : Math.round(((e.t1 ?? e.t0 + 3600e3) - e.t0) / 60000) } : null;
@@ -643,19 +644,22 @@ function eventForm(e = null, startDay = null, startMin = null) {
     people: e ? people(e) : [], calendar: null, repeat: e?.repeat ?? null, until: e?.until ?? null, place: e?.place || '', notes: e?.notes || '', countdown: !!e?.countdown, remind: e?.remind ?? null,
   };
   if (f.min < 0) f.len = 0;
-  let week = 0, shown = false; // week: which week of days the day chips show (0: the one with f.day)
+  // Where a new event can go: the two-way calendars, or only this display. With none, there's nothing to choose.
+  const targets = H?.calendarTargets || [];
+  const choose = !e && targets.length > 0;
+  let week = 0, open = choose ? 'calendar' : null, opened = null, s; // week: which week of days the When row shows (0: the one with f.day)
+  const ready = () => !!f.title.trim() && (!choose || !!f.calendar);
   const input = (val, hint, set, cls = '') => {
-    const i = h('input', { class: 'field ' + cls, placeholder: hint, enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
-    i.value = val; i.addEventListener('input', () => { set(i.value); save.disabled = !f.title.trim(); });
+    const i = h('input', { class: cls, placeholder: hint, enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
+    i.value = val; i.addEventListener('input', () => { set(i.value); save.disabled = !ready(); });
     i.addEventListener('keydown', (k) => { if (k.key === 'Enter') { k.preventDefault(); i.blur(); } });
     return i;
   };
-  const save = btn(e ? 'Save' : 'Add', null, { disabled: !f.title.trim() });
-  const titleIn = input(f.title, 'Soccer practice', (v) => { f.title = v; }, 'big-field');
-  const placeIn = input(f.place, 'Where (optional)', (v) => { f.place = v; });
-  const notesIn = input(f.notes, 'Notes: what to bring, who drives (optional)', (v) => { f.notes = v; });
-  const more = h('div', { class: 'extra' });
-  let s;
+  const save = btn(e ? 'Save' : 'Add', null, { disabled: !ready() });
+  const titleIn = input(f.title, 'What is it?', (v) => { f.title = v; }, 'field big-field');
+  const placeIn = input(f.place, 'Add a place', (v) => { f.place = v; }, 'frow-in');
+  const notesIn = input(f.notes, 'What to bring, who drives', (v) => { f.notes = v; }, 'frow-in');
+  const list = h('div', { class: 'frows' });
   const untilDay = (u) => {
     if (u == null) return null;
     const d = new Date(f.day);
@@ -663,53 +667,67 @@ function eventForm(e = null, startDay = null, startMin = null) {
     if (u === 'dec') return `${d.getFullYear()}-12-31`;
     return house.dayKey(new Date(dayStart(f.day, u)));
   };
-  // Where a new event goes: picked, else the first person's own two-way calendar, else the household's (bridge: targetFor).
-  const targets = H?.calendarTargets || [];
-  const goesTo = () => f.calendar || targets.find((t) => t.who && same(t.who, f.people[0]))?.key || targets.find((t) => t.default)?.key || 'here';
   const finish = () => {
-    if (!f.title.trim()) return;
+    if (!ready()) return;
     const d = new Date(f.day); const allDay = f.len === 0 || f.min < 0;
     if (!allDay) d.setHours(Math.floor(f.min / 60), f.min % 60, 0, 0);
     const start = d.getTime(), end = allDay ? null : start + f.len * 60000;
     const fields = { title: f.title.trim(), start, end, allDay, who: f.people[0] || null, also: f.people.slice(1), repeat: f.repeat, until: f.repeat ? f.until : null, place: f.place.trim(), notes: f.notes.trim(), countdown: f.countdown, remind: allDay ? null : f.remind };
     s.close();
     if (e) { Object.assign(e, { ...fields, t0: start, t1: allDay ? dayStart(start, 1) : end }); draw(); house.updateEvent(e.id, { ...fields, repeat: f.repeat || 'none', ...(e.date ? { date: e.date } : {}) }); }
-    else { events.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent({ ...fields, calendar: goesTo() }); }
+    else { events.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent({ ...fields, calendar: f.calendar || 'here' }); }
   };
   press(save, () => { if (!save.disabled) finish(); });
   const cancel = btn('Cancel', () => s.close(), { soft: true });
-  const card = h('div', { class: 'sheet form', style: 'width:calc(1040 * var(--u))', tap: () => {} },
-    h('h2', null, e ? 'Change the event' : 'New event'), titleIn, more, h('div', { class: 'two' }, placeIn, notesIn), h('div', { class: 'actions' }, cancel, save));
+  // A row: its name, what's chosen, and (open) its choices under it. A row with no choices (tap) does its thing at once.
+  const row = (key, name, value, choices = null, { ask = false, tap = null } = {}) => h('div', { class: 'frow' + (open === key ? ' open' : '') },
+    h('button', { class: 'frow-head', tap: tap || (() => { open = opened = open === key ? null : key; s.redraw(); }) },
+      h('span', { class: 'frow-name' }, name), h('span', { class: 'frow-val' + (ask ? ' ask' : '') }, value)),
+    open === key && choices ? h('div', { class: 'frow-pick' }, choices) : null);
+  const fixed = (name, el) => h('label', { class: 'frow' }, h('span', { class: 'frow-head' }, h('span', { class: 'frow-name' }, name), el));
+  const card = h('div', { class: 'sheet form eform', tap: () => {} },
+    h('h2', null, e ? 'Change the event' : 'New event'), titleIn, list,
+    h('div', { class: 'frows' }, fixed('Where', placeIn), fixed('Notes', notesIn)), h('div', { class: 'actions' }, cancel, save));
   const scrim = h('div', { class: 'scrim high', tap: () => s.close() }, card);
-  s = openSheet(scrim, () => keepScroll(more, () => {
-    const pick = (fn) => () => { fn(); s.redraw(); };
+  const hm = (n) => { const hr = Math.floor(n / 60) % 24, m = n % 60; return `${hr % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''} ${hr < 12 ? 'AM' : 'PM'}`; };
+  const lenText = (m) => LENGTHS.find(([x]) => x === m)?.[1] || `${m} min`;
+  s = openSheet(scrim, () => keepScroll(list, () => {
+    const pick = (fn) => () => { fn(); save.disabled = !ready(); s.redraw(); };
     const from = dayStart(weekStart(f.day), week * 7);
-    const label = (n) => { const hr = Math.floor(n / 60), m = n % 60; return `${hr % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''} ${hr < 12 ? 'AM' : 'PM'}`; };
-    more.replaceChildren(...[
-      h('div', { class: 'row' }, h('span', { class: 'label' }, 'Day'), round('left', pick(() => { week--; }), { label: 'Earlier' }),
-        h('div', { class: 'chips' }, [...Array(7)].map((_, i) => { const d = dayStart(from, i); return chip((d === today ? 'Today' : fmt(d, { weekday: 'short' })) + ' ' + fmt(d, { day: 'numeric' }), d === f.day, pick(() => { f.day = d; })); })),
-        round('right', pick(() => { week++; }), { label: 'Later' }), h('span', { class: 'label soft' }, fmt(from, { month: 'short' }))),
-      h('div', { class: 'row' }, h('span', { class: 'label' }, 'Time'),
-        h('div', { class: 'chips', 'data-keep': 'time' }, chip('All day', f.min < 0, pick(() => { f.min = -1; f.len = 0; })),
-          [...Array(18 * 4)].map((_, i) => { const n = 5 * 60 + i * 15; // 5 AM to 10:45 PM, every quarter hour
-            return chip(label(n), f.min === n, pick(() => { f.min = n; if (!f.len) f.len = 60; })); }))),
-      f.min >= 0 ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'For'),
-        h('div', { class: 'chips' }, LENGTHS.filter(([m]) => m).map(([m, l]) => chip(l, f.len === m, pick(() => { f.len = m; }))),
-          h('span', { class: 'label soft' }, `until ${label((f.min + f.len) % 1440)}`))) : null,
-      H.family?.length ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Whose'),
-        h('div', { class: 'chips' }, chip('Everyone', !f.people.length, pick(() => { f.people = []; })),
-          H.family.map((p) => who(p.name, f.people.some((n) => same(n, p.name)), pick(() => { f.people = f.people.some((n) => same(n, p.name)) ? f.people.filter((n) => !same(n, p.name)) : [...f.people, p.name]; }))))) : null,
-      !e && targets.length ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Calendar'),
-        h('div', { class: 'chips' }, targets.map((t) => chip(t.name, goesTo() === t.key, pick(() => { f.calendar = t.key; }))), chip('This display only', goesTo() === 'here', pick(() => { f.calendar = 'here'; })))) : null,
-      h('div', { class: 'row' }, h('span', { class: 'label' }, 'Repeats'),
-        h('div', { class: 'chips' }, REPEATS.map(([r, l]) => chip(l, f.repeat === r, pick(() => { f.repeat = r; if (!r) f.until = null; }))))),
-      f.repeat ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Until'),
-        h('div', { class: 'chips' }, UNTILS.map(([u, l]) => chip(l, f.until === untilDay(u), pick(() => { f.until = untilDay(u); }))))) : null,
-      f.min >= 0 ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'Remind'), remindChips(f.remind, (m) => { f.remind = m; s.redraw(); })) : null,
-      h('div', { class: 'row' }, h('span', { class: 'label' }, ''), h('div', { class: 'chips' }, chip('Count down to it on the home screen', f.countdown, pick(() => { f.countdown = !f.countdown; })))),
+    const timed = f.min >= 0;
+    const dayText = f.day === today ? 'Today' : f.day === dayStart(today, 1) ? 'Tomorrow' : fmt(f.day, { weekday: 'long' });
+    const whenText = `${dayText}, ${fmt(f.day, { month: 'short', day: 'numeric' })}  ·  ${timed ? `${hm(f.min)} – ${hm(f.min + f.len)}` : 'All day'}`;
+    const tgt = targets.find((t) => t.key === f.calendar);
+    const rep = REPEATS.find(([r]) => r === f.repeat);
+    const untilText = f.until ? ` until ${fmt(Date.parse(f.until + 'T12:00'), { month: 'short', day: 'numeric' })}` : '';
+    const remindText = f.remind == null ? (H?.remind == null ? 'None' : `Usual (${remindLabel(H.remind)})`) : f.remind < 0 ? 'None' : remindLabel(f.remind).replace(/^./, (c) => c.toUpperCase());
+    list.replaceChildren(...[
+      row('when', 'When', whenText, [
+        h('div', { class: 'row' }, round('left', pick(() => { week--; }), { label: 'Earlier' }),
+          h('div', { class: 'chips' }, [...Array(7)].map((_, i) => { const d = dayStart(from, i); return chip((d === today ? 'Today' : fmt(d, { weekday: 'short' })) + ' ' + fmt(d, { day: 'numeric' }), d === f.day, pick(() => { f.day = d; })); })),
+          round('right', pick(() => { week++; }), { label: 'Later' })),
+        h('div', { class: 'row' }, h('div', { class: 'chips', 'data-keep': 'hour' }, chip('All day', !timed, pick(() => { f.min = -1; f.len = 0; })),
+          [...Array(17)].map((_, i) => { const hr = 6 + i; // 6 AM to 10 PM
+            return chip(hm(hr * 60), timed && Math.floor(f.min / 60) === hr, pick(() => { f.min = hr * 60 + (timed ? f.min % 60 : 0); if (!f.len) f.len = 60; })); }))),
+        timed ? h('div', { class: 'row' }, h('div', { class: 'chips' },
+          [0, 15, 30, 45].map((m) => chip(':' + String(m).padStart(2, '0'), f.min % 60 === m, pick(() => { f.min = f.min - (f.min % 60) + m; }))),
+          h('span', { class: 'label soft' }, 'for'),
+          LENGTHS.filter(([m]) => m).map(([m, l]) => chip(l, f.len === m, pick(() => { f.len = m; }))))) : null,
+      ]),
+      choose ? row('calendar', 'Calendar', tgt ? tgt.name : f.calendar === 'here' ? 'This display only' : 'Choose one', h('div', { class: 'chips' },
+        targets.map((t) => chip(t.name, f.calendar === t.key, pick(() => { f.calendar = t.key; open = null; }), t.color || null)),
+        chip('This display only', f.calendar === 'here', pick(() => { f.calendar = 'here'; open = null; }))), { ask: !f.calendar }) : null,
+      H.family?.length ? row('whose', 'Whose', f.people.length ? f.people.join(' & ') : 'Everyone', h('div', { class: 'chips' }, chip('Everyone', !f.people.length, pick(() => { f.people = []; })),
+        H.family.map((p) => who(p.name, f.people.some((n) => same(n, p.name)), pick(() => { f.people = f.people.some((n) => same(n, p.name)) ? f.people.filter((n) => !same(n, p.name)) : [...f.people, p.name]; }))))) : null,
+      row('repeat', 'Repeats', f.repeat ? (rep?.[1] || f.repeat) + untilText : 'Never', [
+        h('div', { class: 'chips' }, REPEATS.map(([r, l]) => chip(r ? l : 'Never', f.repeat === r, pick(() => { f.repeat = r; if (!r) f.until = null; })))),
+        f.repeat ? h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'until'), h('div', { class: 'chips' }, UNTILS.map(([u, l]) => chip(l, f.until === untilDay(u), pick(() => { f.until = untilDay(u); }))))) : null,
+      ]),
+      timed ? row('remind', 'Reminder', remindText, remindChips(f.remind, (m) => { f.remind = m; s.redraw(); })) : null,
+      row('countdown', 'Countdown', f.countdown ? 'On the home screen' : 'Off', null, { tap: pick(() => { f.countdown = !f.countdown; }) }),
     ].filter(Boolean));
-    // The chosen time in view (it may be 4 PM, past the edge of the row) the first time the card draws.
-    if (!shown) { shown = true; requestAnimationFrame(() => more.querySelector('[data-keep="time"] .chip.on')?.scrollIntoView({ inline: 'center', block: 'nearest' })); }
+    // The chosen hour in view (it may be 4 PM, past the edge of the row) when When opens.
+    if (opened === 'when') { opened = null; requestAnimationFrame(() => list.querySelector('[data-keep="hour"] .chip.on')?.scrollIntoView({ inline: 'center', block: 'nearest' })); }
   }));
   if (!e) requestAnimationFrame(() => titleIn.focus());
   return s;
