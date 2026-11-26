@@ -635,7 +635,7 @@ const UNTILS = [[null, 'Always'], [28, '4 weeks'], [91, '3 months'], [182, '6 mo
 
 /** Add an event (e: null) or change one added here. One quiet list: what, then a row each for when, which calendar,
  *  whose, repeats, reminder and countdown, showing what's chosen; a row opens its choices when tapped (one at a time).
- *  A new event's calendar is always chosen by someone (no guess): Add waits for it. */
+ *  With several calendars to add to, a new event's is chosen by someone (no guess): Add waits for it. */
 function eventForm(e = null, startDay = null, startMin = null) {
   const today = dayStart(Date.now());
   const was = e ? { day: dayStart(e.t0), min: e.allDay ? -1 : new Date(e.t0).getHours() * 60 + new Date(e.t0).getMinutes(), len: e.allDay ? 0 : Math.round(((e.t1 ?? e.t0 + 3600e3) - e.t0) / 60000) } : null;
@@ -644,10 +644,12 @@ function eventForm(e = null, startDay = null, startMin = null) {
     people: e ? people(e) : [], calendar: null, repeat: e?.repeat ?? null, until: e?.until ?? null, place: e?.place || '', notes: e?.notes || '', countdown: !!e?.countdown, remind: e?.remind ?? null,
   };
   if (f.min < 0) f.len = 0;
-  // Where a new event can go: the two-way calendars, or only this display. With none, there's nothing to choose.
+  // Where a new event can go: the two-way calendars, or only this display. With none, there's nothing to choose; with
+  // one, it goes there (the row can still change it); with several, someone picks.
   const targets = H?.calendarTargets || [];
   const choose = !e && targets.length > 0;
-  let week = 0, open = choose ? 'calendar' : null, opened = null, s; // week: which week of days the When row shows (0: the one with f.day)
+  if (choose && targets.length === 1) f.calendar = targets[0].key;
+  let week = 0, open = choose && !f.calendar ? 'calendar' : null, opened = null, s; // week: which week of days the When row shows (0: the one with f.day)
   const ready = () => !!f.title.trim() && (!choose || !!f.calendar);
   const input = (val, hint, set, cls = '') => {
     const i = h('input', { class: cls, placeholder: hint, enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
