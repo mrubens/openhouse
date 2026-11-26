@@ -47,8 +47,10 @@ internal object Setup {
     // keys are copied there (chat/src/phone.jsx SetupFlow follows the tablet's step). Last, what only the tablet can do:
     // the PIN, Android's settings, the voice.
     val STEPS = listOf("devices", "people", "place", "calendar", "photos", "ai", "pin", "android", "voice")
-    /** Typed on the phone or computer; the tablet shows what's come in. */
-    val ON_PHONE = setOf("people", "place")
+    /** Done on the phone or computer: the tablet shows only how far along it is (the owner: "no need to show a skeleton
+     *  thing on the tablet during the flow - it should just be the instructions for how to set things up until it's
+     *  ready, maybe with a progress bar"). */
+    val ON_PHONE = setOf("people", "place", "calendar", "photos", "ai")
 
     /** A later step that sent someone back to connect a phone or computer: Next there comes back here. */
     private var resume: String? = null
@@ -126,16 +128,21 @@ internal fun SetupSheet() {
         // card never runs past the screen, or past Android's on-screen keyboard when it's up (a tablet with no keyboard
         // cover: imePadding, and nearer the top): what's in it scrolls, and Back, Skip and Next stay below it in reach.
         val ime = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
-        Box(Modifier.fillMaxSize().background(Calm.scrim).clickable(enabled = false) {}.imePadding(), contentAlignment = Alignment.TopCenter) {
+        // The setup has the screen to itself: nothing of the home screen behind it.
+        val onPhone = step in Setup.ON_PHONE || step == "devices"
+        Box(Modifier.fillMaxSize().background(Calm.paper).clickable(enabled = false) {}.imePadding(), contentAlignment = Alignment.TopCenter) {
             QuietCard(Modifier.padding(top = if (ime) 16.u else if (step == "voice") 36.u else 110.u, bottom = 16.u).width(860.u), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${Setup.STEPS.indexOf(step) + 1} of ${Setup.STEPS.size}", style = calmText(17, color = Calm.soft), modifier = Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
+                    Progress(Setup.STEPS.indexOf(step).toFloat() / Setup.STEPS.size, Modifier.weight(1f))
                     if (step != "voice") Chip("Later") { save[0](); Setup.finish() }
                 }
-                Spacer(Modifier.height(12.u))
-                Text(title, style = calmText(Calm.DISPLAY, FontWeight.Medium))
+                Spacer(Modifier.height(28.u))
+                Text(if (onPhone && device != null && step != "devices") "Carry on on $device" else title, style = calmText(Calm.DISPLAY, FontWeight.Medium))
                 Spacer(Modifier.height(20.u))
-                if (step == "voice") {
+                if (onPhone) {
+                    // Until a phone or computer is in, how to connect one; then only what's happening there.
+                    if (device == null || step == "devices") DevicesStep() else PhoneProgress(step)
+                } else if (step == "voice") {
                     val v = remember { VoiceUi() }
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) { Spacer(Modifier.height(8.u)); VoiceStep(v) }
                     Spacer(Modifier.height(28.u))
@@ -144,26 +151,45 @@ internal fun SetupSheet() {
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                         Spacer(Modifier.height(8.u))
                         when (step) {
-                            "people", "place" -> OnPhoneStep(step, device)
-                            "calendar" -> CalendarStep()
-                            "photos" -> PhotosStep()
                             "pin" -> PinStep(pinSet)
-                            "android" -> AndroidStep()
-                            "ai" -> AiStep()
-                            else -> DevicesStep()
+                            else -> AndroidStep()
                         }
                     }
                     Spacer(Modifier.height(28.u))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
                         if (Setup.STEPS.indexOf(step) > 0) TextButton("Back") { save[0](); Setup.back() }
                         Spacer(Modifier.weight(1f))
-                        // Connecting comes first and isn't skipped: Next once a phone or computer is in.
-                        if (step != "devices" && (step != "pin" || choosePin)) TextButton("Skip") { Setup.next() }
-                        MainButton(if (choosePin) "Choose a PIN" else "Next", enabled = step != "devices" || device != null) { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }
+                        if (step != "pin" || choosePin) TextButton("Skip") { Setup.next() }
+                        MainButton(if (choosePin) "Choose a PIN" else "Next") { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }
                     }
                 }
             }
         }
+    }
+}
+
+/** How far along the setup is: a thin bar. */
+@Composable
+private fun Progress(f: Float, modifier: Modifier = Modifier) {
+    Box(modifier.height(6.u).clip(RoundedCornerShape(3.u)).background(Calm.line)) {
+        Box(Modifier.fillMaxWidth(f.coerceIn(0.04f, 1f)).fillMaxHeight().clip(RoundedCornerShape(3.u)).background(Calm.ink))
+    }
+}
+
+/** A step done on the phone or computer: what's happening there, in a line. The tablet moves on when it does. Photos
+ *  from phones need a yes here once (a person's), so that one step keeps its button. */
+@Composable
+private fun PhoneProgress(step: String) {
+    val now = when (step) {
+        "people" -> "Who lives here"; "place" -> "Where you live"; "calendar" -> "Your calendars"; "photos" -> "Your photos"
+        else -> "Opie's AI"
+    }
+    var phonesOn by remember { mutableStateOf(true) }
+    LaunchedEffect(step) { if (step == "photos") phonesOn = withContext(Dispatchers.IO) { runCatching { dev.openhouse.shell.PhotoShare.link() }.getOrNull() } != null }
+    Column(verticalArrangement = Arrangement.spacedBy(16.u)) {
+        Text("It shows each step. This tablet follows along, and you'll finish here.", style = calmText(Calm.LEAD))
+        Soft("Now: $now")
+        if (step == "photos" && !phonesOn) SoftButton("Let phones send photos") { Openhouse.host.setting("photoPhonesOn") }
     }
 }
 
@@ -233,16 +259,6 @@ private fun Added(rows: List<Pair<String, String>>) {
     }
 }
 
-/** Linked to an Opie account (Google's sign-ins go through it), looked at again now and then while a step shows. */
-@Composable
-private fun linkedNow(): Boolean {
-    var linked by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { while (true) { linked = withContext(Dispatchers.IO) { getJson("/cloud/status")?.optBoolean("linked") == true }; delay(5000) } }
-    return linked
-}
-
-private class HowItGoes(val steps: List<String>, val note: String?, val action: String?, val id: String?, val paste: String? = null)
-
 /** The phone or computer the setup carries on from (joined with the devices step's code), named for people ("Sam's
  *  computer"), or null while there's none. Looked at again every few seconds while a step shows. */
 @Composable
@@ -260,114 +276,6 @@ private fun connectedDevice(): String? {
         }
     }
     return name
-}
-
-/** A link's step, the way it's sent: from the phone or computer that's connected (the box for it is open there now),
- *  else connect one first; pasting or typing it here is the small way, for a tablet with a keyboard cover. */
-@Composable
-private fun SendIt(h: HowItGoes, device: String?) {
-    if (h.steps.isNotEmpty()) HowTo(h.steps)
-    h.note?.let { Soft(it) }
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.u)) {
-        if (h.action != null && h.id != null) SoftButton(h.action) { Openhouse.host.setting(h.id) }
-        else if (h.paste != null && device == null) SoftButton("Connect a phone or computer") { Setup.connectFirst() }
-        if (h.paste != null) Text("Paste it here instead", style = calmText(19, FontWeight.Medium, Calm.soft),
-            modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { Openhouse.host.setting(h.paste) }.padding(vertical = 8.u))
-    }
-}
-
-/** Where to send a link from, as the last line of a how-to: the connected one by name, else a phone or computer. */
-private fun sendLine(device: String?, what: String) =
-    if (device != null) "On $device, paste $what into Opie: the box for it is open there now."
-    else "Connect a phone or computer, and paste $what into Opie there."
-
-/** The household's calendar: the tablet's own sign-ins (Google through the account, iCloud with an app-specific
- *  password: CalendarAccounts), a calendar's link sent from the connected phone or computer (where it's copied: the
- *  bridge's /setup/calendar), or none (Opie's own). What's been added shows below as it comes in. */
-@Composable
-private fun CalendarStep() {
-    var pick by remember { mutableStateOf<String?>(null) }
-    val linked = linkedNow()
-    val device = connectedDevice()
-    var added by remember { mutableStateOf(listOf<Pair<String, String>>()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            added = withContext(Dispatchers.IO) {
-                runCatching { dev.openhouse.shell.CalendarAccounts.rows().map { it.first to it.second } }.getOrDefault(emptyList()) +
-                    runCatching { dev.openhouse.shell.CalendarLinks.list().map { l -> l.name.ifBlank { dev.openhouse.shell.CalendarLinks.label(l.who) } to "Read only" } }.getOrDefault(emptyList())
-            }
-            delay(2000)
-        }
-    }
-    val how = when (pick) {
-        "google" -> if (linked) HowItGoes(listOf(if (device != null) "On $device, tap Sign in with Google, and sign in there." else "Connect a phone or computer, and sign in to Google there.", "Choose which calendars to show here."),
-            "Two-way: what's added here shows in Google Calendar too.", null, null)
-            else HowItGoes(listOf("On your computer, open Google Calendar, then Settings.", "Under Settings for my calendars, choose the calendar, then Integrate calendar.", "Copy the Secret address in iCal format.", sendLine(device, "it")),
-            "Read only: what's added here stays on the tablet. Once the tablet is linked to an Opie account, it can sign in to Google for two-way.", null, null, "calendarPaste")
-        "icloud" -> HowItGoes(listOf("On appleid.apple.com, go to Sign-In and Security, then App-Specific Passwords, and make one.", if (device != null) "On $device, tap iCloud, and type your Apple ID and that password." else "Connect a phone or computer, and type your Apple ID and that password there.", "Choose which calendars to show here."),
-            "Two-way: what's added here shows on your iPhone too. The password stays sealed on this tablet.", null, null)
-        "outlook" -> HowItGoes(listOf("In Outlook on the web, open Settings, then Calendar, then Shared calendars.", "Under Publish a calendar, choose the calendar and Can view all details, then Publish.", "Copy the ICS link.", sendLine(device, "it")),
-            "Read only: what's added here stays on the tablet.", null, null, "calendarPaste")
-        "link" -> HowItGoes(listOf("Find the calendar's iCal or ICS link on your phone or computer: a school, team or club calendar usually has one.", sendLine(device, "the link")), "Read only.", null, null, "calendarPaste")
-        "none" -> HowItGoes(emptyList(), "Events added on the tablet or a phone go in Opie's own calendar. You can bring one in later in Settings, Calendars.", null, null)
-        else -> null
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(20.u)) {
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.u)) {
-            for ((k, label) in listOf("google" to "Google", "icloud" to "iCloud", "outlook" to "Outlook", "link" to "Another link", "none" to "Start one here")) Chip(label, selected = pick == k) { pick = k }
-        }
-        how?.let { SendIt(it, device) }
-        Added(added)
-    }
-}
-
-/** Photos for the tablet: an iCloud shared album's link sent from the connected phone or computer (PhotoAlbums),
- *  Google Photos' picker when the tablet is linked (GooglePhotos), or photos from that phone (the household's photo
- *  page, PhotoShare: turned on here with a person's yes, then opened there, not a second code). What's come in shows
- *  below. */
-@Composable
-private fun PhotosStep() {
-    var pick by remember { mutableStateOf<String?>(null) }
-    val linked = linkedNow()
-    val device = connectedDevice()
-    var albums by remember { mutableStateOf(0) }
-    var page by remember { mutableStateOf<String?>(null) } // the photo page's link, once it's on
-    LaunchedEffect(Unit) {
-        while (true) {
-            albums = withContext(Dispatchers.IO) { runCatching { dev.openhouse.shell.PhotoAlbums.list().size }.getOrDefault(0) }
-            val now = runCatching { dev.openhouse.shell.PhotoShare.link() }.getOrNull()
-            if (now != page) {
-                page = now
-                // The connected phone or computer follows this step: with the page on, it offers it there.
-                withContext(Dispatchers.IO) { Openhouse.post("/setup/step", JSONObject().put("step", "photos").apply { now?.let { put("photos", it) } }) }
-            }
-            delay(2000)
-        }
-    }
-    val photos = House.photos
-    val how = when (pick) {
-        "icloud" -> HowItGoes(listOf("In Photos on your iPhone or Mac, open a shared album, or make one.", "In its sharing settings, turn on Public Website, and copy the link.", sendLine(device, "it")),
-            "New photos in the album come to the tablet by themselves.", null, null, "albumPaste")
-        "google" -> HowItGoes(listOf(if (device != null) "On $device, tap Pick from Google Photos." else "Connect a phone or computer, and tap Pick from Google Photos there.", "Sign in to Google there.", "Pick the photos for the tablet."), "They're copied to the tablet.", null, null)
-        "phone" -> when {
-            device == null -> HowItGoes(listOf("Connect your phone, then choose the photos there."), null, "Connect a phone or computer", "connect")
-            page == null -> HowItGoes(listOf("Tap Let phones send photos, and say yes.", "On $device, choose the photos to send."), "Then the household's phones can send photos here any time.", "Let phones send photos", "photoPhonesOn")
-            else -> HowItGoes(listOf("On $device, tap Choose photos, and pick the ones for the tablet."), "Any time later, share photos to Opie from the phone.", null, null)
-        }
-        else -> null
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(20.u)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.u)) {
-            Chip("iCloud album", selected = pick == "icloud") { pick = "icloud" }
-            if (linked) Chip("Google Photos", selected = pick == "google") { pick = "google" }
-            Chip("From your phone", selected = pick == "phone") { pick = "phone" }
-        }
-        how?.let { h -> if (h.id == "connect") { HowTo(h.steps); SoftButton(h.action!!) { Setup.connectFirst() } } else SendIt(h, device) }
-        if (photos.isNotEmpty() || albums > 0) Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
-            Text(listOfNotNull(if (albums > 0) "Albums: $albums" else null, if (photos.isNotEmpty()) "Photos: ${photos.size}" else null).joinToString("    "), style = calmText(19, FontWeight.Medium, Calm.soft))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.u)) { photos.take(7).forEach { HousePhoto(it, Modifier.size(96.u).clip(RoundedCornerShape(12.u))) } }
-        }
-    }
 }
 
 /** The last step: talking to Opie. What it is, things to ask in the household's own words, a voice, and the line about
@@ -519,41 +427,6 @@ private fun PinStep(set: Boolean) {
 }
 
 /**
- * Opie's AI: its voice and assistant run on OpenAI, either through the Opie account (once the household is let in) or
- * on the household's own OpenAI key (OwnKey.kt), sent from the phone or computer connected for the setup (the box for
- * it opens there: chat/src/phone.jsx AddKey, the bridge's /setup/openai), or pasted here with a keyboard cover. Looked
- * at every few seconds, so a key sent from the phone shows here at once. Skipping leaves Opie without its voice and
- * assistant until one is set up (Settings, Voice).
- */
-@Composable
-private fun AiStep() {
-    var st by remember { mutableStateOf<JSONObject?>(null) }
-    val device = connectedDevice()
-    LaunchedEffect(Unit) { while (true) { st = withContext(Dispatchers.IO) { getJson("/cloud/voice?check=1", 15_000) }; delay(2500) } }
-    val own = st?.optBoolean("own") == true
-    val cloud = !own && st?.optBoolean("linked") == true && st?.optBoolean("available") == true
-    Column(verticalArrangement = Arrangement.spacedBy(16.u)) {
-        when {
-            st == null -> Text("Looking…", style = calmText(Calm.LEAD))
-            own -> { Text("Opie uses your own OpenAI key.", style = calmText(Calm.LEAD)); Soft("What it hears and does goes to OpenAI on your account, and OpenAI bills you. You can change or remove the key in Settings, Voice.") }
-            cloud -> { Text("Opie's AI comes with your Opie account.", style = calmText(Calm.LEAD)); Soft("Nothing to set up here.") }
-            else -> {
-                Text("Opie's voice and assistant run on OpenAI. Use your own OpenAI key, and OpenAI bills your account.", style = calmText(Calm.LEAD))
-                HowTo(listOf("On a phone or computer, make a key at platform.openai.com, under API keys.",
-                    if (device != null) "On $device, paste it into Opie: the box for it is open there now." else "Connect that phone or computer, and paste the key into Opie there.",
-                    "Set a monthly budget for the key at OpenAI too."))
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(20.u)) {
-                    if (device == null) SoftButton("Connect a phone or computer") { Setup.connectFirst() }
-                    Text("Paste it here instead", style = calmText(19, FontWeight.Medium, Calm.soft),
-                        modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { Openhouse.host.setting("ownKey") }.padding(vertical = 8.u))
-                }
-                if (st?.optBoolean("linked") == true) Soft("Or ask for Opie's voice through your Opie account at the next step.")
-            }
-        }
-    }
-}
-
-/**
  * Two of Android's own settings that a tablet set up from the code can't turn on by itself (docs/setup.md): letting
  * Opie use other apps (its accessibility service: no device-owner API turns one on) and the charge limit (each maker
  * has its own, with no screen an app can open directly, so Android's settings open and the path for the model shows:
@@ -580,23 +453,6 @@ private fun AndroidStep() {
                 else listOf("Tap Open Android's settings.", "Look in Battery for a charge limit or battery protection. docs/tablets.md has the path for each tablet we know.", "Press Home to come back."))
             SoftButton("Open Android's settings") { Openhouse.host.setting("setupCharge") }
         }
-    }
-}
-
-/** Who lives here, or where: typed on the phone or computer connected for the setup (chat/src/phone.jsx SetupPeople,
- *  SetupPlace), whose Next moves this on; what's come in shows here as it's saved. */
-@Composable
-private fun OnPhoneStep(step: String, device: String?) {
-    var h by remember { mutableStateOf<JSONObject?>(null) }
-    LaunchedEffect(step) { while (true) { h = Openhouse.loadHousehold(); delay(2000) } }
-    val people = h?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
-    val place = h?.optString("address")?.takeIf { it.isNotBlank() && it != "null" } ?: h?.optString("location")?.takeIf { it.isNotBlank() && it != "null" }
-    Column(verticalArrangement = Arrangement.spacedBy(16.u)) {
-        Text(if (device != null) "On $device, type ${if (step == "people") "everyone's names" else "your address, or just the town"}, then tap Next there."
-            else "Connect a phone or computer to carry on: the setup is done there.", style = calmText(Calm.LEAD))
-        if (device == null) SoftButton("Connect a phone or computer") { Setup.connectFirst() }
-        if (step == "people") Added(people.map { it.optString("name") to it.optString("note") })
-        else place?.let { Added(listOf(it to "")) }
     }
 }
 
