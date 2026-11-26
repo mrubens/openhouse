@@ -366,25 +366,7 @@ const HOW = {
   calendar: { title: 'Your calendars', hint: 'Calendar link (iCal)', help: 'Google: the calendar’s settings, Secret address in iCal format. iCloud: share it as Public. Outlook: Publish, ICS link.', path: '/setup/calendar' },
   album: { title: 'Photos', hint: 'iCloud shared album link', help: 'In Photos, turn on Public Website for a shared album and paste its link.', path: '/setup/album' },
 };
-/** Linking the tablet to an Opie account, from here: its link page opens here (the code never shows on the tablet). */
-function LinkAccount({ c, onLinked }) {
-  const [state, setState] = useState(null);
-  async function go() {
-    setState('…');
-    try {
-      const r = await c.json('POST', '/setup/link', {});
-      if (r.json?.linked) { setState('Linked.'); onLinked?.(); return; }
-      if (r.status !== 200 || !r.json?.url) return setState(r.json?.error || 'That didn’t work.');
-      window.open(r.json.url, '_blank', 'noopener');
-      setState('Sign in on the page that opened. The tablet links once you have.');
-    } catch { setState('The tablet isn’t in touch right now.'); }
-  }
-  return <>
-    <button className="quiet" onClick={go}>Link to your Opie account</button>
-    {state && <p className="soft">{state}</p>}
-  </>;
-}
-/** Calendars you sign in to, from here: Google (its sign-in opens here; the tablet's account must be linked) and
+/** Calendars you sign in to, from here: Google (its sign-in opens here; only on a tablet linked to an Opie account) and
  *  iCloud (the Apple ID and an app-specific password, typed here and sealed to the tablet). Which calendars to show is
  *  chosen at the tablet. */
 function SignIns({ c, family = [] }) {
@@ -408,10 +390,9 @@ function SignIns({ c, family = [] }) {
   }
   return <>
     <div className="setuprow">
-      {linked ? <button className="quiet" onClick={google}>Sign in with Google</button> : linked === false && <LinkAccount c={c} onLinked={() => setLinked(true)} />}
+      {linked && <button className="quiet" onClick={google}>Sign in with Google</button>}
       <button className="quiet" onClick={() => setIc(!ic)}>iCloud</button>
     </div>
-    {linked === false && <p className="soft">Signing in to Google needs an Opie account. Without one, paste its link below.</p>}
     {g && <p className="soft">{g}</p>}
     {ic && <>
       <p>Make an app-specific password at appleid.apple.com, under Sign-In and Security. It goes only to the tablet.</p>
@@ -532,7 +513,8 @@ function AiHere({ c, computer }) {
   if (v === undefined) return <p className="soft">…</p>;
   if (v?.own) return <><h1>Opie’s AI</h1><p>Using your own OpenAI key.</p></>;
   if (v?.available) return <><h1>Opie’s AI</h1><p>Included with your Opie account.</p></>;
-  return <><h1>Opie’s AI</h1><AddKey c={c} computer={computer} /><h2>Or use an Opie account</h2><LinkAccount c={c} /></>;
+  // (Opie accounts aren't offered in the setup until they're open to everyone: a beta household's tablet comes linked.)
+  return <><h1>Opie’s AI</h1><AddKey c={c} computer={computer} /></>;
 }
 /** The PIN, chosen here: it guards the tablet's Settings and saying yes to new apps. On a tablet without an account, its
  *  recovery code is shown here once, to keep. */
