@@ -176,6 +176,11 @@ internal fun WelcomeSheet() {
                 } else Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { o.welcomeStart() }.padding(horizontal = 36.u, vertical = 20.u)) {
                     Text("Get started", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
                 }
+                // One quiet line on a model we haven't tested (dev.openhouse.shell.Tablets, docs/tablets.md). Never blocks.
+                if (!dev.openhouse.shell.Tablets.tested) {
+                    Spacer(Modifier.height(28.u))
+                    Text("We haven't tested this tablet.", style = calmText(19, color = Calm.soft))
+                }
             }
         }
     }
