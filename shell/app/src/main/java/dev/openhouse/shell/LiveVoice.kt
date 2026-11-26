@@ -270,7 +270,9 @@ internal object LiveVoice {
     }.onFailure { Log.w(TAG, "volume: $it") }
     /** The household's volume share (0..1) as the session's loudness: cubed, about how loudness is heard; 0 is silent. */
     private fun setGain(share: Float) {
-        gain = share.toDouble().let { it * it * it }
+        // About 8 dB over the cube (to at most full): music is mixed far louder than a voice, so at one volume Opie was
+        // much quieter than the music it had just paused (the user).
+        gain = share.toDouble().let { (it * it * it * 2.5).coerceAtMost(1.0) }
         Log.i(TAG, "volume: gain %.3f (share %.2f)".format(gain, share))
         web?.let { w -> main.post { w.evaluateJavascript("setGain($gain)", null) } }
     }
