@@ -251,7 +251,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       over, used: svc?.used || null, limits: svc?.limits || null, using: voice.used(), voiceName: mine.voiceName || 'marin' };
   }
   async function voiceSet(on) {
-    if (on && !device() && !ownOn()) throw new Error('Link the tablet to an account first (Settings → Account), or use your own OpenAI key (Settings → Voice).');
+    if (on && !device() && !ownOn()) throw new Error('Opie’s voice needs an OpenAI key first (Settings → Voice).');
     if (device() && !ownOn()) { try { lastVoiceStatus = await call('POST', '/v1/voice/setting', { on }); } catch (e) { if (on) throw e; } }
     const { offWhy, offAt, ...was } = read('voice.json') || {}; // (an Off from the web is answered by this one)
     write('voice.json', { ...was, on, provider: 'openai-live', vendor: lastVoiceStatus?.vendor || null, at: iso() }); // (keeps the chosen voice)

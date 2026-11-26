@@ -54,8 +54,8 @@ A brand-new tablet, still in its box, needs neither step.
    - **Set up Opie's AI**: Opie's voice and assistant run on OpenAI. Make a key at platform.openai.com (API keys) and
      paste it into Opie on the phone or computer you connected: it goes straight to the tablet, and OpenAI bills your
      account. Set a monthly budget for the key at OpenAI too.
-   - **Talking to Opie** needs Opie's AI: your own OpenAI key, or Opie's voice through an account. It's turned on for households a few at a time: on a tablet linked to an
-     account it says "Opie's voice isn't on for your household yet" until it is, and turns on by itself after that.
+   - **Talking to Opie** needs Opie's AI. Without a key everything else works, and you can add one later in Settings →
+     Voice.
 3. **The home screen**: Today, then your tabs (calendar, chores, lists, meals, photos). Pressing Home always comes back
    here. That's it: no cable or computer needed after the code.
 

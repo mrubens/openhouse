@@ -97,7 +97,8 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
         ui {
             when {
                 v == null -> say(noBridge)
-                !v.optBoolean("linked") -> CloudMenu(act).startLink("Opie's voice comes through your Opie account.") { turnOn() }
+                // Not linked and no key: the voice needs Opie's AI, so their own key (accounts aren't offered until they're open to everyone).
+                !v.optBoolean("own") && !v.optBoolean("linked") -> OwnKey.menu(act)
                 v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> notYetAsk(v.optString("asked").takeIf { !v.isNull("asked") && it.isNotBlank() })
                 else -> set(true)
             }

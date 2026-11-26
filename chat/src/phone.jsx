@@ -391,7 +391,7 @@ function SignIns({ c, family = [] }) {
   return <>
     <div className="setuprow">
       {linked && <button className="quiet" onClick={google}>Sign in with Google</button>}
-      <button className="quiet" onClick={() => setIc(!ic)}>iCloud</button>
+      <button className="quiet" onClick={() => setIc(!ic)}>{linked ? 'iCloud' : 'Sign in to iCloud'}</button>
     </div>
     {g && <p className="soft">{g}</p>}
     {ic && <>
@@ -399,7 +399,7 @@ function SignIns({ c, family = [] }) {
       <input value={f.user} onChange={(e) => setF({ ...f, user: e.target.value })} placeholder="Apple ID (email)" type="email" autoCapitalize="off" autoComplete="off" />
       <input value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} placeholder="App-specific password" type="password" autoComplete="off" />
       {family.length > 0 && <div className="chips">{family.map((p) => <button key={p.name} className={'chip' + (f.who === p.name ? ' on' : '')} onClick={() => setF({ ...f, who: f.who === p.name ? '' : p.name })}>{p.name}</button>)}</div>}
-      <button className="go act" disabled={st === 'sending' || f.user.length < 3 || f.pass.length < 8} onClick={icloud}>{st === 'sending' ? 'Signing in…' : 'Sign in to iCloud'}</button>
+      <button className="go act" disabled={st === 'sending' || f.user.length < 3 || f.pass.length < 8} onClick={icloud}>{st === 'sending' ? 'Signing in…' : 'Sign in'}</button>
     </>}
     {st && st !== 'sending' && <p className="soft">{st}</p>}
   </>;
@@ -562,7 +562,7 @@ function VoiceHere({ c }) {
   }
   const pick = (id) => { setVoice(id); if (v?.on) c.json('POST', '/setup/voice', { voice: id, do: 'sample' }).catch(() => {}); };
   if (v === undefined) return <p className="soft">…</p>;
-  if (!v?.own && !v?.available) return <><h1>Talk to Opie</h1><p>Opie’s voice needs its AI. You can set it up later in the tablet’s Settings, Voice.</p></>;
+  if (!v?.own && !v?.available) return <><h1>Talk to Opie</h1><p>This needs Opie’s AI. You can add a key later in the tablet’s Settings, Voice.</p></>;
   return <>
     <h1>Talk to Opie</h1>
     <p>Say “Hey Opie” at the tablet, then ask. What follows goes to OpenAI.</p>
@@ -585,11 +585,11 @@ function AddKey({ c, computer }) {
       else setState(r.json?.error || 'That didn’t work.');
     } catch { setState('The tablet isn’t in touch right now. Try again at home.'); }
   }
-  if (state === 'done') return <p>Your OpenAI key works.</p>;
+  if (state === 'done') return <p>Key added. Opie’s AI is on.</p>;
   return <>
-    <p>Paste an OpenAI key from platform.openai.com, under API keys. OpenAI bills you for it, so set a monthly budget there.</p>
+    <p>Opie’s voice and assistant run on your OpenAI account. Paste an API key from platform.openai.com, and set a monthly budget there.</p>
     <input type="password" value={key} onChange={(e) => { setKey(e.target.value); setState(null); }} placeholder="sk-…" autoCapitalize="off" autoComplete="off" autoCorrect="off" spellCheck={false} />
-    <button className="go act" disabled={!/^sk-\S{20,}$/.test(key.trim()) || state === 'sending'} onClick={send}>{state === 'sending' ? 'Checking it…' : 'Send to the tablet'}</button>
+    <button className="go act" disabled={!/^sk-\S{20,}$/.test(key.trim()) || state === 'sending'} onClick={send}>{state === 'sending' ? 'Checking it…' : 'Add'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}
   </>;
 }
