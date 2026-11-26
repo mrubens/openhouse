@@ -46,7 +46,7 @@ object Media {
     // system's own call is hidden from apps, and Android 15 puts enabled_notification_listeners back when an app with
     // WRITE_SECURE_SETTINGS changes it (tried on an emulator, docs/music.md). So adb grants it at setup
     // (scripts/tablet-setup.sh: cmd notification allow_listener), or a person on Android's own page, from Settings →
-    // This tablet → Now playing, with the PIN.
+    // Advanced → Now playing, with the PIN.
 
     /** Android's page for it, with ours picked when it can be. */
     fun settingsIntent(c: Context): Intent =
@@ -291,7 +291,7 @@ object Media {
         // that, not a guess, says whether it started.
         if (!listening()) {
             val am = ctx.getSystemService(AudioManager::class.java); val end = SystemClock.elapsedRealtime() + ms
-            while (SystemClock.elapsedRealtime() < end) { if (am.isMusicActive) { remember(pkg); return done("$text (The tablet hears it playing; it can't see what: Settings → This tablet → Now playing.)") }; SystemClock.sleep(400) }
+            while (SystemClock.elapsedRealtime() < end) { if (am.isMusicActive) { remember(pkg); return done("$text (The tablet hears it playing; it can't see what: Settings → Advanced → Now playing.)") }; SystemClock.sleep(400) }
             return JSONObject().put("error", "${label(pkg)} didn't start playing on the tablet: no sound from it. It may be playing on another device it used last (a phone: its device list switches it to this tablet), or need someone to sign in to it on the tablet, or it didn't find that.")
         }
         val end = SystemClock.elapsedRealtime() + ms

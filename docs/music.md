@@ -56,7 +56,7 @@ never reads the notifications themselves. Turning it on:
 - So `scripts/tablet-setup.sh` and `scripts/move-tablet.sh` grant it over adb:
   `adb shell cmd notification allow_listener <shell package>/dev.openhouse.shell.MediaListener`. It stays through
   updates.
-- Otherwise Settings → This tablet → Now playing (shown only while it's off) opens Android's own page for it, with
+- Otherwise Settings → Advanced → Now playing (shown only while it's off) opens Android's own page for it, with
   the PIN. It's a person's tap (`DeviceServer.personOnly`): it widens what Opie can see.
 
 Without it, play, pause, stop and skip still work (media keys go to whatever is playing), `status` only says whether

@@ -630,7 +630,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       const lines = [r.now ? `${r.now.app}: ${r.now.state}${r.now.elsewhere ? ' on another device, not the tablet' : ''}${where}. ${said(r.now)}` : r.anyPlaying ? 'Something is playing.' : 'Nothing is playing.',
         ...(r.others || []).map((o) => `Also playing in ${o.app}: ${said(o)}`),
         list.trim() + (r.last ? ` Last played from ${r.last}.` : ''),
-        r.sees ? '' : 'The tablet can\'t see what the apps play yet (Settings → This tablet → Now playing), so it only sends play, pause and skip.'];
+        r.sees ? '' : 'The tablet can\'t see what the apps play yet (Settings → Advanced → Now playing), so it only sends play, pause and skip.'];
       return { ok: true, text: lines.filter(Boolean).join('\n') };
     }
     return { ok: true, text: `${r.done}${r.now ? ` ${said(r.now)}` : ''}` };

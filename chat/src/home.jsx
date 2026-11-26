@@ -654,7 +654,7 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
 
 /** Now playing (Media.kt forHome): what a media app on the tablet plays, while it plays and for a while after it's
  *  paused, with its cover and buttons; a tap opens the app. Asked every few seconds while Home is up; it shows only
- *  when the tablet can see the apps (Settings → This tablet → Now playing). The app's titles are shown as text. */
+ *  when the tablet can see the apps (Settings → Advanced → Now playing). The app's titles are shown as text. */
 const PAUSED_FOR = 15 * 60e3;
 const isOn = (n) => n?.state === 'playing' || n?.state === 'starting';
 function NowPlaying({ shell }) {
