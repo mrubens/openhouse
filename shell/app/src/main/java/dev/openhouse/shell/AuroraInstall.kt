@@ -33,7 +33,7 @@ internal object AuroraInstall {
         val name = given.ifBlank { pkg }
         acc.status("Waiting for a yes: add $name?")
         if (!acc.approve("Add $name?", "", parent = ParentPin.isSet(ctx), yes = "Add", rights = listOf("from" to "From Google Play"), more = pkg))
-            return DeviceServer.text("Nobody said yes, so $name wasn't added. Say so; don't try again.", true)
+            return DeviceServer.text("Nobody said yes, so $name wasn't added. Say so; don't try again.", true).put("declined", true)
         AppStore.approve(pkg)
         AppStore.ensureAurora { acc.status(it) }?.let { return DeviceServer.text(it, true) }
         setUpAurora(acc)?.let { return DeviceServer.text(it, true) }

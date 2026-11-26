@@ -301,7 +301,8 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             val r = runCatching { AuroraInstall.installApp(acc, pkg, name) }.getOrNull()
             val t = r?.optJSONArray("content")?.optJSONObject(0)?.optString("text").orEmpty()
             ui {
-                if (r == null || r.optBoolean("isError")) say("$name wasn't added", t.substringBefore("\n\n").ifBlank { "Something went wrong. Try again, or ask Opie to add it." })
+                if (r?.optBoolean("declined") == true) Unit // Not now on the card: nothing more to say
+                else if (r == null || r.optBoolean("isError")) say("$name wasn't added", "It couldn't be added just now. Try again in a minute, or ask Opie to add it.")
                 else say("$name is on the tablet", "It's in Apps. Open it once to sign in; then Opie can play from it.")
             }
         }
