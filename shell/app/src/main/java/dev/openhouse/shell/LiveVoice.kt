@@ -235,6 +235,7 @@ internal object LiveVoice {
      *  starts during the conversation takes the focus over, and keeps playing. */
     private var focus: android.media.AudioFocusRequest? = null
     private fun holdFocus(a: MainActivity, on: Boolean) = runCatching {
+        SpotifyEmbed.holdForVoice(on) // (Spotify's player on Home is a page of Opie's own: Android's focus doesn't pause it)
         val am = audio(a)
         if (on) {
             if (focus != null) return@runCatching

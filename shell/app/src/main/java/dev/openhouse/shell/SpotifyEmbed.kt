@@ -62,7 +62,7 @@ object SpotifyEmbed {
             ?: return JSONObject().put("error", "That isn't a Spotify link.")
         if (!signedIn()) return JSONObject().put("error", "Spotify isn't signed in on the tablet's own player.").put("signIn", true)
         val uri = "spotify:${m.groupValues[1]}:${m.groupValues[2]}"
-        title = name?.take(200); state = JSONObject(); usedAt = SystemClock.elapsedRealtime()
+        title = name?.take(200); state = JSONObject(); usedAt = SystemClock.elapsedRealtime(); pausedForVoice = false
         Media.pauseOthers() // (one thing playing: the app that was, paused)
         if (!send(JSONObject().put("do", "load").put("uri", uri).putOpt("title", title))) return JSONObject().put("error", "The tablet's screen isn't up.")
         val end = SystemClock.elapsedRealtime() + ms
@@ -87,6 +87,7 @@ object SpotifyEmbed {
 
     /** play, pause, stop, seek (seconds, + or -), previous (from the start); Spotify's player takes no next. */
     fun button(what: String, seconds: Double = 0.0): JSONObject {
+        pausedForVoice = false // (asked for: what they asked stays after the conversation)
         if (now() == null) return JSONObject().put("error", "Spotify isn't playing on the tablet.")
         usedAt = SystemClock.elapsedRealtime()
         when (what) {
@@ -99,6 +100,14 @@ object SpotifyEmbed {
         }
         SystemClock.sleep(900)
         return JSONObject().put("done", "Spotify: $what.").putOpt("now", now())
+    }
+
+    /** Opie's live voice: the player pauses while it talks, as other apps do for Android's audio focus (which doesn't
+     *  reach a page of Opie's own), and plays on after it, unless someone paused it or played something else meanwhile. */
+    @Volatile private var pausedForVoice = false
+    fun holdForVoice(on: Boolean) {
+        if (on) { if (playing()) { pausedForVoice = true; send(JSONObject().put("do", "pause")) } }
+        else if (pausedForVoice) { pausedForVoice = false; if (!playing() && state.has("uri")) send(JSONObject().put("do", "play")) }
     }
 
     /** Another app started: this one pauses (one thing playing). */
