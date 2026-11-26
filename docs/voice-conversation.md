@@ -47,12 +47,23 @@ isn't used.
 
 ## One indicator
 
-The assistant's button (`Buddy.kt`, `Face`) is the only thing that shows its state:
+The assistant's button (`Buddy.kt`, `Face`) is the only thing that shows its state. Each state has its own color and
+one thing moving, so it reads from across the room:
 
-- **Listening:** dark, and the bars follow the room.
-- **Thinking:** dark, with a slow wave across the bars.
-- **Talking:** the accent color, and the bars move with its voice.
-- Otherwise it rests.
+- **Listening:** dark, its bars standing low in an arc and rising with their voice. Your turn.
+- **Thinking:** light, a row of dots with a ripple running through it. On it. (Dots, never bars, so it can't be taken
+  for listening; a row of dots while listening read as thinking.)
+- **Talking:** the accent color, its bars moving with its voice. Its turn.
+- At rest it isn't shown.
+
+With the live voice, the state comes from what is really happening (`chat/live/live-session.cjs`, `look()`), not from
+the timing of its words, which run seconds ahead of its voice: talking while its voice plays (held through a breath
+between sentences), thinking while a request is being worked on (its text model, the household's tools) until its
+answer is heard, listening otherwise. Before, it went back to listening while it was still working ("one sec", then
+the tools ran) and before it had finished speaking.
+
+If the live voice can't connect, or ends before it answered, a card on Home says so (it did only over other apps;
+on Home the button just went away).
 
 Hearing now looks like listening, working looks like thinking, and finished answers no longer have a look of their
 own.

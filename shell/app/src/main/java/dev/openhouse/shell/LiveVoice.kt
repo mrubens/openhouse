@@ -215,6 +215,7 @@ internal object LiveVoice {
     @Volatile var problem = ""; private set
     @Volatile var problemAt = 0L; private set
     private fun trouble(text: String) { Log.i(TAG, "problem: $text"); problem = text; problemAt = System.currentTimeMillis() }
+    fun putProblemAway() { problem = "" }
     fun problemNow(now: Long) = problem.takeIf { it.isNotEmpty() && now - problemAt < 15_000 }
 
     /** The microphone switch was turned off (Settings): a session going now ends. */

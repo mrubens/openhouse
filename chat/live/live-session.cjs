@@ -39,7 +39,8 @@ function liveSession(Host) {
     if (o > 0.01 && wordsAt && !voiceAt) { voiceAt = Date.now(); Host.note('live-onset', 'reply ' + replies + ': voice ' + (voiceAt - wordsAt) + ' ms after its words (quiet ' + outQuiet * 80 + ' ms before)'); }
     outQuiet = 0;
   }
-  function levels() { if (lvlTimer) return; lvlTimer = setInterval(() => { if (closed) { clearInterval(lvlTimer); return; } const o = rms(outAn); onset(o); Host.level(rms(micAn), o); }, 80); }
+  let voiceLast = 0; // when its voice was last heard in what came back (its state follows the sound, not the words: below)
+  function levels() { if (lvlTimer) return; lvlTimer = setInterval(() => { if (closed) { clearInterval(lvlTimer); return; } const o = rms(outAn); onset(o); if (o > 0.006) voiceLast = Date.now(); Host.level(rms(micAn), o); look(); }, 80); }
   // Its audio track starts as what the tablet kept (feed), played into it; the microphone replaces it (goLive).
   let ctx, dest, sender, fedTo = 0, peak = 0.01, floor = null, quiet = 0, handing = false, fedAny = false;
   const mode = Host.mode();
@@ -127,7 +128,7 @@ function liveSession(Host) {
   // It ends here: Host.idle() seconds after the last words heard or said, with nothing in the works (a request handed to
   // its text model or to the client, its tools, a web search, words waiting to be said) and nothing still playing.
   let lastAct = Date.now(), work = 0, workAt = 0, qTimer = null, leaving = 0, toolsOut = 0; // leaving: when it was asked to go; toolsOut: tools the client is running
-  const working = (d) => { work = Math.max(0, work + d); workAt = Date.now(); lastAct = workAt; };
+  const working = (d) => { const was = work; work = Math.max(0, work + d); workAt = Date.now(); lastAct = workAt; if (was > 0 && work === 0) workEnd = workAt; };
   function quietTimer() {
     if (qTimer) return;
     const idle = Host.idle() * 1000;
@@ -142,27 +143,44 @@ function liveSession(Host) {
       if (t - lastAct > idle) { Host.log('quiet ' + idle / 1000 + ' s'); clearInterval(qTimer); Host.ended('quiet'); }
     }, 250);
   }
-  let mood = 'listening', said = '', moodTimer = null;
-  function st(m) { if (m !== mood) { if (mood === 'talking' && said) Host.said('live-said', said); if (mood === 'talking' && holdFeed) { holdFeed = false; Host.handoff('it talked'); } mood = m; Host.state(m, said); } }
+  // What it's doing, for the face (Host.state), from what is really happening rather than from its words' timing (they
+  // run ahead of its voice, and a pause in them isn't the end of a task): talking while its voice plays (and its first
+  // words, before the sound comes); else thinking while it works on a request (its text model, the household's tools),
+  // and a moment after, until its answer is heard; else hearing while their words come in; else listening. One state at
+  // a time, each held a moment, so the face never flickers between them.
+  let mood = 'listening', said = '', saidOpen = false, saidAt = 0, heardAt = 0, workEnd = 0, moodAt = 0;
+  function st(m) { if (m !== mood) { mood = m; moodAt = Date.now(); Host.state(m, said); } }
+  function look() {
+    if (closed) return;
+    const t = Date.now();
+    // a reply's words are done 1.5 s after the last of them: kept for the log, and what the tablet kept may go on
+    if (saidOpen && t - saidAt > 1500) { saidOpen = false; if (said) Host.said('live-said', said); if (holdFeed) { holdFeed = false; Host.handoff('it talked'); } }
+    const voice = outAn ? t - voiceLast < 450 : saidOpen; // (no sound measured: its words alone)
+    const m = voice || (saidOpen && t - saidAt < 400 && t - voiceLast > 2000) ? 'talking'
+      : work > 0 || leaving || t - workEnd < 2500 ? 'thinking'
+      : t - heardAt < 1200 ? 'hearing' : 'listening';
+    // talking shows at once; the others wait until the last state has shown a moment (a breath between sentences
+    // isn't the end of talking)
+    if (m === mood || m === 'talking' || t - moodAt > 350 && !(mood === 'talking' && t - voiceLast < 700)) st(m);
+  }
   function heardDone() {
     const q = heard.trim(); if (q) Host.said('live-heard', q);
     return q;
   }
-  function settle(ms) { clearTimeout(moodTimer); moodTimer = setTimeout(() => { if (mood === 'hearing' || mood === 'talking') st('listening'); }, ms); }
   function on(ev) {
     switch (ev.type) {
       case 'session.output_transcript.delta':
         asked = ''; // (it's answering)
-        if (mood !== 'talking') { said = ''; if (heard.trim()) { heardDone(); heard = ''; } replies++; wordsAt = Date.now(); voiceAt = 0; }
+        if (!saidOpen) { said = ''; saidOpen = true; if (heard.trim()) { heardDone(); heard = ''; } replies++; wordsAt = Date.now(); voiceAt = 0; }
         // It talks before it caught up with what was kept: what the tablet hears now stops going to it (so it doesn't hear
         // itself through the tablet's microphone, which has no echo cancelling), and its own microphone takes over once it
         // has finished: taking it now switches Android's audio over to a call, which swallowed the start of what it said.
         if (!handing && mode === 'buffer') { handing = true; holdFeed = true; }
-        lastAct = Date.now(); said += ev.delta || ''; mood === 'talking' ? Host.state('talking', said) : st('talking'); settle(1500); break;
+        lastAct = saidAt = Date.now(); said += ev.delta || ''; if (mood === 'talking') Host.state('talking', said); look(); break;
       case 'session.started': Host.mark('started ' + (ev.session && ev.session.id || '')); if (!started) begin2(); break;
-      case 'session.input_transcript.delta': lastAct = Date.now(); heard += ev.delta || ''; if (mood !== 'talking' && mood !== 'thinking') { st('hearing'); settle(1200); } break;
+      case 'session.input_transcript.delta': lastAct = heardAt = Date.now(); heard += ev.delta || ''; look(); break;
       case 'session.delegation.created':
-        working(1); clearTimeout(moodTimer); st('thinking'); moodTimer = setTimeout(() => mood === 'thinking' && st('listening'), 30000);
+        working(1); look();
         Host.note('live-delegated', (ev.delegation && ev.delegation.target) || '?');
         asked = heard.trim() || asked || '(what was said)';
         if (ev.delegation && ev.delegation.target === 'responses') { heardDone(); heard = ''; break; } // its text model has it, with the household's tools
@@ -223,7 +241,7 @@ function liveSession(Host) {
     if (closed) return; closed = true;
     try { if (dc && dc.readyState === 'open') dc.send(JSON.stringify({ type: 'session.close' })); } catch (e) {}
     if (lastN) Host.log('< ' + lastType + ' x' + (lastN + 1));
-    if (mood === 'talking' && said) Host.said('live-said', said);
+    if (saidOpen && said) Host.said('live-said', said);
     heardDone();
     if (asked) Host.unanswered(asked); // handed over, and nothing said since
     clearTimeout(sayTimer);
