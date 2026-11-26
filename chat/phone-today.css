@@ -55,6 +55,11 @@
 .ptoday .t-now-btns > span:active { transform: scale(.92); }
 .ptoday .t-now-btns > span.t-now-close { width: calc(var(--u) * 36); height: calc(var(--u) * 36); padding: calc(var(--u) * 10); color: var(--h-soft); margin-left: calc(var(--u) * 2); }
 .ptoday .t-now-btns > span.t-now-go { width: auto; height: auto; border-radius: 999px; padding: calc(var(--u) * 12) calc(var(--u) * 20); background: var(--h-ink); color: var(--h-sheet); font-size: calc(var(--u) * 16); font-weight: 650; white-space: nowrap; }
+.ptoday .t-spotify { flex: none; height: 152px; }
+.ptoday .h-today > .t-spotify { margin: 0 0 calc(var(--u) * 14); }
+.ptoday .sp-player { position: fixed; z-index: 5; height: 152px; border-radius: calc(var(--u) * 28); overflow: hidden; box-shadow: var(--h-shadow); }
+.ptoday .sp-frame, .ptoday .sp-frame iframe { display: block; width: 100%; height: 152px; border: 0; }
+.ptoday .sp-close { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; padding: 7px; box-sizing: border-box; border-radius: 50%; background: rgba(0,0,0,.35); color: #fff; }
 .ptoday .t-now-bar { position: absolute; left: 0; bottom: 0; height: calc(var(--u) * 3); background: var(--h-soft); opacity: .5; transition: width 4s linear; }
 .ptoday .t-calendar { padding: 0; }
 .ptoday .t-hero { flex: none; margin: 0; padding: calc(var(--u) * 24 * var(--s)) calc(var(--u) * 26 * var(--s)) calc(var(--u) * 6 * var(--s)); }
