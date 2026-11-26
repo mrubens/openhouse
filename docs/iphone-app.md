@@ -83,8 +83,9 @@ both widgets with the household's events and list, Milk ticked off on the widget
    (`openhouse-cloud/docs/cloud.md`). Until it's there, the cloud answers 503 and notes on iPhones don't go; the page's
    Web Push still works from Safari's home-screen copy.
 3. App Store Connect: the app record is **OpenHouse: Household AI** (named before the product became Opie; "OpenHouse" was
-   taken; the home screen says Opie), with an internal TestFlight group, Household, that gets each uploaded build by itself. Upload: Archive
-   in Xcode (or `xcodebuild archive`, then `-exportArchive` with method `app-store-connect` and destination `upload`).
+   taken; the home screen says Opie), with an internal TestFlight group, Household, that gets each uploaded build by itself. Upload: `ios/scripts/testflight.sh`
+   (an App Store Connect API key with Admin access, for cloud signing: its `.p8` and a `config` with `ASC_KEY_ID` and
+   `ASC_ISSUER_ID` in `~/.appstoreconnect/`), or Archive in Xcode.
 
 ## Export compliance
 
