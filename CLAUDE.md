@@ -41,6 +41,22 @@ feature, give Opie the same reach (a tool in `bridge/live-tools.js` LIVE_TOOLS, 
 ahead and the tablet asks a person for the PIN (Opie never sees, hears or skips it). The only things that stay a
 person's own are approvals that must be a person's tap (DeviceServer.personOnly), and the few that table lists.
 
+## Screens say as little as they can
+
+Every screen, the setup most of all, should be clear to someone who has never seen Opie, with nothing more on it than that
+needs. Before adding a line, ask whether anyone would miss it. `docs/ux.md` has the full house rules.
+
+- A title, at most one short line under it, then what to do. No list of what's coming, no "this page follows along",
+  no reasons nobody asked for.
+- Don't repeat what's already on screen: a placeholder that names the input, a button that names the action, the other
+  screen showing the same thing (the tablet's "Try it" line isn't on the phone too).
+- One filled button per screen: the next step (Next, Done, the verb). A step's own actions (Add, Sign in, Turn on) are
+  tinted. When an action and Next would do the same job, make them one button (the setup's PIN: Next sets it).
+- No developer words in the UI: file paths, docs, protocol names.
+- Keep inputs and the main button high on phone screens, so the keyboard never covers them.
+- When you change words, check every copy that says the same thing (tablet, phone page, web) and fix any that are now
+  wrong.
+
 ## The cloud is its own private repo
 
 The hosted cloud service is in mrubens/openhouse-cloud (private: only its maintainers have it), checked out next to
