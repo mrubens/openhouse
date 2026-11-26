@@ -2,11 +2,11 @@
 // (developer.spotify.com/documentation/embeds/references/iframe-api), for the tablet's music. The shell sends it what to
 // do (SpotifyEmbed.kt, as Opie's music tool asks: window.__opieSpotify) and hears what it plays (shell.spotifyState).
 // It lives once, at the page's root, so it plays on whatever tab is showing; on Home it sits over the slot Today keeps
-// for it (SpotifySlot), and anywhere else it's out of sight. It shows while it plays and for a few minutes after a
-// pause; its x stops it.
+// for it (SpotifySlot), and anywhere else it's out of sight. It shows while it plays and for a minute after a pause
+// (Spotify's own button, or Opie's stop).
 import { useEffect, useRef, useState } from 'react';
 
-const PAUSED_FOR = 5 * 60e3;
+const PAUSED_FOR = 60e3; // (paused, it goes after a minute: no x of ours over Spotify's player, the user)
 const subs = new Set();
 let on = false;
 const setOn = (v) => { if (on !== v) { on = v; subs.forEach((f) => f(v)); } };
@@ -66,11 +66,7 @@ export function SpotifyPlayer({ shell }) {
     const t = setInterval(place, 250);
     return () => { clearInterval(t); delete window.__opieSpotify; };
   }, []);
-  const stop = () => window.__opieSpotify?.({ do: 'stop' });
   return <div ref={box} className="sp-player" style={{ left: '-4000px', visibility: 'hidden' }}>
     <div ref={host} className="sp-frame" />
-    <span role="button" className="sp-close" aria-label="Close" onClick={stop}>
-      <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M7 7l10 10M17 7L7 17" /></svg>
-    </span>
   </div>;
 }

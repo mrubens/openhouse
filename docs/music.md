@@ -54,8 +54,8 @@ Spotify's own sign-in page on the screen), Spotify plays on the tablet without i
 
 - **Home** (`chat/src/spotify-player.jsx`): Spotify's player for websites (its Embed), worked through Spotify's
   iFrame API (load, play, pause, seek, and its playback events). It lives once at the page's root, so it keeps
-  playing on any tab; on Home it sits over Today's slot for it, with Spotify's own controls (skip included) and an x
-  that stops it, and it goes a few minutes after a pause. Signed in with Premium, whole songs play; signed out, only
+  playing on any tab; on Home it sits over Today's slot for it, with Spotify's own controls (skip included), and it
+  goes a minute after a pause (Spotify's own button, or Opie's stop). Signed in with Premium, whole songs play; signed out, only
   30-second previews, so Opie uses it only when signed in.
 - **Shell** (`SpotifyEmbed.kt`): the sign-in page; `POST /media {do: 'spotify', url, name?}` sends the player a link
   and waits until it's playing; while it's the one in use, `music`'s buttons go to it. The home screen's web view
