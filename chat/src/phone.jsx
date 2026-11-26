@@ -486,7 +486,7 @@ function SetupPeople({ c }) {
     <p>Names, and a birth year or role if you like.</p>
     {rows.map((r, i) => <div key={i} className="personrow">
       <input value={r.name} onChange={(e) => set(i, 'name', e.target.value)} placeholder="Name" autoCapitalize="words" autoComplete="off" />
-      <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="2017, Mom, dog" autoComplete="off" style={{ maxWidth: '9em' }} />
+      <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="Year or role" autoComplete="off" style={{ maxWidth: '9em' }} />
     </div>)}
     <div className="setuprow">
       <button className="quiet" onClick={() => setRows([...rows, { name: '', note: '' }])}>+ Add someone</button>
