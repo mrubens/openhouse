@@ -23,7 +23,7 @@ On the tablet:
    mean. What's typed or copied is done there, and the phone's Next moves the tablet on
    (`POST /setup/go`, which the tablet looks at every 1.5 s: `GET /setup/want`); what only the tablet can do comes last.
    The setup has the tablet's screen to itself, with a thin progress bar. While the phone or computer does a step the
-   tablet shows only how to connect one, or "Carry on on Sam's phone" and which step it's on (`PhoneProgress`; the
+   tablet shows only how to connect one, or "Continue on Sam's phone" and which step it's on (`PhoneProgress`; the
    owner: "no need to show a skeleton thing on the tablet during the flow - it should just be the instructions for how
    to set things up until it's ready, maybe with a progress bar"). The photos step keeps its one yes there (Let phones
    send photos), and choosing which calendars to show after a sign-in opens on the tablet. The descriptions of steps 2

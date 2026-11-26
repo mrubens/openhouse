@@ -132,7 +132,7 @@ internal fun SetupSheet() {
                     if (step != "voice") Chip("Later") { save[0](); Setup.finish() }
                 }
                 Spacer(Modifier.height(28.u))
-                Text(if (!onPhone) title else if (device != null && step != "devices") "Carry on on $device" else "Set up Opie from your phone or computer", style = calmText(Calm.DISPLAY, FontWeight.Medium))
+                Text(if (!onPhone) title else if (device != null && step != "devices") "Continue on $device" else "Set up Opie from your phone or computer", style = calmText(Calm.DISPLAY, FontWeight.Medium))
                 Spacer(Modifier.height(20.u))
                 if (onPhone) {
                     // Until a phone or computer is in, how to connect one; then only what's happening there.
