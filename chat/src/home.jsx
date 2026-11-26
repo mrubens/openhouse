@@ -600,8 +600,9 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   const per = showCal ? 2 : 3, rows = [];
   { let cur = null; for (const x of cards) { if (x.props.wide) { rows.push([x]); cur = null; } else { if (!cur || cur.length >= per) rows.push(cur = []); cur.push(x); } } }
   if (rows.length > 3 && rows[2].length === per && !rows[2][0].props.wide && !rows[3][0].props.wide) rows[2].push(rows[3][0]);
-  // a card that would be alone in the last row (a new Home's list) joins the row before it, three at most
-  { const last = rows.at(-1), prev = rows.at(-2); if (rows.length > 1 && rows.length <= 3 && last.length === 1 && !last[0].props.wide && prev.length < 3 && !prev[0].props.wide) prev.push(rows.pop()[0]); }
+  // the list alone in the last row (a new Home's) joins the row before it, three at most; anything else alone keeps a
+  // row of its own (a photo is best wide, not a sliver beside two full-height cards)
+  { const last = rows.at(-1), prev = rows.at(-2); if (rows.length > 1 && rows.length <= 3 && last.length === 1 && last[0].key === 'lists' && !last[0].props.wide && prev.length < 3 && !prev[0].props.wide) prev.push(rows.pop()[0]); }
   rows.length = Math.min(rows.length, 3);
   const tall = rows.length === 3 ? [346, 296, 242] : [1, 1, 1];
   // how wide each is beside the others: the list a narrow column (the user: it shouldn't take up as much space)
