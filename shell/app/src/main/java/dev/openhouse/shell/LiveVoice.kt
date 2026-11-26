@@ -269,11 +269,20 @@ internal object LiveVoice {
         if (callBefore < 0) return@runCatching
         audio(a).setStreamVolume(android.media.AudioManager.STREAM_VOICE_CALL, callBefore, 0); callBefore = -1
     }.onFailure { Log.w(TAG, "volume: $it") }
-    /** The household's volume share (0..1) as the session's loudness: cubed, about how loudness is heard; 0 is silent. */
+    private fun mediaGain(share: Float): Double {
+        if (share <= 0f) return 0.0
+        val am = act?.let { audio(it) } ?: return share.toDouble().let { it * it * it }
+        val M = android.media.AudioManager.STREAM_MUSIC
+        val i = kotlin.math.round(share * am.getStreamMaxVolume(M)).toInt().coerceAtLeast(1)
+        val db = runCatching { am.getStreamVolumeDb(M, i, android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) }.getOrNull()?.takeIf { it.isFinite() } ?: return share.toDouble().let { it * it * it }
+        return Math.pow(10.0, (db + 6.0) / 20.0).coerceIn(0.0, 1.0)
+    }
+    /** The household's volume share (0..1) as the session's loudness: as music is at that volume (mediaGain); 0 is silent. */
     private fun setGain(share: Float) {
-        // About 8 dB over the cube (to at most full): music is mixed far louder than a voice, so at one volume Opie was
-        // much quieter than the music it had just paused (the user).
-        gain = share.toDouble().let { (it * it * it * 2.5).coerceAtMost(1.0) }
+        // As loud as music is at that volume: Android's own curve for the media volume (its decibels at this step), and
+        // 6 dB over it, at most full, as music is mixed far louder than a voice. (The cube of the share it was before
+        // fell much faster than Android's curve: at 2 of 15 Opie was at 0.6%, under music that was still loud.)
+        gain = mediaGain(share)
         Log.i(TAG, "volume: gain %.3f (share %.2f)".format(gain, share))
         web?.let { w -> main.post { w.evaluateJavascript("setGain($gain)", null) } }
     }
