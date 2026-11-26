@@ -258,6 +258,23 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     return voiceStatus(false);
   }
 
+  /** Whether the household's own key is in (the shell's /cloud/own; a hub's keeper through hub-shell.js): never the key. */
+  async function setOwn(on) {
+    if (on) write('own.json', { on: true, at: iso() }); else fs.rmSync(f('own.json'), { force: true });
+    // A key put in (a grown-up, with the PIN) is the household's yes to OpenAI on their own account: the voice comes on
+    // with it, and goes off with the key where there's no account to fall back on.
+    const v = read('voice.json') || {};
+    if (on && !v.on) write('voice.json', { ...v, on: true, provider: 'openai-live', vendor: 'OpenAI', at: iso() });
+    if (!on && !device() && v.on) write('voice.json', { ...v, on: false, at: iso() });
+    return { own: ownOn(), voice: await voiceStatus(false) };
+  }
+  /** Opie's voice on, in one of OpenAI's voices (a hub's setup: the tablet's CloudVoiceMenu does it there). */
+  async function voiceOn(name) {
+    const v = String(name || '').toLowerCase();
+    if (/^[a-z]{2,20}$/.test(v)) write('voice.json', { ...(read('voice.json') || {}), voiceName: v });
+    return voiceSet(true);
+  }
+
   function status() {
     const d = device(), s = state();
     return {
@@ -337,13 +354,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       case '/cloud/own': {
         if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the tablet only' }); return true; }
         if (typeof b.on !== 'boolean' || Object.keys(b).length !== 1) { json(res, 400, { error: 'on only' }); return true; }
-        if (b.on) write('own.json', { on: true, at: iso() }); else fs.rmSync(f('own.json'), { force: true });
-        // A key put in (a grown-up, with the PIN) is the household's yes to OpenAI on their own account: the voice comes on
-        // with it, and goes off with the key where there's no account to fall back on.
-        const v = read('voice.json') || {};
-        if (b.on && !v.on) write('voice.json', { ...v, on: true, provider: 'openai-live', vendor: 'OpenAI', at: iso() });
-        if (!b.on && !device() && v.on) write('voice.json', { ...v, on: false, at: iso() });
-        json(res, 200, { own: ownOn(), voice: await voiceStatus(false) }); return true;
+        json(res, 200, await setOwn(b.on)); return true;
       }
       case '/cloud/voice': await reply(res, () => voiceSet(!!b.on)); return true;
       // A household that set up its own tablet asks for Opie's voice (the service keeps the ask; its owner turns it on).
@@ -438,7 +449,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const revoked = () => { if (device()) return false; const s = state(); return s.unlinkedWhy === 'revoked' || !!s.unlinkedHere; };
   /** Which link this is (a relink is a new one). */
   const linkId = () => device()?.deviceId || null;
-  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { setOwn, voiceOn, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

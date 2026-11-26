@@ -28,7 +28,9 @@ import { eventStream } from './events.js';
 import { isTab, homePath } from './home-screen.js';
 import { builderRoutes } from './builder.js';
 import { putBackUnfinished } from './build-waits.js';
-import { screensRoutes } from './screens.js';
+import { screensRoutes, allowed, ADMIN_SCOPES } from './screens.js';
+import { keeperClient, hubAsks, hubSetup, hubShell, hubShellRoutes } from './hub-shell.js';
+import { useHubShell } from './shell-call.js';
 import { appsRoutes, onScreen, appAllowed, houseFor } from './apps.js';
 import { appFetch, reachMatches, recipeLinkRefused } from './app-web.js';
 import { pluginsRoutes } from './plugins.js';
@@ -344,6 +346,31 @@ const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });
 // The hub (hub.js, docs/hub.md): no tablet, its settings in a browser. Off on a tablet.
 const hub = isHub() ? hubRoutes({ DISPLAY, screens, json }) : null;
 hub?.start();
+// What the tablet's shell does for the bridge, on a hub (hub-shell.js): the keeper keeps the secrets, the settings
+// devices answer the cards and run the setup, which the hub's bridge drives itself.
+const hubShellR = (() => {
+  if (!hub) return null;
+  const keeper = keeperClient();
+  let r = null;
+  const asks = hubAsks({ hasPin: () => !!r?.hasPin(), pinOk: (p) => r.pinOk(p) });
+  r = hubShellRoutes({ keeper, asks, cloud, json, body });
+  r.keeperCall = keeper;
+  r.setup = hubSetup({ DISPLAY, household: () => chat.live.setupHousehold?.read?.() || {} });
+  useHubShell(hubShell({ keeper, asks, setup: r.setup, cloud }));
+  if (!keeper.there()) console.log('[hub] no keeper (OPENHOUSE_KEEPER): calendars, albums, an own OpenAI key and the PIN are off');
+  return r;
+})();
+/** A settings device's change that waits for the hub's PIN (once one is set): what only 'admin' reaches, but the cards,
+ *  what's kept, unlocking, and the setup while it's under way. */
+const hubLocked = (req, url) => {
+  const id = String(req.headers['x-openhouse-screen'] || '');
+  if (!hubShellR || !id || hubShellR.open(id)) return false;
+  const p = url.pathname, m = req.method;
+  if (!allowed(ADMIN_SCOPES, m, p) || allowed(ADMIN_SCOPES.filter((s) => s !== 'admin'), m, p)) return false;
+  if ((m === 'GET' && /^\/hub(\/keeper|\/asks)?$/.test(p)) || /^\/hub\/(unlock|asks\/answer)$/.test(p)) return false;
+  if (p.startsWith('/setup/') && hubShellR.setup.step()) return false;
+  return true;
+};
 
 /**
  * Who may talk to the bridge: the display's own code (no Origin header), its own pages, and the dev server's.
@@ -477,6 +504,9 @@ async function route(req, res, url) {
     // The setup phone or computer (screens.js scope 'setup'): a calendar or an album straight to the shell (trusted:
     // added with no card on the tablet unless its lock is on), and invites for the family.
     // Which step the tablet's setup shows: the setup phone or computer follows it (chat/src/phone.jsx SetupFlow).
+    if (hubLocked(req, url)) { json(res, 423, { error: 'Type the PIN first.', locked: true }); return true; }
+    if (hubShellR && url.pathname === '/setup/step' && req.method === 'GET') { json(res, 200, { step: hubShellR.setup.step() }); return true; } // a hub drives its own setup
+    if (hubShellR && url.pathname === '/setup/go' && req.method === 'POST') { hubShellR.setup.go((await body(req)).step); json(res, 200, { ok: true, step: hubShellR.setup.step() }); return true; }
     if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, chat.live.setupShown?.() || { step: null }); return true; }
     // The setup is done from the phone or computer (docs/onboarding.md): who lives here and where are typed there, and
     // its Next moves the tablet on (Setup.kt looks at /setup/want).
@@ -555,7 +585,10 @@ async function route(req, res, url) {
     }
     // A hub's settings device (screens.js 'admin'): what the tablet's Settings reach on its loopback.
     if (hub) {
+      // The hub's console only (its secret, never a device's): a lost PIN, forgotten with a new settings code (hub/owner-code.sh --forget-pin).
+      if (req.method === 'POST' && url.pathname === '/hub/forget-pin' && !req.headers['x-openhouse-screen']) { const r = await hubShellR.keeperCall('/pin/clear'); await hubShellR.refresh(); json(res, r.ok ? 200 : 503, r.body || {}); return true; }
       if (await hub(req, res, url)) return true;
+      if (url.pathname.startsWith('/hub/') && await hubShellR.handle(req, res, url, String(req.headers['x-openhouse-screen'] || ''))) return true;
       if (/^\/screens(\/|$)/.test(url.pathname) && await screens(req, res, url)) return true;
       if (/^\/(cloud|backup)\//.test(url.pathname)) { await (url.pathname.startsWith('/cloud/') ? cloud : backups).handle(req, res, url); return true; }
     }

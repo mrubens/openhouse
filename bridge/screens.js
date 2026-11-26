@@ -100,6 +100,10 @@ const RULES = [
   ['admin', 'POST', /^\/cloud\/(link\/start|link\/confirm|link\/cancel|unlink|voice|voice\/name)$/],
   ['admin', 'POST', /^\/backup\/(dest|now|restore|escrow|recovery-code\/confirmed)$/],
   ['admin', 'POST', /^\/(relay|hub\/update|webmcp)$/], ['admin', 'GET', /^\/webmcp$/], // the connector at the household's own address (web-mcp.js)
+  // On a hub the settings device is also the setup's (hub-shell.js drives the steps), answers the "Is this OK?" cards,
+  // keeps the PIN and the household's own OpenAI key (in the keeper, hub/keeper.mjs: never here).
+  ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|pin|voice)$/],
+  ['admin', 'GET', /^\/hub\/(asks|keeper|calendars)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove)$/],
 ];
 // door: see the home screen and the house (read only). The name is from before and stays: paired screens hold it.
 export const SCOPES = ['door', 'arrange', 'ask', 'voice', 'workshop', 'notify', 'setup', 'admin'];

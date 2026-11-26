@@ -15,8 +15,10 @@ services:
     network_mode: host
     volumes:
       - ./data:/data          # the household's things, the bridge's state
+      - ./keeper:/keeper      # the keeper's sealed links, key and PIN (hub/keeper.mjs): never in a backup
       - ./backups:/backups    # encrypted backups (point it at a USB drive or a share)
     environment:
       TZ: ${TZ:-UTC}
+      OPENHOUSE_KEEPER_DIR: /keeper
       # HUB_TLS_CERT: /data/tls/cert.pem   # https on the home network, for live voice in phone browsers
       # HUB_TLS_KEY: /data/tls/key.pem

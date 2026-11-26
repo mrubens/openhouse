@@ -52,6 +52,7 @@ cat > "$PLIST" <<PL
   <key>EnvironmentVariables</key>
   <dict>
     <key>OPENHOUSE_DATA</key><string>$DATA</string>
+    <key>OPENHOUSE_KEEPER_DIR</key><string>$HOME/Library/Application Support/OpenHouse Keeper</string>
     <key>OPENHOUSE_CODE_DIR</key><string>$CODE</string>
     <key>OPENHOUSE_INSTALL</key><string>git</string>
     <key>PATH</key><string>$NODE/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>

@@ -8,11 +8,15 @@ export const shellCfg = (file = process.env.DEVICE_MCP_CONFIG) => {
   try { const d = JSON.parse(fs.readFileSync(file, 'utf8')).mcpServers.device; return { base: d.url.replace(/\/mcp$/, ''), auth: d.headers.Authorization }; } catch { return null; }
 };
 
-/** POST b to the shell's path p. Resolves null when there's no shell here, else { ok, status, body }: status 0 when it
+// A hub has no shell: its keeper and its settings devices do the shell's part (hub-shell.js), set here by server.js.
+let hubShell = null;
+export const useHubShell = (f) => { hubShell = f; };
+
+/** POST b to the shell's path p (on a hub, to what stands in for it). Resolves null when there's no shell here, else { ok, status, body }: status 0 when it
  *  didn't answer (in ms), body null when what it sent isn't JSON. Never rejects. */
 export async function toShell(p, b, { ms = 3000, file } = {}) {
   const s = shellCfg(file);
-  if (!s) return null;
+  if (!s) return hubShell ? hubShell(p, b ?? {}).catch(() => ({ ok: false, status: 0, body: null })) : null;
   try {
     const r = await fetch(s.base + p, { method: 'POST', headers: { authorization: s.auth, 'content-type': 'application/json' }, body: JSON.stringify(b), signal: AbortSignal.timeout(ms) });
     let body = null; try { body = await r.json(); } catch {}

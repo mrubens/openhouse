@@ -12,6 +12,8 @@ services:
       # - "8789:8789"        # the connector at your own https address (web-mcp.js), behind a tunnel
     volumes:
       - ./data:/data
+      - ./keeper:/keeper
       - ./backups:/backups
     environment:
+      OPENHOUSE_KEEPER_DIR: /keeper
       TZ: ${TZ:-UTC}

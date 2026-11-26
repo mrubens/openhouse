@@ -29,6 +29,8 @@ id openhouse >/dev/null 2>&1 || useradd --system --home-dir "$DATA" --shell /usr
 # The USB microphone, for later (the wake word on the hub, docs/hub.md), and the network's devices need nothing more.
 getent group audio >/dev/null && usermod -aG audio openhouse || true
 mkdir -p "$DATA" && chown openhouse:openhouse "$DATA" && chmod 750 "$DATA"
+# The keeper's folder (hub/keeper.mjs): beside the data folder, never inside it or in a backup.
+mkdir -p "$DATA-keeper" && chown openhouse:openhouse "$DATA-keeper" && chmod 700 "$DATA-keeper"
 if [ -d "$CODE/.git" ]; then echo "(keeping the checkout in $CODE)"; else
   rm -rf "$CODE"; git clone --branch "$BRANCH" "$REPO" "$CODE"
 fi

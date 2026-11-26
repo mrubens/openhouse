@@ -9,6 +9,7 @@
 #   OPENHOUSE_BACKUP_DIR  where backups go (default: /backups if it exists, else <data>/backups)
 #   HUB_TLS_CERT, HUB_TLS_KEY  serve the home network on https (for live voice in phone browsers)
 #   PORT, VITE_PORT, SCREENS_PORT  the bridge (8787) and apps' server (5173) on loopback, the home network's (8788)
+#   OPENHOUSE_KEEPER_DIR, KEEPER_PORT  the keeper's folder (default <data>-keeper) and loopback port (default PORT+3)
 set -euo pipefail
 C=${OPENHOUSE_CODE_DIR:-$(cd "$(dirname "$0")/.." && pwd)}
 D=${OPENHOUSE_DATA:-/data}
@@ -39,17 +40,27 @@ export PORT=${PORT:-8787} VITE_PORT=${VITE_PORT:-5173}
 export OPENHOUSE_HUB=1 OPENHOUSE_CODE_DIR="$C" DEFAULTS_DIR="$C/defaults" OPENHOUSE_TOKEN_FILE="$D/.bridge-token"
 if [ -z "${OPENHOUSE_BACKUP_DIR:-}" ]; then if [ -d /backups ]; then export OPENHOUSE_BACKUP_DIR=/backups; else export OPENHOUSE_BACKUP_DIR="$D/backups"; fi; fi
 
+# The keeper (hub/keeper.mjs): the calendar and album links, the household's own OpenAI key and the PIN, sealed, in a
+# folder of its own beside the data folder (never inside it, where the assistant's tools and backups reach), run from
+# the code rather than the data folder's copy. A new token each start, for the bridge alone.
+export OPENHOUSE_KEEPER_DIR=${OPENHOUSE_KEEPER_DIR:-${D%/}-keeper}
+KEEPER_PORT=${KEEPER_PORT:-$((PORT + 3))}
+export OPENHOUSE_KEEPER="http://127.0.0.1:$KEEPER_PORT"
+export OPENHOUSE_KEEPER_TOKEN=$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64url'))")
+(KEEPER_PORT=$KEEPER_PORT BRIDGE_URL="http://127.0.0.1:$PORT" OPENHOUSE_DATA="$D" exec node "$C/hub/keeper.mjs" >> keeper.log 2>&1) &
+KEEPER=$!
+
 (cd webapp && exec node node_modules/vite/bin/vite.js --config ../vite.config.mjs --host 127.0.0.1 --port $VITE_PORT --strictPort >> ../vite.log 2>&1) &
 VITE=$!
 # The log through tee without a pipeline, so the subshell becomes node and $! is the bridge itself (a pipeline would
 # leave $! a shell, and stopping it would leave node running).
 (cd bridge && exec node server.js > >(tee -a ../bridge.log) 2>&1) &
 BRIDGE=$!
-trap 'kill $VITE $BRIDGE 2>/dev/null; exit 0' TERM INT
+trap 'kill $VITE $BRIDGE $KEEPER 2>/dev/null; exit 0' TERM INT
 # Either one stopping stops the hub: Docker's restart policy, systemd or launchd starts it again (a restore, an update,
 # a crash). Polled rather than `wait -n`, which the Mac's own bash (3.2) doesn't have.
-while kill -0 $VITE 2>/dev/null && kill -0 $BRIDGE 2>/dev/null; do sleep 2; done
+while kill -0 $VITE 2>/dev/null && kill -0 $BRIDGE 2>/dev/null && kill -0 $KEEPER 2>/dev/null; do sleep 2; done
 echo "$(date '+%F %T') hub stopping"
-kill $VITE $BRIDGE 2>/dev/null || true
+kill $VITE $BRIDGE $KEEPER 2>/dev/null || true
 wait || true
 exit 1
