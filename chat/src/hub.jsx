@@ -204,6 +204,7 @@ function Updates({ c, onRemoved }) {
     <section>
       <h2>This hub</h2>
       <p>Version {h.version}{h.https ? ' · https' : ''}</p>
+      {h.back && !h.updating && <button className="plain" onClick={async () => { if (!confirm('Go back to the version before the last update? The hub restarts.')) return; const r = await c.json('POST', '/hub/update', { back: true }); setMsg(r.json?.ok ? 'Going back. This page comes back by itself.' : r.json?.error || 'That didn\'t work.'); setTimeout(reload, 15e3); }}>Go back to the version before</button>}
       {h.update?.how === 'git' ? <button className="pill" disabled={!!h.updating && !h.updating.failed} onClick={async () => { const r = await c.json('POST', '/hub/update', {}); setMsg(r.json?.ok ? 'Updating. The hub restarts when it has the new version; this page comes back by itself.' : r.json?.error || 'That didn\'t work.'); setTimeout(reload, 15e3); }}>Update now</button>
         : h.update?.how === 'image' ? <p className="soft small">It runs from a Docker image: update it where it runs, with <code>{h.update.command}</code>.</p> : null}
       {h.updating?.failed && <p className="soft">The last update didn't finish: see update.log in the hub's data folder.</p>}

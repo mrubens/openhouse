@@ -344,7 +344,7 @@ const workshop = workshopRoutes({ HERE, APP_DIR, homeScreen: chat.homeScreen, ed
 // (a Tailscale Funnel, a tunnel), off until someone turns it on (web-mcp.js, docs/web-chat-building.md).
 const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });
 // The hub (hub.js, docs/hub.md): no tablet, its settings in a browser. Off on a tablet.
-const hub = isHub() ? hubRoutes({ DISPLAY, screens, json }) : null;
+const hub = isHub() ? hubRoutes({ DISPLAY, screens, json, body }) : null;
 hub?.start();
 // What the tablet's shell does for the bridge, on a hub (hub-shell.js): the keeper keeps the secrets, the settings
 // devices answer the cards and run the setup, which the hub's bridge drives itself.

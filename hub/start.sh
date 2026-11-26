@@ -60,8 +60,18 @@ BRIDGE=$!
 trap 'kill $VITE $BRIDGE $KEEPER 2>/dev/null; exit 0' TERM INT
 # Either one stopping stops the hub: Docker's restart policy, systemd or launchd starts it again (a restore, an update,
 # a crash). Polled rather than `wait -n`, which the Mac's own bash (3.2) doesn't have.
+STARTED=$(date +%s)
+( sleep 120; rm -f "$(git -C "$C" rev-parse --absolute-git-dir 2>/dev/null)/opie-updated" ) & # still running two minutes after an update: it's good
 while kill -0 $VITE 2>/dev/null && kill -0 $BRIDGE 2>/dev/null && kill -0 $KEEPER 2>/dev/null; do sleep 2; done
 echo "$(date '+%F %T') hub stopping"
 kill $VITE $BRIDGE $KEEPER 2>/dev/null || true
-wait || true
+wait $VITE $BRIDGE $KEEPER 2>/dev/null || true
+# A bad update (hub/update.sh): the new version stopped within a minute of its first start after updating, so the one
+# before comes back, once; the supervisor (systemd, launchd) then starts that.
+G=$(git -C "$C" rev-parse --absolute-git-dir 2>/dev/null || echo "$C/.git")
+if [ -f "$G/opie-updated" ] && [ -s "$G/opie-previous" ] && [ $(( $(date +%s) - STARTED )) -lt 60 ]; then
+  rm -f "$G/opie-updated"
+  echo "$(date '+%F %T') the new version stopped at once: going back"
+  bash "$C/hub/update.sh" --back >> update.log 2>&1 || true
+fi
 exit 1
