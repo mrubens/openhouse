@@ -5,7 +5,7 @@ Beside it, the wordmark is "Opie" in the page's own type (semibold, slightly tig
 
 | File | What it is | Where it's used |
 | --- | --- | --- |
-| `logo.svg` | The app icon: the house on its rounded square | Same as `chat/phone-icon.svg` (the phone page and its manifest); the iPhone app's icon is its rendering (`ios/App/Assets.xcassets/AppIcon.appiconset`) |
+| `logo.svg` | The app icon: the house on its rounded square | Same as `chat/phone-icon.svg` (the phone page and its manifest); the iPhone app's icon is `logo-square.svg`'s rendering (`ios/App/Assets.xcassets/AppIcon.appiconset`, by `render.py`) |
 | `mark.svg` | The house alone, `currentColor`, cropped to the house | Inline beside the wordmark: the website's header, the cloud's pages |
 | `logo-square.svg` | The house on a full-bleed square | Source for `apple-touch-icon.png` and `maskable-512.png` (the house already sits inside the maskable safe circle) |
 | `favicon.svg` | The house with a heavier line | Source for the 16 and 32 px renders and `favicon.ico`, so it holds at tab size |

@@ -48,13 +48,14 @@ def main():
     img.resize((48, 48), Image.LANCZOS).save(os.path.join(HERE, 'favicon.ico'), sizes=[(16, 16), (32, 32), (48, 48)])
     os.remove(small)
 
-    # Full-bleed square: apple-touch-icon (iOS rounds it itself) and the maskable manifest icon (the house already sits
-    # inside the maskable safe circle).
+    # Full-bleed square: apple-touch-icon and the iPhone app's icon (iOS rounds both itself; no transparency), and the
+    # maskable manifest icon (the house already sits inside the maskable safe circle).
     sq = os.path.join(HERE, 'square-1024.tmp.png')
     shoot(page(svg('logo-square.svg'), 1024, 1024), 1024, 1024, sq)
     img = Image.open(sq).convert('RGB')
     img.resize((180, 180), Image.LANCZOS).save(os.path.join(HERE, 'apple-touch-icon.png'), optimize=True)
     img.resize((512, 512), Image.LANCZOS).save(os.path.join(HERE, 'maskable-512.png'), optimize=True)
+    img.save(os.path.join(HERE, '..', 'ios', 'App', 'Assets.xcassets', 'AppIcon.appiconset', 'icon.png'), optimize=True)
     os.remove(sq)
 
     # The link preview: the logo and the wordmark on the site's page colour, in the site's type.
