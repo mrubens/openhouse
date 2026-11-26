@@ -340,7 +340,6 @@ function SetupFlow({ me, c, h, onDone }) {
         <p>{step === 'devices' ? 'Starting…' : 'Now at the tablet: it shows what to do. This page follows along.'}</p>
       </>}
       <div className="setuprow">
-        <button className="quiet" onClick={onDone}>Go to Opie</button>
         <span className="grow" />
         {/* The steps sent from here move the tablet on from here too (the tablet's own Next works as well). */}
         {AFTER[step] && <button className="go small" onClick={() => c.json('POST', '/setup/go', { step: AFTER[step] }).catch(() => {})}>Next</button>}
@@ -485,7 +484,7 @@ function SetupPeople({ c }) {
   return <>
     <h1>Who lives here?</h1>
     <p>Names, and a birth year or a role if you like (“2017”, “Mom”, “the dog”). Opie uses them to know who’s who.</p>
-    {rows.map((r, i) => <div key={i} className="setuprow">
+    {rows.map((r, i) => <div key={i} className="personrow">
       <input value={r.name} onChange={(e) => set(i, 'name', e.target.value)} placeholder="Name" autoCapitalize="words" autoComplete="off" />
       <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="Born or role" autoComplete="off" style={{ maxWidth: '9em' }} />
     </div>)}
