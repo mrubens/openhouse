@@ -98,6 +98,7 @@ internal fun SettingsSheet() {
                     SettingsRow("Time", vals["time"], locked, shell("time"))
                     SettingsRow("Email", vals["email"], locked, shell("email"))
                     SettingsRow("Account", vals["account"], locked, shell("account"))
+                    SettingsRow("Updates", vals["updates"], onClick = shell("updates"))
                     SettingsRow("Advanced", null, locked, shell("tablet"))
                 }
             }

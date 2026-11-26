@@ -271,6 +271,9 @@ class CalmDialog(private val c: Context) {
     fun setMessage(t: CharSequence?) = apply { message = t }
     fun setView(v: View) = apply { view = v }
     fun setWidth(u: Float) = apply { widthU = u }
+    /** A list laid out as Settings' own (ui/Sheets.kt SettingsSheet, SettingsRow): its width, padding, rows and type. */
+    private var settingsLook = false
+    fun setSettingsLook() = apply { settingsLook = true; widthU = 640f }
     /** Details that don't change the decision, behind a "More" (docs/ux.md). */
     fun setMore(t: CharSequence?) = apply { more = t?.takeIf { it.isNotBlank() } }
     /** What it may do, as a scannable list of (kind, words) ([Calm.rights]). Always shown. */
@@ -300,8 +303,10 @@ class CalmDialog(private val c: Context) {
         val screenH = c.resources.displayMetrics.let { minOf(it.widthPixels, it.heightPixels) }
         val card = Calm.column(c).apply {
             background = Calm.rounded(Calm.SHEET, Calm.R_SHEET * u); elevation = 10 * u
-            setPadding(Calm.px(c, 44), Calm.px(c, 40), Calm.px(c, 44), Calm.px(c, 28))
+            if (settingsLook) setPadding(Calm.px(c, 36), Calm.px(c, 30), Calm.px(c, 36), Calm.px(c, 30))
+            else setPadding(Calm.px(c, 44), Calm.px(c, 40), Calm.px(c, 44), Calm.px(c, 28))
         }
+        val inset = if (settingsLook) 12 else 16 // (a row's own padding, so its words line up with the title)
         title?.let { card.addView(Calm.title(c, it)) }
         message?.let { card.addView(Calm.text(c, it, Calm.BODY, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, if (title != null) 12 else 0), 0, 0) }.also { v -> messageView = v }) }
         rights?.let { r -> card.addView(Calm.Capped(c, (screenH * .42f).toInt()).apply { addView(Calm.rights(c, r)); isVerticalScrollBarEnabled = false },
@@ -314,13 +319,14 @@ class CalmDialog(private val c: Context) {
             val col = Calm.column(c)
             list.forEachIndexed { i, r ->
                 if (r.header) {
-                    col.addView(Calm.eyebrow(c, r.title).apply { setPadding(Calm.px(c, 16), Calm.px(c, if (i == 0) 4 else 28), 0, Calm.px(c, 8)) })
+                    col.addView(Calm.eyebrow(c, r.title).apply { setPadding(Calm.px(c, inset), Calm.px(c, if (i == 0) 4 else if (settingsLook) 20 else 28), 0, Calm.px(c, if (settingsLook) 4 else 8)) })
                     return@forEachIndexed
                 }
                 val line = Calm.row(c).apply {
                     val rr = 16 * u
                     background = Calm.pressable(c, Calm.rounded(0x00FFFFFF, rr), rr); isClickable = true
-                    minimumHeight = Calm.px(c, 72); setPadding(Calm.px(c, 16), Calm.px(c, 14), Calm.px(c, 16), Calm.px(c, 14))
+                    if (settingsLook) setPadding(Calm.px(c, 12), Calm.px(c, 15), Calm.px(c, 12), Calm.px(c, 15))
+                    else { minimumHeight = Calm.px(c, 72); setPadding(Calm.px(c, 16), Calm.px(c, 14), Calm.px(c, 16), Calm.px(c, 14)) }
                     r.image?.let { b -> // a picture (a plugin's preview), rounded, before the words
                         addView(android.widget.ImageView(c).apply {
                             setImageBitmap(b); scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
@@ -328,10 +334,10 @@ class CalmDialog(private val c: Context) {
                         }, LinearLayout.LayoutParams(Calm.px(c, 112), Calm.px(c, 76)).apply { rightMargin = Calm.px(c, 20) })
                     }
                     addView(Calm.column(c, 4).apply {
-                        addView(Calm.text(c, r.title, 22f, 500))
+                        addView(Calm.text(c, r.title, if (settingsLook) 21f else 22f, 500).apply { if (settingsLook) { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END } })
                         r.detail?.let { addView(Calm.text(c, it, 17f, 400, Calm.SOFT)) }
                     }, LinearLayout.LayoutParams(0, -2, 1f))
-                    r.value?.let { addView(Calm.text(c, it, 19f, 400, Calm.SOFT), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = Calm.px(c, 16) }) }
+                    r.value?.let { addView(Calm.text(c, it, if (settingsLook) 18f else 19f, 400, Calm.SOFT).apply { if (settingsLook) { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = Calm.px(c, 240) } }, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = Calm.px(c, if (settingsLook) 10 else 16) }) }
                     if (checked >= 0) addView(View(c).apply {
                         background = if (i == checked) GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Calm.INK) }
                             else GradientDrawable().apply { shape = GradientDrawable.OVAL; setStroke(Calm.px(c, 2), Calm.TINT2) }
@@ -341,7 +347,7 @@ class CalmDialog(private val c: Context) {
                 col.addView(line, LinearLayout.LayoutParams(-1, -2))
             }
             card.addView(Calm.Capped(c, (screenH * .62f).toInt()).apply { addView(col); isVerticalScrollBarEnabled = false },
-                LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 18); leftMargin = -Calm.px(c, 16); rightMargin = -Calm.px(c, 16) })
+                LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, if (settingsLook) 10 else 18); leftMargin = -Calm.px(c, inset); rightMargin = -Calm.px(c, inset) })
         }
         more?.let { card.addView(Calm.more(c, it), LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 8) }) }
         if (positive != null || negative != null || neutral != null) {
@@ -356,7 +362,7 @@ class CalmDialog(private val c: Context) {
                     .also { if (forPerson) byHand = PersonCards.yesOnlyByHand(it) })
             }
             card.addView(bar, LinearLayout.LayoutParams(-1, -2))
-        } else card.setPadding(card.paddingLeft, card.paddingTop, card.paddingRight, Calm.px(c, 40))
+        } else card.setPadding(card.paddingLeft, card.paddingTop, card.paddingRight, Calm.px(c, if (settingsLook) 30 else 40))
 
         val holder = FrameLayout(c).apply { addView(card, FrameLayout.LayoutParams(Calm.px(c, widthU), -2, Gravity.CENTER)) }
         d.setContentView(holder)

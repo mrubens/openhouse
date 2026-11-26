@@ -17,7 +17,7 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 | What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
 | Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add and Remove |
 | Account | the family's name, or Off | link or unlink, Backups (the cloud or a USB drive), reach from away | yes |
-| Advanced | | Lock and updates (PIN Lock, PIN recovery code, Updates, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
+| Advanced | | Lock (PIN Lock, PIN recovery code, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
 
 Voice can also be turned on in the first setup's last step, **Talk to Opie** (docs/onboarding.md): the same voices and
 the same line about OpenAI, a person's tap behind the PIN when the lock is on. The setup before it is quiet (no
@@ -73,7 +73,7 @@ The old Grown-ups menu (shell/ParentMenu.kt, now shell/SettingsLock.kt):
 - Microphone and device control: **split**. Microphone is merged into Hey Opie: with the assistant button gone, a
   microphone that is on with Hey Opie off listened for nothing, so one switch does both. Device control moved
   into This tablet.
-- Updates: kept, locked, shows the version.
+- Updates: its own row in the main list, not locked (seeing the version and getting ours is everyone's), shows the version.
 - This tablet: kept, locked, shorter:
   - Change the parent PIN: now the **Lock** row.
   - Use fingerprint: **cut** (later round).
@@ -137,7 +137,7 @@ start` and `/poll`, the shell's own: a paired device's call is refused); the she
 the answer. The code's card is a person card with the PIN pad's mark, so Opie's screen tools neither read it nor act
 while it's up, and the new PIN is typed on the pad as any other.
 
-Locked rows: Voice, Screens and computers, Account, Backups, Plugins, Updates, This tablet, and Calendars. Not locked: what a household uses every day (Hey Opie, the voice, Family's names
+Locked rows: Voice, Screens and computers, Account, Backups, Plugins, This tablet, and Calendars. Not locked: what a household uses every day (Hey Opie, the voice, Family's names
 and chores, night hours, devices, looking after things, putting things back).
 
 A PIN set over adb (ConfigReceiver `--es pin`) turns the lock on the same way; an empty one turns it off.

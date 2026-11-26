@@ -50,6 +50,7 @@ internal class SettingsLock(private val act: MainActivity) {
             "email" -> withPin { EmailMenu(act).show() }
             "lock" -> if (on) turnOff() else turnOn()
             "tablet" -> withPin { tablet() }
+            "updates" -> updates() // (no PIN: seeing the version and getting ours is everyone's)
             "nowplaying" -> if (!Media.listening(act)) withPinSet(back = {}) { nowPlaying() } // Home's Now playing card
             "memory" -> memory()
             "brightness" -> Brightness.choose(act, act::immersive) { Openhouse.settingsChanged() }
@@ -155,6 +156,7 @@ internal class SettingsLock(private val act: MainActivity) {
         syncCalendar()
         val m = mutableMapOf<String, String>()
         m["lock"] = if (on) "On" else "Off"
+        m["updates"] = Updater.installedVersion(act)
         m["brightness"] = Brightness.label(act)
         m["time"] = Clock.label(act)
         m["albums"] = count(runCatching { PhotoAlbums.list().size }.getOrDefault(0)) // the setup's progress (ui/Setup.kt)
@@ -260,7 +262,7 @@ internal class SettingsLock(private val act: MainActivity) {
 
     /** The version, check now, and install what's ready. */
     private fun updates() {
-        val c = CalmDialog(act).setTitle("Version ${Updater.installedVersion(act)}").setMessage("Checking…").setNegativeButton("Back") { _, _ -> tablet() }
+        val c = CalmDialog(act).setTitle("Version ${Updater.installedVersion(act)}").setMessage("Checking…").setNegativeButton("Done", null)
         val d = c.show()
         Updater.checkNow(act, install = false) { st ->
             act.runOnUiThread {
@@ -307,7 +309,6 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("PIN recovery code", value = if (ParentPin.hasRecovery(act)) null else "None") to person("PIN recovery code") { newCode() },
             CalmDialog.Row("Calendar needs the PIN", value = onOff(House.calendarLock)) to { withPin { setCalendarLock(!House.calendarLock); again() } },
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            CalmDialog.Row("Updates", value = Updater.installedVersion(act)) to { updates() },
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
             head("Opie"),
             CalmDialog.Row("Device control", value = onOff(deviceOn)) to person("Device control") {
@@ -345,7 +346,7 @@ internal class SettingsLock(private val act: MainActivity) {
             // Kiosk mode blocks Android's own factory reset, so this is the way to hand a tablet on (docs/beta.md).
             CalmDialog.Row("Erase this tablet") to person("Erase this tablet") { withPinSet { erase() } },
         )
-        CalmDialog(act).setTitle("Advanced").setWidth(760f).setRows(items.map { it.first }) { _, i -> items[i].second() }
+        CalmDialog(act).setTitle("Advanced").setSettingsLook().setRows(items.map { it.first }) { _, i -> items[i].second() }
             .setNegativeButton("Back", null).show()
     }
 }

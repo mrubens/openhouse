@@ -101,7 +101,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Brightness | **new** | tablet_screen (Settings' row has no PIN) |
 | Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
 | Account: link, backups, reach from away | screen, with the PIN | Opie opens the row; the tablet asks for the PIN. The yes to the account that entered the code is personOnly |
-| Advanced: Updates, home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
+| Updates (Settings, no PIN); Advanced: home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
 | Advanced: PIN Lock, leave kiosk mode, erase this tablet | no, on purpose | Opie only opens the screen (above); with no PIN set, erase and the ways out (Wi-Fi settings after the first setup, Unlink, Restore too) ask a person to set one first, which outside the first setup needs the tablet linked to an account |
 | Join Wi-Fi (the "Not on Wi-Fi" note): a nearby network and its password, no PIN | no, on purpose | It's for a tablet that's offline, when Opie (the cloud's) can't be reached. Its Wi-Fi settings button is a way out, as above |
 | The PIN's recovery code: shown when a PIN is chosen, Forgot PIN?, PIN recovery code | no, on purpose | Like the PIN: only a person sees or types it. Its card and box count as a PIN pad (nothing Opie does lands while they're up) and "I've kept it" takes a real finger. Opie can open the PIN pad; Forgot PIN? is the person's |
