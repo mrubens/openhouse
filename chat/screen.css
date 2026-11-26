@@ -498,7 +498,7 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .ambient-day { font-size: calc(var(--u) * 14); font-weight: 650; letter-spacing: .13em; text-transform: uppercase; opacity: .68; }
 .ambient-next h2 { margin: calc(var(--u) * 8) 0 calc(var(--u) * 6); font-size: calc(var(--u) * 46); font-weight: 700; letter-spacing: -.03em; line-height: 1; padding-bottom: .08em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ambient-next .t { font-size: calc(var(--u) * 24); font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ambient-rows { min-width: 0; display: grid; grid-template-columns: minmax(calc(var(--u) * 110), max-content) calc(var(--u) * 38) minmax(0, 1fr); } /* the first column as wide as its longest label ("School lunch"), for every row */
+.ambient-rows { min-width: 0; display: grid; grid-template-columns: minmax(calc(var(--u) * 110), max-content) max-content minmax(0, 1fr); } /* the first column as wide as its longest label ("School lunch"), for every row */
 .ambient-rows > * { grid-column: 1 / -1; }
 .ambient-rows > .ambient-day { padding: calc(var(--u) * 8) calc(var(--u) * 16) calc(var(--u) * 4); }
 .ambient-r { display: grid; grid-template-columns: subgrid; align-items: center; column-gap: calc(var(--u) * 12); padding: calc(var(--u) * 12) calc(var(--u) * 16); font-size: calc(var(--u) * 25); font-weight: 600; letter-spacing: -.015em; white-space: nowrap; }
@@ -507,7 +507,7 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .ambient-r > span:last-child { overflow: hidden; text-overflow: ellipsis; }
 .ambient-r.one { grid-template-columns: minmax(0, 1fr); }
 .ambient-av { font-style: normal; width: calc(var(--u) * 38); height: calc(var(--u) * 38); border-radius: 50%; display: grid; place-items: center; font-size: calc(var(--u) * 17); font-weight: 750; color: #15132b; background: rgba(255,255,255,.16); }
-.ambient-av.none { color: #fff; }
+.ambient-av.none { width: 0; background: none; }
 .ambient-av svg { width: 54%; height: 54%; }
 
 /* reminders due now, on a screen that isn't the display */

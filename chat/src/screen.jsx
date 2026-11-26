@@ -756,7 +756,7 @@ function Ambient({ c, house, apps, board, timers, weather }) {
   // What's next on its own card (its day above it when that's tomorrow), then a line each: the events after it, what
   // they're counting down to, timers. A line is its time or label, a round mark, the words.
   const rest = coming.slice(1), initial = (e) => (isPerson(e.who) ? e.who.trim()[0].toUpperCase() : '');
-  const Mark = ({ e }) => { const bg = e && eventPaint(house, e); return bg ? <i className="ambient-av" style={{ background: bg }}>{initial(e)}</i> : <i className="ambient-av none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg></i>; };
+  const Mark = ({ e }) => { const bg = e && eventPaint(house, e); return bg ? <i className="ambient-av" style={{ background: bg }}>{initial(e)}</i> : <i className="ambient-av none" />; }; // nobody's: no mark (the words line up with the others')
   const mins = next && !tmr ? Math.round((Date.parse(next.start) - now) / 60e3) : null;
   const lines = [
     ...allDay.map((x) => ({ k: 'a' + x, one: x })),
