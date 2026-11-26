@@ -13,7 +13,8 @@ lunch on the calendar". It writes the app and you watch it appear on the tablet.
 
 ![The Today tab on a tablet](docs/home-today.jpg)
 
-This repo is everything that runs in the home. It's MIT licensed. Ready-made tablets and the hosted service are at
+This repo is everything that runs in the home. It's MIT licensed. You set it up on a tablet you buy yourself: the
+[tablets we've tested](docs/tablets.md) and [the setup guide](docs/setup.md). The hosted service is at
 [opie.house](https://opie.house).
 
 ## What's on it

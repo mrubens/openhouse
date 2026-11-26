@@ -62,6 +62,10 @@ Use the same room and the same spot on the counter, and run each test on both ta
 
 ## What it means for "a tablet from us" ($399)
 
+**Replaced on 2026-11-26.** Opie doesn't sell tablets for now. A household buys one from [the list](tablets.md) and
+sets it up itself with [the guide](setup.md); a few get one set up by hand. The website no longer shows a tablet or a
+price. What follows is the $399 plan as it stood, kept for the record.
+
 The landing page sells a set-up tablet at $399 with the first year of the cloud included.
 
 - **On the S10 FE**, the tablet alone is $363 on sale and $500 at list. At list price we lose money before shipping, setup time or the cloud year. At $399 the S10 FE only works when it's on sale.
