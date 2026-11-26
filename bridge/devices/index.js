@@ -631,10 +631,12 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   async function spotifyFirst(app, query, focus) {
     if (!finder || !query) return null;
     const st = await shell('/media', { do: 'status' }, 8000);
-    if (!st?.spotifyPlayer?.signedIn) return null;
+    if (!st?.spotifyPlayer) return null; // (a shell without the player)
     const a = String(app || '').trim().toLowerCase(), names = (st.apps || []).map((x) => String(x.name).toLowerCase());
     // Spotify named, or no app named and Spotify is the one they last played from (or the only way the tablet has)
     if (a ? a !== 'spotify' : !(st.last ? String(st.last).toLowerCase() === 'spotify' : !names.some((n) => n !== 'spotify'))) return null;
+    // Spotify plays only in its player on Home, which needs its sign-in (the user): never its app.
+    if (!st.spotifyPlayer.signedIn) return { error: 'Spotify plays on the tablet once someone signs in to it there. Offer to put the sign-in on the screen (spotify_sign_in); they type it themselves.' };
     // Signed in, Spotify plays in its player on Home only, never its app (the user): what isn't found is said so.
     const notFound = { error: "Couldn't find that on Spotify. Say so, and ask how else they'd put it." };
     let found = null; try { found = await spotifyLink(query, focus); } catch (e) { console.warn('[music] spotify search:', e.message); return { error: "Couldn't search Spotify just now." }; }
