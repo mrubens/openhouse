@@ -217,7 +217,7 @@ internal object LiveVoice {
     // reference, LIVE_CALL_SHARE of its range: about as loud as media at full) and the page scales the session's audio by
     // the household's volume, the media stream's share, on a curve so the low steps are really quiet and 0 is silent.
     // The volume keys turn the media stream as always (MainActivity.dispatchKeyEvent sends them here), and the page follows.
-    private const val LIVE_CALL_SHARE = 0.5f
+    private const val LIVE_CALL_SHARE = 1f // (the call stream at full, the session's gain under it: at half, Opie at its loudest was under music at 2 of 15)
     /** Android's audio mode (normal, call...) as it changes during a session, for the log: a change can cut off a moment of sound. */
     private var modeListener: Any? = null
     private fun watchMode(a: MainActivity, on: Boolean) = runCatching {
@@ -274,13 +274,18 @@ internal object LiveVoice {
         val am = act?.let { audio(it) } ?: return share.toDouble().let { it * it * it }
         val M = android.media.AudioManager.STREAM_MUSIC
         val i = kotlin.math.round(share * am.getStreamMaxVolume(M)).toInt().coerceAtLeast(1)
-        val db = runCatching { am.getStreamVolumeDb(M, i, android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) }.getOrNull()?.takeIf { it.isFinite() } ?: return share.toDouble().let { it * it * it }
-        return Math.pow(10.0, (db + 6.0) / 20.0).coerceIn(0.0, 1.0)
+        // Android's decibels for that step, when the tablet gives believable ones (falling below full); a Samsung tablet
+        // gives none, and its own media curve is flat (2 of 15 still about -20 dB), so that's the stand-in: -26 dB at the
+        // bottom to 0 at the top.
+        val max = am.getStreamMaxVolume(M)
+        val db = runCatching { am.getStreamVolumeDb(M, i, android.media.AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) }.getOrNull()
+            ?.takeIf { it.isFinite() && (i >= max || it < -1f) }?.toDouble() ?: (-26.0 * (1 - i.toDouble() / max))
+        return Math.pow(10.0, (db + 8.0) / 20.0).coerceIn(0.0, 1.0)
     }
     /** The household's volume share (0..1) as the session's loudness: as music is at that volume (mediaGain); 0 is silent. */
     private fun setGain(share: Float) {
         // As loud as music is at that volume: Android's own curve for the media volume (its decibels at this step), and
-        // 6 dB over it, at most full, as music is mixed far louder than a voice. (The cube of the share it was before
+        // 8 dB over it, at most full, as music is mixed far louder than a voice. (The cube of the share it was before
         // fell much faster than Android's curve: at 2 of 15 Opie was at 0.6%, under music that was still loud.)
         gain = mediaGain(share)
         Log.i(TAG, "volume: gain %.3f (share %.2f)".format(gain, share))
