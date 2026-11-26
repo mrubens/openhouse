@@ -63,8 +63,8 @@ Spotify's own sign-in page on the screen), Spotify plays on the tablet without i
 - **Bridge** (`devices/index.js` spotifyFirst): a `search` meant for Spotify (named, or the app they last played from)
   asks the assistant, with its web search, for the thing's `open.spotify.com` link, and Spotify's oEmbed for its name.
   Signed in, Spotify plays there only, never in its app: what isn't found, or isn't what they asked for (the model
-  judges Spotify's own name for it), Opie says so. Not signed in, Opie offers the sign-in: Spotify never goes to its
-  app.
+  judges Spotify's own name for it), Opie says so. Not signed in, the tablet puts Spotify's sign-in on the screen
+  then and there, and plays it once they're in: Spotify never goes to its app.
 - **Limits**: Opie can't skip ahead in it (Spotify's API has no next; its own button on Home does); the household's
   own private playlists aren't found by web search, so those go to the app.
 

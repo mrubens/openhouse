@@ -60,7 +60,12 @@ object SpotifyEmbed {
     fun play(link: String, name: String?, ms: Long = 20_000): JSONObject {
         val m = Regex("open\\.spotify\\.com/(?:intl-[\\w-]+/)?(track|album|playlist|artist|show|episode|audiobook)/([A-Za-z0-9]{10,40})").find(link)
             ?: return JSONObject().put("error", "That isn't a Spotify link.")
-        if (!signedIn()) return JSONObject().put("error", "Spotify isn't signed in on the tablet's own player.").put("signIn", true)
+        // Not signed in: Spotify's sign-in on the screen now (not a trip to Settings), and this plays once they're in.
+        if (!signedIn()) {
+            val a = MainActivity.live ?: return JSONObject().put("error", "The tablet's screen isn't up.")
+            main.post { signIn(a) { ok -> if (ok) Thread { play(link, name) }.start() } }
+            return JSONObject().put("done", "Spotify's sign-in is on the screen: once someone signs in there (they type it; Opie never sees it), it plays. Say just that.")
+        }
         val uri = "spotify:${m.groupValues[1]}:${m.groupValues[2]}"
         title = name?.take(200); state = JSONObject(); usedAt = SystemClock.elapsedRealtime(); pausedForVoice = false
         Media.pauseOthers(); takeSpeaker() // (one thing playing: the app that was, paused, and stays so)
