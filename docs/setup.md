@@ -83,4 +83,22 @@ software not answering) are in [Getting back without help](#getting-back-without
 
 ## Getting back without help
 
-<!-- Filled in as each way back is walked through on a real tablet. -->
+What each way back is, as the code has it. **None of these has been walked through on a real tablet yet**; each gets
+"tried on" with a release and date once it has.
+
+- **A forgotten PIN.** Tap **Forgot PIN?** where it asks for the PIN, then type the PIN's recovery code (shown when
+  the PIN was set) or the backups' recovery code. On a tablet linked to an account there's also **Reset with your
+  account**: the tablet shows a code, someone in the household types it on the account page at
+  [cloud.opie.house](https://cloud.opie.house), and the tablet lets you choose a new PIN. Without either code and
+  without an account, the way back is erasing the tablet from Android's recovery menu (the last item).
+- **An update that won't start.** Nothing to do: each release carries the one before it, and a tablet whose new
+  release doesn't come up healthy installs that one by itself ([self-update.md](self-update.md), "Going back").
+- **Opie's software not answering** ("The tablet's software isn't answering right now"). The tablet starts it again
+  by itself within a minute or so. If Settings → Advanced says "Opie's software was stopped by Android", tap it and
+  follow its steps once. If it keeps happening, restart the tablet (hold the power button, then Restart).
+- **Stuck in kiosk mode, Opie open.** Settings → Advanced → Leave kiosk mode (with the PIN), or Erase this tablet to
+  give it back to Android entirely.
+- **Stuck in kiosk mode, Opie not opening at all.** Opie stops Android's own factory reset and safe mode while it owns
+  the tablet, but not the recovery menu: with the tablet off, hold the power and volume-up buttons until it appears
+  (the keys differ by maker), choose Wipe data / factory reset, and confirm. The tablet starts again as a normal
+  Android tablet. If it then asks for a Google account, it's the one that was on it before the reset (section 2).

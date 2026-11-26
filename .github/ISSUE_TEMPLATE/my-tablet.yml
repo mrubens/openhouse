@@ -1,0 +1,49 @@
+name: My tablet
+description: Tell us how Opie went on your tablet, whether it worked or got stuck.
+title: "My tablet: "
+labels: ["tablet"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is public. Please don't include anything about your household: no names, addresses, Wi-Fi names,
+        calendars, photos, or screenshots that show any of those. We only need the tablet and where it stopped.
+  - type: input
+    id: model
+    attributes:
+      label: Tablet
+      description: Its maker and model, as in Android's Settings, About tablet (for example Samsung Galaxy Tab S10 FE, SM-X520).
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      description: Settings, About tablet, Software information (for example Android 16, One UI 8).
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Opie's version
+      description: On the setup page next to the code, or in Opie's Settings, Advanced, Updates. "Don't know" is fine.
+  - type: dropdown
+    id: step
+    attributes:
+      label: How far it got
+      options:
+        - It all worked
+        - The six taps didn't open a code scanner
+        - The code was refused, or setup stopped after scanning
+        - It stopped while downloading or getting ready
+        - The Welcome or the setup steps
+        - Opie's voice
+        - After setup, using it day to day
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, in a few lines, and what you tried. If Opie opens, Settings, Advanced, Help, Send a report sends us its logs privately (on a tablet linked to an account).
