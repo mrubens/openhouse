@@ -103,7 +103,8 @@ const RULES = [
   // On a hub the settings device is also the setup's (hub-shell.js drives the steps), answers the "Is this OK?" cards,
   // keeps the PIN and the household's own OpenAI key (in the keeper, hub/keeper.mjs: never here).
   ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|pin|voice)$/],
-  ['admin', 'GET', /^\/hub\/(asks|keeper|calendars)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove)$/],
+  ['admin', 'GET', /^\/hub\/(asks|keeper|calendars|google-photos)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove|google|calendar\/account\/remove)$/],
+  ['admin', 'GET', /^\/calendar\/sync$/], ['admin', 'POST', /^\/calendar\/sync\/(set|now)$/], // which of a signed-in account's calendars show (calendar-sync.js)
 ];
 // door: see the home screen and the house (read only). The name is from before and stays: paired screens hold it.
 export const SCOPES = ['door', 'arrange', 'ask', 'voice', 'workshop', 'notify', 'setup', 'admin'];
@@ -489,6 +490,12 @@ export function screensRoutes({ HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 
       if (connect && req.method === 'GET' && (p === '/' || p === '/openhouse.mcpb' || p === '/openhouse-mcp.mjs')) return connectRoute(req, res, p);
       // While the setup's code lasts, the bare address (opie.local:8788, typed on a computer) is the page to type it on.
       if (req.method === 'GET' && p === '/' && [...pairs.values()].some((x) => x.setup && x.until > Date.now())) { res.writeHead(302, { location: '/phone/' }); return res.end(); }
+      // A hub: Google's sign-in comes back to its bare address (the cloud's /g/done, #g=… or #gc=…), which hands it to the
+      // settings page; anything else goes on to the home screen (hub/back.js). A fragment never reaches a server.
+      if (req.method === 'GET' && p === '/' && process.env.OPENHOUSE_HUB === '1') {
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...PAGE_HEADERS });
+        return res.end('<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Opie</title><script src="/hub/back.js"></script>');
+      }
       if (req.method === 'GET' && (p === '/' || p === '/screen')) { res.writeHead(302, { location: '/screen/' }); return res.end(); }
       if (req.method === 'GET' && p === '/phone') { res.writeHead(302, { location: '/phone/' }); return res.end(); }
       if (req.method === 'GET' && p === '/hub') { res.writeHead(302, { location: '/hub/' }); return res.end(); } // the hub's settings (docs/hub.md)

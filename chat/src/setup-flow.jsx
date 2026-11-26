@@ -44,13 +44,13 @@ export function SetupFlow({ me, c, h, onDone }) {
       <div className="brand">Opie</div>
       {step === 'calendar' && <>
         <h1>Your calendars</h1>
-        {!HUB && <SignIns c={c} family={h.house?.family || []} />}
-        <AddLink c={c} kind="calendar" family={h.house?.family || []} sub={!HUB} heading={!HUB} />
+        <SignIns c={c} family={h.house?.family || []} />
+        <AddLink c={c} kind="calendar" family={h.house?.family || []} sub />
       </>}
       {step === 'photos' && <>
         <AddLink c={c} kind="album" />
-        {!HUB && <>
         <GooglePhotosHere c={c} />
+        {!HUB && <>
         <h2>Photos from {computer ? 'this computer' : 'this phone'}</h2>
         {tablet.photos
           ? <a className="go act" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
@@ -96,22 +96,22 @@ const HOW = {
 /** Calendars you sign in to, from here: Google (its sign-in opens here; only on a tablet linked to an Opie account) and
  *  iCloud (the Apple ID and an app-specific password, typed here and sealed to the tablet). Which calendars to show is
  *  chosen at the tablet. */
-function SignIns({ c, family = [] }) {
+export function SignIns({ c, family = [] }) {
   const [linked, setLinked] = useState(null), [g, setG] = useState(null), [ic, setIc] = useState(false), [f, setF] = useState({ user: '', pass: '', who: '' }), [st, setSt] = useState(null);
   useEffect(() => { c.json('GET', '/setup/household').then((r) => setLinked(!!r.json?.linked)).catch(() => setLinked(false)); }, []);
   async function google() {
     setG('…');
     try {
-      const r = await c.json('POST', '/setup/google', {});
+      const r = await c.json('POST', '/setup/google', HUB ? { r: location.origin + '/' } : {});
       if (r.status !== 200 || !r.json?.url) return setG(r.json?.error || 'That didn’t work.');
-      window.open(r.json.url, '_blank', 'noopener'); setG('Sign in to Google on the page that opened, then choose the calendars on the tablet.');
+      window.open(r.json.url, '_blank', 'noopener'); setG(HUB ? 'Sign in to Google on the page that opened.' : 'Sign in to Google on the page that opened, then choose the calendars on the tablet.');
     } catch { setG(`${The()} isn’t in touch right now.`); }
   }
   async function icloud() {
     setSt('sending');
     try {
       const r = await c.json('POST', '/setup/icloud', f);
-      if (r.status === 200) { setF({ user: '', pass: '', who: '' }); setIc(false); setSt('Signed in. Choose the calendars on the tablet.'); }
+      if (r.status === 200) { setF({ user: '', pass: '', who: '' }); setIc(false); setSt(HUB ? 'Signed in.' : 'Signed in. Choose the calendars on the tablet.'); }
       else setSt(r.json?.error || 'That didn’t work.');
     } catch { setSt(`${The()} isn’t in touch right now.`); }
   }
@@ -122,7 +122,7 @@ function SignIns({ c, family = [] }) {
     </div>
     {g && <p className="soft">{g}</p>}
     {ic && <>
-      <p>Make an app-specific password at appleid.apple.com, under Sign-In and Security. It goes only to the tablet.</p>
+      <p>Make an app-specific password at appleid.apple.com, under Sign-In and Security. It goes only to {THE()}.</p>
       <input value={f.user} onChange={(e) => setF({ ...f, user: e.target.value })} placeholder="Apple ID (email)" type="email" autoCapitalize="off" autoComplete="off" />
       <input value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} placeholder="App-specific password" type="password" autoComplete="off" />
       {family.length > 0 && <div className="chips">{family.map((p) => <button key={p.name} className={'chip' + (f.who === p.name ? ' on' : '')} onClick={() => setF({ ...f, who: f.who === p.name ? '' : p.name })}>{p.name}</button>)}</div>}
@@ -132,14 +132,14 @@ function SignIns({ c, family = [] }) {
   </>;
 }
 /** Google Photos, picked from here (the tablet's account linked): its sign-in and picker open here; the tablet copies them. */
-function GooglePhotosHere({ c }) {
+export function GooglePhotosHere({ c }) {
   const [linked, setLinked] = useState(null), [st, setSt] = useState(null);
   useEffect(() => { c.json('GET', '/setup/household').then((r) => setLinked(!!r.json?.linked)).catch(() => setLinked(false)); }, []);
   if (!linked) return null;
   async function go() {
     setSt('…');
     try {
-      const r = await c.json('POST', '/setup/google', { kind: 'photos' });
+      const r = await c.json('POST', '/setup/google', { kind: 'photos', ...(HUB ? { r: location.origin + '/' } : {}) });
       if (r.status !== 200 || !r.json?.url) return setSt(r.json?.error || 'That didn’t work.');
       window.open(r.json.url, '_blank', 'noopener'); setSt('Sign in to Google and pick the photos on the page that opened.');
     } catch { setSt(`${The()} isn’t in touch right now.`); }

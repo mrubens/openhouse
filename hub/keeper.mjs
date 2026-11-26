@@ -18,6 +18,13 @@
 //   /ownkey {key} -> {added}          /ownkey/remove                    /status -> {openai, pin, calendars, albums}
 //   /pin/set {pin, only_if_none}      /pin/check {pin} -> {ok}          /pin/clear (the console's owner code only: hub.js)
 //   /sync                             read the calendars and albums now
+//   Two-way calendars (the shell's CalendarAccounts.kt; the bridge's calendar-sync.js does the syncing):
+//   /calendar/accounts -> {accounts: [{id, provider, name, who, server?}]} (no secrets)
+//   /calendar/request {account, method, url, headers, body}  a request to that account's own service, signed in here
+//   /calendar/account/caldav {user, pass, who}   iCloud: kept once its calendars are found (the sign-in checked)
+//   /calendar/account/google {refresh}           Google: a refresh token from the cloud's sign-in   /calendar/account/remove {id}
+//   Google Photos (the shell's GooglePhotos.kt): /photos/google {token} picks with Google's Picker and copies what was
+//   picked into the household's photos; /photos/google/status -> {state, pickerUri?, done?, total?, error?}
 import http from 'node:http';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
@@ -68,7 +75,7 @@ let kept = (() => {
     return JSON.parse(Buffer.concat([d.update(b.subarray(28)), d.final()]).toString('utf8'));
   } catch (e) { if (e.code !== 'ENOENT') log('what was kept could not be opened:', e.code || e.message); return {}; }
 })();
-kept.calendars ||= []; kept.albums ||= [];
+kept.calendars ||= []; kept.albums ||= []; kept.accounts ||= [];
 function save() {
   const iv = crypto.randomBytes(12), c = crypto.createCipheriv('aes-256-gcm', KEY, iv);
   const body = Buffer.concat([c.update(JSON.stringify(kept)), c.final()]);
@@ -260,12 +267,113 @@ function pinCheck(pin) {
 
 // --- to the bridge, as the shell does (its secret) ---------------------------------------------------------
 const bridgeToken = () => { try { return fs.readFileSync(process.env.OPENHOUSE_TOKEN_FILE || path.join(DATA, '.bridge-token'), 'utf8').trim(); } catch { return ''; } };
-async function toBridge(p, b) {
+async function toBridge(p, b, { full = false, body: raw = null, type = 'application/json' } = {}) {
   try {
-    const r = await fetch(BRIDGE + p, { method: 'POST', headers: { 'x-openhouse-token': bridgeToken(), 'content-type': 'application/json' }, body: JSON.stringify(b), signal: AbortSignal.timeout(60e3) });
-    if (!r.ok) return null;
-    try { return await r.json(); } catch { return {}; }
-  } catch { return null; }
+    const r = await fetch(BRIDGE + p, { method: 'POST', headers: { 'x-openhouse-token': bridgeToken(), 'content-type': type }, body: raw ?? JSON.stringify(b), signal: AbortSignal.timeout(90e3) });
+    let j = {}; try { j = await r.json(); } catch {}
+    return full ? { status: r.status, json: j } : r.ok ? j : null;
+  } catch { return full ? { status: 0, json: {} } : null; }
+}
+
+// --- two-way calendars (the shell's CalendarAccounts.kt) ----------------------------------------------------
+const GOOGLE_API = 'https://www.googleapis.com/calendar/v3/', ICLOUD = 'https://caldav.icloud.com/';
+const METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'PROPFIND', 'REPORT']), PASS = new Set(['content-type', 'if-match', 'if-none-match', 'depth']);
+const tokens = new Map(); // account -> [access token, until]: memory only
+const publicAccount = (a) => ({ id: a.id, provider: a.provider, name: a.name, who: a.who, ...(a.provider === 'caldav' ? { server: a.server } : {}) });
+/** Only this account's own service: Google's Calendar API, or its CalDAV server (iCloud's are all *.icloud.com). */
+function allowedFor(a, u) {
+  if (u.protocol !== 'https:' || u.username || u.password) return false;
+  if (a.provider === 'google') return u.host === 'www.googleapis.com' && u.pathname.startsWith('/calendar/v3/');
+  let home; try { home = new URL(a.server).host; } catch { return false; }
+  return u.host === home || (home.endsWith('icloud.com') && u.host.endsWith('.icloud.com'));
+}
+async function access(a, fresh) {
+  const t = tokens.get(a.id);
+  if (!fresh && t && t[1] > Date.now()) return t[0];
+  const r = await toBridge('/cloud/google/refresh', { refresh_token: a.secret }, { full: true });
+  if (r.status === 200 && String(r.json.access_token || '').length > 10) { tokens.set(a.id, [r.json.access_token, Date.now() + ((Number(r.json.expires_in) || 3600) - 120) * 1000]); return r.json.access_token; }
+  if (r.json.error === 'invalid_grant') { tokens.delete(a.id); throw new Said('signin'); }
+  throw new Said(r.json.error === 'unlinked' ? "The hub isn't linked to Opie cloud" : "Google isn't reachable right now");
+}
+async function calRequest(b) {
+  const a = kept.accounts.find((x) => x.id === String(b.account || ''));
+  if (!a) return { error: 'no such account' };
+  let u; try { u = new URL(String(b.url || '')); } catch { return { error: 'bad address' }; }
+  const method = String(b.method || '').toUpperCase();
+  if (!METHODS.has(method) || !allowedFor(a, u)) return { error: 'not for this account' };
+  const hs = {};
+  for (const [k, v] of Object.entries(b.headers || {})) if (PASS.has(k.toLowerCase())) hs[k.toLowerCase()] = String(v).slice(0, 300);
+  const body = b.body == null || b.body === '' ? undefined : String(b.body);
+  const send = async (fresh) => {
+    const auth = a.provider === 'google' ? `Bearer ${await access(a, fresh)}` : `Basic ${Buffer.from(`${a.user}:${a.secret}`).toString('base64')}`;
+    const r = await fetch(u, { method, headers: { ...hs, authorization: auth, 'user-agent': 'openhouse-calendar/0.2' }, body, redirect: 'manual', signal: AbortSignal.timeout(30e3) });
+    const text = await r.text();
+    if (text.length > 6e6) throw new Error('too big');
+    return { status: r.status, body: text, headers: { ...(r.headers.get('etag') ? { etag: r.headers.get('etag') } : {}), ...(r.headers.get('location') ? { location: r.headers.get('location') } : {}) } };
+  };
+  try {
+    let r = await send(false);
+    if (r.status === 401 && a.provider === 'google') r = await send(true); // expired early
+    return r;
+  } catch (e) { return e instanceof Said ? (e.message === 'signin' ? { status: 401, body: '' } : { error: e.message }) : { error: "Couldn't reach it" }; }
+}
+/** Kept, then its calendars found through the bridge (which checks the sign-in); dropped again if that didn't work. */
+async function addAccount(acct) {
+  kept.accounts = [...kept.accounts.filter((x) => x.id !== acct.id), acct]; save();
+  const r = await toBridge('/calendar/sync/discover', { account: acct.id }, { full: true });
+  if (r.status === 200) return null;
+  kept.accounts = kept.accounts.filter((x) => x.id !== acct.id); save(); tokens.delete(acct.id);
+  return r.json.signin ? (acct.provider === 'caldav' ? "That didn't sign in. Check the Apple ID, and use an app-specific password (not the Apple ID's own)." : "Google didn't let it sign in. Try again.")
+    : r.json.error || "Couldn't reach the calendars. Try again in a moment.";
+}
+
+// --- Google Photos (the shell's GooglePhotos.kt): one picking at a time, its token in memory only ----------------
+const PICKER = 'https://photospicker.googleapis.com/v1';
+let picking = { state: 'none' }, pickRun = 0;
+async function pick(token) {
+  const me = ++pickRun;
+  const call = async (method, url, body) => {
+    const r = await fetch(url, { method, headers: { authorization: `Bearer ${token}`, ...(body ? { 'content-type': 'application/json' } : {}) }, body, signal: AbortSignal.timeout(60e3) });
+    if (r.status === 401 || r.status === 403) throw new Said('Google said no. Sign in again.');
+    if (!r.ok) throw new Said(`Google said ${r.status}. Try again.`);
+    return r.status === 204 ? {} : r.json();
+  };
+  let session = null;
+  try {
+    const s = await call('POST', `${PICKER}/sessions`, '{}');
+    session = s.id;
+    picking = { state: 'picking', pickerUri: s.pickerUri };
+    const every = Math.max(2, Math.min(30, parseFloat(String(s.pollingConfig?.pollInterval || '5s')) || 5)) * 1000, until = Date.now() + 25 * 60e3;
+    for (;;) {
+      if (pickRun !== me) return;
+      if (Date.now() > until) throw new Said('That took too long. Start again.');
+      await new Promise((ok) => setTimeout(ok, every));
+      if ((await call('GET', `${PICKER}/sessions/${session}`)).mediaItemsSet) break;
+    }
+    const items = []; let page = null;
+    do {
+      const j = await call('GET', `${PICKER}/mediaItems?sessionId=${session}&pageSize=100${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`);
+      for (const m of j.mediaItems || []) if (m.type === 'PHOTO' && /^https:\/\//.test(m.mediaFile?.baseUrl || '')) items.push(m.mediaFile.baseUrl);
+      page = j.nextPageToken || null;
+    } while (page && items.length < 300);
+    const todo = items.slice(0, 300); let done = 0;
+    picking = { state: 'copying', done, total: todo.length };
+    for (const u of todo) {
+      if (pickRun !== me) return;
+      try {
+        const r = await fetch(`${u}=w2400-h2400`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(60e3) });
+        const buf = Buffer.from(await r.arrayBuffer());
+        if (r.ok && /^image\//.test(r.headers.get('content-type') || '') && buf.length < 25e6 && await toBridge(`/house/photo?name=google-${id(4)}.jpg`, null, { body: buf, type: 'image/jpeg' })) done++;
+      } catch {}
+      picking = { state: 'copying', done, total: todo.length };
+    }
+    picking = { state: 'done', done, total: todo.length };
+    log(`google photos: copied ${done} of ${todo.length}`);
+  } catch (e) {
+    picking = { state: 'error', error: e instanceof Said ? e.message : "Google didn't answer. Try again." };
+  } finally {
+    if (session) fetch(`${PICKER}/sessions/${session}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } }).catch(() => {});
+  }
 }
 
 // --- the routes ----------------------------------------------------------------------------------------------
@@ -320,6 +428,37 @@ async function route(p, b) {
     case '/pin/check': return [200, pinCheck(b.pin)];
     case '/pin/clear': delete kept.pin; save(); return [200, { ok: true }];
     case '/sync': syncCalendars(); syncAlbums(); return [200, { ok: true }];
+    case '/calendar/accounts': return [200, { accounts: kept.accounts.map(publicAccount) }];
+    case '/calendar/request': return [200, await calRequest(b)];
+    case '/calendar/account/caldav': {
+      const user = String(b.user || '').trim().slice(0, 200), pass = String(b.pass || '').replace(/ /g, '').trim().slice(0, 100), who = String(b.who || '').trim().slice(0, 40);
+      if (user.length < 3 || pass.length < 8) return [400, { error: 'Both are needed: the Apple ID and an app-specific password.' }];
+      const why = await addAccount({ id: id(4), provider: 'caldav', name: who ? `${who}'s iCloud` : 'iCloud', who, server: ICLOUD, user, secret: pass });
+      return why ? [400, { error: why }] : [200, { ok: true }];
+    }
+    case '/calendar/account/google': {
+      const t = String(b.refresh || '');
+      if (t.length < 20 || t.length > 2048) return [400, { error: 'That sign-in didn\'t come through. Try again.' }];
+      const acct = { id: id(4), provider: 'google', name: 'Google', who: '', server: '', user: '', secret: t };
+      kept.accounts.push(acct); save();
+      // Its name: the account's own address (its primary calendar's id), so two Google accounts can be told apart.
+      try { const r = await calRequest({ account: acct.id, method: 'GET', url: GOOGLE_API + 'calendars/primary' }); const n = JSON.parse(r.body || '{}').id; if (n) acct.name = String(n).slice(0, 80); } catch {}
+      const why = await addAccount(acct);
+      return why ? [400, { error: why }] : [200, { ok: true }];
+    }
+    case '/calendar/account/remove': {
+      kept.accounts = kept.accounts.filter((x) => x.id !== String(b.id)); save(); tokens.delete(String(b.id));
+      await toBridge('/calendar/sync/forget', { account: String(b.id) });
+      return [200, { ok: true }];
+    }
+    case '/photos/google': {
+      const t = String(b.token || '');
+      if (t.length < 20 || t.length > 4096) return [400, { error: 'That sign-in didn\'t come through. Try again.' }];
+      picking = { state: 'starting' }; pick(t);
+      for (let i = 0; i < 40 && picking.state === 'starting'; i++) await new Promise((ok) => setTimeout(ok, 250)); // the picker's address, if it comes quickly
+      return [200, picking];
+    }
+    case '/photos/google/status': return [200, picking];
     default: return [404, { error: 'not here' }];
   }
 }

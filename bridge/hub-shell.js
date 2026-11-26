@@ -8,7 +8,9 @@
 //   POST /hub/pin {pin, old?}           set or change the PIN (the old one first, once there is one)
 //   POST /hub/unlock {pin}              this settings device may change settings for 10 minutes (once a PIN is set)
 //   POST /hub/calendar/remove {id}, /hub/album/remove {id}, /hub/openai/remove (the household's own key out)
-//   GET  /hub/calendars                 the calendars and albums kept, without their links
+//   GET  /hub/calendars                 the calendars and albums kept, without their links, and the signed-in accounts
+//   POST /hub/google {refresh} | {token}   what Google's sign-in sent back: a calendar account, or photos to pick
+//   GET  /hub/google-photos             how picking from Google Photos is going   POST /hub/calendar/account/remove {id}
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -105,7 +107,15 @@ export function hubShell({ keeper, asks, setup, cloud }) {
         try { const v = await cloud.voiceOn(b.voice); return ok(v.on ? { on: true } : { on: false, notYet: true }); }
         catch (e) { return ok({ error: e.message }, 400); }
       }
-      case '/setup/google': case '/setup/icloud': return ok({ error: "Signing in to a calendar isn't on the hub yet: add its link instead." }, 409);
+      // Two-way calendars: the sign-ins are the keeper's; the bridge's calendar-sync.js asks it for every request.
+      case '/calendar/accounts': case '/calendar/request': return keeper(p, b, 60e3);
+      case '/setup/icloud': return keeper('/calendar/account/caldav', { user: b.user, pass: b.pass, who: b.who });
+      // Google (calendars, or photos to pick): the sign-in opens on the settings device and comes back to the hub's own
+      // address there (r), which hands it to the settings page (chat/hub-back.js), which hands it here sealed (/hub/google).
+      case '/setup/google': {
+        const g = await cloud.googleStart(b.r, b.kind === 'photos' ? undefined : 'cal');
+        return ok(g.json.url ? { url: g.json.url } : { error: g.json.error === 'r' ? 'Open this page at the hub\'s http:// address to sign in to Google.' : g.json.error === 'unlinked' ? 'Link the hub to your Opie account first.' : 'Google isn\'t available right now. Try again later.' }, g.json.url ? 200 : 409);
+      }
       default: return null;
     }
   };
@@ -138,9 +148,17 @@ export function hubShellRoutes({ keeper, asks, cloud, json, body, now = Date.now
       json(res, r.ok ? 200 : r.status || 503, r.body || {}); return true;
     }
     if (req.method === 'GET' && p === '/hub/calendars') {
-      const [c, a] = await Promise.all([keeper('/calendar/list'), keeper('/album/list')]);
-      json(res, 200, { calendars: c.body?.calendars || [], albums: a.body?.albums || [] }); return true;
+      const [c, a, s] = await Promise.all([keeper('/calendar/list'), keeper('/album/list'), keeper('/calendar/accounts')]);
+      json(res, 200, { calendars: c.body?.calendars || [], albums: a.body?.albums || [], accounts: s.body?.accounts || [] }); return true;
     }
+    // What Google's sign-in sent back to this settings device (#gc=… a calendar's refresh token, #g=… a photos token).
+    if (req.method === 'POST' && p === '/hub/google') {
+      const b = await body(req);
+      const r = b.refresh ? await keeper('/calendar/account/google', { refresh: String(b.refresh) }) : await keeper('/photos/google', { token: String(b.token || '') });
+      json(res, r.ok ? 200 : 400, r.body || {}); return true;
+    }
+    if (req.method === 'GET' && p === '/hub/google-photos') { const r = await keeper('/photos/google/status'); json(res, 200, r.body || {}); return true; }
+    if (req.method === 'POST' && p === '/hub/calendar/account/remove') { const r = await keeper('/calendar/account/remove', { id: String((await body(req)).id || '') }); json(res, r.ok ? 200 : 400, r.body || {}); return true; }
     if (req.method === 'POST' && p === '/hub/openai/remove') { const r = await keeper('/ownkey/remove'); if (r.ok) await cloud.setOwn(false); json(res, r.ok ? 200 : 503, r.ok ? { ok: true } : r.body || {}); return true; }
     if (req.method === 'POST' && /^\/hub\/(calendar|album)\/remove$/.test(p)) { const r = await keeper(p.slice(4), { id: String((await body(req)).id || '') }); json(res, r.ok ? 200 : 400, r.body || {}); return true; }
     return false;

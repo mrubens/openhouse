@@ -8,7 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { useEffect, useMemo, useState } from 'react';
 import { pair, client, Removed } from './screen-client.js';
 import { pairingFromCode } from './scrypt.js';
-import { SetupFlow, AddLink, AddKey, onTheHub } from './setup-flow.jsx';
+import { SetupFlow, AddLink, AddKey, SignIns, GooglePhotosHere, onTheHub } from './setup-flow.jsx';
 
 onTheHub();
 
@@ -242,7 +242,7 @@ function Asks({ c, onRemoved }) {
 
 /** The calendars and iCloud albums the keeper holds (without their links), and adding one by its link. */
 function Calendars({ c, k, onRemoved }) {
-  const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [adding, setAdding] = useState(null);
+  const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [sync, reloadSync] = useGet(c, '/calendar/sync', 0, onRemoved), [adding, setAdding] = useState(null);
   const remove = async (what, id, name) => { if (!confirm(`Remove ${name}?`)) return; await c.json('POST', `/hub/${what}/remove`, { id }); reload(); };
   if (k?.error) return <section><h2>Calendars and photos</h2><p className="soft">{k.error}</p></section>;
   return (
@@ -252,9 +252,64 @@ function Calendars({ c, k, onRemoved }) {
         {(l?.calendars || []).map((x) => <li key={x.id}><div><div>{x.name || (x.who ? `${x.who}'s calendar` : 'A calendar')}</div>{x.problem && <div className="soft small">{x.problem}</div>}</div><button className="plain" onClick={() => remove('calendar', x.id, x.name || 'this calendar')}>Remove</button></li>)}
         {(l?.albums || []).map((x, i) => <li key={x.id}><div><div>{(l.albums.length > 1 ? `Shared album ${i + 1}` : 'A shared album')}</div>{x.problem && <div className="soft small">{x.problem}</div>}</div><button className="plain" onClick={() => remove('album', x.id, 'this album')}>Remove</button></li>)}
       </ul>
-      {adding ? <><AddLink c={c} kind={adding} family={h?.family || []} heading={false} /><button className="plain" onClick={() => { setAdding(null); reload(); }}>Done</button></>
-        : <div className="btns wrap"><button className="pill" onClick={() => setAdding('calendar')}>Add a calendar</button><button className="pill" onClick={() => setAdding('album')}>Add an iCloud album</button></div>}
+      {(l?.accounts || []).map((a) => <CalendarAccount key={a.id} c={c} a={a} sync={sync} reload={() => { reload(); reloadSync(); }} />)}
+      {adding === 'signin' ? <><SignIns c={c} family={h?.family || []} /><button className="plain" onClick={() => { setAdding(null); reload(); reloadSync(); }}>Done</button></>
+        : adding === 'google' ? <><GooglePhotosHere c={c} /><button className="plain" onClick={() => setAdding(null)}>Done</button></>
+        : adding ? <><AddLink c={c} kind={adding} family={h?.family || []} heading={false} /><button className="plain" onClick={() => { setAdding(null); reload(); }}>Done</button></>
+        : <div className="btns wrap"><button className="pill" onClick={() => setAdding('signin')}>Sign in to a calendar</button><button className="pill" onClick={() => setAdding('calendar')}>Add a calendar link</button><button className="pill" onClick={() => setAdding('album')}>Add an iCloud album</button><button className="pill" onClick={() => setAdding('google')}>Photos from Google</button></div>}
     </section>
+  );
+}
+
+/** A signed-in calendar account (two-way, calendar-sync.js): each of its calendars shown, only read, or off; and signing out. */
+const MODES = [['two-way', 'Shown, two-way'], ['read', 'Shown'], ['off', 'Off']];
+function CalendarAccount({ c, a, sync, reload }) {
+  const cals = (sync?.calendars || []).filter((x) => x.account === a.id);
+  const set = async (key, mode) => { await c.json('POST', '/calendar/sync/set', { key, mode }); reload(); };
+  const out = async () => { if (!confirm(`Sign out of ${a.name}? Its calendars leave the hub.`)) return; await c.json('POST', '/hub/calendar/account/remove', { id: a.id }); reload(); };
+  return (
+    <div className="card">
+      <div className="t">{a.name}</div>
+      <ul className="list">{cals.map((x) => <li key={x.key}><div>{x.name}</div>
+        <select value={x.mode} onChange={(e) => set(x.key, e.target.value)}>{MODES.filter(([m]) => m !== 'two-way' || x.canWrite).map(([m, t]) => <option key={m} value={m}>{t}</option>)}</select></li>)}</ul>
+      <button className="plain" onClick={out}>Sign out</button>
+    </div>
+  );
+}
+
+/** Google's sign-in, back on this device (chat/hub-back.js sent it here as #gc=… or #g=…): handed to the hub, sealed. */
+function GoogleBack({ c, hash, onDone }) {
+  const [st, setSt] = useState({ state: 'sending' });
+  useEffect(() => {
+    let stop = false;
+    (async () => {
+      if (hash === 'g-no') return setSt({ state: 'error', error: 'Google said no, or it was cancelled.' });
+      const cal = hash.startsWith('gc='), v = decodeURIComponent(hash.slice(cal ? 3 : 2));
+      const r = await c.json('POST', '/hub/google', cal ? { refresh: v } : { token: v }).catch(() => null);
+      if (!r || r.status !== 200) return setSt({ state: 'error', error: r?.json?.error || 'That didn’t work. Try again.' });
+      if (cal) return setSt({ state: 'calendars' });
+      setSt(r.json);
+      while (!stop) { // the photos: picked there, copied here
+        await new Promise((ok) => setTimeout(ok, 2500));
+        const s = await c.json('GET', '/hub/google-photos').catch(() => null);
+        if (s?.json) setSt(s.json);
+        if (['done', 'error', 'none'].includes(s?.json?.state)) break;
+      }
+    })();
+    return () => { stop = true; };
+  }, []);
+  return (
+    <main className="join setup">
+      <div className="brand">Opie hub</div>
+      <h1>Google</h1>
+      {st.state === 'sending' || st.state === 'starting' ? <p className="soft">…</p>
+        : st.state === 'calendars' ? <p>Signed in. Its calendars show on the hub; choose which in the hub’s settings.</p>
+        : st.state === 'picking' ? <><p>Now choose the photos in Google Photos, then come back here.</p><a className="go" href={st.pickerUri + (/autoclose$/.test(st.pickerUri || '') ? '' : '/autoclose')} target="_blank" rel="noopener noreferrer">Choose in Google Photos</a></>
+        : st.state === 'copying' ? <p>Copying {st.done || 0} of {st.total || 0}…</p>
+        : st.state === 'done' ? <p>{st.total ? `Added ${st.done} ${st.done === 1 ? 'photo' : 'photos'} to Photos.` : 'Nothing was picked.'}</p>
+        : <p>{st.error || 'That didn’t work.'}</p>}
+      {['calendars', 'done', 'error'].includes(st.state) && <button className="go small" onClick={onDone}>Done</button>}
+    </main>
   );
 }
 
@@ -342,7 +397,9 @@ function Hub({ me, c, onRemoved }) {
 function App() {
   const [me, setMe] = useState(() => get(STORE));
   const cl = useMemo(() => me && client({ id: me.id, key: me.key, relay: me.relay || null }), [me?.id]);
+  const [back, setBack] = useState(() => { const h = location.hash.slice(1); if (/^(g=|gc=|g-no$)/.test(h)) { history.replaceState(null, '', location.pathname); return h; } return null; }); // (no token stays in the address bar)
   if (!cl) return <Join onJoined={setMe} />;
+  if (back) return <GoogleBack c={cl} hash={back} onDone={() => setBack(null)} />;
   return <Hub me={me} c={cl} onRemoved={() => { put(STORE, null); setMe(null); }} />;
 }
 

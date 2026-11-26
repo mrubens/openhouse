@@ -258,6 +258,20 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     return voiceStatus(false);
   }
 
+  /** A Google sign-in for the page at r (http://<address>:<port>/), of kind k ('cal', or photos): {status, json: {url}|{error}}. */
+  async function googleStart(r0, k0) {
+    const r = String(r0 || ''), k = k0 === 'cal' ? 'cal' : undefined;
+    if (!/^http:\/\/[0-9a-z.:[\]-]{1,80}\/$/i.test(r)) return { status: 400, json: { error: 'r' } };
+    try {
+      const s = await call('POST', '/v1/google/start', { r, ...(k ? { k } : {}) }), u = new URL(String(s?.url || ''));
+      // Only a sign-in page of the service's (https, or a local one in development).
+      if (u.pathname !== '/g/start' || !(u.protocol === 'https:' || /^(localhost|127\.0\.0\.1|10\.0\.2\.2)$/.test(u.hostname))) throw new Error('url');
+      return { status: 200, json: { url: u.href, expires_in: s.expires_in } };
+    } catch (e) {
+      if (e.code === 'http404' && device()) return { status: 200, json: { url: `${device().api}/g/start?r=${encodeURIComponent(r)}${k ? '&k=cal' : ''}` } };
+      return { status: e.code === 'unlinked' ? 409 : e.code === 'http429' ? 429 : 400, json: { error: e.code === 'unlinked' ? 'unlinked' : e.code === 'http429' ? 'slow down' : 'unavailable' } };
+    }
+  }
   /** Whether the household's own key is in (the shell's /cloud/own; a hub's keeper through hub-shell.js): never the key. */
   async function setOwn(on) {
     if (on) write('own.json', { on: true, at: iso() }); else fs.rmSync(f('own.json'), { force: true });
@@ -320,18 +334,8 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       // The shell, as a phone on its Google page (google.html) taps Sign in: the cloud keeps which page the sign-in goes
       // back to and its kind, and answers a one-time link for the phone. An older cloud (no such route): its old link.
       case '/cloud/google/start': {
-        const r = String(b.r || ''), k = b.k === 'cal' ? 'cal' : undefined;
-        if (!/^http:\/\/[0-9a-z.:[\]-]{1,80}\/$/i.test(r)) { json(res, 400, { error: 'r' }); return true; }
-        try {
-          const s = await call('POST', '/v1/google/start', { r, ...(k ? { k } : {}) }), u = new URL(String(s?.url || ''));
-          // Only a sign-in page of the service's (https, or a local one in development).
-          if (u.pathname !== '/g/start' || !(u.protocol === 'https:' || /^(localhost|127\.0\.0\.1|10\.0\.2\.2)$/.test(u.hostname))) throw new Error('url');
-          json(res, 200, { url: u.href, expires_in: s.expires_in });
-        }
-        catch (e) {
-          if (e.code === 'http404' && device()) { json(res, 200, { url: `${device().api}/g/start?r=${encodeURIComponent(r)}${k ? '&k=cal' : ''}` }); return true; }
-          json(res, e.code === 'unlinked' ? 409 : e.code === 'http429' ? 429 : 400, { error: e.code === 'unlinked' ? 'unlinked' : e.code === 'http429' ? 'slow down' : 'unavailable' });
-        }
+        const g = await googleStart(b.r, b.k);
+        json(res, g.status, g.json);
         return true;
       }
       case '/cloud/config': {
@@ -449,7 +453,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const revoked = () => { if (device()) return false; const s = state(); return s.unlinkedWhy === 'revoked' || !!s.unlinkedHere; };
   /** Which link this is (a relink is a new one). */
   const linkId = () => device()?.deviceId || null;
-  return { setOwn, voiceOn, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { googleStart, setOwn, voiceOn, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

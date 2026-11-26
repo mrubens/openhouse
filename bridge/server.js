@@ -531,7 +531,8 @@ async function route(req, res, url) {
     if (url.pathname === '/setup/google' && req.method === 'POST') {
       const st = cloud.status();
       if (!st.linked) { json(res, 409, { error: 'Link the tablet to your Opie account first.' }); return true; }
-      const r = await calendar.toShell('/setup/google', { cloud: st.api, kind: (await body(req)).kind === 'photos' ? 'photos' : 'calendar' });
+      const g = await body(req);
+      const r = await calendar.toShell('/setup/google', { cloud: st.api, kind: g.kind === 'photos' ? 'photos' : 'calendar', r: String(g.r || '') }); // (r: a hub's own address, where the sign-in comes back)
       json(res, r.error ? 400 : 200, r); return true;
     }
     if (url.pathname === '/setup/icloud' && req.method === 'POST') {
