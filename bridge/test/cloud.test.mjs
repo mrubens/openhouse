@@ -334,3 +334,22 @@ test("a forgotten PIN reset through the account: only the shell asks, and a yes 
   assert.deepEqual((await t.call('POST', '/cloud/pin-reset/poll')).obj, { status: 'approved', by: 'sam@example.com' });
   assert.equal((await t.call('POST', '/cloud/pin-reset/poll')).obj.status, 'expired');
 });
+
+test("the household's own OpenAI key: the bridge only hears whether there is one, never the key, and taking it out ends that way at once", async () => {
+  const D = display(), t = tablet(D);
+  const KEY = 'sk-proj-TESTKEYnevershown0123456789';
+  // A key sent here by mistake (anything but {on}) is refused and kept nowhere; a paired device can't say either.
+  assert.equal((await t.call('POST', '/cloud/own', { on: true, key: KEY })).code, 400);
+  const res = {};
+  await t.cloud.handle({ method: 'POST', b: { on: true }, headers: { 'x-openhouse-screen': 'abc' } }, res, new URL('http://x/cloud/own'));
+  assert.equal(res.code, 403);
+  assert.equal(t.cloud.own(), false);
+  assert.equal((await t.call('POST', '/cloud/own', { on: true })).code, 200);
+  assert.equal(t.cloud.own(), true);
+  assert.equal(t.cloud.liveOn(), false); // Opie cloud's voice is off while a key is in
+  await assert.rejects(t.cloud.ai({ input: [{ role: 'user', content: 'hi' }] }), (e) => e.code === 'own_not_ready');
+  const everything = (dir) => fs.readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => fs.readFileSync(path.join(e.parentPath ?? e.path, e.name), 'utf8')).join('\n');
+  assert.ok(!everything(D).includes(KEY));
+  assert.equal((await t.call('POST', '/cloud/own', { on: false })).code, 200);
+  assert.equal(t.cloud.own(), false);
+});

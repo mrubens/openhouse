@@ -80,11 +80,13 @@ let cloudRef = null; // (cloud.js, once it exists below)
 function agentName() {
   if (fs.existsSync(path.join(HERE, '../safe-mode'))) return 'off'; // safe mode (Settings): no agent
   if (process.env.AGENT) return process.env.AGENT;
+  if (cloudRef?.own?.()) return 'own'; // the household's own OpenAI key (cloud.js ownOn): the same assistant, another backend
   return cloudRef?.brainOn?.() ? 'cloud' : 'none';
 }
 async function currentAgent() {
   const n = agentName();
   if (n === 'none') return (agents.none ??= (await import('./agents/none.js')));
+  if (n === 'own') return (agents.cloud ??= await import('./agents/cloud.js')); // (cloud.ai and decide pick the backend)
   return (agents[n] ??= await import(`./agents/${n}.js`));
 }
 

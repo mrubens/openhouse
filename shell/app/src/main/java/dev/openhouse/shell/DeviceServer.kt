@@ -204,7 +204,7 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
+    private val HOME_PATHS = setOf("/openai", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -296,6 +296,9 @@ object DeviceServer {
             "/media/still" -> MediaStill.still(ctx, b.optString("path"))
             // Opie's music tool (bridge devices/index.js mediaDo, Media.kt): what's playing, its buttons, play from a search.
             "/media" -> 200 to Media.handle(b).toString()
+            // The household's own OpenAI key (OwnKey): the bridge's call, sent on to a fixed path at OpenAI with the key
+            // added here; never logged, and the key never comes back.
+            "/openai" -> OwnKey.forward(b.optString("kind"), (b.optJSONObject("body") ?: JSONObject()).toString())
             "/say" -> { acc?.status(b.optString("text").take(120)); 200 to "{}" }
             // "Opie, stop" (bridge device-tools.js): what it's doing in an app stops now; the next request starts fresh.
             // Opie back in front (from another Android app), for Opie showing one of its tabs (bridge show_on_screen).

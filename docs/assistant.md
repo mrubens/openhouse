@@ -14,8 +14,19 @@ game, so the tablet does without one and the rough edges get fixed instead.
 
 Both cloud paths need the tablet linked to a family account and OpenAI chosen (Settings → Live voice); the
 bridge's `agentName()` is then `cloud`. Otherwise it's `none` (`agents/none.js`): a typed turn says how someone
-turns it on, and the apps hide what needs it (`/house` `ai: false`). Safe mode is `off`. The household's own OpenAI
-key on the tablet, in place of the cloud, is the cloud work's to add (bridge/cloud.js `ai`, `decide`, live start).
+turns it on, and the apps hide what needs it (`/house` `ai: false`). Safe mode is `off`.
+
+**The household's own OpenAI key** (`own`, in part): Settings → Voice, or the setup's voice step where Opie cloud's
+voice isn't available, takes a key behind the PIN (`shell/…/OwnKey.kt`). The shell checks it with one free call
+(the list of models: a wrong key, a key without access and an account out of credit each get their own words),
+keeps it sealed in its no-backup files with a keystore key, and tells the bridge only that one is in (`POST
+/cloud/own {on}`, which refuses anything else in the body). `agentName()` is then `own`: the same assistant, with
+`ai`, `decide` and the live start going to the shell's route (`DeviceServer` `/openai`), which adds the key and
+reaches only fixed paths at api.openai.com. Opie cloud's voice is off for that tablet while a key is in. Not built
+yet: what those three requests carry (the model names, the live session's words, Decisions, the review's tier and
+the prices for a spend estimate and a monthly stop) is the cloud's today, so the route's calls are empty and the
+three answer `own_not_ready`; getting the key on by a QR code from the phone, and the line on Today when it stops
+working, come with them.
 
 ## A typed turn
 
