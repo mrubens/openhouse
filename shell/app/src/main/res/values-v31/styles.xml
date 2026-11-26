@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Android 12+ shows a splash on launch: plain paper, no icon, so opening Opie looks like the home screen. -->
-    <style name="OpenHouse" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
+    <style name="OpenHouse" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar.Fullscreen">
         <item name="android:windowBackground">@color/paper</item>
         <item name="android:windowSplashScreenBackground">@color/paper</item>
         <item name="android:windowSplashScreenAnimatedIcon">@android:color/transparent</item>

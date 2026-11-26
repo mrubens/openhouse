@@ -628,13 +628,12 @@ function showFlyer() {
   }, { width: 940, onOutside: (close) => { close(); flyerCard = null; } });
 }
 
-/** Lengths to pick from, in minutes (0: all day). */
-const LENGTHS = [[0, 'All day'], [15, '15 min'], [30, '30 min'], [45, '45 min'], [60, '1 hour'], [90, '1½ hours'], [120, '2 hours'], [180, '3 hours'], [240, '4 hours']];
 /** "Until" for a repeating event, from its start: [days, label]; null: always. */
 const UNTILS = [[null, 'Always'], [28, '4 weeks'], [91, '3 months'], [182, '6 months'], ['june', 'End of the school year'], ['dec', 'End of the year']];
 
 /** Add an event (e: null) or change one added here. One quiet list: what, then a row each for when, which calendar,
  *  whose, repeats, reminder and countdown, showing what's chosen; a row opens its choices when tapped (one at a time).
+ *  The day and time are Google Calendar's: Starts and Ends, each a date and a time that open Android's own pickers.
  *  With several calendars to add to, a new event's is chosen by someone (no guess): Add waits for it. */
 function eventForm(e = null, startDay = null, startMin = null) {
   const today = dayStart(Date.now());
@@ -649,7 +648,7 @@ function eventForm(e = null, startDay = null, startMin = null) {
   const targets = H?.calendarTargets || [];
   const choose = !e && targets.length > 0;
   if (choose && targets.length === 1) f.calendar = targets[0].key;
-  let week = 0, open = choose && !f.calendar ? 'calendar' : null, opened = null, s; // week: which week of days the When row shows (0: the one with f.day)
+  let open = choose && !f.calendar ? 'calendar' : null, lastMin = f.min >= 0 ? f.min : startMin ?? 9 * 60, s;
   const ready = () => !!f.title.trim() && (!choose || !!f.calendar);
   const input = (val, hint, set, cls = '') => {
     const i = h('input', { class: cls, placeholder: hint, enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
@@ -683,7 +682,7 @@ function eventForm(e = null, startDay = null, startMin = null) {
   const cancel = btn('Cancel', () => s.close(), { soft: true });
   // A row: its name, what's chosen, and (open) its choices under it. A row with no choices (tap) does its thing at once.
   const row = (key, name, value, choices = null, { ask = false, tap = null } = {}) => h('div', { class: 'frow' + (open === key ? ' open' : '') },
-    h('button', { class: 'frow-head', tap: tap || (() => { open = opened = open === key ? null : key; s.redraw(); }) },
+    h('button', { class: 'frow-head', tap: tap || (() => { open = open === key ? null : key; s.redraw(); }) },
       h('span', { class: 'frow-name' }, name), h('span', { class: 'frow-val' + (ask ? ' ask' : '') }, value)),
     open === key && choices ? h('div', { class: 'frow-pick' }, choices) : null);
   const fixed = (name, el) => h('label', { class: 'frow' }, h('span', { class: 'frow-head' }, h('span', { class: 'frow-name' }, name), el));
@@ -692,30 +691,36 @@ function eventForm(e = null, startDay = null, startMin = null) {
     h('div', { class: 'frows' }, fixed('Where', placeIn), fixed('Notes', notesIn)), h('div', { class: 'actions' }, cancel, save));
   const scrim = h('div', { class: 'scrim high', tap: () => s.close() }, card);
   const hm = (n) => { const hr = Math.floor(n / 60) % 24, m = n % 60; return `${hr % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''} ${hr < 12 ? 'AM' : 'PM'}`; };
-  const lenText = (m) => LENGTHS.find(([x]) => x === m)?.[1] || `${m} min`;
+  // A date or a time as Google Calendar's app has them: the words, and under them Android's own picker (a month to tap
+  // a day in, or the clock), opened by a tap. [set] gets the picker's value ("2026-11-25" or "19:30").
+  const picker = (type, value, text, set) => {
+    const i = h('input', { type, tabindex: '-1', 'aria-label': text });
+    i.value = value;
+    i.addEventListener('change', () => { if (i.value) { set(i.value); save.disabled = !ready(); s.redraw(); } });
+    return h('span', { class: 'fpick' }, text, i);
+  };
+  const dayOf = (v) => { const [y, m, d] = v.split('-').map(Number); return new Date(y, m - 1, d).getTime(); };
+  const minOf = (v) => { const [hh, mm] = v.split(':').map(Number); return hh * 60 + mm; };
+  const hhmm = (n) => `${String(Math.floor(n / 60) % 24).padStart(2, '0')}:${String(n % 60).padStart(2, '0')}`;
+  const dateText = (d) => fmt(d, { weekday: 'short', month: 'short', day: 'numeric', ...(new Date(d).getFullYear() !== new Date().getFullYear() ? { year: 'numeric' } : {}) });
+  const when = (name, day, min, setDay, setMin) => h('div', { class: 'frow' }, h('div', { class: 'frow-head' }, h('span', { class: 'frow-name' }, name),
+    h('span', { class: 'frow-val frow-when' }, picker('date', house.dayKey(new Date(day)), dateText(day), setDay), min != null ? picker('time', hhmm(min), `${Math.floor(min / 60) % 12 || 12}:${String(min % 60).padStart(2, '0')} ${Math.floor(min / 60) % 24 < 12 ? 'AM' : 'PM'}`, setMin) : null)));
   s = openSheet(scrim, () => keepScroll(list, () => {
     const pick = (fn) => () => { fn(); save.disabled = !ready(); s.redraw(); };
-    const from = dayStart(weekStart(f.day), week * 7);
     const timed = f.min >= 0;
-    const dayText = f.day === today ? 'Today' : f.day === dayStart(today, 1) ? 'Tomorrow' : fmt(f.day, { weekday: 'long' });
-    const whenText = `${dayText}, ${fmt(f.day, { month: 'short', day: 'numeric' })}  ·  ${timed ? `${hm(f.min)} – ${hm(f.min + f.len)}` : 'All day'}`;
+    const endAt = timed ? new Date(f.day).setHours(0, f.min + f.len, 0, 0) : null; // (may be another day)
     const tgt = targets.find((t) => t.key === f.calendar);
     const rep = REPEATS.find(([r]) => r === f.repeat);
     const untilText = f.until ? ` until ${fmt(Date.parse(f.until + 'T12:00'), { month: 'short', day: 'numeric' })}` : '';
     const remindText = f.remind == null ? (H?.remind == null ? 'None' : `Usual (${remindLabel(H.remind)})`) : f.remind < 0 ? 'None' : remindLabel(f.remind).replace(/^./, (c) => c.toUpperCase());
     list.replaceChildren(...[
-      row('when', 'When', whenText, [
-        h('div', { class: 'row' }, round('left', pick(() => { week--; }), { label: 'Earlier' }),
-          h('div', { class: 'chips' }, [...Array(7)].map((_, i) => { const d = dayStart(from, i); return chip((d === today ? 'Today' : fmt(d, { weekday: 'short' })) + ' ' + fmt(d, { day: 'numeric' }), d === f.day, pick(() => { f.day = d; })); })),
-          round('right', pick(() => { week++; }), { label: 'Later' })),
-        h('div', { class: 'row' }, h('div', { class: 'chips', 'data-keep': 'hour' }, chip('All day', !timed, pick(() => { f.min = -1; f.len = 0; })),
-          [...Array(17)].map((_, i) => { const hr = 6 + i; // 6 AM to 10 PM
-            return chip(hm(hr * 60), timed && Math.floor(f.min / 60) === hr, pick(() => { f.min = hr * 60 + (timed ? f.min % 60 : 0); if (!f.len) f.len = 60; })); }))),
-        timed ? h('div', { class: 'row' }, h('div', { class: 'chips' },
-          [0, 15, 30, 45].map((m) => chip(':' + String(m).padStart(2, '0'), f.min % 60 === m, pick(() => { f.min = f.min - (f.min % 60) + m; }))),
-          h('span', { class: 'label soft' }, 'for'),
-          LENGTHS.filter(([m]) => m).map(([m, l]) => chip(l, f.len === m, pick(() => { f.len = m; }))))) : null,
-      ]),
+      // As Google Calendar's app does it: All day, then when it starts and ends. A new start keeps the length (the end
+      // moves with it); an end before the start is left as it was.
+      row('allday', 'All day', timed ? 'Off' : 'On', null, { tap: pick(() => { if (timed) { lastMin = f.min; f.min = -1; f.len = 0; } else { f.min = lastMin; f.len = 60; } }) }),
+      when('Starts', f.day, timed ? f.min : null, (v) => { f.day = dayOf(v); }, (v) => { f.min = minOf(v); lastMin = f.min; }),
+      timed ? when('Ends', dayStart(endAt), Math.round((endAt - dayStart(endAt)) / 60000),
+        (v) => { const t = dayOf(v) + (endAt - dayStart(endAt)); const st = new Date(f.day).setHours(0, f.min, 0, 0); if (t > st) f.len = Math.round((t - st) / 60000); },
+        (v) => { const t = new Date(dayStart(endAt)).setHours(0, minOf(v), 0, 0); const st = new Date(f.day).setHours(0, f.min, 0, 0); if (t > st) f.len = Math.round((t - st) / 60000); }) : null,
       choose ? row('calendar', 'Calendar', tgt ? tgt.name : f.calendar === 'here' ? 'This display only' : 'Choose one', h('div', { class: 'chips' },
         targets.map((t) => chip(t.name, f.calendar === t.key, pick(() => { f.calendar = t.key; open = null; }), t.color || null)),
         chip('This display only', f.calendar === 'here', pick(() => { f.calendar = 'here'; open = null; }))), { ask: !f.calendar }) : null,
@@ -728,8 +733,6 @@ function eventForm(e = null, startDay = null, startMin = null) {
       timed ? row('remind', 'Reminder', remindText, remindChips(f.remind, (m) => { f.remind = m; s.redraw(); })) : null,
       row('countdown', 'Countdown', f.countdown ? 'On the home screen' : 'Off', null, { tap: pick(() => { f.countdown = !f.countdown; }) }),
     ].filter(Boolean));
-    // The chosen hour in view (it may be 4 PM, past the edge of the row) when When opens.
-    if (opened === 'when') { opened = null; requestAnimationFrame(() => list.querySelector('[data-keep="hour"] .chip.on')?.scrollIntoView({ inline: 'center', block: 'nearest' })); }
   }));
   if (!e) requestAnimationFrame(() => titleIn.focus());
   return s;

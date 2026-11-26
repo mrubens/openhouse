@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The app's first frame is the home screen's paper (Calm.PAPER), not a dark window. -->
-    <style name="OpenHouse" parent="@android:style/Theme.Material.NoActionBar.Fullscreen">
+    <!-- The app's first frame is the home screen's paper (Calm.PAPER), not a dark window. The device's own light theme:
+         the pickers a page opens (a date, a time) look as they do in the tablet's other apps (Google Calendar's). -->
+    <style name="OpenHouse" parent="@android:style/Theme.DeviceDefault.Light.NoActionBar.Fullscreen">
         <item name="android:windowBackground">@color/paper</item>
     </style>
     <color name="paper">#EFEAE1</color>
