@@ -37,6 +37,7 @@ ln -sfn "$C/webapp/node_modules" webapp/node_modules # built for this machine wi
 [ -s .bridge-token ] || (umask 077 && node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64url'))" > .bridge-token)
 
 export PORT=${PORT:-8787} VITE_PORT=${VITE_PORT:-5173}
+[ -d "$C/runtime/hub-voice/node_modules/onnxruntime-node" ] && export VOICE_DIR=${VOICE_DIR:-$C/runtime/hub-voice} # "Hey Opie" on the hub's screens (hub/build.sh)
 export OPENHOUSE_HUB=1 OPENHOUSE_CODE_DIR="$C" DEFAULTS_DIR="$C/defaults" OPENHOUSE_TOKEN_FILE="$D/.bridge-token"
 if [ -z "${OPENHOUSE_BACKUP_DIR:-}" ]; then if [ -d /backups ]; then export OPENHOUSE_BACKUP_DIR=/backups; else export OPENHOUSE_BACKUP_DIR="$D/backups"; fi; fi
 

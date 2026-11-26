@@ -3,15 +3,23 @@
 // device allowed to talk (its 'voice' scope) on a page that may use the microphone (https or localhost).
 import { useEffect, useRef, useState } from 'react';
 import { talk, available } from './live-voice.js';
+import { listenForName } from './wake-listen.js';
 
 /** Can this device talk here: its 'voice' scope, and a page that may use the microphone. */
 export const canTalk = (scopes) => !!scopes?.includes('voice') && available();
 
-/** onType: where there's a typed sheet too (the phone page), a small keyboard button beside the pill opens it. */
-export function Talk({ c, scopes, onType }) {
+/** onType: where there's a typed sheet too (the phone page), a small keyboard button beside the pill opens it.
+ *  wake: listen for "Hey Opie" here while not talking (a hub's screen that chose to: wake-listen.js). */
+export function Talk({ c, scopes, onType, wake = false }) {
   const [on, setOn] = useState(false), [mood, setMood] = useState(null), [problem, setProblem] = useState('');
-  const s = useRef(null), bars = useRef(null);
+  const s = useRef(null), bars = useRef(null), tapRef = useRef(null);
   useEffect(() => () => s.current?.stop(), []);
+  useEffect(() => { // while not talking, the name; when it's heard, as if the pill were tapped
+    if (!wake || on || !c || !canTalk(scopes)) return;
+    let stop = null, gone = false;
+    listenForName(c, () => tapRef.current?.()).then((f) => { if (gone) f(); else stop = f; }).catch(() => setProblem('The microphone isn’t available here.'));
+    return () => { gone = true; stop?.(); };
+  }, [wake, on, c]);
   useEffect(() => { if (!problem) return; const t = setTimeout(() => setProblem(''), 8000); return () => clearTimeout(t); }, [problem]);
   if (!c || !canTalk(scopes)) return null;
   function tap() {
@@ -24,6 +32,7 @@ export function Talk({ c, scopes, onType }) {
       ended: () => { s.current = null; setOn(false); setMood(null); },
     });
   }
+  tapRef.current = tap;
   return (
     <div className="opie-talk">
       {problem && <div className="opie-words" aria-live="polite">{problem}</div>}

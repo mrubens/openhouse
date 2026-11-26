@@ -12,7 +12,7 @@ import { createRoot } from 'react-dom/client';
 import { SpotifyPlayer } from './spotify-player.jsx';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as G from '../../bridge/grid.js';
-import { Talk } from './talk.jsx';
+import { Talk, canTalk } from './talk.jsx';
 import { pair, client, Removed } from './screen-client.js';
 import { AnswerBody, Display, page as answerPage } from './answer.jsx';
 import { Widget, Fit, IconFill, U } from './home-widgets.jsx';
@@ -941,6 +941,7 @@ function Joined({ c, scopes, idle, asking, setAsking, onRemoved }) {
   // A note's button that asks the assistant something ("Plan tacos for tonight"): on the display it's asked at once,
   // as if typed; on another screen the asking panel opens with it.
   answerPage.ask = (q) => { if (shell?.ask) shell.ask(q); else setAsking(q); };
+  const [wake, setWake] = useWake(c, scopes, !shell);
   return (
     <>
       {brain.homeScreen ? <Home c={c} brain={brain} idle={idle} onAsk={(text) => setAsking(typeof text === 'string' ? text : true)} /> : <div className="pairing"><div className="dots"><i /><i /><i /></div></div>}
@@ -948,9 +949,31 @@ function Joined({ c, scopes, idle, asking, setAsking, onRemoved }) {
       {!brain.up && <div className="offline" />}
       {!shell && <Reminders c={c} house={brain.house} />}
       {asking && <Ask c={c} first={typeof asking === 'string' ? asking : ''} onClose={() => setAsking(false)} />}
-      {!shell && !asking && <Talk c={c} scopes={scopes} />}
+      {!shell && !asking && <Talk c={c} scopes={scopes} wake={wake === true} />}
+      {!shell && !asking && wake === 'offer' && <div className="wake-offer"><span>Listen for “Hey Opie” here?</span><button onClick={() => setWake(true)}>Listen</button><button className="quiet" onClick={() => setWake(false)}>Not now</button></div>}
     </>
   );
+}
+
+/** A hub's screen may listen for "Hey Opie" itself (wake-listen.js): asked once, kept on this device. true, false,
+ *  'offer' (asking), or null (not here: no hub, no microphone, no wake model on the hub). */
+const WAKE = 'openhouse.screen.wake';
+function useWake(c, scopes, here) {
+  const [v, setV] = useState(() => { try { return JSON.parse(localStorage.getItem(WAKE) || 'null'); } catch { return null; } });
+  const [can, setCan] = useState(false);
+  useEffect(() => {
+    if (!here || !c || !canTalk(scopes)) return;
+    (async () => {
+      try {
+        const a = await (await fetch('/pair/about')).json();
+        if (!a.hub) return;
+        const st = await c.json('GET', '/voice/status');
+        if (st.status === 200 && st.json?.ready) setCan(true);
+      } catch {}
+    })();
+  }, [c, here]);
+  const set = (x) => { setV(x); try { localStorage.setItem(WAKE, JSON.stringify(x)); } catch {} };
+  return [!can ? null : v === null ? 'offer' : v, set];
 }
 
 if (shell) document.documentElement.classList.add('display');

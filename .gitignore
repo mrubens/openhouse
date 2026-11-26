@@ -31,3 +31,4 @@ bridge/web-mcp.json
 # the cloud client's state when the bridge runs from a checkout (bridge/cloud.js)
 .cloud/
 .node/
+runtime/hub-voice/

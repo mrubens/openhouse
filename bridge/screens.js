@@ -91,6 +91,7 @@ const RULES = [
   // its session started through the cloud (server.js /live/start) and its tools run here. A browser gives a page the
   // microphone only on https or localhost, so on the Wi-Fi's plain http address the page doesn't offer it.
   ['voice', 'GET', /^\/live\/setup$/],
+  ['voice', 'POST', /^\/voice\/listen$/], ['voice', 'GET', /^\/voice\/status$/], // listening for "Hey Opie" in a browser (voice.js; offered on a hub's screens)
   ['voice', 'POST', /^\/live\/(start|tool|said|usage)$/],
   // 'admin': the hub's own settings (docs/hub.md), what the tablet's Settings do behind its PIN: devices, the account,
   // live voice, backups, reaching it from away, updates. Only a hub hands it out: to the device that typed the code the

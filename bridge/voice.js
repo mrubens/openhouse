@@ -58,6 +58,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
   let worker = null, ready = false, error = null, model = null;
   let listening = 0, injectN = 0;
   const waiting = new Map(); // src -> resolve
+  const heardBy = new Map(); // a browser screen's src -> when its name was heard (/voice/listen)
   const clients = new Set();
   // The speech log: what it did, in order (on this device only), so a bad moment can be looked at afterwards. Off
   // unless someone turned it on. GET /voice/log?n=300 reads the end of it.
@@ -172,6 +173,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
       console.log(ready ? `[voice] ready (${model})` : `[voice] not ready: ${error}`); return;
     }
     if (m.type === 'model-wake') { const { type, src, ...o } = m; if (src === 'mic') wakeLog(o); return; }
+    if (m.type === 'wake' && String(m.src).startsWith('d-')) { heardBy.set(m.src, Date.now()); vlog('wake-word', { p: m.p, device: true }); return; } // a browser screen's (/voice/listen)
     if (m.type === 'wake') { if (m.src !== 'mic') return; vlog('wake-word', { p: m.p }); clipWake(m.p); handle.onWake?.(); emit({ type: 'wake', at: Date.now(), p: m.p }); return; }
     if (m.type === 'note') { vlog('note', { text: m.text }); console.log('[voice] ' + m.text); return; }
     if (m.type === 'mic-level') { try { writeJson(MIC_LEVEL, { usual: m.level }, { bak: false }); } catch {} return; }
@@ -247,6 +249,19 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
     }
     if (req.method !== 'POST') return false;
 
+    // A browser screen listening for its name (a hub's screens, chat/src/wake-listen.js): its microphone a moment at a
+    // time (16-bit, 16 kHz, mono), sealed like everything it sends; the answer says whether its name was heard since the
+    // last moment. Its sound is scored and dropped: never kept, recorded or sent on.
+    if (p === '/voice/listen') {
+      const id = String(req.headers['x-openhouse-screen'] || ''), b = await body(req);
+      if (!id) { json(res, 403, { error: 'a paired device only' }); return true; }
+      const src = 'd-' + id.slice(0, 40);
+      let pcm; try { pcm = Buffer.from(String(b.pcm || ''), 'base64'); } catch { pcm = Buffer.alloc(0); }
+      if (worker && ready && pcm.length >= 2 && pcm.length <= 64000) worker.send({ type: 'audio', src, samples: toFloat(pcm.subarray(0, pcm.length & ~1)) });
+      const at = heardBy.get(src) || 0;
+      if (at) heardBy.delete(src);
+      json(res, 200, { ready: !!(worker && ready), woke: at > 0 && Date.now() - at < 5000 }); return true;
+    }
     if (p === '/voice/stream') { // the microphone, until the shell hangs up
       listening++; let carry = null;
       console.log('[voice] microphone connected');
