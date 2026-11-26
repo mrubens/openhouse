@@ -82,6 +82,8 @@ reads it except, with the household's permission, to help with a problem they re
 - **Amazon Web Services** (United States): hosting, storage of encrypted backups, receiving email to the tablet, and
   address suggestions as someone types one on the map.
 - **OpenAI**: the cloud assistant (typed and spoken) and making apps on the tablet, when the household uses it.
+  With the household's own OpenAI key on the tablet, the tablet talks to OpenAI directly on the household's own
+  account, and none of it passes through our service. The key stays on the tablet and never reaches us.
 - **Resend**: sends the sign-in emails.
 - **Apple**: delivers iPhone notifications, which carry only a sealed note.
 - **Let's Encrypt**: issues the certificate that lets the household's phones reach the tablet securely at home. It

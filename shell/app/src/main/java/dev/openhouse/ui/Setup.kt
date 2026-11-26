@@ -416,7 +416,8 @@ private fun VoiceStep(v: VoiceUi) {
                 val asked = v.asked
                 if (asked != null) Soft("You asked on ${asked.take(10)}. We'll email you when it's on.")
                 else {
-                    Soft("We're turning it on for households a few at a time.")
+                    Soft("We're turning it on for households a few at a time. Or use your own OpenAI key.")
+                    SoftButton("Use your own OpenAI key") { o.host.setting("ownKey") }
                     SoftButton("Ask for Opie's voice") {
                         Openhouse.scope.launch(Dispatchers.IO) {
                             val r = runCatching { JSONObject(Openhouse.post("/cloud/voice/ask") ?: "{}") }.getOrNull()
@@ -429,6 +430,7 @@ private fun VoiceStep(v: VoiceUi) {
                 Text("Opie's voice comes through an Opie account. Link this tablet to one, then choose a voice in Settings, Voice.", style = calmText(Calm.LEAD))
                 Soft("Linking is in Settings, Account, too.")
                 SoftButton("Link this tablet") { o.host.setupVoice("link") }
+                SoftButton("Use your own OpenAI key") { o.host.setting("ownKey") }
             }
             "noBridge" -> Text("The tablet's software isn't answering right now. Opie's voice is in Settings, Voice, once it is.", style = calmText(Calm.LEAD))
             else -> {

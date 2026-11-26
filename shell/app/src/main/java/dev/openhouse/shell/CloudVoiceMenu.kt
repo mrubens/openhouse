@@ -46,7 +46,8 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
         ui {
             if (now == null) return@ui say(noBridge)
             val checked = if (!LiveVoice.chosen) 0 else 1 + VOICES.indexOfFirst { it.first == now }
-            CalmDialog(act).setTitle("Voice").setMessage("What's said after “Hey Opie” goes to OpenAI.")
+            CalmDialog(act).setTitle("Voice").setMessage(if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.")
+                .setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }
                 .setSingleChoiceItems((listOf("Off") + VOICES.map { it.second }).toTypedArray(), checked) { d, i ->
                     d.dismiss()
                     if (i == 0) { OpieChoice.set(act, false); off(); return@setSingleChoiceItems }
@@ -76,7 +77,8 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
                     val (code, r) = CloudSetup.post("${act.bridge}/cloud/voice/ask", JSONObject())
                     ui { if (code == 200) act.toast("Asked. We'll email you when it's on") else say(r?.optString("error")?.ifEmpty { null } ?: noBridge) }
                 }
-            }.setNegativeButton("Not now", null).show()
+            }.setNeutralButton("Use your own OpenAI key") { _, _ -> OwnKey.menu(act) }
+            .setNegativeButton("Not now", null).show()
     }
 
     /** Voice: Off. The live voice, Hey Opie and the microphone all off. */

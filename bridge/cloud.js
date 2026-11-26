@@ -225,7 +225,11 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // The family's choice is kept here (voice.json) and with the service, which refuses a live session for a family
   // that hasn't turned it on; turned off on the account page, it's off here at the next check.
   let lastVoiceStatus = null;
-  const liveOn = () => !!device() && !!read('voice.json')?.on && read('voice.json')?.provider === 'openai-live'; // (an older "on" was for Deepgram, which is gone)
+  // The household's own OpenAI key (docs/assistant.md): the shell keeps it sealed and says only whether one is in
+  // (POST /cloud/own {on}); the bridge never holds it. With one in, everything goes the own-key way and Opie cloud's
+  // voice is off for this tablet (the two aren't blended).
+  const ownOn = () => read('own.json')?.on === true;
+  const liveOn = () => !ownOn() && !!device() && !!read('voice.json')?.on && read('voice.json')?.provider === 'openai-live'; // (an older "on" was for Deepgram, which is gone)
   const voice = { used: () => (liveOn() ? 'live' : 'off') };
   async function voiceStatus(check) {
     const mine = read('voice.json') || {};
@@ -321,6 +325,14 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         await reply(res, p === '/cloud/pin-reset/start' ? pinResetStart : pinResetPoll); return true;
       case '/cloud/report': await reply(res, () => sendReport(b)); return true;
       case '/cloud/link/token': await reply(res, () => linkToken(String(b.token || ''), String(b.api || ''), String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
+      // The shell, when the household's own key goes in or comes out: only whether there is one. Never the key: a body
+      // with anything else in it is refused, so a key sent here by mistake isn't kept.
+      case '/cloud/own': {
+        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the tablet only' }); return true; }
+        if (typeof b.on !== 'boolean' || Object.keys(b).length !== 1) { json(res, 400, { error: 'on only' }); return true; }
+        if (b.on) write('own.json', { on: true, at: iso() }); else fs.rmSync(f('own.json'), { force: true });
+        json(res, 200, { own: ownOn() }); return true;
+      }
       case '/cloud/voice': await reply(res, () => voiceSet(!!b.on)); return true;
       // A household that set up its own tablet asks for Opie's voice (the service keeps the ask; its owner turns it on).
       case '/cloud/voice/ask': await reply(res, async () => { lastVoiceStatus = await call('POST', '/v1/voice/ask'); return voiceStatus(false); }); return true;
@@ -328,7 +340,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       // OpenAI's live voice (the trial): the shell's WebRTC offer to the service, which starts the session with OpenAI
       // (the key stays there) and answers with OpenAI's SDP; and, when the session ends, what it cost (OpenAI's count).
       // (One line per start, its outcome only, for when a device says it couldn't connect: no words, no addresses.)
-      case '/cloud/live/start': await reply(res, () => { if (!liveOn()) throw Object.assign(new Error('off'), { code: 'off' }); const s = req.liveSetup || b; return call('POST', '/v1/voice/live/start', { sdp: String(b.sdp || ''), name: String(b.name || ''), instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], idleTimeoutS: Number(b.idleTimeoutS) || undefined, voice: read('voice.json')?.voiceName || undefined }).then((r) => { console.log(`[cloud] live start ok${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); return r; }, (e) => { console.log(`[cloud] live start failed: ${e.code || ''} ${String(e.message || '').slice(0, 80)}${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); throw e; }); }); return true;
+      case '/cloud/live/start': await reply(res, () => { if (ownOn()) return ownNotYet(); if (!liveOn()) throw Object.assign(new Error('off'), { code: 'off' }); const s = req.liveSetup || b; return call('POST', '/v1/voice/live/start', { sdp: String(b.sdp || ''), name: String(b.name || ''), instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], idleTimeoutS: Number(b.idleTimeoutS) || undefined, voice: read('voice.json')?.voiceName || undefined }).then((r) => { console.log(`[cloud] live start ok${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); return r; }, (e) => { console.log(`[cloud] live start failed: ${e.code || ''} ${String(e.message || '').slice(0, 80)}${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); throw e; }); }); return true;
       // An app's small question (the kit's decide(); apps.js lets only the family's own apps and those that declare
       // "decide" reach this): {input, questions} -> {answers}.
       case '/cloud/decide': await reply(res, () => decide(b.input, Array.isArray(b.questions) ? b.questions : [])); return true;
@@ -350,12 +362,17 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     }
     json(res, 404, { error: 'not found' }); return true; // the body is read: nothing after this may read it again
   }
+  // The own-key way for the three calls, through the shell's route to OpenAI (DeviceServer /openai). Not built yet: what
+  // the requests to OpenAI carry is the cloud's today, and copying it here waits for the owner's yes.
+  const ownNotYet = () => Promise.reject(Object.assign(new Error('Your own OpenAI key isn\'t working in this version yet.'), { code: 'own_not_ready' }));
   /** The cloud assistant's next step (agents/cloud.js): the model's output for the conversation so far. */
-  const ai = (q) => call('POST', '/v1/ai/respond', q);
+  const ai = (q) => (ownOn() ? ownNotYet() : call('POST', '/v1/ai/respond', q));
   /** OpenAI Decisions through the service: {answers}. Only once the family chose OpenAI (the service checks). */
-  const decide = (input, questions) => call('POST', '/v1/decide', { input: String(input || ''), questions });
+  const decide = (input, questions) => (ownOn() ? ownNotYet() : call('POST', '/v1/decide', { input: String(input || ''), questions }));
   /** The tablet's assistant (typed turns, flyers, the heartbeat's notes) is the cloud's text model: linked, OpenAI chosen (server.js agentName). */
   const brainOn = () => liveOn();
+  /** The household's own key is in (agentName 'own'). */
+  const own = () => ownOn();
   /** The relay (relay.js): where to dial out to, and the credential it says hello with. */
   const relayAddress = () => call('GET', '/v1/relay');
   /** A box a device left in the cloud's storage for this tablet (relay.js, k 'b': a photo, too big to go in relay
@@ -411,7 +428,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const revoked = () => { if (device()) return false; const s = state(); return s.unlinkedWhy === 'revoked' || !!s.unlinkedHere; };
   /** Which link this is (a relink is a new one). */
   const linkId = () => device()?.deviceId || null;
-  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own, liveOn, refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);
