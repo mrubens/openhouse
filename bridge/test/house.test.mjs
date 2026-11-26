@@ -230,3 +230,15 @@ test('a screen that keeps its view (/house/wait?same=1) still gets a full view w
     assert.ok(Date.now() - t0 < 11 * 60e3, 'soon after midnight');
   } finally { mock.timers.reset(); }
 });
+
+test("a person's age is kept as a birth year, so it never goes stale, and a save without it keeps it", async () => {
+  const { personKept, personView } = await import('../board.js');
+  const y = new Date().getFullYear();
+  assert.deepEqual(personKept({ note: '9' }), { born: y - 9 }); // an age, as the year it means
+  assert.deepEqual(personKept({ note: '2017' }), { born: 2017 });
+  assert.deepEqual(personKept({ note: 'Mom', born: 1985 }), { note: 'Mom', born: 1985 });
+  assert.deepEqual(personKept({ note: 'the dog' }, { born: 2020 }), { note: 'the dog', born: 2020 }); // kept from before
+  assert.deepEqual(personKept({ note: String(y - 2017) }, { note: 'the youngest', born: 2017 }), { note: 'the youngest', born: 2017 }); // the age shown, saved back
+  assert.equal(personView({ name: 'Maya', born: y - 9 }).note, '9');
+  assert.equal(personView({ name: 'Sam', note: 'Parent', born: 1985 }).note, 'Parent');
+});

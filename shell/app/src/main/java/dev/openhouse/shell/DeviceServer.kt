@@ -204,7 +204,7 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/openai", "/ownkey", "/setup/google", "/setup/icloud", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
+    private val HOME_PATHS = setOf("/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -315,6 +315,32 @@ object DeviceServer {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
                 val why = CalendarAccounts.addICloudFrom(a, b.optString("user"), b.optString("pass"), b.optString("who"), a::immersive)
                 if (why == null) 200 to """{"ok":true}""" else 400 to JSONObject().put("error", why).toString()
+            }
+            // The PIN, chosen on the setup's phone or computer (bridge /setup/pin): only while the setup's PIN step shows
+            // and no PIN is set yet. On an unlinked tablet its recovery code goes back to be shown there, once (never kept
+            // here but as a hash).
+            "/setup/pin" -> {
+                if (dev.openhouse.ui.Openhouse.setupStep != "pin" || ParentPin.isSet(ctx)) return 409 to """{"error":"The PIN can be chosen here only during the setup, before one is set."}"""
+                val pin = b.optString("pin")
+                if (!ParentPin.valid(pin)) return 400 to """{"error":"4 to 8 digits."}"""
+                val code = if (b.optBoolean("linked")) null else RecoveryCode.new()
+                ParentPin.set(ctx, pin, code)
+                handler.post { dev.openhouse.ui.Openhouse.settingsChanged() }
+                200 to JSONObject().put("ok", true).putOpt("recovery", code?.chunked(4)?.joinToString("-")).toString()
+            }
+            // Opie's voice from the setup's phone or computer: hear one (sample: said here, by the tablet) or turn it on.
+            "/setup/voice" -> {
+                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                val voice = b.optString("voice").takeIf { v -> CloudVoiceMenu.VOICES.any { it.first == v } } ?: "marin"
+                val got = java.util.concurrent.LinkedBlockingQueue<String>()
+                handler.post { CloudVoiceMenu(a).fromSetup(if (b.optString("do") == "sample") "sample" else "on", voice, { got.offer(it) }, fromPhone = true) }
+                if (b.optString("do") == "sample") 200 to """{"ok":true}"""
+                else when (val r = got.poll(60, java.util.concurrent.TimeUnit.SECONDS)) {
+                    "on" -> 200 to """{"on":true}"""
+                    "notYet" -> 200 to """{"on":false,"notYet":true}"""
+                    null -> 504 to """{"error":"The tablet didn't answer."}"""
+                    else -> 400 to JSONObject().put("error", r.ifEmpty { "Not turned on." }).toString()
+                }
             }
             "/ownkey" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""

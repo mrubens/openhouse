@@ -285,7 +285,7 @@ function PushRow({ c, me }) {
 const DONE = 'openhouse.phone.setupDone';
 const kidOrPet = (note) => /^\d{1,2}$/.test(String(note || '').trim()) || /\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(note || ''));
 /** The tablet's next setup step after one sent from here (Setup.kt STEPS). */
-const AFTER = { calendar: 'photos', photos: 'ai', ai: 'pin' };
+const AFTER = { calendar: 'photos', photos: 'ai', ai: 'pin', pin: 'voice', voice: 'android' };
 function SetupFlow({ me, c, h, onDone }) {
   const computer = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   // It carries on the tablet's setup rather than repeating it: the tablet's step ({step, photos?}, GET /setup/step)
@@ -327,12 +327,15 @@ function SetupFlow({ me, c, h, onDone }) {
         <h2>Photos from {computer ? 'this computer' : 'this phone'}</h2>
         {tablet.photos
           ? <a className="go" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
-          : <p className="soft">To send photos from here, tap From your phone on the tablet, then Let phones send photos.</p>}
+          : <p className="soft">To send photos from here, tap Let phones send photos on the tablet.</p>}
       </>}
-      {step === 'ai' && <><AddKey c={c} computer={computer} /><h2>Or Opie's voice through an account</h2><LinkAccount c={c} /></>}
+      {step === 'ai' && <AiHere c={c} computer={computer} />}
+      {step === 'pin' && <PinHere c={c} />}
+      {step === 'voice' && <VoiceHere c={c} />}
+      {step === 'android' && <><h1>Last, at the tablet</h1><p>Two of Android’s own settings, which only the tablet can change: letting Opie use other apps, and stopping charging at 80%. The tablet shows how; tap Done there when you’re finished.</p></>}
       {step === 'people' && <SetupPeople c={c} />}
       {step === 'place' && <SetupPlace c={c} />}
-      {!['calendar', 'photos', 'ai', 'people', 'place'].includes(step) && <>
+      {!['calendar', 'photos', 'ai', 'people', 'place', 'pin', 'voice', 'android'].includes(step) && <>
         <h1>Connected</h1>
         <p>{step === 'devices' ? 'Starting…' : 'Now at the tablet: it shows what to do. This page follows along.'}</p>
       </>}
@@ -463,24 +466,28 @@ function AddLink({ c, kind, family = [], sub = false }) {
 function SetupPeople({ c }) {
   const [rows, setRows] = useState(null), [state, setState] = useState(null);
   // At least five rows, so most households fill it in without adding any.
+  // One box for a birth year or a role ("2017", "Mom", "the dog"): a year is kept as one (the age is worked out from it,
+  // so it never goes stale), anything else as their note, and whichever wasn't typed over is kept.
   const five = (l) => [...l, ...Array.from({ length: Math.max(0, 5 - l.length) }, () => ({ name: '', note: '' }))];
-  useEffect(() => { c.json('GET', '/setup/household').then((r) => setRows(five(r.json?.family || []))).catch(() => setRows(five([]))); }, []);
+  const shown = (f) => ({ name: f.name, born: f.born, role: f.born && f.note === String(f.age) ? '' : f.note || '', note: f.born ? String(f.born) : f.note || '' });
+  useEffect(() => { c.json('GET', '/setup/household').then((r) => setRows(five((r.json?.family || []).map(shown)))).catch(() => setRows(five([]))); }, []);
+  const out = (r) => (/^\d{4}$/.test(r.note.trim()) ? { name: r.name, born: +r.note.trim(), note: r.role || '' } : { name: r.name, note: r.note, ...(r.born ? { born: r.born } : {}) });
   if (!rows) return <p className="soft">…</p>;
   const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
   async function next() {
     setState('saving');
     try {
-      const r = await c.json('POST', '/setup/household', { family: rows.filter((r) => r.name.trim()) });
+      const r = await c.json('POST', '/setup/household', { family: rows.filter((r) => r.name.trim()).map(out) });
       if (r.status !== 200) return setState(r.json?.error || 'That didn’t save.');
       await c.json('POST', '/setup/go', { step: 'place' }); setState(null);
     } catch { setState('The tablet isn’t in touch right now.'); }
   }
   return <>
     <h1>Who lives here?</h1>
-    <p>Names, and an age or role if you like (“8”, “Mom”, “the dog”).</p>
+    <p>Names, and a birth year or a role if you like (“2017”, “Mom”, “the dog”). Opie uses them to know who’s who.</p>
     {rows.map((r, i) => <div key={i} className="setuprow">
       <input value={r.name} onChange={(e) => set(i, 'name', e.target.value)} placeholder="Name" autoCapitalize="words" autoComplete="off" />
-      <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="Age or role" autoComplete="off" style={{ maxWidth: '9em' }} />
+      <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="Born or role" autoComplete="off" style={{ maxWidth: '9em' }} />
     </div>)}
     <div className="setuprow">
       <button className="quiet" onClick={() => setRows([...rows, { name: '', note: '' }])}>+ Add someone</button>
@@ -516,6 +523,67 @@ function SetupPlace({ c }) {
     <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Street address, town or zip" autoComplete="street-address" />
     <div className="setuprow"><span className="grow" /><button className="go small" disabled={state === 'saving'} onClick={next}>Next</button></div>
     {state && state !== 'saving' && <p className="soft">{state}</p>}
+  </>;
+}
+/** Opie's AI: nothing to do when the account's voice is on for the household (or a key is in); else their own OpenAI
+ *  key, or linking to an account (whose voice comes once the household is let in). */
+function AiHere({ c, computer }) {
+  const [v, setV] = useState(undefined);
+  useEffect(() => { c.json('GET', '/setup/household').then((r) => setV(r.json?.voice || null)).catch(() => setV(null)); }, []);
+  if (v === undefined) return <p className="soft">…</p>;
+  if (v?.own) return <><h1>Opie’s AI</h1><p>Opie uses your own OpenAI key. You can change it later in the tablet’s Settings, Voice.</p></>;
+  if (v?.available) return <><h1>Opie’s AI</h1><p>It comes with your Opie account: nothing to set up.</p></>;
+  return <><AddKey c={c} computer={computer} /><h2>Or Opie's voice through an account</h2><LinkAccount c={c} /></>;
+}
+/** The PIN, chosen here: it guards the tablet's Settings and saying yes to new apps. On a tablet without an account, its
+ *  recovery code is shown here once, to keep. */
+function PinHere({ c }) {
+  const [a, setA] = useState(''), [b, setB] = useState(''), [st, setSt] = useState(null), [code, setCode] = useState(null);
+  async function keep() {
+    if (a !== b) return setSt('The two don’t match.');
+    setSt('…');
+    try {
+      const r = await c.json('POST', '/setup/pin', { pin: a });
+      if (r.status !== 200) return setSt(r.json?.error || 'That didn’t work.');
+      setA(''); setB(''); setSt('done'); setCode(r.json?.recovery || null);
+    } catch { setSt('The tablet isn’t in touch right now.'); }
+  }
+  if (st === 'done') return <><h1>PIN set</h1>
+    {code ? <><p>If it’s ever forgotten, this recovery code is the only way back. Keep it somewhere safe, away from the tablet (a password manager is good).</p><p className="code">{code}</p></>
+      : <p>If it’s forgotten, your Opie account can reset it.</p>}</>;
+  return <>
+    <h1>Choose a PIN</h1>
+    <p>It guards the tablet’s Settings and saying yes to new apps. Without one, anyone at the tablet can. You can skip it.</p>
+    <input value={a} onChange={(e) => { setA(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="4 to 8 digits" type="password" inputMode="numeric" maxLength={8} autoComplete="new-password" />
+    <input value={b} onChange={(e) => { setB(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="Again" type="password" inputMode="numeric" maxLength={8} autoComplete="new-password" />
+    <button className="go" disabled={a.length < 4 || b.length < 4 || st === '…'} onClick={keep}>Set the PIN</button>
+    {st && st !== '…' && <p className="soft">{st}</p>}
+  </>;
+}
+const VOICES = ['marin', 'gleam', 'meridian', 'delta', 'cinder', 'willow', 'stone', 'vesper', 'quartz', 'ripple', 'beacon', 'bossa', 'tempo', 'brise', 'sillage', 'nuri', 'juni', 'flitz', 'nira', 'harema', 'shida', 'noeul'];
+/** Opie's voice: pick one (the tablet says a line in it once it's on), then turn it on: what's said after "Hey Opie"
+ *  goes to OpenAI. The try is at the tablet, where Opie listens. */
+function VoiceHere({ c }) {
+  const [v, setV] = useState(undefined), [voice, setVoice] = useState('marin'), [st, setSt] = useState(null);
+  useEffect(() => { c.json('GET', '/setup/household').then((r) => setV(r.json?.voice || null)).catch(() => setV(null)); }, []);
+  async function on() {
+    setSt('…');
+    try {
+      const r = await c.json('POST', '/setup/voice', { voice });
+      if (r.json?.on) { setSt(null); setV({ ...v, on: true }); } else setSt(r.json?.notYet ? 'Opie’s voice isn’t on for your household yet. You can carry on: it comes on by itself once it is.' : r.json?.error || 'That didn’t work.');
+    } catch { setSt('The tablet isn’t in touch right now.'); }
+  }
+  const pick = (id) => { setVoice(id); if (v?.on) c.json('POST', '/setup/voice', { voice: id, do: 'sample' }).catch(() => {}); };
+  if (v === undefined) return <p className="soft">…</p>;
+  if (!v?.own && !v?.available) return <><h1>Talk to Opie</h1><p>Opie’s voice needs its AI, which you skipped. You can set it up later in the tablet’s Settings, Voice.</p></>;
+  return <>
+    <h1>Talk to Opie</h1>
+    <p>Say “Hey Opie”, then what you’d like, at the tablet. What’s said after “Hey Opie” goes to OpenAI.</p>
+    <h2>Choose a voice</h2>
+    <div className="chips">{VOICES.map((id) => <button key={id} className={'chip' + (voice === id ? ' on' : '')} onClick={() => pick(id)}>{id[0].toUpperCase() + id.slice(1)}</button>)}</div>
+    {v?.on ? <p>It’s on. Tap a voice to hear it at the tablet. Try it there: say “Hey Opie, what’s the weather?”</p>
+      : <button className="go" disabled={st === '…'} onClick={on}>Turn on Opie’s voice</button>}
+    {st && st !== '…' && <p className="soft">{st}</p>}
   </>;
 }
 /** The household's own OpenAI key, for the tablet's Opie's AI step: sent straight to the tablet on the home Wi-Fi,

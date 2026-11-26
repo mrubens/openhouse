@@ -124,7 +124,9 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
      *  isn't turned on by itself later. "sample": on already, [voice] chosen and a line said in it (the session going
      *  ends first: a session keeps the voice it started with). "link": linking the tablet to an account. [done]: "on",
      *  "notYet", or what went wrong, to show. */
-    fun fromSetup(action: String, voice: String, done: (String) -> Unit) {
+    /** [fromPhone]: the setup's phone or computer (DeviceServer /setup/voice), whose person just chose the PIN there:
+     *  no PIN asked here again. */
+    fun fromSetup(action: String, voice: String, done: (String) -> Unit, fromPhone: Boolean = false) {
         val named = { thread { CloudSetup.post("${act.bridge}/cloud/voice/name", JSONObject().put("voice", voice)) } }
         when (action) {
             "off" -> OpieChoice.set(act, false)
@@ -157,7 +159,7 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
                     }
                 }
                 // The PIN box closed without it: the step's button comes back.
-                if (act.lock.on) PinPrompt.ask(act, act, "Turn on Opie", go, cancelled = { done("") }) else go()
+                if (act.lock.on && !fromPhone) PinPrompt.ask(act, act, "Turn on Opie", go, cancelled = { done("") }) else go()
             }
         }
     }

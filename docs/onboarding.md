@@ -14,8 +14,13 @@ On the tablet:
    tapped and typed. `Setup.hushed` keeps the microphone, the wake word and the live voice off while the welcome or a
    step before the voice step shows (`MainActivity.micWanted`, `LiveVoice`, `Speech.say`).
    **Done from a phone or computer** (since 2026-11-26; the owner: "it's ok to require a phone or computer to set it
-   up. I think that would simplify things"). The steps in order: `devices`, `people`, `place`, `calendar`, `photos`,
-   `ai`, `pin`, `android`, `voice`. What's typed or copied is done there, and the phone's Next moves the tablet on
+   up. I think that would simplify things", and "all of the steps are supposed to be on the computer"). The steps in
+   order: `devices`, `people`, `place`, `calendar`, `photos`, `ai`, `pin`, `voice` (all on the phone or computer:
+   the PIN is chosen there and an unlinked tablet's recovery code shown there, `/setup/pin`; the voice picked and
+   turned on there, heard at the tablet, `/setup/voice`), then `android` on the tablet, the one thing Android lets
+   only the tablet do, with Done. Who lives here takes a birth year or a role in one box: the age is worked out from
+   the year each time (`board.js` `personView`), so it never goes stale; ages saved before are kept as the year they
+   mean. What's typed or copied is done there, and the phone's Next moves the tablet on
    (`POST /setup/go`, which the tablet looks at every 1.5 s: `GET /setup/want`); what only the tablet can do comes last.
    The setup has the tablet's screen to itself, with a thin progress bar. While the phone or computer does a step the
    tablet shows only how to connect one, or "Carry on on Sam's phone" and which step it's on (`PhoneProgress`; the

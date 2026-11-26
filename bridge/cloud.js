@@ -438,7 +438,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const revoked = () => { if (device()) return false; const s = state(); return s.unlinkedWhy === 'revoked' || !!s.unlinkedHere; };
   /** Which link this is (a relink is a new one). */
   const linkId = () => device()?.deviceId || null;
-  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

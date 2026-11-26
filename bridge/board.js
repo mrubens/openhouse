@@ -29,6 +29,25 @@ import { shellCall } from './calendar-links.js';
 export const ROOM = { family: 20, chores: 100, places: 40, routines: 20 };
 const full = (text) => Object.assign(new Error(text), { code: 'full', status: 400 });
 
+// A person's age is kept as a birth year (born), so it never goes stale (the owner: "maybe birth year is better than
+// age so it doesn't get stale"). Everything that shows the family sees the age worked out now: as `age`, and as the
+// note where they gave no role, so whatever read an age from the note before still does.
+const thisYear = () => new Date().getFullYear();
+const yearOf = (v) => { const n = Number(String(v ?? '').trim()); return Number.isInteger(n) && n >= 1900 && n <= thisYear() ? n : null; };
+/** A person as everything shows them. */
+export function personView(f) {
+  const age = f?.born ? thisYear() - f.born : null;
+  return { ...f, ...(age != null ? { age } : {}), ...(!f?.note && age != null ? { note: String(age) } : {}) };
+}
+/** What's kept for a person from what was given: a birth year as born; an age (one or two digits) as the year it means;
+ *  anything else is their note. [had]: what was kept for them before, so a save that leaves it out keeps it. */
+export function personKept(f, had = {}) {
+  const note = String(f.note ?? '').trim().slice(0, 80);
+  const born = yearOf(f.born) ?? yearOf(/^\d{4}$/.test(note) ? note : null) ?? (/^\d{1,2}$/.test(note) ? thisYear() - Number(note) : null) ?? had.born ?? null;
+  const role = /^\d{1,4}$/.test(note) ? (had.note && !/^\d{1,4}$/.test(had.note) ? had.note : '') : note;
+  return { ...(role ? { note: role } : {}), ...(born ? { born } : {}) };
+}
+
 export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen }) {
   const BOARD = registered('board', path.join(DIR, 'board.json'));
   const HOUSE = registered('household', path.join(DIR, '../household.json'));
@@ -46,7 +65,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   // Until someone sets it up, the household is empty: nothing made up is ever said about a real family.
   function household() {
     const h = read(HOUSE, { family: [], location: null, routines: [], events: [], chores: [] });
-    return { ...withoutLinks(h), events: [...(h.events || []), ...cal.events(), ...sync.events(), ...(handle.localEvents?.() || [])] };
+    return { ...withoutLinks(h), family: (h.family || []).map(personView), events: [...(h.events || []), ...cal.events(), ...sync.events(), ...(handle.localEvents?.() || [])] };
   }
 
   /** Save what changed about the household (the setup sheet, or the assistant's tools). */
@@ -56,9 +75,10 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     if (Array.isArray(b.family)) {
       // A person's color stays theirs when the list is saved again without it (the family sheet, the assistant).
       const had = new Map((h.family || []).map((f) => [String(f.name).toLowerCase(), f.color]));
+      const hadPerson = new Map((h.family || []).map((f) => [String(f.name).toLowerCase(), f]));
       const hex = (v) => (/^#[0-9a-f]{6}$/i.test(String(v || '')) ? String(v).toLowerCase() : null);
       h.family = b.family.map((f) => { const name = str(f.name, 40), color = f.color === null ? null : hex(f.color) || had.get(name.toLowerCase()) || null;
-        return { name, ...(str(f.note) ? { note: str(f.note) } : {}), ...(color ? { color } : {}) }; }).filter((f) => f.name);
+        return { name, ...personKept(f, hadPerson.get(name.toLowerCase()) || {}), ...(color ? { color } : {}) }; }).filter((f) => f.name);
       if (h.family.length > ROOM.family) throw full(`The family has room for ${ROOM.family} people. Take someone off first.`);
     }
     if (b.location != null) h.location = str(b.location, 100) || null;
@@ -93,7 +113,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     if (!quiet) curate('household'); // a chore ticked on or off isn't worth a curation
     return h;
   }
-  const viewOf = (h) => ({ setup: !!h, family: h?.family || [], location: h?.location || '', address: h?.address || '', calendars: cal.labels(), chores: h?.chores || [], routines: h?.routines || [], calendar: cal.status() });
+  const viewOf = (h) => ({ setup: !!h, family: (h?.family || []).map(personView), location: h?.location || '', address: h?.address || '', calendars: cal.labels(), chores: h?.chores || [], routines: h?.routines || [], calendar: cal.status() });
   const householdView = () => viewOf(read(HOUSE, null));
 
   function context() {
@@ -144,6 +164,8 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   handle.sync = sync;
   sync.start(() => handle.onCalendar?.()); // house.js redraws every screen
   homeScreen.migrate(load().pins); // pins from before the home screen had notes
+  // Ages kept as a note before 2026-11-26: kept as the birth year they mean, once.
+  try { const h = read(HOUSE, null); if (h?.family?.some((f) => /^\d{1,2}$/.test(String(f.note || '').trim()))) saveHousehold({ family: h.family }, { quiet: true }); } catch (e) { console.error('[household] ages:', e.message); }
   return handle;
   async function handle(req, res, url) {
     const p = url.pathname;

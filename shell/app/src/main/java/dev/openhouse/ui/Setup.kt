@@ -42,15 +42,14 @@ import org.json.JSONObject
 
 internal object Setup {
     // The setup is done from a phone or computer (2026-11-26, the owner: "it's ok to require a phone or computer to set
-    // it up"): connecting one comes first, and can't be skipped. Who lives here and where are typed there, and its Next
-    // moves the tablet on (/setup/want); the calendar, photos and the OpenAI key are sent from it, as their links and
-    // keys are copied there (chat/src/phone.jsx SetupFlow follows the tablet's step). Last, what only the tablet can do:
-    // the PIN, Android's settings, the voice.
-    val STEPS = listOf("devices", "people", "place", "calendar", "photos", "ai", "pin", "android", "voice")
+    // it up", and "all of the steps are supposed to be on the computer"): connecting one comes first, and can't be
+    // skipped; every step after is done there, and its Next moves the tablet on (/setup/want; chat/src/phone.jsx
+    // SetupFlow follows the tablet's step). Last, the one thing Android lets only the tablet do: two of its settings.
+    val STEPS = listOf("devices", "people", "place", "calendar", "photos", "ai", "pin", "voice", "android")
     /** Done on the phone or computer: the tablet shows only how far along it is (the owner: "no need to show a skeleton
      *  thing on the tablet during the flow - it should just be the instructions for how to set things up until it's
      *  ready, maybe with a progress bar"). */
-    val ON_PHONE = setOf("people", "place", "calendar", "photos", "ai")
+    val ON_PHONE = setOf("people", "place", "calendar", "photos", "ai", "pin", "voice")
 
     /** A later step that sent someone back to connect a phone or computer: Next there comes back here. */
     private var resume: String? = null
@@ -64,7 +63,7 @@ internal object Setup {
 
     /** The welcome or a setup step before the voice step is showing: no microphone, no wake word, no live voice and
      *  nothing said aloud (MainActivity.micWanted, LiveVoice, Speech.say). */
-    val hushed: Boolean get() = Openhouse.showWelcome || Openhouse.setupStep.let { it != null && it != "voice" }
+    val hushed: Boolean get() = Openhouse.showWelcome || Openhouse.setupStep.let { it != null && STEPS.indexOf(it) < STEPS.indexOf("voice") }
 
     fun start() {
         Openhouse.setupStep = STEPS.first(); shown(STEPS.first())
@@ -108,10 +107,6 @@ internal fun SetupSheet() {
         "android" -> "Two of Android's settings"; "ai" -> "Set up Opie's AI"
         else -> "Set up Opie from your phone or computer"
     }
-    // The PIN step: its own button chooses one (SettingsLock "setupPin"), and the setup goes on once it's kept; Skip, or
-    // Next if one is already set.
-    val pinSet = remember(Openhouse.settingsV) { Openhouse.host.locked() }
-    val choosePin = step == "pin" && !pinSet
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later
     // The phone or computer's Next (bridge /setup/go): the tablet follows it.
     LaunchedEffect(Unit) {
@@ -142,25 +137,16 @@ internal fun SetupSheet() {
                 if (onPhone) {
                     // Until a phone or computer is in, how to connect one; then only what's happening there.
                     if (device == null || step == "devices") DevicesStep() else PhoneProgress(step)
-                } else if (step == "voice") {
-                    val v = remember { VoiceUi() }
-                    Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) { Spacer(Modifier.height(8.u)); VoiceStep(v) }
-                    Spacer(Modifier.height(28.u))
-                    VoiceButtons(v) // with its own buttons, below what scrolls
                 } else {
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                         Spacer(Modifier.height(8.u))
-                        when (step) {
-                            "pin" -> PinStep(pinSet)
-                            else -> AndroidStep()
-                        }
+                        AndroidStep()
                     }
                     Spacer(Modifier.height(28.u))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
                         if (Setup.STEPS.indexOf(step) > 0) TextButton("Back") { save[0](); Setup.back() }
                         Spacer(Modifier.weight(1f))
-                        if (step != "pin" || choosePin) TextButton("Skip") { Setup.next() }
-                        MainButton(if (choosePin) "Choose a PIN" else "Next") { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }
+                        MainButton("Done") { Setup.finish() } // (the last step: either setting can wait)
                     }
                 }
             }
@@ -182,7 +168,7 @@ private fun Progress(f: Float, modifier: Modifier = Modifier) {
 private fun PhoneProgress(step: String) {
     val now = when (step) {
         "people" -> "Who lives here"; "place" -> "Where you live"; "calendar" -> "Your calendars"; "photos" -> "Your photos"
-        else -> "Opie's AI"
+        "pin" -> "A PIN"; "voice" -> "Opie's voice"; else -> "Opie's AI"
     }
     var phonesOn by remember { mutableStateOf(true) }
     LaunchedEffect(step) { if (step == "photos") phonesOn = withContext(Dispatchers.IO) { runCatching { dev.openhouse.shell.PhotoShare.link() }.getOrNull() } != null }
@@ -190,6 +176,8 @@ private fun PhoneProgress(step: String) {
         Text("It shows each step. This tablet follows along, and you'll finish here.", style = calmText(Calm.LEAD))
         Soft("Now: $now")
         if (step == "photos" && !phonesOn) SoftButton("Let phones send photos") { Openhouse.host.setting("photoPhonesOn") }
+        // The voice on (from the phone): it's heard here, so the try is here.
+        if (step == "voice" && remember(Openhouse.settingsV) { Openhouse.host.hasAssistant() }) Text("Try it: say “Hey Opie, what's the weather?”", style = calmText(Calm.LEAD, FontWeight.Medium))
     }
 }
 
@@ -276,154 +264,6 @@ private fun connectedDevice(): String? {
         }
     }
     return name
-}
-
-/** The last step: talking to Opie. What it is, things to ask in the household's own words, a voice, and the line about
- *  what goes to OpenAI; then Turn on Opie's voice (a person's tap: it's the yes to OpenAI) and a try, or Not now (it
- *  stays off and isn't turned on by itself later; Settings, Voice). Without a voice to turn on (the household doesn't
- *  have it yet, or the tablet isn't linked), it says so and how, and Done. */
-private class VoiceUi {
-    // looking, ready (it can be turned on), on (the try), notYet, unlinked, noBridge
-    var state by mutableStateOf(if (Openhouse.host.hasAssistant()) "on" else "looking")
-    var voice by mutableStateOf("marin")
-    var problem by mutableStateOf<String?>(null)
-    var busy by mutableStateOf(false)
-    /** When the household asked for Opie's voice (the service's), while it doesn't have it. */
-    var asked by mutableStateOf<String?>(null)
-}
-
-@Composable
-private fun VoiceStep(v: VoiceUi) {
-    val o = Openhouse
-    var state by v::state
-    var voice by v::voice
-    val problem = v.problem
-    var example by remember { mutableStateOf(dev.openhouse.shell.PluginsMenu.example(emptyList())) }
-    val voices = remember { o.host.voices() }
-    LaunchedEffect(Unit) {
-        val fam = withContext(Dispatchers.IO) { o.loadHousehold() }?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
-        example = dev.openhouse.shell.PluginsMenu.example(fam)
-    }
-    // Looked at until it's known; while unlinked (or the bridge is starting), again every few seconds, so linking from
-    // here, or from the account page, shows at once.
-    LaunchedEffect(Unit) {
-        while (true) {
-            if (state in setOf("looking", "unlinked", "noBridge")) {
-                val st = withContext(Dispatchers.IO) { getJson("/cloud/voice?check=1", 15_000) }
-                if (state == "looking") st?.optString("voiceName")?.takeIf { it.isNotBlank() }?.let { voice = it }
-                v.asked = st?.optString("asked")?.takeIf { !st.isNull("asked") && it.isNotBlank() }
-                state = when {
-                    st == null -> "noBridge"
-                    st.optBoolean("on") -> "on"
-                    !st.optBoolean("linked") && !st.optBoolean("own") -> "unlinked"
-                    st.has("available") && !st.isNull("available") && !st.optBoolean("available") -> "notYet"
-                    else -> "ready"
-                }
-            }
-            delay(3000)
-        }
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(22.u)) {
-        when (state) {
-            "looking" -> Text("…", style = calmText(Calm.LEAD, color = Calm.soft))
-            "notYet" -> {
-                Text("Opie's voice isn't on for your household yet. When it is, the tablet asks you here, or you can turn it on in Settings, Voice.", style = calmText(Calm.LEAD))
-                // Ask for it: the service keeps the ask under the household and emails it once it's on (openhouse-cloud docs/beta.md).
-                val asked = v.asked
-                if (asked != null) Soft("You asked on ${asked.take(10)}. We'll email you when it's on.")
-                else {
-                    Soft("We're turning it on for households a few at a time. Or use your own OpenAI key.")
-                    SoftButton("Use your own OpenAI key") { o.host.setting("ownKey") }
-                    SoftButton("Ask for Opie's voice") {
-                        Openhouse.scope.launch(Dispatchers.IO) {
-                            val r = runCatching { JSONObject(Openhouse.post("/cloud/voice/ask") ?: "{}") }.getOrNull()
-                            withContext(Dispatchers.Main) { if (r != null && !r.has("error")) v.asked = r.optString("asked").ifBlank { java.time.LocalDate.now().toString() } else v.problem = r?.optString("error")?.ifBlank { null } ?: "The tablet's software isn't answering right now." }
-                        }
-                    }
-                }
-            }
-            "unlinked" -> {
-                Text("Opie's voice comes through an Opie account. Link this tablet to one, then choose a voice in Settings, Voice.", style = calmText(Calm.LEAD))
-                Soft("Linking is in Settings, Account, too.")
-                SoftButton("Link this tablet") { o.host.setupVoice("link") }
-                SoftButton("Use your own OpenAI key") { o.host.setting("ownKey") }
-            }
-            "noBridge" -> Text("The tablet's software isn't answering right now. Opie's voice is in Settings, Voice, once it is.", style = calmText(Calm.LEAD))
-            else -> {
-                Text("You can talk to Opie: say “Hey Opie”, then what you'd like.", style = calmText(Calm.LEAD))
-                Rows(listOf("Add milk to the list", "What's on tomorrow?", example).map { t -> @Composable {
-                    Text("“Hey Opie, ${t.replaceFirstChar { it.lowercase() }}”", style = calmText(21), modifier = Modifier.padding(vertical = 10.u))
-                } })
-                Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
-                    Text("Choose a voice", style = calmText(21, FontWeight.Medium))
-                    // All of them in view: rows of six, each name one word on one line (no row running off the edge).
-                    Column(verticalArrangement = Arrangement.spacedBy(8.u)) {
-                        voices.chunked(6).forEach { row ->
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.u)) {
-                                row.forEach { (id, about) ->
-                                    Chip(about.substringBefore(" · "), Modifier.weight(1f), selected = voice == id) {
-                                        voice = id
-                                        if (state == "on") o.host.setupVoice("sample", id) // on: it says a line in the new voice
-                                    }
-                                }
-                                repeat(6 - row.size) { Spacer(Modifier.weight(1f)) }
-                            }
-                        }
-                    }
-                    // Before it's on there's nothing to play them with: they're OpenAI's live voices, heard only in a
-                    // session, and a session is for after the yes below.
-                    Soft((voices.firstOrNull { it.first == voice }?.second?.substringAfter(" · ", "")?.takeIf { it.isNotBlank() }?.let { "$it. " } ?: "") +
-                        if (state == "on") "Tap another to hear it." else "You hear it once the voice is on.")
-                }
-                if (state == "ready") Column(verticalArrangement = Arrangement.spacedBy(6.u)) {
-                    Text("What you say after “Hey Opie” goes to OpenAI.", style = calmText(21))
-                    Soft("Not now leaves it off: it's in Settings, Voice.") // (here, not beside the buttons: the card is narrow)
-                }
-                if (state == "on") Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
-                    Box(Modifier.size(172.u, 76.u), contentAlignment = Alignment.Center) { dev.openhouse.shell.AssistantFace(onLongPress = {}, wide = true) }
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.u)) {
-                        Text("Try it: say “Hey Opie, what's the weather?”", style = calmText(Calm.LEAD, FontWeight.Medium))
-                        val now by produceState(0L) { while (true) { value = System.currentTimeMillis(); delay(300) } }
-                        val said = remember(now) { dev.openhouse.shell.LiveVoice.caption.takeIf { dev.openhouse.shell.LiveVoice.active } }
-                        said?.takeIf { it.isNotBlank() }?.let { Soft(it.takeLast(200)) }
-                    }
-                }
-            }
-        }
-        problem?.let { Soft(it) }
-    }
-}
-
-/** The voice step's buttons: Turn on Opie's voice (a person's tap: the yes to OpenAI) or Not now; else Done. */
-@Composable
-private fun VoiceButtons(v: VoiceUi) {
-    val o = Openhouse
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
-        TextButton("Back") { Setup.back() }
-        Spacer(Modifier.weight(1f))
-        if (v.state == "ready") {
-            TextButton("Not now") { o.host.setupVoice("off"); Setup.finish() }
-            MainButton(if (v.busy) "Turning on…" else "Turn on Opie's voice", enabled = !v.busy) {
-                v.busy = true; v.problem = null
-                o.host.setupVoice("on", v.voice) { r ->
-                    v.busy = false
-                    when (r) { "on" -> v.state = "on"; "notYet" -> v.state = "notYet"; else -> v.problem = r.ifBlank { null } }
-                }
-            }
-        } else MainButton("Done", enabled = v.state != "looking") { Setup.finish() }
-    }
-}
-
-/** The PIN: Settings and saying yes to new apps are for the people who know it. Skipping leaves the lock off (PIN
- *  Lock in Settings turns it on later). */
-@Composable
-private fun PinStep(set: Boolean) {
-    Column(verticalArrangement = Arrangement.spacedBy(14.u)) {
-        Text("It guards Settings and saying yes to new apps.", style = calmText(Calm.LEAD))
-        Text(if (set) "PIN Lock is on. Settings and approving new apps ask for the PIN."
-            else "With a PIN, only someone who knows it can change Settings or approve a new app. Without one, anyone at the tablet can, and the first person to choose a PIN later decides. Best chosen now, while you're setting it up.",
-            style = calmText(19, color = Calm.soft))
-    }
 }
 
 /**
