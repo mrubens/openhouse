@@ -52,16 +52,19 @@ brings Spotify's screen up (and Spotify may play on whichever of the household's
 signs in to Spotify in Opie (Settings → Advanced → Spotify, or the `music` tool's `spotify_sign_in`, which puts
 Spotify's own sign-in page on the screen), Spotify plays on the tablet without its app instead:
 
-- **Shell** (`SpotifyEmbed.kt`): Spotify's player for websites (its Embed, `open.spotify.com/embed/...`) loaded in a
-  web view nobody sees, its play button pressed; what it plays read from its media element and the media session it
-  sets. Signed in with Premium, whole songs play; signed out, only 30-second previews, so it's used only when signed
-  in. `POST /media {do: 'spotify', url, name?}` plays a link; while it's the one in use, the other buttons and Home's
-  Now playing card work it.
+- **Home** (`chat/src/spotify-player.jsx`): Spotify's player for websites (its Embed), worked through Spotify's
+  iFrame API (load, play, pause, seek, and its playback events). It lives once at the page's root, so it keeps
+  playing on any tab; on Home it sits over Today's slot for it, with Spotify's own controls (skip included) and an x
+  that stops it, and it goes a few minutes after a pause. Signed in with Premium, whole songs play; signed out, only
+  30-second previews, so Opie uses it only when signed in.
+- **Shell** (`SpotifyEmbed.kt`): the sign-in page; `POST /media {do: 'spotify', url, name?}` sends the player a link
+  and waits until it's playing; while it's the one in use, `music`'s buttons go to it. The home screen's web view
+  keeps Spotify's sign-in for its frame (third-party cookies) and lets it play protected songs.
 - **Bridge** (`devices/index.js` spotifyFirst): a `search` meant for Spotify (named, or the app they last played from)
   asks the assistant, with its web search, for the thing's `open.spotify.com` link, and Spotify's oEmbed for its name.
   Without a link, a sign-in, or the cloud, it goes to Spotify's app as before.
-- **Limits**: no next and previous where Spotify's page has none (a single song); the household's own private
-  playlists aren't found by web search, so those go to the app.
+- **Limits**: Opie can't skip ahead in it (Spotify's API has no next; its own button on Home does); the household's
+  own private playlists aren't found by web search, so those go to the app.
 
 ## Seeing what's playing
 

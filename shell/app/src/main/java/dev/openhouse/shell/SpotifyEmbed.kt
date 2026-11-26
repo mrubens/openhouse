@@ -19,17 +19,16 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
- * Spotify on the tablet itself, without its app coming up (docs/music.md): Spotify's own player for websites (the
- * Embed, open.spotify.com/embed/...) in a WebView nobody sees. Signed in to Spotify in Opie once (its sign-in page,
- * [signIn]), it plays whole songs for a Premium account; signed out, Spotify plays 30-second previews, so it's used
- * only once signed in. Opie finds the thing's Spotify link (bridge devices/index.js) and [play]s it; Media.kt routes
- * the buttons and the Now playing card here while it's the one in use. The embed page's own play button and its media
- * element are what it works: nothing of Spotify's private service.
+ * Spotify on the tablet itself, without its app coming up (docs/music.md): Spotify's own player for websites (its
+ * Embed), on Home, worked through Spotify's iFrame API by the home screen's page (chat/src/spotify-player.jsx). Signed in
+ * to Spotify in Opie once ([signIn]: Spotify's own page, in the web views the home screen shares), it plays whole songs
+ * for a Premium account; signed out, Spotify plays 30-second previews, so Opie uses it only once signed in. Opie finds
+ * the thing's Spotify link (bridge devices/index.js) and [play]s it; Media.kt sends the buttons here while it's the one
+ * in use. What it plays is what the page reports from the player's own events ([onState]).
  */
 object SpotifyEmbed {
     private const val TAG = "SpotifyEmbed"
     private val main by lazy { Handler(Looper.getMainLooper()) }
-    private var web: WebView? = null
     @Volatile private var state = JSONObject()
     @Volatile private var title: String? = null
     @Volatile private var usedAt = 0L
@@ -37,114 +36,88 @@ object SpotifyEmbed {
     /** Signed in to Spotify in Opie's web views (its session cookie). */
     fun signedIn() = runCatching { CookieManager.getInstance().getCookie("https://open.spotify.com")?.contains("sp_dc=") == true }.getOrDefault(false)
 
+    /** The home screen's page, as the player's state changes (HomeView's spotifyState). */
+    fun onState(j: String) { runCatching { state = JSONObject(j).put("got", SystemClock.elapsedRealtime()) } }
+
     /** What it plays, while it has something: as Media.describe's. */
     fun now(): JSONObject? {
-        if (web == null || !state.has("at")) return null
         val s = state
+        if (!s.has("uri") || s.optBoolean("stopped")) return null
         val st = when { s.optBoolean("buffering") -> "starting"; s.optBoolean("paused", true) -> "paused"; else -> "playing" }
         return JSONObject().put("app", "Spotify").put("state", st).put("embed", true)
             .putOpt("title", s.optString("title").ifBlank { title })
-            .putOpt("artist", s.optString("artist").ifBlank { null })
-            .putOpt("art", s.optString("art").ifBlank { null })
             .putOpt("positionS", s.optDouble("pos", -1.0).takeIf { it >= 0 }?.toLong())
             .putOpt("lengthS", s.optDouble("len", -1.0).takeIf { it > 0 }?.toLong())
     }
     fun playing() = now()?.optString("state").let { it == "playing" || it == "starting" }
     /** The one in use: playing, or the last thing played and played since any other app (Media.kt). */
-    fun inUse(lastOther: Long) = web != null && (playing() || usedAt > lastOther)
+    fun inUse(lastOther: Long) = now() != null && (playing() || usedAt > lastOther)
 
-    private fun spotifyUa(def: String) = def.replace("; wv", "").replace(Regex("Version/[\\d.]+ "), "")
+    private fun send(cmd: JSONObject): Boolean { val h = MainActivity.live?.homeView ?: return false; main.post { h.spotify(cmd) }; return true }
 
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun setUp(w: WebView) {
-        w.settings.javaScriptEnabled = true; w.settings.domStorageEnabled = true; w.settings.mediaPlaybackRequiresUserGesture = false
-        w.settings.userAgentString = spotifyUa(w.settings.userAgentString) // (as Chrome: Spotify turns web views away)
-        CookieManager.getInstance().setAcceptCookie(true)
-        w.webChromeClient = object : WebChromeClient() {
-            // Spotify's songs are protected (Widevine): its own pages may play them.
-            override fun onPermissionRequest(r: PermissionRequest) {
-                if (r.origin?.host?.endsWith("spotify.com") == true && PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID in r.resources) r.grant(arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) else r.deny()
-            }
-        }
-    }
-
-    // What the page reports, each second: its media element and the media session Spotify's player sets.
-    private const val WATCH = """(function(){ if (window.__oh) return; window.__oh = 1; setInterval(function(){ try {
-        var m = document.querySelector('audio,video'), s = navigator.mediaSession && navigator.mediaSession.metadata;
-        var a = s && s.artwork && s.artwork.length ? s.artwork[s.artwork.length-1].src : '';
-        OpieSpotify.state(JSON.stringify({ paused: !m || m.paused, buffering: !!m && !m.paused && m.readyState < 3, pos: m ? m.currentTime : -1, len: m && isFinite(m.duration) ? m.duration : -1,
-          title: s ? s.title : '', artist: s ? s.artist : '', art: a, preview: !!document.querySelector('[data-testid="preview-badge"],[aria-label="Preview"]') }));
-      } catch (e) {} }, 1000); })();"""
-    private const val PRESS = """(function(){ var b = document.querySelector('[data-testid="play-pause-button"]') || document.querySelector('button[aria-label="Play"],button[aria-label="Pause"]'); if (b) { b.click(); return 'ok'; } return 'none'; })()"""
-
-    private class Bridge { @android.webkit.JavascriptInterface fun state(j: String) { runCatching { state = JSONObject(j).put("at", SystemClock.elapsedRealtime()) } } }
-
-    /** Plays an open.spotify.com link (a song, album, playlist, artist, show, episode or audiobook): its embed in a
-     *  WebView nobody sees, then its play button. Waits up to [ms] for sound; the result as Media's. */
-    fun play(link: String, name: String?, ms: Long = 15_000): JSONObject {
+    /** Plays an open.spotify.com link (a song, album, playlist, artist, show, episode or audiobook) in the player on
+     *  Home; waits up to [ms] for it to be playing. The result as Media's. */
+    fun play(link: String, name: String?, ms: Long = 20_000): JSONObject {
         val m = Regex("open\\.spotify\\.com/(?:intl-[\\w-]+/)?(track|album|playlist|artist|show|episode|audiobook)/([A-Za-z0-9]{10,40})").find(link)
             ?: return JSONObject().put("error", "That isn't a Spotify link.")
         if (!signedIn()) return JSONObject().put("error", "Spotify isn't signed in on the tablet's own player.").put("signIn", true)
-        val act = MainActivity.live ?: return JSONObject().put("error", "The tablet's screen isn't up.")
-        val url = "https://open.spotify.com/embed/${m.groupValues[1]}/${m.groupValues[2]}"
+        val uri = "spotify:${m.groupValues[1]}:${m.groupValues[2]}"
         title = name?.take(200); state = JSONObject(); usedAt = SystemClock.elapsedRealtime()
-        val loaded = CountDownLatch(1)
-        main.post {
-            Media.pauseOthers() // (one thing playing: the app that was, paused)
-            val w = web ?: WebView(act).also { w ->
-                setUp(w); w.addJavascriptInterface(Bridge(), "OpieSpotify")
-                w.webViewClient = object : WebViewClient() {
-                    override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest) = r.isForMainFrame && r.url.host != "open.spotify.com" // stays on the player
-                    override fun onPageFinished(v: WebView, u: String?) { v.evaluateJavascript(WATCH, null); loaded.countDown() }
-                    override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail?): Boolean { RendererGone.drop(TAG, "Spotify", v, d); drop(); return true }
-                }
-                w.alpha = 0f // (on the screen but unseen: a web view off it doesn't play)
-                act.root.addView(w, FrameLayout.LayoutParams(2, 2, Gravity.TOP or Gravity.START))
-                web = w
-            }
-            w.loadUrl(url)
-        }
-        loaded.await(15, TimeUnit.SECONDS)
-        // Its button comes once the page has drawn: pressed as soon as it's there, and again if it didn't start.
+        Media.pauseOthers() // (one thing playing: the app that was, paused)
+        if (!send(JSONObject().put("do", "load").put("uri", uri).putOpt("title", title))) return JSONObject().put("error", "The tablet's screen isn't up.")
         val end = SystemClock.elapsedRealtime() + ms
-        var pressedAt = 0L
+        var start = -1.0
         while (SystemClock.elapsedRealtime() < end) {
-            if (playing() && !state.optBoolean("buffering")) {
-                if (state.optBoolean("preview")) return done("Spotify is playing only a preview: the tablet's Spotify sign-in may have ended (Settings → Advanced → Spotify).")
-                return done("Spotify is playing on the tablet.")
+            val s = state
+            if (s.optString("uri") == uri || s.has("pos")) {
+                val pos = s.optDouble("pos", -1.0)
+                if (!s.optBoolean("paused", true) && !s.optBoolean("buffering") && pos >= 0) {
+                    if (start < 0) start = pos else if (pos > start) { // moving: it's playing
+                        val len = s.optDouble("len", -1.0)
+                        if (len in 1.0..31.0) return done("Spotify is playing only a 30-second preview: the tablet's Spotify sign-in may have ended (Settings → Advanced → Spotify), or the account isn't Premium.")
+                        return done("Spotify is playing on the tablet.")
+                    }
+                }
             }
-            if (!playing() && SystemClock.elapsedRealtime() - pressedAt > 4000) { press(); pressedAt = SystemClock.elapsedRealtime() }
             SystemClock.sleep(400)
         }
-        return JSONObject().put("error", "Spotify's player didn't start.").putOpt("now", now())
+        return JSONObject().put("error", "Spotify's player on the tablet didn't start.").putOpt("now", now())
     }
     private fun done(t: String) = JSONObject().put("done", t).putOpt("now", now())
 
-    private fun press() { val l = CountDownLatch(1); main.post { web?.evaluateJavascript(PRESS) { l.countDown() } ?: l.countDown() }; l.await(3, TimeUnit.SECONDS) }
-
-    /** play, pause, stop, seek (seconds, + or -); next and previous only where its page has them. */
+    /** play, pause, stop, seek (seconds, + or -), previous (from the start); Spotify's player takes no next. */
     fun button(what: String, seconds: Double = 0.0): JSONObject {
-        if (web == null) return JSONObject().put("error", "Spotify isn't playing on the tablet.")
+        if (now() == null) return JSONObject().put("error", "Spotify isn't playing on the tablet.")
         usedAt = SystemClock.elapsedRealtime()
         when (what) {
-            "play" -> { if (!playing()) { Media.pauseOthers(); press() } }
-            "pause" -> if (playing()) press()
-            "stop" -> { main.post { drop() }; return JSONObject().put("done", "Spotify stopped.") }
-            "seek" -> js("(function(){var m=document.querySelector('audio,video'); if(m) m.currentTime=Math.max(0,m.currentTime+($seconds));})()")
-            "next", "previous" -> js("(function(){var b=document.querySelector('[data-testid=\"${if (what == "next") "skip-forward-button" else "skip-back-button"}\"],button[aria-label=\"${if (what == "next") "Next" else "Previous"}\"]'); if(b) b.click(); else { var m=document.querySelector('audio,video'); if(m) m.currentTime=${if (what == "next") "m.duration-0.5" else "0"}; }})()")
+            "play" -> { Media.pauseOthers(); send(JSONObject().put("do", "play")) }
+            "pause" -> send(JSONObject().put("do", "pause"))
+            "stop" -> { send(JSONObject().put("do", "stop")); return JSONObject().put("done", "Spotify stopped.") }
+            "seek" -> send(JSONObject().put("do", "seek").put("seconds", seconds))
+            "previous" -> send(JSONObject().put("do", "restart"))
+            "next" -> return JSONObject().put("error", "Spotify's player on the tablet can't skip ahead: ask for the next thing to play by name instead.")
         }
         SystemClock.sleep(900)
         return JSONObject().put("done", "Spotify: $what.").putOpt("now", now())
     }
-    private fun js(s: String) = main.post { web?.evaluateJavascript(s, null) }
 
     /** Another app started: this one pauses (one thing playing). */
-    fun pauseForOther() { if (playing()) press() }
+    fun pauseForOther() { if (playing()) send(JSONObject().put("do", "pause")) }
 
-    private fun drop() {
-        val w = web ?: return
-        web = null; state = JSONObject()
-        runCatching { (w.parent as? android.view.ViewGroup)?.removeView(w); w.loadUrl("about:blank"); w.destroy() }
+    /** As Chrome: Spotify turns web views away. (The home screen's too: HomeView.) */
+    fun spotifyUa(def: String) = def.replace("; wv", "").replace(Regex("Version/[\\d.]+ "), "")
+
+    /** Spotify's songs are protected (Widevine): its own pages and frames may play them. */
+    fun grant(r: PermissionRequest) {
+        if (r.origin?.host?.endsWith("spotify.com") == true && PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID in r.resources) r.grant(arrayOf(PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID)) else r.deny()
+    }
+
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun setUp(w: WebView) {
+        w.settings.javaScriptEnabled = true; w.settings.domStorageEnabled = true
+        w.settings.userAgentString = spotifyUa(w.settings.userAgentString)
+        CookieManager.getInstance().setAcceptCookie(true)
+        w.webChromeClient = object : WebChromeClient() { override fun onPermissionRequest(r: PermissionRequest) = grant(r) }
     }
 
     // --- signing in ------------------------------------------------------------------------------------------------
@@ -180,7 +153,7 @@ object SpotifyEmbed {
     private fun resources(act: MainActivity) = act.resources.displayMetrics.density.toInt().coerceAtLeast(1)
 
     /** Signing out: Spotify's cookies go (and its player). */
-    fun signOut() { main.post { drop() }; runCatching {
+    fun signOut() { send(JSONObject().put("do", "stop")); runCatching {
         val cm = CookieManager.getInstance()
         for (host in listOf("https://open.spotify.com", "https://accounts.spotify.com", "https://spotify.com"))
             cm.getCookie(host)?.split(';')?.map { it.substringBefore('=').trim() }?.forEach { n -> cm.setCookie(host, "$n=; Max-Age=0"); cm.setCookie(".spotify.com", "$n=; Max-Age=0; Domain=.spotify.com; Path=/") }

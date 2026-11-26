@@ -85,6 +85,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     internal val listenOn get() = listenOn(this)
     private lateinit var timers: Timers
     private lateinit var home: HomeView
+    internal val homeView get() = if (::home.isInitialized) home else null
     private lateinit var apps: AppHost
     private lateinit var overlay: androidx.compose.ui.platform.ComposeView
     internal val lock by lazy { SettingsLock(this) }

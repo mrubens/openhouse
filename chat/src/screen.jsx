@@ -9,6 +9,7 @@
 //
 // Both move things on the same grid rules as the bridge (bridge/grid.js).
 import { createRoot } from 'react-dom/client';
+import { SpotifyPlayer } from './spotify-player.jsx';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as G from '../../bridge/grid.js';
 import { Talk } from './talk.jsx';
@@ -32,6 +33,7 @@ const shell = (() => {
   const g = hi.gate;
   return { token: () => hi.token, ui: hi.ui, openApp: (id) => raw.openApp(g, id), settings: () => raw.settings(g), plugins: raw.plugins ? () => raw.plugins(g) : null, makeApp: raw.makeApp ? (note) => raw.makeApp(g, String(note || '')) : null, type: raw.type ? () => raw.type(g) : undefined, sleep: raw.sleep ? () => raw.sleep(g) : undefined, weather: () => raw.weather(g), touch: () => raw.touch(g),
     idle: () => raw.idle(g), clock24: () => { try { return !!raw.clock24(g); } catch { return false; } }, battery: () => { try { return JSON.parse(raw.battery(g) || 'null'); } catch { return null; } }, sleeping: () => { try { return !!raw.sleeping(g); } catch { return false; } }, dim: (on) => { try { raw.dim(g, !!on); } catch {} }, ask: (t) => raw.ask(g, t), androidApps: () => raw.androidApps(g), video: (u) => raw.video(g, u),
+    spotifyState: raw.spotifyState ? (j) => { try { raw.spotifyState(g, j); } catch {} } : null,
     media: raw.media ? (what) => { try { return JSON.parse(raw.media(g, what) || '{}'); } catch { return {}; } } : null,
     phone: raw.phone ? (kind, arg) => raw.phone(g, kind, arg) : null, editing: (on) => { try { raw.editing(g, !!on); } catch {} } };
 })();
@@ -942,6 +944,7 @@ function Joined({ c, scopes, idle, asking, setAsking, onRemoved }) {
   return (
     <>
       {brain.homeScreen ? <Home c={c} brain={brain} idle={idle} onAsk={(text) => setAsking(typeof text === 'string' ? text : true)} /> : <div className="pairing"><div className="dots"><i /><i /><i /></div></div>}
+      {shell?.spotifyState && <SpotifyPlayer shell={shell} />}
       {!brain.up && <div className="offline" />}
       {!shell && <Reminders c={c} house={brain.house} />}
       {asking && <Ask c={c} first={typeof asking === 'string' ? asking : ''} onClose={() => setAsking(false)} />}

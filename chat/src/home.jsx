@@ -10,6 +10,7 @@
 // takes either back.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Widget } from './home-widgets.jsx';
+import { SpotifySlot, useSpotifyOn } from './spotify-player.jsx';
 import { useNow, smallHours } from './now.js';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
@@ -450,6 +451,7 @@ const Check = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" s
 export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, addTo = go, openApp, shell, usePhoto, look, appsV, boardAt = 0 }) {
   // The time: the phone's own (phone.jsx), else the page's, drawn again each minute (not each second: Today is big).
   const clockNow = useNow(60e3), now = given ?? clockNow;
+  const spotifyOn = useSpotifyOn(); // (Spotify's own player, over its slot: spotify-player.jsx)
   const h = house || {};
   const kinds = new Map(); for (const t of tabs) { const k = kindOf(t, appBy.get(t.id)); if (k && !kinds.has(k)) kinds.set(k, t.id); }
   const t = new Date(now); t.setHours(0, 0, 0, 0);
@@ -613,7 +615,7 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   return (
     <div className="h-today">
       {!showCal && <Things c={c} things={h.things} className="t-things t-things-head" go={go} tabs={tabs} ask={shell?.ask} />}
-      {!showCal && shell?.media && <NowPlaying shell={shell} />}
+      {!showCal && (spotifyOn ? <SpotifySlot /> : shell?.media && <NowPlaying shell={shell} />)}
       <div className={'t-grid' + (showCal ? ' with-cal' : '')}>
         {showCal && <div className="t-calcol">
         <div {...card('calendar')}>
@@ -644,7 +646,7 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
         </div>
         {/* the day's other notes from the apps, the next thing under its events */}
         {dayNotes.filter((n) => n !== pictured).map((n, i) => <DayNote key={n.app + i} c={c} house={h} n={n} day={notesDay} openApp={openApp} />)}
-        {shell?.media && <NowPlaying shell={shell} />}
+        {spotifyOn ? <SpotifySlot /> : shell?.media && <NowPlaying shell={shell} />}
         </div>}
         <div className="t-side">{rows.map((r, i) => <div key={i} className="t-siderow" style={{ flexGrow: tall[i], maxHeight: rows.length > 1 && r.some((x) => x.key === 'weather') ? '50%' : undefined, gridTemplateColumns: r.map((x) => `minmax(0, ${wide(x)}fr)`).join(' ') }}>{r}</div>)}</div>
       </div>
@@ -666,7 +668,7 @@ function NowPlaying({ shell }) {
   const [offerGone, setOfferGone] = useState(() => !!store.get(OFFER));
   const ask = () => { const x = shell.media('status') || {}; if (isOn(x.now)) seen.current = Date.now(); setR(x); };
   useEffect(() => { ask(); const t = setInterval(() => { if (!document.hidden) ask(); }, 4000); return () => clearInterval(t); }, []);
-  const now = r?.now && (r.now.title || r.now.app) ? r.now : null;
+  const now = r?.now && (r.now.title || r.now.app) && !r.now.embed ? r.now : null; // (Spotify's own player shows itself: SpotifySlot)
   const stop = (e) => e.stopPropagation();
   if (!now) {
     if (!r || r.sees !== false || !r.anyPlaying || offerGone) return null;

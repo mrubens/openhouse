@@ -143,7 +143,8 @@ export const noteKey = (key) => Buffer.from(crypto.hkdfSync('sha256', Buffer.fro
 const TYPES = { '.webmanifest': 'application/manifest+json', '.json': 'application/json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.ttf': 'font/ttf', '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp' };
 const PAGE_HEADERS = {
   'cache-control': 'no-cache', 'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff',
-  'content-security-policy': "default-src 'self'; img-src 'self' blob: data: https:; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; connect-src 'self' wss: ws://10.0.2.2:* ws://localhost:*; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com; form-action 'none'; frame-ancestors 'none'",
+  // (Spotify's iFrame API and its player: the tablet's Spotify on Home, chat/src/spotify-player.jsx)
+  'content-security-policy': "default-src 'self'; script-src 'self' https://open.spotify.com; img-src 'self' blob: data: https:; style-src 'self' 'unsafe-inline'; media-src 'self' blob:; connect-src 'self' wss: ws://10.0.2.2:* ws://localhost:*; frame-src 'self' https://www.youtube-nocookie.com https://www.youtube.com https://open.spotify.com; form-action 'none'; frame-ancestors 'none'",
 };
 // A screen app's files: it runs in a sandboxed frame (no origin of its own), so it can't reach the screen's key, and
 // it can't fetch anything itself: what it reads comes from the page around it (the kit asks it), sealed.

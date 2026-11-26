@@ -109,6 +109,8 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
             if (what == "setup") { main.post { o.host.setting("nowplaying") }; return "{}" } // the card's Turn on: the PIN, then Android's page
             return runCatching { if (what == "status") Media.forHome().toString() else { Media.tapFromHome(what); "{}" } }.getOrDefault("{}")
         }
+        /** Spotify's player on Home, as its state changes (SpotifyEmbed.onState). */
+        @JavascriptInterface fun spotifyState(g: String?, j: String) { if (ok(g)) SpotifyEmbed.onState(j.take(4000)) }
         @JavascriptInterface fun video(g: String?, url: String) { if (ok(g)) main.post { (act as? MainActivity)?.playVideo(url) } }
     }
     /** An Android app's own icon as a PNG data URL, for the home screen's page (drawn once per app). */
@@ -191,7 +193,12 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         w.settings.domStorageEnabled = true
         w.settings.mediaPlaybackRequiresUserGesture = false
         w.addJavascriptInterface(calls, "OpenhouseDisplay")
+        // Spotify's player on Home (SpotifyEmbed, chat/src/spotify-player.jsx): its frame keeps the Spotify sign-in (a
+        // cookie of its own site), and Spotify takes this view for Chrome, which it plays whole songs in.
+        android.webkit.CookieManager.getInstance().setAcceptThirdPartyCookies(w, true)
+        w.settings.userAgentString = SpotifyEmbed.spotifyUa(w.settings.userAgentString)
         w.webChromeClient = object : WebChromeClient() {
+            override fun onPermissionRequest(r: android.webkit.PermissionRequest) = SpotifyEmbed.grant(r)
             override fun onConsoleMessage(m: ConsoleMessage): Boolean { Log.d(TAG, "${m.messageLevel()} ${m.message()} (${m.sourceId().substringAfterLast('/')}:${m.lineNumber()})"); return true }
         }
         w.webViewClient = object : WebViewClient() {
@@ -204,6 +211,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
                 val h = r.url.host?.lowercase() ?: return null
                 if (r.url.scheme == "http" && (h == "127.0.0.1" || h == "localhost" || h.endsWith(".localhost") || h == "10.0.2.2")) return null
                 if (r.url.scheme == "https" && (h == "www.youtube-nocookie.com" || h == "www.youtube.com")) return null // the Recipes app's and the answers' videos
+                if (r.url.scheme == "https" && h == "open.spotify.com" && r.url.path?.startsWith("/embed/") == true) return null // Spotify's player (SpotifyEmbed)
                 Log.w(TAG, "refused a frame on $h")
                 return android.webkit.WebResourceResponse("text/plain", "utf-8", 403, "Not here", emptyMap(), java.io.ByteArrayInputStream(ByteArray(0)))
             }
@@ -224,6 +232,9 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
             override fun onRenderProcessGone(v: WebView, d: android.webkit.RenderProcessGoneDetail?): Boolean { rendererGone(v, d); return true }
         }
     }
+
+    /** A command for Spotify's player on Home (SpotifyEmbed): load a spotify: URI and play, play, pause, seek, stop. */
+    fun spotify(cmd: org.json.JSONObject) { web?.evaluateJavascript("window.__opieSpotify && window.__opieSpotify(${org.json.JSONObject.quote(cmd.toString())})", null) }
 
     companion object {
         const val TAG = "HomeView"
