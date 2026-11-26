@@ -326,23 +326,23 @@ function SetupFlow({ me, c, h, onDone }) {
         <GooglePhotosHere c={c} />
         <h2>Photos from {computer ? 'this computer' : 'this phone'}</h2>
         {tablet.photos
-          ? <a className="go" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
-          : <p className="soft">To send photos from here, tap Let phones send photos on the tablet.</p>}
+          ? <a className="go act" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
+          : <p className="soft">First tap Let phones send photos on the tablet.</p>}
       </>}
       {step === 'ai' && <AiHere c={c} computer={computer} />}
       {step === 'pin' && <PinHere c={c} />}
       {step === 'voice' && <VoiceHere c={c} />}
-      {step === 'android' && <><h1>Last, at the tablet</h1><p>Two of Android’s own settings, which only the tablet can change: letting Opie use other apps, and stopping charging at 80%. The tablet shows how; tap Done there when you’re finished.</p></>}
+      {step === 'android' && <><h1>Last, at the tablet</h1><p>Two Android settings only the tablet can change. Tap Done there when you’re finished.</p></>}
       {step === 'people' && <SetupPeople c={c} />}
       {step === 'place' && <SetupPlace c={c} />}
       {!['calendar', 'photos', 'ai', 'people', 'place', 'pin', 'voice', 'android'].includes(step) && <>
         <h1>Connected</h1>
-        <p>{step === 'devices' ? 'Starting…' : 'Now at the tablet: it shows what to do. This page follows along.'}</p>
+        <p>{step === 'devices' ? 'Starting…' : 'Carry on at the tablet.'}</p>
       </>}
       <div className="setuprow">
         <span className="grow" />
         {/* The steps sent from here move the tablet on from here too (the tablet's own Next works as well). */}
-        {AFTER[step] && <button className="go small" onClick={() => c.json('POST', '/setup/go', { step: AFTER[step] }).catch(() => {})}>Next</button>}
+        {AFTER[step] && step !== 'pin' && <button className="go small" onClick={() => c.json('POST', '/setup/go', { step: AFTER[step] }).catch(() => {})}>Next</button>}
       </div>
     </main>
   );
@@ -363,8 +363,8 @@ function SetupFlow({ me, c, h, onDone }) {
   );
 }
 const HOW = {
-  calendar: { title: 'Your calendars', hint: 'Calendar link (iCal)', help: 'Google Calendar: Settings, your calendar, Secret address in iCal format. iCloud: share the calendar as Public, then copy its link. Outlook: Publish a calendar, ICS link.', path: '/setup/calendar' },
-  album: { title: 'Photos', hint: 'iCloud shared album link', help: 'In Photos, a shared album, then its sharing settings: turn on Public Website, then copy the link.', path: '/setup/album' },
+  calendar: { title: 'Your calendars', hint: 'Calendar link (iCal)', help: 'Google: the calendar’s settings, Secret address in iCal format. iCloud: share it as Public. Outlook: Publish, ICS link.', path: '/setup/calendar' },
+  album: { title: 'Photos', hint: 'iCloud shared album link', help: 'In Photos, turn on Public Website for a shared album and paste its link.', path: '/setup/album' },
 };
 /** Linking the tablet to an Opie account, from here: its link page opens here (the code never shows on the tablet). */
 function LinkAccount({ c, onLinked }) {
@@ -411,14 +411,14 @@ function SignIns({ c, family = [] }) {
       {linked ? <button className="quiet" onClick={google}>Sign in with Google</button> : linked === false && <LinkAccount c={c} onLinked={() => setLinked(true)} />}
       <button className="quiet" onClick={() => setIc(!ic)}>iCloud</button>
     </div>
-    {linked === false && <p className="soft">Google Calendar signs in through your Opie account (two-way). Without one, add its secret iCal address below (read only).</p>}
+    {linked === false && <p className="soft">Signing in to Google needs an Opie account. Without one, paste its link below.</p>}
     {g && <p className="soft">{g}</p>}
     {ic && <>
-      <p>Make an app-specific password at appleid.apple.com (Sign-In and Security). It goes straight to the tablet, sealed, and only reaches iCloud’s calendars.</p>
+      <p>Make an app-specific password at appleid.apple.com, under Sign-In and Security. It goes only to the tablet.</p>
       <input value={f.user} onChange={(e) => setF({ ...f, user: e.target.value })} placeholder="Apple ID (email)" type="email" autoCapitalize="off" autoComplete="off" />
       <input value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} placeholder="App-specific password" type="password" autoComplete="off" />
       {family.length > 0 && <div className="chips">{family.map((p) => <button key={p.name} className={'chip' + (f.who === p.name ? ' on' : '')} onClick={() => setF({ ...f, who: f.who === p.name ? '' : p.name })}>{p.name}</button>)}</div>}
-      <button className="go" disabled={st === 'sending' || f.user.length < 3 || f.pass.length < 8} onClick={icloud}>{st === 'sending' ? 'Signing in…' : 'Sign in to iCloud'}</button>
+      <button className="go act" disabled={st === 'sending' || f.user.length < 3 || f.pass.length < 8} onClick={icloud}>{st === 'sending' ? 'Signing in…' : 'Sign in to iCloud'}</button>
     </>}
     {st && st !== 'sending' && <p className="soft">{st}</p>}
   </>;
@@ -450,12 +450,12 @@ function AddLink({ c, kind, family = [], sub = false }) {
     } catch { setState('The tablet isn’t in touch right now. Try again at home.'); }
   }
   return <>
-    {sub ? <h2>Or a calendar's link</h2> : <h1>{how.title}</h1>}
+    {sub ? <h2>Or a link</h2> : <h1>{how.title}</h1>}
     <p>{how.help}</p>
     <input value={link} onChange={(e) => { setLink(e.target.value); setState(null); }} placeholder={how.hint} inputMode="url" autoCapitalize="off" autoComplete="off" />
     {kind === 'calendar' && family.length > 0 && <div className="chips">{family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || ''))).map((f) => <button key={f.name} className={'chip' + (who === f.name ? ' on' : '')} onClick={() => setWho(who === f.name ? '' : f.name)}>{f.name}</button>)}</div>}
     {/* The tablet reads the link once before keeping it: "Added" only when it read, else what went wrong. */}
-    <button className="go" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>{state === 'sending' ? (kind === 'album' ? 'Looking at it…' : 'Reading it…') : 'Add'}</button>
+    <button className="go act" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>{state === 'sending' ? (kind === 'album' ? 'Looking at it…' : 'Reading it…') : 'Add'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}
     {added.map((a, k) => <p key={k} className="soft">Added: {a}</p>)}
   </>;
@@ -483,10 +483,10 @@ function SetupPeople({ c }) {
   }
   return <>
     <h1>Who lives here?</h1>
-    <p>Names, and a birth year or a role if you like (“2017”, “Mom”, “the dog”). Opie uses them to know who’s who.</p>
+    <p>Names, and a birth year or role if you like.</p>
     {rows.map((r, i) => <div key={i} className="personrow">
       <input value={r.name} onChange={(e) => set(i, 'name', e.target.value)} placeholder="Name" autoCapitalize="words" autoComplete="off" />
-      <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="Born or role" autoComplete="off" style={{ maxWidth: '9em' }} />
+      <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="2017, Mom, dog" autoComplete="off" style={{ maxWidth: '9em' }} />
     </div>)}
     <div className="setuprow">
       <button className="quiet" onClick={() => setRows([...rows, { name: '', note: '' }])}>+ Add someone</button>
@@ -518,7 +518,7 @@ function SetupPlace({ c }) {
   }
   return <>
     <h1>Where do you live?</h1>
-    <p>A street address, or just the town or zip code. It’s for the weather, travel times and the map.</p>
+    <p>For the weather, travel times and the map.</p>
     <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Street address, town or zip" autoComplete="street-address" />
     <div className="setuprow"><span className="grow" /><button className="go small" disabled={state === 'saving'} onClick={next}>Next</button></div>
     {state && state !== 'saving' && <p className="soft">{state}</p>}
@@ -530,32 +530,38 @@ function AiHere({ c, computer }) {
   const [v, setV] = useState(undefined);
   useEffect(() => { c.json('GET', '/setup/household').then((r) => setV(r.json?.voice || null)).catch(() => setV(null)); }, []);
   if (v === undefined) return <p className="soft">…</p>;
-  if (v?.own) return <><h1>Opie’s AI</h1><p>Opie uses your own OpenAI key. You can change it later in the tablet’s Settings, Voice.</p></>;
-  if (v?.available) return <><h1>Opie’s AI</h1><p>It comes with your Opie account: nothing to set up.</p></>;
-  return <><AddKey c={c} computer={computer} /><h2>Or Opie's voice through an account</h2><LinkAccount c={c} /></>;
+  if (v?.own) return <><h1>Opie’s AI</h1><p>Using your own OpenAI key.</p></>;
+  if (v?.available) return <><h1>Opie’s AI</h1><p>Included with your Opie account.</p></>;
+  return <><h1>Opie’s AI</h1><AddKey c={c} computer={computer} /><h2>Or use an Opie account</h2><LinkAccount c={c} /></>;
 }
 /** The PIN, chosen here: it guards the tablet's Settings and saying yes to new apps. On a tablet without an account, its
  *  recovery code is shown here once, to keep. */
 function PinHere({ c }) {
   const [a, setA] = useState(''), [b, setB] = useState(''), [st, setSt] = useState(null), [code, setCode] = useState(null);
-  async function keep() {
+  // One button: Next sets the PIN when one's typed (and shows the recovery code, if any, before moving on), or skips.
+  const go = () => c.json('POST', '/setup/go', { step: AFTER.pin }).catch(() => {});
+  async function next() {
+    if (!a && !b) return go();
+    if (a.length < 4) return setSt('4 to 8 digits.');
     if (a !== b) return setSt('The two don’t match.');
     setSt('…');
     try {
       const r = await c.json('POST', '/setup/pin', { pin: a });
       if (r.status !== 200) return setSt(r.json?.error || 'That didn’t work.');
-      setA(''); setB(''); setSt('done'); setCode(r.json?.recovery || null);
+      setA(''); setB('');
+      if (r.json?.recovery) { setSt('done'); setCode(r.json.recovery); } else { setSt(null); go(); }
     } catch { setSt('The tablet isn’t in touch right now.'); }
   }
+  const row = (f) => <div className="setuprow"><span className="grow" /><button className="go small" disabled={st === '…'} onClick={f}>Next</button></div>;
   if (st === 'done') return <><h1>PIN set</h1>
-    {code ? <><p>If it’s ever forgotten, this recovery code is the only way back. Keep it somewhere safe, away from the tablet (a password manager is good).</p><p className="code">{code}</p></>
-      : <p>If it’s forgotten, your Opie account can reset it.</p>}</>;
+    <p>If it’s forgotten, this code is the only way back. Keep it somewhere safe, away from the tablet.</p><p className="code">{code}</p>
+    {row(go)}</>;
   return <>
     <h1>Choose a PIN</h1>
-    <p>It guards the tablet’s Settings and saying yes to new apps. Without one, anyone at the tablet can. You can skip it.</p>
+    <p>It guards Settings and new apps. You can skip it.</p>
     <input value={a} onChange={(e) => { setA(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="4 to 8 digits" type="password" inputMode="numeric" maxLength={8} autoComplete="new-password" />
     <input value={b} onChange={(e) => { setB(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="Again" type="password" inputMode="numeric" maxLength={8} autoComplete="new-password" />
-    <button className="go" disabled={a.length < 4 || b.length < 4 || st === '…'} onClick={keep}>Set the PIN</button>
+    {row(next)}
     {st && st !== '…' && <p className="soft">{st}</p>}
   </>;
 }
@@ -569,19 +575,19 @@ function VoiceHere({ c }) {
     setSt('…');
     try {
       const r = await c.json('POST', '/setup/voice', { voice });
-      if (r.json?.on) { setSt(null); setV({ ...v, on: true }); } else setSt(r.json?.notYet ? 'Opie’s voice isn’t on for your household yet. You can carry on: it comes on by itself once it is.' : r.json?.error || 'That didn’t work.');
+      if (r.json?.on) { setSt(null); setV({ ...v, on: true }); } else setSt(r.json?.notYet ? 'Opie’s voice isn’t on for your household yet. It comes on by itself once it is.' : r.json?.error || 'That didn’t work.');
     } catch { setSt('The tablet isn’t in touch right now.'); }
   }
   const pick = (id) => { setVoice(id); if (v?.on) c.json('POST', '/setup/voice', { voice: id, do: 'sample' }).catch(() => {}); };
   if (v === undefined) return <p className="soft">…</p>;
-  if (!v?.own && !v?.available) return <><h1>Talk to Opie</h1><p>Opie’s voice needs its AI, which you skipped. You can set it up later in the tablet’s Settings, Voice.</p></>;
+  if (!v?.own && !v?.available) return <><h1>Talk to Opie</h1><p>Opie’s voice needs its AI. You can set it up later in the tablet’s Settings, Voice.</p></>;
   return <>
     <h1>Talk to Opie</h1>
-    <p>Say “Hey Opie”, then what you’d like, at the tablet. What’s said after “Hey Opie” goes to OpenAI.</p>
+    <p>Say “Hey Opie” at the tablet, then ask. What follows goes to OpenAI.</p>
     <h2>Choose a voice</h2>
     <div className="chips">{VOICES.map((id) => <button key={id} className={'chip' + (voice === id ? ' on' : '')} onClick={() => pick(id)}>{id[0].toUpperCase() + id.slice(1)}</button>)}</div>
-    {v?.on ? <p>It’s on. Tap a voice to hear it at the tablet. Try it there: say “Hey Opie, what’s the weather?”</p>
-      : <button className="go" disabled={st === '…'} onClick={on}>Turn on Opie’s voice</button>}
+    {v?.on ? <p>It’s on. Tap a voice to hear it at the tablet.</p>
+      : <button className="go act" disabled={st === '…'} onClick={on}>Turn on Opie’s voice</button>}
     {st && st !== '…' && <p className="soft">{st}</p>}
   </>;
 }
@@ -597,12 +603,11 @@ function AddKey({ c, computer }) {
       else setState(r.json?.error || 'That didn’t work.');
     } catch { setState('The tablet isn’t in touch right now. Try again at home.'); }
   }
-  if (state === 'done') return <><h1>Your OpenAI key</h1><p>The tablet has it and it works. Carry on at the tablet.</p></>;
+  if (state === 'done') return <p>Your OpenAI key works.</p>;
   return <>
-    <h1>Your OpenAI key</h1>
-    <p>Make a key at platform.openai.com, under API keys{computer ? '' : ' (on this phone, in a browser)'}, copy it, and paste it here. It goes straight to the tablet; OpenAI bills your account. Set a monthly budget for it at OpenAI too.</p>
+    <p>Paste an OpenAI key from platform.openai.com, under API keys. OpenAI bills you for it, so set a monthly budget there.</p>
     <input type="password" value={key} onChange={(e) => { setKey(e.target.value); setState(null); }} placeholder="sk-…" autoCapitalize="off" autoComplete="off" autoCorrect="off" spellCheck={false} />
-    <button className="go" disabled={!/^sk-\S{20,}$/.test(key.trim()) || state === 'sending'} onClick={send}>{state === 'sending' ? 'Checking it…' : 'Send to the tablet'}</button>
+    <button className="go act" disabled={!/^sk-\S{20,}$/.test(key.trim()) || state === 'sending'} onClick={send}>{state === 'sending' ? 'Checking it…' : 'Send to the tablet'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}
   </>;
 }

@@ -104,8 +104,8 @@ internal fun SetupSheet() {
     val title = when (step) {
         "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a family calendar?"
         "photos" -> "Put your photos on the tablet?"; "pin" -> "Choose a PIN"; "voice" -> "Talk to Opie"
-        "android" -> "Two of Android's settings"; "ai" -> "Set up Opie's AI"
-        else -> "Set up Opie from your phone or computer"
+        "android" -> "Two Android settings"; "ai" -> "Set up Opie's AI"
+        else -> "Set up on your phone or computer"
     }
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later
     // The phone or computer's Next (bridge /setup/go): the tablet follows it.
@@ -132,7 +132,7 @@ internal fun SetupSheet() {
                     if (step != "voice") Chip("Later") { save[0](); Setup.finish() }
                 }
                 Spacer(Modifier.height(28.u))
-                Text(if (!onPhone) title else if (device != null && step != "devices") "Continue on $device" else "Set up Opie from your phone or computer", style = calmText(Calm.DISPLAY, FontWeight.Medium))
+                Text(if (!onPhone) title else if (device != null && step != "devices") "Continue on $device" else "Set up on your phone or computer", style = calmText(Calm.DISPLAY, FontWeight.Medium))
                 Spacer(Modifier.height(20.u))
                 if (onPhone) {
                     // Until a phone or computer is in, how to connect one; then only what's happening there.
@@ -173,8 +173,7 @@ private fun PhoneProgress(step: String) {
     var phonesOn by remember { mutableStateOf(true) }
     LaunchedEffect(step) { if (step == "photos") phonesOn = withContext(Dispatchers.IO) { runCatching { dev.openhouse.shell.PhotoShare.link() }.getOrNull() } != null }
     Column(verticalArrangement = Arrangement.spacedBy(16.u)) {
-        Text("It shows each step. This tablet follows along, and you'll finish here.", style = calmText(Calm.LEAD))
-        Soft("Now: $now")
+        Soft(now)
         if (step == "photos" && !phonesOn) SoftButton("Let phones send photos") { Openhouse.host.setting("photoPhonesOn") }
         // The voice on (from the phone): it's heard here, so the try is here.
         if (step == "voice" && remember(Openhouse.settingsV) { Openhouse.host.hasAssistant() }) Text("Try it: say “Hey Opie, what's the weather?”", style = calmText(Calm.LEAD, FontWeight.Medium))
@@ -282,15 +281,15 @@ private fun AndroidStep() {
     Column(verticalArrangement = Arrangement.spacedBy(28.u)) {
         Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
             Text("Let Opie use other apps", style = calmText(21, FontWeight.Medium))
-            Soft("So it can open an app or press its buttons when you ask, like a TV remote. Without it, the rest of Opie works.")
+            Soft("So it can open apps and press their buttons when you ask.")
             if (control) Text("On", style = calmText(19, FontWeight.Medium, Calm.soft))
-            else { HowTo(listOf("Tap Open Android's settings.", "Tap Opie assistant, switch it on and tap Allow.", "Press Home to come back.")); SoftButton("Open Android's settings") { Openhouse.host.setting("setupDeviceControl") } }
+            else { HowTo(listOf("Tap Open Android's settings.", "Tap Opie assistant, switch it on, then Allow.", "Press Home to come back.")); SoftButton("Open Android's settings") { Openhouse.host.setting("setupDeviceControl") } }
         }
         Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
             Text("Stop charging at 80%", style = calmText(21, FontWeight.Medium))
-            Soft("It's plugged in all day, and a battery kept full wears out sooner.")
+            Soft("A battery kept full wears out sooner.")
             HowTo(if (samsung) listOf("Tap Open Android's settings.", "Tap Battery, then Battery protection, and choose Maximum.", "Press Home to come back.")
-                else listOf("Tap Open Android's settings.", "Look in Battery for a charge limit or battery protection. docs/tablets.md has the path for each tablet we know.", "Press Home to come back."))
+                else listOf("Tap Open Android's settings.", "In Battery, turn on a charge limit or battery protection.", "Press Home to come back."))
             SoftButton("Open Android's settings") { Openhouse.host.setting("setupCharge") }
         }
     }
@@ -330,9 +329,7 @@ private fun DevicesStep() {
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
-        Text("The rest of the setup is on it: who lives here, where, your calendars, photos and Opie's AI. You can use Opie from it afterwards too.", style = calmText(19, color = Calm.soft))
         if (names.size > 1) {
-            Spacer(Modifier.height(6.u))
             Text("Whose is it?", style = calmText(19, FontWeight.Medium))
             Row(horizontalArrangement = Arrangement.spacedBy(8.u)) { names.forEach { n -> Chip(n, selected = who == n) { who = n } } }
         }
@@ -344,7 +341,7 @@ private fun DevicesStep() {
                 if (bmp != null) Image(bmp, "Code to scan", Modifier.size(212.u)) else Text("…", style = calmText(30, color = Calm.soft))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.u)) {
-                Text("On a phone, scan the code.", style = calmText(Calm.LEAD))
+                Text("On a phone, scan this code.", style = calmText(Calm.LEAD))
                 pair?.let { p ->
                     // Only the tablet's name, never its raw Wi-Fi address; without a name, a phone it is.
                     p.optString("address").takeIf { it.isNotBlank() }?.let { addr ->
