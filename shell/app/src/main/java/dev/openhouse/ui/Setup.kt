@@ -1,12 +1,13 @@
 package dev.openhouse.ui
 
-// The first setup, right after the welcome (docs/onboarding.md): who lives here, where (a street address guessed from
-// where the tablet is), connecting a phone or a computer (one code; the phone page then follows these steps:
-// chat/src/phone.jsx SetupFlow), the household's calendar (Google, iCloud, Outlook or a link sent from that phone or
-// computer, or none), photos (an iCloud shared album, Google Photos, or from that phone), a PIN for settings and
-// approvals (PIN Lock, which can be skipped), two of Android's own settings a tablet set up by its household would
-// otherwise never find (letting Opie use other apps, and the charge limit), and last talking to Opie:
-// what to say, which voice, and turning the voice on. One step on screen at a time, each with Back, Skip and Next.
+// The first setup, right after the welcome (docs/onboarding.md), done from a phone or computer: connecting one comes
+// first (one code; the phone page then follows these steps: chat/src/phone.jsx SetupFlow), then, typed or sent there,
+// who lives here, where (a street address guessed from where the tablet is), the household's calendar (Google, iCloud,
+// Outlook or a link, or none), photos (an iCloud shared album, Google Photos, or from that phone) and Opie's AI (the
+// household's own OpenAI key, where the account's voice isn't on). Then what only the tablet can do: a PIN for
+// settings and approvals (PIN Lock, which can be skipped), two of Android's own settings a tablet set up by its
+// household would otherwise never find (letting Opie use other apps, and the charge limit), and last talking to Opie:
+// what to say, which voice, and turning the voice on. One step on screen at a time.
 //
 // Quiet until that last step: nothing is said aloud and nothing listens (Setup.hushed: no microphone, no wake word,
 // no live voice), and everything is done by tapping and typing. The owner, after trying it on a real tablet: "leave
@@ -40,16 +41,20 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal object Setup {
-    // Connecting a phone or computer comes before the calendar and photos: their links are copied there, not on the
-    // tablet, so those steps send them from the phone or computer already connected (it follows the tablet's step:
-    // chat/src/phone.jsx SetupFlow), with one code for it all.
-    val STEPS = listOf("people", "place", "devices", "calendar", "photos", "pin", "android", "ai", "voice")
+    // The setup is done from a phone or computer (2026-11-26, the owner: "it's ok to require a phone or computer to set
+    // it up"): connecting one comes first, and can't be skipped. Who lives here and where are typed there, and its Next
+    // moves the tablet on (/setup/want); the calendar, photos and the OpenAI key are sent from it, as their links and
+    // keys are copied there (chat/src/phone.jsx SetupFlow follows the tablet's step). Last, what only the tablet can do:
+    // the PIN, Android's settings, the voice.
+    val STEPS = listOf("devices", "people", "place", "calendar", "photos", "ai", "pin", "android", "voice")
+    /** Typed on the phone or computer; the tablet shows what's come in. */
+    val ON_PHONE = setOf("people", "place")
 
     /** A later step that sent someone back to connect a phone or computer: Next there comes back here. */
     private var resume: String? = null
     fun connectFirst() { resume = Openhouse.setupStep; go("devices") }
 
-    /** Where the tablet is, guessed once ({address, town, zip}), for the place step. */
+    /** Where the tablet is, guessed once ({address, town, zip}), for the place step on the phone (bridge /setup/guess). */
     @Volatile var guess: JSONObject? = null
 
     /** The phone or computer the setup carries on from, by name, once one has joined (Setup.kt connectedDevice). */
@@ -61,7 +66,7 @@ internal object Setup {
 
     fun start() {
         Openhouse.setupStep = STEPS.first(); shown(STEPS.first())
-        Openhouse.scope.launch(Dispatchers.IO) { if (guess == null) guess = runCatching { Openhouse.host.guessHome() }.getOrNull() }
+        Openhouse.scope.launch(Dispatchers.IO) { if (guess == null) guess = runCatching { Openhouse.host.guessHome() }.getOrNull(); guess?.let { Openhouse.post("/setup/guess", it) } }
     }
 
     fun go(step: String?) { Openhouse.setupStep = step; shown(step) }
@@ -90,11 +95,6 @@ internal object Setup {
     }
 }
 
-private class SetupPerson(name: String, note: String) {
-    var name by mutableStateOf(name); var note by mutableStateOf(note)
-    val focus = androidx.compose.ui.focus.FocusRequester()
-}
-
 private fun getJson(path: String, readMs: Int = 4000): JSONObject? = runCatching { JSONObject(BridgeClient.getText(Openhouse.bridgeUrl + path, 2000, readMs)) }.getOrNull()
 
 @Composable
@@ -104,14 +104,22 @@ internal fun SetupSheet() {
         "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a family calendar?"
         "photos" -> "Put your photos on the tablet?"; "pin" -> "Choose a PIN"; "voice" -> "Talk to Opie"
         "android" -> "Two of Android's settings"; "ai" -> "Set up Opie's AI"
-        else -> "Connect your phone or computer"
+        else -> "Set up Opie from your phone or computer"
     }
     // The PIN step: its own button chooses one (SettingsLock "setupPin"), and the setup goes on once it's kept; Skip, or
     // Next if one is already set.
     val pinSet = remember(Openhouse.settingsV) { Openhouse.host.locked() }
     val choosePin = step == "pin" && !pinSet
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later
-    val addPerson = remember(step) { arrayOf<() -> Unit>({}) } // who lives here: + Add someone, beside Next (never scrolled away under the keyboard)
+    // The phone or computer's Next (bridge /setup/go): the tablet follows it.
+    LaunchedEffect(Unit) {
+        while (true) {
+            val want = withContext(Dispatchers.IO) { getJson("/setup/want") }?.optString("step")?.takeIf { it in Setup.STEPS }
+            if (want != null && want != Openhouse.setupStep) Setup.go(want)
+            delay(1500)
+        }
+    }
+    val device = connectedDevice()
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         // From the top, not centered: the card's top stays put from step to step (the last, the voices, starts higher:
         // it has the most to show, down to the line about OpenAI above its buttons). Every step is the same width. The
@@ -136,8 +144,7 @@ internal fun SetupSheet() {
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                         Spacer(Modifier.height(8.u))
                         when (step) {
-                            "people" -> PeopleStep({ addPerson[0] = it }) { save[0] = it }
-                            "place" -> PlaceStep { save[0] = it }
+                            "people", "place" -> OnPhoneStep(step, device)
                             "calendar" -> CalendarStep()
                             "photos" -> PhotosStep()
                             "pin" -> PinStep(pinSet)
@@ -149,10 +156,10 @@ internal fun SetupSheet() {
                     Spacer(Modifier.height(28.u))
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
                         if (Setup.STEPS.indexOf(step) > 0) TextButton("Back") { save[0](); Setup.back() }
-                        if (step == "people") TextButton("+ Add someone") { addPerson[0]() }
                         Spacer(Modifier.weight(1f))
-                        if (step != "pin" || choosePin) TextButton("Skip") { Setup.next() }
-                        MainButton(if (choosePin) "Choose a PIN" else "Next") { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }
+                        // Connecting comes first and isn't skipped: Next once a phone or computer is in.
+                        if (step != "devices" && (step != "pin" || choosePin)) TextButton("Skip") { Setup.next() }
+                        MainButton(if (choosePin) "Choose a PIN" else "Next", enabled = step != "devices" || device != null) { save[0](); if (choosePin) Openhouse.host.setting("setupPin") else Setup.next() }
                     }
                 }
             }
@@ -576,71 +583,20 @@ private fun AndroidStep() {
     }
 }
 
-/** Who lives here: names and an age or role, typed (what was saved before shows). */
+/** Who lives here, or where: typed on the phone or computer connected for the setup (chat/src/phone.jsx SetupPeople,
+ *  SetupPlace), whose Next moves this on; what's come in shows here as it's saved. */
 @Composable
-private fun PeopleStep(onAdd: (() -> Unit) -> Unit, onSave: (() -> Unit) -> Unit) {
-    val o = Openhouse
-    val people = remember { mutableStateListOf<SetupPerson>() }
-    var edited by remember { mutableStateOf(false) }
-    val first = remember { androidx.compose.ui.focus.FocusRequester() }
-    LaunchedEffect(Unit) { delay(300); runCatching { first.requestFocus() } } // keys go here, not to the home screen behind
-    // Someone added: their name has the keys, which brings it into view above the keyboard.
-    var added by remember { mutableStateOf<SetupPerson?>(null) }
-    LaunchedEffect(added) { added?.let { delay(100); runCatching { it.focus.requestFocus() } } }
-    LaunchedEffect(Unit) {
-        val saved = withContext(Dispatchers.IO) { o.loadHousehold() }?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
-        if (!edited && saved.isNotEmpty()) { people.clear(); saved.forEach { people += SetupPerson(it.optString("name"), it.optString("note")) } }
-        if (people.isEmpty()) people += SetupPerson("", "")
-    }
-    onAdd { SetupPerson("", "").let { people += it; added = it }; edited = true }
-    onSave { if (edited) o.saveHousehold(JSONObject().put("family", JSONArray(people.filter { it.name.isNotBlank() }.map { JSONObject().put("name", it.name.trim()).put("note", it.note.trim()) }))) }
-    Column(verticalArrangement = Arrangement.spacedBy(12.u)) {
-        people.forEachIndexed { i, p ->
-            Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
-                Field(p.name, { p.name = it; edited = true }, "Name", Modifier.weight(1f), focus = if (i == 0) first else p.focus, words = true)
-                Field(p.note, { p.note = it; edited = true }, "Age 9, or Mom", Modifier.weight(1f))
-                Box(Modifier.size(44.u).clip(CircleShape).clickable { people.remove(p); edited = true; if (people.isEmpty()) people += SetupPerson("", "") }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Close, "Remove", tint = PaperLook.inkSoft, modifier = Modifier.size(20.u))
-                }
-            }
-        }
-    }
-}
-
-/** Where: a street address by default (guessed from where the tablet is), or just the town or the zip code. A street
- *  address is Home on the Map (directions, how long to get somewhere); the town or zip is the weather's. */
-@Composable
-private fun PlaceStep(onSave: (() -> Unit) -> Unit) {
-    val o = Openhouse
-    var kind by remember { mutableStateOf("street") }
-    val value = remember { mutableStateMapOf("street" to "", "town" to "", "zip" to "") }
-    var edited by remember { mutableStateOf(false) }
-    val first = remember { androidx.compose.ui.focus.FocusRequester() }
-    LaunchedEffect(Unit) { delay(300); runCatching { first.requestFocus() } }
-    LaunchedEffect(Unit) {
-        // What was saved before, else the guess (which may come a moment later).
-        val h = withContext(Dispatchers.IO) { o.loadHousehold() }
-        val addr = h?.optString("address")?.takeIf { it.isNotBlank() && it != "null" }
-        val loc = h?.optString("location")?.takeIf { it.isNotBlank() && it != "null" }
-        if (edited) return@LaunchedEffect
-        if (addr != null) { value["street"] = addr; return@LaunchedEffect }
-        if (loc != null) { if (Regex("^\\d{5}").containsMatchIn(loc)) { value["zip"] = loc; kind = "zip" } else { value["town"] = loc; kind = "town" }; return@LaunchedEffect }
-        var waited = 0
-        while (Setup.guess == null && waited < 20_000) { delay(500); waited += 500 }
-        if (!edited) Setup.guess?.let { g -> if (value["street"].isNullOrEmpty()) { value["street"] = g.optString("address"); value["town"] = g.optString("town"); value["zip"] = g.optString("zip") } }
-    }
-    onSave {
-        val v = value[kind].orEmpty().trim()
-        if (v.isEmpty()) return@onSave
-        val loc = if (kind != "street") v else Regex("\\b\\d{5}\\b").find(v)?.value ?: value["town"]?.takeIf { it.isNotBlank() } ?: v.substringAfter(",").trim().ifEmpty { v }
-        // The address stays with the household (Opie's, and the Map's once it's on: it looks it up then, not before).
-        o.saveHousehold(JSONObject().put("location", loc).put("address", if (kind == "street") v else ""))
-    }
-    Column(verticalArrangement = Arrangement.spacedBy(14.u)) {
-        Field(value[kind].orEmpty(), { value[kind] = it; edited = true }, when (kind) { "street" -> "Street address"; "town" -> "Town"; else -> "Zip code" }, focus = first)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.u)) {
-            for ((k, label) in listOf("street" to "Street address", "town" to "Just the town", "zip" to "Just the zip code")) Chip(label, selected = kind == k) { kind = k }
-        }
+private fun OnPhoneStep(step: String, device: String?) {
+    var h by remember { mutableStateOf<JSONObject?>(null) }
+    LaunchedEffect(step) { while (true) { h = Openhouse.loadHousehold(); delay(2000) } }
+    val people = h?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
+    val place = h?.optString("address")?.takeIf { it.isNotBlank() && it != "null" } ?: h?.optString("location")?.takeIf { it.isNotBlank() && it != "null" }
+    Column(verticalArrangement = Arrangement.spacedBy(16.u)) {
+        Text(if (device != null) "On $device, type ${if (step == "people") "everyone's names" else "your address, or just the town"}, then tap Next there."
+            else "Connect a phone or computer to carry on: the setup is done there.", style = calmText(Calm.LEAD))
+        if (device == null) SoftButton("Connect a phone or computer") { Setup.connectFirst() }
+        if (step == "people") Added(people.map { it.optString("name") to it.optString("note") })
+        else place?.let { Added(listOf(it to "")) }
     }
 }
 
@@ -656,6 +612,9 @@ private fun DevicesStep() {
     var pair by remember { mutableStateOf<JSONObject?>(null) }
     var count by remember { mutableStateOf(0) }
     val device = connectedDevice()
+    // Connected for the setup (and not just come back here to connect another): on to the first step done there.
+    var hadOne by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(device) { if (hadOne == null) hadOne = device != null else if (device != null && hadOne == false) Setup.next() }
     LaunchedEffect(Unit) {
         val h = withContext(Dispatchers.IO) { o.loadHousehold() }
         val kidOrPet = { n: String -> Regex("^\\d{1,2}$").matches(n.trim()) || Regex("\\b(dog|cat|pet|fish|bird|hamster|rabbit)\\b", RegexOption.IGNORE_CASE).containsMatchIn(n) }
@@ -675,7 +634,7 @@ private fun DevicesStep() {
         }
     }
     Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
-        Text("Then you can send calendars and photos from it, and use Opie from anywhere.", style = calmText(19, color = Calm.soft))
+        Text("The rest of the setup is on it: who lives here, where, your calendars, photos and Opie's AI. You can use Opie from it afterwards too.", style = calmText(19, color = Calm.soft))
         if (names.size > 1) {
             Spacer(Modifier.height(6.u))
             Text("Whose is it?", style = calmText(19, FontWeight.Medium))

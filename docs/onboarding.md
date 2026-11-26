@@ -13,15 +13,12 @@ On the tablet:
    control out of the setup and add it as the last step"): nothing is said aloud, nothing listens, and everything is
    tapped and typed. `Setup.hushed` keeps the microphone, the wake word and the live voice off while the welcome or a
    step before the voice step shows (`MainActivity.micWanted`, `LiveVoice`, `Speech.say`).
-   1. **Who lives here**: names, and an age or role. + Add someone sits beside Next, and a new row takes the keys.
-      Every step's card is one width and never runs past the screen or Android's keyboard: what's in it scrolls, its
-      buttons stay below it.
-   2. **Where do you live**: a street address by default, guessed from where the tablet is (Android's location and
-      geocoder, only with location on), or just the town or the zip code. The address is kept with the household
-      (`address`: Opie's for directions and the like, and the Map's once it's on; the Map looks it up then, not
-      before); the town or zip is the weather's.
-   3. **Connect your phone or computer** (since 2026-11-25 before the calendar and photos, whose links are copied on
-      a phone or computer, never on the tablet: one code reaches it for the whole setup): whose it is, then two ways
+   **Done from a phone or computer** (since 2026-11-26; the owner: "it's ok to require a phone or computer to set it
+   up. I think that would simplify things"). The steps in order: `devices`, `people`, `place`, `calendar`, `photos`,
+   `ai`, `pin`, `android`, `voice`. What's typed or copied is done there, and the phone's Next moves the tablet on
+   (`POST /setup/go`, which the tablet looks at every 1.5 s: `GET /setup/want`); what only the tablet can do comes last.
+   1. **Set up Opie from your phone or computer** (`devices`): first, and not skipped (Next once one is in; it moves on
+      by itself when one connects). Whose it is, then two ways
       in, each its own line. A phone scans the code; a computer goes to **opie.local:8788** and types the code (the
       bridge answers `opie.local`, and `openhouse.local` from before, over mDNS while the code lasts, and the bare
       address goes to the page for the code: `connect-page.js`, `screens.js`). Android won't let an app listen on port
@@ -33,6 +30,10 @@ On the tablet:
       album's link and, once photos from phones are on, Choose photos; on any other step, "carry on at the tablet". Once
       the tablet's setup is over, it offers what's only for there: inviting the family, and making apps. (A tablet from
       before, with no step to follow, gets the four steps as before.)
+   2. **Who lives here** and 3. **Where do you live**, typed on the phone or computer (`SetupPeople`, `SetupPlace`,
+      `/setup/household`; the address field starts with the tablet's guess from Android's location, `/setup/guess`).
+      The tablet shows what's come in. The address is kept with the household (`address`: Opie's for directions and
+      the like, and the Map's); the town or zip is the weather's.
    4. **Do you have a family calendar?** Google, iCloud, Outlook, Another link, or Start one here, each with what to
       do in a few numbered lines: Google signs in through the account (`CalendarAccounts`, two-way) on a linked
       tablet, else its Secret address in iCal format, copied on the computer and pasted into Opie there (the connected
@@ -44,14 +45,15 @@ On the tablet:
       pasted here), Google Photos' picker on a linked tablet (`GooglePhotos`), or From your phone: Let phones send
       photos (a person's yes here, `PhotoShare.turnOn`), then the connected phone shows Choose photos (no second code
       to scan). The albums and photos that came in show below, the newest as small pictures.
-   6. **Choose a PIN** ("For grown-ups: settings and approvals"): PIN Lock on, so Settings and approving a new app
+   6. **Set up Opie's AI** (see below).
+   7. **Choose a PIN** ("For grown-ups: settings and approvals"): PIN Lock on, so Settings and approving a new app
       ask for it. Skip leaves the lock off (Settings, PIN Lock, later). On a linked tablet there's no recovery code
       to keep, since the account page resets the PIN; unlinking shows one first.
-   7. **Two of Android's settings** (`AndroidStep`, since 2026-11-26): Let Opie use other apps (Android's
+   8. **Two of Android's settings** (`AndroidStep`, since 2026-11-26): Let Opie use other apps (Android's
       accessibility page for the Opie assistant; "On" once it is) and Stop charging at 80% (Android's settings, with
       the path for a Samsung, else a pointer to [tablets.md](tablets.md)). Each leaves kiosk mode, behind the PIN if
       one was chosen; Home comes back. Both can be skipped.
-   8. **Set up Opie's AI** (`AiStep`, since 2026-11-26): where the household doesn't have Opie's voice through its
+   **Set up Opie's AI** (`AiStep`, since 2026-11-26, step 6): where the household doesn't have Opie's voice through its
       account, the household's own OpenAI key, pasted on the phone or computer connected for the setup (its box opens
       there) or here with a keyboard cover ([assistant.md](assistant.md)). Nothing to do with the account's voice or a
       key already in. Can be skipped.

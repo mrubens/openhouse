@@ -284,6 +284,8 @@ function PushRow({ c, me }) {
 // ---- setup: from the phone or computer the tablet was set up with (its 'setup' scope) --------------------------
 const DONE = 'openhouse.phone.setupDone';
 const kidOrPet = (note) => /^\d{1,2}$/.test(String(note || '').trim()) || /\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(note || ''));
+/** The tablet's next setup step after one sent from here (Setup.kt STEPS). */
+const AFTER = { calendar: 'photos', photos: 'ai', ai: 'pin' };
 function SetupFlow({ me, c, h, onDone }) {
   const computer = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   // It carries on the tablet's setup rather than repeating it: the tablet's step ({step, photos?}, GET /setup/step)
@@ -323,13 +325,17 @@ function SetupFlow({ me, c, h, onDone }) {
           : <p className="soft">To send photos from here, tap From your phone on the tablet, then Let phones send photos.</p>}
       </>}
       {step === 'ai' && <AddKey c={c} computer={computer} />}
-      {step !== 'calendar' && step !== 'photos' && step !== 'ai' && <>
+      {step === 'people' && <SetupPeople c={c} />}
+      {step === 'place' && <SetupPlace c={c} />}
+      {!['calendar', 'photos', 'ai', 'people', 'place'].includes(step) && <>
         <h1>Connected</h1>
-        <p>Carry on at the tablet. When it asks for a calendar, photos or an OpenAI key, you send them from here: this page follows along.</p>
+        <p>{step === 'devices' ? 'Starting…' : 'Now at the tablet: it shows what to do. This page follows along.'}</p>
       </>}
       <div className="setuprow">
-        <span className="grow" />
         <button className="quiet" onClick={onDone}>Go to Opie</button>
+        <span className="grow" />
+        {/* The steps sent from here move the tablet on from here too (the tablet's own Next works as well). */}
+        {AFTER[step] && <button className="go small" onClick={() => c.json('POST', '/setup/go', { step: AFTER[step] }).catch(() => {})}>Next</button>}
       </div>
     </main>
   );
@@ -373,6 +379,64 @@ function AddLink({ c, kind, family = [] }) {
     <button className="go" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>{state === 'sending' ? (kind === 'album' ? 'Looking at it…' : 'Reading it…') : 'Add'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}
     {added.map((a, k) => <p key={k} className="soft">Added: {a}</p>)}
+  </>;
+}
+/** Who lives here, typed here for the tablet's setup (bridge /setup/household); Next saves it and moves the tablet on
+ *  (/setup/go). What was saved before shows. */
+function SetupPeople({ c }) {
+  const [rows, setRows] = useState(null), [state, setState] = useState(null);
+  useEffect(() => { c.json('GET', '/setup/household').then((r) => setRows(r.json?.family?.length ? r.json.family : [{ name: '', note: '' }])).catch(() => setRows([{ name: '', note: '' }])); }, []);
+  if (!rows) return <p className="soft">…</p>;
+  const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  async function next() {
+    setState('saving');
+    try {
+      const r = await c.json('POST', '/setup/household', { family: rows.filter((r) => r.name.trim()) });
+      if (r.status !== 200) return setState(r.json?.error || 'That didn’t save.');
+      await c.json('POST', '/setup/go', { step: 'place' }); setState(null);
+    } catch { setState('The tablet isn’t in touch right now.'); }
+  }
+  return <>
+    <h1>Who lives here?</h1>
+    <p>Names, and an age or role if you like (“8”, “Mom”, “the dog”).</p>
+    {rows.map((r, i) => <div key={i} className="setuprow">
+      <input value={r.name} onChange={(e) => set(i, 'name', e.target.value)} placeholder="Name" autoCapitalize="words" autoComplete="off" />
+      <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="Age or role" autoComplete="off" style={{ maxWidth: '9em' }} />
+    </div>)}
+    <div className="setuprow">
+      <button className="quiet" onClick={() => setRows([...rows, { name: '', note: '' }])}>+ Add someone</button>
+      <span className="grow" />
+      <button className="go small" disabled={state === 'saving'} onClick={next}>Next</button>
+    </div>
+    {state && state !== 'saving' && <p className="soft">{state}</p>}
+  </>;
+}
+/** Where the household is: a street address (the tablet's guess first), or just the town or zip code. */
+function SetupPlace({ c }) {
+  const [v, setV] = useState(null), [state, setState] = useState(null);
+  useEffect(() => {
+    c.json('GET', '/setup/household').then((r) => { const h = r.json || {}; setV(h.address || h.location || h.guess?.address || h.guess?.town || ''); }).catch(() => setV(''));
+  }, []);
+  if (v === null) return <p className="soft">…</p>;
+  async function next() {
+    const t = v.trim(); setState('saving');
+    try {
+      if (t) {
+        // The town or zip on its own is the place; a street address keeps a zip or the part after its first comma.
+        const street = /\d/.test(t.split(',')[0]) && t.includes(',');
+        const loc = street ? (t.match(/\b\d{5}\b/)?.[0] || t.slice(t.indexOf(',') + 1).trim()) : t;
+        const r = await c.json('POST', '/setup/household', { location: loc, address: street ? t : '' });
+        if (r.status !== 200) return setState(r.json?.error || 'That didn’t save.');
+      }
+      await c.json('POST', '/setup/go', { step: 'calendar' }); setState(null);
+    } catch { setState('The tablet isn’t in touch right now.'); }
+  }
+  return <>
+    <h1>Where do you live?</h1>
+    <p>A street address, or just the town or zip code. It’s for the weather, travel times and the map.</p>
+    <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Street address, town or zip" autoComplete="street-address" />
+    <div className="setuprow"><span className="grow" /><button className="go small" disabled={state === 'saving'} onClick={next}>Next</button></div>
+    {state && state !== 'saving' && <p className="soft">{state}</p>}
   </>;
 }
 /** The household's own OpenAI key, for the tablet's Opie's AI step: sent straight to the tablet on the home Wi-Fi,

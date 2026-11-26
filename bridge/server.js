@@ -478,6 +478,20 @@ async function route(req, res, url) {
     // added with no card on the tablet unless its lock is on), and invites for the family.
     // Which step the tablet's setup shows: the setup phone or computer follows it (chat/src/phone.jsx SetupFlow).
     if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, chat.live.setupShown?.() || { step: null }); return true; }
+    // The setup is done from the phone or computer (docs/onboarding.md): who lives here and where are typed there, and
+    // its Next moves the tablet on (Setup.kt looks at /setup/want).
+    if (url.pathname === '/setup/household' && req.method === 'GET') {
+      const h = chat.live.setupHousehold?.read?.() || {};
+      json(res, 200, { family: (h.family || []).map((f) => ({ name: f.name, note: f.note || '' })), location: h.location || null, address: h.address || null, guess: chat.live.setupGuess?.() || null }); return true;
+    }
+    if (url.pathname === '/setup/household' && req.method === 'POST') {
+      const b = await body(req), put = {};
+      if (Array.isArray(b.family)) put.family = b.family.slice(0, 30).map((f) => ({ name: String(f?.name || '').trim().slice(0, 40), note: String(f?.note || '').trim().slice(0, 40) })).filter((f) => f.name);
+      if (typeof b.location === 'string') { put.location = b.location.trim().slice(0, 100); put.address = String(b.address || '').trim().slice(0, 200); }
+      try { chat.live.setupHousehold?.save?.(put); } catch (e) { json(res, 400, { error: e.message }); return true; }
+      json(res, 200, { ok: true }); return true;
+    }
+    if (url.pathname === '/setup/go' && req.method === 'POST') { chat.live.setupWant?.((await body(req)).step); json(res, 200, { ok: true }); return true; }
     if (req.method === 'POST' && /^\/setup\/(calendar|album|invite|openai)$/.test(url.pathname)) {
       const b = await body(req);
       // The household's own OpenAI key (the setup's Opie's AI step): straight on to the shell, which checks and keeps it

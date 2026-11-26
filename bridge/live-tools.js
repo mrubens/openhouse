@@ -180,6 +180,8 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   // On the photos step, the household's photo page (PhotoShare's link) once someone turned it on there: the setup
   // phone or computer opens it, rather than a second code to scan.
   let shownStep = null, shownAt = 0, shownPhotos = null;
+  let guess = null; // where the tablet guesses it is ({address, town, zip}: Setup.kt), for the place step on the phone
+  let wanted = null; // the step the setup phone or computer moved on to (its Next: server.js /setup/go), for the tablet to show
   // Whether to stop listening is a small yes-or-no model's call (the cloud's decide, about a hundred-thousandth of a
   // cent each), given the whole conversation: never a list of words.
   let decide = null, convoStart = 0; // convoStart: when this conversation began (its /live/setup)
@@ -361,6 +363,11 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       shownPhotos = shownStep === 'photos' && /^https?:\/\/[^\s"'<>]{1,600}$/.test(String(b.photos || '')) ? String(b.photos) : null;
       json(res, 200, { ok: true, step: setupStep }); return true;
     }
+    if (req.method === 'POST' && url.pathname === '/setup/guess') { // the display: where it guesses it is, for the place step on the phone
+      const b = await body(req), t = (v) => String(v || '').trim().slice(0, 120);
+      guess = { address: t(b.address), town: t(b.town), zip: t(b.zip) }; json(res, 200, { ok: true }); return true;
+    }
+    if (req.method === 'GET' && url.pathname === '/setup/want') { const w = wanted; wanted = null; json(res, 200, { step: w }); return true; } // the display: once
     if (req.method === 'GET' && url.pathname === '/live/setup') {
       convoStart = Date.now(); // a conversation begins (what it's given as earlier talk stays earlier)
       json(res, 200, await setupFor(req, url.searchParams.get('how') === 'wake')); return true;
@@ -399,5 +406,9 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
   return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,
     /** The setup step on the tablet's screen now, or null (none, or shown more than an hour ago). */
+    /** The setup phone or computer's Next: the tablet goes to [s] at its next look (Setup.kt). */
+    setupWant: (s) => { if (/^[a-z]{1,20}$/.test(String(s || ''))) wanted = String(s); },
+    setupHousehold: household,
+    setupGuess: () => guess,
     setupShown: () => (shownStep && Date.now() - shownAt < 60 * 60e3 ? { step: shownStep, ...(shownPhotos ? { photos: shownPhotos } : {}) } : { step: null }) });
 }
