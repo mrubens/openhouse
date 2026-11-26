@@ -63,7 +63,7 @@ object SpotifyEmbed {
         if (!signedIn()) return JSONObject().put("error", "Spotify isn't signed in on the tablet's own player.").put("signIn", true)
         val uri = "spotify:${m.groupValues[1]}:${m.groupValues[2]}"
         title = name?.take(200); state = JSONObject(); usedAt = SystemClock.elapsedRealtime(); pausedForVoice = false
-        Media.pauseOthers() // (one thing playing: the app that was, paused)
+        Media.pauseOthers(); takeSpeaker() // (one thing playing: the app that was, paused, and stays so)
         if (!send(JSONObject().put("do", "load").put("uri", uri).putOpt("title", title))) return JSONObject().put("error", "The tablet's screen isn't up.")
         val end = SystemClock.elapsedRealtime() + ms
         var start = -1.0
@@ -81,7 +81,7 @@ object SpotifyEmbed {
             }
             SystemClock.sleep(400)
         }
-        send(JSONObject().put("do", "stop")) // (so it can't start later, over whatever plays instead)
+        send(JSONObject().put("do", "stop")); leaveSpeaker() // (so it can't start later, over whatever plays instead)
         return JSONObject().put("error", "Spotify's player on the tablet didn't start.").putOpt("now", now())
     }
     private fun done(t: String) = JSONObject().put("done", t).putOpt("now", now())
@@ -92,9 +92,9 @@ object SpotifyEmbed {
         if (now() == null) return JSONObject().put("error", "Spotify isn't playing on the tablet.")
         usedAt = SystemClock.elapsedRealtime()
         when (what) {
-            "play" -> { Media.pauseOthers(); send(JSONObject().put("do", "play")) }
+            "play" -> { Media.pauseOthers(); takeSpeaker(); send(JSONObject().put("do", "play")) }
             "pause" -> send(JSONObject().put("do", "pause"))
-            "stop" -> { send(JSONObject().put("do", "stop")); return JSONObject().put("done", "Spotify stopped.") }
+            "stop" -> { send(JSONObject().put("do", "stop")); leaveSpeaker(); return JSONObject().put("done", "Spotify stopped.") }
             "seek" -> send(JSONObject().put("do", "seek").put("seconds", seconds))
             "previous" -> send(JSONObject().put("do", "restart"))
             "next" -> return JSONObject().put("error", "Spotify's player on the tablet can't skip ahead: ask for the next thing to play by name instead.")
@@ -111,8 +111,26 @@ object SpotifyEmbed {
         else if (pausedForVoice) { pausedForVoice = false; if (!playing() && state.has("uri")) send(JSONObject().put("do", "play")) }
     }
 
+    // The speaker, as an app takes it (Android's audio focus): a page of Opie's own doesn't ask for it by itself, so an
+    // app that Opie's voice had paused for a moment played on over it once the voice let go (the user). Held while it's
+    // in use; another app taking it for good pauses this one.
+    private var focus: android.media.AudioFocusRequest? = null
+    private fun takeSpeaker() = main.post {
+        if (focus != null) return@post
+        val am = DeviceServer.ctx.getSystemService(android.media.AudioManager::class.java)
+        val f = android.media.AudioFocusRequest.Builder(android.media.AudioManager.AUDIOFOCUS_GAIN)
+            .setAudioAttributes(android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_MEDIA).setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).build())
+            .setOnAudioFocusChangeListener { if (it == android.media.AudioManager.AUDIOFOCUS_LOSS) { focus = null; if (playing()) send(JSONObject().put("do", "pause")) } }
+            .build()
+        if (am.requestAudioFocus(f) == android.media.AudioManager.AUDIOFOCUS_REQUEST_GRANTED) focus = f
+    }
+    private fun leaveSpeaker() = main.post {
+        val f = focus ?: return@post
+        focus = null; runCatching { DeviceServer.ctx.getSystemService(android.media.AudioManager::class.java).abandonAudioFocusRequest(f) }
+    }
+
     /** An app plays while this is paused: it goes from Home (the app's card shows instead). */
-    fun yieldTo() { if (now() != null && !playing()) { state = JSONObject(state.toString()).put("stopped", true); send(JSONObject().put("do", "stop")) } }
+    fun yieldTo() { if (now() != null && !playing()) { state = JSONObject(state.toString()).put("stopped", true); send(JSONObject().put("do", "stop")); leaveSpeaker() } }
 
     /** Another app started: this one pauses (one thing playing). */
     fun pauseForOther() { if (playing()) send(JSONObject().put("do", "pause")) }
