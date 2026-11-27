@@ -49,7 +49,7 @@ export default function (house) {
         remove: { type: 'array', items: { type: 'object', required: ['task'], properties: { who: person, task: { type: 'string' } } } },
       } } },
     { name: 'change_rewards', description: 'Rewards the kids save their chore stars for (the Chores app), like "Movie night" for 20 stars. Add or change one (same title changes its stars), or remove one. ' +
-      'redeem spends a kid\'s stars on a reward ("Leo wants movie night"), as the Chores app\'s Get it! does: the tablet asks an adult to say yes there, with the PIN, and this waits for them (tell them to type the PIN on the tablet). You never say yes for them.',
+      'redeem spends a kid\'s stars on a reward ("Leo wants movie night"), as the Chores app\'s Get it! does: someone says yes on the tablet, with the PIN, and this waits for them (tell them to type the PIN on the tablet). You never say yes for them.',
       inputSchema: { type: 'object', properties: {
         add: { type: 'array', items: { type: 'object', required: ['title', 'stars'], properties: { title: { type: 'string' }, stars: { type: 'number' }, who: { type: 'string', description: 'Only for this person; leave out for anyone' } } } },
         remove: { type: 'array', items: { type: 'string', description: 'title or id' } },

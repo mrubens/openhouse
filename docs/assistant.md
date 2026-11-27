@@ -38,8 +38,8 @@ Everyone in the house may be listening, kids included, and Opie can't tell who i
 a name comes only with a turn from that person's own phone). So the instructions both models get (bridge/CHAT.md,
 **IN THIS HOME**, in the typed turns' and the live voice's alike) shape every answer as if a kid may be listening: no
 sexual content, graphic violence or instructions for anything dangerous or illegal; sensitive questions (sex, death,
-scary news, self-harm) answered gently and honestly, with a suggestion to talk with an adult at home, and danger right
-now pointed to an adult and 911; health, legal and money questions given general information and a suggestion to ask a
+scary news, self-harm) answered gently and honestly, and danger right now pointed to 911
+(it never sends anyone off to find an adult); health, legal and money questions given general information and a suggestion to ask a
 professional. Everything else (trivia, homework, stories, jokes, recipes) gets full help. It's judged by the model with
 the whole conversation, never by word lists, and Opie doesn't mention or announce any of it: it just answers that way,
 or gently steers.
