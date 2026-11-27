@@ -214,7 +214,7 @@ object ApprovalCard {
             val bar = K.row(c, 8).apply {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(K.px(c, 24), K.px(c, 8), K.px(c, 8), K.px(c, 8))
-                background = K.rounded(K.SHEET, K.R_SHEET * K.u(c)); elevation = 16f
+                background = K.rounded(K.SHEET, K.R_SHEET * K.u(c), K.px(c, 1).coerceAtLeast(1), K.LINE) // (a hairline, not a shadow: an overlay's own window clips one into a box)
             }
             bar.addView(K.text(c, title, K.LABEL, 600).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = K.px(c, 420) },
                 android.widget.LinearLayout.LayoutParams(-2, -2).apply { marginEnd = K.px(c, 12) })
@@ -226,7 +226,7 @@ object ApprovalCard {
                 val pin = (grownUp && !ParentPin.isSet(c)) || ((parent || grownUp) && ParentPin.isSet(c) && !ParentGrace.isOpen())
                 if (!pin && !grants) answer(Answer.YES) else { hide(); put() } // the PIN, or what it may use: the card
             }.also { it.filterTouchesWhenObscured = true; byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
-            val wrap = android.widget.FrameLayout(c).apply { setPadding(K.px(c, 12), K.px(c, 12), K.px(c, 12), K.px(c, 12)); addView(bar) } // (room for its shadow)
+            val wrap = android.widget.FrameLayout(c).apply { setPadding(0, K.px(c, 12), 0, 0); addView(bar) }
             if (runCatching { host.bar!!(wrap) }.onFailure { Log.w(TAG, "couldn't show the bar: $it") }.isFailure) put()
             else { shown = wrap; Log.i(TAG, "to try: $title") }
             // The app itself, in front (it opened as it was made; again here when it was asked for from Home or by Opie).
