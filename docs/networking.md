@@ -308,7 +308,8 @@ check, and only for requests that came over the tailnet; the page rules (`connec
 MCP gets it in its welcome and keeps it in `pairing.json`.
 
 **A computer with Tailscale of its own** (a hub on a Mac or Linux box): `tailscale` on its PATH, or the Mac app's, is
-used through the same calls instead of a download. Its serve goes on the home network's port (8788), not 443, so
+used through the same calls instead of a download. It has to be signed in there already: Opie never signs it in
+or changes its settings (no `up`). Its serve goes on the home network's port (8788), not 443, so
 whatever it serves at https stays as it is; turning it off here takes only that address away (`serve --https=8788
 off`), never the computer's own sign-in. A Mac with no Tailscale says to install it.
 
@@ -329,7 +330,8 @@ curl -H "X-Openhouse-Token: $T" localhost:9787/tailscale   # state: getting, sta
 
 Tried on an emulator (arm64, Android 15, 2026-11-27): the download and its checksum, `tailscaled` starting in the
 runtime inside the app's own sandbox (no complaint about Android's network limits), the login URL, a refused auth key,
-and turning off (no process, no state, no download left). Not tried yet: a real sign-in, the https address, a phone
+and turning off (no process, no state, no download left). Once, on a fresh emulator, the first `tailscaled` after the
+download never answered on its socket; started again it did, so the bridge now starts it again after 45 s of silence. Not tried yet: a real sign-in, the https address, a phone
 over it, and a hub with its own Tailscale.
 
 ### Limits and security
