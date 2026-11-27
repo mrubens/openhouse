@@ -128,7 +128,7 @@ edits.watch();
 // a tablet with no PIN asks someone to choose one there); leaving it keeps it waiting, on Home (build-waits.js).
 // shellAsk, plugins, chat: below.
 const builder = builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json,
-  ask: (card) => shellAsk(card), keepPin: () => keepTakesPin(), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), unmake: (id) => plugins.unmake(id), say: (t) => chat.voice.say(t),
+  ask: (card) => shellAsk(card), keepPin: () => keepTakesPin(), newRights: (card) => madeAppWantsMore(card), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), unmake: (id) => plugins.unmake(id), say: (t) => chat.voice.say(t),
   line: (text) => chat.things.put({ text, minutes: 12 * 60, by: 'builder' }), changed: () => chat.house?.changed?.(), tell: (id, text) => chat.tell(id, text) });
 
 const devices = devicesRoutes({ HERE, json, body }); // first: it sets HOME_MCP_* for the agents
@@ -169,6 +169,13 @@ const shellAsk = async ({ title, detail, yes, no, rights, pin, grownup, for: cho
   return r.ok && r.body?.yes === true ? 'yes' : r.ok && r.body?.answered === true ? 'no' : 'later';
 };
 /** Whether keeping an app made here takes the PIN there (Ask for the PIN → Add apps): what the tablet says when it's ready. */
+/** Does keeping this made app give it anything it hasn't been given before (family things, websites)? A new app: anything
+ *  it asks for. A change to a limited app: only what's beyond its earlier yes. The household's own full app: nothing. */
+const madeAppWantsMore = (card) => {
+  if (!card.limited) return false;
+  const had = card.fresh ? null : plugins.rightsOf(card.app), reach = card.fresh ? [] : plugins.reachesOf(card.app);
+  return (card.uses || []).some((u) => !had?.has(u)) || (card.reaches || []).some((h) => !reach.includes(String(h).toLowerCase()));
+};
 // (A host that can't say, like a hub with no screen of its own: as if it did, so a made app is always asked about there.)
 const keepTakesPin = async () => { if (!host.can('pin-choices')) return true; const b = await host.json('/pin-choices', { do: 'get' }, 3000); return !!(b?.choices || []).some((c) => c.key === 'apps' && c.asks); };
 const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger, for } (docs/ux.md; for: the PIN choice, shell PinChoices) // true, false, or null when there's no shell to ask (a laptop)

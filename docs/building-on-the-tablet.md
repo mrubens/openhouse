@@ -66,8 +66,9 @@ written: the templates' `index.html` asks the kit (`beingMade`, the bridge's sta
 
 ## Tried, then kept
 
-**Since 2026-11-27, most apps just go in.** An app that gets none of the household's things and no websites, on a
-tablet where Ask for the PIN → Add apps is off (the default), goes in as soon as it's made, with no bar and nothing said:
+**Since 2026-11-27, most apps just go in.** An app that asks for none of the household's things and no websites beyond
+what it was given before (a change to an app someone already said yes to, with nothing new), on a tablet where Ask for
+the PIN → Add apps is off (the default), goes in as soon as it's made, with no bar and nothing said:
 the app opening is the news. It stays limited, like an app from a link. Taking it off is Apps' remove, or asking Opie.
 The bar below is only for an app whose keeping would give it the household's things or websites, or where Add apps asks
 for the PIN, and on a host that can't say (a hub).

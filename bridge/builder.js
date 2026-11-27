@@ -24,7 +24,7 @@ import { buildWaits, markBuilding, unmarkBuilding } from './build-waits.js';
 /** ask(card): the tablet's try-it bar and card (brain.js shellAsk); keepPin(): whether keeping it takes the PIN there; grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home;
  *  say(text): said aloud on the tablet (no longer used when an app is ready: it opens to try instead);
  *  tell(conversation, text): a typed request's conversation hears, in writing, that it didn't work (chat.js tell). */
-export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, keepPin = async () => false, grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, tell = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
+export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, keepPin = async () => false, newRights = (card) => !!(card.uses?.length || card.reaches?.length), grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, tell = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
   const waits = buildWaits({ FILE: WAITS_FILE, APP_DIR, edits, ask: async (c) => { const a = await ask(c); if (a === 'yes') for (const id of [c.app, c.draft]) if (id) appErrors.delete(id); return a; }, // (what it threw while being made doesn't count against it once it's in) grant: (c) => grant(c), unmake: (id) => unmake(id), line: (t) => line(t), changed: () => changed(), emit,
     landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} } });
@@ -283,8 +283,9 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       touchedApps.add(card.app); // (closed on screen if it's put back or set aside: closeGone)
       emit({ type: 'phase', name: 'asking' });
       // Nothing is said: the app opening on the tablet, with its Keep it bar, is the news.
-      // Nothing to ask about (no family things or websites, and adding apps doesn't take the PIN): it just goes in.
-      const quiet = !(card.uses?.length || card.reaches?.length) && !(await keepPin().catch(() => true));
+      // Nothing new to say yes to (it asks for no family things or websites beyond what it was given before, and adding
+      // apps doesn't take the PIN): it just goes in. Otherwise the bar, and Keep it shows what's new.
+      const quiet = !newRights(card) && !(await keepPin().catch(() => true));
       const a = quiet ? waits.keep(card) : await waits.decide(owner, card);
       if (events.state.state !== 'working' || owner.abort.signal.aborted) return false; // cancelled while the card was up
       if (a === 'no') {
