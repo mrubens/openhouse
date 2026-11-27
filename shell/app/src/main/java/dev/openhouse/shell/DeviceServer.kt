@@ -468,9 +468,9 @@ object DeviceServer {
         tool("pick", "Choose an option in a dropdown (a select): its element number and the option as it reads. Opens it, finds the option, taps it.",
             JSONObject().put("id", p("integer", "The dropdown's element number")).put("option", p("string", "The option, as it reads")), listOf("id", "option")),
         tool("wait", "Wait for the screen to change (seconds, max 10).", JSONObject().put("seconds", p("number", "How long"))),
-        tool("install_app", "Put an Android app on the home screen, by its name (\"Netflix\") or package, in one step. One already on the tablet " +
-            "goes on at once. Otherwise it's found on Google Play (through Aurora Store, no Google account), someone says yes on screen, and it " +
-            "downloads, installs and goes on the home screen (a minute or two). It takes the first free spot; move it only if they said where.",
+        tool("install_app", "Put an Android app on the tablet, by its name (\"Netflix\") or package. One already on the tablet goes into Apps " +
+            "at once. Otherwise someone says yes on screen, and its Google Play page opens: they tap Install there themselves (Opie never taps " +
+            "on Google Play), and once it's installed it's in Apps.",
             JSONObject().put("name", p("string", "The app's name")).put("package", p("string", "Its package, if you know it (e.g. com.instagram.android)")),
             listOf())
     ))
@@ -518,6 +518,10 @@ object DeviceServer {
             if (a.has("x") && a.has("y")) return null to (a.getDouble("x").toFloat() to a.getDouble("y").toFloat())
             return null to null
         }
+        // Google Play and Google's sign-in: Opie may look, never tap or type (Install, Buy, the account are the person's).
+        if (name.removePrefix("device_") in setOf("tap", "type", "pick") && DeviceRules.handsOff(fg))
+            return text("Not done: on Google Play Opie never taps or types. Installing, buying and the account are the person's own taps. " +
+                "Tell them it's open on the tablet and theirs to tap.", true)
         return when (name.removePrefix("device_")) {
             "screen" -> {
                 // The PIN pad is up (Opie opened something behind the PIN): wait for the person to type it, up to a minute.
@@ -683,10 +687,24 @@ object DeviceServer {
                         hit.second
                     }
                 }
-                AuroraInstall.installApp(acc, pkg, given)
+                installFromPlay(acc, pkg, given)
             }
             else -> text("Unknown tool $name", true)
         }
+    }
+
+    /** install_app's last step: a yes on screen (the PIN when Add apps asks), then the app's Google Play page. The person taps Install. */
+    internal fun installFromPlay(acc: DeviceAccess, pkg: String, given: String): JSONObject {
+        if (DeviceRules.playPage(pkg) == null) return text("Give the app's name; install_app finds it.", true)
+        if (AppStore.installed(pkg)) { AppStore.addToHome(pkg); return text("${AppStore.label(pkg)} is already on the tablet, and in Apps. open_app opens it.") }
+        PlayStore.notReady(ctx)?.let { return text("$it Say so.", true).put("notReady", true) }
+        val name = given.ifBlank { pkg }
+        acc.status("Waiting for a yes: add $name?")
+        if (!acc.approve("Add $name?", "", parent = PinChoices.needed(ctx, PinChoices.APPS), yes = "Add", rights = listOf("from" to "From Google Play"), more = pkg))
+            return text("Nobody said yes, so $name wasn't added. Say so; don't try again.", true).put("declined", true)
+        acc.status("Opening $name on Google Play")
+        if (!PlayStore.openPage(ctx, pkg)) return text("Google Play didn't open.", true)
+        return text("$name's Google Play page is open. They tap Install there themselves (Opie never taps on Google Play); once it's installed it's in Apps. Tell them.")
     }
 
     private fun nodeAt(acc: DeviceAccess, x: Float, y: Float): AccessibilityNodeInfo? {

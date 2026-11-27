@@ -16,7 +16,6 @@ object Kiosk {
     private const val TAG = "Kiosk"
     private val ALWAYS = listOf(UserManager.DISALLOW_FACTORY_RESET, UserManager.DISALLOW_SAFE_BOOT, UserManager.DISALLOW_ADD_USER,
         UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
-    private val UNKNOWN = listOf(UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES, UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES_GLOBALLY)
     @Volatile private var on = false
 
     private fun dpm(c: Context) = c.getSystemService(DevicePolicyManager::class.java)
@@ -56,12 +55,6 @@ object Kiosk {
         if (!owner(c)) return
         on = false
         ALWAYS.forEach { set(c, it, false) }
-    }
-
-    /** Aurora Store open for someone: Android's "install unknown apps" must be allowed for it to hand over an APK. */
-    fun storeOpen(c: Context, open: Boolean) {
-        if (!owner(c) || !on) return
-        UNKNOWN.forEach { set(c, it, !open) }
     }
 
     private fun set(c: Context, r: String, restricted: Boolean) = runCatching {

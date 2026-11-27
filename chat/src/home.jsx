@@ -1012,11 +1012,7 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
         {/* Opie's list of plugins (the shell's gallery, as in Settings, Plugins): adding one asks for the PIN */}
         {shell?.plugins && <button className="h-app-tile add" onClick={() => shell.plugins()}>
           <span className="h-app-icon letter add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg></span>
-          <span className="h-app-name">Add apps</span><span className="h-app-about">Find one on Opie's list.</span></button>}
-        {/* Aurora Store itself, for any Android app (a yes first, and each install asks again: MainActivity.openAurora) */}
-        {shell?.aurora && <button className="h-app-tile add" onClick={() => shell.aurora()}>
-          <span className="h-app-icon letter add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 8h14l-1.2 11.1a2 2 0 0 1-2 1.9H8.2a2 2 0 0 1-2-1.9z" /><path d="M9 8V6.5a3 3 0 0 1 6 0V8" /></svg></span>
-          <span className="h-app-name">Android apps</span><span className="h-app-about">Aurora Store</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : `No other apps yet. Ask Opie for one: “${example}”.`}</div>}
+          <span className="h-app-name">Add apps</span><span className="h-app-about">From Opie's list or Google Play.</span></button>}</div> : <div className="h-soft">{all.length ? 'Nothing here: every app is a tab or taken off.' : `No other apps yet. Ask Opie for one: “${example}”.`}</div>}
       {menu && <div className="h-veil" onClick={() => setMenu(null)}>
         <div className="h-menu" onClick={(e) => e.stopPropagation()}>
           <div className="h-menu-head"><Icon a={menu} /><span>{menu.name}</span></div>

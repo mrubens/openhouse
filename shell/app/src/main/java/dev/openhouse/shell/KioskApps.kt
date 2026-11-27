@@ -47,7 +47,7 @@ object KioskApps {
         return true
     }
 
-    private val STORES = setOf("com.android.vending", AppStore.AURORA, "com.sec.android.app.samsungapps", "com.amazon.venezia",
+    private val STORES = setOf(PlayStore.PKG, "com.aurora.store", "com.sec.android.app.samsungapps", "com.amazon.venezia",
         "org.fdroid.fdroid", "com.huawei.appmarket", "com.google.android.packageinstaller", "com.android.packageinstaller")
 
     /**
@@ -82,7 +82,6 @@ object KioskApps {
         val dpm = ctx.getSystemService(DevicePolicyManager::class.java)
         val admin = ComponentName(ctx, AdminReceiver::class.java)
         if (temporary) this.temporary += pkg else this.temporary -= pkg
-        if (pkg == AppStore.AURORA) Kiosk.storeOpen(ctx, temporary) // it can't hand over an install while unknown sources are off
         if (dpm.isDeviceOwnerApp(ctx.packageName)) runCatching { // kiosk: allow this app inside lock task
             val cur = dpm.getLockTaskPackages(admin).toMutableSet()
             if (cur.add(pkg)) dpm.setLockTaskPackages(admin, cur.toTypedArray())
@@ -95,7 +94,6 @@ object KioskApps {
         val gone = synchronized(temporary) { temporary.toList().also { temporary.clear() } }
         if (gone.isEmpty()) return
         gone.forEach { disallowInKiosk(it) }
-        if (AppStore.AURORA in gone) Kiosk.storeOpen(ctx, false)
         Log.i(TAG, "kiosk allowlist back to normal (closed ${gone.joinToString()})")
     }
 

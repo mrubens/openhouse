@@ -86,6 +86,7 @@ internal class SettingsLock(private val act: MainActivity) {
             "account" -> always { CloudMenu(act).show() } // (backups, restore, unlink: always)
             "email" -> withPin { EmailMenu(act).show() }
             "lock" -> if (on) turnOff() else turnOn()
+            "googlePlay" -> person("Google Play") { always { googlePlay() } }() // (a real account on a shared screen: always)
             "tablet" -> always { tablet() } // (Advanced: what Opie may do, the ways out, these choices: always)
             "updates" -> updates() // (no PIN: seeing the version and getting ours is everyone's)
             "nowplaying" -> if (!Media.listening(act)) person("Now playing") { withPinSet(back = {}) { nowPlaying() } }() // Settings → Opie, and Home's Now playing card
@@ -386,6 +387,34 @@ internal class SettingsLock(private val act: MainActivity) {
         act.runOnUiThread { tabletList(lan, plugins, ts) }
     }
 
+    /**
+     * Settings → Advanced → Google Play (and Add apps before anyone signed in): Android's own Google sign-in, then
+     * Play's purchase setting, so nothing can be bought with a tap. Signed in: the account, and signing out.
+     */
+    fun googlePlay(back: () -> Unit = {}) {
+        val name = PlayStore.accounts(act).firstOrNull()
+        if (name != null) {
+            CalmDialog(act).setTitle("Google Play").setMessage(name)
+                .setPositiveButton("Done") { _, _ -> back() }
+                .setNegativeButton("Sign out") { _, _ ->
+                    thread { val ok = PlayStore.signOut(act, name); act.runOnUiThread {
+                        changed()
+                        if (ok) back() else CalmDialog(act).setTitle("Couldn't sign out here").setMessage("Sign out in Android settings, under Accounts.").setPositiveButton("OK") { _, _ -> back() }.show()
+                    } }
+                }.show()
+            return
+        }
+        PlayStore.signIn(act) { added ->
+            changed()
+            if (added == null) return@signIn back()
+            // Play's own setting: purchases ask for the account's password (it can't be set from outside Play).
+            CalmDialog(act).setTitle("Ask for the password to buy")
+                .setMessage("In Google Play: your picture, Settings, Authentication, Require authentication for purchases, For all purchases.")
+                .setPositiveButton("Open Google Play") { _, _ -> PlayStore.openPlay(act) }
+                .setNegativeButton("Later") { _, _ -> back() }.show()
+        }
+    }
+
     /** Settings → Advanced: the lock, plugins, this tablet's household, a report; then what's for developers. [lan]:
      *  other screens and phones on the Wi-Fi reach it (Devices). */
     private fun tabletList(lan: Boolean, plugins: Int, ts: JSONObject?) {
@@ -401,7 +430,10 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("Ask for the PIN", value = choicesLabel()) to { always { choices() } },
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
-        ) + (if (Satellite.on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
+        ) + (if (!PlayStore.available(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            // The household's Google account, for adding Android apps (PlayStore): a person's own, inside Advanced's PIN.
+            CalmDialog.Row("Google Play", value = PlayStore.accounts(act).firstOrNull() ?: "Sign in") to person("Google Play") { googlePlay { tablet() } },
+        )) + (if (Satellite.on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Part of another tablet's household") to { Satellite.menu(act, this) },
         ) else listOf<Pair<CalmDialog.Row, () -> Unit>>(
             // Another Opie tablet's household, for a second room (docs/multi-tablet.md): that tablet shows the code.

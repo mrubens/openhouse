@@ -24,6 +24,7 @@ internal object DeviceOwner {
     fun setUp(a: Activity) {
         if (!isOwner(a)) return
         val dpm = dpm(a); val admin = admin(a)
+        runCatching { AppStore.init(a); AppStore.retireAurora() } // (before home: it clears the shell's preferred activities)
         // Home first, on its own: if anything below fails, Home must still be the display (not the update cover, nor
         // the tablet's own home screen), or the tablet comes back from an update on a blank cover.
         if (!a.getSharedPreferences("shell", Activity.MODE_PRIVATE).contains("outHome")) runCatching {
@@ -39,7 +40,6 @@ internal object DeviceOwner {
             dpm.setLockTaskPackages(admin, (arrayOf(a.packageName, MainActivity.HOST_PKG) + AppStubs.installed().values +
                 AppStore.homeApps().map { it.first }.filter { !KioskApps.needsParent(it) }).distinct().toTypedArray())
             Kiosk.apply(a) // no factory reset, new users, unknown sources (or USB debugging, if someone turned it off)
-            AppStore.claimInstallIntents() // apps from Aurora Store install through the shell
             // Keep the power menu so someone can still turn the device off.
             dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS)
             dpm.setKeyguardDisabled(admin, true)

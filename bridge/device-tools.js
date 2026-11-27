@@ -30,9 +30,10 @@ export const DEVICE_TOOLS = [
   { name: 'open_app', description: 'Open one of the tablet\'s Android apps by name ("DoorDash", "Clock", "Calculator"), to use it for someone. ' +
       'Not for Opie\'s own tabs and apps (Calendar, Lists, the Map...): show_on_screen opens those. Afterwards: what is on its screen (numbered elements). Back on the family screen with press home. ' + NEVER,
     inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'The app\'s name, as on its icon' } } } },
-  { name: 'install_app', description: 'Add an Android app to the tablet from Google Play (through Aurora Store, no Google account), by name. ' +
-      'Ask them first in a few words ("Install DoorDash from the Play Store?") and call with confirmed true only after they said yes; the tablet ' +
-      'also asks on screen (with the PIN when the lock is on). It takes a minute or two; then open_app opens it.',
+  { name: 'install_app', description: 'Add an Android app to the tablet from Google Play, by name. ' +
+      'Ask them first in a few words ("Add DoorDash from Google Play?") and call with confirmed true only after they said yes; the tablet ' +
+      'also asks on screen (with the PIN when Add apps asks for it), then opens the app\'s Google Play page. They tap Install there themselves: ' +
+      'Opie never taps or types on Google Play. Once it\'s installed it\'s in Apps, and open_app opens it.',
     inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'The app\'s name' }, package: { type: 'string', description: 'Its package, only if you know it' }, confirmed: { type: 'boolean', description: 'They said yes to installing it' } } } },
   { name: 'look_at_screen', description: 'What is on the tablet\'s screen now (Opie\'s own tabs and apps, or another app you opened): numbered elements with their text, what can be done ' +
       'with each (tap, type, scroll) and where. picture: also a short description of a picture of it, for pictures, maps or games the list can\'t ' +
@@ -118,8 +119,8 @@ export function deviceTools({ server = () => null, describe = null, log = () => 
       switch (name) {
         case 'open_app': return out(await shell('open_app', { name: String(args.name || '') }, 120e3));
         case 'install_app': {
-          if (args.confirmed !== true) return { text: `Ask them first, by name: install ${args.name || 'it'} from the Play Store? Then call again with confirmed true once they say yes.`, isError: false };
-          return out(await shell('install_app', { name: String(args.name || ''), ...(args.package ? { package: String(args.package) } : {}) }, 6 * 60e3), 2000);
+          if (args.confirmed !== true) return { text: `Ask them first, by name: add ${args.name || 'it'} from Google Play? Then call again with confirmed true once they say yes.`, isError: false };
+          return out(await shell('install_app', { name: String(args.name || ''), ...(args.package ? { package: String(args.package) } : {}) }, 120e3), 2000);
         }
         case 'look_at_screen': {
           const wait = Math.max(0, Math.min(10, Number(args.wait) || 0));

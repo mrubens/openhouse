@@ -131,8 +131,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Opie → Now playing (shown while Opie can't see what the media apps play) | no, on purpose | personOnly: it widens what Opie may see; Android's own page, with the PIN |
 | Plugins: find, look at, add, update, remove | **new** | find_plugins, look_at_plugin, add_plugin, update_plugin, remove_plugin: each change asks on the tablet (with the PIN when Add apps asks; an update from somewhere new always) |
 | Signing in to Spotify for the tablet's own player (Settings → Opie → Spotify) | done | music `spotify_sign_in` puts Spotify's sign-in page on the screen; the person types there |
-| An Android app from Apps → Add apps (its "Music and books" suggestions) | done | install_app: the same Aurora Store steps and the same card, with the PIN when Add apps asks |
-| Apps → Android apps: Aurora Store itself (a yes first, the PIN when it's on) | done | install_app, for a named app (the same card). Opening the store itself stays a person's: open_app never opens a store (DeviceRules.neverOpen) |
+| An Android app from Apps → Add apps (its Google Play results and "Music and books" suggestions): its Google Play page | done | install_app opens the same page, after a card on screen (the PIN when Add apps asks). Install, Buy and everything else on Google Play stay the person's taps: Opie never taps or types there (DeviceRules.handsOff), and open_app never opens a store (DeviceRules.neverOpen) |
+| Advanced → Google Play: sign in, sign out | no, on purpose | personOnly: it puts a real Google account on a shared screen, and the password is the person's. install_app says where to sign in when nobody has |
 
 ## The phone page
 
