@@ -338,11 +338,13 @@ internal object Turns {
             "home" -> { if (o.openAppId != null) o.host.closeApp(); o.showSettings = false } // a paired computer or Opie put the home screen back (workshop.js, show_on_screen); a PIN or question over it stays
             "done" -> if (b != null) {
                 o.build = b.copy(done = true, ok = ev.optBoolean("ok"), summary = ev.optString("text"), endedAt = System.currentTimeMillis(), live = null)
-                // Asked for by voice (the assistant's make_change): it says what changed, briefly.
-                if (b.who != null || o.speaking || ev.optBoolean("spoken")) Answers.sentences(ev.optString("text"), true).take(2).forEach { Speech.say(it, o.person(b.who)?.note) }
-                // Typed and it didn't work: why, in writing, up until it's tapped away or the next ask (not the moment the
-                // build's own line shows), and in its conversation if that's open (the bridge saved it there: builder.js tell).
-                else if (!ev.optBoolean("ok") && ev.optString("text").isNotBlank()) {
+                // What worked shows itself (the app is open), and what someone stopped needs no word: only a build that
+                // didn't work is explained. Asked for by voice, briefly, aloud.
+                val failed = !ev.optBoolean("ok") && !ev.optBoolean("cancelled")
+                if (failed && (b.who != null || o.speaking || ev.optBoolean("spoken"))) Answers.sentences(ev.optString("text"), true).take(2).forEach { Speech.say(it, o.person(b.who)?.note) }
+                // Typed: why, in writing, up until it's tapped away or the next ask (not the moment the build's own line
+                // shows), and in its conversation if that's open (the bridge saved it there: builder.js tell).
+                else if (failed && ev.optString("text").isNotBlank()) {
                     val why = ev.optString("text"); val convo = ev.s("conversation")
                     if (o.answer?.live != true) o.answer = Answer(b.request, null, text = why, live = false, ok = false, convo = convo, at = System.currentTimeMillis(), stays = true) // (never over an answer still coming)
                     o.conversation?.takeIf { convo != null && it.id == convo }?.let { c -> o.conversation = c.copy(turns = c.turns + Turn("assistant", why, ok = false)) }

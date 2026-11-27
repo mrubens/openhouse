@@ -370,7 +370,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
         waiting.length = 0; queued(); // (what was waiting for it goes too)
         abort?.abort();
         if (run) edits.discard(run); // now, so it's back at once (again when the agent has stopped)
-        emit({ type: 'done', ok: false, text: 'Cancelled' });
+        emit({ type: 'done', ok: false, cancelled: true, text: 'Cancelled' }); // (someone stopped it: nothing to explain)
         setState({ state: 'idle', request: null, base: null });
         return json(res, 200, { ok: true });
       }
