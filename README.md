@@ -1,120 +1,109 @@
-<img src="brand/logo.svg" width="64" height="64" alt="Opie logo">
+<p align="center">
+  <img src="brand/logo.svg" width="72" height="72" alt="Opie logo">
+</p>
 
-# Opie
+<h1 align="center">Opie</h1>
 
-Opie turns an Android tablet, photo frame or phone into the AI-powered screen your household shares: the calendar,
-what's for dinner, the grocery list, chores, photos, the weather. Every tab on it is a small web app, and you can
-change any of them, or make new ones, by asking with your voice or the AI tools you already use.
+<p align="center">
+  The screen your household shares, on an Android tablet, photo frame or phone.<br>
+  <a href="https://opie.house">opie.house</a> · <a href="https://opie.house/setup">Set it up</a> · <a href="docs/setup.md">Setup guide</a>
+</p>
 
-There are two ways to talk to it. **Opie**, the voice assistant on the tablet, handles the day-to-day: "add milk",
-"what's on tomorrow", "set a timer for the pasta". For building, you connect your own Claude or ChatGPT from a
-computer or on the web and ask for what you want: "a chore chart for the twins", "a countdown to the beach trip", "show school
-lunch on the calendar". It writes the app and you watch it appear on the tablet.
+<p align="center">
+  <img src="docs/home-today.jpg" alt="Opie's Today screen on a tablet" width="700">
+</p>
 
-![The Today tab on a tablet](docs/home-today.jpg)
+## Features
 
-This repo is everything that runs in the home. It's MIT licensed, and nothing in the software is locked behind a
-subscription. Set it up yourself, for free, on your own device with [the setup guide](docs/setup.md) (some
-[work best](docs/tablets.md)). Opie Cloud, the optional hosted service, is in private beta at
-[opie.house](https://opie.house).
+- **Calendar:** your Google, iCloud or Outlook calendars on one screen, with each person's events in their color.
+  Add events by tapping or by asking.
+- **Lists, chores and meals:** the grocery list, who does what this week, and what's for dinner. They're the same on
+  the tablet and everyone's phone.
+- **Recipes:** save recipes from a link or a photo, then cook step by step, with a timer for the steps that need one.
+- **Photos:** a shared album from Google Photos or iCloud, on the home screen and the sleep screen.
+- **Weather, map and whiteboard:** the forecast, places you go, and a board the kids can draw on.
+- **Voice:** say "Hey Opie" to add to a list, ask what's on tomorrow, or set a timer. The wake word runs on the
+  device, so nothing you say leaves it until you say it.
+- **Make your own apps:** ask Opie, or your own Claude or ChatGPT, for a chore chart, a countdown or a game, and it
+  appears on the screen while you watch. Every app can be changed the same way.
+- **Phones and TVs:** everyone's phone gets Today, lists, the calendar and chores, and can send links and photos to
+  Opie from the share sheet. A TV can show the day too.
+- **Plugins:** add apps others have made, like school lunch menus, trash day or bus times. Each shows what it can
+  use, and a grown-up approves it with a PIN.
+- **Safe with kids around:** a PIN guards settings, installing apps and leaving the home screen. Opie can't change
+  the home screen itself or the parent settings.
+- **Sleep screen:** the clock, the weather and the rest of the day, dimmed at night.
+- **Backups and away from home:** back up to a USB drive or your own storage bucket, and reach home from away with
+  your own Tailscale. Or use Opie Cloud for both.
 
-## What's on it
+<table>
+  <tr>
+    <td><img src="docs/recipes-step.png" alt="Cooking a recipe step by step" width="400"></td>
+    <td><img src="docs/web-chat-countdown.png" alt="A countdown app made by asking" width="400"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/tv-today.jpg" alt="Today on a TV" width="400"></td>
+    <td><img src="docs/phone-display.png" alt="Opie on a phone" width="400"></td>
+  </tr>
+</table>
 
-- **Today**, the overview: what's next on the calendar, the weather, dinner, the grocery list, notes from apps
-  (like school lunch), a family photo.
-- **Calendar, Weather, Map, Chores, Lists, Meals, Recipes, Photos, Whiteboard**, each its own app, plus an Apps
-  grid for everything else. Which tabs show and in what order is up to you.
-- **A sleep screen** with the clock, the weather and the rest of the day, dimmed at night.
-- **Phones and other screens.** Each person's phone gets a page with Today, lists and the calendar, and can send
-  things to Opie from the share sheet. A TV can show a simple version of the home screen.
+## Get started
 
-## Plugins
+You need an Android tablet, photo frame or phone you can erase, Wi-Fi, and another phone or computer for the setup.
+Some devices [work best](docs/tablets.md).
 
-Every app is a plugin: the built-in ones, the ones a household makes, and ones shared from a link. A plugin is a
-folder of web pages plus an `app.json` that says what it's allowed to use: which household data, which websites,
-which voice actions.
+1. Reset the device to its first welcome screen. Remove any Google or Samsung accounts first.
+2. Tap the same spot on the welcome screen six times. A code scanner opens.
+3. Scan the code on [opie.house/setup](https://opie.house/setup), and accept Android's screens about the device
+   being managed.
+4. When Opie starts, scan the code it shows with your phone and follow the steps: who lives here, your calendars and
+   photos, and an OpenAI key for Opie's voice.
 
-Installing one from someone else shows a card listing exactly what it gets, and a parent approves it with a PIN.
-Plugins from a link run in their own browser origin and can't reach a website they weren't approved for. Settings
-has a gallery of plugins we've reviewed.
+It's free, and nothing in the software is locked behind a subscription. [Opie Cloud](https://opie.house), the
+optional hosted service, adds backups, use away from home, and Opie's voice without a key of your own. It's in
+private beta.
 
-[`plugins/`](plugins) has working examples: school lunch menus, trash day, bus times, a reading log, a pantry list,
-a bedtime routine and more. [docs/plugins.md](docs/plugins.md) is the full reference, and
-[bridge/AGENT.md](bridge/AGENT.md) is the guide an AI reads when it builds an app here.
+**No spare Android device?** A Raspberry Pi, a Mac or any Docker host can run Opie, with phones, laptops and a TV as
+its screens. See [docs/hub.md](docs/hub.md).
 
-## Kids are around
+## Documentation
 
-The tablet sits in a shared space, so some things are deliberately out of the AI's reach:
+[Setup](docs/setup.md) · [Devices](docs/tablets.md) · [Voice](docs/assistant.md) ·
+[Building apps from your computer](docs/workshop-mcp.md) · [Plugins](docs/plugins.md) · [Backups](docs/backups.md) ·
+[Networking and away from home](docs/networking.md) · [Opie Cloud](docs/cloud.md) · [Privacy](docs/privacy.md)
 
-- The home screen itself, the parent settings and the watchdog that restarts things are fixed. AI can change the
-  household's apps, not those.
-- Opie works through a fixed set of household tools (lists, calendar, chores, notes, tabs). Asked for a new game or
-  a small tab, it can make one on the tablet, but a grown-up's PIN is needed before it goes in
-  ([building-on-the-tablet.md](docs/building-on-the-tablet.md)). Bigger changes come from a computer someone has paired.
-- A PIN guards settings, turning on the assistant, pairing a computer, installing apps and leaving kiosk mode.
-- The wake word ("Hey Opie") runs on the tablet. Nothing you say goes anywhere until someone says it.
-
-## How it works
+## Development
 
 ```
-Android tablet (kiosk mode)
+Android device (kiosk mode)
 ├─ shell        the Android app: the home screen's frame, voice, parent settings
 └─ Linux runtime (proot)
    ├─ bridge    a Node server: the household's data, the apps, conversations, voice tools
    └─ apps      web pages, one folder each, versioned with git
-
-Opie Cloud (optional)   live voice, accounts, backups, updates, reaching home from away
-Your computer                Claude or ChatGPT, connected through the Opie connector
 ```
 
-Apps get a small JavaScript kit for the household's data, the calendar, Today, voice actions and devices on the home
-network. Every change to an app is a git commit with who asked for it.
-
-Voice: the wake word is a small model of our own ([docs/wake-word.md](docs/wake-word.md)), built on
-[openWakeWord](https://github.com/dscripka/openWakeWord)'s features. After it wakes, the conversation is OpenAI's live
-voice, with the household's own OpenAI key or through Opie Cloud ([docs/assistant.md](docs/assistant.md)).
-
-Opie Cloud isn't in this repo, and you don't need it. Without it, Opie runs on your home network: the home screen,
-the apps, plugins, Opie's voice and assistant on your own OpenAI key, backups to a USB drive, and building from a
-computer. [docs/cloud.md](docs/cloud.md) says what the tablet
-sends it and what it keeps.
-
-## Building it
-
-You need a Mac or Linux machine with the Android SDK, and an Android tablet with USB debugging on (or an emulator).
+You need a Mac or Linux machine with the Android SDK, and an Android device with USB debugging on (or an emulator).
 
 ```bash
 scripts/runtime-assets.sh                    # bundle the bridge, the home screen and the starting apps
 (cd shell && ./gradlew :app:assembleDebug)
 ```
 
-- **On a tablet:** run `scripts/tablet-setup.sh` once over USB. It also installs the voice models (about 390 MB).
-  After that, `ANDROID_SERIAL=<device> scripts/install-display.sh` installs each new build.
-- **On an emulator:** `scripts/create-avd.sh` once, then `scripts/start-emulator.sh`, and install as above. For
-  voice, `scripts/voice-models.sh <folder>` and `scripts/voice-install.sh <folder>`.
-- **On a phone or photo frame:** the same Android app runs on them, laid out for the smaller screen.
-- **Without an Android device:** a Raspberry Pi, a NUC, a Mac or any Docker host can run it, with phones, laptops
-  and the TV as its screens. See [docs/hub.md](docs/hub.md).
-- **Tests:** `cd bridge && npm test` and `cd shell && ./gradlew -q :app:testReleaseUnitTest`. The home screen page
-  builds with `cd chat && npm ci && npm run build`.
-
-Then on the tablet: the setup asks for an OpenAI key for Opie's voice and assistant (or add one later in Settings →
-Voice), and Settings → Screens and computers pairs a computer for building
-([docs/workshop-mcp.md](docs/workshop-mcp.md)).
-
-## Where things are
+- **On a device:** run `scripts/tablet-setup.sh` once over USB (it also installs the voice models, about 390 MB),
+  then `ANDROID_SERIAL=<device> scripts/install-display.sh` for each new build.
+- **On an emulator:** `scripts/create-avd.sh` once, then `scripts/start-emulator.sh`, and install as above.
+- **Tests:** `cd bridge && npm test` and `cd shell && ./gradlew -q :app:testReleaseUnitTest`.
 
 | Folder | What's in it |
 |---|---|
 | `shell/` | the Android apps |
-| `bridge/` | the Node server (no dependencies), the app kit, and the instructions the AIs read |
+| `bridge/` | the Node server, the app kit, and the instructions the AIs read |
 | `chat/` | the home screen, the sleep screen and the phone page |
-| `defaults/apps/` | the built-in apps |
-| `plugins/` | example plugins |
+| `defaults/apps/`, `plugins/` | the built-in apps and example plugins |
 | `connect/` | the connector your computer's AI uses |
-| `hub/` | running it on a computer instead of a tablet |
+| `hub/` | running it on a computer instead of a device |
 | `runtime/`, `device/`, `scripts/` | the Linux runtime, its start-up, building and installing |
-| `docs/` | design notes, one per part. Many are dated working notes; the code is the source of truth |
+| `docs/` | design notes, one per part |
 
 ## License
 
