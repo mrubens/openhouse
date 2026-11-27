@@ -142,6 +142,15 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
   const [timerOpen, setTimerOpen] = useState(null);
   const { compact, upright } = useCompact(), bar = compact && upright;
   const [more, setMore] = useState(false);
+  // On its side, the rail shows the tabs that fit whole; the rest are in More.
+  const railTabsRef = useRef(null), [fit, setFit] = useState(99);
+  useLayoutEffect(() => {
+    if (!compact || bar) { setFit(99); return; }
+    const el = railTabsRef.current; if (!el) return;
+    const f = () => { const t = el.querySelector('.h-tab'); if (!t) return; const gap = parseFloat(getComputedStyle(el).rowGap) || 0; setFit(Math.max(2, Math.floor((el.clientHeight + gap) / (t.offsetHeight + gap)))); };
+    f(); const o = new ResizeObserver(f); o.observe(el); return () => o.disconnect();
+  }, [compact, bar]);
+  const railShown = !compact || bar || tabs.length <= fit ? tabs.length : fit - 1, inMore = bar ? tabs.slice(4) : tabs.slice(railShown);
   // A minute more or less (or five more): the same timer, ending later or sooner (the shell's ringing follows /home/timer).
   const moveTimer = (t, secs) => {
     const endAt = Math.max(Date.now() + 5e3, t.endAt + secs * 1000), total = Math.max(5, (t.total || 0) + secs);
@@ -162,8 +171,9 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
         {weather && !weather.error && <div className="h-wx"><span className="h-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(weather.code, weather.isDay !== false) }} />{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}
         {/* Tap a timer to change or clear it (a small sheet over the screen). */}
         {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b><TimeLeft t={t} /></b></button>)}
-        <nav className="h-tabs">
-          {tabs.map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '') + (making(t.id) ? ' making' : '')} onClick={() => go(t.id)}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
+        <nav className="h-tabs" ref={railTabsRef}>
+          {tabs.slice(0, railShown).map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur && !more ? ' on' : '') + (making(t.id) ? ' making' : '')} onClick={() => { setMore(false); go(t.id); }}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
+          {railShown < tabs.length && <button className={'h-tab' + (more || inMore.some((t) => t.id === cur) ? ' on' : '')} onClick={() => setMore(!more)}><svg className="h-tab-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg>More</button>}
         </nav>
         <BatteryLine shell={shell} />
         <div className="h-tools">
@@ -198,15 +208,15 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
         {tabs.slice(0, 4).map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur && !more ? ' on' : '') + (making(t.id) ? ' making' : '')} onClick={() => { setMore(false); go(t.id); }}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg><span>{nameOf(t)}</span></button>; })}
         {tabs.length > 4 && <button className={'h-tab' + (more || tabs.slice(4).some((t) => t.id === cur) ? ' on' : '')} onClick={() => setMore(!more)}><svg className="h-tab-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg><span>More</span></button>}
       </nav>}
-      {bar && more && <div className="h-veil h-more-veil" onClick={() => setMore(false)}>
+      {more && inMore.length > 0 && <div className="h-veil h-more-veil" onClick={() => setMore(false)}>
         <div className="h-more" onClick={(e) => e.stopPropagation()}>
-          <nav className="h-tabs">{tabs.slice(4).map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '')} onClick={() => { setMore(false); go(t.id); }}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}</nav>
-          <BatteryLine shell={shell} />
-          <div className="h-tools">
+          <nav className="h-tabs">{inMore.map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '')} onClick={() => { setMore(false); go(t.id); }}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}</nav>
+          {bar && <BatteryLine shell={shell} />}
+          {bar && <div className="h-tools">
             {!shell && <button className="h-voice own" onClick={() => { setMore(false); onAsk(); }} aria-label="Ask"><i /><i /><i /><i /></button>}
             {shell?.sleep && <button className="h-tool" onClick={() => { setMore(false); shell.sleep(); }} aria-label="Sleep"><Moon /></button>}
             {shell && <button className="h-tool" onClick={() => { setMore(false); shell.settings(); }} aria-label="Settings"><Gear /></button>}
-          </div>
+          </div>}
         </div>
       </div>}
       {(() => { const t = timers.find((x) => x.endAt === timerOpen); return t && (

@@ -660,11 +660,10 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .home.compact .h-rail { width: calc(var(--u) * 200); padding: calc(var(--u) * 20) calc(var(--u) * 8) calc(var(--u) * 14) calc(var(--u) * 20); }
 .home.compact .h-rail .h-day, .home.compact .h-rail .h-wx:not(.h-batt), .home.compact[data-tab="today"] .h-rail .h-time, .home.compact[data-tab="today"] .h-rail .h-timer { display: none; } /* (the glance has them) */
 .home.compact[data-tab="today"] .h-rail .h-tabs { margin-top: 0; }
-.home.compact .h-rail .h-tabs { width: auto; flex: 0 1 auto; overflow-y: auto; scrollbar-width: none; margin-top: calc(var(--u) * 16); }
+.home.compact .h-rail .h-tabs { width: auto; flex: 1 1 0; overflow: hidden; margin-top: calc(var(--u) * 16); } /* as many as fit whole; More has the rest (home.jsx) */
 .home.compact .h-rail .h-tabs::-webkit-scrollbar { display: none; }
 .home.compact .h-rail .h-tools { padding-top: calc(var(--u) * 10); }
 .home.compact .h-rail .h-batt { margin-top: calc(var(--u) * 10); }
-.home.compact .h-rail .h-tabs + .h-tools { margin-top: auto; }
 .home.compact:not(.upright) .h-app { max-width: calc(var(--u) * 640); margin: 0 auto; } /* on its side an app keeps its upright layout (narrow.css) */
 .home.upright { flex-direction: column; }
 .home.upright .h-sheet { margin: calc(var(--u) * 14 + env(safe-area-inset-top)) calc(var(--u) * 14) calc(var(--u) * 124 + env(safe-area-inset-bottom)); }
@@ -719,3 +718,6 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .home.compact:not(.upright) .g-time { font-size: calc(var(--u) * 130); }
 /* Apps on a phone: as many columns as fit */
 .home.compact .h-app-grid { grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 160), 1fr)); }
+/* More on its side: beside the rail */
+.home.compact:not(.upright) .h-more-veil { align-items: stretch; justify-content: flex-start; }
+.home.compact:not(.upright) .h-more { flex: none; width: calc(var(--u) * 320); max-height: none; margin: calc(var(--u) * 16) 0 calc(var(--u) * 16) calc(var(--u) * 200); }
