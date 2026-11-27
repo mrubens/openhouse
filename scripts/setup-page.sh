@@ -41,7 +41,7 @@ cat <<'HTML'
 <h1>Set up Opie</h1>
 HTML
 echo "<p class=\"sub\">Turn a tablet into your household's Opie${VERSION:+ (version $VERSION)}.</p>"
-echo '<p class="warn">This erases the tablet and makes it Opie'"'"'s. It takes 30 to 45 minutes, mostly downloads. You need Wi-Fi.</p>'
+echo '<p class="warn">This erases the tablet and makes it Opie'"'"'s. You need Wi-Fi, and another phone or computer for the setup.</p>'
 echo '<div class="code">'; cat "$SVG"; echo '</div>'
 cat <<'HTML'
 <ol>

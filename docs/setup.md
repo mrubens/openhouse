@@ -9,7 +9,6 @@ it.
 - **It takes over the whole tablet and erases it.** Opie becomes the tablet's owner (Android calls this a managed
   device) and runs as its home screen, in kiosk mode. Anything already on the tablet is wiped. Use a tablet with
   nothing on it you want to keep.
-- **It takes about 30–45 minutes**, most of it downloads.
 - **You need** the tablet, a Wi-Fi network with its password, and a phone or computer to show the code on (or print
   the setup page).
 - **Pick a tablet from [the list](tablets.md).** Others may work; that page says what they need.
@@ -38,7 +37,7 @@ A brand-new tablet, still in its box, needs neither step.
    restart itself. The tablet is still yours, nobody else manages it, and you can erase it any time (section 5). Tap
    Accept, Next or Continue on each.
 5. **Wait.** The tablet downloads Opie, then its software (about 210 MB), then "Getting Opie ready" while it unpacks.
-   On a slow Wi-Fi this is most of the 30–45 minutes. Leave it plugged in.
+   Leave it plugged in.
 
 ## 4. What finished looks like
 
