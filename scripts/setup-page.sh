@@ -40,18 +40,18 @@ cat <<'HTML'
 <main>
 <h1>Set up Opie</h1>
 HTML
-echo "<p class=\"sub\">Turn a tablet into your household's Opie${VERSION:+ (version $VERSION)}.</p>"
-echo '<p class="warn">This erases the tablet and makes it Opie'"'"'s. You need Wi-Fi, and another phone or computer for the setup.</p>'
+echo "<p class=\"sub\">Turn a device into your household's Opie${VERSION:+ (version $VERSION)}.</p>"
+echo '<p class="warn">This erases the device and makes it Opie'"'"'s. You need Wi-Fi, and another phone or computer for the setup.</p>'
 echo '<div class="code">'; cat "$SVG"; echo '</div>'
 cat <<'HTML'
 <ol>
-  <li>Remove any Google or Samsung account from the tablet, then reset it from Android's settings.</li>
+  <li>Remove any Google or Samsung account from the device, then reset it from Android's settings.</li>
   <li>On the first welcome screen, tap the same spot six times. A code scanner opens.</li>
   <li>Connect to Wi-Fi if it asks, then scan this code.</li>
-  <li>Tap through Android's screens. "Belongs to your organization" means Opie looks after the tablet. It's still yours.</li>
+  <li>Tap through Android's screens. "Belongs to your organization" means Opie looks after the device. It's still yours.</li>
   <li>Wait while it downloads and gets ready. It's done when it says Welcome to Opie.</li>
 </ol>
-<p class="note">To undo it: Settings, Advanced, Erase this tablet. <a href="https://github.com/mrubens/openhouse/blob/main/docs/setup.md">The full guide</a> has every step and what to do when one gets stuck. <a href="https://github.com/mrubens/openhouse/blob/main/docs/tablets.md">Tablets we've tested</a>.</p>
+<p class="note">To undo it: Settings, Advanced, Erase this tablet. <a href="https://github.com/mrubens/openhouse/blob/main/docs/setup.md">The full guide</a> has every step and what to do when one gets stuck. <a href="https://github.com/mrubens/openhouse/blob/main/docs/tablets.md">Devices that work best</a>.</p>
 </main>
 </body>
 </html>
