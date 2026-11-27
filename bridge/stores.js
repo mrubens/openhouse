@@ -61,6 +61,8 @@ export const STORES = [
   { name: 'relay', path: '.cloud/relay.json', backup: false, bak: false },
   { name: 'mail-key', path: '.cloud/mail-key.json', backup: false, bak: false },
   { name: 'backup-keys', path: '.backup', dir: true, backup: false, why: "the backups' key and state" },
+  { name: 'tailscale', path: '.tailscale', dir: true, backup: false, why: "the tablet's Tailscale node (its key), when it's on" },
+  { name: 'tailscale-bin', path: '.tailscale-bin', dir: true, backup: false, why: "Tailscale's own build, downloaded again" },
   { name: 'bridge', path: 'bridge', dir: true, backup: false, why: 'the bridge, its secret, pairings and keys' },
   { name: 'undo', path: 'bridge/undo.json', backup: false, bak: true, why: "the undo list of this tablet's apps" },
   { name: 'screens', path: 'bridge/screens.json', backup: false, bak: false, why: 'paired phones and screens' },

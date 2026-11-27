@@ -20,11 +20,16 @@ internal object Screens {
     private val main = Handler(Looper.getMainLooper())
 
     /**
-     * Where a phone or screen on the Wi-Fi opens the tablet: its own https name while that works there (the bridge's
-     * lan-tls.js, docs/networking.md), else its address over plain http.
+     * Where a phone or screen opens the tablet: its Tailscale address while that's on (the bridge's tailscale.js), else
+     * its own https name on the Wi-Fi while that works there (lan-tls.js, docs/networking.md), else its address over
+     * plain http.
      */
     fun base(pair: JSONObject, ip: String?): String =
-        pair.optString("base").takeIf { !pair.isNull("base") && it.startsWith("https://") } ?: "http://$ip:${pair.optInt("port")}"
+        pair.optString("base").takeIf { !pair.isNull("base") && (it.startsWith("https://") || tailscale(pair)) } ?: "http://$ip:${pair.optInt("port")}"
+
+    /** The address is the household's Tailscale one (bridge/tailscale.js): the phone or screen needs Tailscale on. */
+    private fun tailscale(pair: JSONObject) = pair.optString("via") == "tailscale"
+    private fun where(pair: JSONObject) = if (tailscale(pair)) "with Tailscale on" else "on this Wi-Fi"
 
     /** Tells the bridge the tablet's address on the Wi-Fi (for its https name), when it changes or the bridge restarted. */
     @Volatile private var told: String? = null
@@ -78,7 +83,7 @@ internal object Screens {
             if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair")
             val url = "${base(p, ip.hostAddress)}/screen/#$pair.${p.optString("key")}"
-            val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with the other screen, on this Wi-Fi."), 360) { Handoff.share(a, url) }
+            val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with the other screen, ${where(p)}."), 360) { Handoff.share(a, url) }
             var open = true
             val d = CalmDialog(a).setTitle("Add a screen").setView(col).setNegativeButton("Cancel", null)
                 .setOnDismissListener { open = false }.show().also { a.immersive() }
@@ -120,7 +125,7 @@ internal object Screens {
             if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair")
             val url = "${base(p, ip.hostAddress)}/phone/?for=${android.net.Uri.encode(who)}#$pair.${p.optString("key")}"
-            val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with $who's phone, on this Wi-Fi."), 360) { Handoff.share(a, url) }
+            val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with $who's phone, ${where(p)}."), 360) { Handoff.share(a, url) }
             var open = true
             val d = CalmDialog(a).setTitle("$who's phone").setView(col).setNegativeButton("Cancel", null)
                 .setOnDismissListener { open = false }.show().also { a.immersive() }

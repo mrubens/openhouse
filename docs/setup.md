@@ -58,6 +58,22 @@ A brand-new tablet, still in its box, needs neither step.
 3. **The home screen**: Today, then your tabs (calendar, chores, lists, meals, photos). Pressing Home always comes back
    here. That's it: no cable or computer needed after the code.
 
+## Away from home without an Opie account: Tailscale
+
+Optional, for households that already use [Tailscale](https://tailscale.com) (or want to). Your own tailnet, not
+Opie's cloud.
+
+1. On the tablet: **Settings → Advanced → Tailscale → Turn on** (with the PIN). It downloads Tailscale (about 40 MB).
+2. **Scan the QR code** with your phone and sign in to Tailscale. Or **Use an auth key** from Tailscale's admin console
+   (Settings → Keys) and paste it.
+3. For an `https://` address, turn on **HTTPS** in Tailscale's admin console (DNS → HTTPS Certificates). Without it
+   the tablet uses its plain `http://100.x…` address.
+4. Install Tailscale on each phone and computer, sign in to the same tailnet, and keep it on. Phones and screens you
+   add from now on open the tablet at its Tailscale address, at home and away.
+
+**Turn off** there signs the tablet out of Tailscale and removes it. To be sure a lost phone can't reach the tablet,
+remove it in Tailscale's admin console *and* in Settings → Linked devices.
+
 ## 5. How to undo it
 
 **Settings → Advanced → Erase this tablet** (with the PIN, if you set one). It unlinks the tablet from your account

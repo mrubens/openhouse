@@ -224,7 +224,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
     try { json(res, 200, await fn()); } catch (e) { json(res, 400, { error: e.message, code: e.code || null }); }
   };
 
-  const EXPORT_SKIP = ['./voice', './bridge', './defaults', './ports', './build', './buildserver', './webapp.tgz', './webapp/node_modules', './agent', './.backup/tmp'];
+  const EXPORT_SKIP = ['./voice', './bridge', './defaults', './ports', './build', './buildserver', './webapp.tgz', './webapp/node_modules', './agent', './.backup/tmp', './.tailscale', './.tailscale-bin'];
   function exportAll(res) {
     const t = spawn('tar', ['-czf', '-', '-C', DISPLAY, ...EXPORT_SKIP.map((x) => `--exclude=${x}`), '.'], { stdio: ['ignore', 'pipe', 'pipe'] });
     let err = '';

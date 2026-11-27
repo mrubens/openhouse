@@ -310,11 +310,12 @@ internal class SettingsLock(private val act: MainActivity) {
         val lan = get("/screens")?.optBoolean("lan") == true
         val hb = get("/heartbeat")
         val plugins = get("/plugins")?.optJSONArray("plugins")?.length() ?: 0
-        act.runOnUiThread { tabletList(lan, hb, plugins) }
+        val ts = get("/tailscale")
+        act.runOnUiThread { tabletList(lan, hb, plugins, ts) }
     }
 
     /** [lan]: other screens and phones on the Wi-Fi reach it (Linked devices); [hb]: the check-ins (bridge /heartbeat). */
-    private fun tabletList(lan: Boolean, hb: JSONObject?, plugins: Int) {
+    private fun tabletList(lan: Boolean, hb: JSONObject?, plugins: Int, ts: JSONObject?) {
         val o = Openhouse
         val deviceOn = DeviceAccess.instance != null
         val granted = act.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED
@@ -364,6 +365,9 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("Check-ins", value = hb?.let { everyLabel(it) } ?: "") to { hb?.let { checkins(it) } },
             head("For developers"),
             CalmDialog.Row("Home network", value = onOff(lan)) to person("Home network") { thread { CloudSetup.post("${act.bridge}/screens/lan", JSONObject().put("on", !lan)) }; again() },
+            // Away from home through the household's own Tailscale (TailscaleMenu, bridge/tailscale.js): it changes who can
+            // reach the tablet, so it's a person's own, as pairing is.
+            CalmDialog.Row("Tailscale", value = when { ts?.optBoolean("on") != true -> "Off"; ts.optString("state") == "on" -> "On"; ts.optString("state") == "signin" -> "Sign in"; else -> "Starting" }) to person("Tailscale") { TailscaleMenu(act) { tablet() }.show() },
             CalmDialog.Row("Cloud address") to { CloudMenu(act).address() },
             CalmDialog.Row("Speech log", value = onOff(o.speechLog)) to { o.setSpeechLog(!o.speechLog); again() },
             CalmDialog.Row("USB debugging", value = onOff(Kiosk.debugging(act))) to person("USB debugging") {
