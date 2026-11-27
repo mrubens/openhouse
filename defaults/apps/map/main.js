@@ -147,7 +147,7 @@ function pins() {
   if (data.home) add(data.home.lat, data.home.lon, 'home', 'home', 'Home');
 }
 /** Room around what's fitted: more at the right, where the panel floats over the map (not on a phone, where it's under it). */
-function pad2(n) { if (innerWidth <= 700) n = Math.round(n * .4); const side = app.querySelector('.side'), over = side && innerWidth > 700 ? side.offsetWidth + 16 : 0; return { top: n, bottom: n, left: n, right: n + over + (over ? 60 : 0) }; }
+function pad2(n) { const phone = matchMedia('(max-width: 700px)').matches; if (phone) n = Math.round(n * .4); const side = app.querySelector('.side'), over = side && !phone ? side.offsetWidth + 16 : 0; return { top: n, bottom: n, left: n, right: n + over + (over ? 60 : 0) }; }
 function fit() {
   if (!map) return;
   const pts = [data.home, ...(data.places || []), ...(data.today || []).filter((e) => e.lat != null), data.shown].filter(Boolean).map((p) => [p.lon, p.lat]);

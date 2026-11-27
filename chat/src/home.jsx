@@ -349,7 +349,7 @@ function AppFrame({ c, shell, app, look, v, onOpen, add = 0, addExtra = '' }) {
  *  bg is the world its tab sits on, panel the white (or the palette's) its panels are. */
 function lookHash(look, shell, paper, app) {
   const p = paletteOf(look);
-  return new URLSearchParams({ bg: paper ? paper(p) : worldOf(look, app?.id), panel: p.sheet, ink: p.ink, accent: p.accent, face: look?.type || 'clean', ...(look?.palette === 'dusk' ? { dark: '1' } : {}), ...(shell?.phone && !app?.shared ? { phone: '1' } : {}) });
+  return new URLSearchParams({ bg: paper ? paper(p) : worldOf(look, app?.id), panel: p.sheet, ink: p.ink, accent: p.accent, face: look?.type || 'clean', ...(look?.palette === 'dusk' ? { dark: '1' } : {}), ...(shell?.phone && !app?.shared ? { phone: '1' } : {}), ...(compactNow() ? { compact: '1' } : {}) }); // compact: a phone (the kit gives the app its phone layout on its side too)
 }
 /**
  * An app's own card on Home: its widget.html running in a card like the others ("today": {"size": "small" | "wide"}

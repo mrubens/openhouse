@@ -358,7 +358,7 @@ function single(photos) {
   pic.addEventListener('load', () => { const r = (pic.naturalWidth / pic.naturalHeight) / (innerWidth / innerHeight); pic.classList.toggle('fill', !isVideo(one) && r > .72 && r < 1.4); }); // (a video's still shows whole, as the video will)
   house.thumb(one).then((src) => { back.src = src; if (!pic.src) pic.src = src; }).catch(() => {});
   house.photo(one).then((src) => { pic.src = src; }).catch(() => {});
-  const n = Math.min(photos.length, innerWidth <= 700 ? 5 : 11), from = Math.max(0, Math.min(i - (n >> 1), photos.length - n));
+  const n = Math.min(photos.length, matchMedia('(max-width: 700px)').matches ? 5 : 11), from = Math.max(0, Math.min(i - (n >> 1), photos.length - n));
   // A video: its still, and a play button; a tap plays it with sound over the still, and a tap on it pauses or plays.
   let play = null;
   if (isVideo(one)) {

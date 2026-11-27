@@ -171,9 +171,8 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .opie-pill{width:46px;padding:0;justify-content:center;box-shadow:0 6px 20px rgba(42,40,38,.18),0 0 0 1px rgba(255,255,255,.22)}
 
 /* A phone on its side (short and wide): the tabs a rail down the left, inside the safe area; Opie's buttons at the bottom
-   right; an app's frame the full height and a tall phone's width (its own background either side), so every app keeps
-   just the layout it has upright (narrow.css; wider, some of their cards come apart); Today in two columns, the
-   calendar beside the rest, as on the tablet. */
+   right; an app's frame the full height and width (the kit gives it its phone layout across it: kind=phone); Today in
+   two columns, the calendar beside the rest, as on the tablet. */
 @media (orientation: landscape) and (max-height: 500px) {
   :root { --rail: 70px; --railx: max(10px, env(safe-area-inset-left)); --side: calc(var(--railx) + var(--rail) + 10px); }
   nav { left: var(--railx); right: auto; top: max(10px, env(safe-area-inset-top)); bottom: max(10px, env(safe-area-inset-bottom)); width: var(--rail); height: auto; flex-direction: column; border-radius: 35px; }
@@ -185,7 +184,7 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
   .status { margin-top: 10px; }
   .app .opie-talk, .opie { left: auto; right: max(16px, env(safe-area-inset-right)); transform: none; bottom: max(12px, env(safe-area-inset-bottom)); }
   .app.framed, .app.framed.asks { padding: 0 max(0px, env(safe-area-inset-right)) env(safe-area-inset-bottom) var(--side); align-items: center; }
-  .app.framed > .appframe, .app.framed > .openbar { width: 100%; max-width: 460px; box-sizing: border-box; }
+  .app.framed > .appframe, .app.framed > .openbar { width: 100%; box-sizing: border-box; }
   .more-list { width: min(60vw, 440px); padding: 14px 14px 14px calc(var(--side) - 6px); border-radius: 0 34px 34px 0; }
   .more-head { padding-bottom: 8px; }
   .more-row { height: 46px; font-size: 18px; }

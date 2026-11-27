@@ -13,7 +13,7 @@ async function draw(w) {
     app.innerHTML = '<div class="none"><h2>No weather right now</h2><p>It will show here once the forecast can be reached.</p></div>';
     return;
   }
-  const narrow = innerWidth <= 760;
+  const narrow = matchMedia('(max-width: 760px)').matches; // (matchMedia: the kit keeps a phone's layout on its side)
   const t = tab(w, { now: new Date(), nh: narrow ? 6 : 12 });
   app.className = t.cls + (narrow ? ' narrow' : '') + (dim ? ' dim' : '') + (document.hidden ? ' paused' : '');
   app.innerHTML = t.html;
@@ -45,6 +45,5 @@ async function refresh() {
 }
 // Hidden: nothing moves and nothing is fetched; back: fresh at once.
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); else { clearTimeout(timer); app.classList.add('paused'); } });
-let wide = innerWidth > 760;
-addEventListener('resize', () => { if ((innerWidth > 760) !== wide) { wide = !wide; if (last) draw(last); } });
+matchMedia('(max-width: 760px)').addEventListener('change', () => { if (last) draw(last); });
 refresh();
