@@ -266,7 +266,7 @@ function Glance({ c, house, weather, timers, tabs, appBy, go, openApp, shell, ha
         {list && items.length > 0 && <button className="g-row" onClick={open('lists')}><span className="g-label">{list.name}</span>
           {items.slice(0, 4).map((i) => <span key={i.id} className="g-item">{i.text}</span>)}{items.length > 4 && <span className="g-soft">{items.length - 4} more</span>}</button>}
       </div>
-      {(shell?.type || !shell) && <button className="g-ask" onClick={() => (shell?.type ? shell.type() : onAsk())}><span className="g-ask-i"><Keys /></span>Say “Hey Opie”, or tap to type</button>}
+      {(shell?.type || !shell) && <button className="g-ask" onClick={() => (shell?.type ? shell.type() : onAsk())}><span className="g-ask-i"><Keys /></span>{shell?.wakeOn?.() ? 'Say “Hey Opie”, or tap to type' : 'Ask Opie'}</button>}
     </div>
   );
 }

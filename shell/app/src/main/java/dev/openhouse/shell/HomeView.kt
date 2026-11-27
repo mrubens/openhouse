@@ -68,6 +68,8 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         @JavascriptInterface fun idle(g: String?): Boolean = ok(g) && o.idle
         /** Settings → Time: whether the clock is 24-hour (shell/Clock.kt). */
         @JavascriptInterface fun clock24(g: String?): Boolean = ok(g) && Clock.is24(act)
+        /** Whether "Hey Opie" wakes it (else only a tap does): the phone's glance says which. */
+        @JavascriptInterface fun wakeOn(g: String?): Boolean = ok(g) && o.voice.wakeOn
         /** The battery for the rail's quiet line: {level, plugged, charging} ("charging" false while plugged in and not
          *  taking charge, as on a weak USB port). Android's last battery broadcast, so it costs nothing to ask. */
         @JavascriptInterface fun battery(g: String?): String {
