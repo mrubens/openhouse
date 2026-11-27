@@ -717,3 +717,5 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .home.compact:not(.upright) .g-rows { grid-column: 2; grid-row: 1 / span 3; align-self: start; }
 .home.compact:not(.upright) .g-ask { grid-column: 1; grid-row: 3; }
 .home.compact:not(.upright) .g-time { font-size: calc(var(--u) * 130); }
+/* Apps on a phone: as many columns as fit */
+.home.compact .h-app-grid { grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 160), 1fr)); }
