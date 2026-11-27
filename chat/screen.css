@@ -667,7 +667,6 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .home.compact .h-rail .h-tabs::-webkit-scrollbar { display: none; }
 .home.compact .h-rail .h-tools { padding-top: calc(var(--u) * 10); }
 .home.compact .h-rail .h-batt { margin-top: calc(var(--u) * 10); }
-.home.compact:not(.upright) .h-app { max-width: calc(var(--u) * 640); margin: 0 auto; } /* on its side an app keeps its upright layout (narrow.css) */
 .home.upright { flex-direction: column; }
 .home.upright .h-sheet { margin: calc(var(--u) * 14 + env(safe-area-inset-top)) calc(var(--u) * 14) calc(var(--u) * 124 + env(safe-area-inset-bottom)); }
 .h-bar { position: absolute; left: calc(var(--u) * 16); right: calc(var(--u) * 16); bottom: calc(var(--u) * 16 + env(safe-area-inset-bottom)); z-index: 15; height: calc(var(--u) * 96); display: flex; padding: calc(var(--u) * 7); box-sizing: border-box;

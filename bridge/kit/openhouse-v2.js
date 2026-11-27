@@ -74,6 +74,39 @@ const B = '/bridge';
     }
     r.setProperty('--quiet', `'${face[0]}', system-ui, sans-serif`); // the starting apps' type (quiet.css)
   }
+  // On a phone on its side the app keeps its phone layout (narrow.css, quiet.css's unit, its own rules) across the whole
+  // width, rather than a tablet's layout shrunk to fit: on the display on a phone (compact=1) always, and in a phone's
+  // page (kind=phone) when the window is short and wide (a computer's wide window keeps the tablet's). What its styles
+  // and matchMedia say for a phone upright (at most 560 px wide: max-width 700px holds, min-width 701px doesn't) holds
+  // then too, and the unit comes from the height, so the type is the size it is upright. (An app asks matchMedia,
+  // not innerWidth, for its phone layout.)
+  const side = q.get('compact') === '1' ? '' : q.get('kind') === 'phone' ? '(orientation: landscape) and (max-height: 500px)' : null;
+  if (side != null) {
+    const one = (m) => {
+      const out = [];
+      for (const part of m.split(',').map((s) => s.trim()).filter(Boolean)) {
+        const max = part.match(/\(\s*max-width:\s*(\d+)px\s*\)/), min = part.match(/\(\s*min-width:\s*(\d+)px\s*\)/);
+        if (max && +max[1] >= 560) { // (holds on a phone upright: at most 560 px wide)
+          out.push(part);
+          out.push(part.replace(max[0], side).replace(/^\s*and\s+|\s+and\s*$/g, '').replace(/\s+and\s+and\s+/, ' and ').trim() || 'all');
+        } else if (min && +min[1] > 560) { if (side) out.push(part.replace(min[0], `${min[0]} and (min-height: 501px)`)); } // (doesn't)
+        else out.push(part);
+      }
+      return out.join(', ') || 'not all';
+    };
+    const done = new WeakSet();
+    const fix = (rules) => { for (const r of rules) { if (r.media && !done.has(r)) { done.add(r); const t = one(r.media.mediaText); if (t !== r.media.mediaText) r.media.mediaText = t; } if (r.cssRules) fix(r.cssRules); } };
+    const all = () => { for (const sh of document.styleSheets) { try { fix(sh.cssRules); } catch {} } };
+    const mm = window.matchMedia.bind(window);
+    window.matchMedia = (m) => mm(one(String(m)));
+    const unit = document.createElement('style');
+    unit.textContent = `@media ${side ? side : '(orientation: landscape)'} { html:root:root:root { --u: min(calc(100vw / 560), calc(100vh / 520)); } }`;
+    document.head.appendChild(unit);
+    all(); addEventListener('DOMContentLoaded', all); addEventListener('load', all);
+    // (a style or stylesheet added later: when it's there)
+    new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) { if (n.nodeName === 'STYLE') all(); else if (n.nodeName === 'LINK') n.addEventListener('load', all); } })
+      .observe(document.documentElement, { subtree: true, childList: true });
+  }
 } // the dev server passes these on to the bridge
 
 // On a TV or someone's phone (a screen app, docs/phones-and-tv.md, docs/phones.md) the app runs in a sandboxed frame in the
