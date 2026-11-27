@@ -75,12 +75,12 @@ throws the rest away.
 
 ## Senders
 
-- **Each person's own addresses.** The account's sign-in addresses are approved from the start. In Settings → Email, a
-  grown-up adds the other addresses mail may come from, each one with the person it belongs to (Sam:
+- **Each person's own addresses.** The account's sign-in addresses are approved from the start. In Settings → Email, an
+  adult adds the other addresses mail may come from, each one with the person it belongs to (Sam:
   `sam@example.com`, `sam.work@example.com`), and says whose each sign-in address is. These are the only way in. The
   household's list is kept on the tablet; the cloud keeps only a keyed hash of each address (HMAC with a key per
   household), enough to check a sender without a readable list of people's addresses.
-- **Approving is done on the tablet** (or a grown-up's phone), behind the PIN where the tablet has one. Opie can't add
+- **Approving is done on the tablet** (or an adult's phone), behind the PIN where the tablet has one. Opie can't add
   a sender, and nothing in a message can.
 - **Anyone else is held.** The first message from a new address is usually one someone wanted (a school email
   forwarded from a work account), so it isn't dropped. If it passes the same checks as approved mail (SPF/DKIM,

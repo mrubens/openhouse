@@ -379,7 +379,7 @@ export const house = {
   renameAlbum: (id, name) => send('/house/photo/album', { rename: { id, name } }),
   removeAlbum: (id) => send('/house/photo/album', { remove: id }),
   inAlbum: (id, photos, on = true) => send('/house/photo/album', { put: { id, photos, on } }),
-  /** On a grown-up's own phone: keep an iCloud shared album here by its public link, with no PIN ({ added }, or
+  /** On an adult's own phone: keep an iCloud shared album here by its public link, with no PIN ({ added }, or
    *  { ok: false, error } like any change; a kid's phone or another screen gets that). On the display, phone.addAlbum() asks there. */
   addAlbumLink: (link) => send('/phone/album', { link }),
   /** A line shown with a photo on the idle screen and in the slideshow (data.captions); '' takes it off. */

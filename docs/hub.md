@@ -15,7 +15,7 @@ backup went to the folder, and restoring it restarted the hub with everything in
 started from `hub/start.sh` under `caffeinate`, answered on the Mac's Wi-Fi address, and a scan found the 6 devices on
 the Wi-Fi (the same scan from Docker Desktop found 2, the VM's own). The LaunchAgent itself, a real Pi, Docker on Linux
 and WSL are untried.
-2026-11-26: the keeper, the setup from the settings device, the cards (settings devices and grown-ups' phones), the
+2026-11-26: the keeper, the setup from the settings device, the cards (settings devices and adults' phones), the
 PIN, two-way Google and iCloud calendars, Google Photos, "Hey Opie" on a screen that says yes, and going back from a
 bad update (below). The pages still say "the
 tablet" in places (the phone's notes, the TV's empty view, the cloud backup's hint); the join page already says "the
@@ -59,7 +59,7 @@ Claude or ChatGPT on a computer, and the connector at the household's own addres
 | Settings | the shell's, behind the PIN | `/hub/` on a settings device (below), behind the PIN once one is set |
 | First setup | on the tablet, or from a phone with the setup code | type the code the hub printed when it started, then the same steps on that device |
 | Calendar and album links, the own OpenAI key, the PIN | the shell, sealed with Android's keystore | the keeper (`hub/keeper.mjs`), sealed, beside the data folder |
-| "Is this OK?" cards | on the tablet | on the settings page and grown-ups' phones |
+| "Is this OK?" cards | on the tablet | on the settings page and adults' phones |
 | Two-way calendars, Google Photos | the shell's sign-ins | the keeper's, signed in from the settings device |
 | Saying yes to a new device | Allow on the tablet | Allow on the settings page |
 | Opie | wake word on the tablet, or a tap | a tap on the pill, in any browser that may use the microphone; "Hey Opie" on a screen that listens |
@@ -82,7 +82,7 @@ in the keeper's folder on Linux. Like the shell, it reads the calendars and albu
 what they say, and it adds the OpenAI key to the bridge's calls at OpenAI's fixed addresses; nothing it keeps is ever
 answered back. It answers the same requests as the tablet's shell, the same way (host.md), so add_calendar,
 add_photo_album, the own key, the cards and the setup work the same way; it holds the cards until a person answers
-them on a settings device or a grown-up's phone, and checks the PIN itself. A bridge set to the keeper with none
+them on a settings device or an adult's phone, and checks the PIN itself. A bridge set to the keeper with none
 running starts one of its own (a laptop trying it).
 
 ### Setup, cards and the PIN
@@ -92,7 +92,7 @@ running starts one of its own (a laptop trying it).
   for the family (their own OpenAI key is on the settings page). The hub's bridge moves the steps on itself
   (`hub-setup.json` in the data folder).
 - **"Is this OK?" cards.** What the tablet asks someone there (a workshop fix, a plugin, an app made here, a calendar
-  sent by the assistant) shows on the settings page and on grown-ups' phones (`chat/src/asks.jsx`), with its yes and No; one that needs the PIN asks for it there. Nobody
+  sent by the assistant) shows on the settings page and on adults' phones (`chat/src/asks.jsx`), with its yes and No; one that needs the PIN asks for it there. Nobody
   answering is a no. On a hub, a fix from the workshop never goes in without a yes.
 - **The PIN.** Once one is set (in the setup or on the settings page), a settings device asks for it before changing
   settings, and again after 10 minutes. Cards that need it ask for it on the card. A lost PIN: run
@@ -129,7 +129,7 @@ The session is one script, `chat/live/live-session.cjs`, run by both the tablet 
 assets) and every browser (`chat/src/live-voice.js`, as its host). A tap on Opie's pill starts it; the browser sends
 its WebRTC offer to the hub, sealed; the hub starts the session through the cloud (`/live/start`, the same call the
 tablet makes), and audio then goes between the browser and OpenAI. The household's tools run on the hub
-(`/live/tool`), so a phone reaches only what its pairing allows. The `voice` scope: screens and grown-ups' phones, not
+(`/live/tool`), so a phone reaches only what its pairing allows. The `voice` scope: screens and adults' phones, not
 kids' phones or TVs.
 
 A browser lets a page use the microphone only on https or `localhost`. So on the hub's plain http address the pill

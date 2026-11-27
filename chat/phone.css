@@ -205,12 +205,18 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .join.setup h2 { margin: 18px 0 8px; }
 .join.setup p { margin: 0 0 14px; }
 .setup .setuprow { margin-top: 14px; }
-.setup .personrow { display: flex; gap: 8px; margin-bottom: 8px; }
+.setup .personrow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.setup .personrow input { flex: 1; min-width: 0; }
+/* A person's color (tap for the next one), with their initial, and Adult · Kid · Pet. */
+.setup .personrow .dot { flex: none; width: 40px; height: 40px; border-radius: 50%; color: #fff; font-weight: 700; font-size: 17px; }
+.setup .kinds { flex: none; display: flex; padding: 3px; border-radius: 14px; background: var(--tint); }
+.setup .kinds button { padding: 9px 10px; border-radius: 11px; font-size: 15px; font-weight: 600; color: var(--soft); white-space: nowrap; }
+.setup .kinds button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px color-mix(in srgb, var(--ink) 18%, transparent); }
 .setup .personrow input, .setup input { margin: 0 0 8px; }
 .setup .personrow input { margin: 0; }
 /* A step's own action (Add, Sign in, Turn on): tinted, so Next stays the one filled button. */
 .setup .go.act { background: var(--tint); color: var(--ink); box-shadow: none; }
-/* A hub's "Is this OK?" cards on a grown-up's phone (src/asks.jsx): over everything, at the top. */
+/* A hub's "Is this OK?" cards on an adult's phone (src/asks.jsx): over everything, at the top. */
 .app > .asks-cards { position: fixed; z-index: 50; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px; max-height: 80vh; overflow: auto; }
 .asks-cards .card { background: var(--card); border-radius: 18px; padding: 16px; box-shadow: 0 12px 40px -12px rgba(0, 0, 0, .35); margin-bottom: 10px; }
 .asks-cards .t { font-weight: 600; margin-bottom: 6px; }

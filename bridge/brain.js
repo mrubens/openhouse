@@ -60,6 +60,8 @@ import { weatherSense } from './weather-sense.js';
 import { guarded } from './guarded.js';
 import { rails } from './rails.js';
 import { workshopGuide } from './workshop-guide.js';
+import { KINDS } from './board.js';
+import { PEOPLE } from './house/util.js';
 
 // Once it's serving, a stray error from one request or timer is logged, and the bridge keeps serving the family. It
 // doesn't hide a stuck bridge: the shell's watchdog asks /state every 10 s and restarts one that stops answering
@@ -361,7 +363,7 @@ const workshop = workshopRoutes({ HERE, APP_DIR, homeScreen: chat.homeScreen, ed
 // (a Tailscale Funnel, a tunnel), off until someone turns it on (web-mcp.js, docs/web-chat-building.md).
 const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });
 // A host with no screen of its own ('cards': the keeper, docs/hub.md): its cards on the settings devices and
-// grown-ups' phones, its setup's steps and its settings behind the PIN there (headless.js), and the bridge's own
+// adults' phones, its setup's steps and its settings behind the PIN there (headless.js), and the bridge's own
 // settings page and updates (hub.js). A tablet's shell does all of this on its screen.
 const headless = host.can('cards') ? settingsRoutes({ call: host.call, cloud, json, body }) : null;
 if (headless) headless.setup = setupSteps({ DISPLAY, household: () => chat.live.setupHousehold?.read?.() || {} });
@@ -539,11 +541,11 @@ async function route(req, res, url) {
     // its Next moves the tablet on (Setup.kt looks at /setup/want).
     if (url.pathname === '/setup/household' && req.method === 'GET') {
       const h = chat.live.setupHousehold?.read?.() || {};
-      json(res, 200, { family: (h.family || []).map((f) => ({ name: f.name, note: f.note || '', ...(f.born ? { born: f.born, age: f.age } : {}) })), location: h.location || null, address: h.address || null, guess: chat.live.setupGuess?.() || null, linked: !!cloud.status().linked, voice: await cloud.voiceNow().then((v) => ({ on: !!v.on, available: !!v.available, own: !!v.own, asked: v.asked || null })).catch(() => null) }); return true;
+      json(res, 200, { family: (h.family || []).map((f, i) => ({ name: f.name, note: f.note || '', kind: f.kind || 'adult', color: f.color || PEOPLE[i % PEOPLE.length], ...(f.born ? { born: f.born, age: f.age } : {}) })), colors: PEOPLE, location: h.location || null, address: h.address || null, guess: chat.live.setupGuess?.() || null, linked: !!cloud.status().linked, voice: await cloud.voiceNow().then((v) => ({ on: !!v.on, available: !!v.available, own: !!v.own, asked: v.asked || null })).catch(() => null) }); return true;
     }
     if (url.pathname === '/setup/household' && req.method === 'POST') {
       const b = await body(req), put = {};
-      if (Array.isArray(b.family)) put.family = b.family.slice(0, 30).map((f) => ({ name: String(f?.name || '').trim().slice(0, 40), note: String(f?.note || '').trim().slice(0, 40), ...(Number.isInteger(f?.born) ? { born: f.born } : {}) })).filter((f) => f.name);
+      if (Array.isArray(b.family)) put.family = b.family.slice(0, 30).map((f) => ({ name: String(f?.name || '').trim().slice(0, 40), ...(typeof f?.note === 'string' ? { note: f.note.trim().slice(0, 40) } : {}), ...(Number.isInteger(f?.born) ? { born: f.born } : {}), ...(KINDS.includes(f?.kind) ? { kind: f.kind } : {}), ...(/^#[0-9a-f]{6}$/i.test(String(f?.color || '')) ? { color: f.color } : {}) })).filter((f) => f.name); // (what isn't sent is kept)
       if (typeof b.location === 'string') { put.location = b.location.trim().slice(0, 100); put.address = String(b.address || '').trim().slice(0, 200); }
       try { chat.live.setupHousehold?.save?.(put); } catch (e) { json(res, 400, { error: e.message }); return true; }
       json(res, 200, { ok: true }); return true;
@@ -593,11 +595,11 @@ async function route(req, res, url) {
       const r = await calendar.toShell(url.pathname === '/setup/calendar' ? '/calendar' : '/album', { url: String(b.link || '').trim(), who: String(b.who || '').trim().slice(0, 40), from: 'setup', trusted: true });
       json(res, r.error ? 400 : 200, r); return true;
     }
-    // An iCloud shared album's link from a grown-up's own phone (the Photos app there): theirs to add, as the setup
+    // An iCloud shared album's link from an adult's own phone (the Photos app there): theirs to add, as the setup
     // phone's are, so no card or PIN on the tablet (unless its lock is on). A kid's phone, a shared screen or a TV can't.
     if (req.method === 'POST' && url.pathname === '/phone/album') {
       const who = screens.who(String(req.headers['x-openhouse-screen'] || ''));
-      if (!(who?.kind === 'phone' && who.person && who.scopes.includes('ask'))) { json(res, 403, { error: 'Only a grown-up\'s own phone can add an album here.' }); return true; }
+      if (!(who?.kind === 'phone' && who.person && who.scopes.includes('ask'))) { json(res, 403, { error: 'Only an adult\'s own phone can add an album here.' }); return true; }
       const b = await body(req);
       const r = await calendar.toShell('/album', { url: String(b.link || '').trim(), from: who.person, trusted: true });
       json(res, r.error ? 400 : 200, r); return true;

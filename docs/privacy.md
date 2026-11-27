@@ -116,7 +116,7 @@ mail waiting for the tablet and any copy of the recovery code. The database's ow
 
 ## Children
 
-A household's phones, kids' included, join only when a grown-up adds them on the tablet. What they do stays with the
+A household's phones, kids' included, join only when an adult adds them on the tablet. What they do stays with the
 household's tablet; we don't ask children for any information.
 
 ## Changes and contact

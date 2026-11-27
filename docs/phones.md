@@ -101,7 +101,7 @@ whether it can ask Opie).
   ask; a phone is alone in a pocket, so it's a choice. Without it there's no pill.
 - **No recipe links, no setup, no settings**, on any phone.
 - They tick their own chores and add to the lists, as on the tablet.
-- The UI never says "grown-up" or "kid"; the difference is just what's there.
+- The phone page never labels a phone as an adult's or a kid's; the difference is just what's there.
 
 ## 5. Away from home
 

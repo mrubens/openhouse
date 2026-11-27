@@ -154,7 +154,7 @@ internal object Screens {
      */
     fun phone(a: MainActivity) = thread {
         val family = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/household")).optJSONArray("family") }.getOrNull()
-        val names = (0 until (family?.length() ?: 0)).mapNotNull { family!!.optJSONObject(it)?.optString("name")?.takeIf { n -> n.isNotBlank() } }
+        val names = (0 until (family?.length() ?: 0)).mapNotNull { family!!.optJSONObject(it)?.takeIf { p -> p.optString("kind") != "pet" }?.optString("name")?.takeIf { n -> n.isNotBlank() } } // (pets have no phones)
         main.post {
             if (names.isEmpty()) { CalmDialog(a).setTitle("Add the family first").setMessage("In Settings, Family.").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             CalmDialog(a).setTitle("Whose phone?").setItems(names.toTypedArray()) { _, i ->

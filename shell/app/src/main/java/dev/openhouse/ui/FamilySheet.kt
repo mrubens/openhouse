@@ -51,7 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 // --- family setup -------------------------------------------------------------------------------
 
 /** One editable row of two fields (a person and a note, a calendar link and whose it is, a chore). */
-private class Pair2(a: String, b: String, c: String = "") { var a by mutableStateOf(a); var b by mutableStateOf(b); var c by mutableStateOf(c) }
+private class Pair2(a: String, b: String, c: String = "", d: String = "") { var a by mutableStateOf(a); var b by mutableStateOf(b); var c by mutableStateOf(c); var d by mutableStateOf(d) }
 
 /** The colors a person can have (the first six are the order the family is listed in, as /house gives them). */
 internal val PERSON_COLORS = listOf("#ffc247", "#56d6a0", "#ff8566", "#74acff", "#c3a0ff", "#ff9ec4", "#5fa3a8", "#c9708f", "#8a9a5b", "#9a8478")
@@ -71,16 +71,16 @@ internal fun FamilySheet() {
     LaunchedEffect(Unit) {
         val h = o.loadHousehold()
         if (h != null) {
-            h.optJSONArray("family")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { people += Pair2(it.optString("name"), it.optString("note"), it.optString("color").ifBlank { PERSON_COLORS[i % 6] }) } }
+            h.optJSONArray("family")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { people += Pair2(it.optString("name"), it.optString("note"), it.optString("color").ifBlank { PERSON_COLORS[i % 6] }, it.optString("kind").ifBlank { "adult" }) } }
             h.optJSONArray("chores")?.let { a -> for (i in 0 until a.length()) a.optJSONObject(i)?.let { chores += Pair2(it.optString("who"), it.optString("task")) } }
             place = h.optString("location")
         }
-        if (people.isEmpty()) people += Pair2("", "")
+        if (people.isEmpty()) people += Pair2("", "", "", "adult")
         loaded = true
     }
     fun save() {
         val h = org.json.JSONObject()
-            .put("family", org.json.JSONArray(people.filter { it.a.isNotBlank() }.map { org.json.JSONObject().put("name", it.a.trim()).put("note", it.b.trim()).apply { if (it.c.isNotBlank()) put("color", it.c) } }))
+            .put("family", org.json.JSONArray(people.filter { it.a.isNotBlank() }.map { org.json.JSONObject().put("name", it.a.trim()).put("note", it.b.trim()).apply { if (it.c.isNotBlank()) put("color", it.c); if (it.d.isNotBlank()) put("kind", it.d) } }))
             .put("location", place.trim())
             .put("chores", org.json.JSONArray(chores.filter { it.b.isNotBlank() }.map { org.json.JSONObject().put("who", it.a.trim()).put("task", it.b.trim()) }))
         o.saveHousehold(h)
@@ -113,7 +113,7 @@ internal fun FamilySheet() {
                             // Their color everywhere (the calendar, chores): tap for the next one.
                             if (p.c.isBlank()) p.c = PERSON_COLORS[i % 6]
                             Box(Modifier.size(40.u).clip(CircleShape).background(hexColor(p.c)).clickable { p.c = PERSON_COLORS[(PERSON_COLORS.indexOf(p.c) + 1) % PERSON_COLORS.size] })
-                            Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Field(p.b, { p.b = it }, "Age 9, or Mom", Modifier.weight(1f)); Remove { people.remove(p) } } }
+                            Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Kinds(p.d) { p.d = it }; Field(p.b, { p.b = it }, "Age, or a note", Modifier.weight(1f)); Remove { people.remove(p) } } }
                         if (people.size > 0) Text("Tap a color to change it.", style = quietText(15, color = PaperLook.inkSoft))
                         AddLink("Add someone") { people += Pair2("", "", PERSON_COLORS[people.size % 6]) }
                         Section("Where you live")
@@ -126,6 +126,18 @@ internal fun FamilySheet() {
                         AddLink("Add a chore") { chores += Pair2(names.firstOrNull() ?: "", "") }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** Adult · Kid · Pet: who a person is to the household (none chosen reads as an adult). */
+@Composable private fun Kinds(kind: String, onPick: (String) -> Unit) {
+    Row(Modifier.clip(RoundedCornerShape(12.u)).background(Color(0xFFF1EEE6)).padding(3.u)) {
+        listOf("adult" to "Adult", "kid" to "Kid", "pet" to "Pet").forEach { (k, label) ->
+            val on = kind == k
+            Box(Modifier.clip(RoundedCornerShape(10.u)).background(if (on) Color.White else Color.Transparent).clickable { onPick(k) }.padding(horizontal = 12.u, vertical = 8.u)) {
+                Text(label, style = quietText(16, FontWeight.SemiBold, if (on) PaperLook.ink else PaperLook.inkSoft), maxLines = 1)
             }
         }
     }

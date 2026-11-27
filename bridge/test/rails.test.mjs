@@ -81,7 +81,7 @@ test('made on the tablet: only its own app, and only the family\'s things and ex
   assert.deepEqual([...pl.rightsOf('dino')], []);
   assert.deepEqual(pl.reachesOf('dino'), []);
   assert.equal(appAllowed('POST', '/house/list', pl.rightsOf('dino')), false);
-  // With no screen to ask a grown-up (a hub), it doesn't go in, and nothing is granted
+  // With no screen to ask an adult (a hub), it doesn't go in, and nothing is granted
   const nobody = waitsWith([null]);
   assert.equal(await nobody.decide(owner, r.card), 'no'); nobody.stop();
   assert.deepEqual([...pl.rightsOf('dino')], []);

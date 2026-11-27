@@ -9,7 +9,6 @@ export const onTheHub = () => { HUB = true; };
 const THE = () => (HUB ? 'the hub' : 'the tablet');
 const The = () => (HUB ? 'The hub' : 'The tablet');
 const mine = (me, who) => String(who || '').toLowerCase() === String(me?.person || '').toLowerCase();
-const kidOrPet = (note) => /^\d{1,2}$/.test(String(note || '').trim()) || /\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(note || ''));
 /** The tablet's next setup step after one sent from here (Setup.kt STEPS). ai and voice: a tablet from before they
  *  left the setup (this page may be the cloud's copy, newer than the tablet), moved on past them from here. */
 const AFTER = { calendar: 'photos', photos: 'pin', pin: 'android', ai: 'pin', voice: 'android' };
@@ -192,26 +191,35 @@ export function AddLink({ c, kind, family = [], sub = false, heading = true, hel
     {sub ? <h2>Or a link</h2> : heading ? <h1>{how.title}</h1> : null}
     <p>{help || how.help}</p>
     <input value={link} onChange={(e) => { setLink(e.target.value); setState(null); }} placeholder={how.hint} inputMode="url" autoCapitalize="off" autoComplete="off" />
-    {kind === 'calendar' && family.length > 0 && <div className="chips">{family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || ''))).map((f) => <button key={f.name} className={'chip' + (who === f.name ? ' on' : '')} onClick={() => setWho(who === f.name ? '' : f.name)}>{f.name}</button>)}</div>}
+    {kind === 'calendar' && family.length > 0 && <div className="chips">{family.filter((f) => f.kind !== 'pet').map((f) => <button key={f.name} className={'chip' + (who === f.name ? ' on' : '')} onClick={() => setWho(who === f.name ? '' : f.name)}>{f.name}</button>)}</div>}
     {/* The tablet reads the link once before keeping it: "Added" only when it read, else what went wrong. */}
     <button className="go act" disabled={!/^\S+\.\S+/.test(link.trim()) || state === 'sending'} onClick={add}>{state === 'sending' ? (kind === 'album' ? 'Looking at it…' : 'Reading it…') : 'Add'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}
     {added.map((a, k) => <p key={k} className="soft">Added: {a}</p>)}
   </>;
 }
-/** Who lives here, typed here for the tablet's setup (bridge /setup/household); Next saves it and moves the tablet on
- *  (/setup/go). What was saved before shows. */
+/** Who lives here, typed here for the tablet's setup (bridge /setup/household): a name, Adult, Kid or Pet, and their
+ *  color (the calendar's, chores' and lists'). Next saves it and moves the tablet on (/setup/go). What was saved before
+ *  shows, and what isn't asked here (a note, a birth year) is kept as it was. */
+const KINDS = [['adult', 'Adult'], ['kid', 'Kid'], ['pet', 'Pet']];
 function SetupPeople({ c }) {
-  const [rows, setRows] = useState(null), [state, setState] = useState(null);
-  // At least five rows, so most households fill it in without adding any.
-  // One box for a birth year or a role ("2017", "Mom", "the dog"): a year is kept as one (the age is worked out from it,
-  // so it never goes stale), anything else as their note, and whichever wasn't typed over is kept.
-  const five = (l) => [...l, ...Array.from({ length: Math.max(0, 5 - l.length) }, () => ({ name: '', note: '' }))];
-  const shown = (f) => ({ name: f.name, born: f.born, role: f.born && f.note === String(f.age) ? '' : f.note || '', note: f.born ? String(f.born) : f.note || '' });
-  useEffect(() => { c.json('GET', '/setup/household').then((r) => setRows(five((r.json?.family || []).map(shown)))).catch(() => setRows(five([]))); }, []);
-  const out = (r) => (/^\d{4}$/.test(r.note.trim()) ? { name: r.name, born: +r.note.trim(), note: r.role || '' } : { name: r.name, note: r.note, ...(r.born ? { born: r.born } : {}) });
+  const [rows, setRows] = useState(null), [colors, setColors] = useState([]), [state, setState] = useState(null);
+  // At least five rows, so most households fill it in without adding any. The first is an adult to begin with.
+  const blank = (i, cs) => ({ name: '', kind: i === 0 ? 'adult' : '', color: cs[i % cs.length] || '' });
+  const five = (l, cs) => [...l, ...Array.from({ length: Math.max(0, 5 - l.length) }, (_, k) => blank(l.length + k, cs))];
+  useEffect(() => {
+    c.json('GET', '/setup/household').then((r) => {
+      const cs = r.json?.colors || [];
+      // (a person saved before keeps their note and birth year: sent back as they came, for a tablet from before too)
+      setColors(cs); setRows(five((r.json?.family || []).map((f, i) => ({ name: f.name, kind: f.kind || 'adult', color: f.color || cs[i % cs.length] || '', had: { note: f.note || '', ...(f.born ? { born: f.born } : {}) } })), cs));
+    }).catch(() => setRows(five([], [])));
+  }, []);
   if (!rows) return <p className="soft">…</p>;
   const set = (i, k, v) => setRows(rows.map((r, j) => (j === i ? { ...r, [k]: v } : r)));
+  // A tap on a color: the next one nobody else here has (any next one once all are taken).
+  const recolor = (i) => { const taken = rows.filter((r, j) => j !== i && r.name.trim()).map((r) => r.color), at = colors.indexOf(rows[i].color);
+    const order = colors.map((_, k) => colors[(at + 1 + k) % colors.length]); set(i, 'color', order.find((x) => !taken.includes(x)) || order[0]); };
+  const out = (r) => ({ name: r.name.trim(), ...(r.kind ? { kind: r.kind } : {}), ...(r.color ? { color: r.color } : {}), ...(r.had || {}) });
   async function next() {
     setState('saving');
     try {
@@ -222,13 +230,15 @@ function SetupPeople({ c }) {
   }
   return <>
     <h1>Who lives here?</h1>
-    <p>Names, and a birth year or role if you like.</p>
+    {colors.length > 0 && <p>Tap a color to change it.</p>}
     {rows.map((r, i) => <div key={i} className="personrow">
+      {colors.length > 0 && <button className="dot" style={{ background: r.color }} aria-label={`${r.name.trim() || 'Their'} color`}
+        onClick={() => recolor(i)}>{r.name.trim()[0]?.toUpperCase() || ''}</button>}
       <input value={r.name} onChange={(e) => set(i, 'name', e.target.value)} placeholder="Name" autoCapitalize="words" autoComplete="off" />
-      <input value={r.note} onChange={(e) => set(i, 'note', e.target.value)} placeholder="Year or role" autoComplete="off" style={{ maxWidth: '9em' }} />
+      <div className="kinds" role="radiogroup">{KINDS.map(([k, label]) => <button key={k} role="radio" aria-checked={r.kind === k} className={r.kind === k ? 'on' : ''} onClick={() => set(i, 'kind', k)}>{label}</button>)}</div>
     </div>)}
     <div className="setuprow">
-      <button className="quiet" onClick={() => setRows([...rows, { name: '', note: '' }])}>+ Add someone</button>
+      <button className="quiet" onClick={() => setRows([...rows, blank(rows.length, colors)])}>+ Add someone</button>
       <span className="grow" />
       <button className="go small" disabled={state === 'saving'} onClick={next}>Next</button>
     </div>
@@ -318,7 +328,7 @@ function Invite({ c, family }) {
   const [sent, setSent] = useState({}), [link, setLink] = useState(null);
   async function invite(f) {
     try {
-      const r = await c.json('POST', '/setup/invite', { person: f.name, grownup: !kidOrPet(f.note) });
+      const r = await c.json('POST', '/setup/invite', { person: f.name, grownup: true });
       if (r.status !== 200) return;
       // With reaching home from away on, the cloud's page, which joins through the relay from anywhere; else the
       // tablet's own page on the home Wi-Fi.
@@ -331,7 +341,7 @@ function Invite({ c, family }) {
       else setLink({ who: f.name, url });
     } catch {}
   }
-  const people = family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || '')));
+  const people = family.filter((f) => (f.kind || 'adult') === 'adult'); // phones are for adults
   return <>
     <h1>Invite your family</h1>
     <p>Each one gets their own link, for their phone.</p>
@@ -343,7 +353,7 @@ function Invite({ c, family }) {
 /** A second app to ask for, from who lives here: a rota needs nothing more than their names, so Opie can build it
  *  without asking anything back. */
 function rotaExample(family = []) {
-  const names = family.filter((f) => String(f.name || '').trim() && !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || ''))).map((f) => String(f.name).trim()).slice(0, 4);
+  const names = family.filter((f) => String(f.name || '').trim() && f.kind !== 'pet').map((f) => String(f.name).trim()).slice(0, 4);
   const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
   return list ? `Make a rota for who sets the table each night: ${list}` : 'Make a rota for who sets the table each night';
 }

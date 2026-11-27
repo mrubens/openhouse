@@ -142,7 +142,7 @@ internal class SettingsLock(private val act: MainActivity) {
 
     /**
      * A first PIN, outside the setup's own step: only on a tablet linked to an account, whose Reset with your account
-     * gets a grown-up back in (PinPrompt.forgot). On an unlinked tablet anyone at it could choose one and tap past its
+     * gets an adult back in (PinPrompt.forgot). On an unlinked tablet anyone at it could choose one and tap past its
      * recovery code, keeping everyone else out of Account, Erase and Android's settings, so it asks to link first.
      * Changing or resetting a PIN that's set is PinPrompt's, as before.
      */
@@ -153,10 +153,10 @@ internal class SettingsLock(private val act: MainActivity) {
             // Not linked (set up without an account, as a do-it-yourself tablet may be): the PIN still comes with a
             // recovery code to keep, its only way back, so say that first rather than refusing a PIN outright. With no
             // account behind it, whoever chooses the first PIN holds the tablet's settings (setup's PIN step is the time
-            // meant for it, docs/settings.md), so this says so: a warning, not a wall, as nothing at the tablet tells a
-            // grown-up from anyone else.
+            // meant for it, docs/settings.md), so this says so: a warning, not a wall, as nothing at the tablet tells an
+            // adult from anyone else.
             CalmDialog(act).setTitle("Choose a PIN")
-                .setMessage("Whoever chooses this PIN decides who can change Settings and approve apps, so it's for a grown-up of the household.\n\nThis tablet isn't linked to an Opie account, so a forgotten PIN can only be reset with the recovery code shown next. Keep it somewhere safe, away from the tablet.")
+                .setMessage("Whoever chooses this PIN decides who can change Settings and approve apps, so it's for an adult of the household.\n\nThis tablet isn't linked to an Opie account, so a forgotten PIN can only be reset with the recovery code shown next. Keep it somewhere safe, away from the tablet.")
                 .setPositiveButton("Continue") { _, _ -> PinPrompt.choose(act, act, then = then, back = back) }
                 .setNegativeButton("Link it first") { _, _ -> CloudMenu(act).show() }.show()
             act.immersive()

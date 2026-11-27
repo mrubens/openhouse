@@ -24,7 +24,7 @@ import kotlin.concurrent.thread
  * files: never in the bridge's files, device.json, any store, a backup or a report (a restored tablet asks again,
  * since the keystore's key doesn't travel). The bridge hears only whether one is in (POST /cloud/own {on}) and asks
  * OpenAI through [forward], which reaches only OpenAI's own address and only the calls in [CALLS]. Entering, changing
- * and removing it are a grown-up's, behind the PIN.
+ * and removing it are an adult's, behind the PIN.
  * The key comes in typed or pasted here ([menu]: Settings → Voice, Your own OpenAI key) or sent from a settings page
  * ([offer]: bridge /setup/openai): sealed, straight here.
  * What each call carries is built by the bridge (bridge/own-openai.js, the cloud's requests).
@@ -118,7 +118,7 @@ object OwnKey {
     /** Tells the bridge whether a key is in (only that); the voice follows at once (on with a key, CloudSetup.refreshVoice). */
     private fun tellBridge(bridge: String, on: Boolean) = runCatching { CloudSetup.post("$bridge/cloud/own", JSONObject().put("on", on)); CloudSetup.refreshVoice(ctx, bridge) }
 
-    // --- the grown-up's screens: put a key in, change it, take it out (behind the PIN) -------------------------
+    // --- the adult's screens: put a key in, change it, take it out (behind the PIN) -------------------------
 
     /** Settings → Voice → Your own OpenAI key, and turning the voice on where Opie cloud's voice isn't available. */
     fun menu(act: MainActivity) = act.lock.withPin("Your own OpenAI key") {

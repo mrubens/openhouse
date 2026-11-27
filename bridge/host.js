@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 /** What a host may say it can do (POST /host -> { kind, can: [...] }). A host leaves out what it can't. */
 export const CAPS = {
   screen: 'a screen of its own, where people answer its cards, Allow a new device and go through the setup',
-  cards: "its cards wait at /cards (and /cards/answer) for the bridge to show on settings devices and grown-ups' phones",
+  cards: "its cards wait at /cards (and /cards/answer) for the bridge to show on settings devices and adults' phones",
   approve: 'POST /approve: an "Is this OK?" card, answered by a person (never by Opie: DeviceServer.personOnly)',
   calendar: 'POST /calendar, /album: a link kept sealed after a yes (its own, unless the setup sent it: trusted)',
   'calendar-accounts': 'POST /calendar/accounts, /calendar/request, /setup/icloud: two-way calendars signed in there',

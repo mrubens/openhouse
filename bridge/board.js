@@ -34,18 +34,36 @@ const full = (text) => Object.assign(new Error(text), { code: 'full', status: 40
 // note where they gave no role, so whatever read an age from the note before still does.
 const thisYear = () => new Date().getFullYear();
 const yearOf = (v) => { const n = Number(String(v ?? '').trim()); return Number.isInteger(n) && n >= 1900 && n <= thisYear() ? n : null; };
+/** Who a person is to the household (since 2026-11-27, the setup's Adult · Kid · Pet). Unset reads as an adult. */
+export const KINDS = ['adult', 'kid', 'pet'];
+const kindOf = (v) => (KINDS.includes(v) ? v : null);
 /** A person as everything shows them. */
 export function personView(f) {
   const age = f?.born ? thisYear() - f.born : null;
-  return { ...f, ...(age != null ? { age } : {}), ...(!f?.note && age != null ? { note: String(age) } : {}) };
+  return { ...f, kind: kindOf(f?.kind) || 'adult', ...(age != null ? { age } : {}), ...(!f?.note && age != null ? { note: String(age) } : {}) };
+}
+/** A person in a line for the AI: "Sam (adult)", "Leo (kid, 6)", "Rex (pet, the dog)". */
+export function personLine(f) {
+  const v = personView(f || {});
+  const note = v.note && v.note !== String(v.age) ? v.note : '';
+  return `${v.name} (${[v.kind, v.age != null ? String(v.age) : '', note].filter(Boolean).join(', ')})`;
 }
 /** What's kept for a person from what was given: a birth year as born; an age (one or two digits) as the year it means;
- *  anything else is their note. [had]: what was kept for them before, so a save that leaves it out keeps it. */
+ *  anything else is their note; their kind as given. [had]: what was kept for them before, so a save that leaves any
+ *  of these out keeps it. */
 export function personKept(f, had = {}) {
-  const note = String(f.note ?? '').trim().slice(0, 80);
+  const given = f.note != null, note = String(f.note ?? '').trim().slice(0, 80);
   const born = yearOf(f.born) ?? yearOf(/^\d{4}$/.test(note) ? note : null) ?? (/^\d{1,2}$/.test(note) ? thisYear() - Number(note) : null) ?? had.born ?? null;
-  const role = /^\d{1,4}$/.test(note) ? (had.note && !/^\d{1,4}$/.test(had.note) ? had.note : '') : note;
-  return { ...(role ? { note: role } : {}), ...(born ? { born } : {}) };
+  const role = !given ? had.note || '' : /^\d{1,4}$/.test(note) ? (had.note && !/^\d{1,4}$/.test(had.note) ? had.note : '') : note;
+  const kind = kindOf(f.kind) || kindOf(had.kind);
+  return { ...(kind ? { kind } : {}), ...(role ? { note: role } : {}), ...(born ? { born } : {}) };
+}
+/** People saved before they had a kind: only what's unambiguous is filled in, a birth year under 18 years ago as a
+ *  kid. Everyone else stays unset (an adult), and nothing is guessed from their note. Null when nothing changes. */
+export function kindsFromBefore(family = []) {
+  let changed = false;
+  const out = family.map((f) => { if (!f || kindOf(f.kind) || !yearOf(f.born) || thisYear() - f.born >= 18) return f; changed = true; return { ...f, kind: 'kid' }; });
+  return changed ? out : null;
 }
 
 export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen }) {
@@ -123,7 +141,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       .map((e) => `- ${new Date(e.start).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}: ${e.who} — ${e.title}${e.bring ? ` (bring: ${e.bring})` : ''}`);
     return [
       `Now: ${now.toString()}`,
-      h.family?.length ? `Family: ${h.family.map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ')}` : 'Family: not set up yet (ask who lives here, or someone can fill it in under Settings)',
+      h.family?.length ? `Family: ${h.family.map(personLine).join(', ')}` : 'Family: not set up yet (ask who lives here, or someone can fill it in under Settings)',
       h.location ? `Location: ${h.location}` : 'Location: unknown (no weather)',
       h.routines?.length ? `Routines:\n${h.routines.map((r) => '- ' + r).join('\n')}` : '',
       `Calendar, next 3 days:\n${soon.join('\n') || '- nothing'}`,
@@ -166,6 +184,8 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   homeScreen.migrate(load().pins); // pins from before the home screen had notes
   // Ages kept as a note before 2026-11-26: kept as the birth year they mean, once.
   try { const h = read(HOUSE, null); if (h?.family?.some((f) => /^\d{1,2}$/.test(String(f.note || '').trim()))) saveHousehold({ family: h.family }, { quiet: true }); } catch (e) { console.error('[household] ages:', e.message); }
+  // Kinds (adult, kid, pet) since 2026-11-27: a kid where the birth year says so, once; everything else kept as it was.
+  try { const h = read(HOUSE, null), k = kindsFromBefore(h?.family); if (k) writeJson(HOUSE, { ...h, family: k }, { space: 2 }); } catch (e) { console.error('[household] kinds:', e.message); }
   return handle;
   async function handle(req, res, url) {
     const p = url.pathname;
@@ -212,7 +232,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       const b = load(), h = household();
       json(res, 200, {
         assistant: b.assistant && { at: b.assistant.at, headline: b.assistant.headline, weather: b.assistant.weather },
-        curating, error: lastError, family: (h.family || []).map((f) => ({ name: f.name, note: f.note || '' })),
+        curating, error: lastError, family: (h.family || []).map((f) => ({ name: f.name, note: f.note || '', kind: f.kind })),
         // for the view that turns toward whoever is talking: the next two days and chores
         events: (h.events || []).filter((e) => { const t = new Date(e.start) - Date.now(); return t > -3 * 3600e3 && t < 48 * 3600e3; }),
         chores: h.chores || [],

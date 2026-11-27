@@ -70,7 +70,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Calendar, with Ask for the PIN → Change the calendar on: any change | **new** | calendar_event asks; the tablet's card takes the PIN, then the calendar is open for 5 minutes, as after the app's unlock. A computer's workshop isn't asked |
 | Chores: done / not done, who did an Anyone chore, add, change (who, days, every N days, stars, picture, stays until done), skip, remove | yes | change_chores |
 | Chores: rewards add, remove | yes | change_rewards |
-| Chores: spend stars on a reward (Get it!) | **new** | change_rewards redeem: the same card as Get it!, a grown-up's yes on the tablet (with the PIN when Give rewards asks) |
+| Chores: spend stars on a reward (Get it!) | **new** | change_rewards redeem: the same card as Get it!, an adult's yes on the tablet (with the PIN when Give rewards asks) |
 | Chores: routines add, change, remove, tick a step | yes | change_routines |
 | Lists: tick, add, edit, whose, remove, clear checked, new list, rename, delete list | yes | change_list |
 | Lists: by store section or in the order added | **new** | change_list byAisle |
@@ -101,9 +101,9 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | The first setup's Two of Android's settings: Let Opie use other apps, Stop charging at 80% | no, on purpose | Both are Android's own pages, outside Opie (kiosk mode left, behind the PIN if one was chosen), and device control is personOnly; the setup is quiet throughout, so there's no Opie to ask |
 | The end of the first setup's Opie is ready: OK, Turn off | yes, by the Voice row | OK only closes it. Turn off is Settings → Voice's Off: Opie opens the row and the tablet asks for the PIN (as Voice above). The voice coming on there follows the person's Done, the setup's last tap |
 | Ask for Opie's voice (Settings → Voice, while the household doesn't have it) | no, on purpose | Until the household has the voice there's no Opie to ask; once it does, the ask is done |
-| Your own OpenAI key: put in, change, remove (Settings → Voice; a hub's settings page) | no, on purpose | A secret Opie must never see or hear; pasted by a grown-up on the tablet, or on a hub's settings page, behind the PIN |
-| Backups → Your own storage: set up, change, remove (a bucket's address and key) | no, on purpose | Its secret is one Opie must never see or hear, as the OpenAI key: a grown-up enters it on a phone or computer on the Wi-Fi (the QR code), on the tablet, or on a hub's settings page. Opie can open Backups (screen, with the PIN, as for the rest of Account); turning it on or off once it's set up is that screen's |
-| Family: who, ages or roles, colours, where, chores | **new** | update_household (was typed-only). Leaving someone out of the list is refused unless they're named in taking_off |
+| Your own OpenAI key: put in, change, remove (Settings → Voice; a hub's settings page) | no, on purpose | A secret Opie must never see or hear; pasted by an adult on the tablet, or on a hub's settings page, behind the PIN |
+| Backups → Your own storage: set up, change, remove (a bucket's address and key) | no, on purpose | Its secret is one Opie must never see or hear, as the OpenAI key: an adult enters it on a phone or computer on the Wi-Fi (the QR code), on the tablet, or on a hub's settings page. Opie can open Backups (screen, with the PIN, as for the rest of Account); turning it on or off once it's set up is that screen's |
+| Family: who, adult, kid or pet, ages or notes, colours, where, chores | **new** | update_household (was typed-only; kind since 2026-11-27). Leaving someone out of the list is refused unless they're named in taking_off |
 | Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the row, the tablet asks for the PIN, Opie carries on there; adding one by link is add_calendar |
 | What Opie remembers | yes | remember_preference, forget_preference |
 | Linked devices: pair or remove a screen, phone, computer, TV | screen, with the PIN | Add and Remove ask for the PIN; the pairing code itself is shown for the person's own device |

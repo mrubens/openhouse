@@ -20,7 +20,7 @@ Don't make people think.
 
 ## Approval cards (plugins, websites, devices, apps, pairing)
 
-These guard the household, so they keep everything a parent must see, shorter:
+These guard the household, so they keep everything an adult must see, shorter:
 
 - The title names the thing and what it gets: "Add Chore chart?", "Let Lunch menu reach api.example.com?".
 - **What it may do is a list**: an icon for each kind and a few words (`Calm.rights`; the bridge sends
@@ -45,4 +45,4 @@ These guard the household, so they keep everything a parent must see, shorter:
   Use it away from home.
 - Never "kitchen", "fridge" or "door". Say household, not family-with-kids.
 - Never mention or offer undo in UI text. Taking something back happens when someone asks Opie.
-- No "grown-up" or "parent": the PIN is "the PIN".
+- Say "adult", and only where it matters who; never "parent". The PIN is "the PIN".

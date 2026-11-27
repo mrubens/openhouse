@@ -33,7 +33,7 @@ import kotlin.concurrent.thread
  * backup or a report. The bridge asks [sign] for one presigned request at a time (AWS Signature V4: one method, one
  * object under the household's prefix, or that prefix's listing, for a few minutes), sends it itself and reads the
  * answer, so the secret never leaves here. The keeper does the same (hub/s3.mjs), with the same requests and answers.
- * Setting it up, changing and removing it are a grown-up's (Settings → Backups, behind the PIN); the fields come from
+ * Setting it up, changing and removing it are an adult's (Settings → Backups, behind the PIN); the fields come from
  * a phone or computer on the home Wi-Fi ([Handoff]), or typed here.
  */
 object OwnStorage {
@@ -197,7 +197,7 @@ object OwnStorage {
         PinPrompt.ask(act, act, "Use the storage sent from the other device?", { go() }, cancelled = { done("Nobody typed the PIN on the tablet, so it wasn't kept.") })
     }
 
-    // --- the grown-up's screens (Settings → Backups, already behind the PIN) -------------------------------------
+    // --- the adult's screens (Settings → Backups, already behind the PIN) -------------------------------------
 
     private val FIELDS = listOf(
         Triple("endpoint", "Address", "https://s3.us-east-1.amazonaws.com"), Triple("region", "Region", "us-east-1"), Triple("bucket", "Bucket", ""),

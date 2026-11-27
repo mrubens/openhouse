@@ -1,9 +1,9 @@
 // What a host with no screen of its own (host.js: the keeper, on a hub) needs from the bridge, which a tablet's shell
-// does on its screen: its cards shown on the settings devices and grown-ups' phones ('cards'), its setup's steps
+// does on its screen: its cards shown on the settings devices and adults' phones ('cards'), its setup's steps
 // driven here (the tablet's Setup.kt does it there), and its settings behind the PIN on those devices. Turned on by
 // the host's capabilities (server.js), never by which host it is. Everything kept is the host's (host.call).
 //
-//   GET  /hub/asks                      the host's cards waiting for a yes (a settings device, a grown-up's phone)
+//   GET  /hub/asks                      the host's cards waiting for a yes (a settings device, an adult's phone)
 //   POST /hub/asks/answer {id, yes, later?, pin?}   a person's answer; a card that needs the PIN needs it here too
 //   GET  /hub/keeper                    what's kept (only how many, and whether): {openai, pin, calendars, albums}
 //   POST /hub/pin {pin, old?}           set or change the PIN (the old one first, once there is one)

@@ -332,7 +332,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     const sent = await phones.message(to.map((f) => f.name), { title: sender ? `From ${sender.name}` : 'From the tablet', text });
     const got = reach.filter((f) => sent[f.name] > 0), failed = reach.filter((f) => !(sent[f.name] > 0));
     const off = to.filter((f) => of(f).phones > 0 && of(f).on === 0), none = to.filter((f) => of(f).phones === 0);
-    const who = (l) => l.map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ');
+    const who = (l) => l.map((f) => f.name).join(', '); // (names only: "Sam's phone")
     const parts = [got.length ? `Sent "${text}" to ${who(got)}.` : 'It didn\'t reach anyone.'];
     if (failed.length) parts.push(`Couldn't reach ${who(failed)}'s phone just now.`);
     if (off.length) parts.push(`Notifications are off on ${who(off)}'s phone.`);

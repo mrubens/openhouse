@@ -104,7 +104,7 @@ function Devices({ c, onRemoved }) {
         <div className="card">
           <div className="t">Whose phone?</div>
           <input className="field" value={who} onChange={(e) => setWho(e.target.value)} placeholder="Name" />
-          <label className="check"><input type="checkbox" checked={grown} onChange={(e) => setGrown(e.target.checked)} /> A grown-up (asks and talks to Opie; a kid's phone only sees and ticks)</label>
+          <label className="check"><input type="checkbox" checked={grown} onChange={(e) => setGrown(e.target.checked)} /> An adult (asks and talks to Opie; a kid's phone only sees and ticks)</label>
           <div className="btns"><button className="go small" disabled={!who.trim()} onClick={() => add('phone')}>Make a code</button><button className="plain" onClick={() => setAdding(null)}>Cancel</button></div>
         </div>
       ) : adding === 'tv' ? (

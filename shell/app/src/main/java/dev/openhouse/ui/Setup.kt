@@ -310,8 +310,7 @@ private fun DevicesStep() {
     LaunchedEffect(device) { if (hadOne == null) hadOne = device != null else if (device != null && hadOne == false) Setup.next() }
     LaunchedEffect(Unit) {
         val h = withContext(Dispatchers.IO) { o.loadHousehold() }
-        val kidOrPet = { n: String -> Regex("^\\d{1,2}$").matches(n.trim()) || Regex("\\b(dog|cat|pet|fish|bird|hamster|rabbit)\\b", RegexOption.IGNORE_CASE).containsMatchIn(n) }
-        names = h?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty().filter { !kidOrPet(it.optString("note")) }.map { it.optString("name") }
+        names = h?.optJSONArray("family")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty().filter { it.optString("kind", "adult") == "adult" }.map { it.optString("name") }
         who = names.firstOrNull() ?: "Me"
     }
     var used by remember { mutableStateOf(0) } // devices joined with a code from here: each code works once, so a new one

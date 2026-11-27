@@ -181,3 +181,24 @@ test("a backup holds exactly the registry's household stores", async () => {
     }
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
+
+test('people saved before Adult, Kid and Pet keep everything; only a birth year under 18 makes a kid', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'kinds-')), DIR = path.join(root, 'chats');
+  fs.mkdirSync(DIR);
+  const y = new Date().getFullYear();
+  const before = { location: 'Springfield', chores: [{ who: 'Leo', task: 'Feed the cat' }], family: [
+    { name: 'Sam', note: 'Mom', born: 1985, color: '#74acff' }, { name: 'Alex', note: 'the youngest at heart' },
+    { name: 'Maya', born: y - 9, color: '#56d6a0' }, { name: 'Leo', note: 'the youngest', born: y - 6 }, { name: 'Rex', note: 'the dog' }] };
+  fs.writeFileSync(path.join(root, 'household.json'), JSON.stringify(before));
+  const board = boardRoutes({ HERE: root, DIR, WORK: root, json: () => {}, body: async () => ({}), homeScreen: { migrate: () => {} } });
+  const after = JSON.parse(fs.readFileSync(path.join(root, 'household.json'), 'utf8'));
+  assert.deepEqual(after.family.map((f) => f.kind), [undefined, undefined, 'kid', 'kid', undefined], 'nothing guessed from a note');
+  assert.deepEqual(after.family.map(({ kind, ...f }) => f), before.family, 'notes, birth years and colors as they were');
+  assert.deepEqual({ ...after, family: null }, { ...before, family: null });
+  assert.deepEqual(board.householdView().family.map((f) => f.kind), ['adult', 'adult', 'kid', 'kid', 'adult']);
+  // Saved again from the setup (a name, kind and color only), what it doesn't ask is kept.
+  board.saveHousehold({ family: [{ name: 'Sam', kind: 'adult' }, { name: 'Alex' }, { name: 'Maya' }, { name: 'Leo' }, { name: 'Rex', kind: 'pet' }] }, { quiet: true });
+  const again = JSON.parse(fs.readFileSync(path.join(root, 'household.json'), 'utf8')).family;
+  assert.deepEqual(again.map(({ kind, ...f }) => f), before.family);
+  assert.deepEqual(again.map((f) => f.kind), ['adult', undefined, 'kid', 'kid', 'pet']);
+});

@@ -275,7 +275,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   /** Whether the household's own key is in (the shell's /cloud/own; the keeper's, the same way): never the key. */
   async function setOwn(on) {
     if (on) write('own.json', { on: true, at: iso() }); else fs.rmSync(f('own.json'), { force: true });
-    // A key put in (a grown-up, with the PIN) is the household's yes to OpenAI on their own account: the voice comes on
+    // A key put in (an adult, with the PIN) is the household's yes to OpenAI on their own account: the voice comes on
     // with it, and goes off with the key where there's no account to fall back on.
     const v = read('voice.json') || {};
     if (on && !v.on) write('voice.json', { ...v, on: true, provider: 'openai-live', vendor: 'OpenAI', at: iso() });

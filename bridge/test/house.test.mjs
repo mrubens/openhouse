@@ -90,7 +90,7 @@ test('Opie and a locked calendar: it asks, and only the PIN typed on the tablet 
     answer = { yes: true };
     assert.ok(!(await h.call('calendar_event', { add: { title: 'Dentist', start: '2026-12-02T09:00' } }, opie)).isError);
     assert.equal(await events(), 1);
-    // A reward needs a grown-up's yes on the card too: a no gives nothing.
+    // A reward needs an adult's yes on the card too: a no gives nothing.
     await h.call('change_rewards', { add: [{ title: 'Ice cream', stars: 1 }] }, opie); await new Promise((ok) => setTimeout(ok, 150));
     await h.call('change_chores', { add: [{ who: 'Leo', task: 'Feed the cat' }] }, opie);
     await h.call('change_chores', { done: [{ who: 'Leo', task: 'Feed the cat' }] }, opie);

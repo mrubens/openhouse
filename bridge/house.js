@@ -159,7 +159,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   function viewNow() {
     const h = household(), events = house.events(), reminders = house.reminders(Date.now(), events);
     return {
-      v: version, today: dayKey(), family: (h.family || []).map((f, i) => ({ name: f.name, note: f.note || '', color: f.color || PEOPLE[i % PEOPLE.length] })),
+      v: version, today: dayKey(), family: (h.family || []).map((f, i) => ({ name: f.name, note: f.note || '', kind: f.kind || 'adult', color: f.color || PEOPLE[i % PEOPLE.length] })),
       streaks: house.streaks(), lists: data.lists.map((l) => ({ ...l, byAisle: l.byAisle ?? l.id === 'groceries', items: l.items.map((i) => ({ ...i, aisle: aisleOf(i.text) })) })), aisles: [...AISLES.map(([a]) => a), 'Other'], chores: house.chores(), stars: house.starsView(), rewards: data.rewards, asks: data.asks, got: data.got.slice(0, 5),
       checklists: house.checklists(), meals: data.meals, favorites: house.favorites(), mealWork, recipes: data.recipes, recipeFind: house.recipeFindNow(), mealSlots: data.mealSlots,
       events, dayNotes: (() => { try { return notes ? notes.byDay() : {}; } catch { return {}; } })(), fromApps: (() => { try { return notes ? notes.apps() : []; } catch { return []; } })(), photos: house.photos(), calendars: (h.calendars || []).length + (board.sync?.calendars().filter((c) => c.mode !== 'off').length || 0),

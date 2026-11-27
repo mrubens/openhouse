@@ -49,7 +49,7 @@ export default function (house) {
         remove: { type: 'array', items: { type: 'object', required: ['task'], properties: { who: person, task: { type: 'string' } } } },
       } } },
     { name: 'change_rewards', description: 'Rewards the kids save their chore stars for (the Chores app), like "Movie night" for 20 stars. Add or change one (same title changes its stars), or remove one. ' +
-      'redeem spends a kid\'s stars on a reward ("Leo wants movie night"), as the Chores app\'s Get it! does: the tablet asks a grown-up to say yes there, with the PIN, and this waits for them (tell them to type the PIN on the tablet). You never say yes for them.',
+      'redeem spends a kid\'s stars on a reward ("Leo wants movie night"), as the Chores app\'s Get it! does: the tablet asks an adult to say yes there, with the PIN, and this waits for them (tell them to type the PIN on the tablet). You never say yes for them.',
       inputSchema: { type: 'object', properties: {
         add: { type: 'array', items: { type: 'object', required: ['title', 'stars'], properties: { title: { type: 'string' }, stars: { type: 'number' }, who: { type: 'string', description: 'Only for this person; leave out for anyone' } } } },
         remove: { type: 'array', items: { type: 'string', description: 'title or id' } },
@@ -101,7 +101,7 @@ export default function (house) {
           album: { type: 'string', description: 'Which album, by its name or id (not for add)' }, name: { type: 'string', description: 'For add and rename: its name' },
           sleep: { type: 'boolean', description: 'For show: on the sleep screen' }, all: { type: 'boolean', description: 'For show: in Photos\' All' } } } } } },
   ];
-  const ParentPinNote = ' (a grown-up types the PIN there)';
+  const ParentPinNote = ' (someone types the PIN there)';
   async function call(name, a, ctx = null) {
     const ok = (t) => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t, null, 1) }] });
     const out = (r) => (r.error ? { content: [{ type: 'text', text: r.error }], isError: true } : ok(r));
@@ -142,7 +142,7 @@ export default function (house) {
     if (name === 'change_rewards') {
       if (!a?.redeem) return out(house.changeRewards(a));
       // Spending stars, as the Chores app's Get it!: the same ask and the same "Is this OK?" card, with the PIN, that only
-      // a person answers on the tablet (askGrownUp); this waits for it.
+      // a person answers on the tablet (askAnAdult); this waits for it.
       const { redeem, ...rest } = a, did = Object.keys(rest).length ? (house.changeRewards(rest).did || []) : [];
       const r = data.rewards.find((y) => y.id === redeem.reward || same(y.title, redeem.reward)), who = str(redeem.who, 40);
       if (!r || !who) return out({ error: `Which reward, for whom? The rewards: ${data.rewards.map((y) => `${y.title} (${y.stars} stars)`).join(', ') || 'none'}.` });

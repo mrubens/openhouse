@@ -1,5 +1,5 @@
 // A hub's "Is this OK?" cards (bridge/hub-shell.js hubAsks, docs/hub.md): what a tablet asks someone standing at it,
-// asked on the hub's settings devices and grown-ups' phones. A card that needs the PIN asks for it here. On a tablet
+// asked on the hub's settings devices and adults' phones. A card that needs the PIN asks for it here. On a tablet
 // (no /hub/asks) it asks once and stops.
 import { useEffect, useState } from 'react';
 

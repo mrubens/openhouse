@@ -23,7 +23,7 @@ by these, never by the host's kind (`host.js CAPS`):
 | Capability | The host… | Tablet | Keeper |
 |---|---|---|---|
 | `screen` | has a screen people answer its cards on, Allow a new device on, and go through the setup on | ✓ | |
-| `cards` | has no screen: its cards wait at `/cards` for the bridge to show on settings devices and grown-ups' phones; the bridge then also drives the setup's steps and offers its settings page (`headless.js`, `hub.js`) | | ✓ |
+| `cards` | has no screen: its cards wait at `/cards` for the bridge to show on settings devices and adults' phones; the bridge then also drives the setup's steps and offers its settings page (`headless.js`, `hub.js`) | | ✓ |
 | `approve` | answers `/approve` with a person's answer | ✓ | ✓ |
 | `calendar` | keeps calendar and album links (`/calendar`, `/album`) sealed after a yes | ✓ | ✓ |
 | `calendar-accounts` | signs in to Google and iCloud calendars (`/calendar/accounts`, `/calendar/request`, `/setup/icloud`) | ✓ | ✓ |
@@ -49,7 +49,7 @@ The same requests and answers on every host that has them (DeviceServer.kt `home
 
 - `/approve {title, detail, more?, yes?, no?, rights?, danger?, later?, pin?, grownup?, waitMs?}` → `{yes, answered}`.
   A card a person answers. `pin`: the yes needs the PIN once one is set; `grownup`: always. The keeper holds it until
-  someone answers on a settings device or a grown-up's phone (`/cards`, `/cards/answer {id, yes, later?, pin?}`, with
+  someone answers on a settings device or an adult's phone (`/cards`, `/cards/answer {id, yes, later?, pin?}`, with
   the PIN checked in the keeper).
 - `/calendar {url, who?, name?, only?, from?, trusted?}`, `/album {url, from?, trusted?}` → `{added}`. The link is read
   once, then kept after a yes (an album's needs the PIN). `trusted`: the setup's own, with no card.

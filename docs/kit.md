@@ -119,7 +119,7 @@ reject.
 | `house.renameAlbum(id, name)` | | change |
 | `house.removeAlbum(id)` | the photos stay | change |
 | `house.inAlbum(id, photos, on = true)` | | change |
-| `house.addAlbumLink(link)` | an iCloud shared album's public link (a grown-up's phone) | change: `{added}` |
+| `house.addAlbumLink(link)` | an iCloud shared album's public link (an adult's phone) | change: `{added}` |
 | `house.caption(name, text)` | `''` takes it off | change |
 | `house.showAlbum(id, {sleep?, all?})` | | change |
 | `house.setNight(from, to)` | `"HH:MM"` each; null for none | change |

@@ -20,9 +20,13 @@ On the tablet:
    order: `devices`, `people`, `place`, `calendar`, `photos`, `pin` (all on the phone or computer: the PIN is chosen
    there and an unlinked tablet's recovery code shown there, `/setup/pin`), then `android` on the tablet, the one
    thing Android lets only the tablet do, with Done. (The phone page, which may be the cloud's copy and newer than the
-   tablet, still moves an older tablet on past its `ai` and `voice` steps.) Who lives here takes a birth year or a role in one box: the age is worked out from
-   the year each time (`board.js` `personView`), so it never goes stale; ages saved before are kept as the year they
-   mean. What's typed or copied is done there, and the phone's Next moves the tablet on
+   tablet, still moves an older tablet on past its `ai` and `voice` steps.) Who lives here is a name, Adult, Kid or Pet (the first row
+   starts as Adult), and the color they'll have on the calendar, chores and lists, tapped to change (since 2026-11-27;
+   the owner found "Year or role" unintuitive). No age or role is asked there: Settings → Family keeps an optional age
+   or note, and Opie can learn an age by talking and save it as a birth year (`board.js` `personView` works the age
+   out each time, so it never goes stale). Households from before keep their notes and birth years; a birth year under
+   18 years ago makes a kid, and everyone else reads as an adult (`kindsFromBefore`), never guessed from a note. The
+   invites at the end go to the adults. What's typed or copied is done there, and the phone's Next moves the tablet on
    (`POST /setup/go`, which the tablet looks at every 1.5 s: `GET /setup/want`); what only the tablet can do comes last.
    The setup has the tablet's screen to itself, with a thin progress bar. While the phone or computer does a step the
    tablet shows only how to connect one, or "Continue on Sam's phone" and which step it's on (`PhoneProgress`; the
@@ -69,7 +73,7 @@ On the tablet:
       pasted here), Google Photos' picker on a linked tablet (`GooglePhotos`), or From your phone: Let phones send
       photos (a person's yes here, `PhotoShare.turnOn`), then the connected phone shows Choose photos (no second code
       to scan). The albums and photos that came in show below, the newest as small pictures.
-   6. **Choose a PIN** ("For grown-ups: settings and approvals"): PIN Lock on, so Settings and approving a new app
+   6. **Choose a PIN** ("It guards Settings and new apps"): PIN Lock on, so Settings and approving a new app
       ask for it. Skip leaves the lock off (Settings, PIN Lock, later). On a linked tablet there's no recovery code
       to keep, since the account page resets the PIN; unlinking shows one first.
    7. **Two of Android's settings** (`AndroidStep`, since 2026-11-26): Let Opie use other apps (Android's

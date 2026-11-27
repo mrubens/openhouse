@@ -16,7 +16,7 @@ import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { weatherRoutes } from './weather.js';
-import { boardRoutes } from './board.js';
+import { boardRoutes, personLine } from './board.js';
 import { voiceRoutes } from './voice.js';
 import { homeScreenRoutes, requestApp, showingTab, isTab } from './home-screen.js';
 import { houseRoutes } from './house.js';
@@ -35,7 +35,7 @@ import { host } from './host.js';
 const ONBOARD = (wakeOn) => `(This tablet was just set up and Opie was just turned on. Nobody has said anything yet: you start. Be clear and brief, not gushing.
 Go one step per turn: one or two short sentences, at most one question. Whenever they want to stop or skip ("not now", "skip", "can I just look?"), that's fine: say the home screen is theirs and you're here when they need you, then call end_conversation. Never push.
 1. Say who you are in one sentence: Opie, who answers questions and keeps the lists, calendar and chores. Say they talk to you by saying ${wakeOn ? '"Hey Opie"' : '"Hey Opie" once it\'s on in Settings'}, or by just typing.
-2. Ask who lives here: just names (and, for children, ages; pets count too). Don't assume there are children. Save with update_household as you learn.
+2. Ask who lives here: just names, and whether each is an adult, a kid or a pet (and, for kids, ages). Don't assume there are children. Save with update_household as you learn.
 3. Ask their town or zip code, for the weather. Save it.
 4. Say they're set: everything else (calendars, photos, connecting Claude or ChatGPT to make new apps) is in Settings whenever they want it. Then call end_conversation.
 Don't put notes on the home screen during this, and don't use Suggestions lists.)`;
@@ -146,10 +146,10 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     console.log(`[home] refit ${n.id} for ${n.size}`);
   }); };
   homeScreen.addTools([
-    { name: 'about_household', description: 'What this display knows about the family: your name, who lives here (names, ages from their birth years, roles), where they live, whose calendars you can see (the household add calendars with the Calendar tab\'s "Add a calendar" or by giving you a link for add_calendar; you never see the links after that), chores.', inputSchema: { type: 'object', properties: {} } },
+    { name: 'about_household', description: 'What this display knows about the family: your name, who lives here (names, adult, kid or pet, ages from their birth years, notes), where they live, whose calendars you can see (the household add calendars with the Calendar tab\'s "Add a calendar" or by giving you a link for add_calendar; you never see the links after that), chores.', inputSchema: { type: 'object', properties: {} } },
     { name: 'update_household', description: 'Save what you learned about the family. Each field you pass replaces that whole list, so include everyone/everything that should stay (read about_household first). Only what they told you; never guess.',
       inputSchema: { type: 'object', properties: {
-        family: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, note: { type: 'string', description: 'Their role or anything to know, e.g. "Mom", "Grandpa, visits Sundays", "the dog" (not an age: that goes in born)' }, born: { type: 'integer', description: 'Birth year, e.g. 2017. Told an age, the year it means. Leave out to keep theirs.' }, color: { type: 'string', description: 'Their color everywhere (calendar, chores), as #rrggbb; leave out to keep theirs. Soft, readable on white.' } } } },
+        family: { type: 'array', items: { type: 'object', required: ['name'], properties: { name: { type: 'string' }, kind: { type: 'string', enum: ['adult', 'kid', 'pet'], description: 'Leave out to keep theirs.' }, note: { type: 'string', description: 'Anything to know about them, e.g. "Mom", "Grandpa, visits Sundays", "the dog" (not an age: that goes in born). Leave out to keep theirs.' }, born: { type: 'integer', description: 'Birth year, e.g. 2017. Told an age, the year it means. Leave out to keep theirs.' }, color: { type: 'string', description: 'Their color everywhere (calendar, chores), as #rrggbb; leave out to keep theirs. Soft, readable on white.' } } } },
         location: { type: 'string', description: 'Zip code or town, for weather and local answers.' },
         chores: { type: 'array', items: { type: 'object', required: ['task'], properties: { who: { type: 'string' }, task: { type: 'string' } } } },
         taking_off: { type: 'array', items: { type: 'string' }, description: 'With family: the names of anyone they asked to take off the list (anyone else left out of family is refused)' },
@@ -206,7 +206,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       }
       const { taking_off, ...rest } = a; a = rest;
       let h; try { h = board.saveHousehold(a); } catch (e) { return { content: [{ type: 'text', text: `Not saved: ${e.message}` }], isError: true }; }
-      return ok(`Saved. Family: ${(h.family || []).map((f) => f.name + (f.note ? ` (${f.note})` : '')).join(', ') || 'none'}; location: ${h.location || 'not set'}.`); }
+      return ok(`Saved. Family: ${(h.family || []).map(personLine).join(', ') || 'none'}; location: ${h.location || 'not set'}.`); }
     if (name === 'remember_preference') {
       const p = String(a.preference || '').trim().replace(/\s+/g, ' ').slice(0, 200);
       if (!p) return { content: [{ type: 'text', text: 'Nothing to remember.' }], isError: true };

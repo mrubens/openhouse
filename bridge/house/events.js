@@ -208,7 +208,7 @@ export default function (house) {
   /** Opie changing a locked calendar (Settings → Advanced → Ask for the PIN → Change the calendar): it asks, and the tablet's card takes the PIN
    *  from a person, as the Calendar app's unlock does; then the calendar stays open a few minutes, as after that unlock.
    *  Nothing Opie says or types answers it (the card is the shell's own: DeviceAccess.approve). A computer's workshop
-   *  is a grown-up's own (paired with the PIN), so it isn't asked. */
+   *  is an adult's own (paired with the PIN), so it isn't asked. */
   async function calendarPin(a, ctx) {
     if (!data.settings.calendarLock || unlockedUntil > Date.now() || ctx?.workshop) return null;
     const changes = ['add', 'update', 'remove', 'countdown', 'remind'].some((k) => a?.[k] != null) ||

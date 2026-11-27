@@ -76,7 +76,7 @@ const RULES = [
   ['ask', 'POST', /^\/chat(\/stop|\/warm)?$/],
   ['ask', 'GET', /^\/chats\/[\w-]{1,40}$/],
   ['ask', 'POST', /^\/house\/recipe-link$/], // a recipe's link shared from a phone (the Recipes app)
-  ['ask', 'POST', /^\/phone\/album$/], // an iCloud album's link from a grown-up's phone, no PIN (server.js: only a phone with 'ask')
+  ['ask', 'POST', /^\/phone\/album$/], // an iCloud album's link from an adult's phone, no PIN (server.js: only a phone with 'ask')
   // 'workshop': a computer someone paired, whose own AI app (Claude, ChatGPT) changes the apps and the home screen
   // with the assistant's tools (workshop.js). Only computers get it, and they get nothing else.
   ['door', 'GET', /^\/relay\/me$/], ['workshop', 'GET', /^\/relay\/me$/], // the relay's address and this device's token (relay.js)
@@ -115,7 +115,7 @@ const RULES = [
   // On a hub the settings device is also the setup's (headless.js drives the steps), answers the "Is this OK?" cards,
   // keeps the PIN and the household's own OpenAI key (in the keeper, hub/keeper.mjs: never here).
   ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|google|icloud|pin)$/],
-  ['ask', 'GET', /^\/hub\/asks$/], ['ask', 'POST', /^\/hub\/asks\/answer$/], // a hub's cards on grown-ups' phones too (not kids' or TVs)
+  ['ask', 'GET', /^\/hub\/asks$/], ['ask', 'POST', /^\/hub\/asks\/answer$/], // a hub's cards on adults' phones too (not kids' or TVs)
     ['admin', 'GET', /^\/hub\/(asks|keeper|calendars|google-photos)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove|google|calendar\/account\/remove)$/],
   ['admin', 'GET', /^\/calendar\/sync$/], ['admin', 'POST', /^\/calendar\/sync\/(set|now)$/], // which of a signed-in account's calendars show (calendar-sync.js)
 ];

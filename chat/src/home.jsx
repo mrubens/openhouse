@@ -39,11 +39,10 @@ const eventPaint = (house, e) => { const cs = eventPeople(house, e).map((n) => p
 const store = { get: (k) => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 
 /** The look as CSS variables (the soft text, lines and tints come from its ink); tab: whose world is behind it. */
-/** An app to ask Opie for, in the children's names (those with an age under 18 for a note). With none known to be
- *  children, a neutral one: never a name that might be a grown-up's. Setup's last step on the phone says it too
- *  (PluginsMenu.example in the shell says the same). */
+/** An app to ask Opie for, in the kids' names. With none known to be kids, a neutral one: never a name that might be
+ *  an adult's. Setup's last step on the phone says it too (PluginsMenu.example in the shell says the same). */
 export function makeExample(family = []) {
-  const kids = family.filter((f) => String(f.name || '').trim() && /^\d{1,2}$/.test(String(f.note || '').trim()) && +f.note < 18);
+  const kids = family.filter((f) => String(f.name || '').trim() && f.kind === 'kid');
   const names = kids.slice(0, 2).map((f) => String(f.name).trim());
   return names.length ? `Make a reading streak for ${names.join(' and ')}` : 'Make a countdown to our next trip';
 }

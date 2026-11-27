@@ -30,11 +30,11 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             o.openTyping(note = note, seed = "Make ")
         }
 
-        /** An app to ask for, in the children's names (an age under 18 for a note); with none known to be children, a
-         *  neutral one, never a name that might be a grown-up's (chat/src/home.jsx makeExample says the same on the
+        /** An app to ask for, in the kids' names; with none known to be kids, a neutral one, never a name that might be
+         *  an adult's (chat/src/home.jsx makeExample says the same on the
          *  Apps tab and the phone). */
         fun example(family: List<JSONObject>): String {
-            val kids = family.filter { it.optString("name").isNotBlank() && it.optString("note").trim().let { n -> n.length in 1..2 && n.all { ch -> ch.isDigit() } && n.toInt() < 18 } }
+            val kids = family.filter { it.optString("name").isNotBlank() && it.optString("kind") == "kid" }
             val names = kids.take(2).map { it.optString("name").trim() }
             return if (names.isEmpty()) "Make a countdown to our next trip" else "Make a reading streak for ${names.joinToString(" and ")}"
         }

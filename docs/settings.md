@@ -60,9 +60,9 @@ Plain Settings (first round):
   the lock itself; tablets from before have it turned off once.) Since 2026-11-27 it is Change the calendar, one of
   **Ask for the PIN** (below).
 - Removed: **cut**, from the apps and the settings. Taken-off things stay in the bridge; Opie can put one back when asked.
-- Grown-ups: **gone**. Its rows are in the one list.
+- The old PIN menu: **gone**. Its rows are in the one list.
 
-The old Grown-ups menu (shell/ParentMenu.kt, now shell/SettingsLock.kt):
+The old PIN menu (shell/ParentMenu.kt, now shell/SettingsLock.kt):
 - Live voice: kept, top of the list, locked (it costs money). The turn-on text is two lines.
 - Cloud: renamed **Account**, locked. Its Backups item is gone (Backups is its own row). The address button stays
   for people who run their own cloud.
@@ -123,8 +123,8 @@ One switch, PIN Lock: Off or On.
 - **The first PIN:** chosen in the first setup's Choose a PIN step (no account needed), or later from PIN Lock or
   "Set a PIN first". A linked tablet's account can reset it if it's forgotten. On an unlinked tablet (one set up
   without an account, as a do-it-yourself tablet may be, now that the cloud lets households in a few at a time) a
-  later first PIN is still allowed, after a line that it's for a grown-up of the household and that the recovery code
-  is its only way back. Whoever chooses it first holds Settings, and nothing at the tablet tells a grown-up from
+  later first PIN is still allowed, after a line that it's for an adult of the household and that the recovery code
+  is its only way back. Whoever chooses it first holds Settings, and nothing at the tablet tells an adult from
   anyone else, so the setup's step says it's best chosen then (2026-11-26; until 2026-11-25 an unlinked tablet
   refused a PIN outside setup).
 - **On:** turning it on chooses a PIN (typed twice), then shows its recovery code (below). Rows marked with a small
@@ -181,7 +181,7 @@ before recovery codes, or over adb, has none ("None" on that row) until one is m
 needs the PIN to be shown, since it resets the PIN too.
 
 A child who chose the PIN has its code, though, so a tablet linked to an account also offers **Reset with your
-account** under the code box: the real proof of a grown-up is being signed in to the family's account. The tablet
+account** under the code box: the real proof of an adult is being signed in to the family's account. The tablet
 shows an 8-character code (the link code's alphabet) and the account page's address; someone signed in there types it
 under "Reset a tablet's PIN", and then the tablet lets them choose a new PIN, which comes with a new recovery code as
 always. The service (openhouse-cloud `/v1/device/pin-reset/start` and `/poll`, under the tablet's device credential)
@@ -213,6 +213,6 @@ up one level, so a sheet opened from Settings goes back to the list, then Settin
 
 ## Words
 
-Nothing shown says "grown-ups" or "parent": the PIN is "the PIN", the menu is Settings, and the assistant's rules
+Nothing shown says "parent", and "adult" only where it matters who: the PIN is "the PIN", the menu is Settings, and the assistant's rules
 (bridge/CHAT.md, AGENT.md, WORKSHOP.md), its tools' answers and the connect pages say "someone at the tablet" or
 "in Settings" instead.

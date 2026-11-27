@@ -415,7 +415,7 @@ function Phone({ me, c, onRemoved }) {
   return (
     <div className={'app' + (canAsk(me) ? ' asks' : '') + (showing ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={{ ...phoneVars(style, opened ? opened.id : tab), ...(showing && bgs[showing.id] ? { '--fbg': bgs[showing.id] } : {}) }}>
       {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
-      {canAsk(me) && <Asks c={c} />}{/* a hub's "Is this OK?" cards, for a grown-up's phone */}
+      {canAsk(me) && <Asks c={c} />}{/* a hub's "Is this OK?" cards, for an adult's phone */}
       {opened && <div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>}
       {frames}
       {showing ? (alive.some((a) => a.id === showing.id) ? null : <div className="page"><p className="soft">Loading…</p></div>)

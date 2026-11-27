@@ -11,7 +11,7 @@ export default function (house) {
     data.got.unshift({ who: ask.who, title: ask.title, stars: ask.stars, at: Date.now() }); data.got = data.got.slice(0, 30);
     data.asks = data.asks.filter((x) => x.id !== ask.id);
   }
-  async function askGrownUp(ask) {
+  async function askAnAdult(ask) {
     // The shell's "Is this OK?" card, with the PIN when there is one and Give rewards asks for it (for: the shell's
     // PinChoices). Nothing the assistant says answers it.
     const r = await house.shell('/approve', { title: `${ask.who}: ${ask.title}?`, detail: `For ${ask.stars} stars.`, pin: true, for: 'rewards', yes: 'Give it' }, 100_000);
@@ -63,7 +63,7 @@ export default function (house) {
       if (house.stars(who) < r.stars) return { error: `${who} has ${house.stars(who)} stars; ${r.title} needs ${r.stars}.` };
       if (!data.asks.some((x) => x.reward === r.id && same(x.who, who))) {
         const ask = { id: 'a-' + crypto.randomUUID().slice(0, 6), who, reward: r.id, title: r.title, stars: r.stars, at: Date.now() };
-        data.asks.push(ask); askGrownUp(ask);
+        data.asks.push(ask); askAnAdult(ask);
       }
       did.push(`asked for ${r.title}`);
     }

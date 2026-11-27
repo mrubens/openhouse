@@ -130,7 +130,7 @@ What doesn't belong on the phone: settings, Settings, making apps (that's the wo
 | What we ship | Nothing new | One page on the cloud, as with `/l` | Two apps, store reviews, updates |
 | Effort | Small | Medium (about 1–2 weeks) | Large (months), plus app-store accounts |
 
-**Recommendation: the cloud web app.** It's the list page grown up. Same sealing, same relay, same way of serving
+**Recommendation: the cloud web app.** It's the list page, made into a whole app. Same sealing, same relay, same way of serving
 it from the cloud. A household without the cloud still gets today's QR pages and can pair the screen page on a phone
 over the Wi-Fi. Native apps are worth it later only for things the web can't do well: home-screen widgets, Siri or
 Assistant shortcuts, location ("when I'm near the shop"). None of those is needed first.
