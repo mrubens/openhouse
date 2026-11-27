@@ -218,13 +218,13 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .hand-type .h-time { font-weight: 600; }
 /* The tools: round and soft, from the left. The keyboard is first, where Opie's own button shows while it's busy
    (the shell draws it calc(var(--u) * 24) from the left and bottom edges, Overlay.kt). */
-.h-tools { margin-top: auto; display: flex; gap: calc(var(--u) * 6); padding-top: calc(var(--u) * 16); align-items: center; }
+.h-tools { margin-top: auto; display: flex; gap: calc(var(--u) * 14); padding-top: calc(var(--u) * 16); align-items: center; }
 .h-voice { width: calc(var(--u) * 46); height: calc(var(--u) * 46); flex: none; border-radius: 50%; }
 .h-voice.own { background: var(--h-ink); color: var(--h-sheet); display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * 3); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--h-ink) 50%, transparent); }
 .h-voice.own i { display: block; width: calc(var(--u) * 3.5); height: calc(var(--u) * 6); border-radius: 2px; background: currentColor; }
 .h-voice.own i:nth-child(1) { height: calc(var(--u) * 5); } .h-voice.own i:nth-child(2) { height: calc(var(--u) * 10); } .h-voice.own i:nth-child(3) { height: calc(var(--u) * 13); } .h-voice.own i:nth-child(4) { height: calc(var(--u) * 8); }
 .h-tool { flex: none; width: calc(var(--u) * 46); height: calc(var(--u) * 46); padding: calc(var(--u) * 12); box-sizing: border-box; color: var(--h-ink); background: var(--h-tint); border-radius: 50%; transition: background .15s; }
-.h-tools:has(> :nth-child(4)) .h-tool { width: calc(var(--u) * 40); height: calc(var(--u) * 40); padding: calc(var(--u) * 10); }
+.h-tools:has(> :nth-child(4)) { gap: calc(var(--u) * 6); } .h-tools:has(> :nth-child(4)) .h-tool { width: calc(var(--u) * 40); height: calc(var(--u) * 40); padding: calc(var(--u) * 10); }
 .h-tool:active { background: var(--h-line); }
 /* the stage: the tab itself, on the world; its panels carry the white */
 .h-sheet { position: relative; flex: 1; min-width: 0; margin: calc(var(--u) * 20) calc(var(--u) * 20) calc(var(--u) * 20) calc(var(--u) * 28); } /* room between the column and the tab */
