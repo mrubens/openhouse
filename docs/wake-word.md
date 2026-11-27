@@ -220,7 +220,7 @@ check: 7.5 / 5.7 / 4.9 / 1.9 out of 10 and no false requests, but alone it would
   once the live voice starts talking, or 10 s on), the tablet lets go and the session's own microphone, with
   Chromium's echo cancelling, replaces the track. The log's `t+… ms` lines (`adb logcat -s LiveVoice`) time each step
   from the wake. While a session runs the tablet doesn't listen for its name; the live voice hears being talked over itself.
-- **The microphone check** (Settings → Voice, Check the microphone, or `mic_check`; docs/settings.md): the
+- **The microphone check** (Settings → Opie → Voice, Check the microphone, or `mic_check`; docs/settings.md): the
   shell opens the microphone and shows its level; the bridge's listener (`/voice/check`) keeps only each 0.1 s's peak
   (before the gain) and the model's best score, and a wake is the check's, not a conversation. Its verdict
   (`micVerdict`): heard; quiet (the loudest moment under the loudness floor, 0.01 without one); noisy (the room's 20th

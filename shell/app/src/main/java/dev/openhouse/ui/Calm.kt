@@ -313,7 +313,7 @@ class CalmDialog(private val c: Context) {
 
     /** With Settings open, a list, a form or a step of a menu is a page in Settings' right pane instead of a dialog over
      *  it (SettingsPages, docs/settings.md); confirmations, cards for a person and the PIN pad still float. */
-    private fun asPage() = SettingsPages.active && !asDialog && !forPerson && !danger && (rows != null || view != null || negative?.first == "Back")
+    private fun asPage() = SettingsPages.active && !asDialog && !forPerson && !danger && (rows != null || view != null || negative?.first == "Back" || SettingsPages.wantsRoot)
 
     fun show(): Dialog {
         if (asPage()) return showPage()
@@ -442,7 +442,8 @@ class CalmDialog(private val c: Context) {
         if (positive != null || neutral != null) {
             val bar = Calm.row(c, 12).apply { setPadding(0, Calm.px(c, 28), 0, 0) }
             fun act(p: Pair<CharSequence, ((DialogInterface, Int) -> Unit)?>, which: Int) { d.dismiss(); p.second?.invoke(d, which) }
-            positive?.let { p -> bar.addView(Calm.primary(c, p.first) { act(p, DialogInterface.BUTTON_POSITIVE) }) }
+            // A Done or Close that only closes is the ‹ here.
+            positive?.takeIf { p -> p.second != null || p.first.toString() !in setOf("Done", "Close", "OK") }?.let { p -> bar.addView(Calm.primary(c, p.first) { act(p, DialogInterface.BUTTON_POSITIVE) }) }
             neutral?.let { n -> bar.addView(Calm.quiet(c, n.first) { act(n, DialogInterface.BUTTON_NEUTRAL) }) }
             col.addView(bar, LinearLayout.LayoutParams(-2, -2))
         }

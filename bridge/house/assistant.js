@@ -20,6 +20,6 @@ export default function (house) {
   }
   /** Does this need the assistant, and is there none? Its words, else null. */
   const noAssistant = (what) => !currentAgent || ['off', 'none'].includes(agentName())
-    ? `${what} needs the assistant, and it isn’t on yet (Settings → Voice).` : null;
+    ? `${what} needs the assistant, and it isn’t on yet (Settings → Opie → Voice).` : null;
   return { canAsk, shell, answer, noAssistant };
 }

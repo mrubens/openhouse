@@ -6,7 +6,7 @@ import android.util.Log
 
 /**
  * A volume that fits the room, for Opie's voice and the timers (not music: that stays where someone put it). The
- * household's volume (the media stream: Settings → Volume, the keys, Opie's volume tool) is the normal level; with
+ * household's volume (the media stream: Settings → Screen → Volume, the keys, Opie's volume tool) is the normal level; with
  * "Adjust to the room" on (the default), what Opie says and a timer's ring are a little quieter than that in a quiet
  * room, louder in a noisy one (the dishwasher, the kids, a party), and quieter again in the night hours (House.night).
  *
@@ -39,7 +39,7 @@ object RoomVolume {
         quiet = prefs?.getFloat("roomQuiet", Float.NaN)?.toDouble()?.takeIf { !it.isNaN() }
     }
 
-    /** "Adjust to the room" (Settings → Volume, Opie's volume tool). */
+    /** "Adjust to the room" (Settings → Screen → Volume, Opie's volume tool). */
     var on: Boolean
         get() = prefs?.getBoolean(KEY, true) ?: true
         set(v) { prefs?.edit()?.putBoolean(KEY, v)?.apply(); Log.i(TAG, "adjust to the room: $v") }

@@ -117,7 +117,7 @@ internal class SettingsLock(private val act: MainActivity) {
                 else always { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             }
             "setupCharge" -> if (Openhouse.setupStep == "android") always { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
-            "ownKey" -> OwnKey.menu(act) // Settings → Voice (behind the PIN in OwnKey)
+            "ownKey" -> OwnKey.menu(act) // Settings → Opie → Voice (behind the PIN in OwnKey)
             "reloadHome" -> act.reloadHome()
             "reloadHomeFirst" -> act.reloadHome(first = true) // the setup's end: on Home, whichever tab showed during it
         }

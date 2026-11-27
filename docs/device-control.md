@@ -58,7 +58,7 @@ can't be read says so.
 
 ## Turning it on
 
-Two switches, both in Settings → This tablet (behind the lock when the lock is on):
+Two switches, both in Settings → Advanced (behind the lock when the lock is on):
 
 - **Device control**: the accessibility service. On by default on a set-up tablet; it also carries the floating face
   and the keyboard's assistant key.
@@ -109,7 +109,7 @@ Enforced in the shell (where the bridge can't change them), and again where the 
   further action until the next request.
 - **Limits.** At most 60 actions for one request and 40 a minute; then it stops and says where it got to. A typed turn
   may take up to 40 model steps once it's using an app (8 otherwise).
-- **Logged.** Every action and what came of it goes to the speech log (Settings → This tablet → Speech log, kept on
+- **Logged.** Every action and what came of it goes to the speech log (Settings → Advanced → Speech log, kept on
   the tablet only): `device-tool` and `device-result` from the bridge, `device-action` from the shell, `device-stop`.
   The shell also logs each call to logcat.
 
@@ -134,7 +134,7 @@ voice's backend runs the loop itself; each action waits about 0.7 s for the scre
 Driven through the bridge's `/live/tool` as the voice's backend would call it (no real model in the loop; the
 emulator wasn't linked to a cloud account):
 
-- With "Opie uses apps" off: refused with where to turn it on. Turned on through Settings → This tablet.
+- With "Opie uses apps" off: refused with where to turn it on. Turned on through Settings → Advanced.
 - Clock: "Let Opie open Clock?" card, yes, opened; Timer tab, 5, 0, 0, Start. Opening Messages a second time needed no
   card (it had become an added app).
 - "Opie, stop" via `/live/said`: the next tap was refused; the next request worked again. The face's Stop button:

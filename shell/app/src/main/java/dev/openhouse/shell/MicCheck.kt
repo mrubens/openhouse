@@ -1,6 +1,6 @@
 package dev.openhouse.shell
 
-// The microphone check (Settings → Voice, Check the microphone; or Opie's mic_check, DeviceServer /mic-check): does Opie
+// The microphone check (Settings → Opie → Voice, Check the microphone; or Opie's mic_check, DeviceServer /mic-check): does Opie
 // hear this room? A level that moves with the room, then someone says "Hey Opie" and it says plainly what it found:
 // heard, too quiet, too noisy, or blocked (not allowed, or another app has the microphone). While it runs the bridge's
 // listener only measures (bridge/voice.js /voice/check): a "Hey Opie" opens nothing, and nothing heard is kept, recorded

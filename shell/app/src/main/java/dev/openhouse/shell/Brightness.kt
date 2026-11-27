@@ -7,7 +7,7 @@ import android.provider.Settings
 import dev.openhouse.ui.CalmDialog
 
 /**
- * The screen's brightness, from Settings → This tablet (kiosk mode hides Android's own slider): Automatic (Android's
+ * The screen's brightness, from Settings → Advanced (kiosk mode hides Android's own slider): Automatic (Android's
  * adaptive brightness, which can go very dim in a dark room) or a fixed level. Set as the device owner
  * (DevicePolicyManager.setSystemSetting), so it holds everywhere, not only over Opie's own window. The night
  * hours' dimming (HomeView) still goes over it.

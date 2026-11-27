@@ -44,7 +44,7 @@ isn't used.
   phrasing, at most one question back, and no "I'll check" preface when no tool is needed.
 - Every spoken request ends with a short reminder of this (`chat.js` `SPOKEN`), so it's the last thing the model
   reads.
-- How loud: the household's volume (Settings → Volume, the keys, the `volume` tool) is the normal level, for music,
+- How loud: the household's volume (Settings → Screen → Volume, the keys, the `volume` tool) is the normal level, for music,
   Opie and the timers alike. With Adjust to the room on (the default), Opie and a timer's ring are fitted to the room
   as they start, never in the middle (`ui/RoomVolume.kt`): about 3 dB under the normal level in a quiet room, up to
   9 dB over it in a noisy one, and 6 dB under in the night hours. The room is the level of the microphone that listens

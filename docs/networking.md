@@ -346,7 +346,7 @@ over it, and a hub with its own Tailscale.
   example: `{"action": "accept", "src": ["autogroup:member"], "dst": ["opie:443"]}` in place of the default allow-all
   (with a `hosts` entry for `opie`, its 100.x address).
 - **Two places to remove a lost phone or laptop:** Tailscale's admin console (else it still reaches the tablet's
-  ports from anywhere) and Settings → Linked devices (else its key still opens requests). Either one alone stops it
+  ports from anywhere) and Settings → Devices (else its key still opens requests). Either one alone stops it
   doing anything: without pairing it gets nothing, and without the tailnet it can't get there from away.
 - **A leaked auth key** joins a stranger's machine to the household's tailnet; it still has to pair to do anything.
   Prefer the QR code, or a one-off key that expires.

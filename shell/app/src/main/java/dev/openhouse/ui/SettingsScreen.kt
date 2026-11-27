@@ -127,7 +127,7 @@ private fun Pane(t: SettingsTab, vals: Map<String, String>, compact: Boolean, lo
         if (page != null) {
             // The shell's page, as views (CalmDialog.showPage); the pane scrolls it.
             AndroidView({ c -> android.widget.ScrollView(c).apply { isVerticalScrollBarEnabled = false; isFillViewport = false } },
-                Modifier.fillMaxWidth().widthIn(max = 900.u).weight(1f), update = { sv ->
+                Modifier.widthIn(max = 900.u).fillMaxWidth().weight(1f), update = { sv ->
                     if (sv.getChildAt(0) !== page.content) {
                         sv.removeAllViews(); (page.content.parent as? android.view.ViewGroup)?.removeView(page.content)
                         sv.addView(page.content, android.view.ViewGroup.LayoutParams(-1, -2)); sv.scrollTo(0, 0)
@@ -135,7 +135,7 @@ private fun Pane(t: SettingsTab, vals: Map<String, String>, compact: Boolean, lo
                 })
             return@Column
         }
-        Column(Modifier.widthIn(max = 900.u).weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 40.u)) {
+        Column(Modifier.offset(x = (-12).u).widthIn(max = 924.u).weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 40.u)) { // (rows' own inset: their words line up with the title)
             when (t.id) {
                 "household" -> SettingsRow("Household", "On the main tablet", onClick = shell("satellite")) // (a satellite: docs/multi-tablet.md)
                 "opie" -> {

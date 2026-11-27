@@ -54,8 +54,8 @@ A brand-new tablet, still in its box, needs neither step.
      assistant" and tap Allow), and stopping charging at 80% ([where it is on each tablet](tablets.md#the-charge-limit-on-each)).
      Press Home to come back. Without the first, Opie can't open or press buttons in other apps; everything else works.
    - **Opie is ready**: once the setup ends, a tablet linked to an Opie account says so: say "Hey Opie" to use it
-     (Turn off there, or later in Settings → Voice). A tablet without an account works by touch; to talk to Opie, add
-     your own OpenAI key in Settings → Voice (a key from platform.openai.com: OpenAI bills your account, so set a
+     (Turn off there, or later in Settings → Opie → Voice). A tablet without an account works by touch; to talk to Opie, add
+     your own OpenAI key in Settings → Opie → Voice (a key from platform.openai.com: OpenAI bills your account, so set a
      monthly budget there too).
 3. **The home screen**: Today, then your tabs (calendar, chores, lists, meals, photos). Pressing Home always comes back
    here. That's it: no cable or computer needed after the code.
@@ -74,7 +74,7 @@ Opie's cloud.
    add from now on open the tablet at its Tailscale address, at home and away.
 
 **Turn off** there signs the tablet out of Tailscale and removes it. To be sure a lost phone can't reach the tablet,
-remove it in Tailscale's admin console *and* in Settings → Linked devices.
+remove it in Tailscale's admin console *and* in Settings → Devices.
 
 ## 5. How to undo it
 
@@ -89,7 +89,7 @@ see "Stuck in kiosk mode" below.
 
 These are the ones we've seen on real tablets, with what fixed them. Something else? Tell us on
 [the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml), and if Opie opens,
-send its logs with **Settings → Advanced → Help → Send a report** (needs the tablet linked to an account).
+send its logs with **Settings → Advanced → Send a report** (needs the tablet linked to an account).
 
 - **The code is refused, or the tablet says it can't set up a work device** (Xiaomi's HyperOS): that tablet can't run
   Opie. Reset it and use it as a normal tablet.

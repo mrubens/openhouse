@@ -126,7 +126,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         OwnStorage.init(this) // and their own storage bucket's key, for backups
         CalendarLinks.start(this) { bridge } // the family's calendar links: kept by the shell, read every 15 minutes
         PhotoAlbums.start(this) { bridge }
-        MailAccount.start(this) { bridge } // the household's own mailbox (Settings → Email), looked at every 2 minutes once set
+        MailAccount.start(this) { bridge } // the household's own mailbox (Settings → Account → Email), looked at every 2 minutes once set
         PhotoShare.start(this) // the household's lasting photo page for phones, when someone turned it on // shared albums (iCloud): kept by the shell like the calendars, read every 30 minutes
         BackupDrive.start(this) // the USB drive for backups, for the bridge (only once someone picks one)
         CloudHealth.start(this) { bridge } // health check-ins, only once the tablet is linked (Settings → Account)
@@ -458,7 +458,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
                 }
             }
         }
-        // The assistant is OpenAI's, through the family's account (Settings → Voice): no sign-in on the tablet.
+        // The assistant is OpenAI's, through the family's account (Settings → Opie → Voice): no sign-in on the tablet.
         override fun setupDone() { CloudVoiceMenu(this@MainActivity).ready() }
         override fun micFollow() { micFollows() }
         override fun hasAssistant() = LiveVoice.chosen

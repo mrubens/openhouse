@@ -57,7 +57,7 @@ interface Host {
     fun micFollow() {}
     /** The assistant is on (OpenAI's live voice and text model, through the family's account). */
     fun hasAssistant(): Boolean = true
-    /** Settings → Voice (no PIN): which of OpenAI's voices it speaks with; it says hello in the new one. */
+    /** Settings → Opie → Voice (no PIN): which of OpenAI's voices it speaks with; it says hello in the new one. */
     fun chooseVoice() {}
 }
 

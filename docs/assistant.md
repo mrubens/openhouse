@@ -17,7 +17,7 @@ bridge's `agentName()` is then `cloud`. Otherwise it's `none` (`agents/none.js`)
 turns it on, and the apps hide what needs it (`/house` `ai: false`). Safe mode is `off`.
 
 **The household's own OpenAI key** (`own`): for a tablet without Opie's cloud voice (not linked, or not let in
-yet), the first setup's **Set up Opie's AI** step, or Settings → Voice. The key is pasted on the phone or computer
+yet), the first setup's **Set up Opie's AI** step, or Settings → Opie → Voice. The key is pasted on the phone or computer
 connected for the setup (the box opens there as the step shows: `chat/src/phone.jsx` `AddKey`, sealed on the home
 Wi-Fi to the bridge's `/setup/openai`, passed straight on to the shell and never written or logged), or pasted on the
 tablet with a keyboard cover. The shell (`shell/…/OwnKey.kt`) checks it with one free call (the list of models: a

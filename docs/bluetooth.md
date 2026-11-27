@@ -16,7 +16,7 @@ bridge's, the same split as Opie using other apps (docs/device-control.md).
   disconnect) and `volume` (the tablet's media volume). As device owner it grants itself the Bluetooth permissions,
   and turns Bluetooth on if it's off. One op at a time.
 - **Bridge** (`bridge/devices/bluetooth.js`): turns what the shell found into devices in the same list as the Wi-Fi
-  ones (`bt-<mac>`, `transport: "bluetooth"`), with the standard actions below. A scan (Settings → Linked devices →
+  ones (`bt-<mac>`, `transport: "bluetooth"`), with the standard actions below. A scan (Settings → Devices →
   Look again, or `scan`) looks on the Wi-Fi and over Bluetooth at the same time.
 - **Recipes** (`bridge/devices/recipe.js`): `"over": "bluetooth"` for a BLE device nothing built in knows.
 
@@ -33,7 +33,7 @@ bridge's, the same split as Opie using other apps (docs/device-control.md).
 
 Where people use it:
 
-- **Settings → Linked devices**: Bluetooth devices nearby are under "Also here" with a **Pair** button. Once paired, a
+- **Settings → Devices**: Bluetooth devices nearby are under "Also here" with a **Pair** button. Once paired, a
   speaker gets a card with **Play here** (then **Back to the tablet**, **Quieter**, **Louder**), a tag **Beep**, and a
   taught device its simple actions, like any other device.
 - **The voice**: a `bluetooth` tool (live-tools.js), offered when the tablet has Bluetooth: list, scan, pair, play_here,
@@ -123,7 +123,7 @@ The same guards as the Wi-Fi devices, plus Bluetooth's own:
 ## On the tablet: what to try
 
 1. Install the shell and bridge. Device control must be on (the yes cards need it).
-2. Settings → Linked devices → Look again, with a Bluetooth speaker in pairing mode: it should be under "Also here"
+2. Settings → Devices → Look again, with a Bluetooth speaker in pairing mode: it should be under "Also here"
    with Pair. Tap Pair; confirm Android's code if it shows one. It should come back with a card.
 3. Play here; start music (YouTube in Apps): it should play on the speaker. Louder / Quieter. Back to the tablet.
    If Play here says Android refused, turn the speaker off and on and see whether it connects by itself.

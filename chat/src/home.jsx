@@ -27,7 +27,7 @@ const PEOPLE = ['#ffc247', '#56d6a0', '#ff8566', '#74acff', '#c3a0ff', '#ff9ec4'
 const pad = (n) => String(n).padStart(2, '0');
 const dayKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const hm = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }).replace(/\s?[AP]M$/i, '');
-/** The rail's clock: "3:07pm", or "15:07" when Settings → Time says 24-hour (the shell's clock24). */
+/** The rail's clock: "3:07pm", or "15:07" when Settings → Screen → Time says 24-hour (the shell's clock24). */
 const railTime = (d, h24) => h24 ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : <>{d.getHours() % 12 || 12}:{pad(d.getMinutes())}<small>{d.getHours() < 12 ? 'am' : 'pm'}</small></>;
 const clock = (s) => { const m = Math.floor(s / 60), x = s % 60; return `${m}:${pad(x)}`; };
 const dayOf = (e) => (e.date ? new Date(e.date + 'T00:00') : (() => { const d = new Date(e.start); d.setHours(0, 0, 0, 0); return d; })());

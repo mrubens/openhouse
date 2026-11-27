@@ -133,8 +133,8 @@ internal object CloudSetup {
 }
 
 /** What this tablet's household said about Opie's voice (OpenAI's, through the account). [ON]: on at the end of the
- *  setup (CloudVoiceMenu.ready), a voice picked in Settings → Voice, yes to CloudVoiceMenu.ask (or an older welcome's
- *  Turn on Opie); [OFF]: Off in Settings → Voice, Turn off at the end of the setup, or the ask's Not now; null: not
+ *  setup (CloudVoiceMenu.ready), a voice picked in Settings → Opie → Voice, yes to CloudVoiceMenu.ask (or an older welcome's
+ *  Turn on Opie); [OFF]: Off in Settings → Opie → Voice, Turn off at the end of the setup, or the ask's Not now; null: not
  *  answered (the voice couldn't work yet when the setup ended, or a tablet from before this was kept). */
 internal object OpieChoice {
     const val ON = "on"

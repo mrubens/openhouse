@@ -65,7 +65,7 @@ function rawPeak(x) { for (let i = 0; i < x.length; i += 1600) { let p = 0; cons
 const loudEnough = () => !FLOOR || Math.max(...rawPeaks) >= FLOOR;
 const amplify = (x, g) => { const y = new Float32Array(x.length); for (let i = 0; i < x.length; i++) y[i] = Math.tanh(x[i] * g); return y; };
 
-// The microphone check (Settings → Voice, or asked of Opie): for a few seconds the microphone's own loudness each 0.1 s
+// The microphone check (Settings → Opie → Voice, or asked of Opie): for a few seconds the microphone's own loudness each 0.1 s
 // (before the gain) and the wake model's best score. A "Hey Opie" heard then is the check's, not a wake: nothing opens,
 // and it isn't counted with the false wakes. Only numbers are kept, and only until the check ends.
 let check = null;

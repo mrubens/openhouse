@@ -20,7 +20,7 @@ internal object DeviceOwner {
 
     // When the shell is device owner: it is the permanent home app, the device skips the lock screen, and the
     // shell runs in lock task mode (no status bar, notification shade, home, recents or app switching). Parents
-    // get out through Settings (Settings → This tablet, behind the PIN).
+    // get out through Settings (Settings → Advanced, behind the PIN).
     fun setUp(a: Activity) {
         if (!isOwner(a)) return
         val dpm = dpm(a); val admin = admin(a)

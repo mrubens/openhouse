@@ -28,6 +28,8 @@ object SettingsPages {
     internal var rootIsPage = false
     internal var reopen: (() -> Unit)? = null
     private var expectRoot = false
+    /** A tab's own page is wanted next: whatever its row opens is that page, even a line with no list. */
+    internal val wantsRoot: Boolean get() = expectRoot
     private var rootTitle: String? = null
     /** Real dialogs showing over Settings (a question, the PIN pad): while one is, the page under it stays. */
     internal var dialogs = 0

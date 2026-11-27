@@ -25,7 +25,7 @@ import kotlin.concurrent.thread
  * since the keystore's key doesn't travel). The bridge hears only whether one is in (POST /cloud/own {on}) and asks
  * OpenAI through [forward], which reaches only OpenAI's own address and only the calls in [CALLS]. Entering, changing
  * and removing it are an adult's, behind the PIN.
- * The key comes in typed or pasted here ([menu]: Settings → Voice, Your own OpenAI key) or sent from a settings page
+ * The key comes in typed or pasted here ([menu]: Settings → Opie → Voice, Your own OpenAI key) or sent from a settings page
  * ([offer]: bridge /setup/openai): sealed, straight here.
  * What each call carries is built by the bridge (bridge/own-openai.js, the cloud's requests).
  */
@@ -120,7 +120,7 @@ object OwnKey {
 
     // --- the adult's screens: put a key in, change it, take it out (behind the PIN) -------------------------
 
-    /** Settings → Voice → Your own OpenAI key, and turning the voice on where Opie cloud's voice isn't available. */
+    /** Settings → Opie → Voice → Your own OpenAI key, and turning the voice on where Opie cloud's voice isn't available. */
     fun menu(act: MainActivity) = act.lock.withPin("Your own OpenAI key") {
         if (!has()) return@withPin enter(act)
         CalmDialog(act).setTitle("Your own OpenAI key")
