@@ -1,5 +1,5 @@
 // The hub's keeper (docs/hub.md): what the tablet's shell keeps out of the bridge's reach, for a hub. The household's
-// calendar links, iCloud shared albums' links, their own OpenAI key and the PIN's hash, sealed, in a folder of its own
+// calendar links, iCloud shared albums' links, their own OpenAI key, their own storage bucket's key and the PIN's hash, sealed, in a folder of its own
 // outside the bridge's data folder (which the assistant's tools and backups reach). Like the shell's DeviceServer, it
 // reads the calendars and albums itself and hands the bridge only what they say, and it adds the OpenAI key to the
 // bridge's calls at a fixed OpenAI address: nothing it keeps is ever answered back.
@@ -32,6 +32,11 @@
 //   /calendar/request {account, method, url, headers, body}  a request to that account's own service, signed in here
 //   /calendar/account/caldav (or /setup/icloud) {user, pass, who}   iCloud: kept once its calendars are found (the sign-in checked)
 //   /calendar/account/google {refresh}           Google: a refresh token from the cloud's sign-in   /calendar/account/remove {id}
+//   The household's own storage bucket for backups (the shell's OwnStorage.kt, hub/s3.mjs): kept here with its secret
+//   /storage/status -> {set, endpoint, region, bucket, prefix}   (never the key or the secret)
+//   /storage/set {endpoint, region, bucket, prefix, keyId, secret} -> {ok} once the Check (write, read, delete) works
+//   /storage/sign {method, name} or {method: 'GET', list: true, token?} -> {url}: one presigned request, for minutes
+//   /storage/remove
 //   Google Photos (the shell's GooglePhotos.kt): /photos/google {token} picks with Google's Picker and copies what was
 //   picked into the household's photos; /photos/google/status -> {state, pickerUri?, done?, total?, error?}
 import http from 'node:http';
@@ -40,6 +45,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { publicGet } from '../bridge/app-web.js';
+import * as s3 from './s3.mjs';
 
 const DATA = path.resolve(process.env.OPENHOUSE_DATA || '/data');
 const DIR = path.resolve(process.env.OPENHOUSE_KEEPER_DIR || `${DATA.replace(/\/+$/, '')}-keeper`);
@@ -388,7 +394,7 @@ async function pick(token) {
 // --- the cards (the shell's ApprovalCard) -------------------------------------------------------------------
 // Each waits for a person's answer on a settings device or a grown-up's phone (the bridge lists /cards there); one
 // that needs the PIN takes a yes only with it, checked here.
-const CAN = ['cards', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin'];
+const CAN = ['cards', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin', 'storage'];
 const waiting = new Map(); // id -> { card, done, until, timer }
 function ask(b = {}) {
   const cid = crypto.randomBytes(6).toString('hex');
@@ -428,7 +434,22 @@ async function route(p, b) {
     case '/approve': return [200, await ask(b)];
     case '/cards': return [200, { cards: cards() }];
     case '/cards/answer': return answerCard(b);
-    case '/status': return [200, { openai: !!kept.openai, pin: !!kept.pin, calendars: kept.calendars.length, albums: kept.albums.length }];
+    case '/status': return [200, { openai: !!kept.openai, pin: !!kept.pin, calendars: kept.calendars.length, albums: kept.albums.length, storage: !!kept.storage }];
+    case '/storage/status': return [200, s3.shown(kept.storage)];
+    case '/storage/set': {
+      const c = s3.cleanStorage(b);
+      if (c.error) return [400, { error: c.error }];
+      const why = await s3.check(c.cfg);
+      if (why) return [400, { error: why }];
+      kept.storage = c.cfg; save();
+      return [200, { ok: true, ...s3.shown(c.cfg) }];
+    }
+    case '/storage/sign': {
+      if (!kept.storage) return [409, { error: 'no_storage' }];
+      const r = s3.sign(kept.storage, b);
+      return r.error ? [400, r] : [200, r];
+    }
+    case '/storage/remove': delete kept.storage; save(); return [200, { ok: true }];
     case '/calendar': {
       const url = cleanCal(b.url);
       if (!url) return [400, { error: "That isn't a calendar link (an https:// or webcal:// address ending in .ics, usually)." }];
@@ -530,7 +551,7 @@ const server = http.createServer((req, res) => {
 const PARENT = Number(process.env.OPENHOUSE_KEEPER_PARENT || 0);
 if (PARENT) setInterval(() => { try { process.kill(PARENT, 0); } catch { process.exit(0); } }, 1000).unref();
 server.listen(PORT, '127.0.0.1', () => {
-  log(`keeping ${kept.calendars.length} calendar(s), ${kept.albums.length} album(s)${kept.openai ? ', an OpenAI key' : ''}${kept.pin ? ', a PIN' : ''} (${STORE})`);
+  log(`keeping ${kept.calendars.length} calendar(s), ${kept.albums.length} album(s)${kept.openai ? ', an OpenAI key' : ''}${kept.pin ? ', a PIN' : ''}${kept.storage ? ', a storage key' : ''} (${STORE})`);
   setTimeout(syncCalendars, 20e3).unref(); setInterval(syncCalendars, 15 * 60e3).unref();
   albumTimer = setTimeout(syncAlbums, 40e3); albumTimer.unref?.();
 });

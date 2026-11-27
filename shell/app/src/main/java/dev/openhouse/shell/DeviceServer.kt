@@ -204,10 +204,10 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
+    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove")
     /** What the shell can do, for /host (bridge/host.js CAPS; its TABLET_CAPS is the same list, for a shell older than /host). */
     private val HOST_CAN = listOf("screen", "approve", "calendar", "calendar-accounts", "openai", "pin", "voice-setup", "google-signin", "drive", "updates",
-        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness")
+        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -356,6 +356,18 @@ object DeviceServer {
                 when { why == null -> 200 to JSONObject().put("added", false).put("error", "Nobody answered on the tablet.").toString()
                     why.isEmpty() -> 200 to JSONObject().put("added", true).toString()
                     else -> 400 to JSONObject().put("added", false).put("error", why).toString() }
+            }
+            // The household's own storage bucket for backups (OwnStorage): what it is (never its key), one presigned
+            // request at a time for the bridge, forgotten; and set from a settings page (the PIN first, with the lock on).
+            "/storage/status", "/storage/sign", "/storage/remove" -> { OwnStorage.init(ctx); OwnStorage.handle(path, b) }
+            "/storage/set" -> {
+                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                val got = java.util.concurrent.LinkedBlockingQueue<String>()
+                handler.post { OwnStorage.offer(a, b) { got.offer(it ?: "") } }
+                val why = got.poll(120, java.util.concurrent.TimeUnit.SECONDS)
+                when { why == null -> 400 to JSONObject().put("error", "Nobody answered on the tablet.").toString()
+                    why.isEmpty() -> 200 to JSONObject().put("ok", true).toString()
+                    else -> 400 to JSONObject().put("error", why).toString() }
             }
             "/say" -> { acc?.status(b.optString("text").take(120)); 200 to "{}" }
             // "Opie, stop" (bridge device-tools.js): what it's doing in an app stops now; the next request starts fresh.

@@ -52,6 +52,7 @@ import { Readable, Writable } from 'node:stream';
 import { backupRoutes } from './backup.js';
 import { driveDestination } from './drive.js';
 import { folderDestination } from './folder-backup.js';
+import { bucketDestination } from './bucket-backup.js';
 import { hubRoutes } from './hub.js';
 import { weatherSense } from './weather-sense.js';
 import { guarded } from './guarded.js';
@@ -285,7 +286,9 @@ import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud
 if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, o.typed ? { conversation: o.typed.conversation || null } : { spoken: !o.phone }), builder.waits);
 // A host with no USB drive of its own (the keeper, docs/hub.md): backups go to a folder instead (a mounted drive, a share, a volume).
 const localDest = host.there() && !host.can('drive') ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
-backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest], escrow: cloud.escrow, busy: () => !!edits.holder() });
+// The household's own storage bucket (S3 and the like), where the host can keep its key (host.js 'storage').
+const ownBucket = host.can('storage') ? [bucketDestination()] : [];
+backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest, ...ownBucket], escrow: cloud.escrow, busy: () => !!edits.holder() });
 // The tablet's own https name at home (lan-tls.js): its address comes from the shell (POST /screens/address); a hub's
 // from LAN_ADDRESS, as only the machine knows which of its addresses the Wi-Fi sees.
 const lanTlsState = lanTls({ DIR: path.join(DISPLAY, '.lan-tls'), cloud, PORT: Number(process.env.SCREENS_PORT || 8788) });

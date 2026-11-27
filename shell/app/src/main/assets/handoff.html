@@ -26,7 +26,8 @@ p{color:var(--soft)}
 <form id="f" hidden>
   <a class="b" id="open" target="_blank" rel="noopener noreferrer" hidden></a>
   <div id="whoBox" hidden><label for="who">Whose</label><input id="who" list="names" autocomplete="off" maxlength="40"><datalist id="names"></datalist></div>
-  <label for="v" id="vl"></label><input id="v" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required>
+  <div id="one"><label for="v" id="vl"></label><input id="v" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" required></div>
+  <div id="many" hidden></div>
   <button id="go">Send</button>
   <p id="h"></p>
 </form>
@@ -89,20 +90,35 @@ else (async () => {
   if (!info) return say('This link has ended. Start again on the display.');
   $('t').textContent = info.title;
   if (Array.isArray(info.steps)) { for (const t of info.steps) { const li = document.createElement('li'); li.textContent = t; $('steps').append(li); } $('steps').hidden = false; }
-  $('vl').textContent = info.field; $('h').textContent = info.help || ''; $('v').placeholder = info.hint || '';
+  $('vl').textContent = info.field || ''; $('h').textContent = info.help || ''; $('v').placeholder = info.hint || '';
+  // Several fields (their own storage: BackupMenu, OwnStorage.kt): [{id, label, hint, optional, secret}], sent as {fields}.
+  const fields = Array.isArray(info.fields) ? info.fields : null;
+  if (fields) {
+    $('one').remove(); $('many').hidden = false;
+    for (const f of fields) {
+      const l = document.createElement('label'), i = document.createElement('input');
+      l.textContent = f.label; l.htmlFor = i.id = 'f-' + f.id; i.placeholder = f.hint || ''; i.required = !f.optional;
+      i.type = f.secret ? 'password' : 'text'; i.autocomplete = 'off'; i.autocapitalize = 'off'; i.spellcheck = false;
+      $('many').append(l, i);
+    }
+  }
   if (info.link) { $('open').hidden = false; $('open').href = info.link; $('open').textContent = info.linkText; }
   if (info.who) { $('whoBox').hidden = false; for (const n of info.names || []) $('names').append(new Option(n)); }
   $('f').hidden = false;
   $('f').onsubmit = async (e) => {
     e.preventDefault();
-    const value = $('v').value.trim(); if (!value) return;
-    const msg = te.encode(JSON.stringify(info.who ? { value, who: $('who').value.trim() } : { value }));
+    let msg;
+    if (fields) msg = te.encode(JSON.stringify({ fields: Object.fromEntries(fields.map((f) => [f.id, $('f-' + f.id).value.trim()])) }));
+    else {
+      const value = $('v').value.trim(); if (!value) return;
+      msg = te.encode(JSON.stringify(info.who ? { value, who: $('who').value.trim() } : { value }));
+    }
     const box = CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), msg);
     $('go').disabled = true;
     try {
       const r = await fetch('s', { method: 'POST', body: b64.enc(box), headers: { 'content-type': 'text/plain' } });
       if (!r.ok) throw 0;
-      $('f').hidden = true; $('v').value = ''; say(info.done);
+      $('f').hidden = true; for (const i of $('f').querySelectorAll('input')) i.value = ''; say(info.done);
     } catch { $('go').disabled = false; say('That didn’t go through. Try again.'); }
   };
 })();

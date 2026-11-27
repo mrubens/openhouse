@@ -104,7 +104,7 @@ const RULES = [
   ['admin', 'GET', /^\/(screens|cloud\/status|cloud\/voice|backup\/status|backup\/list|backup\/recovery-code|relay|hub)$/],
   ['admin', 'POST', /^\/screens\/(pair|pair\/end|answer|revoke)$/],
   ['admin', 'POST', /^\/cloud\/(link\/start|link\/confirm|link\/cancel|unlink|voice|voice\/name)$/],
-  ['admin', 'POST', /^\/backup\/(dest|now|restore|escrow|recovery-code\/confirmed)$/],
+  ['admin', 'POST', /^\/backup\/(dest|now|restore|escrow|recovery-code\/confirmed|storage|storage\/remove)$/],
   ['admin', 'POST', /^\/(relay|hub\/update|webmcp)$/], ['admin', 'GET', /^\/webmcp$/], // the connector at the household's own address (web-mcp.js)
   ['admin', 'GET', /^\/tailscale$/], ['admin', 'POST', /^\/tailscale$/], // away from home with the household's own Tailscale (tailscale.js)
   // On a hub the settings device is also the setup's (headless.js drives the steps), answers the "Is this OK?" cards,

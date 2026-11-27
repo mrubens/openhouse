@@ -1,6 +1,6 @@
 package dev.openhouse.shell
 
-// Settings → Backups: where backups are kept (the cloud, a USB drive), back up now, restore, the family's
+// Settings → Backups: where backups are kept (the cloud, a USB drive, their own storage: OwnStorage), back up now, restore, the family's
 // recovery code (shown with a QR code, or sent to a phone), and whether Opie keeps a copy of that code (off unless
 // someone turns it on). The bridge does the work (bridge/backup.js); this is only the dialogs.
 
@@ -50,8 +50,12 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         val dests = s.optJSONArray("dests")?.let { a -> (0 until a.length()).map { a.getJSONObject(it) } }.orEmpty()
         val cloud = dests.firstOrNull { it.optString("id") == "cloud" }
         val drive = dests.firstOrNull { it.optString("id") == "drive" }
+        val bucket = dests.firstOrNull { it.optString("id") == "bucket" }
         val on = dests.filter { it.optBoolean("on") }
-        val where = on.joinToString(" and ") { if (it.optString("id") == "cloud") "the cloud" else "the USB drive" + (it.optString("name").takeIf { n -> n.isNotEmpty() && !it.isNull("name") }?.let { n -> " ($n)" } ?: "") }
+        val where = on.joinToString(" and ") {
+            val name = it.optString("name").takeIf { n -> n.isNotEmpty() && !it.isNull("name") }?.let { n -> " ($n)" } ?: ""
+            when (it.optString("id")) { "cloud" -> "the cloud"; "bucket" -> "your own storage$name"; else -> "the USB drive$name" }
+        }
         val last = s.optJSONObject("last")
         val text: String? = when {
                 on.isEmpty() -> null // the rows say Off
@@ -71,6 +75,11 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
             if (drive.optBoolean("on")) setDest("drive", false) else if (drive.optBoolean("ready")) setDest("drive", true) else chooseDrive()
         }
         if (drive?.optBoolean("on") == true) items += CalmDialog.Row("Change the USB drive") to { chooseDrive() }
+        // Their own storage bucket (S3 and the like): set up once, here or from a phone (OwnStorage), then on and off.
+        if (bucket != null) items += CalmDialog.Row("Your own storage", value = onOff(bucket.optBoolean("on"))) to {
+            if (bucket.optBoolean("on")) setDest("bucket", false) else if (bucket.optBoolean("ready")) setDest("bucket", true) else OwnStorage.setUp(act) { setDest("bucket", true) }
+        }
+        if (bucket?.optBoolean("ready") == true) items += CalmDialog.Row("Change your own storage") to { changeStorage(bucket) }
         if (on.isNotEmpty()) items += CalmDialog.Row("Back up now") to { backUpNow() }
         // Restoring replaces everything here: behind a PIN, set first if there's none (SettingsLock.withPinSet).
         items += CalmDialog.Row("Restore") to { act.lock.withPinSet(back = { show() }) { restoreList() } }
@@ -82,6 +91,15 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
     }
 
     private fun chooseDrive() = BackupDrive.choose(act) { }
+
+    private fun changeStorage(d: JSONObject) {
+        CalmDialog(act).setTitle("Your own storage").setMessage(d.optString("name"))
+            .setPositiveButton("Change it") { _, _ -> OwnStorage.setUp(act) { setDest("bucket", true) } }
+            .setNeutralButton("Remove it") { _, _ ->
+                thread { val r = post("/backup/storage/remove"); ui { if (r == null || r.has("error")) say("Your own storage", r?.optString("error") ?: noBridge) else show() } }
+            }
+            .setNegativeButton("Back") { _, _ -> show() }.open()
+    }
     /** After the picker (BackupDrive.picked): backups to that drive on. */
     fun driveChosen() { setDest("drive", true) }
 
@@ -162,7 +180,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         val text = TextView(act)
         var d: android.app.Dialog? = null
         ui { text.apply { this.text = "Packing up…"; setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, Calm.BODY * Calm.u(act)); typeface = Calm.face(act); setTextColor(Calm.SOFT) }; d = CalmDialog(act).setTitle("Backing up").setView(text).setNegativeButton("Hide", null).open() }
-        val words = mapOf("packing" to "Packing up…", "locking" to "Locking it with your code…", "sending:cloud" to "Sending it to the cloud…", "sending:drive" to "Copying it to the USB drive…")
+        val words = mapOf("packing" to "Packing up…", "locking" to "Locking it with your code…", "sending:cloud" to "Sending it to the cloud…", "sending:drive" to "Copying it to the USB drive…", "sending:bucket" to "Sending it to your own storage…")
         while (true) {
             Thread.sleep(1000)
             val s = get("/backup/status", 10_000) ?: continue
@@ -185,7 +203,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
             val rows = (0 until list.length()).map { list.getJSONObject(it) }
             val dates = rows.map { runCatching { fmt.format(java.time.Instant.parse(it.optString("createdAt"))) }.getOrDefault(it.optString("createdAt")) }
             val labels = rows.mapIndexed { i, b ->
-                listOfNotNull(dates[i], if (b.optString("dest") == "cloud") "cloud" else "USB drive", b.optString("deviceName").takeIf { it.isNotEmpty() && !b.isNull("deviceName") },
+                listOfNotNull(dates[i], when (b.optString("dest")) { "cloud" -> "cloud"; "bucket" -> "your storage"; else -> "USB drive" }, b.optString("deviceName").takeIf { it.isNotEmpty() && !b.isNull("deviceName") },
                     "%.1f MB".format(b.optLong("size") / 1e6), if (b.optString("kind") == "manual") "by hand" else null).joinToString(" · ")
             }
             CalmDialog(act).setTitle("Restore which backup?").setItems(labels.toTypedArray()) { _, i -> confirmRestore(rows[i], dates[i]) }

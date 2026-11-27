@@ -7,6 +7,7 @@ and one key, and the backups can go to one or more places:
 |---|---|---|
 | **A USB drive** plugged into the tablet | Built | Everyone, with no account and no cloud. Self-hosters included. |
 | **The cloud** (Opie's) | Built | Families who linked the tablet (Settings → Account) |
+| **Your own storage**: a bucket at Amazon S3, Cloudflare R2, Backblaze B2, MinIO or anything else that speaks S3 | Built, below | Households that don't use Opie cloud and don't mind setting up a bucket and a key |
 | **A shared folder on a home computer or NAS** (SMB) | Designed, below | Families with a Mac, PC or NAS at home |
 
 Everything is behind the PIN, under Settings → Backups, and off until someone turns a place on.
@@ -70,14 +71,14 @@ backups. If the family turns it on:
 - the family, signed in, can see the code on the family's web page;
 - turning it off deletes it.
 
-USB-only families have no escrow, because there is no service involved.
+USB-only families, and those with only their own storage, have no escrow, because there is no service involved.
 
 ## Schedule and keeping
 
 - **When:** nightly between 2 and 5 am, only when nobody is changing anything. "Back up now" runs on demand.
 - **Packing:** each run packs and encrypts once, then copies the same file to every place that's on.
 - **Failures:** each place records its own result. A failure in one place doesn't stop the others. Settings
-  says plainly what went wrong ("Plug in the drive"). The health check-in carries only the failure's type
+  says plainly what went wrong ("Plug in the drive", or that your own storage refused the key). The health check-in carries only the failure's type
   (`backup.drive.notready`).
 - **Keeping:** the newest 7 nightly and 5 manual backups in each place. On a drive, the tablet deletes older files
   itself. In the cloud, the service does.
@@ -96,6 +97,66 @@ never looks like a backup.
 
 The display activity registers the picker's answer itself. The display can be restarted while the picker is open
 (seen on the emulator), and the answer still arrives.
+
+## Your own storage (S3 and the like)
+
+For a household that doesn't use Opie cloud, or wants a copy somewhere of its own: any bucket that speaks S3. Setting
+one up is fiddly (a bucket, a key with the right rights, an address and a region), so it's for households that want
+it; it's off until someone sets it up.
+
+**Setting it up.** Settings → Backups → *Your own storage* shows a QR code. A phone or computer on the home Wi-Fi scans
+it and gets a page (the same sealed hand-off as a calendar link, `handoff.html` with several fields) for the address,
+region, bucket, an optional folder (a prefix), the access key ID and the secret. *Type it here instead* takes the same
+fields on the tablet. On a hub, the settings page has *Set up your own storage* under Backups. Either way the host
+**checks it first**: it writes a small file, reads it back and deletes it, and says plainly what's wrong (the key
+isn't known, the secret doesn't fit, no such bucket, the key may not write, read or delete there, the bucket is in
+another region, the address can't be reached). Only then is it kept, and backups there are on. *Change your own
+storage* changes or removes it.
+
+| What | For example |
+|---|---|
+| Amazon S3 | `https://s3.us-east-1.amazonaws.com`, region `us-east-1` |
+| Cloudflare R2 | `https://<account id>.r2.cloudflarestorage.com`, region `auto` |
+| Backblaze B2 | `https://s3.us-west-004.backblazeb2.com`, region `us-west-004` |
+| MinIO at home | `http://192.168.1.20:9000`, region `us-east-1` |
+
+The key needs to list, read, write and delete in that bucket (and only there, ideally: give it no more). The address
+must be https, except on the home network (a NAS's MinIO), where http is allowed: the files are locked before they
+leave either way, and SigV4 never sends the secret, only signatures.
+
+**How it's built.** The host keeps the key and the secret: the tablet's shell (`OwnStorage.kt`, sealed with Android
+Keystore in its no-backup files, as the household's own OpenAI key is) or the hub's keeper (`hub/s3.mjs`, sealed in
+its own folder). The bridge (`bridge/bucket-backup.js`) never holds them. For each request it asks the host to sign
+one (`POST /storage/sign`): the host answers with a presigned URL (AWS Signature V4, query-string, payload unsigned)
+for one method (GET, PUT, DELETE, HEAD) on one object under the household's prefix, or the listing of that prefix,
+good for 15 minutes. The bridge sends it itself and streams the file, as it does the cloud's presigned uploads. Object
+names have no slashes, so a signed URL never reaches outside the prefix.
+
+A design note: the first plan was for the host to make the requests itself, signed, and pass the answers back. The
+backups are hundreds of megabytes and the shell's routes take JSON of a megabyte at most, so the host signs and the
+bridge sends instead. The secret still never leaves the host, and each URL is good for one thing for a few minutes.
+
+**In the bucket:** `<prefix>/display-backup-<time>-<kind>-<keyId>.backup`, the same encrypted files as on a USB drive or
+a hub's folder, so a file copied by hand from one place to another restores. The bucket only ever sees ciphertext.
+Same schedule and keeping as everywhere: the newest 7 nightly and 5 manual, the older ones deleted by the tablet.
+Restore lists the bucket and pulls from it; a new tablet set up with the same storage and the recovery code restores
+an old one's backups.
+
+**Limits.**
+- One PUT per backup: S3 takes up to 5 GB that way (R2 and B2 about the same), so no multipart upload. A backup holds
+  at most 1 GB of videos, so this is far off for most households.
+- The bucket's own versioning and lifecycle rules still apply. With versioning on, a deleted backup stays as an old
+  version (and is still billed) until a lifecycle rule removes it. Object Lock or a retention rule can refuse the
+  deletes; then backups still go up, but the old ones pile up (the bridge logs that it couldn’t tidy them).
+- Requester-pays buckets, SSE-C (keys the caller sends), and storage with no path-style or virtual-hosted address
+  aren't supported. Amazon's own addresses use the bucket's own host name; every other address has the bucket in the
+  path.
+- A restored or new tablet asks for the storage again: the keystore's key doesn't travel, by design.
+
+**Trying it.** `cd bridge && npm test` runs a round trip against a small S3 stand-in that checks the signatures
+(`test/bucket-backup.test.mjs`). With MinIO: `docker run -p 9000:9000 -e MINIO_ROOT_USER=opie -e
+MINIO_ROOT_PASSWORD=<a long one> minio/minio server /data`, make a bucket in its console, then set up the storage with
+`http://10.0.2.2:9000` on the emulator (or the computer's address on the Wi-Fi from a tablet).
 
 ## Designed, not built: a shared folder on a home computer (SMB)
 
@@ -125,7 +186,9 @@ A Mac (File Sharing), a Windows PC (a shared folder) or a NAS can all serve SMB.
 | Places, schedule, restore, and the `/backup/*` routes | `bridge/backup.js` |
 | The cloud as a place, and the escrow client | `bridge/cloud.js` (`destination`, `escrow`) |
 | The USB drive as a place, through the shell | `bridge/drive.js` |
+| Your own storage as a place, signed by the host | `bridge/bucket-backup.js` |
+| The host's side of it: the key, signing, the Check | `shell/.../OwnStorage.kt`, `hub/s3.mjs` (the keeper) |
 | The shell's side of the drive | `shell/.../BackupDrive.kt` |
 | Settings, the recovery code (QR, phone hand-off), and the escrow question | `shell/.../BackupMenu.kt` |
 | The phone page for the code | `shell/app/src/main/assets/recovery.html` (same sealing code as `handoff.html`; a test keeps them equal) |
-| Tests | `bridge/test/cloud.test.mjs`, `bridge/test/handoff-crypto.test.mjs`, `openhouse-cloud/test/app.test.ts` (escrow) |
+| Tests | `bridge/test/cloud.test.mjs`, `bridge/test/handoff-crypto.test.mjs`, `bridge/test/bucket-backup.test.mjs`, `shell/.../OwnStorageTest.kt`, `openhouse-cloud/test/app.test.ts` (escrow) |

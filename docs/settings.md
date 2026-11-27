@@ -16,7 +16,7 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 | Calendars | how many are shown | Google and iCloud accounts (each one's calendars: shown or not, two-way, whose, where new events go) and calendars' links; Add a calendar | yes |
 | What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
 | Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add and Remove |
-| Account | the family's name, or Off | link or unlink, Backups (the cloud or a USB drive), reach from away | yes |
+| Account | the family's name, or Off | link or unlink, Backups (the cloud, a USB drive or your own storage), reach from away | yes |
 | Advanced | | Lock (PIN Lock, PIN recovery code, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
 
 Voice can also be turned on in the first setup's last step, **Talk to Opie** (docs/onboarding.md): the same voices and
