@@ -198,7 +198,8 @@ internal object LiveVoice {
         if (left > 0 && wasReady) trouble("The live voice ended before it could say this.")
         web = null; ready = false; mood = null; caption = ""
         act?.micTap(null); buffering = false; feeding = false; synchronized(kept) { kept.reset() }
-        if (!wasReady && why != "microphone turned off" && why != "tapped away") trouble("The live voice couldn't connect. Try again in a moment.")
+        if (!wasReady && !toldWhy && why != "microphone turned off" && why != "tapped away") trouble("The live voice couldn't connect. Try again in a moment.")
+        toldWhy = false
         Log.i(TAG, "ended ($why) after ${(System.currentTimeMillis() - startedAt) / 1000} s")
         Openhouse.vlog("live-ended", "$why after ${(System.currentTimeMillis() - startedAt) / 1000} s") // the speech log outlives logcat
         if (!dead) {
@@ -214,6 +215,8 @@ internal object LiveVoice {
     /** What went wrong with the live voice just now, for the bubble (Buddy), and when. */
     @Volatile var problem = ""; private set
     @Volatile var problemAt = 0L; private set
+    /** Why this start failed was said already (out of credit): end() doesn't say "couldn't connect" over it. */
+    @Volatile private var toldWhy = false
     private fun trouble(text: String) { Log.i(TAG, "problem: $text"); problem = text; problemAt = System.currentTimeMillis() }
     fun putProblemAway() { problem = "" }
     fun problemNow(now: Long) = problem.takeIf { it.isNotEmpty() && now - problemAt < 15_000 }
@@ -326,6 +329,8 @@ internal object LiveVoice {
                 .put("earlier", setup.optJSONArray("earlier") ?: org.json.JSONArray())
             val r = post("/cloud/live/start", body)
             mark("cloud answered")
+            // Out of Opie credit (the cloud's credits.ts): said as that, not as "couldn't connect".
+            if (r?.optString("code") == "over_credit") { trouble(r.optString("error")); toldWhy = true }
             val w = web ?: return@thread
             main.post { w.evaluateJavascript("answer(${JSONObject.quote((r ?: JSONObject().put("error", "the tablet's software didn't answer")).toString())})", null) }
         }

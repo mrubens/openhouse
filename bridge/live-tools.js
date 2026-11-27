@@ -135,7 +135,7 @@ export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether t
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['start', 'last'] } } } };
 /** What asks for the tablet's PIN (Settings → Advanced → Ask for the PIN): devices/index.js pinChoicesDo (the shell's
  *  /pin-choices, PinChoices.kt). Changing one always takes the PIN, typed by a person on the tablet's own card. */
-export const USAGE_TOOL = { name: 'how_much_used', description: "How much of Opie the household used this month, as Settings → Voice shows it: minutes talking to Opie, typed questions answered, apps made or changed, and about what it cost so far. For \"how much have we used?\", \"what does this cost us?\".",
+export const USAGE_TOOL = { name: 'how_much_used', description: "How much of Opie the household used this month, as Settings → Voice shows it: minutes talking to Opie, typed questions answered, apps made or changed, and about what it cost so far, and what's left of Opie's credit. For \"how much have we used?\", \"what does this cost us?\", \"how much credit is left?\".",
   inputSchema: { type: 'object', properties: {} } };
 export const PIN_TOOL = { name: 'pin_choices', description: 'Which everyday things ask for the tablet\'s PIN (Settings → Advanced → Ask for the PIN), when the tablet has one. ' +
     'get says each choice and what always needs the PIN. set turns one on or off only when they ask: the tablet then asks for the PIN on its screen, so tell them to type it on the tablet (never ask them to say it). ' +

@@ -51,6 +51,14 @@ export function monthWords({ liveSecs = 0, questions = 0, apps = 0, cents = 0 },
   return { minutes, questions, apps, cents: Math.round(Number(cents) || 0), text };
 }
 
+/** What to say when Opie's service said no to a call for what it costs (its 429 `over`): the credit ran out, or the
+ *  month's limit was reached. null for anything else. */
+export function overWords(e) {
+  if (e?.over === 'credit') return "Opie's credit has run out. Someone can add more on the account page.";
+  if (e?.code === 'http429') return "I've used this month's allowance. Someone can see it on the family's account page.";
+  return null;
+}
+
 // Anything in the bridge notes a typed question answered or an app made or changed (chat.js, builder.js); cloud.js
 // counts it (its counted), once it's up.
 let counter = null;

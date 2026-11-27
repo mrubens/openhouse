@@ -26,6 +26,7 @@ export function useCloud(d) { deps = d; }
 export const buildsHere = () => !!deps?.rails;
 
 import { DEVICE_NAMES } from '../device-tools.js';
+import { overWords } from '../usage.js';
 const textOf = (out) => out.filter((o) => o.type === 'message').flatMap((o) => o.content || []).filter((c) => c.type === 'output_text').map((c) => c.text).join('');
 
 /**
@@ -56,7 +57,7 @@ export async function chat({ prompt, onEvent = () => {}, signal, homeToken = nul
   for (let step = 0; step < limit; step++) {
     if (signal?.aborted) return { ok: false, text: 'Stopped.' };
     let r;
-    try { r = await deps.ai({ instructions, input, tools }); } catch (e) { return { ok: false, text: e.code === 'http429' ? "I've used this month's allowance. Someone can see it on the family's account page." : `I can't think right now (${e.message}).` }; }
+    try { r = await deps.ai({ instructions, input, tools }); } catch (e) { return { ok: false, text: overWords(e) || `I can't think right now (${e.message}).` }; }
     const calls = (r.output || []).filter((o) => o.type === 'function_call');
     if (calls.some((c) => DEVICE_NAMES.includes(c.name))) limit = 40;
     if (!calls.length) { const text = textOf(r.output || []).trim() || 'Done.'; onEvent({ kind: 'delta', text }); return { ok: true, text }; }

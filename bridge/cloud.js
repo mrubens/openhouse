@@ -33,7 +33,7 @@ import zlib from 'node:zlib';
 import { request } from './backup-format.js';
 import { host } from './host.js';
 import { ownOpenAI, tokensMc, COSTS } from './own-openai.js';
-import { usageCounter, monthWords } from './usage.js';
+import { usageCounter, monthWords, overWords } from './usage.js';
 
 // The service a tablet links to unless someone sets another (Settings → Account → Address). Filled in after the
 // first deploy (openhouse-cloud/scripts/deploy.sh prints it); empty means Settings asks for an address.
@@ -63,7 +63,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       setState({ unlinkedAt: iso(), unlinkedWhy: r.json?.error || 'unknown' });
       throw Object.assign(new Error('This tablet was unlinked from the family account.'), { code: 'unlinked' });
     }
-    if (r.status >= 300) throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}`, ...(Number(r.json?.retryAfter) > 0 ? { retryAfter: Number(r.json.retryAfter) } : {}) });
+    if (r.status >= 300) throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}`, ...(r.json?.over ? { over: String(r.json.over) } : {}), ...(Number(r.json?.retryAfter) > 0 ? { retryAfter: Number(r.json.retryAfter) } : {}) });
     return r.json;
   }
 
@@ -267,12 +267,13 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     if (ownOn()) return { linked: !!device(), own: true, on: liveOn(), provider: 'openai-live', vendor: 'OpenAI', available: true, offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null, asked: null, over: null, used: null, limits: null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(null) };
     if (check && device()) { await reportUse().catch(() => {}); try { svc = lastVoiceStatus = await call('GET', '/v1/voice'); } catch {} }
     if (svc && svc.on === false && mine.on) { write('voice.json', { ...mine, on: false, offAt: iso(), offWhy: 'family' }); mine.on = false; } // turned off from the web
-    const over = svc?.used && svc?.limits && svc.used.cents >= svc.limits.cents ? 'month' : null;
+    // (credit: the household's Opie credit has run out or is on hold; month: the month's limit is reached)
+    const over = svc?.credit && (svc.credit.frozen || svc.credit.cents <= 0) && svc.credit.paid ? 'credit' : svc?.used && svc?.limits && svc.used.cents >= svc.limits.cents ? 'month' : null;
     // offWhy: why it went off here when it wasn't this tablet's own Off ("family": from the web). The shell turning it
     // on by itself (CloudSetup.autoVoice) reads it, so it never undoes an Off said somewhere else.
     return { linked: !!device(), on: liveOn(), provider: 'openai-live', vendor: svc?.vendor || mine.vendor || null, available: svc ? !!svc.available : null,
       offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null, asked: svc?.asked || null,
-      over, used: svc?.used || null, limits: svc?.limits || null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(svc) };
+      over, used: svc?.used || null, limits: svc?.limits || null, credit: svc?.credit || null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(svc) };
   }
   async function voiceSet(on) {
     if (on && !device() && !ownOn()) throw new Error('Opie’s voice needs an OpenAI key first (Settings → Voice).');
@@ -324,7 +325,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   }
 
   const reply = async (res, fn) => {
-    try { json(res, 200, await fn()); } catch (e) { json(res, e.code === 'unlinked' ? 409 : 400, { error: e.message, code: e.code || null }); }
+    try { json(res, 200, await fn()); } catch (e) { json(res, e.code === 'unlinked' ? 409 : 400, { error: e.over === 'credit' ? overWords(e) : e.message, code: e.over ? `over_${e.over}` : e.code || null }); }
   };
 
   async function handle(req, res, url) {
@@ -482,7 +483,9 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const revoked = () => { if (device()) return false; const s = state(); return s.unlinkedWhy === 'revoked' || !!s.unlinkedHere; };
   /** Which link this is (a relink is a new one). */
   const linkId = () => device()?.deviceId || null;
-  return { counted, usageNow: async () => (await voiceStatus(true)).month, googleStart, setOwn, voiceOn, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+  return { counted, usageNow: async () => { const v = await voiceStatus(true), c = v.credit; // (and what's left of the Opie credit)
+    const left = !c || v.own ? '' : c.frozen ? "\nOpie's credit is on hold while a payment is looked at." : !c.paid ? '' : c.cents > 0 ? `\n$${(c.cents / 100).toFixed(2)} of Opie credit left, about ${c.perMinuteCents}¢ a minute talking.` : "\nOpie's credit has run out. Someone can add more on the account page.";
+    return { ...v.month, text: v.month.text + left }; }, googleStart, setOwn, voiceOn, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

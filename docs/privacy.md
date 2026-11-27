@@ -45,6 +45,8 @@ Everything here starts only when the household links its tablet to an account.
 - **Backups (if turned on):** encrypted on the tablet with a key from the household's recovery code before they're
   uploaded. We can't open them, unless the household asked us to keep a copy of that code.
 - **Use and cost:** minutes and amounts used each month, as numbers, so we can keep within the limits.
+- **Opie credit (if bought):** what was bought and used and when, and Stripe's id for the household and its saved card
+  (if auto top-up is on). Card details and the billing address go to Stripe, never to us.
 - **Logs:** each request's path, result, time taken and household, kept 30 days. Never what was said or shared.
 - **Reports (only when someone sends one):** Send a report on the tablet sends us its recent logs, so we can see what
   went wrong. They can include things said to Opie and the household's names; the tablet says so and asks first.
@@ -103,6 +105,7 @@ This covers everything above, including data from Google (calendar events, photo
 - **OpenAI**: the cloud assistant (typed and spoken) and making apps on the tablet, when the household uses it.
   With the household's own OpenAI key on the tablet, the tablet talks to OpenAI directly on the household's own
   account, and none of it passes through our service. The key stays on the tablet and never reaches us.
+- **Stripe**: takes payments for Opie credit, under its own privacy policy.
 - **Resend**: sends the sign-in emails.
 - **Apple**: delivers iPhone notifications, which carry only a sealed note.
 - **Let's Encrypt**: issues the certificate that lets the household's phones reach the tablet securely at home. It
@@ -116,7 +119,7 @@ mail waiting for the tablet and any copy of the recovery code. The database's ow
 
 ## Children
 
-A household's phones, kids' included, join only when a grown-up adds them on the tablet. What they do stays with the
+A household's phones, kids' included, join only when an adult adds them on the tablet. What they do stays with the
 household's tablet; we don't ask children for any information.
 
 ## Changes and contact
