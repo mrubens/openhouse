@@ -62,6 +62,13 @@ export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', gr
     return a === 'later' ? 'later' : 'no';
   }
 
+  /** No bar to answer: an app that gets none of the family's things and no websites, where adding apps doesn't ask for
+   *  the PIN, goes in as it's made (it stays limited, as an app from a link is). 'yes': the caller commits. */
+  function keep(card) {
+    if (card.draft) promote(card);
+    if (card.limited) grant(card);
+    return 'yes';
+  }
   /** A change made in a draft copy (rails.js): its files take the app's place, and the draft goes. */
   function promote(card) {
     const apps = path.join(APP_DIR, 'apps'), from = path.join(apps, card.draft), to = path.join(apps, card.app);
@@ -153,5 +160,5 @@ export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', gr
   /** What's waiting, oldest first: { id, app, name, who, at }. */
   const waiting = () => { expire(); return list.map((w) => ({ id: w.id, app: w.card.app, name: w.card.name, who: w.who, at: w.at, summary: w.card.summary })); };
 
-  return { decide, park, open, expire, waiting, stop: () => clearInterval(timer) };
+  return { decide, keep, park, open, expire, waiting, stop: () => clearInterval(timer) };
 }

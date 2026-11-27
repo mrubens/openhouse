@@ -169,7 +169,8 @@ const shellAsk = async ({ title, detail, yes, no, rights, pin, grownup, for: cho
   return r.ok && r.body?.yes === true ? 'yes' : r.ok && r.body?.answered === true ? 'no' : 'later';
 };
 /** Whether keeping an app made here takes the PIN there (Ask for the PIN → Add apps): what the tablet says when it's ready. */
-const keepTakesPin = async () => { if (!host.can('pin-choices')) return false; const b = await host.json('/pin-choices', { do: 'get' }, 3000); return !!(b?.choices || []).some((c) => c.key === 'apps' && c.asks); };
+// (A host that can't say, like a hub with no screen of its own: as if it did, so a made app is always asked about there.)
+const keepTakesPin = async () => { if (!host.can('pin-choices')) return true; const b = await host.json('/pin-choices', { do: 'get' }, 3000); return !!(b?.choices || []).some((c) => c.key === 'apps' && c.asks); };
 const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger, for } (docs/ux.md; for: the PIN choice, shell PinChoices) // true, false, or null when there's no shell to ask (a laptop)
   const r = await host.call('/approve', { ...extra, title, detail, pin }, { ms: 100e3 });
   return r && r.ok && r.body?.yes === true;

@@ -283,7 +283,9 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       touchedApps.add(card.app); // (closed on screen if it's put back or set aside: closeGone)
       emit({ type: 'phase', name: 'asking' });
       // Nothing is said: the app opening on the tablet, with its Keep it bar, is the news.
-      const a = await waits.decide(owner, card);
+      // Nothing to ask about (no family things or websites, and adding apps doesn't take the PIN): it just goes in.
+      const quiet = !(card.uses?.length || card.reaches?.length) && !(await keepPin().catch(() => true));
+      const a = quiet ? waits.keep(card) : await waits.decide(owner, card);
       if (events.state.state !== 'working' || owner.abort.signal.aborted) return false; // cancelled while the card was up
       if (a === 'no') {
         edits.discard(owner);

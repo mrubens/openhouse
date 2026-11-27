@@ -55,7 +55,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Lists card: tick, untick, add | yes | change_list |
 | An app's day notes: week, today only, off | **new** | calendar_event settings.app_notes |
 | Sleep now (the moon) | **new** | tablet_screen sleep |
-| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and it opens on the tablet to try; it goes in only on a person's Keep it there (with the PIN when Ask for the PIN → Add apps is on; the card then also names what it may use and any exact websites it asked to reach). Opie can't keep it (docs/building-on-the-tablet.md) |
+| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and it opens on the tablet; one that gets no family things or websites goes straight in (with Add apps off), otherwise it goes in only on a person's Keep it there (with the PIN when Ask for the PIN → Add apps is on; the card then also names what it may use and any exact websites it asked to reach). Opie can't keep it (docs/building-on-the-tablet.md) |
 | Home: "… is ready to try" (an app made on the tablet nobody kept yet): open it to try again | **new** | try_made_app opens it with its bar; Keep it stays a person's own tap (with the PIN when Add apps asks), never Opie's |
 
 ## The built-in apps
