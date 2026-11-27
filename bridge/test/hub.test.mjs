@@ -25,7 +25,7 @@ let child, url, lan, root, out = '';
 before(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-hub-'));
   fs.cpSync(BRIDGE, path.join(root, 'bridge'), { recursive: true, filter: (f) => !/[\\/](node_modules|test|public)$|\.jsonl$|undo\.json$|screens\.json$/.test(f) });
-  fs.mkdirSync(path.join(root, 'hub')); fs.copyFileSync(path.join(BRIDGE, '../hub/keeper.mjs'), path.join(root, 'hub/keeper.mjs')); // (the keeper: the bridge's host here, host.js)
+  fs.mkdirSync(path.join(root, 'hub')); for (const f of ['keeper.mjs', 's3.mjs']) fs.copyFileSync(path.join(BRIDGE, '../hub', f), path.join(root, 'hub', f)); // (the keeper: the bridge's host here, host.js)
   fs.mkdirSync(path.join(root, 'bridge/public/hub'), { recursive: true });
   fs.writeFileSync(path.join(root, 'bridge/public/hub/index.html'), '<!doctype html><title>hub</title>');
   fs.mkdirSync(path.join(root, 'webapp')); initRepo(path.join(root, 'webapp'));

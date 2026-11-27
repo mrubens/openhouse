@@ -1,6 +1,7 @@
 // Backups of the family's things (backup-format.js), kept wherever the household chooses: the cloud (cloud.js, once
-// the tablet is linked) and/or a USB drive plugged into the tablet (drive.js, through the shell). One format, one
-// key, one schedule; restore works the same from any of them. Self-hosters get all of it except the hosted cloud.
+// the tablet is linked), a USB drive plugged into the tablet (drive.js, through the shell) and/or their own storage
+// bucket (bucket-backup.js, its key kept by the host). One format, one key, one schedule; restore works the same from
+// any of them. Self-hosters get all of it except the hosted cloud.
 //
 // Settings (Backups) calls these, with the display's secret like every bridge route:
 //   GET  /backup/status                       key, each destination (on, ready, last), what's running
@@ -10,6 +11,9 @@
 //   POST /backup/now                          to every destination that's on, now
 //   GET  /backup/list                         every backup on every destination that answers
 //   POST /backup/restore {dest, id, deviceId?, recoveryCode?}
+//   POST /backup/storage {endpoint, region, bucket, prefix, keyId, secret}   their own storage, from a settings page:
+//                                             passed on to the host, which checks and keeps it (never kept here)
+//   POST /backup/storage/remove               forgotten there, and off here
 //
 // A destination: { id, label, ready() -> {ok, why?, name?}, put(file, meta), list() -> [{id, kind, size, keyId,
 // createdAt, deviceId?, deviceName?}], get(item, toFile), prune?(keepNightly, keepManual) }.
@@ -287,6 +291,22 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
         backup('manual').catch((e) => console.log('[backup] failed:', e.message));
         json(res, 200, { started: true }); return true;
       }
+      // Their own storage (bucket-backup.js): passed straight on to the host, which checks it and keeps the secret.
+      case '/backup/storage':
+        await reply(res, async () => {
+          const d = byId('bucket');
+          if (!d?.setUp) throw new Error('This device can’t keep a storage key.');
+          return d.setUp(b);
+        });
+        return true;
+      case '/backup/storage/remove':
+        await reply(res, async () => {
+          const d = byId('bucket');
+          if (!d?.remove) throw new Error('No such place.');
+          await d.remove(); setDest(d.id, { on: false });
+          return { ok: true };
+        });
+        return true;
       case '/backup/restore':
         await reply(res, () => restore({ dest: String(b.dest || ''), id: String(b.id || ''), deviceId: b.deviceId ? String(b.deviceId) : null, recoveryCode: b.recoveryCode ? String(b.recoveryCode) : null }));
         return true;
