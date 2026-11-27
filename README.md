@@ -2,19 +2,20 @@
 
 # Opie
 
-Opie turns an Android tablet into the screen your household shares: the calendar, what's for dinner, the
-grocery list, chores, photos, the weather. Every tab on it is a small web app, and you can change any of them, or
-make new ones, by asking an AI.
+Opie turns an Android tablet, photo frame or phone into the AI-powered screen your household shares: the calendar,
+what's for dinner, the grocery list, chores, photos, the weather. Every tab on it is a small web app, and you can
+change any of them, or make new ones, by asking with your voice or the AI tools you already use.
 
 There are two ways to talk to it. **Opie**, the voice assistant on the tablet, handles the day-to-day: "add milk",
 "what's on tomorrow", "set a timer for the pasta". For building, you connect your own Claude or ChatGPT from a
-computer and ask for what you want: "a chore chart for the twins", "a countdown to the beach trip", "show school
+computer or on the web and ask for what you want: "a chore chart for the twins", "a countdown to the beach trip", "show school
 lunch on the calendar". It writes the app and you watch it appear on the tablet.
 
 ![The Today tab on a tablet](docs/home-today.jpg)
 
-This repo is everything that runs in the home. It's MIT licensed. You set it up on a tablet you buy yourself: the
-[tablets we've tested](docs/tablets.md) and [the setup guide](docs/setup.md). The hosted service is at
+This repo is everything that runs in the home. It's MIT licensed, and nothing in the software is locked behind a
+subscription. Set it up yourself, for free, on your own device with [the setup guide](docs/setup.md) (some
+[work best](docs/tablets.md)). Opie Cloud, the optional hosted service, is in private beta at
 [opie.house](https://opie.house).
 
 ## What's on it
@@ -62,7 +63,7 @@ Android tablet (kiosk mode)
    ├─ bridge    a Node server: the household's data, the apps, conversations, voice tools
    └─ apps      web pages, one folder each, versioned with git
 
-Opie cloud (optional)   live voice, accounts, backups, updates, reaching home from away
+Opie Cloud (optional)   live voice, accounts, backups, updates, reaching home from away
 Your computer                Claude or ChatGPT, connected through the Opie connector
 ```
 
@@ -71,10 +72,11 @@ network. Every change to an app is a git commit with who asked for it.
 
 Voice: the wake word is a small model of our own ([docs/wake-word.md](docs/wake-word.md)), built on
 [openWakeWord](https://github.com/dscripka/openWakeWord)'s features. After it wakes, the conversation is OpenAI's live
-voice, through the household's Opie account ([docs/assistant.md](docs/assistant.md)).
+voice, with the household's own OpenAI key or through Opie Cloud ([docs/assistant.md](docs/assistant.md)).
 
-The cloud isn't in this repo. Without it, the tablet still runs on your home network: the home screen, the apps,
-plugins, backups to a USB drive, and building from a computer. [docs/cloud.md](docs/cloud.md) says what the tablet
+Opie Cloud isn't in this repo, and you don't need it. Without it, Opie runs on your home network: the home screen,
+the apps, plugins, Opie's voice and assistant on your own OpenAI key, backups to a USB drive, and building from a
+computer. [docs/cloud.md](docs/cloud.md) says what the tablet
 sends it and what it keeps.
 
 ## Building it
@@ -90,13 +92,15 @@ scripts/runtime-assets.sh                    # bundle the bridge, the home scree
   After that, `ANDROID_SERIAL=<device> scripts/install-display.sh` installs each new build.
 - **On an emulator:** `scripts/create-avd.sh` once, then `scripts/start-emulator.sh`, and install as above. For
   voice, `scripts/voice-models.sh <folder>` and `scripts/voice-install.sh <folder>`.
-- **Without a tablet:** a Raspberry Pi, a NUC, a Mac or any Docker host can run it, with phones, laptops and the
-  TV as its screens. See [docs/hub.md](docs/hub.md).
+- **On a phone or photo frame:** the same Android app runs on them, laid out for the smaller screen.
+- **Without an Android device:** a Raspberry Pi, a NUC, a Mac or any Docker host can run it, with phones, laptops
+  and the TV as its screens. See [docs/hub.md](docs/hub.md).
 - **Tests:** `cd bridge && npm test` and `cd shell && ./gradlew -q :app:testReleaseUnitTest`. The home screen page
   builds with `cd chat && npm ci && npm run build`.
 
-Then on the tablet: Settings → Cloud links an account, Settings → Live voice turns on Opie, and Settings → Screens and
-computers pairs a computer for building ([docs/workshop-mcp.md](docs/workshop-mcp.md)).
+Then on the tablet: the setup asks for an OpenAI key for Opie's voice and assistant (or add one later in Settings →
+Voice), and Settings → Screens and computers pairs a computer for building
+([docs/workshop-mcp.md](docs/workshop-mcp.md)).
 
 ## Where things are
 
