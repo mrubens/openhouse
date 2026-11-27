@@ -497,7 +497,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
             dev.openhouse.ui.Devices.open -> { dev.openhouse.ui.Devices.open = false; return }
             o.confirmDelete != null -> { o.confirmDelete = null; return }
             o.showFamily && o.householdSetUp -> { o.showFamily = false; return }
-            o.showSettings -> { o.showSettings = false; return }
+            o.showSettings -> { if (!dev.openhouse.ui.SettingsNav.back()) o.showSettings = false; return } // a page, then (a phone) the tabs, then closed
             o.setupStep != null -> { dev.openhouse.ui.Setup.back(); return }
         }
         if (o.showConversation) { o.closeConversation(); return }

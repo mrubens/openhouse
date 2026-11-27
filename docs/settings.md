@@ -2,22 +2,34 @@
 
 The rules for every dialog, card and setting are in [ux.md](ux.md).
 
-One list, short words, the current value instead of an explanation. An optional PIN locks some rows. Opening a row
-and changing something comes back to the list; Back goes up one level, Done closes.
+One full-screen page: tabs down the left, the chosen tab on the right. Each row shows its current value instead of an
+explanation. A row that needs more opens in the same place, with a ‹ back to the tab; nothing opens over it but a
+question to confirm and the PIN pad. Done (top left) closes Settings. On a phone (short side under 600 dp) the tabs are a
+list; a tab opens full screen with a ‹ back to the list.
 
-## The list (ui/Sheets.kt, `SettingsSheet`; values from shell/SettingsLock.kt)
+## The tabs (ui/SettingsScreen.kt; rows from shell/SettingsLock.kt)
 
-One narrow column, six rows, so Settings isn't visually chaotic:
+Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", instead of nested sheets):
 
-| Row | Shows | Opens | Locked |
-| --- | --- | --- | --- |
-| Voice | Off, or the voice's name | Off, or one of OpenAI's voices: a voice turns on the live voice and Hey Opie together (linking first if need be); Off turns both off, and the microphone. While it's on, a quiet Check the microphone (below) | Change settings |
-| Family | the names | Family: who, where, chores | |
-| Calendars | how many are shown | Google and iCloud accounts (each one's calendars: shown or not, two-way, whose, where new events go) and calendars' links; Add a calendar | Change settings |
-| What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
-| Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add always; Remove: Change settings |
-| Account | the family's name, or Off | link or unlink, Backups (the cloud, a USB drive or your own storage), reach from away | yes |
-| Advanced | | Lock (PIN Lock, PIN recovery code, Ask for the PIN, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
+| Tab | What's on it | Locked |
+| --- | --- | --- |
+| Household | who lives here (a name, Adult, Kid or Pet, their color, an age or note), where you live, chores; Save | |
+| Opie | Voice (Off or the voice's name; the household's own OpenAI key inside), Check the microphone, What Opie remembers, Check-ins, Device control, Opie uses apps, Now playing (while it's off), Spotify | Voice: Change settings; the rest from Device control down: always |
+| Calendars | Google and iCloud accounts and their calendars, calendars' links, Add a calendar | Change settings |
+| Screen | Brightness, Volume (with Adjust to the room), Time | Time: Change settings |
+| Devices | paired screens, TVs, phones and computers (Add, Remove), then the house's speakers, streamers and printers | Add always; Remove: Change settings |
+| Account | link or unlink, Backups, Email, Use it away from home | always |
+| Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Add this tablet to another Opie, Send a report; For developers: Home network, Tailscale, Cloud address, Speech log, USB debugging, Android settings, Leave kiosk mode, Erase this tablet | always |
+
+Under the tabs, quietly: the version (tap it to look for an update and install it), and "We haven't tested this
+tablet" on a model that isn't on the list.
+
+A tablet that's part of another tablet's household (docs/multi-tablet.md) has Household (On the main tablet, Leave),
+Screen and Advanced only.
+
+A locked tab asks for the PIN when it's chosen; with no PIN typed it shows its name and Unlock. Things opened by
+Opie, the setup or a card (the Calendar app's Add a calendar, Home's Now playing card) open as before, over the screen
+they were asked from, when Settings isn't open.
 
 Voice also comes on when the first setup ends, where it can work (docs/onboarding.md, **Opie is ready**), with the
 same line about OpenAI; the setup itself is quiet (no microphone, nothing said aloud). That dialog's **Turn off** is an
@@ -28,6 +40,19 @@ The tabs, the look and Home's cards have no panel on Home for now (since 2026-11
 through Opie instead of needing a clunky UI"): asking Opie does them (`set_home`, `today_card`).
 
 ## What happened to each old setting
+
+Side tabs (2026-11-27):
+- The six-row list and the sheets and dialogs stacked on it are one page with seven tabs (above).
+- Family's sheet is the Household tab itself; Linked devices' sheet is the Devices tab. Calendars and Advanced are
+  their tabs, one level less.
+- Voice, What Opie remembers and Advanced's Opie section (device control, Opie uses apps, Now playing, Spotify,
+  check-ins) are one tab, Opie. Check the microphone is its own row there, not a link under Voice's words.
+- Brightness, Volume and Time are the Screen tab.
+- Email moved into Account (it comes through the account, or the household's own mailbox).
+- Updates is no row: the version under the tabs is the way to it.
+- "We haven't tested this tablet" left Advanced (it's a line of information): it's under the version.
+- Advanced's Household and Help sections are gone: Add this tablet to another Opie and Send a report are rows under
+  the lock's.
 
 Later rounds:
 - Live voice makes no sense without Hey Opie, so Live voice, Hey Opie and Voice are one row, **Voice**: Off or one of

@@ -39,6 +39,29 @@ internal class SettingsLock(private val act: MainActivity) {
      *  settings after the first setup), unlinking and restoring a backup: with the lock on, the PIN (straight on within
      *  the two minutes after it, as when This tablet just asked). With it off, they wait for someone to set a PIN
      *  (firstPin), so taps alone never reach them; once it's chosen, [ok]. [back]: they didn't. */
+    /** A person's own: what Opie may do, ways out of Opie, and what reaches past the tablet (DeviceServer.personOnly). */
+    private fun person(what: String, f: () -> Unit): () -> Unit = { if (!DeviceServer.personOnly(what)) f() }
+
+    /** Settings → Opie's rows that widen what Opie may do or see (they were Advanced's: always the PIN, a person's tap). */
+    private fun opie(id: String) {
+        val deviceOn = DeviceAccess.instance != null
+        when (id) {
+            "deviceControl" -> person("Device control") { always {
+                if (act.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED) { DeviceOwner.setDeviceControl(act, !deviceOn); changed() }
+                else withPinSet(back = {}) { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            } }()
+            // Opie opening, installing and using other apps for someone (docs/device-control.md): off until someone turns it on.
+            "appsOn" -> person("Opie uses apps") { if (deviceOn) always { DeviceServer.setAppsOn(act, !DeviceServer.appsOn(act)); changed() } }()
+            // The tablet's own Spotify player (SpotifyEmbed, docs/music.md): signed in on Spotify's own page; signing out is the person's too.
+            "spotify" -> person("Spotify") { always {
+                if (!SpotifyEmbed.signedIn()) SpotifyEmbed.signIn(act) { changed() }
+                else CalmDialog(act).setTitle("Sign out of Spotify?").setMessage("Opie then plays Spotify through its app again, until someone signs in here.")
+                    .setPositiveButton("Sign out") { _, _ -> SpotifyEmbed.signOut(); changed() }.setNegativeButton("Cancel", null).show()
+            } }()
+            "checkins" -> always { thread { get("/heartbeat")?.let { hb -> act.runOnUiThread { checkins(hb) } } } }
+        }
+    }
+
     /** Android's own page for Now playing (Media.kt), and back to Opie by itself the moment it's switched on. */
     private fun nowPlaying() { act.leaveKiosk(); act.startActivity(Media.settingsIntent(act)); Media.backWhenOn(act) }
 
@@ -65,7 +88,9 @@ internal class SettingsLock(private val act: MainActivity) {
             "lock" -> if (on) turnOff() else turnOn()
             "tablet" -> always { tablet() } // (Advanced: what Opie may do, the ways out, these choices: always)
             "updates" -> updates() // (no PIN: seeing the version and getting ours is everyone's)
-            "nowplaying" -> if (!Media.listening(act)) withPinSet(back = {}) { nowPlaying() } // Home's Now playing card
+            "nowplaying" -> if (!Media.listening(act)) person("Now playing") { withPinSet(back = {}) { nowPlaying() } }() // Settings → Opie, and Home's Now playing card
+            "deviceControl", "appsOn", "spotify", "checkins" -> opie(id) // Settings → Opie
+            "micCheck" -> MicCheck.open(act)
             "memory" -> memory()
             "brightness" -> Brightness.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "volume" -> VolumeSetting.choose(act, act::immersive) { Openhouse.settingsChanged() }
@@ -221,7 +246,12 @@ internal class SettingsLock(private val act: MainActivity) {
         m["lock"] = if (on) "On" else "Off"
         m["settingsLock"] = if (asks(PinChoices.SETTINGS)) "On" else "Off" // the small lock on Voice, Calendars, Time, Email
         m["updates"] = Updater.installedVersion(act)
-        m["deviceControl"] = if (DeviceAccess.instance != null) "On" else "Off" // the setup's Android step (ui/Setup.kt)
+        val deviceOn = DeviceAccess.instance != null
+        m["deviceControl"] = if (deviceOn) "On" else "Off" // Settings → Opie, and the setup's Android step (ui/Setup.kt)
+        m["appsOn"] = if (!deviceOn) "Needs device control" else if (DeviceServer.appsOn(act)) "On" else "Off"
+        m["nowPlaying"] = if (Media.listening(act)) "On" else "Off"
+        m["spotify"] = if (SpotifyEmbed.signedIn()) "Signed in" else "Sign in"
+        get("/heartbeat")?.let { m["checkins"] = everyLabel(it) }
         m["brightness"] = Brightness.label(act)
         m["volume"] = VolumeSetting.label(act)
         m["time"] = Clock.label(act)
@@ -256,7 +286,7 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("What it looks for", value = if (hb.optBoolean("ownPrompt")) "Yours" else "Ours") to { prompt(hb) },
         )
         CalmDialog(act).setTitle("Check-ins").setRows(items.map { it.first }) { _, i -> items[i].second() }
-            .setNegativeButton("Back") { _, _ -> tablet() }.show()
+            .setNegativeButton("Back", null).show()
     }
 
     private fun saveCheckins(b: JSONObject) = thread {
@@ -350,68 +380,37 @@ internal class SettingsLock(private val act: MainActivity) {
      *  list again, so it stays where you were. */
     private fun tablet(): Thread = thread {
         val lan = get("/screens")?.optBoolean("lan") == true
-        val hb = get("/heartbeat")
         val plugins = get("/plugins")?.optJSONArray("plugins")?.length() ?: 0
         val ts = get("/tailscale")
-        act.runOnUiThread { tabletList(lan, hb, plugins, ts) }
+        act.runOnUiThread { tabletList(lan, plugins, ts) }
     }
 
-    /** [lan]: other screens and phones on the Wi-Fi reach it (Linked devices); [hb]: the check-ins (bridge /heartbeat). */
-    private fun tabletList(lan: Boolean, hb: JSONObject?, plugins: Int, ts: JSONObject?) {
+    /** Settings → Advanced: the lock, plugins, this tablet's household, a report; then what's for developers. [lan]:
+     *  other screens and phones on the Wi-Fi reach it (Devices). */
+    private fun tabletList(lan: Boolean, plugins: Int, ts: JSONObject?) {
         val o = Openhouse
-        val deviceOn = DeviceAccess.instance != null
-        val granted = act.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED
         fun onOff(b: Boolean) = if (b) "On" else "Off"
         fun again() = android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ tablet() }, 350)
-        // A person's own: what Opie may do, ways out of Opie, and what reaches past the tablet (DeviceServer.personOnly).
-        fun person(what: String, f: () -> Unit): () -> Unit = { if (!DeviceServer.personOnly(what)) f() }
         // A few sections, each row's value at its right, as the main Settings list (docs/ux.md).
         fun head(t: String) = CalmDialog.Row(t, header = true) to {}
         val items = listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            head("Help"),
-            CalmDialog.Row("Send a report") to person("Send a report") { report() },
-        ) + (if (Tablets.tested) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            // A model not on this release's list (Tablets.kt, docs/tablets.md): said once, quietly, never blocking.
-            CalmDialog.Row("We haven't tested this tablet", value = Tablets.model) to {},
-        )) + (if (!Runtime.childLimitHit(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            // Shown only once Android seems to have stopped the runtime with its child-process limit (Runtime.lost).
-            CalmDialog.Row("Opie's software was stopped by Android") to { childLimit() },
-        )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            head("Household"),
-        ) + (if (Satellite.on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            CalmDialog.Row("Part of another tablet's household") to { Satellite.menu(act, this) },
-        ) else listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            // Another Opie tablet's household, for a second room (docs/multi-tablet.md): that tablet shows the code.
-            CalmDialog.Row("Add this tablet to another Opie") to person("Add this tablet to another Opie") { withPinSet { Satellite.join(act) } },
-        )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            head("Lock and updates"),
             CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },
         ) + (if (on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("PIN recovery code", value = if (ParentPin.hasRecovery(act)) null else "None") to person("PIN recovery code") { newCode() },
             CalmDialog.Row("Ask for the PIN", value = choicesLabel()) to { always { choices() } },
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
-            head("Opie"),
-            CalmDialog.Row("Device control", value = onOff(deviceOn)) to person("Device control") {
-                if (granted) { DeviceOwner.setDeviceControl(act, !deviceOn); again() }
-                else withPinSet { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
-            },
-            // Opie opening, installing and using other apps for someone (docs/device-control.md): off until someone turns it on.
-            CalmDialog.Row("Opie uses apps", value = if (!deviceOn) "Needs device control" else onOff(DeviceServer.appsOn(act))) to person("Opie uses apps") {
-                if (deviceOn) DeviceServer.setAppsOn(act, !DeviceServer.appsOn(act)); again()
-            },
-        ) + (if (Media.listening(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            // Opie seeing what the media apps play (Media.kt, docs/music.md): set up over adb (tablet-setup.sh), or here,
-            // on Android's own page, with the PIN. Shown only while it's off.
-            CalmDialog.Row("Now playing", value = "Off") to person("Now playing") { withPinSet { nowPlaying() } },
+        ) + (if (Satellite.on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            CalmDialog.Row("Part of another tablet's household") to { Satellite.menu(act, this) },
+        ) else listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            // Another Opie tablet's household, for a second room (docs/multi-tablet.md): that tablet shows the code.
+            CalmDialog.Row("Add this tablet to another Opie") to person("Add this tablet to another Opie") { withPinSet { Satellite.join(act) } },
         )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            // The tablet's own Spotify player (SpotifyEmbed, docs/music.md): signed in on Spotify's own page; signing out is the person's too.
-            CalmDialog.Row("Spotify", value = if (SpotifyEmbed.signedIn()) "Signed in" else "Sign in") to person("Spotify") {
-                if (!SpotifyEmbed.signedIn()) SpotifyEmbed.signIn(act) { again() }
-                else CalmDialog(act).setTitle("Sign out of Spotify?").setMessage("Opie then plays Spotify through its app again, until someone signs in here.")
-                    .setPositiveButton("Sign out") { _, _ -> SpotifyEmbed.signOut(); again() }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
-            },
-            CalmDialog.Row("Check-ins", value = hb?.let { everyLabel(it) } ?: "") to { hb?.let { checkins(it) } },
+            CalmDialog.Row("Send a report") to person("Send a report") { report() },
+        ) + (if (!Runtime.childLimitHit(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            // Shown only once Android seems to have stopped the runtime with its child-process limit (Runtime.lost).
+            CalmDialog.Row("Opie's software was stopped by Android") to { childLimit() },
+        )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             head("For developers"),
             CalmDialog.Row("Home network", value = onOff(lan)) to person("Home network") { thread { CloudSetup.post("${act.bridge}/screens/lan", JSONObject().put("on", !lan)) }; again() },
             // Away from home through the household's own Tailscale (TailscaleMenu, bridge/tailscale.js): it changes who can

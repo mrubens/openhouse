@@ -35,7 +35,7 @@ internal object PinPrompt {
             addView(dev.openhouse.ui.Calm.quiet(act, "Forgot PIN?") { done = true; dialog?.dismiss(); forgot(act, pins, ok, cancelled) },
                 android.widget.LinearLayout.LayoutParams(-2, -2).apply { gravity = android.view.Gravity.CENTER_HORIZONTAL; topMargin = dev.openhouse.ui.Calm.px(act, 8) })
         }
-        dialog = CalmDialog(act).setTitle(title).setView(view).setWidth(620f)
+        dialog = CalmDialog(act).asDialog().setTitle(title).setView(view).setWidth(620f)
             .setNegativeButton("Cancel", null)
             .setOnDismissListener { if (!done) { done = true; cancelled() } }
             .show()
@@ -57,7 +57,7 @@ internal object PinPrompt {
             again(act, pins, entry, then, back) { linked.get() }
         }
         first.say(note ?: "")
-        d = CalmDialog(act).setTitle("Choose a PIN").setMessage("4 to 8 digits.")
+        d = CalmDialog(act).asDialog().setTitle("Choose a PIN").setMessage("4 to 8 digits.")
             .setView(first).setWidth(620f).setNegativeButton("Cancel", null)
             .setOnDismissListener { if (!going) back() }.show()
         (act as? MainActivity)?.immersive()
@@ -80,7 +80,7 @@ internal object PinPrompt {
                 else -> showCode(act, RecoveryCode.new(), keep = { keep(it) }, back = back)
             }
         }
-        d = CalmDialog(act).setTitle("Once more").setView(pad).setWidth(620f).setNegativeButton("Cancel", null)
+        d = CalmDialog(act).asDialog().setTitle("Once more").setView(pad).setWidth(620f).setNegativeButton("Cancel", null)
             .setOnDismissListener { if (!going) back() }.show()
         (act as? MainActivity)?.immersive()
     }
@@ -99,7 +99,7 @@ internal object PinPrompt {
             addView(dev.openhouse.ui.Calm.text(act, code, 40f, 600).apply { letterSpacing = .08f; gravity = android.view.Gravity.CENTER; setPadding(0, dev.openhouse.ui.Calm.px(act, 28), 0, dev.openhouse.ui.Calm.px(act, 8)) },
                 android.widget.LinearLayout.LayoutParams(-1, -2))
         }
-        CalmDialog(act).setTitle("PIN recovery code").setView(box).setWidth(760f).setCancelable(false).setForPerson()
+        CalmDialog(act).asDialog().setTitle("PIN recovery code").setView(box).setWidth(760f).setCancelable(false).setForPerson()
             .setMore("It's shown only now: the tablet keeps a scrambled copy that can check it but not show it. A new code can be made later in Settings, Advanced, after the PIN.")
             .setPositiveButton("I've kept it") { _, _ -> keep(code) }
             .setNegativeButton("Cancel") { _, _ -> back() }.show()
@@ -127,7 +127,7 @@ internal object PinPrompt {
                     android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = dev.openhouse.ui.Calm.px(act, 12) })
             }
         }
-        d = CalmDialog(act).setTitle(if (again) "That code doesn't fit" else "Forgot the PIN")
+        d = CalmDialog(act).asDialog().setTitle(if (again) "That code doesn't fit" else "Forgot the PIN")
             .setMessage(if (ParentPin.hasRecovery(pins)) "Type the recovery code that was shown when the PIN was chosen. The backups' recovery code works too."
                 else "Type the backups' recovery code, or reset it with your Opie account if this tablet is linked to one.") // (a PIN chosen while linked has no code of its own)
             .setView(view).setWidth(760f).setForPerson().setCancelable(false)
@@ -156,7 +156,7 @@ internal object PinPrompt {
     fun viaAccount(act: Activity, pins: Context, ok: () -> Unit, cancelled: () -> Unit = {}) {
         val bridge = dev.openhouse.ui.Openhouse.bridgeUrl
         fun say(title: String, text: String) {
-            CalmDialog(act).setTitle(title).setMessage(text).setCancelable(false)
+            CalmDialog(act).asDialog().setTitle(title).setMessage(text).setCancelable(false)
                 .setPositiveButton("Back") { _, _ -> forgot(act, pins, ok, cancelled) }
                 .setNegativeButton("Cancel") { _, _ -> cancelled() }.show()
             (act as? MainActivity)?.immersive()
@@ -176,7 +176,7 @@ internal object PinPrompt {
                         android.widget.LinearLayout.LayoutParams(-1, -2))
                 }
                 var waiting = true
-                val d = CalmDialog(act).setTitle("Reset with your account").setView(box).setWidth(760f).setForPerson().setCancelable(false)
+                val d = CalmDialog(act).asDialog().setTitle("Reset with your account").setView(box).setWidth(760f).setForPerson().setCancelable(false)
                     .setMore("Only someone signed in to the account this tablet is linked to can do it. The code works once, for 15 minutes.")
                     .setNegativeButton("Cancel") { _, _ -> waiting = false; cancelled() }
                     .setOnDismissListener { waiting = false }.show()
