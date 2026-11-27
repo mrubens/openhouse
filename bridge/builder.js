@@ -22,7 +22,7 @@ import { dayKey } from './dates.js';
 import { buildWaits, markBuilding, unmarkBuilding } from './build-waits.js';
 
 /** ask(card): the tablet's try-it bar and card (brain.js shellAsk); keepPin(): whether keeping it takes the PIN there; grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home;
- *  say(text): said aloud on the tablet (a request asked aloud hears that it's ready to try);
+ *  say(text): said aloud on the tablet (no longer used when an app is ready: it opens to try instead);
  *  tell(conversation, text): a typed request's conversation hears, in writing, that it didn't work (chat.js tell). */
 export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, keepPin = async () => false, grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, tell = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
@@ -282,11 +282,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       const card = result.card;
       touchedApps.add(card.app); // (closed on screen if it's put back or set aside: closeGone)
       emit({ type: 'phase', name: 'asking' });
-      // Asked aloud: the voice may have gone quiet by now, so the tablet says it's ready to try.
-      if (owner.spoken) {
-        const pin = await keepPin().catch(() => false);
-        try { say(`${card.fresh ? `${card.name} is ready` : `The change to ${card.name} is ready`}. Try it on the tablet${pin ? '; keeping it takes the PIN' : ''}.`); } catch {}
-      }
+      // Nothing is said: the app opening on the tablet, with its Keep it bar, is the news.
       const a = await waits.decide(owner, card);
       if (events.state.state !== 'working' || owner.abort.signal.aborted) return false; // cancelled while the card was up
       if (a === 'no') {
