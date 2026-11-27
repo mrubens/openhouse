@@ -42,11 +42,15 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
     /** Settings → Voice (behind the PIN Lock when it is on; openhouse-cloud/docs/cloud-beta.md): Off, or which of OpenAI's voices it speaks with. Heard from the next
      *  conversation, so it says hello in it at once (a short session just to say it). */
     fun chooseVoice() = thread {
-        val now = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/cloud/voice", 3000, 8000)).optString("voiceName") }.getOrNull()
+        val v = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/cloud/voice?check=1", 3000, 8000)) }.getOrNull()
+        val now = v?.optString("voiceName")
+        // This month (bridge/usage.js): minutes talking, typed questions, apps made or changed, and about what it cost.
+        // Only once something's been used: a line nobody needs otherwise.
+        val month = v?.optJSONObject("month")?.takeIf { m -> listOf("minutes", "questions", "apps", "cents").any { m.optInt(it) > 0 } }?.optString("text")?.takeIf { it.isNotBlank() }
         ui {
             if (now == null) return@ui say(noBridge)
             val checked = if (!LiveVoice.chosen) 0 else 1 + VOICES.indexOfFirst { it.first == now }
-            val d = CalmDialog(act).setTitle("Voice").setMessage(if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.")
+            val d = CalmDialog(act).setTitle("Voice").setMessage((if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.") + (month?.let { "\n\n$it" } ?: ""))
             // Where someone looks when "Hey Opie" isn't working: does Opie hear them here? (MicCheck)
             var shown: android.app.Dialog? = null
             if (LiveVoice.chosen) d.setView(dev.openhouse.ui.Calm.quiet(act, "Check the microphone") { shown?.dismiss(); MicCheck.open(act) }.apply { gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, 0) })

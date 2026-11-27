@@ -43,6 +43,7 @@ import { snapshot } from './heartbeat-review.js';
 import { laterRoutes } from './later.js';
 import { unsaved } from './store.js';
 import { cloudRoutes, noteError } from './cloud.js';
+import { onUse } from './usage.js';
 import { lanTls } from './lan-tls.js';
 import { relayRoutes } from './relay.js';
 import { tailscaleRoutes } from './tailscale.js';
@@ -265,7 +266,9 @@ console.log(`[host] ${host.kind}`);
 let backups = null;
 const cloud = cloudRoutes({ DISPLAY, json, body, agentName, backupBits: () => backups?.bits() || {}, fixesFile: path.join(HB_DIR, '../heartbeat-fixes.json') });
 cloudRef = cloud;
+onUse((p) => cloud.counted(p)); // a typed question answered, an app made or changed (usage.js)
 chat.live.useDecide((i, q) => cloud.decide(i, q));
+chat.live.setUsage(() => cloud.usageNow()); // Opie's how_much_used: Settings → Voice's "This month"
 import('./calendar.js').then((m) => m.useCalendarDecide((i, q) => cloud.decide(i, q)));
 import('./maps.js').then((m) => m.useMapCloud({ suggest: (q, near) => cloud.placesSuggest(q, near), place: (id) => cloud.placeOf(id) })); // the Map's address suggestions // which events of a calendar kept only in part (calendar.js) // judgments about what was said, from the whole conversation (live-tools.js judge)
 // The tablet's assistant for typed turns and the rest: the cloud's text model with the household's tools (chat.js textTools).

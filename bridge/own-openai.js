@@ -10,6 +10,23 @@ export const LIVE_VOICES = ['marin', 'gleam', 'meridian', 'quartz', 'ripple', 'v
 export const MODELS = { live: 'gpt-live-1.1', backend: 'gpt-6-luna', text: 'gpt-6-luna', decide: 'gpt-6-luna' };
 const AI_MAX_OUTPUT = 16_000;
 
+// What the household's own key costs them, estimated from OpenAI's list prices as the cloud's are (openhouse-cloud
+// lambda/app.ts VOICE and PRICES, 2026-11-24): only for Settings → Voice's "This month" (usage.js); OpenAI's bill is the
+// real one. In millicents; text prices in cents per 1M tokens, short context (at most 272K input tokens) and long.
+export const COSTS = { livePerSecond: 5000 / 60, searchPerCall: 1000, decideInPerM: 10 * 1000 };
+export const PRICES = {
+  'gpt-6-luna': [{ in: 10, cached: 1, w30: 12.5, w12: 25, out: 50 }, { in: 20, cached: 2, w30: 25, w12: 50, out: 75 }],
+  'gpt-6.1-terra': [{ in: 100, cached: 5, w30: 125, w12: 250, out: 500 }, { in: 200, cached: 10, w30: 250, w12: 500, out: 750 }],
+};
+/** What a response's tokens cost, in millicents (a model not listed: the dearest). */
+export function tokensMc(model, u = {}, flex = false) {
+  const known = Object.keys(PRICES).find((m) => model === m || String(model || '').startsWith(`${m}-`));
+  const p = PRICES[known || 'gpt-6.1-terra'][(u.input_tokens || 0) > 272_000 ? 1 : 0];
+  const cached = u.cached_tokens || 0, w12 = u.ttl_12h_tokens || 0, w30 = Math.max(0, (u.cache_write_tokens || 0) - w12);
+  const plain = Math.max(0, (u.input_tokens || 0) - cached - w30 - w12);
+  return (plain * p.in + cached * p.cached + w30 * p.w30 + w12 * p.w12 + (u.output_tokens || 0) * p.out) * 1000 / 1e6 * (flex ? 0.5 : 1);
+}
+
 // OpenAI's own web search for the live voice's text model: directions, travel times, hours, anything outside the
 // household. Its words override the household rules' "you can't search".
 export const LIVE_SEARCH = `In this spoken conversation you can search the web (web_search), which the household's rules may say you can't. ` +
@@ -63,9 +80,9 @@ const fail = (what, r) => Object.assign(new Error(`openai ${what} ${r.status || 
 
 /**
  * [openai](kind, body) -> {status, body}: the shell's route (kinds: live, responses, decisions). The three calls as the
- * cloud's answers look, so the rest of the bridge can't tell which way they went.
+ * cloud's answers look, so the rest of the bridge can't tell which way they went. spent(mc): what a call cost, estimated.
  */
-export function ownOpenAI({ openai }) {
+export function ownOpenAI({ openai, spent = () => {} }) {
   async function liveStart({ sdp, name, instructions, tools, idleTimeoutS, voice, earlier }) {
     if (!/^v=0\r?\n/.test(String(sdp || '')) || String(sdp).length > 20000) throw Object.assign(new Error('sdp'), { code: 'http400' });
     const fns = cleanTools(tools), rules = String(instructions || '');
@@ -95,8 +112,10 @@ export function ownOpenAI({ openai }) {
     if (flex && r.status === 429) throw Object.assign(new Error('flex unavailable'), { code: 'flex_unavailable' });
     if (r.status >= 300) throw fail('responses', r);
     const u = r.body?.usage || {}, d = u.input_tokens_details || {};
-    return { output: r.body?.output || [], tier: r.body?.service_tier === 'flex' ? 'flex' : 'standard',
-      usage: { input_tokens: u.input_tokens || 0, output_tokens: u.output_tokens || 0, cached_tokens: d.cached_tokens || 0, cache_write_tokens: d.cache_write_tokens || 0 } };
+    const output = r.body?.output || [], usage = { input_tokens: u.input_tokens || 0, output_tokens: u.output_tokens || 0, cached_tokens: d.cached_tokens || 0, cache_write_tokens: d.cache_write_tokens || 0 };
+    const searches = output.filter((o) => o?.type === 'web_search_call').length;
+    spent(tokensMc(r.body?.model || MODELS.text, usage, flex) + searches * COSTS.searchPerCall);
+    return { output, tier: r.body?.service_tier === 'flex' ? 'flex' : 'standard', usage };
   }
 
   /** Decisions: {answers}. Questions in the shape OpenAI accepts, else refused. */
@@ -105,6 +124,9 @@ export function ownOpenAI({ openai }) {
     if (!String(input || '') || !qs) throw Object.assign(new Error('questions'), { code: 'http400' });
     const r = await openai('decisions', { model: MODELS.decide, input: String(input), questions: qs });
     if (r.status >= 300) throw fail('decisions', r);
+    // (OpenAI's count of what it read; without one, each question as if it read all of it, at about 2 characters a token)
+    const read = Number(r.body?.usage?.input_tokens) || Math.ceil((String(input).length + JSON.stringify(qs).length) / 2) * qs.length;
+    spent(read * COSTS.decideInPerM / 1e6);
     return { answers: r.body?.answers || [] };
   }
   return { liveStart, respond, decide };
