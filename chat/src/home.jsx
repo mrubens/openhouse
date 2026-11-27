@@ -868,7 +868,28 @@ const Frames = () => <svg className="t-frames" viewBox="0 0 300 150" aria-hidden
   <g fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="128" cy="44" r="8" /><path d="M110 104l24-26 18 18 12-12 26 20" /></g>
 </svg>;
 
-/** A photo of theirs, a new one every minute, with its caption if it has one, opening Photos. */
+/**
+ * A sideways swipe across photos: [step] gets 1 (to the next) or -1 (back). The tap that ends a swipe doesn't open the
+ * photo. Up and down are left to the page (touch-action: pan-y).
+ */
+export function usePhotoSwipe(step, { onTap } = {}) {
+  const at = useRef(null), swiped = useRef(false);
+  return {
+    style: { touchAction: 'pan-y' },
+    onPointerDown: (e) => { at.current = [e.clientX, e.clientY]; swiped.current = false; },
+    onPointerUp: (e) => {
+      const a = at.current; at.current = null; if (!a) return;
+      const dx = e.clientX - a[0], dy = e.clientY - a[1];
+      if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) { swiped.current = true; step(dx < 0 ? 1 : -1); }
+      else onTap?.();
+    },
+    onPointerCancel: () => { at.current = null; onTap?.(); },
+    onClickCapture: (e) => { if (swiped.current) { swiped.current = false; e.stopPropagation(); e.preventDefault(); } },
+  };
+}
+export const wrap = (i, n) => ((i % n) + n) % n;
+
+/** A photo of theirs, a new one every minute, with its caption if it has one, opening Photos; a swipe moves along. */
 function PhotoCard({ c, names, captions, now, usePhoto, onOpen, ...rest }) {
   // A wide card shows a few photos side by side, each about as wide as it is tall, so none is cut to a strip (the
   // user); a card near square shows one. They move on each minute.
@@ -878,10 +899,11 @@ function PhotoCard({ c, names, captions, now, usePhoto, onOpen, ...rest }) {
     const o = new ResizeObserver(() => { const r = el.getBoundingClientRect(); if (r.width && r.height) setN(Math.max(1, Math.min(5, Math.round(r.width / r.height / 0.85)))); });
     o.observe(el); return () => o.disconnect();
   }, []);
-  const k = Math.min(n, names.length), at = Math.floor(now / 60e3) * k;
-  const shown = Array.from({ length: k }, (_, i) => names[(at + i) % names.length]);
+  const [off, setOff] = useState(0), swipe = usePhotoSwipe((d) => setOff((o) => o + d));
+  const k = Math.min(n, names.length), at = (Math.floor(now / 60e3) + off) * k;
+  const shown = Array.from({ length: k }, (_, i) => names[wrap(at + i, names.length)]);
   const cap = k === 1 ? captions?.[shown[0]] : null;
-  return <div ref={box} {...rest} onClick={onOpen ? () => onOpen(shown[0]) : rest.onClick} className={rest.className + ' t-photo t-pic-card' + (k > 1 ? ' t-photos' : '')}>{/* a tap opens a photo in Photos */}
+  return <div ref={box} {...rest} {...swipe} style={{ ...rest.style, ...swipe.style }} onClick={onOpen ? () => onOpen(shown[0]) : rest.onClick} className={rest.className + ' t-photo t-pic-card' + (k > 1 ? ' t-photos' : '')}>{/* a tap opens a photo in Photos */}
     {k > 1 ? shown.map((name) => <PhotoTile key={name} c={c} name={name} usePhoto={usePhoto} onOpen={onOpen} />) : shown[0] && <PhotoTile c={c} name={shown[0]} usePhoto={usePhoto} onOpen={onOpen} />}
     {cap && <div className="t-cap"><div className="t-line">{cap}</div></div>}</div>;
 }

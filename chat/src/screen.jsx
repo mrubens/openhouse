@@ -16,7 +16,7 @@ import { Talk, canTalk } from './talk.jsx';
 import { pair, client, Removed } from './screen-client.js';
 import { AnswerBody, Display, page as answerPage } from './answer.jsx';
 import { Widget, Fit, IconFill, U } from './home-widgets.jsx';
-import { Home as HomeTabs, appOrigin, Clip, useClipUrl } from './home.jsx';
+import { Home as HomeTabs, appOrigin, Clip, useClipUrl, usePhotoSwipe, wrap } from './home.jsx';
 import { useNow, smallHours } from './now.js';
 import { nextAlarm } from './alarms.jsx';
 import { pairingFromCode, cleanCode } from './scrypt.js';
@@ -271,12 +271,13 @@ function AppIcon({ app, id, name, old, img }) {
   );
 }
 
-/** The family's photos, one at a time, edge to edge (the Photos widget). */
+/** The family's photos, one at a time, edge to edge (the Photos widget); a swipe moves along. */
 function PhotoShow({ c, names, seconds = 15 }) {
   const now = useNow(seconds * 1000);
-  const name = names.length ? names[Math.floor(now / (seconds * 1000)) % names.length] : null;
+  const [off, setOff] = useState(0), swipe = usePhotoSwipe((d) => setOff((o) => o + d));
+  const name = names.length ? names[wrap(Math.floor(now / (seconds * 1000)) + off, names.length)] : null;
   const src = usePhoto(c, name);
-  return <div className="tile photo">{src ? <img src={src} alt="" draggable={false} /> : null}</div>;
+  return <div className="tile photo" {...swipe}>{src ? <img src={src} alt="" draggable={false} /> : null}</div>;
 }
 
 // Timers ring on the display (the shell rings them) and, on other screens, here. Web Audio needs a tap on the page first.
@@ -729,7 +730,9 @@ function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
   // At night the backlight goes right down too (the shell), and comes back when someone touches it.
   useEffect(() => { shell?.dim?.(night); return () => shell?.dim?.(false); }, [night]);
   const names = wantsPhotos && !night ? house?.screensaver || house?.photos || [] : []; // those whose albums are on for the sleep screen (Photos)
-  const shown = names.length ? names[Math.floor(now / 12e3) % names.length] : null;
+  // A swipe moves along the photos and leaves the sleep screen up; any other touch wakes it, as before.
+  const [off, setOff] = useState(0), swipe = usePhotoSwipe((d) => setOff((o) => o + d), { onTap: () => shell?.touch() });
+  const shown = names.length ? names[wrap(Math.floor(now / 12e3) + off, names.length)] : null;
   const src = usePhoto(c, shown), caption = shown && house?.captions?.[shown];
   const clipUrl = useClipUrl(c, /\.(mp4|mov|m4v)$/i.test(shown || '') ? shown : null); // a video plays silently over its still (the user)
   const d = new Date(now);
@@ -773,7 +776,7 @@ function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
   const al = nextAlarm(alarms, now);
   if (al && al.at - now < 864e5) { const t = new Date(al.at); lines.splice(4, 1, { k: 'alarm', when: `${hm(t)}${t.getHours() < 12 ? ' AM' : ' PM'}`, e: isPerson(al.a.who) ? { who: al.a.who } : null, text: al.a.label || 'Alarm' }); }
   return (
-    <div className={'ambient' + (night ? ' night' : '')} onPointerDown={() => shell?.touch()}>
+    <div className={'ambient' + (night ? ' night' : '')} {...(names.length > 1 ? swipe : { onPointerDown: () => shell?.touch() })}>
       {src && <img className="ambient-back" src={src} alt="" />}{src && <img className="ambient-fit" src={src} alt="" />}{clipUrl && <Clip className="ambient-fit" url={clipUrl} />}{/* the whole photo, its own blur in the margins (as Photos shows one) */}
       {src && caption && <div className="ambient-caption">{caption}</div>}
       <div className="ambient-time"><div className="t">{hm(d)}</div><div className="d">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
