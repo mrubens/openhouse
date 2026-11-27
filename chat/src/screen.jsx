@@ -954,8 +954,9 @@ function Joined({ c, scopes, idle, asking, setAsking, onRemoved }) {
 }
 
 if (shell) document.documentElement.classList.add('display');
-// u: one pixel of a 1536-wide screen, like the display's sizes.
-const setU = () => document.documentElement.style.setProperty('--u', `${innerWidth / 1536}px`);
+// u: one pixel of a 1536-wide screen, like the display's sizes; on a phone (its short side under 600 px, as the shell's
+// Calm.compact), 560 across its short side, upright or not.
+const setU = () => { const short = Math.min(innerWidth, innerHeight); document.documentElement.style.setProperty('--u', `${short < 600 ? short / 560 : innerWidth / 1536}px`); };
 setU(); addEventListener('resize', setU);
 addEventListener('hashchange', () => location.reload()); // a new code opened in this tab: start over with it
 createRoot(document.getElementById('root')).render(<App />);

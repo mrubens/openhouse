@@ -17,7 +17,8 @@ import androidx.compose.ui.unit.dp
  * openhouse's look, shared by the fixed parts of the shell and the board the family's agent edits.
  *
  * Sizes are in "u": one u is one pixel of a 1536-wide layout, scaled to the actual screen, so
- * the same design reads the same on any tablet and from across a room (`22.u`, `fontU(22)`).
+ * the same design reads the same on any tablet and from across a room (`22.u`, `fontU(22)`). On a phone (Calm.compact)
+ * the short side is 560 u instead.
  */
 @Immutable
 object Oh {
@@ -66,7 +67,8 @@ val Float.u: Dp @Composable get() = (this * LocalU.current).dp
 /** Measures the screen and provides u for everything inside. Wrap whole screens in it. */
 @Composable fun OhScreen(content: @Composable () -> Unit) {
     BoxWithConstraints {
-        val u = maxWidth.value / 1536f
+        val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+        val u = if (cfg.smallestScreenWidthDp in 1..599) cfg.smallestScreenWidthDp / 560f else maxWidth.value / 1536f // a phone: Calm.compact
         CompositionLocalProvider(LocalU provides u) { content() }
     }
 }

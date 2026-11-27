@@ -80,8 +80,15 @@ object Calm {
     )
 
     // --- Android views ---------------------------------------------------------------------------------------
-    /** Pixels per u on this screen (the long side is 1536 u). */
-    fun u(c: Context): Float = c.resources.displayMetrics.let { maxOf(it.widthPixels, it.heightPixels) / 1536f }
+    /**
+     * A phone: its short side is under 600 dp (a tablet's is 600 or more). It turns upright as well as sideways, and its
+     * unit comes from that short side (560 u across, as the apps' narrow.css), so type and taps are a phone's size either way.
+     */
+    fun compact(c: Context): Boolean = c.resources.configuration.smallestScreenWidthDp in 1..599
+    /** Pixels per u on this screen (the long side is 1536 u; on a phone the short side is 560 u). */
+    fun u(c: Context): Float = c.resources.displayMetrics.let {
+        if (compact(c)) minOf(it.widthPixels, it.heightPixels) / 560f else maxOf(it.widthPixels, it.heightPixels) / 1536f
+    }
     fun px(c: Context, v: Number): Int = (v.toFloat() * u(c)).toInt()
 
     private val faces = HashMap<Int, Typeface>()
@@ -364,7 +371,7 @@ class CalmDialog(private val c: Context) {
             card.addView(bar, LinearLayout.LayoutParams(-1, -2))
         } else card.setPadding(card.paddingLeft, card.paddingTop, card.paddingRight, Calm.px(c, if (settingsLook) 30 else 40))
 
-        val holder = FrameLayout(c).apply { addView(card, FrameLayout.LayoutParams(Calm.px(c, widthU), -2, Gravity.CENTER)) }
+        val holder = FrameLayout(c).apply { addView(card, FrameLayout.LayoutParams(minOf(Calm.px(c, widthU), c.resources.displayMetrics.widthPixels - Calm.px(c, 24)), -2, Gravity.CENTER)) }
         d.setContentView(holder)
         d.setCancelable(cancelable)
         if (cancelable) dev.openhouse.shell.addEdgeBack(holder) { d.cancel() } // the tablet hides the system's back: swipe in from an edge

@@ -97,6 +97,8 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A phone turns upright too (the manifest keeps tablets sideways, as they always were): Calm.compact.
+        if (dev.openhouse.ui.Calm.compact(this)) requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         PinPrompt.watchScreen(this) // the PIN's two-minute grace ends when the screen sleeps
         // Moving to Opie's IDs (Move.kt): the new display takes over first; the old one, once it has handed over,
         // only steps aside.
