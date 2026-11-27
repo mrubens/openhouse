@@ -32,6 +32,24 @@ sent through the shell's route (`DeviceServer` `/openai`), which adds the key an
 api.openai.com (`/v1/live/sessions`, `/v1/responses`, `/v1/decisions`). Opie's cloud is never asked while a key is in,
 and nothing is counted here: OpenAI bills the household, and a budget on the key at OpenAI is the stop.
 
+## In this home
+
+Everyone in the house may be listening, kids included, and Opie can't tell who is talking (voices aren't recognised;
+a name comes only with a turn from that person's own phone). So the instructions both models get (bridge/CHAT.md,
+**IN THIS HOME**, in the typed turns' and the live voice's alike) shape every answer as if a kid may be listening: no
+sexual content, graphic violence or instructions for anything dangerous or illegal; sensitive questions (sex, death,
+scary news, self-harm) answered gently and honestly, with a suggestion to talk with an adult at home, and danger right
+now pointed to an adult and 911; health, legal and money questions given general information and a suggestion to ask a
+professional. Everything else (trivia, homework, stories, jokes, recipes) gets full help. It's judged by the model with
+the whole conversation, never by word lists, and Opie doesn't mention or announce any of it: it just answers that way,
+or gently steers.
+
+**House rules** (Settings → Voice → House rules; Opie's `house_rules`): the household's own few lines, empty by default.
+They come right after the defaults in every conversation's instructions (bridge/house-rules.js `rulesBlock`, through
+chat.js `prefsBlock`) and loosen or tighten them ("Adults use this too; the news is fine to talk about."). Something
+someone asks Opie to remember doesn't change the defaults; only the house rules do, and changing them takes the PIN
+when Change settings asks for it (docs/settings.md).
+
 ## A typed turn
 
 - The tools: the live voice's (`LIVE_TOOLS`, the weather, the TV, the apps' voice actions) plus `update_household`,

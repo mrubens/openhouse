@@ -59,7 +59,6 @@ data class WeatherHour(val time: String, val temp: Int, val code: Int, val isDay
 data class WeatherDay(val date: String, val high: Int, val low: Int, val code: Int, val condition: String, val rain: Int?)
 /** Where something that isn't a note sits on the home screen's grid (page from 0, its top-left cell, cells across and down; null: not yet), and whether it's in the trash. */
 data class Place(val page: Int = 0, val col: Int? = null, val row: Int? = null, val w: Int? = null, val h: Int? = null, val hidden: Boolean = false)
-data class Speaker(val name: String, val unsure: Boolean, val at: Long)
 /** The agent making or changing something: its steps as they happen, then what it did. */
 data class Build(
     val request: String, val who: String?, val startedAt: Long, val stage: String = "Starting", val plan: String? = null,

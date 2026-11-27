@@ -125,14 +125,11 @@ internal object Turns {
         if (q.isEmpty()) return
         // Someone else woke it ("hi Widget") while it's busy with another person's request, or right after: a new
         // conversation of their own. The other one carries on in the background and still finishes.
-        // Only when they said its name for this: a follow-up to its answer carries on the same conversation, whoever's
-        // voice it is (most voices aren't recognized, and an unknown voice used to count as someone else every time).
-        // Someone else only when both voices are known and differ: a voice it only guessed counts as theirs, and an
-        // unknown one is whoever is in the room (it used to count as someone else, so every "hey Opie" started over).
+        // Only when they said its name for this, and only when both named who's asking and they differ: voices aren't
+        // recognised, so an unnamed turn is whoever is in the room and carries on the same conversation.
         val woke = voice && byName && System.currentTimeMillis() - wokeAt < 20_000
-        val voiceNow = who ?: o.speaker?.takeIf { System.currentTimeMillis() - it.at < 5_000 }?.name
         val before = o.answer?.who
-        val someoneElse = woke && voiceNow != null && before != null && voiceNow != before
+        val someoneElse = woke && who != null && before != null && who != before
         // The same person talking or typing while it works: the next thing to do, once this turn ends (never dropped).
         if (o.answer?.live == true && !someoneElse) {
             // The same thing again while it's already on it (a button tapped twice, said twice): once is enough.
@@ -180,7 +177,7 @@ internal object Turns {
         val job = o.scope.launch(start = CoroutineStart.LAZY) {
             var id = followUp; var streamed = ""; var final = ""; var ok = false; var ended = false; var quiet = false
             try {
-                stream(mine.turnId, JSONObject().put("id", id).put("text", q).put("who", asker?.name).put("about", asker?.note?.ifEmpty { null })
+                stream(mine.turnId, JSONObject().put("id", id).put("text", q).put("who", asker?.name)
                     .put("app", app?.takeIf { it != "home" }).put("crash", app?.let { crashes[it] }).put("spoken", voice), onEvent = { ev ->
                     when (ev.optString("type")) {
                         "start" -> { id = ev.optString("id"); running[mine.turnId]?.convo = id; upd { it.copy(convo = id) } }
@@ -243,9 +240,9 @@ internal object Turns {
         val q = text.trim(); val c = o.conversation ?: Conversation(null, emptyList())
         if (q.isEmpty() && !onboard) return
         // Said or typed while it's still answering: the next turn, once this one is done (never dropped).
-        if (c.turns.lastOrNull()?.live == true) { queueOf(SCREEN).addLast(Next(q, voice)); o.heard = Heard(o.me?.name, "Got it, next: $q", System.currentTimeMillis()); return }
+        if (c.turns.lastOrNull()?.live == true) { queueOf(SCREEN).addLast(Next(q, voice)); o.heard = Heard(null, "Got it, next: $q", System.currentTimeMillis()); return }
         o.touch(); o.typing = null; o.draft = ""; Speech.hushed = false
-        val who = o.me?.name
+        val who: String? = null
         val app = o.openAppId
         o.conversation = c.copy(turns = c.turns + (if (onboard) emptyList() else listOf(Turn("user", q, who))) + Turn("assistant", "", live = true, status = "Thinking"))
         fun upd(f: (Turn) -> Turn) = o.ui { o.conversation = o.conversation?.let { cc -> cc.copy(turns = cc.turns.dropLast(1) + f(cc.turns.last())) } }
@@ -260,7 +257,7 @@ internal object Turns {
                 streamed = ""; spoken = 0; once.messageEnded()
             }
             try {
-                stream(turnId, JSONObject().put("id", cid).put("text", q).put("who", who).put("about", o.person(who)?.note?.ifEmpty { null }).put("onboard", onboard), onEvent = { ev ->
+                stream(turnId, JSONObject().put("id", cid).put("text", q).put("who", who).put("onboard", onboard), onEvent = { ev ->
                     when (ev.optString("type")) {
                         "start" -> { cid = ev.optString("id"); running[turnId]?.convo = cid; o.ui { o.conversation = o.conversation?.copy(id = cid) } }
                         "status" -> { val st = ev.optString("text"); upd { it.copy(status = st) } }

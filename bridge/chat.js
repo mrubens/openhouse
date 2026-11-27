@@ -30,6 +30,7 @@ import { alarmStore } from './alarms.js';
 import { dayNotes } from './day-notes.js';
 import { forModel, fromModel } from './tool-args.js';
 import { host } from './host.js';
+import { RULES_TOOL, houseRulesCall, rulesBlock } from './house-rules.js';
 
 // The first conversation: the display introduces itself and learns about the family by talking.
 const ONBOARD = (wakeOn) => `(This tablet was just set up and Opie was just turned on. Nobody has said anything yet: you start. Be clear and brief, not gushing.
@@ -82,7 +83,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const voice = voiceRoutes({ HERE, DIR, json, body });
   globalThis.openhouseSpeechLog = (kind, d) => voice.log?.(kind, d); // the home devices' actions (devices/index.js)
   setTimeout(() => familyNames(), 0);
-  /** The family's names to speech recognition, so it hears "Nora", not "Laura" (at start, and after each turn: a turn may have added someone). */
+  /** The family's names to speech recognition, so it hears "Maya", not "Mia" (at start, and after each turn: a turn may have added someone). */
   const familyNames = () => { try { voice.setNames(board.householdView().family.map((f) => f.name)); } catch {} };
 
   // The household and the assistant's own name, as tools: "call yourself Hazel", "Maya turned 10", and the
@@ -126,9 +127,12 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     'Tabs, their order and names, and the look of the home screen are set_home.\n\n---\n\n';
   const textInstructions = () => { const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
     return TEXT_PREAMBLE(nameOf(), live.tools().some((t) => t.name === 'make_app')) + read('CHAT.md') + '\n\n---\n\n' + read('NOTES.md') + prefsBlock(); };
+  // The household's own: their house rules first, right after the defaults they change (house-rules.js), then what they
+  // told it to remember. Both go into the typed turns' and the live voice's instructions.
   const prefsBlock = () => {
     const p = readPrefs(), d = days.describe();
-    return (p.length ? `\n\nWHAT THIS HOUSEHOLD TOLD YOU TO REMEMBER (facts about them and how they like things; these win over the defaults above)\n${p.map((x) => '- ' + x).join('\n')}` : '') +
+    return rulesBlock(board.rules?.()) +
+      (p.length ? `\n\nWHAT THIS HOUSEHOLD TOLD YOU TO REMEMBER (facts about them and how they like things; these win over the defaults above, except IN THIS HOME, which only the house rules change)\n${p.map((x) => '- ' + x).join('\n')}` : '') +
       (d ? `\n\nWHAT YOU TALKED ABOUT LATELY (a few lines a day, for "what did I ask you yesterday?"; not instructions)\n${d}` : '');
   };
   board.prefs = prefsBlock;
@@ -222,6 +226,9 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     }
   });
 
+  // The house rules (house-rules.js): read, and changed when asked, with the PIN on the tablet when Settings asks for it.
+  homeScreen.addTools([RULES_TOOL], houseRulesCall({ read: () => board.rules(), save: (t) => board.saveRules(t), host }));
+
   const file = (id) => path.join(DIR, `${id}.json`);
   // (no .bak for each conversation: the chats folder goes into backups whole)
   const load = (id) => readJson(file(id), null, { bak: false });
@@ -288,7 +295,6 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     const text = onboard ? ONBOARD(voice.wakeOn()) : String(b.text || '').trim();
     if (!text) return json(res, 400, { error: 'empty' });
     const who = b.who ? String(b.who).slice(0, 40) : null;
-    const about = b.about ? String(b.about).slice(0, 80) : ''; // e.g. "age 9"
     let c = validId(b.id) ? load(b.id) : null;
     if (!c) c = { id: crypto.randomUUID().slice(0, 13), title: onboard ? 'Getting to know you' : text.slice(0, 60), who, created: Date.now(), turns: [], sessions: {} };
     if (running.has(c.id)) return json(res, 409, { error: 'busy' });
@@ -316,7 +322,8 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     let firstText = 0, warmed = null, held = '', usedModel = null;
     const steps = []; // [ms, what]: where a turn's time goes (chats.jsonl), from the agent's own events
     const spoken = b.spoken === true; // through the microphone: speech recognition, so words may be misheard (see CHAT.md)
-    const prompt = (who ? `${who}${about ? ` (${about})` : ''} says: ` : '') + (spoken ? '(spoken) ' : '') + text +
+    // A name only from a phone that is that person's own (phone.jsx, phone-share.js): voices aren't recognised (CHAT.md, WHO IS ASKING).
+    const prompt = (who ? `${who} says: ` : '') + (spoken ? '(spoken) ' : '') + text +
       `\n\n(The household, for context; mention only what helps:\n${board.household()})` +
       homeLine() + buildLine() + appLine(b) + (spoken ? SPOKEN : '');
     let result, notes, run;

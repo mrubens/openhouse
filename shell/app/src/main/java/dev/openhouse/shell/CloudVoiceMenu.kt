@@ -41,15 +41,20 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
 
     /** Settings → Voice (behind the PIN Lock when it is on; openhouse-cloud/docs/cloud-beta.md): Off, or which of OpenAI's voices it speaks with. Heard from the next
      *  conversation, so it says hello in it at once (a short session just to say it). */
-    fun chooseVoice() = thread {
+    fun chooseVoice(): Thread = thread {
         val now = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/cloud/voice", 3000, 8000)).optString("voiceName") }.getOrNull()
         ui {
             if (now == null) return@ui say(noBridge)
             val checked = if (!LiveVoice.chosen) 0 else 1 + VOICES.indexOfFirst { it.first == now }
             val d = CalmDialog(act).setTitle("Voice").setMessage(if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.")
-            // Where someone looks when "Hey Opie" isn't working: does Opie hear them here? (MicCheck)
+            // Where someone looks when "Hey Opie" isn't working: does Opie hear them here? (MicCheck) And the house rules
+            // (HouseRules.kt), how Opie answers here, typed or spoken.
             var shown: android.app.Dialog? = null
-            if (LiveVoice.chosen) d.setView(dev.openhouse.ui.Calm.quiet(act, "Check the microphone") { shown?.dismiss(); MicCheck.open(act) }.apply { gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, 0) })
+            fun link(label: String, go: () -> Unit) = dev.openhouse.ui.Calm.quiet(act, label) { shown?.dismiss(); go() }.apply { gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, 0) }
+            d.setView(dev.openhouse.ui.Calm.column(act).apply {
+                addView(link("House rules") { HouseRules.open(act) { chooseVoice() } })
+                if (LiveVoice.chosen) addView(link("Check the microphone") { MicCheck.open(act) })
+            })
             shown = d
                 .setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }
                 .setSingleChoiceItems((listOf("Off") + VOICES.map { it.second }).toTypedArray(), checked) { d, i ->

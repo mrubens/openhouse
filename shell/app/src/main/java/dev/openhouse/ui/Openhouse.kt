@@ -80,7 +80,6 @@ object Openhouse : AnswerActions {
     var homeScreen by mutableStateOf<HomeData?>(null); private set
     /** The note opened up close, full screen. */
     var fullNote by mutableStateOf<String?>(null)
-    var speaker by mutableStateOf<Speaker?>(null); internal set
     var heard by mutableStateOf<Heard?>(null); internal set
     /** The words heard so far while someone is talking to the display (live), or null. */
     var partial by mutableStateOf<String?>(null); internal set
@@ -180,12 +179,9 @@ object Openhouse : AnswerActions {
     /** The current time, updated every second (read it to tick a clock). */
     var now by mutableStateOf(System.currentTimeMillis()); private set
 
-    const val PERSON_MS = 4 * 60_000L
     const val IDLE_MS = 8 * 60_000L
 
     fun person(name: String?) = board?.family?.firstOrNull { it.name == name }
-    /** Whoever spoke in the last few minutes (null if nobody, or if it wasn't sure who). */
-    val me: Person? get() = speaker?.takeIf { !it.unsure && now - it.at < PERSON_MS }?.let { person(it.name) }
 
     // ---- setup ----
     internal lateinit var host: Host
@@ -411,7 +407,7 @@ object Openhouse : AnswerActions {
     fun deleteApp(a: AppInfo) {
         confirmDelete = null
         apps = apps.filter { it.id != a.id }
-        scope.launch { post("/apps/delete", JSONObject().put("id", a.id).put("who", me?.name)); loadApps() }
+        scope.launch { post("/apps/delete", JSONObject().put("id", a.id)); loadApps() }
     }
     private fun parseHomeScreen(j: JSONObject) = HomeData(
         j.optJSONObject("grid")?.optInt("cols") ?: 8, j.optJSONObject("grid")?.optInt("rows") ?: 5,
@@ -478,7 +474,7 @@ object Openhouse : AnswerActions {
     /** "Stick it on the home screen": an answer from the conversation goes on the home screen as a kept note. */
     fun pinFromConversation(question: String, answer: String) {
         val id = conversation?.id
-        scope.launch { post("/board/pin", JSONObject().put("title", question).put("text", answer).put("conversation", id).put("who", me?.name)) }
+        scope.launch { post("/board/pin", JSONObject().put("title", question).put("text", answer).put("conversation", id)) }
     }
 
     // ---- asking ----
@@ -489,7 +485,7 @@ object Openhouse : AnswerActions {
     /** Something it heard but decided wasn't for it (shown briefly, crossed out, so nothing is silently dropped). */
     var ignored by mutableStateOf<Heard?>(null); internal set
     fun ask(text: String, who: String?, voice: Boolean = false) = Turns.ask(text, who, voice)
-    fun send(text: String) = ask(text, me?.name)
+    fun send(text: String) = ask(text, null)
     /** "Undo that": put back the latest change the agent made. */
     fun undo(voice: Boolean = false) = Turns.undo(voice)
     /** Stop the answer on screen. */
@@ -503,7 +499,7 @@ object Openhouse : AnswerActions {
     internal fun vlog(event: String, text: String? = null, who: String? = null) = postAsync("/voice/log", JSONObject().put("event", event).put("text", text).put("who", who))
 
     // AnswerActions: what generated UI can do.
-    override fun ask(text: String) = ask(text, me?.name)
+    override fun ask(text: String) = ask(text, null)
     override fun startTimer(label: String, seconds: Int) = host.startTimer(label, seconds)
     override fun makeApp(request: String) { host.makeApp(request, answer?.let { "Family: ${it.question}\n\nAssistant: ${it.text}" } ?: ""); answer = null }
     override fun playVideo(url: String, title: String) = host.playVideo(url, title)

@@ -138,8 +138,6 @@ internal object Listening {
         }
         Turns.byName = via != "followup" && via != "barge"
         if (Turns.byName) Turns.wokeAt = System.currentTimeMillis() // someone said its name: a fresh start
-        if (who != null) o.speaker = Speaker(who, false, System.currentTimeMillis())
-        else if (ev.optString("guess").isNotEmpty() && !ev.isNull("guess") && ev.optDouble("score") >= 0.68) o.speaker = Speaker(ev.optString("guess"), true, System.currentTimeMillis())
         o.touch()
         o.heard = Heard(who, cmd.ifEmpty { "…" }, System.currentTimeMillis())
         // Right after a tap, a filler ("Um", "Huh?") isn't the question: keep listening for it.
