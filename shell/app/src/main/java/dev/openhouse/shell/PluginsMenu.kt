@@ -326,8 +326,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
      *  Not signed in yet: the sign-in itself, behind the PIN (Settings → Advanced → Google Play). */
     private fun addAndroid(pkg: String, name: String) {
         if (!PlayStore.available(act)) return say(name, "Adding Android apps needs Google Play, and this tablet doesn't have it.")
-        if (!PlayStore.signedIn(act)) return CalmDialog(act).setTitle("Sign in to Google Play").setMessage("Then $name can be added.")
-            .setPositiveButton("Sign in") { _, _ -> act.lock.open("googlePlay") }.setNegativeButton("Cancel", null).show().let {}
+        if (!PlayStore.signedIn(act)) return act.lock.open("googlePlay") // (its first screen says what it's for)
         guard { if (!PlayStore.openPage(act, pkg)) say(name, "Google Play didn't open. Try again in a minute.") }
     }
 

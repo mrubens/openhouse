@@ -131,7 +131,7 @@ Android apps come from Google Play, with the household's own Google account on t
 way, used a shared anonymous account against Play's terms, and apps like YouTube TV need a real account).
 
 - **Signing in**: Settings → Advanced → Google Play (always the PIN; a person's own tap, `personOnly`). It's Android's
-  own add-account flow for Google (`AccountManager.addAccount`); Google's sign-in pages are let into lock task only
+  own add-account flow for Google, after one line: a Google account just for this tablet works best (docs/setup.md) (`AccountManager.addAccount`); Google's sign-in pages are let into lock task only
   until Opie is back in front. Nothing in Opie's device-owner policies stops adding an account (no
   `DISALLOW_MODIFY_ACCOUNTS`, no account-management restrictions). Then it points to Play's own setting, Settings →
   Authentication → Require authentication for purchases → For all purchases, which can't be set from outside Play.

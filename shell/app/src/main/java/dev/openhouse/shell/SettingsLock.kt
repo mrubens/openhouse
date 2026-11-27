@@ -404,15 +404,18 @@ internal class SettingsLock(private val act: MainActivity) {
                 }.show()
             return
         }
-        PlayStore.signIn(act) { added ->
-            changed()
-            if (added == null) return@signIn back()
-            // Play's own setting: purchases ask for the account's password (it can't be set from outside Play).
-            CalmDialog(act).setTitle("Ask for the password to buy")
-                .setMessage("In Google Play: your picture, Settings, Authentication, Require authentication for purchases, For all purchases.")
-                .setPositiveButton("Open Google Play") { _, _ -> PlayStore.openPlay(act) }
-                .setNegativeButton("Later") { _, _ -> back() }.show()
-        }
+        CalmDialog(act).setTitle("Sign in to Google Play").setMessage("A Google account just for this tablet works best.")
+            .setPositiveButton("Sign in") { _, _ ->
+                PlayStore.signIn(act) { added ->
+                    changed()
+                    if (added == null) return@signIn back()
+                    // Play's own setting: purchases ask for the account's password (it can't be set from outside Play).
+                    CalmDialog(act).setTitle("Ask for the password to buy")
+                        .setMessage("In Google Play: your picture, Settings, Authentication, Require authentication for purchases, For all purchases.")
+                        .setPositiveButton("Open Google Play") { _, _ -> PlayStore.openPlay(act) }
+                        .setNegativeButton("Later") { _, _ -> back() }.show()
+                }
+            }.setNegativeButton("Cancel") { _, _ -> back() }.show()
     }
 
     /** Settings → Advanced: the lock, plugins, this tablet's household, a report; then what's for developers. [lan]:
