@@ -47,8 +47,9 @@ The tablet sits in a shared space, so some things are deliberately out of the AI
 
 - The home screen itself, the parent settings and the watchdog that restarts things are fixed. AI can change the
   household's apps, not those.
-- Opie works through a fixed set of household tools (lists, calendar, chores, notes, tabs). It never edits code.
-  Only a computer someone has paired can change an app's code.
+- Opie works through a fixed set of household tools (lists, calendar, chores, notes, tabs). Asked for a new game or
+  a small tab, it can make one on the tablet, but a grown-up's PIN is needed before it goes in
+  ([building-on-the-tablet.md](docs/building-on-the-tablet.md)). Bigger changes come from a computer someone has paired.
 - A PIN guards settings, turning on the assistant, pairing a computer, installing apps and leaving kiosk mode.
 - The wake word ("Hey Opie") runs on the tablet. Nothing you say goes anywhere until someone says it.
 
