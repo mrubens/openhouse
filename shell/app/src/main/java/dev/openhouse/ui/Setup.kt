@@ -3,15 +3,16 @@ package dev.openhouse.ui
 // The first setup, right after the welcome (docs/onboarding.md), done from a phone or computer: connecting one comes
 // first (one code; the phone page then follows these steps: chat/src/phone.jsx SetupFlow), then, typed or sent there,
 // who lives here, where (a street address guessed from where the tablet is), the household's calendar (Google, iCloud,
-// Outlook or a link, or none), photos (an iCloud shared album, Google Photos, or from that phone) and Opie's AI (the
-// household's own OpenAI key, where the account's voice isn't on). Then what only the tablet can do: a PIN for
-// settings and approvals (PIN Lock, which can be skipped), two of Android's own settings a tablet set up by its
-// household would otherwise never find (letting Opie use other apps, and the charge limit), and last talking to Opie:
-// what to say, which voice, and turning the voice on. One step on screen at a time.
+// Outlook or a link, or none), photos (an iCloud shared album, Google Photos, or from that phone) and a PIN for settings
+// and approvals (PIN Lock, which can be skipped). Then what only the tablet can do: two of Android's own settings a
+// tablet set up by its household would otherwise never find (letting Opie use other apps, and the charge limit). One
+// step on screen at a time.
 //
-// Quiet until that last step: nothing is said aloud and nothing listens (Setup.hushed: no microphone, no wake word,
-// no live voice), and everything is done by tapping and typing. The owner, after trying it on a real tablet: "leave
-// the voice control out of the setup and add it as the last step".
+// Opie's AI and voice aren't steps (the owner, after a real tablet: "no need to show the ai page", "testing opie voices
+// doesn't work, skip it"): a tablet linked to an Opie account has them, and one without adds its own key later in
+// Settings, Voice. Once the setup ends, where the voice can work it's on, and a small dialog says Opie is ready, with
+// Turn off (CloudVoiceMenu.ready). Until then it's quiet: nothing is said aloud and nothing listens (Setup.hushed: no
+// microphone, no wake word, no live voice), and everything is done by tapping and typing.
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -45,11 +46,11 @@ internal object Setup {
     // it up", and "all of the steps are supposed to be on the computer"): connecting one comes first, and can't be
     // skipped; every step after is done there, and its Next moves the tablet on (/setup/want; chat/src/phone.jsx
     // SetupFlow follows the tablet's step). Last, the one thing Android lets only the tablet do: two of its settings.
-    val STEPS = listOf("devices", "people", "place", "calendar", "photos", "ai", "pin", "voice", "android")
+    val STEPS = listOf("devices", "people", "place", "calendar", "photos", "pin", "android")
     /** Done on the phone or computer: the tablet shows only how far along it is (the owner: "no need to show a skeleton
      *  thing on the tablet during the flow - it should just be the instructions for how to set things up until it's
      *  ready, maybe with a progress bar"). */
-    val ON_PHONE = setOf("people", "place", "calendar", "photos", "ai", "pin", "voice")
+    val ON_PHONE = setOf("people", "place", "calendar", "photos", "pin")
 
     /** A later step that sent someone back to connect a phone or computer: Next there comes back here. */
     private var resume: String? = null
@@ -61,9 +62,9 @@ internal object Setup {
     /** The phone or computer the setup carries on from, by name, once one has joined (Setup.kt connectedDevice). */
     @Volatile var connected: String? = null
 
-    /** The welcome or a setup step before the voice step is showing: no microphone, no wake word, no live voice and
-     *  nothing said aloud (MainActivity.micWanted, LiveVoice, Speech.say). */
-    val hushed: Boolean get() = Openhouse.showWelcome || Openhouse.setupStep.let { it != null && STEPS.indexOf(it) < STEPS.indexOf("voice") }
+    /** The welcome or a setup step is showing: no microphone, no wake word, no live voice and nothing said aloud
+     *  (MainActivity.micWanted, LiveVoice, Speech.say). */
+    val hushed: Boolean get() = Openhouse.showWelcome || Openhouse.setupStep != null
 
     fun start() {
         Openhouse.setupStep = STEPS.first(); shown(STEPS.first())
@@ -86,10 +87,11 @@ internal object Setup {
         Openhouse.scope.launch(Dispatchers.IO) { Openhouse.post("/household", JSONObject()) } // set up: not asked again
         Openhouse.householdDone()
         Openhouse.host.setting("reloadHomeFirst") // the home screen with their names, weather and calendars now, on Home
+        Openhouse.host.setupDone() // Opie's voice on where it can work, and a word that it's ready
     }
 
-    /** The bridge hears which step shows (the live voice is told about the voice step: live-tools.js SETUP_STEPS), and
-     *  the microphone follows (none before the voice step). */
+    /** The bridge hears which step shows (the setup phone or computer follows it), and the microphone follows (none
+     *  until the setup is over). */
     private fun shown(step: String?) {
         Openhouse.scope.launch(Dispatchers.IO) { Openhouse.post("/setup/step", JSONObject().put("step", step ?: JSONObject.NULL)) }
         Openhouse.host.micFollow()
@@ -103,8 +105,7 @@ internal fun SetupSheet() {
     val step = Openhouse.setupStep ?: return
     val title = when (step) {
         "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a family calendar?"
-        "photos" -> "Put your photos on the tablet?"; "pin" -> "Choose a PIN"; "voice" -> "Talk to Opie"
-        "android" -> "Two Android settings"; "ai" -> "Set up Opie's AI"
+        "photos" -> "Put your photos on the tablet?"; "pin" -> "Choose a PIN"; "android" -> "Two Android settings"
         else -> "Set up on your phone or computer"
     }
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later
@@ -118,18 +119,17 @@ internal fun SetupSheet() {
     }
     val device = connectedDevice()
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
-        // From the top, not centered: the card's top stays put from step to step (the last, the voices, starts higher:
-        // it has the most to show, down to the line about OpenAI above its buttons). Every step is the same width. The
+        // From the top, not centered: the card's top stays put from step to step. Every step is the same width. The
         // card never runs past the screen, or past Android's on-screen keyboard when it's up (a tablet with no keyboard
         // cover: imePadding, and nearer the top): what's in it scrolls, and Back, Skip and Next stay below it in reach.
         val ime = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
         // The setup has the screen to itself: nothing of the home screen behind it.
         val onPhone = step in Setup.ON_PHONE || step == "devices"
         Box(Modifier.fillMaxSize().background(Calm.paper).clickable(enabled = false) {}.imePadding(), contentAlignment = Alignment.TopCenter) {
-            QuietCard(Modifier.padding(top = if (ime) 16.u else if (step == "voice") 36.u else 110.u, bottom = 16.u).width(fit(860.u)), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
+            QuietCard(Modifier.padding(top = if (ime) 16.u else 110.u, bottom = 16.u).width(fit(860.u)), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
                     Progress(Setup.STEPS.indexOf(step).toFloat() / Setup.STEPS.size, Modifier.weight(1f))
-                    if (step != "voice") Chip("Later") { save[0](); Setup.finish() }
+                    if (step != "android") Chip("Later") { save[0](); Setup.finish() } // (the last step's Done does the same)
                 }
                 Spacer(Modifier.height(28.u))
                 Text(if (!onPhone) title else if (device != null && step != "devices") "Continue on $device" else "Set up on your phone or computer", style = calmText(Calm.DISPLAY, FontWeight.Medium))
@@ -168,15 +168,13 @@ private fun Progress(f: Float, modifier: Modifier = Modifier) {
 private fun PhoneProgress(step: String) {
     val now = when (step) {
         "people" -> "Who lives here"; "place" -> "Where you live"; "calendar" -> "Your calendars"; "photos" -> "Your photos"
-        "pin" -> "A PIN"; "voice" -> "Opie's voice"; else -> "Opie's AI"
+        else -> "A PIN"
     }
     var phonesOn by remember { mutableStateOf(true) }
     LaunchedEffect(step) { if (step == "photos") phonesOn = withContext(Dispatchers.IO) { runCatching { dev.openhouse.shell.PhotoShare.link() }.getOrNull() } != null }
     Column(verticalArrangement = Arrangement.spacedBy(16.u)) {
         Soft(now)
         if (step == "photos" && !phonesOn) SoftButton("Let phones send photos") { Openhouse.host.setting("photoPhonesOn") }
-        // The voice on (from the phone): it's heard here, so the try is here.
-        if (step == "voice" && remember(Openhouse.settingsV) { Openhouse.host.hasAssistant() }) Text("Try it: say “Hey Opie, what's the weather?”", style = calmText(Calm.LEAD, FontWeight.Medium))
     }
 }
 

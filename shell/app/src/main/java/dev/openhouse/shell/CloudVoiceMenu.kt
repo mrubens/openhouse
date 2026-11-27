@@ -4,8 +4,8 @@ package dev.openhouse.shell
 // turns it on here after reading what goes where. The bridge does the work (bridge/cloud.js, /cloud/voice); the
 // session runs in the shell (LiveVoice). Its name is heard on the tablet; nothing goes out until then.
 // What the household said here is kept (OpieChoice), so a yes made before the tablet was linked, or before its
-// household had the voice, turns it on by itself later (CloudSetup.autoVoice). The first setup's last step turns it
-// on too (fromSetup), and its Not now is kept the same way.
+// household had the voice, turns it on by itself later (CloudSetup.autoVoice). The end of the first setup turns it on
+// too (ready), and its Turn off is kept the same way.
 
 import dev.openhouse.ui.BridgeClient
 import dev.openhouse.ui.CalmDialog
@@ -123,49 +123,25 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
             .setNegativeButton("Not now") { _, _ -> OpieChoice.set(act, false) }.show()
     }
 
-    /** The setup's last step (ui/Setup.kt VoiceStep; Host.setupVoice). "on": the step's Turn on Opie's voice, whose
-     *  words say what goes to OpenAI, a person's tap (Opie's does nothing) behind the PIN when the lock is on, as
-     *  Settings → Voice is: [voice] chosen, then on, with Hey Opie listening. "off": Not now, kept (OpieChoice), so it
-     *  isn't turned on by itself later. "sample": on already, [voice] chosen and a line said in it (the session going
-     *  ends first: a session keeps the voice it started with). "link": linking the tablet to an account. [done]: "on",
-     *  "notYet", or what went wrong, to show. */
-    /** [fromPhone]: the setup's phone or computer (DeviceServer /setup/voice), whose person just chose the PIN there:
-     *  no PIN asked here again. */
-    fun fromSetup(action: String, voice: String, done: (String) -> Unit, fromPhone: Boolean = false) {
-        val named = { thread { CloudSetup.post("${act.bridge}/cloud/voice/name", JSONObject().put("voice", voice)) } }
-        when (action) {
-            "off" -> OpieChoice.set(act, false)
-            "link" -> CloudMenu(act).startLink("Opie's voice comes through your Opie account.")
-            "sample" -> if (LiveVoice.chosen) thread {
-                val (_, r) = CloudSetup.post("${act.bridge}/cloud/voice/name", JSONObject().put("voice", voice))
-                if (r != null && !r.has("error")) ui { LiveVoice.stopNow(); dev.openhouse.ui.Speech.say("Hi, I'm Opie. This is how I sound.", null) }
-            }
-            "on" -> {
-                if (DeviceServer.personOnly("Turning on Opie's voice")) return done("Turning on the voice is for a person to tap.")
-                val go: () -> Unit = {
-                    OpieChoice.set(act, true)
-                    thread {
-                        named().join()
-                        val (_, r) = CloudSetup.post("${act.bridge}/cloud/voice", JSONObject().put("on", true))
-                        ui {
-                            when {
-                                r == null -> done(noBridge)
-                                r.optString("error") == "not_enabled" -> done("notYet")
-                                r.has("error") -> done(r.optString("error").ifEmpty { noBridge })
-                                !r.optBoolean("on") -> done("notYet")
-                                else -> {
-                                    LiveVoice.chosen = true
-                                    dev.openhouse.ui.Openhouse.settingsChanged()
-                                    act.setListening(true); dev.openhouse.ui.Openhouse.setWakeWord(true)
-                                    done("on")
-                                }
-                            }
-                        }
-                    }
-                }
-                // The PIN box closed without it: the step's button comes back.
-                if (act.lock.asks(PinChoices.SETTINGS) && !fromPhone) PinPrompt.ask(act, act, "Turn on Opie", go, cancelled = { done("") }) else go()
-            }
+    /** The setup just ended (ui/Setup.kt finish; Host.setupDone). Where Opie's voice can work (the household's own key
+     *  in, or a linked tablet whose household has the voice), it's on, with Hey Opie listening, and a small dialog says
+     *  so: OK, or Turn off (Settings → Voice's Off, kept: OpieChoice). Where it can't (no account and no key, or not for
+     *  this household yet), nothing shows: Settings → Voice has it, and a linked household that gets it later is asked
+     *  then (CloudSetup.autoVoice). The setup's Done is a person's tap; the dialog's words say what goes to OpenAI. */
+    fun ready() = thread {
+        if (OpieChoice.get(act) == OpieChoice.OFF) return@thread
+        val v = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/cloud/voice?check=1", 3000, 15_000)) }.getOrNull() ?: return@thread
+        if (!v.optBoolean("own") && !(v.optBoolean("linked") && v.optBoolean("available"))) return@thread
+        val on = v.optBoolean("on") || CloudSetup.post("${act.bridge}/cloud/voice", JSONObject().put("on", true)).second?.optBoolean("on") == true
+        if (!on) return@thread
+        OpieChoice.set(act, true)
+        ui {
+            LiveVoice.chosen = true
+            dev.openhouse.ui.Openhouse.settingsChanged()
+            act.setListening(true); dev.openhouse.ui.Openhouse.setWakeWord(true)
+            CalmDialog(act).setTitle("Opie is ready").setMessage("Say “Hey Opie” to use it. What follows goes to OpenAI.")
+                .setPositiveButton("OK", null)
+                .setNegativeButton("Turn off") { _, _ -> OpieChoice.set(act, false); off() }.show()
         }
     }
 

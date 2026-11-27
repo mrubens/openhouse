@@ -281,7 +281,7 @@ internal object Speech {
         }
     }
     fun say(text: String, about: String?) {
-        if (Setup.hushed) return // the welcome and the setup say nothing aloud (its voice step is the first sound)
+        if (Setup.hushed) return // the welcome and the setup say nothing aloud (nothing until it is over)
         val t = Answers.speakable(text); if (t.isEmpty()) return
         if (sink?.invoke(t) == true) return
         val e = tts ?: return

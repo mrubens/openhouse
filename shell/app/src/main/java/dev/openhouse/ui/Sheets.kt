@@ -177,7 +177,7 @@ internal fun WelcomeSheet() {
             QuietCard(Modifier.width(fit(760.u)), padding = PaddingValues(horizontal = 56.u, vertical = 52.u)) {
                 Text("Welcome to Opie", style = calmText(Calm.DISPLAY, FontWeight.Medium))
                 Spacer(Modifier.height(16.u))
-                Text("A few steps to make it your household's: who lives here, your calendars and photos, and Opie's voice last.", style = calmText(Calm.LEAD, color = Calm.soft))
+                Text("A few steps to make it your household's: who lives here, and your calendars and photos.", style = calmText(Calm.LEAD, color = Calm.soft))
                 Spacer(Modifier.height(40.u))
                 // A tablet set up somewhere else (a beta tablet we set up and sent) arrives knowing a Wi-Fi that isn't
                 // here: joining this one comes first, then Get started. Android's Wi-Fi settings; Home comes back.

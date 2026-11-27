@@ -459,8 +459,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
             }
         }
         // The assistant is OpenAI's, through the family's account (Settings → Voice): no sign-in on the tablet.
-        override fun setupVoice(action: String, voice: String, done: (String) -> Unit) { main.post { CloudVoiceMenu(this@MainActivity).fromSetup(action, voice, done) } }
-        override fun voices() = CloudVoiceMenu.VOICES
+        override fun setupDone() { CloudVoiceMenu(this@MainActivity).ready() }
         override fun micFollow() { micFollows() }
         override fun hasAssistant() = LiveVoice.chosen
         override fun chooseVoice() { main.post { CloudVoiceMenu(this@MainActivity).chooseVoice() } }
@@ -606,7 +605,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         /** The bridge runs on this tablet (so the shell runs and watches it). */
         fun onDevice(bridge: String) = Regex("^https?://(127\\.0\\.0\\.1|localhost)[:/]").containsMatchIn(bridge)
         fun listenOn(c: android.content.Context) = c.getSharedPreferences("shell", android.content.Context.MODE_PRIVATE).getBoolean("listen", android.os.Build.HARDWARE != "ranchu")
-        /** Switched on, the live voice on, and not during the welcome or the setup before its voice step (Setup.hushed). */
+        /** Switched on, the live voice on, and not during the welcome or the setup (Setup.hushed). */
         fun micWanted(c: android.content.Context) = listenOn(c) && LiveVoice.chosen && !dev.openhouse.ui.Setup.hushed
         const val HOST_PKG = BuildConfig.HOST_PKG
         /** The display, while it's running (ConfigReceiver tells it about new settings). */

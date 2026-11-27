@@ -568,26 +568,15 @@ async function route(req, res, url) {
       const r = await calendar.toShell('/setup/icloud', { user: String(b.user || '').slice(0, 200), pass: String(b.pass || '').slice(0, 100), who: String(b.who || '').slice(0, 40) });
       json(res, r.error ? 400 : 200, r); return true;
     }
-    // The PIN, chosen there (the shell keeps only its hash; a recovery code comes back once, to be shown there), and
-    // Opie's voice: a voice heard at the tablet, then turned on. Never logged.
+    // The PIN, chosen there (the shell keeps only its hash; a recovery code comes back once, to be shown there). Never logged.
     if (url.pathname === '/setup/pin' && req.method === 'POST') {
       const r = await calendar.toShell('/setup/pin', { pin: String((await body(req)).pin || '').slice(0, 8), linked: !!cloud.status().linked });
-      json(res, r.error ? 400 : 200, r); return true;
-    }
-    if (url.pathname === '/setup/voice' && req.method === 'POST') {
-      const b = await body(req);
-      if (!host.can('voice-setup')) { // (a host that doesn't: turned on here; a sample needs a speaker there)
-        if (b.do === 'sample') { json(res, 200, { ok: true }); return true; }
-        try { const v = await cloud.voiceOn(String(b.voice || '').slice(0, 20)); json(res, 200, v.on ? { on: true } : { on: false, notYet: true }); } catch (e) { json(res, 400, { error: e.message }); }
-        return true;
-      }
-      const r = await calendar.toShell('/setup/voice', { voice: String(b.voice || '').slice(0, 20), do: b.do === 'sample' ? 'sample' : 'on' });
       json(res, r.error ? 400 : 200, r); return true;
     }
     if (url.pathname === '/setup/go' && req.method === 'POST') { chat.live.setupWant?.((await body(req)).step); json(res, 200, { ok: true }); return true; }
     if (req.method === 'POST' && /^\/setup\/(calendar|album|invite|openai)$/.test(url.pathname)) {
       const b = await body(req);
-      // The household's own OpenAI key (the setup's Opie's AI step): straight on to the shell, which checks and keeps it
+      // The household's own OpenAI key (a hub's settings page): straight on to the host, which checks and keeps it
       // (OwnKey.kt). Passed through, never written, logged or answered back here.
       if (url.pathname === '/setup/openai') {
         const r = await calendar.toShell('/ownkey', { key: String(b.key || '').trim().slice(0, 400) });

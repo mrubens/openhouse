@@ -66,7 +66,7 @@ after(() => { child?.kill(); fs.rmSync(root, { recursive: true, force: true }); 
 test('over the tailnet: links use its address, and it reaches only sealed requests within a device\'s scopes', async () => {
   assert.equal((await get('/tailscale')).on, false, 'off until someone turns it on');
   await post('/tailscale', { on: true });
-  let t; for (let i = 0; i < 50 && t?.state !== 'on'; i++) { await wait(100); t = await get('/tailscale'); }
+  let t; for (let i = 0; i < 200 && !(t?.state === 'on' && t.address); i++) { await wait(100); t = await get('/tailscale'); }
   assert.equal(t.address, `https://${NAME}:${lanPort}`, "a computer's own Tailscale: our address on the home network's port, not its 443");
 
   // A screen's QR code points at the tailnet address now.

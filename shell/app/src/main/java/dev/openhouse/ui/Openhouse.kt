@@ -51,14 +51,9 @@ interface Host {
     fun wifi() {}
     /** With the lock on, the PIN, then [ok]; with it off, straight to [ok]. */
     fun withPin(title: String, ok: () -> Unit) { ok() }
-    /** The setup's last step, Talk to Opie (Setup.kt VoiceStep): [action] "on" ([voice] chosen, then the live voice and
-     *  Hey Opie on: a person's tap, behind the PIN when the lock is on), "off" (Not now: it stays off, not turned on by
-     *  itself later), "sample" (on already: [voice] chosen, and Opie says a line in it), "link" (link the tablet to an
-     *  account). [done] gets "on", "notYet" (the household doesn't have the voice yet), or what went wrong, to show. */
-    fun setupVoice(action: String, voice: String = "", done: (String) -> Unit = {}) {}
-    /** OpenAI's live voices: API name to how it sounds ("Gleam · North American, feminine"). */
-    fun voices(): List<Pair<String, String>> = emptyList()
-    /** The welcome or the setup came or went: the microphone follows (none until the setup's voice step: Setup.hushed). */
+    /** The setup just ended (Setup.finish): Opie's voice on where it can work, and a word that it's ready (CloudVoiceMenu.ready). */
+    fun setupDone() {}
+    /** The welcome or the setup came or went: the microphone follows (none until the setup is over: Setup.hushed). */
     fun micFollow() {}
     /** The assistant is on (OpenAI's live voice and text model, through the family's account). */
     fun hasAssistant(): Boolean = true

@@ -101,7 +101,7 @@ internal object LiveVoice {
         // With the live voice on, it's the only voice: nothing falls back to the tablet's own. Whatever is to be said
         // (answers, reminders, an app's words) waits here until a session can talk; with none open, a short one opens
         // just to say it, which then listens for the usual few seconds and goes to standby. If it can't, the bubble says so.
-        Speech.sink = { text -> if (!chosen) false else if (dev.openhouse.ui.Setup.hushed) true /* the setup is quiet until its voice step */ else {
+        Speech.sink = { text -> if (!chosen) false else if (dev.openhouse.ui.Setup.hushed) true /* the setup is quiet throughout */ else {
             synchronized(held) { held.add(text) }
             main.post { if (web == null) start(a, false, how = "say") else flush() }
             true

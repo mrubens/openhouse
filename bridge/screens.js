@@ -89,9 +89,9 @@ const RULES = [
   ['notify', 'GET', /^\/phone\/messages$/], // what Opie was asked to tell this phone's person lately (message_family, live-tools.js)
   // 'setup': the phone or computer someone set the tablet up from (the setup's own code, scanned or typed): adds
   // calendars and albums (server.js, straight to the shell) and invites the rest of the family (handle.invite).
-  ['setup', 'POST', /^\/setup\/(calendar|album|invite|openai)$/],
+  ['setup', 'POST', /^\/setup\/(calendar|album|invite)$/], // (a tablet's own OpenAI key goes in at the tablet: Settings, Voice)
   ['setup', 'GET', /^\/setup\/step$/], // which setup step the tablet shows, to follow it
-  ['setup', 'GET', /^\/setup\/household$/], ['setup', 'POST', /^\/setup\/(household|go|link|google|icloud|pin|voice)$/], // who lives here and where, typed there; its Next
+  ['setup', 'GET', /^\/setup\/household$/], ['setup', 'POST', /^\/setup\/(household|go|link|google|icloud|pin)$/], // who lives here and where, typed there; its Next
   // 'voice': talking to Opie from this device (chat/src/live-voice.js, docs/hub.md): the same live voice the tablet has,
   // its session started through the cloud (server.js /live/start) and its tools run here. A browser gives a page the
   // microphone only on https or localhost, so on the Wi-Fi's plain http address the page doesn't offer it.
@@ -114,7 +114,7 @@ const RULES = [
   ['admin', 'GET', /^\/tailscale$/], ['admin', 'POST', /^\/tailscale$/], // away from home with the household's own Tailscale (tailscale.js)
   // On a hub the settings device is also the setup's (headless.js drives the steps), answers the "Is this OK?" cards,
   // keeps the PIN and the household's own OpenAI key (in the keeper, hub/keeper.mjs: never here).
-  ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|google|icloud|pin|voice)$/],
+  ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|google|icloud|pin)$/],
   ['ask', 'GET', /^\/hub\/asks$/], ['ask', 'POST', /^\/hub\/asks\/answer$/], // a hub's cards on grown-ups' phones too (not kids' or TVs)
     ['admin', 'GET', /^\/hub\/(asks|keeper|calendars|google-photos)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove|google|calendar\/account\/remove)$/],
   ['admin', 'GET', /^\/calendar\/sync$/], ['admin', 'POST', /^\/calendar\/sync\/(set|now)$/], // which of a signed-in account's calendars show (calendar-sync.js)
