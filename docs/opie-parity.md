@@ -89,12 +89,12 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | TV app | yes | tv (the app itself only shows the week) |
 | A media app from Apps (music, audiobooks, podcasts): play something, pause, skip, back 30 seconds, what's playing | **new** | music (docs/music.md): plays from a search in the app, or opens one that can't take a search; the system's own media apps open only for someone, as from Apps |
 
-## Settings (the gear)
+## Settings (the gear): the tabs Household, Opie, Calendars, Screen, Devices, Account, Advanced
 
 | Row | Opie | Notes |
 | --- | --- | --- |
-| Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN (while Change settings asks); then it chooses there |
-| Voice → Check the microphone (does Opie hear you: the level, then "Hey Opie", and too quiet, too noisy or blocked) | **new** | mic_check: start puts the check on the screen (no PIN: it changes nothing); from the tablet's own voice the conversation ends first so the check can have the microphone, typed or from a phone it waits for the answer; last says how the last one went |
+| Opie → Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN (while Change settings asks); then it chooses there |
+| Opie → Check the microphone (does Opie hear you: the level, then "Hey Opie", and too quiet, too noisy or blocked) | **new** | mic_check: start puts the check on the screen (no PIN: it changes nothing); from the tablet's own voice the conversation ends first so the check can have the microphone, typed or from a phone it waits for the answer; last says how the last one went |
 | "Turn on Opie?", asked once when a linked household's voice becomes available and nobody here had said yes | no, on purpose | personOnly: it's the yes to what goes to OpenAI (and the voice is off then, so there's no Opie to ask) |
 | The first setup's Choose a PIN | no, on purpose | As PIN Lock: Opie can't choose or see a PIN, and the setup is quiet throughout, so there's no Opie to ask |
 | The first setup's calendar and photos steps | yes, by link / no for sign-ins | add_calendar and add_photo_album take a link, as anywhere (the tablet asks a person's yes); signing in to Google or iCloud stays on the screen, as in Settings → Calendars. Typing to Opie waits until the setup is done |
@@ -103,31 +103,31 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Ask for Opie's voice (Settings → Opie → Voice, while the household doesn't have it) | no, on purpose | Until the household has the voice there's no Opie to ask; once it does, the ask is done |
 | Your own OpenAI key: put in, change, remove (Settings → Opie → Voice; a hub's settings page) | no, on purpose | A secret Opie must never see or hear; pasted by an adult on the tablet, or on a hub's settings page, behind the PIN |
 | Backups → Your own storage: set up, change, remove (a bucket's address and key) | no, on purpose | Its secret is one Opie must never see or hear, as the OpenAI key: an adult enters it on a phone or computer on the Wi-Fi (the QR code), on the tablet, or on a hub's settings page. Opie can open Backups (screen, with the PIN, as for the rest of Account); turning it on or off once it's set up is that screen's |
-| Family: who, adult, kid or pet, ages or notes, colours, where, chores | **new** | update_household (was typed-only; kind since 2026-11-27). Leaving someone out of the list is refused unless they're named in taking_off |
+| Household: who, adult, kid or pet, ages or notes, colours, where, chores | **new** | update_household (was typed-only; kind since 2026-11-27). Leaving someone out of the list is refused unless they're named in taking_off |
 | Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the row, the tablet asks for the PIN, Opie carries on there; adding one by link is add_calendar |
-| What Opie remembers | yes | remember_preference, forget_preference |
-| Linked devices: pair or remove a screen, phone, computer, TV | screen, with the PIN | Add and Remove ask for the PIN; the pairing code itself is shown for the person's own device |
-| Linked devices → Add → Another Opie tablet: the code another tablet scans to join this household (docs/multi-tablet.md) | screen, with the PIN | Opie opens it (Settings → Devices → Add); the tablet asks for the PIN; the code is for the person standing at the new tablet |
+| Opie → What Opie remembers | yes | remember_preference, forget_preference |
+| Devices: pair or remove a screen, phone, computer, TV | screen, with the PIN | Add and Remove ask for the PIN; the pairing code itself is shown for the person's own device |
+| Devices → Add → Another Opie tablet: the code another tablet scans to join this household (docs/multi-tablet.md) | screen, with the PIN | Opie opens it (Settings → Devices → Add); the tablet asks for the PIN; the code is for the person standing at the new tablet |
 | Advanced → Add this tablet to another Opie; on a tablet that's part of another's household, Household → Leave the household | no, on purpose | personOnly, as pairing and Tailscale are: it changes which household this tablet shows and hears for. Opie can open the row; the tap, the code and the PIN are a person's |
 | On a tablet that's part of another's household: Opie's own tools for that tablet (its screen, volume, camera, media, other apps) | not yet | Its conversations run with the main tablet's tools, which would act on the main tablet: those are left out there (live-tools.js ON_THIS_DEVICE), and Opie says so. Phase 2 of docs/multi-tablet.md sends them to the tablet they're at |
-| Linked devices: the house's speakers, streamers, printers and their buttons | **new** | home_devices (tv, bluetooth and volume were already there); turning on or opening something asks the room first |
-| Brightness | **new** | tablet_screen (Settings' row has no PIN) |
-| Volume: the level, Adjust to the room | **new** | volume (set, louder, quieter, mute; room_on, room_off). Settings' row has no PIN |
-| Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
+| Devices: the house's speakers, streamers, printers and their buttons | **new** | home_devices (tv, bluetooth and volume were already there); turning on or opening something asks the room first |
+| Screen → Brightness | **new** | tablet_screen (Settings' row has no PIN) |
+| Screen → Volume: the level, Adjust to the room | **new** | volume (set, louder, quieter, mute; room_on, room_off). Settings' row has no PIN |
+| Account → Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
 | Account: link, backups, reach from away | screen, with the PIN | Opie opens the row; the tablet asks for the PIN. The yes to the account that entered the code is personOnly |
-| Updates (Settings, no PIN); Advanced: home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
+| Updates (the version under the tabs, no PIN); Advanced: home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
 | Advanced → Ask for the PIN: a switch on or off (Add apps, Add photo albums, Change the calendar, Give rewards, Change settings) | **new** | pin_choices: get says each and what always asks; set puts the tablet's own card up ("Stop asking for the PIN to add apps?"), which takes the PIN typed by a person (a real finger within the two minutes after it), and a no leaves it. Opie's tap on the switch in Settings is refused (personOnly). With no PIN set it says nothing asks |
 | What always needs the PIN: these switches, PIN Lock, Advanced, Account and Backups, adding a linked device, the ways out of Opie, erasing, a plugin update from somewhere new | no, on purpose | Not a switch: pin_choices says so and can't turn them off. They change who reaches the household, widen what Opie may do, or leave Opie |
 | Advanced: PIN Lock, leave kiosk mode, erase this tablet | no, on purpose | Opie only opens the screen (above); with no PIN set, erase and the ways out (Wi-Fi settings after the first setup, Unlink, Restore too) ask a person to set one first, which outside the first setup needs the tablet linked to an account |
-| Advanced: "We haven't tested this tablet", "Opie's software was stopped by Android" | no, on purpose | Two lines of information, not actions; the steps for the child-process limit end on Android's own Developer options, outside Opie, behind the PIN |
+| "We haven't tested this tablet" (under the tabs), Advanced: "Opie's software was stopped by Android" | no, on purpose | Two lines of information, not actions; the steps for the child-process limit end on Android's own Developer options, outside Opie, behind the PIN |
 | Join Wi-Fi (the "Not on Wi-Fi" note): a nearby network and its password, no PIN | no, on purpose | It's for a tablet that's offline, when Opie (the cloud's) can't be reached. Its Wi-Fi settings button is a way out, as above |
 | The PIN's recovery code: shown when a PIN is chosen, Forgot PIN?, PIN recovery code | no, on purpose | Like the PIN: only a person sees or types it. Its card and box count as a PIN pad (nothing Opie does lands while they're up) and "I've kept it" takes a real finger. Opie can open the PIN pad; Forgot PIN? is the person's |
-| Advanced: Opie uses apps, device control, USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave Opie |
+| Opie: Opie uses apps, device control; Advanced: USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave Opie |
 | Advanced: Tailscale (turn on, sign in, an auth key, turn off) | no, on purpose | personOnly, as pairing is: it changes who can reach the tablet, from anywhere, and signing in is the person's own Tailscale account (its login opens on their phone; an auth key is pasted by a person). Opie can open Advanced (the tablet asks for the PIN); the row itself refuses Opie's tap. A hub's settings page has the same, for a person on a settings device |
-| Advanced: check-ins (how often, what they look for) | yes | heartbeat_settings |
+| Opie → Check-ins (how often, what they look for) | yes | heartbeat_settings |
 | Night hours | yes | night_hours |
 | Volume (no row: the tablet's buttons) | yes | volume |
-| Advanced: Now playing (shown while Opie can't see what the media apps play) | no, on purpose | personOnly: it widens what Opie may see; Android's own page, with the PIN |
+| Opie → Now playing (shown while Opie can't see what the media apps play) | no, on purpose | personOnly: it widens what Opie may see; Android's own page, with the PIN |
 | Plugins: find, look at, add, update, remove | **new** | find_plugins, look_at_plugin, add_plugin, update_plugin, remove_plugin: each change asks on the tablet (with the PIN when Add apps asks; an update from somewhere new always) |
 | Signing in to Spotify for the tablet's own player (Settings → Opie → Spotify) | done | music `spotify_sign_in` puts Spotify's sign-in page on the screen; the person types there |
 | An Android app from Apps → Add apps (its "Music and books" suggestions) | done | install_app: the same Aurora Store steps and the same card, with the PIN when Add apps asks |

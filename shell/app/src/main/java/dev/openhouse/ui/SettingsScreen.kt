@@ -164,6 +164,7 @@ private fun Pane(t: SettingsTab, vals: Map<String, String>, compact: Boolean, lo
 private fun Waiting(t: SettingsTab, locked: Boolean) {
     var waited by remember(t.id) { mutableStateOf(false) }
     LaunchedEffect(t.id) { waited = false; delay(2500); waited = true }
+    if (SettingsPages.dialogs > 0) return // (the PIN pad is up over it)
     if (!waited) { Dots(); return }
     Spacer(Modifier.height(8.u))
     Chip(if (locked) "Unlock" else "Try again") { SettingsNav.choose(t.id, t.page) }

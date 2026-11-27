@@ -103,7 +103,7 @@ export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (
     'room_on or room_off: Adjust to the room (Settings → Screen → Volume), where your voice and the timers get a little louder in a noisy room and quieter in a quiet one and at night; music stays as set.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['louder', 'quieter', 'set', 'mute', 'get', 'room_on', 'room_off'] }, level: { type: 'integer', description: 'For set: 0-100' } } } };
 /** The tablet's own screen, straight from the voice: devices/index.js screenDo (the shell's /screen). Neither is behind
- *  the PIN on the tablet: Brightness is in Settings' own list, Sleep now is the moon button. */
+ *  the PIN on the tablet: Brightness is in Settings → Screen, Sleep now is the moon button. */
 /** What acts on this tablet itself (its screen, speaker, camera, media and other apps): not offered to a conversation on
  *  another of the household's tablets (setupFor), which would have them act here, in another room. */
 const ON_THIS_DEVICE = new Set(['look_with_camera', 'open_app', 'install_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'tablet_screen', 'volume', 'music', 'bluetooth', 'pin_choices']);

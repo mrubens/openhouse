@@ -32,7 +32,7 @@ object SettingsPages {
     internal val wantsRoot: Boolean get() = expectRoot
     private var rootTitle: String? = null
     /** Real dialogs showing over Settings (a question, the PIN pad): while one is, the page under it stays. */
-    internal var dialogs = 0
+    internal var dialogs by mutableStateOf(0)
 
     /** A tab was chosen (or its page is to be opened again): the next page is its own. */
     internal fun openRoot(page: (() -> Unit)?) {

@@ -1,6 +1,6 @@
 package dev.openhouse.shell
 
-// The shell's rows of Settings (the list is ui/Sheets.kt, SettingsSheet; docs/settings.md) and the optional lock:
+// The shell's rows of Settings (the page is ui/SettingsScreen.kt; docs/settings.md) and the optional lock:
 // off by default, so nothing everyday asks for a PIN. Turned on, it is a PIN (ParentPin), and the rows it locks ask for
 // it before they open, those that PinChoices says still ask (Advanced → Ask for the PIN); Advanced, Account, adding a
 // linked device and PIN Lock's own rows always do (always). Erasing the tablet, the ways out of Opie, unlinking and
@@ -73,7 +73,7 @@ internal class SettingsLock(private val act: MainActivity) {
             .setNegativeButton("Cancel") { _, _ -> back() }.show()
     }
 
-    /** A row of Settings (the ids are SettingsSheet's). */
+    /** A row of Settings (the ids are SettingsScreen's, and the setup's and other callers'). */
     fun open(id: String) {
         if (id.startsWith("unlink:")) return withPin { Screens.remove(act, id.removePrefix("unlink:")) }
         when (id) {
@@ -391,7 +391,7 @@ internal class SettingsLock(private val act: MainActivity) {
         val o = Openhouse
         fun onOff(b: Boolean) = if (b) "On" else "Off"
         fun again() = android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ tablet() }, 350)
-        // A few sections, each row's value at its right, as the main Settings list (docs/ux.md).
+        // A few sections, each row's value at its right, as Settings' tabs (docs/ux.md).
         fun head(t: String) = CalmDialog.Row(t, header = true) to {}
         val items = listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },

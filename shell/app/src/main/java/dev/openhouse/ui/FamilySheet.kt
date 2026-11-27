@@ -119,25 +119,36 @@ internal fun ColumnScope.FamilyContent(inSettings: Boolean = false, onBack: (() 
     }
     Spacer(Modifier.height(16.u))
     if (!loaded) { Dots(); return }
-    Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(40.u)) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) {
-            Section("Who lives here")
-            people.forEachIndexed { i, p -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
-                // Their color everywhere (the calendar, chores): tap for the next one.
-                if (p.c.isBlank()) p.c = PERSON_COLORS[i % 6]
-                Box(Modifier.size(40.u).clip(CircleShape).background(hexColor(p.c)).clickable { p.c = PERSON_COLORS[(PERSON_COLORS.indexOf(p.c) + 1) % PERSON_COLORS.size] })
-                Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Kinds(p.d) { p.d = it }; Field(p.b, { p.b = it }, "Age, or a note", Modifier.weight(1f)); Remove { people.remove(p) } } }
-            if (people.size > 0) Text("Tap a color to change it.", style = quietText(15, color = PaperLook.inkSoft))
-            AddLink("Add someone") { people += Pair2("", "", PERSON_COLORS[people.size % 6]) }
-            Section("Where you live")
-            Field(place, { place = it }, "Zip code or town, for the weather")
+    // Two columns on a tablet; one, with each person on two lines, on a phone.
+    val narrow = isCompact()
+    @Composable fun ColumnScope.who() {
+        Section("Who lives here")
+        people.forEachIndexed { i, p ->
+            // Their color everywhere (the calendar, chores): tap for the next one.
+            if (p.c.isBlank()) p.c = PERSON_COLORS[i % 6]
+            @Composable fun Dot() = Box(Modifier.size(40.u).clip(CircleShape).background(hexColor(p.c)).clickable { p.c = PERSON_COLORS[(PERSON_COLORS.indexOf(p.c) + 1) % PERSON_COLORS.size] })
+            if (narrow) Column(verticalArrangement = Arrangement.spacedBy(8.u)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) { Dot(); Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Remove { people.remove(p) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) { Kinds(p.d) { p.d = it }; Field(p.b, { p.b = it }, "Age, or a note", Modifier.weight(1f)) }
+            } else Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
+                Dot(); Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Kinds(p.d) { p.d = it }; Field(p.b, { p.b = it }, "Age, or a note", Modifier.weight(1f)); Remove { people.remove(p) }
+            }
         }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) {
-            Section("Chores")
-            chores.forEach { c -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
-                Field(c.a, { c.a = it }, "Who", Modifier.width(170.u), words = true); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }
-            AddLink("Add a chore") { chores += Pair2(names.firstOrNull() ?: "", "") }
-        }
+        if (people.size > 0) Text("Tap a color to change it.", style = quietText(15, color = PaperLook.inkSoft))
+        AddLink("Add someone") { people += Pair2("", "", PERSON_COLORS[people.size % 6]) }
+        Section("Where you live")
+        Field(place, { place = it }, "Zip code or town, for the weather")
+    }
+    @Composable fun ColumnScope.jobs() {
+        Section("Chores")
+        chores.forEach { c -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
+            Field(c.a, { c.a = it }, "Who", Modifier.width(170.u), words = true); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }
+        AddLink("Add a chore") { chores += Pair2(names.firstOrNull() ?: "", "") }
+    }
+    if (narrow) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { who(); jobs(); Spacer(Modifier.height(24.u)) }
+    else Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(40.u)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { who() }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { jobs() }
     }
 }
 

@@ -286,7 +286,7 @@ class CalmDialog(private val c: Context) {
     fun setMessage(t: CharSequence?) = apply { message = t }
     fun setView(v: View) = apply { view = v }
     fun setWidth(u: Float) = apply { widthU = u }
-    /** A list laid out as Settings' own (ui/Sheets.kt SettingsSheet, SettingsRow): its width, padding, rows and type. */
+    /** A list laid out as Settings' own (ui/SettingsScreen.kt, SettingsRow): its width, padding, rows and type. */
     private var settingsLook = false
     fun setSettingsLook() = apply { settingsLook = true; widthU = 640f }
     /** Details that don't change the decision, behind a "More" (docs/ux.md). */
@@ -444,7 +444,7 @@ class CalmDialog(private val c: Context) {
             fun act(p: Pair<CharSequence, ((DialogInterface, Int) -> Unit)?>, which: Int) { d.dismiss(); p.second?.invoke(d, which) }
             // A Done or Close that only closes is the ‹ here.
             positive?.takeIf { p -> p.second != null || p.first.toString() !in setOf("Done", "Close", "OK") }?.let { p -> bar.addView(Calm.primary(c, p.first) { act(p, DialogInterface.BUTTON_POSITIVE) }) }
-            neutral?.let { n -> bar.addView(Calm.quiet(c, n.first) { act(n, DialogInterface.BUTTON_NEUTRAL) }) }
+            neutral?.let { n -> bar.addView(Calm.quiet(c, n.first) { act(n, DialogInterface.BUTTON_NEUTRAL) }.apply { if (bar.childCount == 0) setPadding(0, 0, paddingRight, 0) }) } // alone, its words line up with the rest
             col.addView(bar, LinearLayout.LayoutParams(-2, -2))
         }
         val neg = negative

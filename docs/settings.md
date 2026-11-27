@@ -14,7 +14,7 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 | Tab | What's on it | Locked |
 | --- | --- | --- |
 | Household | who lives here (a name, Adult, Kid or Pet, their color, an age or note), where you live, chores; Save | |
-| Opie | Voice (Off or the voice's name; the household's own OpenAI key inside), Check the microphone, What Opie remembers, Check-ins, Device control, Opie uses apps, Now playing (while it's off), Spotify | Voice: Change settings; the rest from Device control down: always |
+| Opie | Voice (Off or the voice's name; the household's own OpenAI key inside), Check the microphone, What Opie remembers, Check-ins, Device control, Opie uses apps, Now playing (while it's off), Spotify | Voice: Change settings; Check-ins and the rest from Device control down: always |
 | Calendars | Google and iCloud accounts and their calendars, calendars' links, Add a calendar | Change settings |
 | Screen | Brightness, Volume (with Adjust to the room), Time | Time: Change settings |
 | Devices | paired screens, TVs, phones and computers (Add, Remove), then the house's speakers, streamers and printers | Add always; Remove: Change settings |
@@ -112,8 +112,7 @@ First run:
 
 ## Check the microphone
 
-Where someone looks when "Hey Opie" isn't working: Settings → Voice, a quiet link under its line about OpenAI (only
-while the voice is on), or ask Opie (`mic_check`). A card: the title, one line that says what to do ("Say “Hey Opie”"),
+Where someone looks when "Hey Opie" isn't working: Settings → Opie → Check the microphone, or ask Opie (`mic_check`). A card: the title, one line that says what to do ("Say “Hey Opie”"),
 a bar that moves with the room, and Done. Once it has heard its name, or after 8 seconds, the line becomes what it
 found, and a quiet Try again shows:
 
@@ -176,7 +175,7 @@ Off means a person's plain yes: the card still shows, and only a real finger ans
 can. What's `DeviceServer.personOnly` stays a person's own tap, whatever the switches say.
 
 **Always the PIN** (when one is set), never a switch: changing these switches (each one, a person's own tap), PIN Lock
-itself (turning it off, a new recovery code, Forgot PIN?), Advanced (device control, Opie uses apps, Tailscale, the
+itself (turning it off, a new recovery code, Forgot PIN?), Advanced and what Opie may do (device control, Opie uses apps, Tailscale, the
 home network, Plugins, Now playing), Account and Backups (link, unlink, restore, the backups' code, your own storage),
 adding a linked device (a computer that changes the apps, a phone, a screen, a TV, another tablet) and joining another
 household, the ways out of Opie (leaving kiosk mode, Android's settings and Wi-Fi settings, system apps and other app
@@ -217,7 +216,8 @@ start` and `/poll`, the shell's own: a paired device's call is refused); the she
 the answer. The code's card is a person card with the PIN pad's mark, so Opie's screen tools neither read it nor act
 while it's up, and the new PIN is typed on the pad as any other.
 
-Locked rows: Account (with Backups), Advanced (with Plugins) and adding a linked device always; Voice, Calendars,
+Locked rows: Account (with Backups and Email), Advanced (with Plugins), Opie's check-ins, device control, Opie uses
+apps, Now playing and Spotify, and adding a linked device always; Voice, Calendars,
 Time, Email and removing a linked device while Change settings is on (the default). Not locked: what a household uses every day (Hey Opie, the voice, Family's names
 and chores, night hours, devices, looking after things, putting things back).
 
@@ -226,13 +226,14 @@ A PIN set over adb (ConfigReceiver `--es pin`) turns the lock on the same way; a
 ## Back
 
 Every back goes through Android's own back handling (OnBackPressedDispatcher, predictive back on in the manifest):
-up one level, so a sheet opened from Settings goes back to the list, then Settings closes, and an app goes home.
+up one level, so a page in Settings goes back to its tab (on a phone, then to the list of tabs), then Settings
+closes, and an app goes home.
 
 - Kiosk mode hides Android's bars, so the system back gesture and button aren't there. Our own edge swipe stands in,
   shaped like Android's (in from the left or right edge, 70 dp, more sideways than up or down): over the home screen
   while something is open (Overlay.kt, EdgeBack), on every dialog (CalmDialog), and in apps (AppHost, AppWindow).
-- A sheet opened from Settings has a ‹ at its top left, for people who don't know the gesture. Dialogs keep their
-  Back button. No back on the home screen itself.
+- In Settings, a page opened from a tab has a ‹ before its title (on a phone, every tab does, back to the list).
+  Dialogs keep their Back button. No back on the home screen itself.
 - The tablet's navigation mode isn't changed. If kiosk mode can let the real system gesture through cleanly, it's
   preferred over our copy; not tried on a real tablet yet.
 
