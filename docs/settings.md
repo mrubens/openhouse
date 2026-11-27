@@ -24,6 +24,8 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 Under the tabs, quietly: the version (tap it to look for an update and install it), and "We haven't tested this
 tablet" on a model that isn't on the list.
 
+House rules (branch `house-rules`, not merged yet) goes in the Opie tab under Voice, locked as Voice is.
+
 A tablet that's part of another tablet's household (docs/multi-tablet.md) has Household (On the main tablet, Leave),
 Screen and Advanced only.
 

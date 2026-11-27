@@ -140,6 +140,7 @@ private fun Pane(t: SettingsTab, vals: Map<String, String>, compact: Boolean, lo
                 "household" -> SettingsRow("Household", "On the main tablet", onClick = shell("satellite")) // (a satellite: docs/multi-tablet.md)
                 "opie" -> {
                     SettingsRow("Voice", vals["voice"], asks, shell("voice"))
+                    // (House rules goes here, under Voice, behind Change settings: branch house-rules.)
                     SettingsRow("Check the microphone", onClick = shell("micCheck"))
                     SettingsRow("What Opie remembers", vals["memory"], onClick = shell("memory"))
                     SettingsRow("Check-ins", vals["checkins"], lockOn, shell("checkins"))
