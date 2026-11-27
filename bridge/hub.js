@@ -1,5 +1,6 @@
 // The hub (docs/hub.md): the bridge on a small computer in a closet (a Raspberry Pi, a NUC, Docker on a NAS) with no
-// screen of its own; the household's phones, laptops and TV are its screens. OPENHOUSE_HUB=1 (hub/start.sh) turns it on.
+// screen of its own; the household's phones, laptops and TV are its screens. On when the host has no screen (host.js
+// 'cards': the keeper, which hub/start.sh starts).
 // What the tablet's shell does around the bridge, a hub does here or in the browser:
 //   - its settings: a paired device with the 'admin' scope (screens.js), at /hub/ (chat/src/hub.jsx);
 //   - the first such device: a code printed at start-up while there's none (and on `hub/owner-code.sh`), so only someone
@@ -13,7 +14,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
-export const isHub = () => process.env.OPENHOUSE_HUB === '1';
 
 export function hubRoutes({ DISPLAY, screens, json, body = async () => ({}), CODE = process.env.OPENHOUSE_CODE_DIR || path.resolve(DISPLAY, '..'), log = console.log, exit = () => process.exit(0) }) {
   const install = fs.existsSync('/.dockerenv') || process.env.OPENHOUSE_INSTALL === 'docker' ? 'docker' : fs.existsSync(path.join(CODE, '.git')) ? 'git' : 'files';

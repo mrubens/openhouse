@@ -9,7 +9,6 @@
 // "done". A computer's change goes through the same lock as the assistant's (edits.js): start_editing opens it with
 // what was asked, done_editing commits it as one change, so "undo" on the tablet takes it back like any other. A
 // change left open goes in by itself after a quiet while, so a closed laptop never blocks the family's assistant.
-import { isHub } from './hub.js';
 import { DEVICE_NAMES } from './device-tools.js';
 import fs from 'node:fs';
 import { readJson, writeJson, unsaved } from './store.js';
@@ -308,11 +307,11 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
       case 'done_editing': {
         if (!c) return ok('Nothing open: nothing to finish.');
         if (c.fix) {
-          // A fix the tablet noticed goes in only after a person's yes (null: no shell to ask, which only a laptop's dev
-          // bridge may take as a yes; a hub asks its settings devices, and anything but a yes there is a no).
+          // A fix the tablet noticed goes in only after a person's yes (null: no host to ask, which only a laptop's dev
+          // bridge may take as a yes; with a host, anything but a yes is a no: host.js).
           const fx = fixes?.get(c.fix);
           const yes = await approve(`Put in ${who.name}'s fix for ${fx?.name || 'the app'}?`, `${String(a.summary || c.what).slice(0, 300).replace(/\.$/, '')}.`, true, { yes: 'Put it in' });
-          if (yes === false || (yes !== true && isHub())) {
+          if (yes === false) {
             clearTimeout(c.timer); open.delete(key); keep(); homeScreen.computerNote(null);
             try { edits.end(c.turn, false); } catch {}
             fixStatus(c.fix, { status: 'pending' });

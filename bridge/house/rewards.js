@@ -31,7 +31,7 @@ export default function (house) {
   function rewardSetup(a, fromApp) {
     const adds = (a.add ? [].concat(a.add) : []).filter((y) => str(y?.title)), removes = arr(a.remove);
     if (!adds.length && !removes.length) return [];
-    if (!house.shellCfg()) return setUpRewards(adds, removes);
+    if (!house.canAsk()) return setUpRewards(adds, removes);
     const what = [...adds.map((x) => `${str(x.title, 60)} for ${Math.max(1, Math.min(500, Math.round(Number(x.stars) || 10)))} stars`), ...removes.map((x) => `take off ${data.rewards.find((y) => y.id === x || same(y.title, x))?.title || x}`)].join('; ');
     house.shell('/approve', { title: 'Change the rewards?', detail: what, pin: true, yes: 'Change' }, 100_000).then((r) => {
       if (r?.yes === true) { setUpRewards(adds, removes); save(); }

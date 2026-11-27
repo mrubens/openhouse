@@ -40,8 +40,10 @@ phones, laptops, the TV, an old tablet: browsers, each paired with its own key
 Opie cloud (optional): live voice and typed questions (OpenAI), cloud backups, the relay from away
 ```
 
-It is the tablet's bridge, unchanged in what it does. `OPENHOUSE_HUB=1` (set by `hub/start.sh`) adds the few things the
-tablet's shell did around it (`bridge/hub.js`).
+It is the tablet's bridge, unchanged in what it does, with the keeper as its host instead of the tablet's shell
+([host.md](host.md); `OPENHOUSE_HOST=keeper`, set by `hub/start.sh`). The bridge never asks whether it's on a hub: the
+keeper says it has no screen of its own (`cards`), and that turns on the few things the tablet's shell did on its
+screen (`bridge/headless.js`, `bridge/hub.js`).
 
 ## Same as the tablet, and what differs
 
@@ -78,9 +80,10 @@ backups never reach it (`OPENHOUSE_KEEPER_DIR`: `<data>-keeper` by default; Dock
 `~/Library/Application Support/OpenHouse Keeper`). The seal key is in the login Keychain on a Mac and in a 0600 file
 in the keeper's folder on Linux. Like the shell, it reads the calendars and albums itself and hands the bridge only
 what they say, and it adds the OpenAI key to the bridge's calls at OpenAI's fixed addresses; nothing it keeps is ever
-answered back. The bridge reaches it through `toShell` as it reaches the tablet's shell (`bridge/hub-shell.js`), so
-add_calendar, add_photo_album, the own key and the setup work the same way. On a hub with no keeper (a bridge started
-by hand) those answer that they can't.
+answered back. It answers the same requests as the tablet's shell, the same way (host.md), so add_calendar,
+add_photo_album, the own key, the cards and the setup work the same way; it holds the cards until a person answers
+them on a settings device or a grown-up's phone, and checks the PIN itself. A bridge set to the keeper with none
+running starts one of its own (a laptop trying it).
 
 ### Setup, cards and the PIN
 
@@ -256,7 +259,8 @@ On the hub itself: `docker exec openhouse /opt/openhouse/hub/owner-code.sh`; on 
 - `hub/start.sh`: the hub's start, shared by Docker, Linux and the Mac. `hub/build.sh`: building from a checkout.
 - `hub/install.sh` (Linux), `hub/install-mac.sh`, `hub/update.sh`, `hub/owner-code.sh`.
 - `hub/demo.mjs`: the demo household for the iPhone app's review ([iphone-app.md](iphone-app.md)).
-- `hub/keeper.mjs` (the keeper), `bridge/hub-shell.js` (the shell's paths on a hub: the keeper, the cards, the setup's steps, the PIN lock).
+- `hub/keeper.mjs` (the keeper: the host, [host.md](host.md)), `bridge/host.js` (picking the host, what it can do),
+  `bridge/headless.js` (for a host with no screen: its cards on devices, the setup's steps, the PIN lock).
 - `bridge/hub.js` (`/hub`, updates, the settings code), `bridge/folder-backup.js`, `screens.js` (the `voice` and `admin`
   scopes, https), `server.js` (live voice's start through the cloud for a device; the settings routes on a hub).
 - `chat/src/hub.jsx` (the settings page), `chat/src/setup-flow.jsx` (the setup's steps, shared with the phone page), `chat/src/talk.jsx` (Opie's pill), `chat/src/live-voice.js`,

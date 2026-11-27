@@ -101,7 +101,7 @@ const RULES = [
   ['admin', 'POST', /^\/cloud\/(link\/start|link\/confirm|link\/cancel|unlink|voice|voice\/name)$/],
   ['admin', 'POST', /^\/backup\/(dest|now|restore|escrow|recovery-code\/confirmed)$/],
   ['admin', 'POST', /^\/(relay|hub\/update|webmcp)$/], ['admin', 'GET', /^\/webmcp$/], // the connector at the household's own address (web-mcp.js)
-  // On a hub the settings device is also the setup's (hub-shell.js drives the steps), answers the "Is this OK?" cards,
+  // On a hub the settings device is also the setup's (headless.js drives the steps), answers the "Is this OK?" cards,
   // keeps the PIN and the household's own OpenAI key (in the keeper, hub/keeper.mjs: never here).
   ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|google|icloud|pin|voice)$/],
   ['ask', 'GET', /^\/hub\/asks$/], ['ask', 'POST', /^\/hub\/asks\/answer$/], // a hub's cards on grown-ups' phones too (not kids' or TVs)
@@ -235,7 +235,7 @@ export const frameHeaders = (host, reaches = '') => ({
 // How long a connection on the home network may take (screensRoutes startLan): its headers, its body, and with nothing
 // either way; checked every tick.
 export const LAN_TIMES = { headers: 20e3, request: 60e3, idle: 180e3, tick: 5e3 };
-export function screensRoutes({ HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), lanTls = null, TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
+export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 'kit'), json, body, dispatch, onChange = () => {}, kit = () => false, screenApps = () => [], APP_DIR = null, apns = null, PUBLIC = path.join(HERE, 'public'), PORT = Number(process.env.SCREENS_PORT || 8788), HOST = process.env.SCREENS_HOST || '0.0.0.0', FILE = path.join(HERE, 'screens.json'), lanTls = null, TLS_FILES = process.env.HUB_TLS_CERT && process.env.HUB_TLS_KEY ? { cert: process.env.HUB_TLS_CERT, key: process.env.HUB_TLS_KEY } : null }) {
   // (no .bak: a phone taken off must not come back from an older copy)
   const state = readJson(registered('screens', FILE), null, { bak: false }) || { lan: false, screens: [] };
   state.screens ||= [];
@@ -492,9 +492,9 @@ export function screensRoutes({ HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 
       if (connect && req.method === 'GET' && (p === '/' || p === '/openhouse.mcpb' || p === '/openhouse-mcp.mjs')) return connectRoute(req, res, p);
       // While the setup's code lasts, the bare address (opie.local:8788, typed on a computer) is the page to type it on.
       if (req.method === 'GET' && p === '/' && [...pairs.values()].some((x) => x.setup && x.until > Date.now())) { res.writeHead(302, { location: '/phone/' }); return res.end(); }
-      // A hub: Google's sign-in comes back to its bare address (the cloud's /g/done, #g=… or #gc=…), which hands it to the
+      // A host with no screen (a hub): Google's sign-in comes back to its bare address (the cloud's /g/done, #g=… or #gc=…), which hands it to the
       // settings page; anything else goes on to the home screen (hub/back.js). A fragment never reaches a server.
-      if (req.method === 'GET' && p === '/' && process.env.OPENHOUSE_HUB === '1') {
+      if (req.method === 'GET' && p === '/' && noScreen()) {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...PAGE_HEADERS });
         return res.end('<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Opie</title><script src="/hub/back.js"></script>');
       }
@@ -528,7 +528,7 @@ export function screensRoutes({ HERE, LAN_MS = LAN_TIMES, KIT = path.join(HERE, 
         const r = hello(JSON.parse((await raw(req, 4096))?.toString() || '{}'), ip);
         return plain(res, r.status, r.json);
       }
-      if (req.method === 'GET' && p === '/pair/about') return plain(res, 200, { hub: process.env.OPENHOUSE_HUB === '1' }); // where a device says yes (docs/hub.md)
+      if (req.method === 'GET' && p === '/pair/about') return plain(res, 200, { hub: noScreen() }); // where a device says yes (docs/hub.md)
       if (req.method === 'GET' && p === '/pair/ready') { // a TV showing its code: has the tablet taken it yet?
         const x = pairs.get(String(url.searchParams.get('pair') || ''));
         return plain(res, 200, { ready: !!(x && x.typed && !x.asked) });

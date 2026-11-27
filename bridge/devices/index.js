@@ -18,7 +18,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import * as find from './discover.js';
 import { pins as netPins } from './net.js';
-import { shellJson } from '../shell-call.js';
+import { host } from '../host.js';
 import { asData } from '../as-data.js';
 import * as R from './recipe.js';
 import roku from './drivers/roku.js';
@@ -108,7 +108,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   process.env.HOME_MCP_CONFIG = MCP_FILE; process.env.HOME_MCP_URL = mcpUrl; process.env.HOME_MCP_TOKEN = token;
 
   // The shell: its "Is this OK?" card, its status pill, and the Wi-Fi multicast lock.
-  const shell = (p, b, ms = 3000) => shellJson(p, b, ms);
+  const shell = (p, b, ms = 3000) => host.json(p, b, ms);
   const approve = async (title, detail, extra = {}) => (await shell('/approve', { ...extra, title, detail }, 100_000))?.yes === true;
   const say = (text) => { log(text); shell('/say', { text }); };
   const bt = btClient(shell);

@@ -31,7 +31,7 @@ import { readJson, writeJson } from './store.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
 import { request } from './backup-format.js';
-import { toShell } from './shell-call.js';
+import { host } from './host.js';
 import { ownOpenAI } from './own-openai.js';
 
 // The service a tablet links to unless someone sets another (Settings → Account → Address). Filled in after the
@@ -40,7 +40,7 @@ export const DEFAULT_API = 'https://cloud.openhouse.computer';
 const DAY = 86400e3;
 
 export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', backupBits = () => ({}), fixesFile = null, now = Date.now, tick = 15 * 60e3, defaultApi = process.env.OPENHOUSE_CLOUD_URL || DEFAULT_API,
-  openai = (kind, body) => toShell('/openai', { kind, body }, { file: process.env.DEVICE_MCP_CONFIG, ms: 125e3 }).then((r) => r || { status: 0, body: null }) }) {
+  openai = (kind, body) => host.call('/openai', { kind, body }, { ms: 125e3 }).then((r) => r || { status: 0, body: null }) }) {
   const DIR = path.join(DISPLAY, '.cloud');
   const f = (n) => path.join(DIR, n);
   const read = (n) => readJson(f(n), null, { bak: false }); // (keys: no .bak copies lying around)
@@ -272,7 +272,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       return { status: e.code === 'unlinked' ? 409 : e.code === 'http429' ? 429 : 400, json: { error: e.code === 'unlinked' ? 'unlinked' : e.code === 'http429' ? 'slow down' : 'unavailable' } };
     }
   }
-  /** Whether the household's own key is in (the shell's /cloud/own; a hub's keeper through hub-shell.js): never the key. */
+  /** Whether the household's own key is in (the shell's /cloud/own; the keeper's, the same way): never the key. */
   async function setOwn(on) {
     if (on) write('own.json', { on: true, at: iso() }); else fs.rmSync(f('own.json'), { force: true });
     // A key put in (a grown-up, with the PIN) is the household's yes to OpenAI on their own account: the voice comes on

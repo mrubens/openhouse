@@ -204,7 +204,10 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
+    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media")
+    /** What the shell can do, for /host (bridge/host.js CAPS; its TABLET_CAPS is the same list, for a shell older than /host). */
+    private val HOST_CAN = listOf("screen", "approve", "calendar", "calendar-accounts", "openai", "pin", "voice-setup", "google-signin", "drive", "updates",
+        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -212,6 +215,9 @@ object DeviceServer {
     private fun home(path: String, b: JSONObject): Pair<Int, String> {
         val acc = DeviceAccess.instance
         return when (path) {
+            // The bridge's host interface (bridge/host.js, docs/host.md): what this shell can do. The reference host:
+            // every other host answers the same requests the same way, and leaves out what it can't.
+            "/host" -> 200 to JSONObject().put("kind", "tablet").put("can", JSONArray(HOST_CAN)).toString()
             "/approve" -> {
                 // The shell's own card (ApprovalCard): with Device control off (a tablet set up by QR code) it's a
                 // window of the display, so plugin adds and rewards are asked there too.

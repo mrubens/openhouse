@@ -25,13 +25,14 @@ let child, url, lan, root, out = '';
 before(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-hub-'));
   fs.cpSync(BRIDGE, path.join(root, 'bridge'), { recursive: true, filter: (f) => !/[\\/](node_modules|test|public)$|\.jsonl$|undo\.json$|screens\.json$/.test(f) });
+  fs.mkdirSync(path.join(root, 'hub')); fs.copyFileSync(path.join(BRIDGE, '../hub/keeper.mjs'), path.join(root, 'hub/keeper.mjs')); // (the keeper: the bridge's host here, host.js)
   fs.mkdirSync(path.join(root, 'bridge/public/hub'), { recursive: true });
   fs.writeFileSync(path.join(root, 'bridge/public/hub/index.html'), '<!doctype html><title>hub</title>');
   fs.mkdirSync(path.join(root, 'webapp')); initRepo(path.join(root, 'webapp'));
   const [port, lanPort] = [await freePort(), await freePort()];
   child = spawn(process.execPath, [path.join(root, 'bridge/server.js')], {
     env: { ...process.env, PORT: String(port), SCREENS_PORT: String(lanPort), SCREENS_HOST: '127.0.0.1', AGENT: 'fake', HEARTBEAT: 'off', VOICE_DIR: path.join(root, 'novoice'),
-      OPENHOUSE_TOKEN: TOKEN, OPENHOUSE_HUB: '1', OPENHOUSE_BACKUP_DIR: path.join(root, 'backups'), OPENHOUSE_CODE_DIR: root, OPENHOUSE_CLOUD_URL: 'http://127.0.0.1:9' },
+      OPENHOUSE_TOKEN: TOKEN, OPENHOUSE_HOST: 'keeper', OPENHOUSE_BACKUP_DIR: path.join(root, 'backups'), OPENHOUSE_CODE_DIR: root, OPENHOUSE_CLOUD_URL: 'http://127.0.0.1:9' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   child.stdout.on('data', (d) => (out += d)); child.stderr.on('data', (d) => (out += d));

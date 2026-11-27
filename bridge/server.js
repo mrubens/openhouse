@@ -13,7 +13,7 @@ import './pid-file.js'; // first: the process id, before anything else loads
 import http from 'node:http';
 import fs from 'node:fs';
 import { calendarLinkTools, shellCall } from './calendar-links.js';
-import { toShell } from './shell-call.js';
+import { host, pickHost } from './host.js';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,8 +29,7 @@ import { isTab, homePath } from './home-screen.js';
 import { builderRoutes } from './builder.js';
 import { putBackUnfinished } from './build-waits.js';
 import { screensRoutes, allowed, ADMIN_SCOPES } from './screens.js';
-import { keeperClient, hubAsks, hubSetup, hubShell, hubShellRoutes } from './hub-shell.js';
-import { useHubShell } from './shell-call.js';
+import { setupSteps, settingsRoutes } from './headless.js';
 import { appsRoutes, onScreen, appAllowed, houseFor } from './apps.js';
 import { appFetch, reachMatches, recipeLinkRefused } from './app-web.js';
 import { pluginsRoutes } from './plugins.js';
@@ -52,7 +51,7 @@ import { Readable, Writable } from 'node:stream';
 import { backupRoutes } from './backup.js';
 import { driveDestination } from './drive.js';
 import { folderDestination } from './folder-backup.js';
-import { hubRoutes, isHub } from './hub.js';
+import { hubRoutes } from './hub.js';
 import { weatherSense } from './weather-sense.js';
 import { guarded } from './guarded.js';
 import { rails } from './rails.js';
@@ -158,16 +157,16 @@ const apps = appsRoutes({ HERE, APP_DIR, json });
  *  display couldn't show it), or null with no shell to ask (a laptop). It's up for 3 minutes, longer while someone
  *  chooses a PIN there. */
 const shellAsk = async ({ title, detail, yes, rights, pin, grownup }) => {
-  const r = await toShell('/approve', { title, detail, yes, rights, pin, grownup, later: true, no: "Don't put it in", waitMs: 180e3 }, { ms: 15 * 60e3 });
+  const r = await host.call('/approve', { title, detail, yes, rights, pin, grownup, later: true, no: "Don't put it in", waitMs: 180e3 }, { ms: 15 * 60e3 });
   if (!r) return null;
   return r.ok && r.body?.yes === true ? 'yes' : r.ok && r.body?.answered === true ? 'no' : 'later';
 };
 const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger } (docs/ux.md) // true, false, or null when there's no shell to ask (a laptop)
-  const r = await toShell('/approve', { ...extra, title, detail, pin }, { ms: 100e3 });
+  const r = await host.call('/approve', { ...extra, title, detail, pin }, { ms: 100e3 });
   return r && r.ok && r.body?.yes === true;
 };
 // A calendar link (add_calendar, from the workshop or a typed chat): straight to the shell, never kept here (calendar-links.js).
-const calendar = calendarLinkTools({ config: () => process.env.DEVICE_MCP_CONFIG });
+const calendar = calendarLinkTools();
 chat.homeScreen.addTools(calendar.tools, calendar.call);
 // Every app is a plugin (ours from defaults/, the household's own, or from a link): on start-up the one-time move,
 // then this release's built-ins. A commit's changed apps keep their manifests right (edits.js snapshot).
@@ -252,6 +251,10 @@ sense.onRun((x) => {
 // The cloud service (cloud.js) and backups (backup.js) to the cloud and/or a USB drive (drive.js): off until someone
 //  turns them on in Settings. Display secret only: paired screens and apps never reach them.
 const DISPLAY = process.env.CLOUD_DISPLAY || path.join(HERE, '..');
+// The host (host.js, docs/host.md): the tablet's shell, the keeper, or none (a laptop). The one place the bridge asks
+// which it is; everything after asks what it can do (host.can).
+await pickHost({ DISPLAY, PORT });
+console.log(`[host] ${host.kind}`);
 let backups = null;
 const cloud = cloudRoutes({ DISPLAY, json, body, agentName, backupBits: () => backups?.bits() || {}, fixesFile: path.join(HB_DIR, '../heartbeat-fixes.json') });
 cloudRef = cloud;
@@ -279,8 +282,8 @@ import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud
 // The voice's make_app (on the tablet: it says how it went), and a waiting one's card again. Typed (a written
 // conversation's make_app): how it went is written there instead, not said.
 if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, o.typed ? { conversation: o.typed.conversation || null } : { spoken: !o.phone }), builder.waits);
-// A hub (docs/hub.md) has no shell to own a USB drive: its backups go to a folder instead (a mounted drive, a share, a volume).
-const localDest = isHub() ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
+// A host with no USB drive of its own (the keeper, docs/hub.md): backups go to a folder instead (a mounted drive, a share, a volume).
+const localDest = host.there() && !host.can('drive') ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
 backups = backupRoutes({ DISPLAY, json, body, destinations: [cloud.destination, localDest], escrow: cloud.escrow, busy: () => !!edits.holder() });
 // The tablet's own https name at home (lan-tls.js): its address comes from the shell (POST /screens/address); a hub's
 // from LAN_ADDRESS, as only the machine knows which of its addresses the Wi-Fi sees.
@@ -288,7 +291,7 @@ const lanTlsState = lanTls({ DIR: path.join(DISPLAY, '.lan-tls'), cloud, PORT: N
 if (process.env.LAN_ADDRESS) lanTlsState.address(process.env.LAN_ADDRESS);
 // Other screens on the home network (off until someone adds one): their requests come to route() below.
 let relay = null;
-const screens = screensRoutes({ HERE, json, body, APP_DIR, apns: (b) => cloud.apns(b), lanTls: lanTlsState, kit: (req, res, url) => apps.kit(req, res, url), onChange: () => relay?.changed(),
+const screens = screensRoutes({ noScreen: () => host.can('cards'), HERE, json, body, APP_DIR, apns: (b) => cloud.apns(b), lanTls: lanTlsState, kit: (req, res, url) => apps.kit(req, res, url), onChange: () => relay?.changed(),
   // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv).
   // A TV's layout is an app (app.json "screens": ["tv"]): the household's own first, then ours (openhouse-tv). A phone
   // shows every app that runs on phones (apps.js onScreen), each in a frame of its own (docs/phones.md, "Every app").
@@ -307,7 +310,7 @@ const screens = screensRoutes({ HERE, json, body, APP_DIR, apns: (b) => cloud.ap
 //  turns it on, and only for a linked tablet.
 // Email to the tablet (mail.js, docs/tablet-email.md): the household's address through the cloud, on by default once
 //  linked, and/or its own mailbox (the shell's IMAP). Display only, like the cloud's settings.
-const mail = mailRoutes({ DISPLAY, json, body, house: chat.house, cloud, shell: isHub() ? null : (p, b) => shellCall(p, b, { timeoutMs: 60e3 }).then((r) => (r.error ? null : r)), every: process.env.MAIL === 'off' ? 0 : 5 * 60e3 });
+const mail = mailRoutes({ DISPLAY, json, body, house: chat.house, cloud, shell: !host.can('mail-convert') ? null : (p, b) => shellCall(p, b, { timeoutMs: 60e3 }).then((r) => (r.error ? null : r)), every: process.env.MAIL === 'off' ? 0 : 5 * 60e3 });
 relay = relayRoutes({ DISPLAY, json, body, screens, cloud, onMail: () => mail.nudge() });
 chat.live.setWhoOf?.((id) => screens.who(id)); // Opie on someone's phone knows who it's talking with (live-tools.js)
 chat.live.setPhones?.({ phones: () => screens.phones(), message: (people, m) => screens.message(people, m) }); // message_family: a message to someone's phones (live-tools.js)
@@ -343,32 +346,22 @@ const workshop = workshopRoutes({ HERE, APP_DIR, homeScreen: chat.homeScreen, ed
 // The tablet's own connector for Claude or ChatGPT, with no Opie cloud: behind the household's own https address
 // (a Tailscale Funnel, a tunnel), off until someone turns it on (web-mcp.js, docs/web-chat-building.md).
 const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });
-// The hub (hub.js, docs/hub.md): no tablet, its settings in a browser. Off on a tablet.
-const hub = isHub() ? hubRoutes({ DISPLAY, screens, json, body }) : null;
+// A host with no screen of its own ('cards': the keeper, docs/hub.md): its cards on the settings devices and
+// grown-ups' phones, its setup's steps and its settings behind the PIN there (headless.js), and the bridge's own
+// settings page and updates (hub.js). A tablet's shell does all of this on its screen.
+const headless = host.can('cards') ? settingsRoutes({ call: host.call, cloud, json, body }) : null;
+if (headless) headless.setup = setupSteps({ DISPLAY, household: () => chat.live.setupHousehold?.read?.() || {} });
+const hub = headless ? hubRoutes({ DISPLAY, screens, json, body }) : null;
 hub?.start();
-// What the tablet's shell does for the bridge, on a hub (hub-shell.js): the keeper keeps the secrets, the settings
-// devices answer the cards and run the setup, which the hub's bridge drives itself.
-const hubShellR = (() => {
-  if (!hub) return null;
-  const keeper = keeperClient();
-  let r = null;
-  const asks = hubAsks({ hasPin: () => !!r?.hasPin(), pinOk: (p) => r.pinOk(p) });
-  r = hubShellRoutes({ keeper, asks, cloud, json, body });
-  r.keeperCall = keeper;
-  r.setup = hubSetup({ DISPLAY, household: () => chat.live.setupHousehold?.read?.() || {} });
-  useHubShell(hubShell({ keeper, asks, setup: r.setup, cloud }));
-  if (!keeper.there()) console.log('[hub] no keeper (OPENHOUSE_KEEPER): calendars, albums, an own OpenAI key and the PIN are off');
-  return r;
-})();
 /** A settings device's change that waits for the hub's PIN (once one is set): what only 'admin' reaches, but the cards,
  *  what's kept, unlocking, and the setup while it's under way. */
 const hubLocked = (req, url) => {
   const id = String(req.headers['x-openhouse-screen'] || '');
-  if (!hubShellR || !id || hubShellR.open(id)) return false;
+  if (!headless || !id || headless.open(id)) return false;
   const p = url.pathname, m = req.method;
   if (!allowed(ADMIN_SCOPES, m, p) || allowed(ADMIN_SCOPES.filter((s) => s !== 'admin'), m, p)) return false;
   if ((m === 'GET' && /^\/hub(\/keeper|\/asks)?$/.test(p)) || /^\/hub\/(unlock|asks\/answer)$/.test(p)) return false;
-  if (p.startsWith('/setup/') && hubShellR.setup.step()) return false;
+  if (p.startsWith('/setup/') && headless.setup.step()) return false;
   return true;
 };
 
@@ -505,8 +498,8 @@ async function route(req, res, url) {
     // added with no card on the tablet unless its lock is on), and invites for the family.
     // Which step the tablet's setup shows: the setup phone or computer follows it (chat/src/phone.jsx SetupFlow).
     if (hubLocked(req, url)) { json(res, 423, { error: 'Type the PIN first.', locked: true }); return true; }
-    if (hubShellR && url.pathname === '/setup/step' && req.method === 'GET') { json(res, 200, { step: hubShellR.setup.step() }); return true; } // a hub drives its own setup
-    if (hubShellR && url.pathname === '/setup/go' && req.method === 'POST') { hubShellR.setup.go((await body(req)).step); json(res, 200, { ok: true, step: hubShellR.setup.step() }); return true; }
+    if (headless && url.pathname === '/setup/step' && req.method === 'GET') { json(res, 200, { step: headless.setup.step() }); return true; } // no screen there: the setup's steps are driven here
+    if (headless && url.pathname === '/setup/go' && req.method === 'POST') { headless.setup.go((await body(req)).step); json(res, 200, { ok: true, step: headless.setup.step() }); return true; }
     if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, chat.live.setupShown?.() || { step: null }); return true; }
     // The setup is done from the phone or computer (docs/onboarding.md): who lives here and where are typed there, and
     // its Next moves the tablet on (Setup.kt looks at /setup/want).
@@ -532,7 +525,11 @@ async function route(req, res, url) {
       const st = cloud.status();
       if (!st.linked) { json(res, 409, { error: 'Link the tablet to your Opie account first.' }); return true; }
       const g = await body(req);
-      const r = await calendar.toShell('/setup/google', { cloud: st.api, kind: g.kind === 'photos' ? 'photos' : 'calendar', r: String(g.r || '') }); // (r: a hub's own address, where the sign-in comes back)
+      if (!host.can('google-signin')) { // (a host that doesn't start it: here, back to this bridge's own address, r, on the device: headless.js /hub/google)
+        const s = await cloud.googleStart(String(g.r || ''), g.kind === 'photos' ? undefined : 'cal');
+        json(res, s.json.url ? 200 : 409, s.json.url ? { url: s.json.url } : { error: s.json.error === 'r' ? 'Open this page at the http:// address to sign in to Google.' : s.json.error === 'unlinked' ? 'Link to your Opie account first.' : 'Google isn\'t available right now. Try again later.' }); return true;
+      }
+      const r = await calendar.toShell('/setup/google', { cloud: st.api, kind: g.kind === 'photos' ? 'photos' : 'calendar' });
       json(res, r.error ? 400 : 200, r); return true;
     }
     if (url.pathname === '/setup/icloud' && req.method === 'POST') {
@@ -548,6 +545,11 @@ async function route(req, res, url) {
     }
     if (url.pathname === '/setup/voice' && req.method === 'POST') {
       const b = await body(req);
+      if (!host.can('voice-setup')) { // (a host that doesn't: turned on here; a sample needs a speaker there)
+        if (b.do === 'sample') { json(res, 200, { ok: true }); return true; }
+        try { const v = await cloud.voiceOn(String(b.voice || '').slice(0, 20)); json(res, 200, v.on ? { on: true } : { on: false, notYet: true }); } catch (e) { json(res, 400, { error: e.message }); }
+        return true;
+      }
       const r = await calendar.toShell('/setup/voice', { voice: String(b.voice || '').slice(0, 20), do: b.do === 'sample' ? 'sample' : 'on' });
       json(res, r.error ? 400 : 200, r); return true;
     }
@@ -584,12 +586,12 @@ async function route(req, res, url) {
       if (url.pathname === '/live/start') req.liveSetup = await chat.live.setupFor(req);
       await cloud.handle(req, res, new URL('/cloud' + url.pathname, 'http://x')); return true;
     }
-    // A hub's settings device (screens.js 'admin'): what the tablet's Settings reach on its loopback.
+    // A settings device (screens.js 'admin', with a host that has no screen): what the tablet's Settings reach on its loopback.
     if (hub) {
-      // The hub's console only (its secret, never a device's): a lost PIN, forgotten with a new settings code (hub/owner-code.sh --forget-pin).
-      if (req.method === 'POST' && url.pathname === '/hub/forget-pin' && !req.headers['x-openhouse-screen']) { const r = await hubShellR.keeperCall('/pin/clear'); await hubShellR.refresh(); json(res, r.ok ? 200 : 503, r.body || {}); return true; }
+      // The console only (the bridge's secret, never a device's): a lost PIN, forgotten with a new settings code (hub/owner-code.sh --forget-pin).
+      if (req.method === 'POST' && url.pathname === '/hub/forget-pin' && !req.headers['x-openhouse-screen']) { const r = await headless.keeper('/pin/clear'); await headless.refresh(); json(res, r.ok ? 200 : 503, r.body || {}); return true; }
       if (await hub(req, res, url)) return true;
-      if (url.pathname.startsWith('/hub/') && await hubShellR.handle(req, res, url, String(req.headers['x-openhouse-screen'] || ''))) return true;
+      if (url.pathname.startsWith('/hub/') && await headless.handle(req, res, url, String(req.headers['x-openhouse-screen'] || ''))) return true;
       if (/^\/screens(\/|$)/.test(url.pathname) && await screens(req, res, url)) return true;
       if (/^\/(cloud|backup)\//.test(url.pathname)) { await (url.pathname.startsWith('/cloud/') ? cloud : backups).handle(req, res, url); return true; }
     }

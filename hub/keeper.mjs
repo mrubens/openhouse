@@ -11,17 +11,26 @@
 //   OPENHOUSE_KEEPER_STORE  'keychain' (a Mac's default: the seal key in the login Keychain) or 'file' (Linux: the seal
 //                           key in its own 0600 file in the keeper's folder)
 //
-// Its routes (POST, JSON), the bridge's only (bridge/hub-shell.js):
-//   /calendar {url, who, name, only}  read once, then kept -> {added}   /calendar/list -> {calendars: [{id, who, name, problem}]}
-//   /calendar/remove {id}             /album {url} -> {added}           /album/list -> {albums: [{id, problem}]}   /album/remove {id}
+// It is one of the bridge's hosts (bridge/host.js, docs/host.md): the same requests as the tablet's shell
+// (DeviceServer.kt), with the same answers, for what it can do, and /host says what that is.
+//   /host -> {kind, can}              what it can do (host.js CAPS)
+//   /approve {title, detail, more, yes, no, rights, danger, later, pin, grownup, waitMs} -> {yes, answered}
+//                                     an "Is this OK?" card: it waits here until a person answers it on a settings device
+//                                     or a grown-up's phone (the bridge shows /cards there), or its time is up
+//   /cards -> {cards}                 the cards waiting   /cards/answer {id, yes, later?, pin?} a person's answer (the PIN
+//                                     is checked here, for a card that needs it once one is set)
+//   /calendar {url, who, name, only, from, trusted}  read once, then kept after a yes (trusted: the setup's own, no card)
+//                                     -> {added}   /calendar/list -> {calendars: [{id, who, name, problem}]}
+//   /calendar/remove {id}             /album {url, from, trusted} -> {added} (its card needs the PIN)           /album/list -> {albums: [{id, problem}]}   /album/remove {id}
 //   /openai {kind, body}              the bridge's call with the key added -> OpenAI's status and answer
-//   /ownkey {key} -> {added}          /ownkey/remove                    /status -> {openai, pin, calendars, albums}
+//   /ownkey {key} -> {added}          /ownkey/remove (both tell the bridge whether there is one: /cloud/own)                    /status -> {openai, pin, calendars, albums}
+//   /setup/pin {pin}                  the PIN chosen in the setup, only while none is set
 //   /pin/set {pin, only_if_none}      /pin/check {pin} -> {ok}          /pin/clear (the console's owner code only: hub.js)
 //   /sync                             read the calendars and albums now
 //   Two-way calendars (the shell's CalendarAccounts.kt; the bridge's calendar-sync.js does the syncing):
 //   /calendar/accounts -> {accounts: [{id, provider, name, who, server?}]} (no secrets)
 //   /calendar/request {account, method, url, headers, body}  a request to that account's own service, signed in here
-//   /calendar/account/caldav {user, pass, who}   iCloud: kept once its calendars are found (the sign-in checked)
+//   /calendar/account/caldav (or /setup/icloud) {user, pass, who}   iCloud: kept once its calendars are found (the sign-in checked)
 //   /calendar/account/google {refresh}           Google: a refresh token from the cloud's sign-in   /calendar/account/remove {id}
 //   Google Photos (the shell's GooglePhotos.kt): /photos/google {token} picks with Google's Picker and copies what was
 //   picked into the household's photos; /photos/google/status -> {state, pickerUri?, done?, total?, error?}
@@ -266,7 +275,7 @@ function pinCheck(pin) {
 }
 
 // --- to the bridge, as the shell does (its secret) ---------------------------------------------------------
-const bridgeToken = () => { try { return fs.readFileSync(process.env.OPENHOUSE_TOKEN_FILE || path.join(DATA, '.bridge-token'), 'utf8').trim(); } catch { return ''; } };
+const bridgeToken = () => { if (process.env.OPENHOUSE_TOKEN) return process.env.OPENHOUSE_TOKEN; try { return fs.readFileSync(process.env.OPENHOUSE_TOKEN_FILE || path.join(DATA, '.bridge-token'), 'utf8').trim(); } catch { return ''; } };
 async function toBridge(p, b, { full = false, body: raw = null, type = 'application/json' } = {}) {
   try {
     const r = await fetch(BRIDGE + p, { method: 'POST', headers: { 'x-openhouse-token': bridgeToken(), 'content-type': type }, body: raw ?? JSON.stringify(b), signal: AbortSignal.timeout(90e3) });
@@ -376,15 +385,55 @@ async function pick(token) {
   }
 }
 
+// --- the cards (the shell's ApprovalCard) -------------------------------------------------------------------
+// Each waits for a person's answer on a settings device or a grown-up's phone (the bridge lists /cards there); one
+// that needs the PIN takes a yes only with it, checked here.
+const CAN = ['cards', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin'];
+const waiting = new Map(); // id -> { card, done, until, timer }
+function ask(b = {}) {
+  const cid = crypto.randomBytes(6).toString('hex');
+  const waitMs = Math.max(10e3, Math.min(600e3, Number(b.waitMs) || 90e3));
+  const t = (v, n) => String(v ?? '').slice(0, n);
+  const card = { id: cid, title: t(b.title, 200), detail: t(b.detail, 800), more: b.more ? t(b.more, 2000) : null, yes: t(b.yes, 20).trim() || 'Allow', no: t(b.no, 24).trim() || null,
+    rights: Array.isArray(b.rights) ? b.rights.slice(0, 12).map((r) => ({ kind: t(r?.kind, 20), text: t(r?.text, 300) })) : [], danger: !!b.danger, later: !!b.later,
+    pin: !!b.grownup || !!b.pin };
+  return new Promise((resolve) => {
+    const done = (a) => { const w = waiting.get(cid); if (!w) return; clearTimeout(w.timer); waiting.delete(cid); resolve(a); };
+    waiting.set(cid, { card, done, until: Date.now() + waitMs, timer: setTimeout(() => done({ yes: false, answered: false }), waitMs) });
+    log(`a card is waiting (${waitMs / 1000} s)`);
+  });
+}
+const cards = () => [...waiting.values()].map((w) => ({ ...w.card, pin: w.card.pin && !!kept.pin, until: w.until }));
+function answerCard(b = {}) {
+  const w = waiting.get(String(b.id || ''));
+  if (!w) return [400, { error: 'That question is no longer waiting.' }];
+  if (b.yes === true && w.card.pin && kept.pin && !pinCheck(b.pin).ok) return [403, { error: 'That PIN isn\'t right.', pin: true }];
+  w.done(b.yes === true ? { yes: true, answered: true } : b.later === true ? { yes: false, answered: false } : { yes: false, answered: true });
+  return [200, { ok: true }];
+}
+const linkHost = (u) => { try { return new URL(String(u).replace(/^webcals?:/i, 'https:')).host; } catch { return ''; } };
+/** A link from the assistant or a computer is kept only after a person's yes (the setup's own: trusted). */
+async function yesFor(p, b) {
+  if (b.trusted === true) return true;
+  const a = await ask({ title: p === '/calendar' ? `Add ${b.name || (b.who ? `${b.who}'s calendar` : 'this calendar')}?` : 'Add this iCloud shared album?',
+    detail: [linkHost(b.url), b.from ? `Sent by ${String(b.from).slice(0, 40)}.` : ''].filter(Boolean).join('\n'), yes: 'Add', pin: p === '/album', waitMs: 95e3 });
+  return a.yes;
+}
+
 // --- the routes ----------------------------------------------------------------------------------------------
 const same = (a, b) => { const x = Buffer.from(String(a || '')), y = Buffer.from(String(b || '')); return x.length === y.length && crypto.timingSafeEqual(x, y); };
 async function route(p, b) {
   switch (p) {
+    case '/host': return [200, { kind: 'keeper', can: CAN }];
+    case '/approve': return [200, await ask(b)];
+    case '/cards': return [200, { cards: cards() }];
+    case '/cards/answer': return answerCard(b);
     case '/status': return [200, { openai: !!kept.openai, pin: !!kept.pin, calendars: kept.calendars.length, albums: kept.albums.length }];
     case '/calendar': {
       const url = cleanCal(b.url);
       if (!url) return [400, { error: "That isn't a calendar link (an https:// or webcal:// address ending in .ics, usually)." }];
       try { await readCal(url); } catch (e) { return [400, { error: `Couldn't read that calendar: ${e.message}.` }]; }
+      if (!(await yesFor('/calendar', { ...b, url }))) return [200, { added: false }];
       const was = kept.calendars.find((c) => c.url === url);
       kept.calendars = [...kept.calendars.filter((c) => c.url !== url), { id: was?.id || id(4), who: String(b.who || '').trim().slice(0, 40), url, name: String(b.name || '').trim().slice(0, 60), only: String(b.only || '').trim().slice(0, 200), tone: was?.tone || '' }];
       save(); syncCalendars();
@@ -397,6 +446,7 @@ async function route(p, b) {
       if (!url) return [400, { error: "That isn't an iCloud shared album link (https://www.icloud.com/sharedalbum/#... or https://photos.icloud.com/shared/album/...). In the album's sharing settings, turn on its public link (Public Website) and copy it." }];
       const why = await checkAlbum(url);
       if (why) return [400, { error: why }];
+      if (!(await yesFor('/album', { ...b, url }))) return [200, { added: false }];
       if (!kept.albums.some((a) => a.url === url)) { kept.albums.push({ id: id(5), url }); save(); }
       syncAlbums();
       return [200, { added: true }];
@@ -415,9 +465,11 @@ async function route(p, b) {
       const why = await checkKey(key);
       if (why) return [400, { added: false, error: why }];
       kept.openai = key; save();
+      await toBridge('/cloud/own', { on: true }); // (as the shell tells it: only whether there is one)
       return [200, { added: true }];
     }
-    case '/ownkey/remove': delete kept.openai; save(); return [200, { ok: true }];
+    case '/ownkey/remove': delete kept.openai; save(); await toBridge('/cloud/own', { on: false }); return [200, { ok: true }];
+    case '/setup/pin': b = { pin: b.pin, only_if_none: true }; // (falls through: the setup's PIN, only while none is set)
     case '/pin/set': {
       if (b.only_if_none && kept.pin) return [409, { error: 'A PIN is already set.' }];
       if (!validPin(b.pin)) return [400, { error: '4 to 8 digits.' }];
@@ -430,7 +482,7 @@ async function route(p, b) {
     case '/sync': syncCalendars(); syncAlbums(); return [200, { ok: true }];
     case '/calendar/accounts': return [200, { accounts: kept.accounts.map(publicAccount) }];
     case '/calendar/request': return [200, await calRequest(b)];
-    case '/calendar/account/caldav': {
+    case '/calendar/account/caldav': case '/setup/icloud': {
       const user = String(b.user || '').trim().slice(0, 200), pass = String(b.pass || '').replace(/ /g, '').trim().slice(0, 100), who = String(b.who || '').trim().slice(0, 40);
       if (user.length < 3 || pass.length < 8) return [400, { error: 'Both are needed: the Apple ID and an app-specific password.' }];
       const why = await addAccount({ id: id(4), provider: 'caldav', name: who ? `${who}'s iCloud` : 'iCloud', who, server: ICLOUD, user, secret: pass });
@@ -474,6 +526,9 @@ const server = http.createServer((req, res) => {
     catch (e) { log('error:', e.code || e.constructor.name); send(500, { error: 'the keeper failed' }); }
   });
 });
+// Started by a bridge itself (host.js, a laptop trying the keeper): it goes when that bridge goes, however it went.
+const PARENT = Number(process.env.OPENHOUSE_KEEPER_PARENT || 0);
+if (PARENT) setInterval(() => { try { process.kill(PARENT, 0); } catch { process.exit(0); } }, 1000).unref();
 server.listen(PORT, '127.0.0.1', () => {
   log(`keeping ${kept.calendars.length} calendar(s), ${kept.albums.length} album(s)${kept.openai ? ', an OpenAI key' : ''}${kept.pin ? ', a PIN' : ''} (${STORE})`);
   setTimeout(syncCalendars, 20e3).unref(); setInterval(syncCalendars, 15 * 60e3).unref();

@@ -28,6 +28,7 @@ import { dayMemory } from './days.js';
 import { thingStore } from './things.js';
 import { dayNotes } from './day-notes.js';
 import { forModel, fromModel } from './tool-args.js';
+import { host } from './host.js';
 
 // The first conversation: the display introduces itself and learns about the family by talking.
 const ONBOARD = (wakeOn) => `(This tablet was just set up and Opie was just turned on. Nobody has said anything yet: you start. Be clear and brief, not gushing.
@@ -55,7 +56,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   process.env.HOME_MCP_URL = `http://127.0.0.1:${process.env.PORT || 8787}${homeScreen.url}`;
   process.env.HOME_MCP_TOKEN = homeScreen.token;
   // The shell's device server (its own token, which stays here): the workshop reaches the device tools through it.
-  const deviceServer = () => { try { const d = JSON.parse(fs.readFileSync(process.env.DEVICE_MCP_CONFIG, 'utf8')).mcpServers.device; return { url: d.url, auth: d.headers.Authorization }; } catch { return null; } };
+  const deviceServer = () => host.mcp();
   const board = boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, body, homeScreen });
   const weather = weatherRoutes({ json, household: () => board.householdView() });
   // The family's lists, chore checkmarks, meals and own events, for the starting apps and the assistant (house.js).

@@ -1,10 +1,12 @@
 // The house's ways to the assistant and the shell: one answer from the household's assistant with no tools (the
 // Meals app's buttons, a flyer or a recipe photo), whether there is one, and a call to the shell (its "Is this OK?" card).
-import { shellCfg, shellJson } from '../shell-call.js';
+import { host } from '../host.js';
 
 export default function (house) {
   const { currentAgent, agentName, homeScreen, WORK } = house;
-  const shell = (p, b, ms = 3000) => shellJson(p, b, ms);
+  const shell = (p, b, ms = 3000) => host.json(p, b, ms);
+  /** Is there a host to ask "Is this OK?" (none on a laptop)? */
+  const canAsk = () => host.can('approve');
   /** One answer from the assistant, with no tools (the Meals app's buttons; a flyer or recipe photo in images). */
   async function answer(prompt, sys, images = [], { webSearch = false } = {}) {
     const agent = await currentAgent();
@@ -19,5 +21,5 @@ export default function (house) {
   /** Does this need the assistant, and is there none? Its words, else null. */
   const noAssistant = (what) => !currentAgent || ['off', 'none'].includes(agentName())
     ? `${what} needs the assistant, and it isn’t on yet (Settings → Voice).` : null;
-  return { shellCfg, shell, answer, noAssistant };
+  return { canAsk, shell, answer, noAssistant };
 }
