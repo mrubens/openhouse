@@ -77,7 +77,7 @@ class Timers(private val activity: Activity, parent: FrameLayout) {
         if (t !in timers) return
         timers.remove(t); view.removeView(t.pill)
         if (!quiet) onStop?.invoke(t.endAt)
-        if (timers.none { it.ringing }) { tone?.stop(); tone = null }
+        if (timers.none { it.ringing }) { tone?.stop(); tone = null; ringDone() }
     }
 
     private val ticker = Runnable { tick() }
@@ -98,8 +98,27 @@ class Timers(private val activity: Activity, parent: FrameLayout) {
         if (timers.isNotEmpty()) main.postDelayed(ticker, 500)
     }
 
+    /** A ring is as loud as the household's volume (Opie's and the music's), fitted to the room (RoomVolume), but never
+     *  under a fifth of the alarm stream: a muted tablet still rings. Android's alarm stream is its own volume, so it's
+     *  set for the ring and put back after. */
+    private var alarmBefore = -1
+    private fun ringVolume() = runCatching {
+        val am = activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager
+        val M = android.media.AudioManager.STREAM_MUSIC; val A = android.media.AudioManager.STREAM_ALARM
+        val share = am.getStreamVolume(M).toDouble() / am.getStreamMaxVolume(M).coerceAtLeast(1)
+        val want = (share * dev.openhouse.ui.RoomVolume.factor()).coerceIn(0.2, 1.0)
+        if (alarmBefore < 0) alarmBefore = am.getStreamVolume(A)
+        am.setStreamVolume(A, kotlin.math.round(want * am.getStreamMaxVolume(A)).toInt().coerceIn(am.getStreamMinVolume(A), am.getStreamMaxVolume(A)), 0)
+        Log.i("Timers", "ring at ${am.getStreamVolume(A)}/${am.getStreamMaxVolume(A)}")
+    }
+    private fun ringDone() = runCatching {
+        if (alarmBefore < 0) return@runCatching
+        (activity.getSystemService(android.content.Context.AUDIO_SERVICE) as android.media.AudioManager).setStreamVolume(android.media.AudioManager.STREAM_ALARM, alarmBefore, 0); alarmBefore = -1
+    }
+
     private fun ring() {
         if (tone?.isPlaying == true) return
+        ringVolume()
         runCatching {
             val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM) ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
             tone = RingtoneManager.getRingtone(activity, uri)?.apply {

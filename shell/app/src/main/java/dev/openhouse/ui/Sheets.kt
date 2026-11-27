@@ -105,6 +105,7 @@ internal fun SettingsSheet() {
                     SettingsRow("What Opie remembers", vals["memory"], onClick = shell("memory"))
                     SettingsRow("Linked devices", ((vals["screens"]?.toIntOrNull() ?: 0) + Devices.controllable.size).takeIf { it > 0 }?.toString()) { Devices.open = true; if (Devices.scannedAt == null) Devices.scan() else Devices.refreshStatus() }
                     SettingsRow("Brightness", vals["brightness"], onClick = shell("brightness")) // not behind the PIN: anyone can see the screen better
+                    SettingsRow("Volume", vals["volume"], onClick = shell("volume")) // (nor this: anyone can hear it)
                     SettingsRow("Time", vals["time"], locked, shell("time"))
                     SettingsRow("Email", vals["email"], locked, shell("email"))
                     SettingsRow("Account", vals["account"], locked, shell("account"))

@@ -107,6 +107,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         // Any app can start this activity, so it takes no settings from its intent: the servers, microphone and
         // PIN come from adb only (ConfigReceiver).
         val prefs = getSharedPreferences("shell", MODE_PRIVATE)
+        dev.openhouse.ui.RoomVolume.init(this)
         watchNetwork()
         prefs.getString("ui", null)?.let { uiUrl = it }
         prefs.getString("bridge", null)?.let { bridge = it }

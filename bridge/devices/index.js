@@ -594,9 +594,15 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   /** The tablet's volume (the voice's "volume" tool): media and Opie's voice are one volume (LiveVoice.kt). */
   async function volumeDo({ do: what = 'get', level } = {}) {
     try {
-      const now = (await bt.volume('get')).volume;
+      if (what === 'room_on' || what === 'room_off') {
+        const r = await bt.volume('room', what === 'room_on' ? 1 : 0);
+        if (!r.room) return { ok: false, text: 'This tablet needs an update for that.' };
+        return { ok: true, text: r.room.adjust ? `Adjusting to the room now${r.room.now ? `: ${r.room.now}` : ''}.` : 'No longer adjusting to the room: your voice and the timers follow the volume as set.' };
+      }
+      const got = await bt.volume('get'), now = got.volume;
+      const room = got.room ? (got.room.adjust ? ` It adjusts to the room${got.room.now ? ` (now ${got.room.now})` : ''}.` : ' Adjust to the room is off.') : '';
       const want = what === 'louder' ? now + 15 : what === 'quieter' ? now - 15 : what === 'mute' ? 0 : what === 'set' ? Number(level) : null;
-      if (want === null || !Number.isFinite(want)) return { ok: true, text: `The volume is at ${now}%.` };
+      if (want === null || !Number.isFinite(want)) return { ok: true, text: `The volume is at ${now}%.${room}` };
       const r = await bt.volume('set', Math.max(0, Math.min(100, Math.round(want))));
       return { ok: true, text: `Volume ${r.volume > now ? 'up' : r.volume < now ? 'down' : 'unchanged'}: now ${r.volume}%.` };
     } catch (e) { return { ok: false, text: `Couldn't change the volume: ${e.message}` }; }
