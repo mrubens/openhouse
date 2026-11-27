@@ -47,7 +47,7 @@ object PinChoices {
     /** What always asks for the PIN (for Opie's pin_choices and the docs; the code's own callers use always/withPinSet). */
     val ALWAYS = listOf(
         "changing these choices", "PIN Lock, the PIN and its recovery code", "Advanced", "Account and backups",
-        "adding a linked device", "leaving kiosk mode, Android's settings and other ways out of Opie", "erasing the tablet",
+        "adding a linked device", "the house rules", "leaving kiosk mode, Android's settings and other ways out of Opie", "erasing the tablet",
     )
 
     fun isChoice(key: String?) = ALL.any { it.key == key }

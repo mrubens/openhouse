@@ -27,9 +27,10 @@ put in the household's own OpenAI key.
 **House rules** (Voice → House rules, shell/HouseRules.kt): a few lines of the household's own on how Opie answers,
 typed or spoken, on top of its defaults (docs/assistant.md, **In this home**). Empty by default, which means only the
 defaults; the box's placeholder gives an example ("Adults use this too; the news is fine to talk about."). Kept with
-the household (household.json `rules`, bridge/board.js; POST /household/rules), at most 600 characters. Changing them
-is a setting: with Change settings asking for the PIN, the editor asks for it first, and Opie's house_rules puts the
-tablet's own card up, showing the new text (wherever Opie was asked: the tablet, a phone or a computer). Only the shell
+the household (household.json `rules`, bridge/board.js; POST /household/rules), at most 600 characters. Opie can't
+tell an adult from a kid, so changing them always takes the PIN when one is set, whatever the PIN choices say: the editor
+asks for it first, and Opie's house_rules puts the tablet's own card up (a person's tap), showing the new text, wherever
+Opie was asked. Only the shell
 reaches POST /household/rules: no app, phone or screen scope has it. It's its own small file so it can move with
 Settings.
 
@@ -154,7 +155,7 @@ value says which are on. Permissive by default:
 | Add photo albums | adding or taking off an iCloud album, phones sending photos, Google Photos | Off |
 | Change the calendar | any change to the calendar from the apps or Opie (the bridge's calendar lock, as before) | Off |
 | Give rewards | spending stars on a reward (Get it!), and changing the rewards | Off |
-| Change settings | Settings' Voice, Calendars, Time and Email (their small lock), the house rules (from Settings or Opie), removing a linked device, the household's own OpenAI key | On |
+| Change settings | Settings' Voice, Calendars, Time and Email (their small lock), removing a linked device, the household's own OpenAI key | On |
 
 Off means a person's plain yes: the card still shows, and only a real finger answers it (`PersonCards`); Opie never
 can. What's `DeviceServer.personOnly` stays a person's own tap, whatever the switches say.

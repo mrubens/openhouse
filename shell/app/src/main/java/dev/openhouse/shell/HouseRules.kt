@@ -14,7 +14,7 @@ import kotlin.concurrent.thread
  * Kept in its own file so it can move with Settings.
  */
 internal object HouseRules {
-    fun open(act: MainActivity, back: () -> Unit) = act.lock.withPin { show(act, back) }
+    fun open(act: MainActivity, back: () -> Unit) = act.lock.always("PIN") { show(act, back) } // always the PIN when one is set (PinChoices.ALWAYS)
 
     private fun show(act: MainActivity, back: () -> Unit) = thread {
         val now = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/household", 3000, 8000)) }.getOrNull()

@@ -94,7 +94,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Row | Opie | Notes |
 | --- | --- | --- |
 | Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN (while Change settings asks); then it chooses there |
-| Voice → House rules (the household's own lines on how Opie answers, on top of its defaults) | **new** | house_rules: get reads them; set replaces them when asked, and with Change settings asking for the PIN the tablet's own card asks for it first (a no leaves them); with it off, or no PIN, it just changes them |
+| Voice → House rules (the household's own lines on how Opie answers, on top of its defaults) | **new** | house_rules: get reads them; set puts the tablet's own card up, a person's yes with the PIN when one is set, whatever the PIN choices say (Opie can't tell who is asking); a no leaves them |
 | Voice → Check the microphone (does Opie hear you: the level, then "Hey Opie", and too quiet, too noisy or blocked) | **new** | mic_check: start puts the check on the screen (no PIN: it changes nothing); from the tablet's own voice the conversation ends first so the check can have the microphone, typed or from a phone it waits for the answer; last says how the last one went |
 | "Turn on Opie?", asked once when a linked household's voice becomes available and nobody here had said yes | no, on purpose | personOnly: it's the yes to what goes to OpenAI (and the voice is off then, so there's no Opie to ask) |
 | The first setup's Choose a PIN | no, on purpose | As PIN Lock: Opie can't choose or see a PIN, and the setup is quiet throughout, so there's no Opie to ask |

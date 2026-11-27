@@ -47,8 +47,8 @@ or gently steers.
 **House rules** (Settings → Voice → House rules; Opie's `house_rules`): the household's own few lines, empty by default.
 They come right after the defaults in every conversation's instructions (bridge/house-rules.js `rulesBlock`, through
 chat.js `prefsBlock`) and loosen or tighten them ("Adults use this too; the news is fine to talk about."). Something
-someone asks Opie to remember doesn't change the defaults; only the house rules do, and changing them takes the PIN
-when Change settings asks for it (docs/settings.md).
+someone asks Opie to remember doesn't change the defaults; only the house rules do, and changing them is always a person's
+yes on the tablet, with the PIN when one is set (docs/settings.md).
 
 ## A typed turn
 

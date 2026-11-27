@@ -5,9 +5,9 @@
 // {text} (the shell's Settings → Voice → House rules, HouseRules.kt) or Opie's house_rules tool (below). Every
 // conversation's instructions get them after the defaults (chat.js prefsBlock: the typed turns and the live voice).
 //
-// Changing them is a setting: with a PIN set and Ask for the PIN → Change settings on (the shell's PinChoices SETTINGS),
-// the tablet asks for the PIN, for a tap (SettingsLock.withPin, before the editor opens) and for Opie (rulesPin, below:
-// the tablet's own card, which only a person answers), wherever Opie was asked: the tablet, a phone or a computer.
+// Opie can't tell an adult from a kid, so changing them is always a person's own tap on the tablet, with the PIN whenever
+// one is set, whatever the PIN choices say (the shell's PinChoices ALWAYS): from Settings (SettingsLock.always, before the
+// editor opens) and from Opie (rulesPin, below: the tablet's own card), wherever Opie was asked.
 
 export const RULES_MAX = 600;
 
@@ -22,22 +22,18 @@ export const rulesBlock = (text) => {
 
 export const RULES_TOOL = { name: 'house_rules', description: "The household's house rules: their own few lines on how you answer here, on top of IN THIS HOME (they can loosen or tighten it). " +
     'get reads them. set replaces them, only when someone asks to change the house rules: pass the whole text, keeping what should stay; empty puts back the defaults alone. ' +
-    'The tablet may ask for the PIN on its screen first: then tell them to type it on the tablet (never ask them to say it). Something someone asks you to remember is not a house rule.',
+    'Someone has to say yes on the tablet first, typing the PIN if one is set: tell them to (never ask them to say the PIN). Something someone asks you to remember is not a house rule.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'set'] }, text: { type: 'string', description: 'For set: the house rules in full, short and plain' } } } };
 
 /**
- * Does changing the house rules to [text] need the PIN here, and was it typed? null: go ahead; else why not, in words for
- * Opie. The card shows the new text, so whoever types the PIN sees what they say yes to.
- * host: the bridge's host (host.js): no host (a laptop) keeps no PIN. Without the host saying what asks (an older shell,
- * the keeper), the card is asked for with the PIN, and the host decides.
+ * Did a person say yes on the tablet to changing the house rules to [text]? null: go ahead; else why not, in words for
+ * Opie. Always the tablet's own card, a person's tap (grownup), with the PIN when one is set: no PIN choice turns it off,
+ * since whoever asked may be a kid. The card shows the new text, so whoever says yes sees what to.
+ * host: the bridge's host (host.js): no host (a laptop) has no card to put up and keeps no PIN.
  */
 export async function rulesPin(host, text) {
   if (!host.there()) return null;
-  if (host.can('pin-choices')) {
-    const c = await host.json('/pin-choices', { do: 'get' }, 3000);
-    if (c && (!c.pin || !(c.choices || []).some((x) => x?.key === 'settings' && x.asks))) return null;
-  }
-  const r = await host.call('/approve', { title: 'Change the house rules?', detail: text || 'No house rules.', pin: true, for: 'settings', yes: 'Save' }, { ms: 100e3 });
+  const r = await host.call('/approve', { title: 'Change the house rules?', detail: text || 'No house rules.', pin: true, grownup: true, yes: 'Save' }, { ms: 100e3 });
   if (r?.ok && r.body?.yes === true) return null;
   return r?.ok && r.body?.answered === true && !r.body?.why
     ? 'Not changed: nobody typed the PIN on the tablet. Say so; they can ask again at the tablet.'
