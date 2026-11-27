@@ -204,10 +204,10 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove")
+    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms")
     /** What the shell can do, for /host (bridge/host.js CAPS; its TABLET_CAPS is the same list, for a shell older than /host). */
     private val HOST_CAN = listOf("screen", "approve", "calendar", "calendar-accounts", "openai", "pin", "voice-setup", "google-signin", "drive", "updates",
-        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage")
+        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage", "alarms")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -369,6 +369,7 @@ object DeviceServer {
                     why.isEmpty() -> 200 to JSONObject().put("ok", true).toString()
                     else -> 400 to JSONObject().put("error", why).toString() }
             }
+            "/alarms" -> { Alarms.control(b.optString("do"), b.optInt("minutes", Alarms.SNOOZE_MIN)); 200 to "{}" } // stop or snooze the one ringing (Opie, a screen)
             "/say" -> { acc?.status(b.optString("text").take(120)); 200 to "{}" }
             // "Opie, stop" (bridge device-tools.js): what it's doing in an app stops now; the next request starts fresh.
             // Opie back in front (from another Android app), for Opie showing one of its tabs (bridge show_on_screen).

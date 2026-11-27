@@ -18,8 +18,8 @@ A backup holds the display folder's family data: `webapp/` (their apps, with git
 restore), `chats/` (conversations and the home screen's look, `door.json`), `household.json`, `house.json`,
 `photos/`, `appdata/`, `devices.json`, `agent-model.json`, what the assistant learned (`preferences.md`), the
 heartbeat's notes, scanned flyers, email's approved senders, reminders and follow-ups (`later.json`), the chosen
-calendars and changes not yet sent to them (`calendar-sync.json`), the things on Home (`things.json`) and what apps
-put on the calendar (`day-notes.json`). The list is `INCLUDE` in `bridge/backup-format.js`. The stores' spare copies
+calendars and changes not yet sent to them (`calendar-sync.json`), the things on Home (`things.json`), the alarm clocks
+(`alarms.json`) and what apps put on the calendar (`day-notes.json`). The list is `INCLUDE` in `bridge/backup-format.js`. The stores' spare copies
 (`.bak`, `.tmp`, `.damaged-*`) are left out: the file itself is what's kept.
 
 It never holds:

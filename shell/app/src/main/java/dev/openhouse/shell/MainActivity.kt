@@ -151,6 +151,8 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         timers = Timers(this, root)
         mirrorTimers()
         setContentView(root)
+        Alarms.start(this) // the next alarm with Android's alarm manager (again: a reboot or an update forgets it)
+        Alarms.fired(this, root, intent) // started by an alarm: it rings
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) { override fun handleOnBackPressed() = back() })
         immersive()
         startServices()
@@ -332,6 +334,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     override fun onStop() { Buddy.activityStopped(); super.onStop() }
 
     override fun onNewIntent(intent: Intent) { // Home pressed while someone was out: back to kiosk
+        if (intent.action == Alarms.ACTION_RING) { super.onNewIntent(intent); Alarms.fired(this, root, intent); return }
         super.onNewIntent(intent); kioskPaused = false; DeviceOwner.enterKiosk(this, false)
         // e.g. `am start ... --es app star-basket`: a family app only (any app can send this intent).
         val open = intent.getStringExtra("app")?.takeIf { Regex("[a-z0-9][a-z0-9-]{0,60}").matches(it) }
@@ -461,6 +464,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         override fun restoreTimer(label: String, total: Int, endAt: Long) { main.post { timers.start(label, total, endAt) } }
         override fun timers(): List<dev.openhouse.ui.TimerInfo> = timers.list()
         override fun syncTimers(timers: List<dev.openhouse.ui.TimerInfo>) { main.post { this@MainActivity.syncTimers(timers) } }
+        override fun syncAlarms(alarms: JSONObject) { main.post { alarms.optJSONArray("list")?.let { Alarms.update(this@MainActivity, it) }; Alarms.bridgeSays(alarms.optJSONObject("ring")) } }
         override fun openApp(id: String) { main.post { this@MainActivity.openApp(id) } }
         // Back to the home screen: an app in the shell's window closes; one running as its own Android app (a stub) goes
         // behind, the home screen coming to the front.

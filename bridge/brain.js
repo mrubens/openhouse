@@ -311,7 +311,7 @@ const screens = screensRoutes({ noScreen: () => host.can('cards'), HERE, json, b
     if (!app) return route(req, res, url);
     // (Another Opie tablet in the household may: its apps run in its own room, as here. docs/multi-tablet.md)
     const inRoom = screens.who(String(req.headers['x-openhouse-screen'] || ''))?.kind === 'tablet';
-    if (!appAllowed(req.method, url.pathname, plugins.rightsOf(app)) || (!inRoom && /^\/(voice\/say|home\/handsfree|home\/timer)$/.test(url.pathname))) return json(res, 403, { error: 'not for this app' });
+    if (!appAllowed(req.method, url.pathname, plugins.rightsOf(app)) || (!inRoom && /^\/(voice\/say|home\/handsfree|home\/timer|home\/alarm)$/.test(url.pathname))) return json(res, 403, { error: 'not for this app' });
     return appCall(req, res, url, app);
   } });
 // Away from home (relay.js, docs/networking.md): the same sealed requests through the cloud's relay. Off until someone

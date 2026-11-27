@@ -18,6 +18,7 @@ import { AnswerBody, Display, page as answerPage } from './answer.jsx';
 import { Widget, Fit, IconFill, U } from './home-widgets.jsx';
 import { Home as HomeTabs, appOrigin, Clip, useClipUrl } from './home.jsx';
 import { useNow, smallHours } from './now.js';
+import { nextAlarm } from './alarms.jsx';
 import { pairingFromCode, cleanCode } from './scrypt.js';
 import { icon as weatherIcon } from '../../bridge/kit/weather-look.js';
 
@@ -669,7 +670,7 @@ function NotesGrid({ c, brain, onAsk, idle, embedded = false }) {
     let b = 0; const a = requestAnimationFrame(() => { b = requestAnimationFrame(() => setSettle(null)); }); // painted once where it was let go, then eased home
     return () => { cancelAnimationFrame(a); cancelAnimationFrame(b); };
   }, [settle]);
-  if (idle) return <Ambient c={c} house={house} apps={apps} board={board} timers={timers} weather={brain.weather} />;
+  if (idle) return <Ambient c={c} house={house} apps={apps} board={board} timers={timers} alarms={homeScreen?.alarms?.list} weather={brain.weather} />;
   // The dragged thing stays drawn on whichever page is showing.
   const shown = items.filter((i) => i.page === page || i.key === drag?.key);
   const note = open && notes.get(open);
@@ -721,7 +722,7 @@ function Scenery({ urls }) {
 }
 
 /** When nobody has touched the display for a while: the family's photos (if an app asks for them, not at night), the time, the day's headline and timers. */
-function Ambient({ c, house, apps, board, timers, weather }) {
+function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
   const now = useNow(1000); // its timers count down each second; the rest of the screen isn't drawn again for them
   const wantsPhotos = apps.some((a) => a.meta?.screensaver);
   const night = isNight(house?.night, now); // night hours only: the moon's "Sleep now" is this same screen, photos and all (the user)
@@ -768,6 +769,9 @@ function Ambient({ c, house, apps, board, timers, weather }) {
     ...(!next && board?.headline ? [{ k: 'head', one: board.headline }] : []),
     ...timers.map((t) => ({ k: 't' + t.endAt, when: t.endAt <= now ? '0:00' : fmt(Math.ceil((t.endAt - now) / 1000)), text: t.label })),
   ].slice(0, 5);
+  // The next alarm, when it rings within a day: always shown (last, in place of a fifth line).
+  const al = nextAlarm(alarms, now);
+  if (al && al.at - now < 864e5) { const t = new Date(al.at); lines.splice(4, 1, { k: 'alarm', when: `${hm(t)}${t.getHours() < 12 ? ' AM' : ' PM'}`, e: isPerson(al.a.who) ? { who: al.a.who } : null, text: al.a.label || 'Alarm' }); }
   return (
     <div className={'ambient' + (night ? ' night' : '')} onPointerDown={() => shell?.touch()}>
       {src && <img className="ambient-back" src={src} alt="" />}{src && <img className="ambient-fit" src={src} alt="" />}{clipUrl && <Clip className="ambient-fit" url={clipUrl} />}{/* the whole photo, its own blur in the margins (as Photos shows one) */}
@@ -841,7 +845,7 @@ function Ask({ c, onClose, first = '' }) {
 function Home(props) {
   const { c, brain } = props;
   return <HomeTabs {...props} shell={shell}
-    ambient={<Ambient c={c} house={brain.house} apps={brain.apps} board={brain.board} timers={brain.homeScreen?.timers || []} weather={brain.weather} />}
+    ambient={<Ambient c={c} house={brain.house} apps={brain.apps} board={brain.board} timers={brain.homeScreen?.timers || []} alarms={brain.homeScreen?.alarms?.list} weather={brain.weather} />}
     usePhoto={usePhoto} PhotoShow={PhotoShow} Gear={Gear} />;
 }
 

@@ -25,6 +25,8 @@ interface Host {
     fun timers(): List<TimerInfo>
     /** The house's timers as the bridge has them (some started on other screens): the shell matches its own to them. */
     fun syncTimers(timers: List<TimerInfo>) {}
+    /** The alarm clocks as the bridge has them ({list, ring}): the shell schedules and rings them. */
+    fun syncAlarms(alarms: org.json.JSONObject) {}
     fun openApp(id: String)
     /** Back to the home screen from a family app open full screen (a paired computer's show_on_tablet). */
     fun closeApp() {}
@@ -438,6 +440,7 @@ object Openhouse : AnswerActions {
             appInUseUntil = j.optJSONObject("handsFree")?.optLong("until", 0L) ?: 0L
             // Opie opened a tab or an app ("find a bolognese" shows Recipes): a resting screen wakes, so it's seen.
             j.optJSONObject("show")?.optLong("at", 0L)?.let { at -> if (at > shownAt) { val fresh = shownAt > 0L && System.currentTimeMillis() - at < 30_000; shownAt = at; if (fresh) ui { touch() } } }
+            j.optJSONObject("alarms")?.let { a -> runCatching { host.syncAlarms(a) } }
             j.optJSONArray("timers")?.let { a -> runCatching { host.syncTimers((0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { TimerInfo(0, it.optString("label"), it.optInt("total"), it.optLong("endAt"), false) }) } }
             ui { homeScreen = d; if (fullNote != null && d.notes.none { it.id == fullNote }) fullNote = null }
         }

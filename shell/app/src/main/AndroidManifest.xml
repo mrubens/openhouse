@@ -30,6 +30,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Self-update's guard (UpdateGuard) still watches a new display after a restart mid-update. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- The alarm clocks (Alarms.kt): exact, with Android's alarm manager -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" /> <!-- an alarm brings the screen up -->
     <!-- KeepOnline: a foreground service, so Android doesn't cut Opie (and its runtime) off the network while
          another app is in front. Its quiet notification needs POST_NOTIFICATIONS (the device owner grants it). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -104,6 +108,15 @@
         </receiver>
         <receiver android:name=".ConfigReceiver" android:exported="true" android:permission="android.permission.DUMP">
             <intent-filter><action android:name="dev.openhouse.shell.CONFIG" /></intent-filter>
+        </receiver>
+        <!-- The next alarm, scheduled again after a reboot, an update or a change of the clock (Alarms.kt). -->
+        <receiver android:name=".AlarmsReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+            </intent-filter>
         </receiver>
         <receiver android:name=".UpdatedReceiver" android:exported="false">
             <intent-filter><action android:name="android.intent.action.MY_PACKAGE_REPLACED" /></intent-filter>
