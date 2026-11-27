@@ -271,21 +271,31 @@ internal object LiveVoice {
     private fun volumeIn(a: MainActivity) = runCatching {
         val am = audio(a); val C = android.media.AudioManager.STREAM_VOICE_CALL
         callBefore = am.getStreamVolume(C)
-        val ref = kotlin.math.round(a.getSharedPreferences("shell", android.content.Context.MODE_PRIVATE).getFloat("liveCallShare", LIVE_CALL_SHARE) * am.getStreamMaxVolume(C)).toInt()
+        // The room (RoomVolume): worked out once, as the session opens, so it doesn't change while it talks. Over full, the
+        // call stream goes a step up for each 3 dB the page can't give (about a step's worth on Samsung tablets).
+        room = dev.openhouse.ui.RoomVolume.factor()
+        val over = (curve(share(am)) * room).takeIf { it > 1.0 }?.let { kotlin.math.ceil(20 * kotlin.math.log10(it) / 3).toInt() } ?: 0
+        val ref = kotlin.math.round(a.getSharedPreferences("shell", android.content.Context.MODE_PRIVATE).getFloat("liveCallShare", LIVE_CALL_SHARE) * am.getStreamMaxVolume(C)).toInt() + over
         am.setStreamVolume(C, ref.coerceIn(am.getStreamMinVolume(C), am.getStreamMaxVolume(C)), 0)
-        Log.i(TAG, "volume: call held at ${am.getStreamVolume(C)}/${am.getStreamMaxVolume(C)}")
+        lifted = Math.pow(10.0, (am.getStreamVolume(C) - (ref - over).coerceIn(am.getStreamMinVolume(C), am.getStreamMaxVolume(C))) * 3 / 20.0)
+        Log.i(TAG, "volume: call held at ${am.getStreamVolume(C)}/${am.getStreamMaxVolume(C)} (room x%.2f, %d over)".format(room, over))
         setGain(share(am))
     }.onFailure { Log.w(TAG, "volume: $it") }
     private fun volumeOut(a: MainActivity) = runCatching {
         if (callBefore < 0) return@runCatching
-        audio(a).setStreamVolume(android.media.AudioManager.STREAM_VOICE_CALL, callBefore, 0); callBefore = -1
+        audio(a).setStreamVolume(android.media.AudioManager.STREAM_VOICE_CALL, callBefore, 0); callBefore = -1; room = 1.0; lifted = 1.0
     }.onFailure { Log.w(TAG, "volume: $it") }
+    /** The room's adjustment for this session (RoomVolume): 1 is the household's volume as it is. */
+    @Volatile private var room = 1.0
+    /** About how much louder the call stream was put than its reference for the room (the page gives the rest). */
+    @Volatile private var lifted = 1.0
+    // About 8 dB over the cube (to at most full): music is mixed far louder than a voice, so at one volume Opie was
+    // much quieter than the music it had just paused (the user).
+    private fun curve(share: Float) = share.toDouble().let { (it * it * it * 2.5).coerceAtMost(1.0) }
     /** The household's volume share (0..1) as the session's loudness: cubed, about how loudness is heard; 0 is silent. */
     private fun setGain(share: Float) {
-        // About 8 dB over the cube (to at most full): music is mixed far louder than a voice, so at one volume Opie was
-        // much quieter than the music it had just paused (the user).
-        gain = share.toDouble().let { (it * it * it * 2.5).coerceAtMost(1.0) }
-        Log.i(TAG, "volume: gain %.3f (share %.2f)".format(gain, share))
+        gain = (curve(share) * room / lifted).coerceAtMost(1.0)
+        Log.i(TAG, "volume: gain %.3f (share %.2f, room x%.2f)".format(gain, share, room))
         web?.let { w -> main.post { w.evaluateJavascript("setGain($gain)", null) } }
     }
     /** A volume key while a session runs: the media stream (the household's volume) turns, with its usual slider, and

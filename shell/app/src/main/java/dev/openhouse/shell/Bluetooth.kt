@@ -438,15 +438,17 @@ object Bluetooth {
     }
 
     private fun vol() = am.getStreamVolume(AudioManager.STREAM_MUSIC) * 100 / am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-    /** The tablet's media volume (a Bluetooth speaker follows it, with absolute volume): get | set {level 0-100} | up | down. */
+    /** The tablet's media volume (a Bluetooth speaker follows it, with absolute volume): get | set {level 0-100} | up | down,
+     *  and room {level 1|0}: Adjust to the room on or off (RoomVolume). */
     private fun volume(what: String, level: Int): JSONObject {
         val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
         when (what) {
             "set" -> am.setStreamVolume(AudioManager.STREAM_MUSIC, (level.coerceIn(0, 100) * max + 50) / 100, 0)
             "up" -> am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
             "down" -> am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
+            "room" -> dev.openhouse.ui.RoomVolume.on = level > 0 // Settings → Volume's Adjust to the room (1 on, 0 off)
         }
-        if (what != "get") log("volume $what ${if (what == "set") level else ""} -> ${vol()}")
-        return JSONObject().put("volume", vol()).put("routed", routed())
+        if (what != "get") log("volume $what ${if (what == "set" || what == "room") level else ""} -> ${vol()}")
+        return JSONObject().put("volume", vol()).put("routed", routed()).put("room", dev.openhouse.ui.RoomVolume.describe())
     }
 }

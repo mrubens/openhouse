@@ -99,8 +99,9 @@ export const BT_TOOL = { name: 'bluetooth', description: "Bluetooth speakers, he
     device: { type: 'string', description: 'Which one, by name (not needed when only one fits)' }, level: { type: 'integer', description: 'For set_volume: 0-100' } } } };
 
 /** The tablet's volume, straight from the voice: devices/index.js volumeDo (one volume for music, timers and Opie). */
-export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (music, timers and your own voice): louder or quieter (a step), set to a level, mute, or get it. \"Turn it up\", \"too loud\", \"volume to 50\".",
-  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['louder', 'quieter', 'set', 'mute', 'get'] }, level: { type: 'integer', description: 'For set: 0-100' } } } };
+export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (music, timers and your own voice): louder or quieter (a step), set to a level, mute, or get it. \"Turn it up\", \"too loud\", \"volume to 50\". " +
+    'room_on or room_off: Adjust to the room (Settings → Volume), where your voice and the timers get a little louder in a noisy room and quieter in a quiet one and at night; music stays as set.',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['louder', 'quieter', 'set', 'mute', 'get', 'room_on', 'room_off'] }, level: { type: 'integer', description: 'For set: 0-100' } } } };
 /** The tablet's own screen, straight from the voice: devices/index.js screenDo (the shell's /screen). Neither is behind
  *  the PIN on the tablet: Brightness is in Settings' own list, Sleep now is the moon button. */
 export const SCREEN_TOOL = { name: 'tablet_screen', description: "The tablet's screen itself: its brightness (Automatic, Low, Medium, High or Full, or a step brighter or dimmer: \"it's too bright\", \"I can't see the screen\"), " +

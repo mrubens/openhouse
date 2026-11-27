@@ -121,6 +121,7 @@ internal object Speech {
     // Better: the track is already running when the first sentence arrives. A spoken request is being answered
     // (waitingSince): play silence, a twentieth of a second ahead at most, until the words come or half a minute passes.
     @Volatile private var warmUntil = 0L
+    @Volatile private var roomGain = 1f
     private fun keepWarm() {
         if (System.currentTimeMillis() > warmUntil) return
         // (In the engine's own format, remembered from last time: another format means a new track, with no clock yet.)
@@ -163,6 +164,7 @@ internal object Speech {
         if (rate != speechPrefs?.getInt("rate", 0) || ch != speechPrefs?.getInt("channels", 0)) speechPrefs?.edit()?.putInt("rate", rate)?.putInt("channels", ch)?.apply() // (for the next start: see keepWarm)
         // (A new track waits for a full buffer before it starts, by default: start at once, so a little silence is enough to get its clock going.)
         if (android.os.Build.VERSION.SDK_INT >= 31) runCatching { t.setStartThresholdInFrames(rate / 50) }
+        runCatching { t.setVolume(roomGain) }
         trackRate = rate; trackCh = ch; written = 0; anchorFrame = -1; track = t; t.play()
         return t
     }
@@ -288,7 +290,9 @@ internal object Speech {
         e.setSpeechRate(if (age != null && age < 10) 0.92f else 1.0f) // a little slower for young kids
         if (hushed) return // talked over: the rest of this answer stays on screen
         // It keeps listening while it talks: the bridge knows what it's saying, so other words are someone talking over it.
-        pending.getAndIncrement()
+        // The room (RoomVolume), once per answer, so it never changes mid-sentence. A track can't go over its stream, so
+        // here it only ever goes quieter (at night; without the live voice there's no microphone to hear the room).
+        if (pending.getAndIncrement() == 0) { roomGain = RoomVolume.factor().toFloat().coerceAtMost(1f); runCatching { track?.setVolume(roomGain) } }
         o.postAsync("/voice/talking", JSONObject().put("text", t))
         o.ui { o.speaking = true }
         val id = "u${uttN++}"; queuedAt[id] = System.currentTimeMillis(); if (queuedAt.size > 50) queuedAt.clear()

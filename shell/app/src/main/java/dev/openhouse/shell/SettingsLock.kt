@@ -54,6 +54,7 @@ internal class SettingsLock(private val act: MainActivity) {
             "nowplaying" -> if (!Media.listening(act)) withPinSet(back = {}) { nowPlaying() } // Home's Now playing card
             "memory" -> memory()
             "brightness" -> Brightness.choose(act, act::immersive) { Openhouse.settingsChanged() }
+            "volume" -> VolumeSetting.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "time" -> withPin { Clock.choose(act, act::immersive) { Openhouse.settingsChanged() } }
             "addCalendar" -> act.addCalendar() // the setup's steps (ui/Setup.kt)
             "addAlbum" -> act.addAlbum()
@@ -182,6 +183,7 @@ internal class SettingsLock(private val act: MainActivity) {
         m["updates"] = Updater.installedVersion(act)
         m["deviceControl"] = if (DeviceAccess.instance != null) "On" else "Off" // the setup's Android step (ui/Setup.kt)
         m["brightness"] = Brightness.label(act)
+        m["volume"] = VolumeSetting.label(act)
         m["time"] = Clock.label(act)
         m["albums"] = count(runCatching { PhotoAlbums.list().size }.getOrDefault(0)) // the setup's progress (ui/Setup.kt)
         // Voice: Off, or the voice it speaks with (Hey Opie listening too); while the listening models come, how that's going.

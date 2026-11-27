@@ -114,7 +114,9 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
                         out.write(buf, 0, n)
                         var chunk = 0.0
                         for (i in 0 until n / 2) { val v = (buf[2 * i].toInt() and 0xff) or (buf[2 * i + 1].toInt() shl 8); val a = kotlin.math.abs(v.toShort().toInt()); if (a > peak) peak = a; sum += a.toDouble() * a; chunk += a.toDouble() * a; count++ }
-                        dev.openhouse.ui.MicLevel.set((kotlin.math.sqrt(chunk / maxOf(1, n / 2)) / 32768.0).toFloat()) // the assistant's bars move with it
+                        val rms = (kotlin.math.sqrt(chunk / maxOf(1, n / 2)) / 32768.0).toFloat()
+                        dev.openhouse.ui.MicLevel.set(rms) // the assistant's bars move with it
+                        dev.openhouse.ui.RoomVolume.hear(rms) // (only the level: how noisy the room is)
                         if (System.currentTimeMillis() - lastLog > 2000) { // the level, for tuning the microphone
                             Log.d(TAG, "level peak %.4f rms %.4f".format(peak / 32768.0, kotlin.math.sqrt(sum / maxOf(1, count)) / 32768.0))
                             peak = 0; sum = 0.0; count = 0; lastLog = System.currentTimeMillis()

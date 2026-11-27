@@ -103,6 +103,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Linked devices: pair or remove a screen, phone, computer, TV | screen, with the PIN | Add and Remove ask for the PIN; the pairing code itself is shown for the person's own device |
 | Linked devices: the house's speakers, streamers, printers and their buttons | **new** | home_devices (tv, bluetooth and volume were already there); turning on or opening something asks the room first |
 | Brightness | **new** | tablet_screen (Settings' row has no PIN) |
+| Volume: the level, Adjust to the room | **new** | volume (set, louder, quieter, mute; room_on, room_off). Settings' row has no PIN |
 | Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
 | Account: link, backups, reach from away | screen, with the PIN | Opie opens the row; the tablet asks for the PIN. The yes to the account that entered the code is personOnly |
 | Updates (Settings, no PIN); Advanced: home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
