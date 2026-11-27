@@ -84,6 +84,29 @@ The old Grown-ups menu (shell/ParentMenu.kt, now shell/SettingsLock.kt):
 First run:
 - The "Choose a parent PIN" sheet: **cut**. No PIN by default; the welcome screen comes first.
 
+## Wake when someone walks up
+
+Settings → Brightness, under Sleep screen (shell/WalkUp.kt), shown only on a tablet with a front camera. Off by
+default. While it's on, the sleep screen wakes to the home screen, as a touch would, when someone moves in front of
+the tablet.
+
+- **Why the camera:** a tablet has nothing else that sees a person across a room. Most have no proximity sensor, and
+  the ones that do (phones) see a few centimetres, for a face on a call. The light sensor changes with the room's
+  light, not with people. So it's the front camera, as cheaply as it goes: the smallest stream, at the slowest frame
+  rate the camera offers, about three frames a second looked at, each turned into a 16 × 12 grid of brightness and
+  compared with the one before (taking away the whole frame's change, so a light switched on isn't someone).
+  Movement in enough of the grid, twice in a row, wakes it. No picture is made, kept or sent; nothing leaves the
+  tablet, and no model is used.
+- **When it watches:** only while the sleep screen is up by day, Opie in front. Never at night (the night hours), after
+  Sleep now, during the setup, or while Opie's own camera sheet (look_with_camera) has the camera: those stay dark
+  until a touch, as before. Once it wakes the screen, the camera is off until the screen sleeps again.
+- **Turning it on** says what the camera does on a card ("used only on this tablet: nothing is saved or sent"), then
+  asks for the PIN when the lock is on. Turning it off is anyone's.
+- **Opie:** tablet_screen `walkup` with `on`. Off happens at once; on puts the same card up on the tablet for someone
+  there to answer.
+- **Costs:** the camera runs whenever the sleep screen is up by day, so a little more power and warmth than before.
+  Someone walking past wakes it too; it sleeps again after the usual eight minutes.
+
 ## The lock
 
 One switch, PIN Lock: Off or On.
