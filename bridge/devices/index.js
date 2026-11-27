@@ -618,7 +618,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     return { ok: true, text: what === 'brightness' ? `Brightness now ${r.brightness}.` : `The brightness is ${r.brightness}.` };
   }
   handle.screen = screenDo;
-  /** The microphone check (the voice's "mic_check" tool): the shell's /mic-check puts Settings → Voice's check on the
+  /** The microphone check (the voice's "mic_check" tool): the shell's /mic-check puts Settings → Opie → Voice's check on the
    *  screen (MicCheck.kt). [wait]: typed or from a phone, where nothing holds the tablet's microphone, so it waits for
    *  how it went; the tablet's own voice can't (its conversation holds the microphone): it ends, and the check listens. */
   async function micCheckDo({ do: what = 'start' } = {}, { wait = false } = {}) {
@@ -717,7 +717,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       const lines = [r.now ? `${r.now.app}: ${r.now.state}${r.now.elsewhere ? ' on another device, not the tablet' : ''}${where}. ${said(r.now)}` : r.anyPlaying ? 'Something is playing.' : 'Nothing is playing.',
         ...(r.others || []).map((o) => `Also playing in ${o.app}: ${said(o)}`),
         list.trim() + (r.last ? ` Last played from ${r.last}.` : ''),
-        r.sees ? '' : 'The tablet can\'t see what the apps play yet (Settings → Advanced → Now playing), so it only sends play, pause and skip.'];
+        r.sees ? '' : 'The tablet can\'t see what the apps play yet (Settings → Opie → Now playing), so it only sends play, pause and skip.'];
       return { ok: true, text: lines.filter(Boolean).join('\n') };
     }
     return { ok: true, text: `${r.done}${r.now ? ` ${said(r.now)}` : ''}` };

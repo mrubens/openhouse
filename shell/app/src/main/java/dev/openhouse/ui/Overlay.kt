@@ -151,7 +151,7 @@ fun ShellOverlay() {
                 TypeBox(o.typing ?: "")
             }
             LaunchedEffect(Unit) { Devices.ensureLoaded() }
-            if (o.showSettings) SettingsSheet()
+            if (o.showSettings) SettingsScreen()
             if (o.showFamily) FamilySheet()
             o.confirmDelete?.let { DeleteAppSheet(it) }
             if (o.showJobs) JobsSheet()

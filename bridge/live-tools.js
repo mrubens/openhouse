@@ -102,10 +102,10 @@ export const BT_TOOL = { name: 'bluetooth', description: "Bluetooth speakers, he
 
 /** The tablet's volume, straight from the voice: devices/index.js volumeDo (one volume for music, timers and Opie). */
 export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (music, timers and your own voice): louder or quieter (a step), set to a level, mute, or get it. \"Turn it up\", \"too loud\", \"volume to 50\". " +
-    'room_on or room_off: Adjust to the room (Settings → Volume), where your voice and the timers get a little louder in a noisy room and quieter in a quiet one and at night; music stays as set.',
+    'room_on or room_off: Adjust to the room (Settings → Screen → Volume), where your voice and the timers get a little louder in a noisy room and quieter in a quiet one and at night; music stays as set.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['louder', 'quieter', 'set', 'mute', 'get', 'room_on', 'room_off'] }, level: { type: 'integer', description: 'For set: 0-100' } } } };
 /** The tablet's own screen, straight from the voice: devices/index.js screenDo (the shell's /screen). Neither is behind
- *  the PIN on the tablet: Brightness is in Settings' own list, Sleep now is the moon button. */
+ *  the PIN on the tablet: Brightness is in Settings → Screen, Sleep now is the moon button. */
 /** What acts on this tablet itself (its screen, speaker, camera, media and other apps): not offered to a conversation on
  *  another of the household's tablets (setupFor), which would have them act here, in another room. */
 const ON_THIS_DEVICE = new Set(['look_with_camera', 'open_app', 'install_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'tablet_screen', 'volume', 'music', 'bluetooth', 'pin_choices']);
@@ -118,19 +118,19 @@ export const MUSIC_TOOL = { name: 'music', description: "Music, audiobooks and p
     'search plays something (what, and which app by its name when they said or it matters; otherwise the app they last played from), ' +
     'play resumes, pause, next, previous, seek some seconds back (negative) or forward ("back 30 seconds"), stop, or status: what is playing and which media apps the tablet has. ' +
     'A book goes to an audiobook app, music to a music app; if the app they need isn\'t there, say so and offer to add it (install_app). ' +
-    'Spotify plays on the tablet without its app coming up once someone signs in to Spotify in Opie: spotify_sign_in puts its sign-in page on the screen for them (Settings → Advanced → Spotify does too).',
+    'Spotify plays on the tablet without its app coming up once someone signs in to Spotify in Opie: spotify_sign_in puts its sign-in page on the screen for them (Settings → Opie → Spotify does too).',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['status', 'search', 'play', 'pause', 'next', 'previous', 'seek', 'stop', 'spotify_sign_in'] },
     query: { type: 'string', description: 'For search: what to play, as they said it ("Abbey Road", "some jazz for dinner", "the second Harry Potter book")' },
     focus: { type: 'string', enum: ['artist', 'album', 'song', 'playlist', 'genre'], description: 'For search, only when it is clearly one of these' },
     app: { type: 'string', description: 'Which media app, by its name as on the tablet' }, seconds: { type: 'number', description: 'For seek: negative is back' } } } };
-/** The house's other devices (speakers, streamers, printers...), as Settings' Linked devices buttons work them: devices/index.js devicesDo. */
-export const DEVICES_TOOL = { name: 'home_devices', description: "The house's devices the tablet found on the Wi-Fi and over Bluetooth (speakers, streamers, printers...), as Settings' Linked devices shows them: " +
+/** The house's other devices (speakers, streamers, printers...), as Settings' Devices buttons work them: devices/index.js devicesDo. */
+export const DEVICES_TOOL = { name: 'home_devices', description: "The house's devices the tablet found on the Wi-Fi and over Bluetooth (speakers, streamers, printers...), as Settings' Devices shows them: " +
     'list them with what each can do, then act: one of a device\'s actions (play, pause, volume_up, set_volume with params {"level": 20}, power_off...), or name one as the family calls it. ' +
     'Anything that turns on, opens or unlocks something asks the people in the room first. The TV, Bluetooth and the tablet\'s own volume have their own tools.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['list', 'act', 'name'] },
     device: { type: 'string', description: 'Which one, by its name or id from list' }, action: { type: 'string', description: 'For act: one of its actions from list' },
     params: { type: 'object', description: 'For act: the action\'s parameters, if any' }, name: { type: 'string', description: 'For name: what the family calls it (empty: its own name)' } } } };
-/** Does the tablet hear them? Settings → Voice's microphone check, on the screen: devices/index.js micCheckDo (the shell's /mic-check). */
+/** Does the tablet hear them? Settings → Opie → Voice's microphone check, on the screen: devices/index.js micCheckDo (the shell's /mic-check). */
 export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether the tablet hears people: when "Hey Opie" isn\'t working, it keeps missing them, or they ask for a microphone check. ' +
     'start puts the check on the tablet\'s screen: someone says "Hey Opie" to it, and it says plainly whether it heard them, or the microphone is too quiet, too noisy or blocked. ' +
     'Nothing is recorded or sent while it checks. last says how the last check went.',

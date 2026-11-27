@@ -49,7 +49,7 @@ to sign in on the tablet, or didn't find that.
 
 Spotify keeps its media service to its own list of apps, so through its app Opie can only hand it a search, which
 brings Spotify's screen up (and Spotify may play on whichever of the household's devices was last used). Once someone
-signs in to Spotify in Opie (Settings → Advanced → Spotify, or the `music` tool's `spotify_sign_in`, which puts
+signs in to Spotify in Opie (Settings → Opie → Spotify, or the `music` tool's `spotify_sign_in`, which puts
 Spotify's own sign-in page on the screen), Spotify plays on the tablet without its app instead:
 
 - **Home** (`chat/src/spotify-player.jsx`): Spotify's player for websites (its Embed), worked through Spotify's
@@ -79,7 +79,7 @@ never reads the notifications themselves. Turning it on:
 - So `scripts/tablet-setup.sh` and `scripts/move-tablet.sh` grant it over adb:
   `adb shell cmd notification allow_listener <shell package>/dev.openhouse.shell.MediaListener`. It stays through
   updates.
-- Otherwise Settings → Advanced → Now playing (shown only while it's off) opens Android's own page for it, with
+- Otherwise Settings → Opie → Now playing (shown only while it's off) opens Android's own page for it, with
   the PIN. It's a person's tap (`DeviceServer.personOnly`): it widens what Opie can see.
 
 Without it, play, pause, stop and skip still work (media keys go to whatever is playing), `status` only says whether

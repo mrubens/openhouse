@@ -22,7 +22,7 @@ and needs its own plan: what may be sent, who says yes, and replies.
 - **Bridge:** `bridge/mail.js` (senders, held mail, caps, the cloud's address and its sealed mail, `/mail` routes),
   `bridge/mime.js` (reading a message, the provider's verdict), `bridge/mail-seal.js`, `house.js` `readEmail` (photos
   into the Email album, events offered on the Calendar), `mail.json` in backups. Tests: `bridge/test/mail.test.mjs`.
-- **Shell:** Settings → Email (`EmailMenu.kt`), the own mailbox (`MailAccount.kt`), PDF and HEIC conversion
+- **Shell:** Settings → Account → Email (`EmailMenu.kt`), the own mailbox (`MailAccount.kt`), PDF and HEIC conversion
   (`MailConvert.kt`). Letting a sender in, turning email on and adding a mailbox take a person's tap, never Opie's.
 - **Cloud** (openhouse-cloud 132312e): SES receiving with the gate and seal, addresses at linking, the `/v1/mail`
   endpoints, deletion with the account, the privacy page's bullet.
@@ -31,7 +31,7 @@ and needs its own plan: what may be sent, who says yes, and replies.
 against a real IMAP server; PDF and HEIC conversion and the Email screens on a tablet. Opie doesn't yet mention a new
 email's events on its own (they wait on the Calendar). A hub has no shell, so no own mailbox and no PDF pages there.
 
-**The own mailbox from a computer** (instead of the form in Settings → Email), with adb:
+**The own mailbox from a computer** (instead of the form in Settings → Account → Email), with adb:
 
 ```
 adb shell am broadcast -n computer.openhouse.shell/dev.openhouse.shell.ConfigReceiver -a dev.openhouse.shell.CONFIG \
@@ -61,13 +61,13 @@ throws the rest away.
 ## The address
 
 - **Chosen for them, changeable.** When the household links its tablet, it gets two random words and a number
-  (`maple-otter-42`), from a word list for addresses only, with nothing about the household in it. In Settings → Email
+  (`maple-otter-42`), from a word list for addresses only, with nothing about the household in it. In Settings → Account → Email
   they can take another random one or type their own (letters, digits, dashes, 4 to 30 characters, not already taken,
   not on the cloud's short list of reserved names like `admin` or `postmaster`).
 - **Changing it** (spam, or they just want a new one): the old address stops at once and is never handed out again.
   The new one shows in Settings with a one-line note to update the forwarding rules people set up.
 - **On by default.** Every household linked to the cloud gets an address when its tablet is linked, with the
-  account's sign-in addresses already approved, so forwarding works with no setup. Settings → Email can turn it off,
+  account's sign-in addresses already approved, so forwarding works with no setup. Settings → Account → Email can turn it off,
   which deletes the address (and anything waiting).
 - **No naming step.** Signing up doesn't ask for a household name to use in the address (or anywhere else): a chosen
   name tends to be the family's surname, which would make the household easy to identify from anything it's in.
@@ -75,7 +75,7 @@ throws the rest away.
 
 ## Senders
 
-- **Each person's own addresses.** The account's sign-in addresses are approved from the start. In Settings → Email, an
+- **Each person's own addresses.** The account's sign-in addresses are approved from the start. In Settings → Account → Email, an
   adult adds the other addresses mail may come from, each one with the person it belongs to (Sam:
   `sam@example.com`, `sam.work@example.com`), and says whose each sign-in address is. These are the only way in. The
   household's list is kept on the tablet; the cloud keeps only a keyed hash of each address (HMAC with a key per
@@ -85,7 +85,7 @@ throws the rest away.
 - **Anyone else is held.** The first message from a new address is usually one someone wanted (a school email
   forwarded from a work account), so it isn't dropped. If it passes the same checks as approved mail (SPF/DKIM,
   DMARC, no virus, the size limit), the cloud seals and delivers it like any other, marked held, at most 10 held
-  messages a day per household. The tablet keeps it unread: nothing reads it, no model sees it, and Settings → Email
+  messages a day per household. The tablet keeps it unread: nothing reads it, no model sees it, and Settings → Account → Email
   shows only "Waiting: mail from `newsletter@maple-elementary.example`", with Allow and Delete. Allow approves the
   sender and reads that message; anything not allowed is deleted after 3 days. Held mail isn't kept in the cloud any
   longer than other mail. Past 10 a day, the rest from unknown senders are dropped.
@@ -118,10 +118,10 @@ in a subject line); the model makes the call, with what the message holds as con
 - **Events** go where flyer events go now: the Calendar app shows them, from "Sam's email", each one to say yes to.
   Nothing is added until someone says yes on the tablet or on a phone. Opie mentions there's an email waiting the next
   time someone talks to it, once.
-- **Everything else** (a message with no events and no photos) is kept on the tablet for a week in Settings → Email
+- **Everything else** (a message with no events and no photos) is kept on the tablet for a week in Settings → Account → Email
   so someone can see what came in, then deleted. Nothing in it is acted on.
 - If the household has no assistant connected, photos still go into Photos; flyers and other messages wait in
-  Settings → Email until one is.
+  Settings → Account → Email until one is.
 
 ## Safety
 
@@ -162,7 +162,7 @@ Self-hosters (and anyone who'd rather not use our cloud) can give the tablet a m
 dedicated address at any provider with IMAP (Fastmail, iCloud, Gmail with an app password, their own server). Either
 source works alone, or both together.
 
-- **Settings → Email → Use your own mailbox:** the server, the address and an app password. The shell keeps them
+- **Settings → Account → Email → Use your own mailbox:** the server, the address and an app password. The shell keeps them
   sealed with its key, as it keeps iCloud's app-specific password, and only ever talks to that server.
 - **Checking:** the shell looks every 2 minutes, in the inbox only, at messages that came after the mailbox was added.
   It hands each one to the bridge, then marks it read on the server. Nothing goes anywhere but that server and the
@@ -203,9 +203,9 @@ source works alone, or both together.
 - **Bridge:** a mail key made and kept with the tablet's other keys, given to the cloud when linking (and on
   "turn on email"); fetching waiting mail on connect and on the relay's nudge; a MIME parser of its own (the bridge has no
   dependencies); `addEmail` beside `addFlyer` in `bridge/house.js`, which reads it and puts photos and events
-  where they go; Settings → Email (address, senders, held mail, what came in).
+  where they go; Settings → Account → Email (address, senders, held mail, what came in).
 - **Shell:** PDF pages to images (Android's `PdfRenderer`) and HEIC to JPEG, for the bridge; the own mailbox
-  (`MailAccount.kt`: sealed, a small IMAP client over TLS); Settings → Email.
+  (`MailAccount.kt`: sealed, a small IMAP client over TLS); Settings → Account → Email.
 - **Tests** (security and data safety only): a held message is never read or shown to a model until Allow; a
   forged `From` that fails DMARC is dropped; an email's events are never added without a yes; mail is deleted from the
   cloud after it's fetched.

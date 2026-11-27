@@ -63,11 +63,27 @@ private fun hexColor(h: String) = runCatching { Color(android.graphics.Color.par
  */
 @Composable
 internal fun FamilySheet() {
+    CompositionLocalProvider(LocalPalette provides quietPalette()) {
+        // Above Android's on-screen keyboard when it's up: the card shrinks to what's left (its columns scroll), so the
+        // field being typed in and Save stay in sight.
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable(enabled = false) {}.imePadding().padding(vertical = 20.u), contentAlignment = Alignment.Center) {
+            QuietCard(Modifier.width(fit(1380.u)).heightIn(max = 880.u).fillMaxHeight(), padding = PaddingValues(horizontal = 44.u, vertical = 30.u)) {
+                FamilyContent()
+            }
+        }
+    }
+}
+
+/** Who lives here, where and the chores: the first setup's sheet, and Settings' Household tab ([inSettings]: Save
+ *  keeps it open; [onBack]: a ‹ before the title, on a phone). */
+@Composable
+internal fun ColumnScope.FamilyContent(inSettings: Boolean = false, onBack: (() -> Unit)? = null) {
     val o = Openhouse
     var loaded by remember { mutableStateOf(false) }
     val people = remember { mutableStateListOf<Pair2>() }
     val chores = remember { mutableStateListOf<Pair2>() }
     var place by remember { mutableStateOf("") }
+    var saved by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val h = o.loadHousehold()
         if (h != null) {
@@ -85,49 +101,54 @@ internal fun FamilySheet() {
             .put("chores", org.json.JSONArray(chores.filter { it.b.isNotBlank() }.map { org.json.JSONObject().put("who", it.a.trim()).put("task", it.b.trim()) }))
         o.saveHousehold(h)
         o.showFamily = false
+        if (inSettings) saved = true
     }
     val names = people.map { it.a.trim() }.filter { it.isNotEmpty() }
-    CompositionLocalProvider(LocalPalette provides quietPalette()) {
-        // Above Android's on-screen keyboard when it's up: the card shrinks to what's left (its columns scroll), so the
-        // field being typed in and Save stay in sight.
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable(enabled = false) {}.imePadding().padding(vertical = 20.u), contentAlignment = Alignment.Center) {
-            QuietCard(Modifier.width(fit(1380.u)).heightIn(max = 880.u).fillMaxHeight(), padding = PaddingValues(horizontal = 44.u, vertical = 30.u)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.u)) {
-                    SettingsBack()
-                    Column(Modifier.weight(1f)) {
-                        Text(if (o.householdSetUp) "Your family" else "Welcome! Who lives here?", style = quietText(30, FontWeight.SemiBold))
-                        // Telling Opie instead is a quiet line, not a third button (docs/ux.md).
-                        Text("Or just tell Opie", style = quietText(17, FontWeight.Medium, PaperLook.inkSoft),
-                            modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { o.startOnboarding() }.padding(vertical = 4.u))
-                    }
-                    // The ‹ (opened from Settings) or the edge swipe goes back without saving; otherwise a word for it.
-                    if (!Openhouse.showSettings) Chip(if (o.householdSetUp) "Cancel" else "Later") { o.showFamily = false }
-                    Pill("Save") { save() }
-                }
-                Spacer(Modifier.height(16.u))
-                if (!loaded) { Dots(); return@QuietCard }
-                Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(40.u)) {
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) {
-                        Section("Who lives here")
-                        people.forEachIndexed { i, p -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
-                            // Their color everywhere (the calendar, chores): tap for the next one.
-                            if (p.c.isBlank()) p.c = PERSON_COLORS[i % 6]
-                            Box(Modifier.size(40.u).clip(CircleShape).background(hexColor(p.c)).clickable { p.c = PERSON_COLORS[(PERSON_COLORS.indexOf(p.c) + 1) % PERSON_COLORS.size] })
-                            Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Kinds(p.d) { p.d = it }; Field(p.b, { p.b = it }, "Age, or a note", Modifier.weight(1f)); Remove { people.remove(p) } } }
-                        if (people.size > 0) Text("Tap a color to change it.", style = quietText(15, color = PaperLook.inkSoft))
-                        AddLink("Add someone") { people += Pair2("", "", PERSON_COLORS[people.size % 6]) }
-                        Section("Where you live")
-                        Field(place, { place = it }, "Zip code or town, for the weather")
-                    }
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) {
-                        Section("Chores")
-                        chores.forEach { c -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
-                            Field(c.a, { c.a = it }, "Who", Modifier.width(170.u), words = true); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }
-                        AddLink("Add a chore") { chores += Pair2(names.firstOrNull() ?: "", "") }
-                    }
-                }
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.u)) {
+        if (onBack != null) SettingsArrow(onBack) else if (!inSettings) SettingsBack()
+        Column(Modifier.weight(1f)) {
+            Text(if (inSettings) "Household" else if (o.householdSetUp) "Your family" else "Welcome! Who lives here?", style = quietText(30, FontWeight.SemiBold))
+            // Telling Opie instead is a quiet line, not a third button (docs/ux.md).
+            Text("Or just tell Opie", style = quietText(17, FontWeight.Medium, PaperLook.inkSoft),
+                modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { o.startOnboarding() }.padding(vertical = 4.u))
+        }
+        // The ‹ (opened from Settings) or the edge swipe goes back without saving; otherwise a word for it.
+        if (!Openhouse.showSettings) Chip(if (o.householdSetUp) "Cancel" else "Later") { o.showFamily = false }
+        if (saved) Text("Saved", style = quietText(18, color = PaperLook.inkSoft), modifier = Modifier.padding(end = 12.u))
+        Pill("Save") { save() }
+    }
+    Spacer(Modifier.height(16.u))
+    if (!loaded) { Dots(); return }
+    // Two columns on a tablet; one, with each person on two lines, on a phone.
+    val narrow = isCompact()
+    @Composable fun ColumnScope.who() {
+        Section("Who lives here")
+        people.forEachIndexed { i, p ->
+            // Their color everywhere (the calendar, chores): tap for the next one.
+            if (p.c.isBlank()) p.c = PERSON_COLORS[i % 6]
+            @Composable fun Dot() = Box(Modifier.size(40.u).clip(CircleShape).background(hexColor(p.c)).clickable { p.c = PERSON_COLORS[(PERSON_COLORS.indexOf(p.c) + 1) % PERSON_COLORS.size] })
+            if (narrow) Column(verticalArrangement = Arrangement.spacedBy(8.u)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) { Dot(); Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Remove { people.remove(p) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) { Kinds(p.d) { p.d = it }; Field(p.b, { p.b = it }, "Age, or a note", Modifier.weight(1f)) }
+            } else Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
+                Dot(); Field(p.a, { p.a = it }, "Name", Modifier.weight(1f), words = true); Kinds(p.d) { p.d = it }; Field(p.b, { p.b = it }, "Age, or a note", Modifier.weight(1f)); Remove { people.remove(p) }
             }
         }
+        if (people.size > 0) Text("Tap a color to change it.", style = quietText(15, color = PaperLook.inkSoft))
+        AddLink("Add someone") { people += Pair2("", "", PERSON_COLORS[people.size % 6]) }
+        Section("Where you live")
+        Field(place, { place = it }, "Zip code or town, for the weather")
+    }
+    @Composable fun ColumnScope.jobs() {
+        Section("Chores")
+        chores.forEach { c -> Row(horizontalArrangement = Arrangement.spacedBy(10.u), verticalAlignment = Alignment.CenterVertically) {
+            Field(c.a, { c.a = it }, "Who", Modifier.width(170.u), words = true); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }
+        AddLink("Add a chore") { chores += Pair2(names.firstOrNull() ?: "", "") }
+    }
+    if (narrow) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { who(); jobs(); Spacer(Modifier.height(24.u)) }
+    else Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(40.u)) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { who() }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { jobs() }
     }
 }
 

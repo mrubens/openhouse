@@ -274,6 +274,10 @@ class CalmDialog(private val c: Context) {
     private var rights: List<Pair<String, String>>? = null
     private var danger = false
     private var forPerson = false
+    private var asDialog = false
+
+    /** Always a floating dialog, even with Settings open (the PIN pad and its cards). */
+    fun asDialog() = apply { asDialog = true }
 
     /** A yes to something asked from elsewhere (a device pairing, a link someone sent): while it's up Opie's screen
      *  tools do nothing, and its main button answers only a real finger ([PersonCards]). */
@@ -282,7 +286,7 @@ class CalmDialog(private val c: Context) {
     fun setMessage(t: CharSequence?) = apply { message = t }
     fun setView(v: View) = apply { view = v }
     fun setWidth(u: Float) = apply { widthU = u }
-    /** A list laid out as Settings' own (ui/Sheets.kt SettingsSheet, SettingsRow): its width, padding, rows and type. */
+    /** A list laid out as Settings' own (ui/SettingsScreen.kt, SettingsRow): its width, padding, rows and type. */
     private var settingsLook = false
     fun setSettingsLook() = apply { settingsLook = true; widthU = 640f }
     /** Details that don't change the decision, behind a "More" (docs/ux.md). */
@@ -307,7 +311,12 @@ class CalmDialog(private val c: Context) {
     /** Change the line under the title of a dialog that's showing (one made with a message). */
     fun updateMessage(t: CharSequence) { messageView?.text = t }
 
+    /** With Settings open, a list, a form or a step of a menu is a page in Settings' right pane instead of a dialog over
+     *  it (SettingsPages, docs/settings.md); confirmations, cards for a person and the PIN pad still float. */
+    private fun asPage() = SettingsPages.active && !asDialog && !forPerson && !danger && (rows != null || view != null || negative?.first == "Back" || SettingsPages.wantsRoot)
+
     fun show(): Dialog {
+        if (asPage()) return showPage()
         val d = Dialog(c)
         d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
         val u = Calm.u(c)
@@ -380,7 +389,8 @@ class CalmDialog(private val c: Context) {
         d.setCancelable(cancelable)
         if (cancelable) dev.openhouse.shell.addEdgeBack(holder) { d.cancel() } // the tablet hides the system's back: swipe in from an edge
         var asking: Any? = null
-        d.setOnDismissListener { asking?.let(PersonCards::close); onDismiss?.invoke(it); Openhouse.settingsChanged() } // Settings, under it, reads its values again
+        d.setOnDismissListener { asking?.let(PersonCards::close); onDismiss?.invoke(it); SettingsPages.dialogs--; Openhouse.settingsChanged() } // Settings, under it, reads its values again
+        SettingsPages.dialogs++
         d.window?.apply {
             setBackgroundDrawable(ColorDrawable(0))
             setLayout(WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT)
@@ -390,6 +400,56 @@ class CalmDialog(private val c: Context) {
         d.show()
         if (forPerson) asking = PersonCards.open(title?.toString() ?: "a question") { d.isShowing }
         d.window?.insetsController?.hide(WindowInsets.Type.systemBars()) // the tablet stays full screen
+        view?.let { firstField(it)?.requestFocus() }
+        return d
+    }
+
+    /** This as a page of Settings: its title goes in the pane's header (with a ‹ when there's somewhere to go back to,
+     *  which runs the Back or Cancel button), the rest fills the pane, its main button under it. */
+    private fun showPage(): Dialog {
+        val u = Calm.u(c)
+        lateinit var d: SettingsPages.PageDialog
+        val col = Calm.column(c).apply { setPadding(0, 0, 0, Calm.px(c, 40)) }
+        message?.let { col.addView(Calm.text(c, it, Calm.BODY, 400, Calm.SOFT).also { v -> messageView = v }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = Calm.px(c, 8) }) }
+        rights?.let { col.addView(Calm.rights(c, it), LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 14) }) }
+        view?.let { v -> (v.parent as? ViewGroup)?.removeView(v); col.addView(v, LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 16) }) }
+        rows?.let { list ->
+            val box = Calm.column(c)
+            list.forEachIndexed { i, r ->
+                if (r.header) { box.addView(Calm.eyebrow(c, r.title).apply { setPadding(Calm.px(c, 12), Calm.px(c, if (i == 0) 4 else 24), 0, Calm.px(c, 4)) }); return@forEachIndexed }
+                box.addView(Calm.row(c).apply {
+                    val rr = 16 * u
+                    background = Calm.pressable(c, Calm.rounded(0x00FFFFFF, rr), rr); isClickable = true
+                    setPadding(Calm.px(c, 12), Calm.px(c, 15), Calm.px(c, 12), Calm.px(c, 15))
+                    r.image?.let { b -> addView(android.widget.ImageView(c).apply { setImageBitmap(b); scaleType = android.widget.ImageView.ScaleType.CENTER_CROP; clipToOutline = true; background = Calm.rounded(Calm.TINT2, 12 * u) },
+                        LinearLayout.LayoutParams(Calm.px(c, 112), Calm.px(c, 76)).apply { rightMargin = Calm.px(c, 20) }) }
+                    addView(Calm.column(c, 4).apply {
+                        addView(Calm.text(c, r.title, 21f, 500))
+                        r.detail?.let { addView(Calm.text(c, it, 18f, 400, Calm.SOFT)) }
+                    }, LinearLayout.LayoutParams(0, -2, 1f))
+                    r.value?.let { addView(Calm.text(c, it, 18f, 400, Calm.SOFT).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = Calm.px(c, 300) }, LinearLayout.LayoutParams(-2, -2).apply { leftMargin = Calm.px(c, 10) }) }
+                    if (checked >= 0) addView(View(c).apply {
+                        background = if (i == checked) GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Calm.INK) }
+                            else GradientDrawable().apply { shape = GradientDrawable.OVAL; setStroke(Calm.px(c, 2), Calm.TINT2) }
+                    }, LinearLayout.LayoutParams(Calm.px(c, 18), Calm.px(c, 18)).apply { leftMargin = Calm.px(c, 16) })
+                    setOnClickListener { if (checked < 0) d.dismiss(); onRow?.invoke(d, i) }
+                }, LinearLayout.LayoutParams(-1, -2))
+            }
+            col.addView(box, LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 8); leftMargin = -Calm.px(c, 12); rightMargin = -Calm.px(c, 12) })
+        }
+        more?.let { col.addView(Calm.more(c, it), LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 8) }) }
+        // The main button (and a rare second one) under what it acts on; Back or Cancel is the header's ‹.
+        if (positive != null || neutral != null) {
+            val bar = Calm.row(c, 12).apply { setPadding(0, Calm.px(c, 28), 0, 0) }
+            fun act(p: Pair<CharSequence, ((DialogInterface, Int) -> Unit)?>, which: Int) { d.dismiss(); p.second?.invoke(d, which) }
+            // A Done or Close that only closes is the ‹ here.
+            positive?.takeIf { p -> p.second != null || p.first.toString() !in setOf("Done", "Close", "OK") }?.let { p -> bar.addView(Calm.primary(c, p.first) { act(p, DialogInterface.BUTTON_POSITIVE) }) }
+            neutral?.let { n -> bar.addView(Calm.quiet(c, n.first) { act(n, DialogInterface.BUTTON_NEUTRAL) }.apply { if (bar.childCount == 0) setPadding(0, 0, paddingRight, 0) }) } // alone, its words line up with the rest
+            col.addView(bar, LinearLayout.LayoutParams(-2, -2))
+        }
+        val neg = negative
+        d = SettingsPages.PageDialog(c, title?.toString() ?: "", col, back = neg?.second?.let { l -> { l(d, DialogInterface.BUTTON_NEGATIVE) } }, onDismiss = { onDismiss?.invoke(it) })
+        d.show()
         view?.let { firstField(it)?.requestFocus() }
         return d
     }

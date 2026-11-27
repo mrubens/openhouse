@@ -29,7 +29,7 @@ import android.content.Intent
  * `--ez settings true` opens Settings.
  * `--es pin` with digits turns the lock on with that PIN; `--es pin ""` turns it off.
  * `--es mail_host imap.example.com --es mail_user tablet@example.com --es mail_password <app password> [--ei mail_port 993]`:
- * the household's own mailbox (MailAccount, docs/tablet-email.md), as Settings → Email's form adds it (signed in first,
+ * the household's own mailbox (MailAccount, docs/tablet-email.md), as Settings → Account → Email's form adds it (signed in first,
  * sealed, from the mail after now); the result data says "ok" or what went wrong. `--ez mail_remove true` removes it.
  */
 class ConfigReceiver : BroadcastReceiver() {

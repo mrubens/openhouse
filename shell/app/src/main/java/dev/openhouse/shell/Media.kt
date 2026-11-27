@@ -329,7 +329,7 @@ object Media {
         // that, not a guess, says whether it started.
         if (!listening()) {
             val am = ctx.getSystemService(AudioManager::class.java); val end = SystemClock.elapsedRealtime() + ms
-            while (SystemClock.elapsedRealtime() < end) { if (am.isMusicActive) { remember(pkg); return done("$text (The tablet hears it playing; it can't see what: Settings → Advanced → Now playing.)") }; SystemClock.sleep(400) }
+            while (SystemClock.elapsedRealtime() < end) { if (am.isMusicActive) { remember(pkg); return done("$text (The tablet hears it playing; it can't see what: Settings → Opie → Now playing.)") }; SystemClock.sleep(400) }
             return JSONObject().put("error", "${label(pkg)} didn't start playing on the tablet: no sound from it. It may be playing on another device it used last (a phone: its device list switches it to this tablet), or need someone to sign in to it on the tablet, or it didn't find that.")
         }
         val end = SystemClock.elapsedRealtime() + ms

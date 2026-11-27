@@ -1,6 +1,6 @@
 package dev.openhouse.shell
 
-// Settings → Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through Opie cloud, off unless someone
+// Settings → Opie → Voice (openhouse-cloud/docs/cloud-beta.md): OpenAI's live voice through Opie cloud, off unless someone
 // turns it on here after reading what goes where. The bridge does the work (bridge/cloud.js, /cloud/voice); the
 // session runs in the shell (LiveVoice). Its name is heard on the tablet; nothing goes out until then.
 // What the household said here is kept (OpieChoice), so a yes made before the tablet was linked, or before its
@@ -39,7 +39,7 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
     private val notYet = "Opie's voice isn't on for your household yet. It turns on here by itself as soon as it is."
     private fun n(x: Int) = String.format(java.util.Locale.US, "%,d", x)
 
-    /** Settings → Voice (behind the PIN Lock when it is on; openhouse-cloud/docs/cloud-beta.md): Off, or which of OpenAI's voices it speaks with. Heard from the next
+    /** Settings → Opie → Voice (behind the PIN Lock when it is on; openhouse-cloud/docs/cloud-beta.md): Off, or which of OpenAI's voices it speaks with. Heard from the next
      *  conversation, so it says hello in it at once (a short session just to say it). */
     fun chooseVoice(): Thread = thread {
         val now = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/cloud/voice", 3000, 8000)).optString("voiceName") }.getOrNull()
@@ -47,16 +47,8 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
             if (now == null) return@ui say(noBridge)
             val checked = if (!LiveVoice.chosen) 0 else 1 + VOICES.indexOfFirst { it.first == now }
             val d = CalmDialog(act).setTitle("Voice").setMessage(if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.")
-            // Where someone looks when "Hey Opie" isn't working: does Opie hear them here? (MicCheck) And the house rules
-            // (HouseRules.kt), how Opie answers here, typed or spoken.
-            var shown: android.app.Dialog? = null
-            fun link(label: String, go: () -> Unit) = dev.openhouse.ui.Calm.quiet(act, label) { shown?.dismiss(); go() }.apply { gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, 0) }
-            d.setView(dev.openhouse.ui.Calm.column(act).apply {
-                addView(link("House rules") { HouseRules.open(act) { chooseVoice() } })
-                if (LiveVoice.chosen) addView(link("Check the microphone") { MicCheck.open(act) })
-            })
-            shown = d
-                .setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }
+            // (Check the microphone and House rules are their own rows in Settings → Opie.)
+            d.setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }
                 .setSingleChoiceItems((listOf("Off") + VOICES.map { it.second }).toTypedArray(), checked) { d, i ->
                     d.dismiss()
                     if (i == 0) { OpieChoice.set(act, false); off(); return@setSingleChoiceItems }
@@ -116,7 +108,7 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
 
     /** Linked, the household has the voice, and nobody here has answered yet (Without Opie at the welcome, or a tablet
      *  from before): the welcome's question once more, now that it can be on (CloudSetup.autoVoice; asked only once). A
-     *  person's own yes (Opie's tap does nothing), behind the PIN when the lock is on, as Settings → Voice is. */
+     *  person's own yes (Opie's tap does nothing), behind the PIN when the lock is on, as Settings → Opie → Voice is. */
     fun ask() {
         if (OpieChoice.asked(act)) return
         OpieChoice.markAsked(act)
@@ -130,8 +122,8 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
 
     /** The setup just ended (ui/Setup.kt finish; Host.setupDone). Where Opie's voice can work (the household's own key
      *  in, or a linked tablet whose household has the voice), it's on, with Hey Opie listening, and a small dialog says
-     *  so: OK, or Turn off (Settings → Voice's Off, kept: OpieChoice). Where it can't (no account and no key, or not for
-     *  this household yet), nothing shows: Settings → Voice has it, and a linked household that gets it later is asked
+     *  so: OK, or Turn off (Settings → Opie → Voice's Off, kept: OpieChoice). Where it can't (no account and no key, or not for
+     *  this household yet), nothing shows: Settings → Opie → Voice has it, and a linked household that gets it later is asked
      *  then (CloudSetup.autoVoice). The setup's Done is a person's tap; the dialog's words say what goes to OpenAI. */
     fun ready() = thread {
         if (OpieChoice.get(act) == OpieChoice.OFF) return@thread

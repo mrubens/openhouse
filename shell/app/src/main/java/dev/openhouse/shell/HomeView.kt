@@ -66,7 +66,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         @JavascriptInterface fun weather(g: String?) { if (ok(g)) main.post { o.showWeather = true } }
         @JavascriptInterface fun touch(g: String?) { if (ok(g)) main.post { o.touch() } }
         @JavascriptInterface fun idle(g: String?): Boolean = ok(g) && o.idle
-        /** Settings → Time: whether the clock is 24-hour (shell/Clock.kt). */
+        /** Settings → Screen → Time: whether the clock is 24-hour (shell/Clock.kt). */
         @JavascriptInterface fun clock24(g: String?): Boolean = ok(g) && Clock.is24(act)
         /** Whether "Hey Opie" wakes it (else only a tap does): the phone's glance says which. */
         @JavascriptInterface fun wakeOn(g: String?): Boolean = ok(g) && o.voice.wakeOn

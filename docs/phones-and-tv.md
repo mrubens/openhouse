@@ -151,7 +151,7 @@ Push without trusting anyone:
   phone gets a kid's scopes, and one lost phone can be removed without the others. The household picks the person;
   it isn't a login.
 - **Steps for a household:**
-  1. On the tablet: Settings → Family → Sam → Add Sam's phone. Someone's PIN. The tablet shows a QR code.
+  1. On the tablet: Settings → Household → Sam → Add Sam's phone. Someone's PIN. The tablet shows a QR code.
   2. Sam scans it with the phone's camera. The page opens and says "Add Opie to your home screen" with the two
      taps for iPhone or Android.
   3. Opened from the home screen, it asks "Get a note when the tablet has one for you?" (Allow is the phone's own
@@ -251,7 +251,7 @@ It does keep the bridge running and the Wi-Fi multicast lock held, which TV disc
 
 ## Recommended order
 
-1. **Phone app (cloud web app), per person:** pairing from Settings → Family, Today, Lists offline, Calendar, Chores,
+1. **Phone app (cloud web app), per person:** pairing from Settings → Household, Today, Lists offline, Calendar, Chores,
    and push for notes meant for that person. A prototype runs against the local cloud service and an emulator.
 2. **The TV layout of the screen page:** photos, Today, the week, and arrow-key focus. Usable in a TV's browser
    right away, and it's the Cast receiver's page.

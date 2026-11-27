@@ -9,7 +9,7 @@ import dev.openhouse.ui.CalmDialog
 import java.util.TimeZone
 
 /**
- * Settings → Time: the clock's format (12-hour "3:07pm" or 24-hour "15:07", which the home page asks for through
+ * Settings → Screen → Time: the clock's format (12-hour "3:07pm" or 24-hour "15:07", which the home page asks for through
  * HomeView's clock24) and the time zone. Automatic is Android's own (from the network); a chosen zone is set as the
  * device owner (DevicePolicyManager.setTimeZone, with the automatic zone off), so the page's clock follows it.
  */

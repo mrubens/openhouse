@@ -446,7 +446,7 @@ object Bluetooth {
             "set" -> am.setStreamVolume(AudioManager.STREAM_MUSIC, (level.coerceIn(0, 100) * max + 50) / 100, 0)
             "up" -> am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
             "down" -> am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
-            "room" -> dev.openhouse.ui.RoomVolume.on = level > 0 // Settings → Volume's Adjust to the room (1 on, 0 off)
+            "room" -> dev.openhouse.ui.RoomVolume.on = level > 0 // Settings → Screen → Volume's Adjust to the room (1 on, 0 off)
         }
         if (what != "get") log("volume $what ${if (what == "set" || what == "room") level else ""} -> ${vol()}")
         return JSONObject().put("volume", vol()).put("routed", routed()).put("room", dev.openhouse.ui.RoomVolume.describe())

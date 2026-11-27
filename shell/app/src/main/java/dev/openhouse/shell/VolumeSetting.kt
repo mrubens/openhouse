@@ -6,7 +6,7 @@ import dev.openhouse.ui.CalmDialog
 import dev.openhouse.ui.RoomVolume
 
 /**
- * Settings → Volume: the household's volume (the media stream: music, Opie's voice, the timers, as the keys and Opie's
+ * Settings → Screen → Volume: the household's volume (the media stream: music, Opie's voice, the timers, as the keys and Opie's
  * volume tool set it) and "Adjust to the room" (RoomVolume: Opie and the timers a little louder in a noisy room,
  * quieter in a quiet one and at night). Not behind the PIN, like Brightness: anyone in the room can hear it.
  */

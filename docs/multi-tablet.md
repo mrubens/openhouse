@@ -208,7 +208,7 @@ at once, in its welcome or later.
 
 | Piece | Where |
 | --- | --- |
-| The code | On the main tablet: Settings → Linked devices → Add → Another Opie tablet (`shell/Screens.kt` `tablet`, behind the PIN). `POST /screens/pair {kind: 'tablet', address}` makes a 12-letter code (`pair-code.js`), good once for 10 minutes; the QR code is `<address>/tablet#<code>`. While it shows, the tablet answers on the Wi-Fi as `_openhouse._tcp`, so a tablet that only typed the code finds it. Whoever has the code is standing at the main tablet, so it joins with no Allow, as a phone's code does |
+| The code | On the main tablet: Settings → Devices → Add → Another Opie tablet (`shell/Screens.kt` `tablet`, behind the PIN). `POST /screens/pair {kind: 'tablet', address}` makes a 12-letter code (`pair-code.js`), good once for 10 minutes; the QR code is `<address>/tablet#<code>`. While it shows, the tablet answers on the Wi-Fi as `_openhouse._tcp`, so a tablet that only typed the code finds it. Whoever has the code is standing at the main tablet, so it joins with no Allow, as a phone's code does |
 | Joining | On the new tablet: the welcome's "Already have Opie in another room? Add this tablet to it", or Settings → Advanced → Add this tablet to another Opie (behind the PIN, personOnly). `shell/Satellite.kt`: scan (CameraX and ZXing) or type the code, say which room. Its bridge (`POST /satellite/join`, brain.js) pairs as kind `tablet` and keeps the pairing in `.satellite/pairing.json` (0600, never in a backup); the runtime starts again |
 | Which bridge runs | `bridge/server.js` starts `brain.js` (the household's brain, what `server.js` was) or, with a pairing, `satellite-server.js`. Only one ever loads, so nothing on a satellite opens, changes or sends the household's things it had before; nothing that runs by itself in a brain (heartbeat, reminders, calendar sync, backups, mail, relay, the home network's port) runs on a satellite |
 | The satellite's bridge | `satellite-server.js`: the same loopback port and secret, so the shell, the home screen page and the apps are unchanged. Its own: listening for "Hey Opie" (`voice.js`), the pages and the kit, its apps' keys. Passed to the brain, sealed (`satellite.js` forwarder, with `chat/src/screen-client.js`: Wi-Fi, then tailnet, then relay): what `TABLET_SCOPES` allow (`door`, `arrange`, `ask`, `voice`, and `tablet`: Opie's voice state, the household's names). Everything else: 403 "That's on the main tablet" |
@@ -226,7 +226,7 @@ talking at, one PIN for the household, approval cards on every tablet, household
 Two emulator tablets running a local release build (1.0.55-local.70), the kitchen as the brain and the den as the new
 tablet, the den reaching the kitchen's home-network port through the computer (emulators can't see each other's
 Wi-Fi, so no Bonjour and no camera scan):
-- Kitchen: Settings → Linked devices → Add (the PIN) → Another Opie tablet showed the code and its QR code.
+- Kitchen: Settings → Devices → Add (the PIN) → Another Opie tablet showed the code and its QR code.
 - Den, already set up with a list of its own: Settings → Advanced (the PIN) → Add this tablet to another Opie, the
   main tablet's link typed into the code box, room "Den". It joined as `Den tablet`, kind `tablet`.
 - After its runtime started again, the den showed the kitchen's household: its family, Today and Groceries. A tick on

@@ -14,7 +14,7 @@ On the tablet:
    the microphone, the wake word and the live voice off while the welcome or any step shows (`MainActivity.micWanted`,
    `LiveVoice`, `Speech.say`). Opie's AI and voice aren't steps (since 2026-11-27; the owner, after setting up a real
    tablet on 1.0.55: "no need to show the ai page", and "testing opie voices doesn't work, skip it"): a tablet linked
-   to an Opie account has them, and one without adds its own key later, in Settings → Voice.
+   to an Opie account has them, and one without adds its own key later, in Settings → Opie → Voice.
    **Done from a phone or computer** (since 2026-11-26; the owner: "it's ok to require a phone or computer to set it
    up. I think that would simplify things", and "all of the steps are supposed to be on the computer"). The steps in
    order: `devices`, `people`, `place`, `calendar`, `photos`, `pin` (all on the phone or computer: the PIN is chosen
@@ -22,7 +22,7 @@ On the tablet:
    thing Android lets only the tablet do, with Done. (The phone page, which may be the cloud's copy and newer than the
    tablet, still moves an older tablet on past its `ai` and `voice` steps.) Who lives here is a name, Adult, Kid or Pet (the first row
    starts as Adult), and the color they'll have on the calendar, chores and lists, tapped to change (since 2026-11-27;
-   the owner found "Year or role" unintuitive). No age or role is asked there: Settings → Family keeps an optional age
+   the owner found "Year or role" unintuitive). No age or role is asked there: Settings → Household keeps an optional age
    or note, and Opie can learn an age by talking and save it as a birth year (`board.js` `personView` works the age
    out each time, so it never goes stale). Households from before keep their notes and birth years; a birth year under
    18 years ago makes a kid, and everyone else reads as an adult (`kindsFromBefore`), never guessed from a note. The
@@ -83,9 +83,9 @@ On the tablet:
    **Opie is ready** (`CloudVoiceMenu.ready`, since 2026-11-27, in place of the Talk to Opie step): once the setup
       ends (Done, or Later), where the voice can work (the tablet linked and its household has the voice, or the
       household's own key in) it's turned on, with Hey Opie listening, and a small dialog says "Opie is ready": say
-      “Hey Opie” to use it, and what follows goes to OpenAI. **OK**, or **Turn off** (Settings → Voice's Off, kept as an
+      “Hey Opie” to use it, and what follows goes to OpenAI. **OK**, or **Turn off** (Settings → Opie → Voice's Off, kept as an
       Off in `OpieChoice`, so it isn't turned on by itself later). Where it can't (no account and no key, or the
-      household doesn't have the voice yet), nothing shows; the voice is chosen in Settings → Voice.
+      household doesn't have the voice yet), nothing shows; the voice is chosen in Settings → Opie → Voice.
 
    **Opie's voice turning on by itself** (`CloudSetup.autoVoice`): once a minute the shell looks at `/cloud/voice`;
    while the tablet is linked and the voice is off, it asks the cloud (`?check=1`, the cloud's `voiceState`) right after

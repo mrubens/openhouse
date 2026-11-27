@@ -22,7 +22,7 @@
 // menu → Better voice). Without it the tablet works by touch and typing; there's no on-device fallback voice.
 //   GET  /cloud/voice[?check=1]      on?, the vendor, this month's use and allowance (check: ask the service)
 //   POST /cloud/voice {on}           turn it on or off here and for the family
-//   POST /cloud/voice/name {voice}   which of OpenAI's voices it speaks with (Settings → Voice, no PIN; from the next session)
+//   POST /cloud/voice/name {voice}   which of OpenAI's voices it speaks with (Settings → Opie → Voice, no PIN; from the next session)
 //   POST /cloud/live/start {sdp, name, instructions, tools} -> {sessionId, sdp}   POST /cloud/live/usage {sessionId, seconds, backend}
 //
 // The credential lives in display/.cloud/device.json (0600), never in a backup.
@@ -251,7 +251,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       over, used: svc?.used || null, limits: svc?.limits || null, using: voice.used(), voiceName: mine.voiceName || 'marin' };
   }
   async function voiceSet(on) {
-    if (on && !device() && !ownOn()) throw new Error('Opie’s voice needs an OpenAI key first (Settings → Voice).');
+    if (on && !device() && !ownOn()) throw new Error('Opie’s voice needs an OpenAI key first (Settings → Opie → Voice).');
     if (device() && !ownOn()) { try { lastVoiceStatus = await call('POST', '/v1/voice/setting', { on }); } catch (e) { if (on) throw e; } }
     const { offWhy, offAt, ...was } = read('voice.json') || {}; // (an Off from the web is answered by this one)
     write('voice.json', { ...was, on, provider: 'openai-live', vendor: lastVoiceStatus?.vendor || null, at: iso() }); // (keeps the chosen voice)

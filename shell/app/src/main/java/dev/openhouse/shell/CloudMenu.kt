@@ -42,7 +42,8 @@ internal class CloudMenu(private val act: MainActivity) {
     private fun unlinked(s: JSONObject) {
         // (Your own cloud's address is in Advanced, For developers: rare, so not a third button here.)
         CalmDialog(act).setTitle("Account").setMessage("See this tablet from the web, and back it up.")
-            .setItems(arrayOf("Backups")) { _, _ -> BackupMenu(act) { show() }.show() } // a USB drive works unlinked too
+            // A USB drive works unlinked too; so does Email with the household's own mailbox.
+            .setItems(arrayOf("Backups", "Email")) { _, i -> if (i == 0) BackupMenu(act) { show() }.show() else act.lock.withPin { EmailMenu(act).show() } }
             .setPositiveButton("Link") { _, _ -> startLink() }
             .setNegativeButton("Back", null).open()
     }
@@ -124,7 +125,7 @@ internal class CloudMenu(private val act: MainActivity) {
     }
 
     private fun linked(s: JSONObject) {
-        val items = listOf<Pair<String, () -> Unit>>("Backups" to { BackupMenu(act) { show() }.show() }, "Use it away from home" to { away() }, "Unlink this tablet" to { unlink() })
+        val items = listOf<Pair<String, () -> Unit>>("Backups" to { BackupMenu(act) { show() }.show() }, "Email" to { act.lock.withPin { EmailMenu(act).show() } }, "Use it away from home" to { away() }, "Unlink this tablet" to { unlink() })
         CalmDialog(act).setTitle("Account").setMessage("Linked to ${s.optString("family").ifEmpty { "your family" }}.")
             .setItems(items.map { it.first }.toTypedArray()) { _, i -> items[i].second() }.setNegativeButton("Back", null).open()
     }

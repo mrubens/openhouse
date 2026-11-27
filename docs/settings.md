@@ -2,22 +2,37 @@
 
 The rules for every dialog, card and setting are in [ux.md](ux.md).
 
-One list, short words, the current value instead of an explanation. An optional PIN locks some rows. Opening a row
-and changing something comes back to the list; Back goes up one level, Done closes.
+One full-screen page: tabs down the left, the chosen tab on the right. Each row shows its current value instead of an
+explanation. A row that needs more opens in the same place, with a ‹ back to the tab; nothing opens over it but a
+question to confirm and the PIN pad. Done (top left) closes Settings. On a phone (short side under 600 dp) the tabs are a
+list; a tab opens full screen with a ‹ back to the list.
 
-## The list (ui/Sheets.kt, `SettingsSheet`; values from shell/SettingsLock.kt)
+## The tabs (ui/SettingsScreen.kt; rows from shell/SettingsLock.kt)
 
-One narrow column, six rows, so Settings isn't visually chaotic:
+Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", instead of nested sheets):
 
-| Row | Shows | Opens | Locked |
-| --- | --- | --- | --- |
-| Voice | Off, or the voice's name | Off, or one of OpenAI's voices: a voice turns on the live voice and Hey Opie together (linking first if need be); Off turns both off, and the microphone. A quiet House rules (below), and while it's on, a quiet Check the microphone (below) | Change settings |
-| Family | the names | Family: who, where, chores | |
-| Calendars | how many are shown | Google and iCloud accounts (each one's calendars: shown or not, two-way, whose, where new events go) and calendars' links; Add a calendar | Change settings |
-| What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
-| Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add always; Remove: Change settings |
-| Account | the family's name, or Off | link or unlink, Backups (the cloud, a USB drive or your own storage), reach from away | yes |
-| Advanced | | Lock (PIN Lock, PIN recovery code, Ask for the PIN, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
+| Tab | What's on it | Locked |
+| --- | --- | --- |
+| Household | who lives here (a name, Adult, Kid or Pet, their color, an age or note), where you live, chores; Save | |
+| Opie | Voice (Off or the voice's name; the household's own OpenAI key inside), Check the microphone, What Opie remembers, Check-ins, Device control, Opie uses apps, Now playing (while it's off), Spotify | Voice: Change settings; Check-ins and the rest from Device control down: always |
+| Calendars | Google and iCloud accounts and their calendars, calendars' links, Add a calendar | Change settings |
+| Screen | Brightness, Volume (with Adjust to the room), Time | Time: Change settings |
+| Devices | paired screens, TVs, phones and computers (Add, Remove), then the house's speakers, streamers and printers | Add always; Remove: Change settings |
+| Account | link or unlink, Backups, Email, Use it away from home | always |
+| Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Add this tablet to another Opie, Send a report; For developers: Home network, Tailscale, Cloud address, Speech log, USB debugging, Android settings, Leave kiosk mode, Erase this tablet | always |
+
+Under the tabs, quietly: the version (tap it to look for an update and install it), and "We haven't tested this
+tablet" on a model that isn't on the list.
+
+House rules is in the Opie tab under Voice. It always asks for the PIN when one is set, whatever Ask for the PIN says
+(Opie can't tell who is asking).
+
+A tablet that's part of another tablet's household (docs/multi-tablet.md) has Household (On the main tablet, Leave),
+Screen and Advanced only.
+
+A locked tab asks for the PIN when it's chosen; with no PIN typed it shows its name and Unlock. Things opened by
+Opie, the setup or a card (the Calendar app's Add a calendar, Home's Now playing card) open as before, over the screen
+they were asked from, when Settings isn't open.
 
 Voice also comes on when the first setup ends, where it can work (docs/onboarding.md, **Opie is ready**), with the
 same line about OpenAI; the setup itself is quiet (no microphone, nothing said aloud). That dialog's **Turn off** is an
@@ -38,6 +53,19 @@ The tabs, the look and Home's cards have no panel on Home for now (since 2026-11
 through Opie instead of needing a clunky UI"): asking Opie does them (`set_home`, `today_card`).
 
 ## What happened to each old setting
+
+Side tabs (2026-11-27):
+- The six-row list and the sheets and dialogs stacked on it are one page with seven tabs (above).
+- Family's sheet is the Household tab itself; Linked devices' sheet is the Devices tab. Calendars and Advanced are
+  their tabs, one level less.
+- Voice, What Opie remembers and Advanced's Opie section (device control, Opie uses apps, Now playing, Spotify,
+  check-ins) are one tab, Opie. Check the microphone is its own row there, not a link under Voice's words.
+- Brightness, Volume and Time are the Screen tab.
+- Email moved into Account (it comes through the account, or the household's own mailbox).
+- Updates is no row: the version under the tabs is the way to it.
+- "We haven't tested this tablet" left Advanced (it's a line of information): it's under the version.
+- Advanced's Household and Help sections are gone: Add this tablet to another Opie and Send a report are rows under
+  the lock's.
 
 Later rounds:
 - Live voice makes no sense without Hey Opie, so Live voice, Hey Opie and Voice are one row, **Voice**: Off or one of
@@ -97,8 +125,7 @@ First run:
 
 ## Check the microphone
 
-Where someone looks when "Hey Opie" isn't working: Settings → Voice, a quiet link under its line about OpenAI (only
-while the voice is on), or ask Opie (`mic_check`). A card: the title, one line that says what to do ("Say “Hey Opie”"),
+Where someone looks when "Hey Opie" isn't working: Settings → Opie → Check the microphone, or ask Opie (`mic_check`). A card: the title, one line that says what to do ("Say “Hey Opie”"),
 a bar that moves with the room, and Done. Once it has heard its name, or after 8 seconds, the line becomes what it
 found, and a quiet Try again shows:
 
@@ -161,7 +188,7 @@ Off means a person's plain yes: the card still shows, and only a real finger ans
 can. What's `DeviceServer.personOnly` stays a person's own tap, whatever the switches say.
 
 **Always the PIN** (when one is set), never a switch: changing these switches (each one, a person's own tap), PIN Lock
-itself (turning it off, a new recovery code, Forgot PIN?), Advanced (device control, Opie uses apps, Tailscale, the
+itself (turning it off, a new recovery code, Forgot PIN?), Advanced and what Opie may do (device control, Opie uses apps, Tailscale, the
 home network, Plugins, Now playing), Account and Backups (link, unlink, restore, the backups' code, your own storage),
 adding a linked device (a computer that changes the apps, a phone, a screen, a TV, another tablet) and joining another
 household, the ways out of Opie (leaving kiosk mode, Android's settings and Wi-Fi settings, system apps and other app
@@ -202,7 +229,8 @@ start` and `/poll`, the shell's own: a paired device's call is refused); the she
 the answer. The code's card is a person card with the PIN pad's mark, so Opie's screen tools neither read it nor act
 while it's up, and the new PIN is typed on the pad as any other.
 
-Locked rows: Account (with Backups), Advanced (with Plugins) and adding a linked device always; Voice, Calendars,
+Locked rows: Account (with Backups and Email), Advanced (with Plugins), Opie's check-ins, device control, Opie uses
+apps, Now playing and Spotify, and adding a linked device always; Voice, Calendars,
 Time, Email and removing a linked device while Change settings is on (the default). Not locked: what a household uses every day (Hey Opie, the voice, Family's names
 and chores, night hours, devices, looking after things, putting things back).
 
@@ -211,13 +239,14 @@ A PIN set over adb (ConfigReceiver `--es pin`) turns the lock on the same way; a
 ## Back
 
 Every back goes through Android's own back handling (OnBackPressedDispatcher, predictive back on in the manifest):
-up one level, so a sheet opened from Settings goes back to the list, then Settings closes, and an app goes home.
+up one level, so a page in Settings goes back to its tab (on a phone, then to the list of tabs), then Settings
+closes, and an app goes home.
 
 - Kiosk mode hides Android's bars, so the system back gesture and button aren't there. Our own edge swipe stands in,
   shaped like Android's (in from the left or right edge, 70 dp, more sideways than up or down): over the home screen
   while something is open (Overlay.kt, EdgeBack), on every dialog (CalmDialog), and in apps (AppHost, AppWindow).
-- A sheet opened from Settings has a ‹ at its top left, for people who don't know the gesture. Dialogs keep their
-  Back button. No back on the home screen itself.
+- In Settings, a page opened from a tab has a ‹ before its title (on a phone, every tab does, back to the list).
+  Dialogs keep their Back button. No back on the home screen itself.
 - The tablet's navigation mode isn't changed. If kiosk mode can let the real system gesture through cleanly, it's
   preferred over our copy; not tried on a real tablet yet.
 

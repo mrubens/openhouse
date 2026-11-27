@@ -64,74 +64,14 @@ internal fun QuietCard(modifier: Modifier = Modifier, padding: PaddingValues = P
     Column(modifier.shadow(18.u, shape).clip(shape).background(Calm.sheet).padding(padding), verticalArrangement = Arrangement.spacedBy(8.u), content = content)
 }
 
-// --- settings (the gear): one list (docs/settings.md) ---------------------------------------------
-
-/**
- * Settings: one list, in two columns, each row its name and what it is now. A row opens its own sheet or dialog over
- * the list, and closing that comes back here; Back goes up one level, Done closes. With the lock on, the rows it
- * locks show a small lock and ask for the PIN (Voice, Calendars, Time and Email only while Change settings asks).
- */
-@Composable
-internal fun SettingsSheet() {
-    val o = Openhouse
-    var vals by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
-    // What the shell's rows show: read now, again whenever something over the list closes, and every few seconds.
-    LaunchedEffect(o.settingsV) { vals = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { o.host.settingValues() }.getOrDefault(vals) } }
-    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(3000); vals = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { o.host.settingValues() }.getOrDefault(vals) } } }
-    val locked = vals["lock"] == "On" // Advanced and Account: always behind the PIN when it's on
-    val asks = vals["settingsLock"] == "On" // the rest: unless Ask for the PIN's Change settings is off (shell PinChoices)
-    // A tablet that's part of another tablet's household (shell Satellite.kt): its own rows only.
-    var sat by remember { mutableStateOf(dev.openhouse.shell.Satellite.on) }
-    LaunchedEffect(Unit) { while (true) { sat = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { dev.openhouse.shell.Satellite.refresh(o.bridgeUrl)?.optBoolean("satellite") == true }; kotlinx.coroutines.delay(5000) } }
-    fun shell(id: String) = { o.host.setting(id) }
-    CompositionLocalProvider(LocalPalette provides quietPalette()) {
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable { o.showSettings = false }, contentAlignment = Alignment.Center) {
-            QuietCard(Modifier.width(fit(640.u)).heightIn(max = 900.u).clickable(enabled = false) {}) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Settings", style = quietText(30, FontWeight.SemiBold), modifier = Modifier.weight(1f))
-                    Chip("Done") { o.showSettings = false }
-                }
-                Spacer(Modifier.height(10.u))
-                Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
-                    if (sat) { // part of another tablet's household (docs/multi-tablet.md): the household's settings are there
-                        SettingsRow("Household", "On the main tablet", onClick = shell("satellite"))
-                        SettingsRow("Brightness", vals["brightness"], onClick = shell("brightness"))
-                        SettingsRow("Time", vals["time"], asks, shell("time"))
-                        SettingsRow("Updates", vals["updates"], onClick = shell("updates"))
-                        SettingsRow("Advanced", null, locked, shell("tablet"))
-                    } else {
-                    SettingsRow("Voice", vals["voice"], asks, shell("voice"))
-                    SettingsRow("Family", o.board?.family?.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }) { o.showFamily = true }
-                    SettingsRow("Calendars", vals["calendars"], asks, shell("calendars"))
-                    SettingsRow("What Opie remembers", vals["memory"], onClick = shell("memory"))
-                    SettingsRow("Linked devices", ((vals["screens"]?.toIntOrNull() ?: 0) + Devices.controllable.size).takeIf { it > 0 }?.toString()) { Devices.open = true; if (Devices.scannedAt == null) Devices.scan() else Devices.refreshStatus() }
-                    SettingsRow("Brightness", vals["brightness"], onClick = shell("brightness")) // not behind the PIN: anyone can see the screen better
-                    SettingsRow("Volume", vals["volume"], onClick = shell("volume")) // (nor this: anyone can hear it)
-                    SettingsRow("Time", vals["time"], asks, shell("time"))
-                    SettingsRow("Email", vals["email"], asks, shell("email"))
-                    SettingsRow("Account", vals["account"], locked, shell("account"))
-                    SettingsRow("Updates", vals["updates"], onClick = shell("updates"))
-                    SettingsRow("Advanced", null, locked, shell("tablet"))
-                    }
-                }
-            }
-        }
-    }
-}
-
+// --- settings (the gear): SettingsScreen.kt (docs/settings.md) ---------------------------------
 
 /** ‹: back to Settings, at the top left of a sheet opened from it (a shared screen has people who don't know the
  *  edge swipe). Nothing on a sheet opened from anywhere else. */
 @Composable
 internal fun SettingsBack() {
     if (!Openhouse.showSettings) return
-    Box(Modifier.size(48.u).clip(CircleShape).clickable { Openhouse.host.back() }.semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) {
-        androidx.compose.foundation.Canvas(Modifier.size(22.u)) {
-            val w = size.width; val h = size.height
-            drawPath(androidx.compose.ui.graphics.Path().apply { moveTo(w * .62f, h * .12f); lineTo(w * .28f, h * .5f); lineTo(w * .62f, h * .88f) },
-                PaperLook.ink, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.4f * density, cap = androidx.compose.ui.graphics.StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round))
-        }
-    }
+    SettingsArrow { Openhouse.host.back() }
 }
 
 /**
@@ -151,7 +91,7 @@ internal fun EdgeBack(onBack: () -> Unit) {
     }
 }
 
-/** A row of Settings: its name, what it is now (soft, at the right) and, when the lock guards it, a small lock. */
+/** A row of Settings (SettingsScreen): its name, what it is now (soft, at the right) and, when the lock guards it, a small lock. */
 @Composable
 internal fun SettingsRow(title: String, value: String? = null, locked: Boolean = false, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.u)).clickable(onClick = onClick).padding(horizontal = 12.u, vertical = 15.u),

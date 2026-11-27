@@ -1,9 +1,9 @@
 // Email to the tablet (docs/tablet-email.md): mail from the household's approved senders, by the cloud's address
 // (sealed for this tablet's mail key until it's fetched) or the household's own mailbox (the shell's IMAP, MailAccount.kt).
 // Photos (and videos, kept as they come) go into the Email album and events are offered on the Calendar app to say yes to (house.js readEmail). Mail from
-// anyone else is held, unread, for Allow in Settings → Email, and deleted after 3 days.
+// anyone else is held, unread, for Allow in Settings → Account → Email, and deleted after 3 days.
 //
-//   GET  /mail                 what Settings → Email shows: {cloud, own, senders, held, recent, notes}
+//   GET  /mail                 what Settings → Account → Email shows: {cloud, own, senders, held, recent, notes}
 //   POST /mail/set             {on?, address?: 'new' | <name>, senders?: [{address, who}], own?}
 //   POST /mail/held            {id, allow}
 //   POST /mail/incoming        {raw: base64 MIME, source: 'imap'} (the shell's own mailbox) -> {ok} | {error}
@@ -182,7 +182,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
   timer?.unref?.();
   if (every) setTimeout(() => { tidy().catch(() => {}); poll(); }, 5e3).unref?.();
 
-  // ---- Settings → Email ----
+  // ---- Settings → Account → Email ----
   function view() {
     return {
       cloud: linked() ? { on: !st.off, address: st.off ? null : st.cloud?.address || null } : null,

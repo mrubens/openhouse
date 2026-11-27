@@ -220,8 +220,19 @@ private data class Linked(val id: String, val name: String, val kind: String)
  *  Lock is on. */
 @Composable
 fun DevicesSheet() {
+    Dialog(onDismissRequest = { Devices.open = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(Calm.scrim).clickable { Devices.open = false }, contentAlignment = Alignment.Center) {
+            QuietCard(Modifier.fillMaxWidth(.86f).fillMaxHeight(.86f).clickable(enabled = false) {}) { DevicesContent() }
+        }
+    }
+}
+
+/** Linked devices' list: its own sheet (Home's card), and Settings' Devices tab ([inSettings]; [onBack]: a ‹ on a phone). */
+@Composable
+internal fun ColumnScope.DevicesContent(inSettings: Boolean = false, onBack: (() -> Unit)? = null) {
     var linked by remember { mutableStateOf(listOf<Linked>()) }
     LaunchedEffect(Unit) {
+        if (inSettings) { if (Devices.scannedAt == null) Devices.scan() else Devices.refreshStatus() }
         while (true) {
             linked = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                 runCatching { org.json.JSONObject(BridgeClient.getText(Openhouse.bridgeUrl + "/screens", 2000, 4000)).optJSONArray("screens") }.getOrNull()
@@ -230,58 +241,51 @@ fun DevicesSheet() {
             kotlinx.coroutines.delay(3000)
         }
     }
-    Dialog(onDismissRequest = { Devices.open = false }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        Box(Modifier.fillMaxSize().background(Calm.scrim).clickable { Devices.open = false }, contentAlignment = Alignment.Center) {
-            QuietCard(Modifier.fillMaxWidth(.86f).fillMaxHeight(.86f).clickable(enabled = false) {}) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SettingsBack()
-                    Text("Linked devices", style = calmText(Calm.TITLE, FontWeight.SemiBold), modifier = Modifier.weight(1f))
-                    DeviceButton("Add") { Openhouse.host.setting("addLinked") }
-                    Spacer(Modifier.width(12.u))
-                    DeviceButton("Done", primary = true) { Devices.open = false }
-                }
-                // Looking again is a quiet line under the title, not a third button (docs/ux.md).
-                Text(Devices.error ?: if (Devices.scanning) "Looking on the Wi-Fi and Bluetooth…" else "Look again",
-                    style = calmText(18, FontWeight.Medium, Calm.soft),
-                    modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable(enabled = !Devices.scanning) { Devices.scan() }.padding(vertical = 4.u))
-                Spacer(Modifier.height(18.u))
-                val ds = Devices.list.filter { it.present }
-                val (useful, rest) = ds.partition { it in Devices.controllable }
-                Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.u)) {
-                    linked.forEach { l ->
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.u)) {
-                            DeviceGlyph(if (l.kind == "tv") "tv" else l.kind, Modifier.size(30.u))
-                            Spacer(Modifier.width(14.u))
-                            Text(l.name, style = calmText(21, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                            Text(when (l.kind) { "computer" -> "Computer"; "tv" -> "TV"; "phone" -> "Phone"; else -> "Screen" }, style = calmText(17, FontWeight.Normal, Calm.soft))
-                            Spacer(Modifier.width(16.u))
-                            DeviceButton("Remove") { Openhouse.host.setting("unlink:" + l.id) }
-                        }
-                    }
-                    if (linked.isNotEmpty() && useful.isNotEmpty()) Spacer(Modifier.height(8.u))
-                    useful.chunked(2).forEach { row ->
-                        Row(horizontalArrangement = Arrangement.spacedBy(14.u)) {
-                            row.forEach { DeviceCard(it, Modifier.weight(1f)) }
-                            if (row.size == 1) Spacer(Modifier.weight(1f))
-                        }
-                    }
-                    if (rest.isNotEmpty()) {
-                        Spacer(Modifier.height(6.u))
-                        Text("ALSO HERE", style = calmText(Calm.EYEBROW, FontWeight.SemiBold, Calm.soft).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(.08f, androidx.compose.ui.unit.TextUnitType.Em)))
-                        rest.forEach { d ->
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.u)) {
-                                DeviceGlyph(d.kind, Modifier.size(24.u), Calm.soft)
-                                Spacer(Modifier.width(10.u))
-                                Text(d.name + listOfNotNull(d.model?.takeIf { it != d.name }, if (d.self) "this display" else null, if (d.bluetooth) "Bluetooth" else null).joinToString("") { " · $it" },
-                                    style = calmText(18, FontWeight.Normal, Calm.soft), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                // A Bluetooth device nearby: pairing is a tap here (Android may show a code to check).
-                                if ("pair" in d.actions) {
-                                    Spacer(Modifier.width(16.u))
-                                    Devices.busy[d.id]?.let { Text(it, style = calmText(16, FontWeight.Medium, Calm.soft), maxLines = 1) }
-                                        ?: DeviceButton("Pair") { Devices.act(d, "pair", doing = "Pairing…") }
-                                }
-                            }
-                        }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (onBack != null) SettingsArrow(onBack) else if (!inSettings) SettingsBack()
+        Text(if (inSettings) "Devices" else "Linked devices", style = calmText(Calm.TITLE, FontWeight.SemiBold), modifier = Modifier.weight(1f))
+        DeviceButton("Add") { Openhouse.host.setting("addLinked") }
+        if (!inSettings) { Spacer(Modifier.width(12.u)); DeviceButton("Done", primary = true) { Devices.open = false } }
+    }
+    // Looking again is a quiet line under the title, not a third button (docs/ux.md).
+    Text(Devices.error ?: if (Devices.scanning) "Looking on the Wi-Fi and Bluetooth…" else "Look again",
+        style = calmText(18, FontWeight.Medium, Calm.soft),
+        modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable(enabled = !Devices.scanning) { Devices.scan() }.padding(vertical = 4.u))
+    Spacer(Modifier.height(18.u))
+    val ds = Devices.list.filter { it.present }
+    val (useful, rest) = ds.partition { it in Devices.controllable }
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.u)) {
+        linked.forEach { l ->
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.u)) {
+                DeviceGlyph(if (l.kind == "tv") "tv" else l.kind, Modifier.size(30.u))
+                Spacer(Modifier.width(14.u))
+                Text(l.name, style = calmText(21, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(when (l.kind) { "computer" -> "Computer"; "tv" -> "TV"; "phone" -> "Phone"; else -> "Screen" }, style = calmText(17, FontWeight.Normal, Calm.soft))
+                Spacer(Modifier.width(16.u))
+                DeviceButton("Remove") { Openhouse.host.setting("unlink:" + l.id) }
+            }
+        }
+        if (linked.isNotEmpty() && useful.isNotEmpty()) Spacer(Modifier.height(8.u))
+        useful.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(14.u)) {
+                row.forEach { DeviceCard(it, Modifier.weight(1f)) }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+        if (rest.isNotEmpty()) {
+            Spacer(Modifier.height(6.u))
+            Text("ALSO HERE", style = calmText(Calm.EYEBROW, FontWeight.SemiBold, Calm.soft).copy(letterSpacing = androidx.compose.ui.unit.TextUnit(.08f, androidx.compose.ui.unit.TextUnitType.Em)))
+            rest.forEach { d ->
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.u)) {
+                    DeviceGlyph(d.kind, Modifier.size(24.u), Calm.soft)
+                    Spacer(Modifier.width(10.u))
+                    Text(d.name + listOfNotNull(d.model?.takeIf { it != d.name }, if (d.self) "this display" else null, if (d.bluetooth) "Bluetooth" else null).joinToString("") { " · $it" },
+                        style = calmText(18, FontWeight.Normal, Calm.soft), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                    // A Bluetooth device nearby: pairing is a tap here (Android may show a code to check).
+                    if ("pair" in d.actions) {
+                        Spacer(Modifier.width(16.u))
+                        Devices.busy[d.id]?.let { Text(it, style = calmText(16, FontWeight.Medium, Calm.soft), maxLines = 1) }
+                            ?: DeviceButton("Pair") { Devices.act(d, "pair", doing = "Pairing…") }
                     }
                 }
             }
