@@ -238,8 +238,11 @@ a phone-only copy of it. Adding a plugin on the tablet adds it to the phone.
   paints it under the status bar and behind the tabs, so the frame has no edge; Opie's buttons float over the foot of
   the app. The frame stops the apps' unit at a tall phone's, so a wider frame doesn't make their type grow.
 - **On its side.** A phone turned on its side (short and wide, `phone.css`): the tabs are a rail down the left inside
-  the safe area, Opie's buttons sit at the bottom right, an app's frame is the full height and a tall phone's width (so
-  it keeps its upright layout), and Today goes to two columns, the calendar beside the rest, as on the tablet.
+  the safe area, Opie's buttons sit at the bottom right, an app's frame takes all the rest, and Today goes to two
+  columns, the calendar beside the rest, as on the tablet. The app keeps its phone layout across that width: the kit
+  (`openhouse.js`, told by the frame's `kind=phone`) makes what its styles and `matchMedia` say for a phone upright
+  (`max-width: 700px` holds, `min-width: 701px` doesn't) hold on its side too, with the unit from the height so the
+  type stays the size it is upright. An app asks `matchMedia`, not `innerWidth`, for its phone layout.
 
 Tests: `bridge/test/screens.test.mjs` ("a phone runs the household's apps"): only apps on phones, their files, each
 call only what that app may do, one app never reading another's saved things.

@@ -33,6 +33,8 @@ never is, and stays exactly as it was. On a phone:
 - Home is a glance in big type: the time and the day, the weather, then what's on now (cooking, timers, what's next on
   the calendar, the shopping list) and asking Opie. Upright, the first four tabs are on a bar along the foot and More
   has the rest, sleep and Settings; sideways, the rail has the tabs.
+- An app in a tab gets `compact=1` in its address, and keeps its phone layout on its side too, across the whole width
+  (the kit, as on a phone's page: [phones.md](phones.md), "On its side").
 
 ![The glance on a phone](phone-display.png)
 
