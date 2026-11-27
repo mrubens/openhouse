@@ -185,6 +185,7 @@ function Backups({ c, onRemoved }) {
       {(s?.dests || []).map((d) => (
         <label className="check" key={d.id}><input type="checkbox" checked={d.on} onChange={(e) => turn(d.id, e.target.checked)} /> {d.label}{d.name ? ` (${d.name})` : ''}{!d.ready && d.why ? <span className="soft small"> · {d.why}</span> : ''}{d.last ? <span className="soft small"> · last {d.last.ok ? 'backed up' : 'failed'} {ago(Date.parse(d.last.at))}</span> : ''}</label>
       ))}
+      <OwnStorage d={(s?.dests || []).find((d) => d.id === 'bucket')} post={post} onOn={() => turn('bucket', true)} />
       {s?.key?.has && !s.key.confirmed && !code && <button className="plain" onClick={async () => { const r = await c.json('GET', '/backup/recovery-code'); if (r.json?.code) setCode(r.json.code); }}>Show the recovery code</button>}
       <div className="btns">
         <button className="pill" disabled={!!s?.job || !(s?.dests || []).some((d) => d.on)} onClick={() => post('/backup/now', {})}>{s?.job ? 'Backing up…' : 'Back up now'}</button>
@@ -195,6 +196,28 @@ function Backups({ c, onRemoved }) {
       {err && <p className="soft">{err}</p>}
     </section>
   );
+}
+
+/** The household's own storage bucket (S3 and the like): typed here, then checked and kept by the hub's keeper, never
+ *  here or in the bridge (hub/s3.mjs). Its secret isn't shown again. */
+const STORAGE_FIELDS = [['endpoint', 'Address, like https://s3.us-east-1.amazonaws.com'], ['region', 'Region (us-east-1)'], ['bucket', 'Bucket'],
+  ['prefix', 'Folder (optional)'], ['keyId', 'Access key ID'], ['secret', 'Secret access key']];
+function OwnStorage({ d, post, onOn }) {
+  const [f, setF] = useState({}), [open, setOpen] = useState(false), [st, setSt] = useState(null);
+  if (!d) return null;
+  if (d.ready) return <button className="plain" onClick={() => confirm('Forget your own storage? Backups already there stay there.') && post('/backup/storage/remove', {})}>Forget your own storage</button>;
+  if (!open) return <button className="plain" onClick={() => setOpen(true)}>Set up your own storage</button>;
+  async function check() {
+    setSt('…');
+    const r = await post('/backup/storage', f);
+    setSt(null); if (r.status === 200) { setF({}); setOpen(false); onOn(); } // (else Backups says what's wrong)
+  }
+  return <div className="card"><div className="t">Your own storage</div>
+    <p className="soft small">Any storage that works like Amazon S3: a bucket, and a key that can read, write and delete in it.</p>
+    {STORAGE_FIELDS.map(([k, label]) => <input key={k} className="field" type={k === 'secret' ? 'password' : 'text'} value={f[k] || ''} onChange={(e) => { setF({ ...f, [k]: e.target.value }); setSt(null); }}
+      placeholder={label} autoCapitalize="off" autoComplete="off" autoCorrect="off" spellCheck={false} />)}
+    <button className="pill" disabled={st === '…' || !f.endpoint || !f.bucket || !f.keyId || !f.secret} onClick={check}>{st === '…' ? 'Checking…' : 'Check and use it'}</button>
+    </div>;
 }
 
 function Updates({ c, onRemoved }) {
