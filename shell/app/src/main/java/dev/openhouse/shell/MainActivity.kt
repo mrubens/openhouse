@@ -53,7 +53,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
             addView(setupNote, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = C.px(this@MainActivity, 14) })
             addView(setupBar, android.widget.LinearLayout.LayoutParams(-1, C.px(this@MainActivity, 8)).apply { topMargin = C.px(this@MainActivity, 48) })
         }
-        setupLayer.addView(col, FrameLayout.LayoutParams(C.px(this, 900), -2, Gravity.CENTER))
+        setupLayer.addView(col, FrameLayout.LayoutParams(minOf(C.px(this, 900), resources.displayMetrics.widthPixels - C.px(this, 24)), -2, Gravity.CENTER))
     }
     private val main = Handler(Looper.getMainLooper())
     /**

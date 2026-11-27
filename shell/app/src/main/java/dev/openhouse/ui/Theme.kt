@@ -58,6 +58,10 @@ val LocalU = staticCompositionLocalOf { 0.75f }
 val Int.u: Dp @Composable get() = (this * LocalU.current).dp
 val Float.u: Dp @Composable get() = (this * LocalU.current).dp
 
+/** A width (or [height]) of at most the screen's, less a margin: a card drawn for a tablet fits a phone (Calm.compact). */
+@Composable fun fit(w: Dp, height: Boolean = false): Dp = androidx.compose.ui.platform.LocalConfiguration.current.let {
+    minOf(w, ((if (height) it.screenHeightDp else it.screenWidthDp) - 24).dp) }
+
 /** A font size in u, ignoring the system font scale (the layout is designed for a fixed width). */
 @Composable fun fontU(v: Number): TextUnit = with(LocalDensity.current) { (v.toFloat() * LocalU.current).dp.toSp() }
 

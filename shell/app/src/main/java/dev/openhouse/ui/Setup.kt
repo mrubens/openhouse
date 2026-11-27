@@ -126,7 +126,7 @@ internal fun SetupSheet() {
         // The setup has the screen to itself: nothing of the home screen behind it.
         val onPhone = step in Setup.ON_PHONE || step == "devices"
         Box(Modifier.fillMaxSize().background(Calm.paper).clickable(enabled = false) {}.imePadding(), contentAlignment = Alignment.TopCenter) {
-            QuietCard(Modifier.padding(top = if (ime) 16.u else if (step == "voice") 36.u else 110.u, bottom = 16.u).width(860.u), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
+            QuietCard(Modifier.padding(top = if (ime) 16.u else if (step == "voice") 36.u else 110.u, bottom = 16.u).width(fit(860.u)), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
                     Progress(Setup.STEPS.indexOf(step).toFloat() / Setup.STEPS.size, Modifier.weight(1f))
                     if (step != "voice") Chip("Later") { save[0](); Setup.finish() }

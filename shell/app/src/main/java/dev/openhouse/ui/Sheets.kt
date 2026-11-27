@@ -82,7 +82,7 @@ internal fun SettingsSheet() {
     fun shell(id: String) = { o.host.setting(id) }
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable { o.showSettings = false }, contentAlignment = Alignment.Center) {
-            QuietCard(Modifier.width(640.u).heightIn(max = 900.u).clickable(enabled = false) {}) {
+            QuietCard(Modifier.width(fit(640.u)).heightIn(max = 900.u).clickable(enabled = false) {}) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Settings", style = quietText(30, FontWeight.SemiBold), modifier = Modifier.weight(1f))
                     Chip("Done") { o.showSettings = false }
@@ -161,7 +161,7 @@ internal fun WelcomeSheet() {
     val o = Openhouse
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         Box(Modifier.fillMaxSize().background(Calm.scrim).clickable(enabled = false) {}, contentAlignment = Alignment.Center) {
-            QuietCard(Modifier.width(760.u), padding = PaddingValues(horizontal = 56.u, vertical = 52.u)) {
+            QuietCard(Modifier.width(fit(760.u)), padding = PaddingValues(horizontal = 56.u, vertical = 52.u)) {
                 Text("Welcome to Opie", style = calmText(Calm.DISPLAY, FontWeight.Medium))
                 Spacer(Modifier.height(16.u))
                 Text("A few steps to make it your household's: who lives here, your calendars and photos, and Opie's voice last.", style = calmText(Calm.LEAD, color = Calm.soft))
@@ -192,7 +192,7 @@ internal fun DeleteAppSheet(a: AppInfo) {
     val o = Openhouse
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable { o.confirmDelete = null }, contentAlignment = Alignment.Center) {
-            QuietCard(Modifier.width(600.u).clickable(enabled = false) {}) {
+            QuietCard(Modifier.width(fit(600.u)).clickable(enabled = false) {}) {
                 Text("Delete ${a.name}?", style = quietText(30, FontWeight.SemiBold))
                 Text("It comes off the home screen and the tablet.", style = quietText(18, color = PaperLook.inkSoft))
                 Spacer(Modifier.height(22.u))
