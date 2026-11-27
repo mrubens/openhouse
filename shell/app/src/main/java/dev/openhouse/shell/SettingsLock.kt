@@ -46,6 +46,9 @@ internal class SettingsLock(private val act: MainActivity) {
             "voice" -> withPin { CloudVoiceMenu(act).chooseVoice() }
             "calendars" -> withPin { CalendarLinks.manage(act, act::immersive) }
             "addLinked" -> withPin { Screens.addMenu(act) }
+            "addTablet" -> withPin { Screens.tablet(act) } // (Opie: show_settings, docs/opie-parity.md)
+            "satellite" -> Satellite.menu(act, this) // a tablet that's part of another's household (docs/multi-tablet.md)
+            "joinOther" -> if (Openhouse.showWelcome) Satellite.join(act) else withPinSet(back = {}) { Satellite.join(act) } // (from the welcome: nothing set up yet, no PIN to ask for)
             "account" -> withPin { CloudMenu(act).show() }
             "email" -> withPin { EmailMenu(act).show() }
             "lock" -> if (on) turnOff() else turnOn()
@@ -334,6 +337,13 @@ internal class SettingsLock(private val act: MainActivity) {
         )) + (if (!Runtime.childLimitHit(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
             // Shown only once Android seems to have stopped the runtime with its child-process limit (Runtime.lost).
             CalmDialog.Row("Opie's software was stopped by Android") to { childLimit() },
+        )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            head("Household"),
+        ) + (if (Satellite.on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            CalmDialog.Row("Part of another tablet's household") to { Satellite.menu(act, this) },
+        ) else listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            // Another Opie tablet's household, for a second room (docs/multi-tablet.md): that tablet shows the code.
+            CalmDialog.Row("Add this tablet to another Opie") to person("Add this tablet to another Opie") { withPinSet { Satellite.join(act) } },
         )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             head("Lock and updates"),
             CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },

@@ -17,8 +17,9 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const freePort = () => new Promise((r) => { const s = net.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => r(p)); }); });
 
 test('every bridge module imports', async () => {
-  // server.js runs as a process below; voice-worker.js is a worker thread's entry point.
-  const skip = new Set(['server.js', 'voice-worker.js']);
+  // server.js runs as a process below (it starts brain.js, or satellite-server.js on a tablet that's part of another's
+  // household: test/satellite.test.mjs); voice-worker.js is a worker thread's entry point.
+  const skip = new Set(['server.js', 'brain.js', 'satellite-server.js', 'voice-worker.js']);
   for (const f of fs.readdirSync(BRIDGE).filter((f) => f.endsWith('.js') && !skip.has(f))) {
     await import(pathToFileURL(path.join(BRIDGE, f)).href);
   }

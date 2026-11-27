@@ -216,7 +216,7 @@ object Runtime {
      */
     fun reset() = thread(name = "runtime-reset") {
         stopAll(); Thread.sleep(800)
-        for (f in listOf("bridge", "buildserver", "home", "build", "start.sh", "webapp.tgz", ".assets", ".start.lock")) File(display, f).deleteRecursively()
+        for (f in listOf("bridge", "chat", "buildserver", "home", "build", "start.sh", "webapp.tgz", ".assets", ".start.lock")) File(display, f).deleteRecursively()
         display.listFiles { f -> f.name.endsWith(".log") || f.name.endsWith(".log.1") }?.forEach { it.delete() }
         Log.i(TAG, "runtime reset to the APK's software")
         startServices(now = true)

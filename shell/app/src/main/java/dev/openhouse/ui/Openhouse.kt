@@ -142,6 +142,8 @@ object Openhouse : AnswerActions {
     var setupStep by mutableStateOf<String?>(null); internal set
     /** The setup finished or was left: the home screen as it comes, not asked again. */
     fun householdDone() = ui { householdSetUp = true }
+    /** This tablet joined another tablet's household (shell Satellite.kt): that household is set up already, so no welcome or setup here. */
+    fun joinedHousehold() = ui { showWelcome = false; setupStep = null; householdSetUp = true; host.micFollow() }
     /** The assistant was turned on (Settings, or the setup's last step). New here (nobody saved yet, outside the
      *  setup), the setup starts. */
     fun assistantReady() = scope.launch {

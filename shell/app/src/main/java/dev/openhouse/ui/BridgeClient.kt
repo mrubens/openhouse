@@ -34,6 +34,17 @@ object BridgeClient {
         }
     }.getOrNull()
 
+    /** A POST whose answer is wanted whatever its status (an error's words): the status and the body, or null when it didn't answer. */
+    fun postAnswer(url: String, body: String = "{}", connectMs: Int = 3000, readMs: Int = 90000): Pair<Int, String>? = runCatching {
+        open(url).run {
+            requestMethod = "POST"; doOutput = true; connectTimeout = connectMs; readTimeout = readMs
+            setRequestProperty("content-type", "application/json")
+            outputStream.use { it.write(body.toByteArray()) }
+            val code = responseCode
+            code to ((if (code < 400) inputStream else errorStream)?.use { it.readBytes().toString(Charsets.UTF_8) } ?: "")
+        }
+    }.getOrNull()
+
     /**
      * A stream of lines (NDJSON, or server-sent events' `data:` lines): each line to [onLine] until it ends. Blocking.
      * [onOpen] gets the connection first, so whoever wants to stop it early can close it ([HttpURLConnection.disconnect]

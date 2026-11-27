@@ -103,6 +103,9 @@ export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['louder', 'quieter', 'set', 'mute', 'get'] }, level: { type: 'integer', description: 'For set: 0-100' } } } };
 /** The tablet's own screen, straight from the voice: devices/index.js screenDo (the shell's /screen). Neither is behind
  *  the PIN on the tablet: Brightness is in Settings' own list, Sleep now is the moon button. */
+/** What acts on this tablet itself (its screen, speaker, camera, media and other apps): not offered to a conversation on
+ *  another of the household's tablets (setupFor), which would have them act here, in another room. */
+const ON_THIS_DEVICE = new Set(['look_with_camera', 'open_app', 'install_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'tablet_screen', 'volume', 'music', 'bluetooth']);
 export const SCREEN_TOOL = { name: 'tablet_screen', description: "The tablet's screen itself: its brightness (Automatic, Low, Medium, High or Full, or a step brighter or dimmer: \"it's too bright\", \"I can't see the screen\"), " +
     'or put it to sleep now, dark as at night until someone touches it ("go to sleep", "turn the screen off"). get says the brightness. For when the screen goes dark every night, that is night_hours.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'brightness', 'sleep'] },
@@ -385,6 +388,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       json(res, 200, { ok: true }); return true;
     }
     if (req.method === 'POST' && url.pathname === '/live/tool') { const b = await body(req);
+      if (onOtherTablet(req) && ON_THIS_DEVICE.has(String(b.name || ''))) { json(res, 200, { text: "That acts on the main tablet itself, not the tablet they're at.", isError: true }); return true; }
       if (onPhone(req) && b.name === 'look_with_camera') { json(res, 200, { text: 'The tablet\'s camera is for someone at the tablet, not on a phone.', isError: true }); return true; }
       json(res, 200, await callTool(String(b.name || ''), b.args && typeof b.args === 'object' ? b.args : {}, { phone: onPhone(req) })); return true; }
     return false;
@@ -400,8 +404,14 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     // A session its name opened starts fresh unless they were just talking (2 min): an old conversation turned a false wake
     // into an answer about something nobody had just said (2026-11-21, "staying focused").
     const recentlyTalked = () => { const a = talk.all(); return a.length > 0 && Date.now() - a[a.length - 1].at < 120e3; };
-    return { instructions: instructions() + await rightNow() + hf.text + (phone ? phoneNote(phone) : '') + (woke ? wakeNote(assistantName()) : ''), tools: tools().filter((t) => !(phone && t.name === 'look_with_camera')), earlier: woke && !recentlyTalked() ? [] : talk.messages(), ...(hf.listen ? { quietS: hf.listen } : {}) }; // (the tablet's camera is for someone at the tablet, not a phone)
+    const other = phone ? null : onOtherTablet(req);
+    return { instructions: instructions() + await rightNow() + hf.text + (phone ? phoneNote(phone) : '') + (other ? otherTabletNote(other) : '') + (woke ? wakeNote(assistantName()) : ''),
+      tools: tools().filter((t) => !(phone && t.name === 'look_with_camera') && !(other && ON_THIS_DEVICE.has(t.name))), earlier: woke && !recentlyTalked() ? [] : talk.messages(), ...(hf.listen ? { quietS: hf.listen } : {}) }; // (the tablet's camera is for someone at the tablet, not a phone)
   }
+  // Another Opie tablet in the household (docs/multi-tablet.md): the household's tools work as here, but the tools that
+  // act on this tablet's own screen, speaker, camera and apps would act here, not in the room they're talking in.
+  const onOtherTablet = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'tablet' ? w : null; };
+  const otherTabletNote = (w) => `\n\nThis conversation is on another of the household's tablets, the ${w.name || 'other tablet'}, not this one. The household is the same: its calendar, lists, chores, meals, notes and apps. Its own screen, volume, camera and apps can't be changed from here yet: say so if they ask. Anything that needs the PIN asks for it on the main tablet.`;
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
   return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,

@@ -50,9 +50,9 @@ internal object Screens {
         thread {
             val app = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/cloud/status")).optString("iphoneApp") }.getOrNull()?.takeIf { it.startsWith("https://") }
             main.post {
-                val rows = listOfNotNull("A tablet, iPad or frame", "A TV", "Someone's phone", app?.let { "The iPhone app" }, "A computer, to change the apps")
+                val rows = listOfNotNull("Another Opie tablet", "A tablet, iPad or frame", "A TV", "Someone's phone", app?.let { "The iPhone app" }, "A computer, to change the apps")
                 CalmDialog(a).setTitle("Add a device").setItems(rows.toTypedArray()) { _, i ->
-                    when (rows[i]) { rows[0] -> add(a); rows[1] -> tv(a); rows[2] -> phone(a); "The iPhone app" -> iphoneApp(a, app!!); else -> computer(a) } }
+                    when (rows[i]) { rows[0] -> tablet(a); rows[1] -> add(a); rows[2] -> tv(a); rows[3] -> phone(a); "The iPhone app" -> iphoneApp(a, app!!); else -> computer(a) } }
                     .setNegativeButton("Cancel", null).show().also { a.immersive() }
             }
         }
@@ -74,6 +74,55 @@ internal object Screens {
         }
     }
 
+
+    /**
+     * Another Opie tablet, for another room (docs/multi-tablet.md): a code it scans with its camera, or types, in its
+     * welcome or in its Settings (Satellite.kt). It joins at once (the code shows only here, behind the PIN), and then
+     * shows this household: its home screen, lists, calendar, apps and Opie, kept here. While the code shows, this
+     * tablet answers on the Wi-Fi as "_openhouse._tcp" (Bonjour), so a tablet that typed the code finds it.
+     */
+    fun tablet(a: MainActivity) = thread {
+        val ip = Handoff.lanAddress(a)
+        val p = if (ip == null) null else runCatching { JSONObject(post("/screens/pair", JSONObject().put("kind", "tablet").put("address", ip.hostAddress)) ?: "") }.getOrNull()
+        main.post {
+            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
+            val code = p.optString("code"); val port = p.optInt("port")
+            val url = "${base(p, ip.hostAddress)}/tablet#$code"
+            val left = Calm.column(a, 18).apply {
+                addView(Calm.text(a, "On the new tablet, tap Add this tablet to your Opie (in its welcome, or Settings, Advanced). Then scan this code, or type it:", 20f, 400))
+                addView(Calm.text(a, code, 52f, 600).apply { letterSpacing = .08f; setTextIsSelectable(true) })
+                addView(Calm.small(a, "The new tablet on the same Wi-Fi as this one. The code lasts 10 minutes, while this shows. It then shows this household, kept here: nothing to set up again."))
+            }
+            val col = Calm.row(a, 40).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(left, LinearLayout.LayoutParams(0, -2, 1f))
+                addView(Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 420)) }, Calm.caption(a, "Scan with the new tablet"), 300) { Handoff.share(a, url) })
+            }
+            val nsd = a.getSystemService(android.net.nsd.NsdManager::class.java)
+            val advert = object : android.net.nsd.NsdManager.RegistrationListener {
+                override fun onServiceRegistered(i: android.net.nsd.NsdServiceInfo) {}
+                override fun onRegistrationFailed(i: android.net.nsd.NsdServiceInfo, e: Int) { android.util.Log.w("Screens", "Bonjour advert failed: $e") }
+                override fun onServiceUnregistered(i: android.net.nsd.NsdServiceInfo) {}
+                override fun onUnregistrationFailed(i: android.net.nsd.NsdServiceInfo, e: Int) {}
+            }
+            val wifi = a.applicationContext.getSystemService(android.net.wifi.WifiManager::class.java)
+            val multicast = runCatching { wifi.createMulticastLock("openhouse-tablet").apply { setReferenceCounted(false); acquire() } }.getOrNull()
+            val advertised = runCatching { nsd.registerService(android.net.nsd.NsdServiceInfo().apply { serviceName = "Opie"; serviceType = "_openhouse._tcp"; setPort(port) }, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, advert) }.isSuccess
+            var open = true
+            val d = CalmDialog(a).setTitle("Add another Opie tablet").setWidth(940f).setView(col).setNegativeButton("Cancel", null)
+                .setOnDismissListener { open = false; if (advertised) runCatching { nsd.unregisterService(advert) }; runCatching { multicast?.release() } }
+                .show().also { a.immersive() }
+            val since = System.currentTimeMillis()
+            thread { // the code is the yes: the tablet joins at once, and this closes when it has
+                while (open && System.currentTimeMillis() < since + 10 * 60_000L) {
+                    val joined = get(a)?.optJSONArray("screens")?.let { arr -> (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.firstOrNull { it.optString("kind") == "tablet" && it.optLong("added") >= since - 5_000 } }
+                    if (joined != null) { main.post { d.dismiss(); a.toast("${joined.optString("name")} added") }; return@thread }
+                    Thread.sleep(1000)
+                }
+                main.post { d.dismiss() }
+            }
+        }
+    }
 
     /** A QR code for one screen to join; when it asks, someone says yes or no here. */
     private fun add(a: MainActivity) = thread {

@@ -21,6 +21,7 @@ echo "$(date '+%F %T') hub starting: code $C, data $D"
 mkdir -p bridge
 cp -R "$C/bridge/." bridge/
 rm -rf bridge/test bridge/fixtures
+mkdir -p chat/src && cp "$C/chat/src/screen-client.js" "$C/chat/src/seal.js" "$C/chat/src/relay-client.js" chat/src/ # (bridge/satellite.js: the screen client it loads)
 cp "$C/device/vite.config.mjs" vite.config.mjs
 [ -f "$C/hub/package.json" ] && node -p "require('$C/hub/package.json').version" > VERSION 2>/dev/null || true
 

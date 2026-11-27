@@ -43,8 +43,15 @@ if [ ! -d webapp/node_modules/@esbuild/linux-arm64 ]; then
   fi
   rm -rf "$t"
 fi
+# A tablet that's part of another tablet's household (docs/multi-tablet.md) shows that household's apps: the bridge keeps
+# copies of them in .satellite/webapp, served by the same dev server with the same libraries. Its own webapp/ waits,
+# untouched, for it to leave.
+W=webapp
+if [ -f .satellite/pairing.json ]; then
+  mkdir -p .satellite/webapp/apps && ln -sfn "$D/webapp/node_modules" .satellite/webapp/node_modules && W=.satellite/webapp
+fi
 if ! up 5173; then
-  (cd webapp && setsid nohup node node_modules/vite/bin/vite.js --config ../vite.config.mjs --host 127.0.0.1 --port 5173 --strictPort < /dev/null >> ../vite.log 2>&1 9>&- &) 9>&-
+  (cd "$W" && setsid nohup node "$D/webapp/node_modules/vite/bin/vite.js" --config "$D/vite.config.mjs" --host 127.0.0.1 --port 5173 --strictPort < /dev/null >> "$D/vite.log" 2>&1 9>&- &) 9>&-
 fi
 # Until 1.0.9 the runtime had pi and SearXNG (its web search) for the tablet's own coding agent: gone from a runtime
 # unpacked from an older image too, for the space.

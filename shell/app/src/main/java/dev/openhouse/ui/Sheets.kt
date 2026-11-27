@@ -79,6 +79,9 @@ internal fun SettingsSheet() {
     LaunchedEffect(o.settingsV) { vals = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { o.host.settingValues() }.getOrDefault(vals) } }
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(3000); vals = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { o.host.settingValues() }.getOrDefault(vals) } } }
     val locked = vals["lock"] == "On"
+    // A tablet that's part of another tablet's household (shell Satellite.kt): its own rows only.
+    var sat by remember { mutableStateOf(dev.openhouse.shell.Satellite.on) }
+    LaunchedEffect(Unit) { while (true) { sat = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { dev.openhouse.shell.Satellite.refresh(o.bridgeUrl)?.optBoolean("satellite") == true }; kotlinx.coroutines.delay(5000) } }
     fun shell(id: String) = { o.host.setting(id) }
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable { o.showSettings = false }, contentAlignment = Alignment.Center) {
@@ -89,6 +92,13 @@ internal fun SettingsSheet() {
                 }
                 Spacer(Modifier.height(10.u))
                 Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                    if (sat) { // part of another tablet's household (docs/multi-tablet.md): the household's settings are there
+                        SettingsRow("Household", "On the main tablet", onClick = shell("satellite"))
+                        SettingsRow("Brightness", vals["brightness"], onClick = shell("brightness"))
+                        SettingsRow("Time", vals["time"], locked, shell("time"))
+                        SettingsRow("Updates", vals["updates"], onClick = shell("updates"))
+                        SettingsRow("Advanced", null, locked, shell("tablet"))
+                    } else {
                     SettingsRow("Voice", vals["voice"], locked, shell("voice"))
                     SettingsRow("Family", o.board?.family?.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }) { o.showFamily = true }
                     SettingsRow("Calendars", vals["calendars"], locked, shell("calendars"))
@@ -100,6 +110,7 @@ internal fun SettingsSheet() {
                     SettingsRow("Account", vals["account"], locked, shell("account"))
                     SettingsRow("Updates", vals["updates"], onClick = shell("updates"))
                     SettingsRow("Advanced", null, locked, shell("tablet"))
+                    }
                 }
             }
         }
@@ -175,6 +186,11 @@ internal fun WelcomeSheet() {
                     Text("First, connect to your Wi-Fi.", style = calmText(21, color = Calm.soft))
                 } else Box(Modifier.clip(RoundedCornerShape(99.u)).background(Calm.ink).clickable { o.welcomeStart() }.padding(horizontal = 36.u, vertical = 20.u)) {
                     Text("Get started", style = calmText(21, FontWeight.SemiBold, Calm.sheet))
+                }
+                // A second tablet for another room (docs/multi-tablet.md): the household is set up already on the first.
+                if (o.net != Net.NoNetwork) {
+                    Spacer(Modifier.height(28.u))
+                    Text("Already have Opie in another room? Add this tablet to it", style = calmText(19, FontWeight.Medium, Calm.soft), modifier = Modifier.clickable { o.host.setting("joinOther") })
                 }
                 // One quiet line on a model we haven't tested (dev.openhouse.shell.Tablets, docs/tablets.md). Never blocks.
                 if (!dev.openhouse.shell.Tablets.tested) {

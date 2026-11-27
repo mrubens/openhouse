@@ -123,13 +123,14 @@ export function client({ base = '', id, key, fetch: f = fetch, relay = null, onR
   /** One request. onData(bytes) gets the body as it comes (a streamed answer); else it's returned whole. */
   /** app: the screen app asking (a TV's layout): the tablet answers only what that app may read. */
   /** big: an answer that may be large (an app's files, a photo): away, it may come in one box (relay-client.js). */
-  async function request(m, p, b, { signal, onData, app, big } = {}, again = true) {
+  /** onHead({status, type}): the answer's status as soon as it's known, before its body (another tablet passing it on). */
+  async function request(m, p, b, { signal, onData, onHead, app, big } = {}, again = true) {
     const n = next();
     const box = CP.seal(K, nonce(), te.encode(`req:${id}`), te.encode(JSON.stringify({ n, m, p, ...(b !== undefined ? { b } : {}), ...(app ? { a: app } : {}) })));
     const r = await post(box, signal, big);
     // Removed: asked once more a moment later first, so a hub or tablet coming back up mid-request doesn't drop a pairing.
-    if (r.status === 401) { if (again !== 'gone?') { await new Promise((ok) => setTimeout(ok, 2000)); return request(m, p, b, { signal, onData, app, big }, 'gone?'); } throw new Removed('removed'); }
-    if (r.status === 409 && again) { const j = await r.json().catch(() => ({})); last = Math.max(last, Number(j.high) || 0); return request(m, p, b, { signal, onData, app, big }, false); }
+    if (r.status === 401) { if (again !== 'gone?') { await new Promise((ok) => setTimeout(ok, 2000)); return request(m, p, b, { signal, onData, onHead, app, big }, 'gone?'); } throw new Removed('removed'); }
+    if (r.status === 409 && again) { const j = await r.json().catch(() => ({})); last = Math.max(last, Number(j.high) || 0); return request(m, p, b, { signal, onData, onHead, app, big }, false); }
     if (!r.ok) throw new Error(`brain said ${r.status}`);
     const reader = r.body.getReader();
     let buf = new Uint8Array(0), i = 0, head = null, ended = false;
@@ -144,7 +145,7 @@ export function client({ base = '', id, key, fetch: f = fetch, relay = null, onR
         buf = buf.slice(4 + len);
         if (!opened) throw new Error('reply did not open');
         const type = opened[0], data = opened.subarray(1);
-        if (type === 0) head = JSON.parse(td.decode(data));
+        if (type === 0) { head = JSON.parse(td.decode(data)); onHead?.(head); }
         else if (type === 1) { if (onData) onData(data); else parts.push(data); }
         else if (type === 2) ended = true;
       }

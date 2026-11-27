@@ -101,6 +101,11 @@ const RULES = [
   // 'admin': the hub's own settings (docs/hub.md), what the tablet's Settings do behind its PIN: devices, the account,
   // live voice, backups, reaching it from away, updates. Only a hub hands it out: to the device that typed the code the
   // hub printed when it started (someone with the hub's console), and to devices that one adds as admins.
+  // 'tablet': another Opie tablet in the household, a satellite of this one (satellite.js, docs/multi-tablet.md): it keeps
+  // none of the household's things itself, so its shell asks here for what it would ask its own bridge: whether Opie's
+  // voice is on, and the household's names (for its own Settings). Read only.
+  ['tablet', 'GET', /^\/(cloud\/voice|cloud\/status|household)$/],
+  ['tablet', 'POST', /^\/home\/handsfree$/], // a note's hands-free view, as on this tablet
   ['admin', 'GET', /^\/(screens|cloud\/status|cloud\/voice|backup\/status|backup\/list|backup\/recovery-code|relay|hub)$/],
   ['admin', 'POST', /^\/screens\/(pair|pair\/end|answer|revoke)$/],
   ['admin', 'POST', /^\/cloud\/(link\/start|link\/confirm|link\/cancel|unlink|voice|voice\/name)$/],
@@ -115,7 +120,7 @@ const RULES = [
   ['admin', 'GET', /^\/calendar\/sync$/], ['admin', 'POST', /^\/calendar\/sync\/(set|now)$/], // which of a signed-in account's calendars show (calendar-sync.js)
 ];
 // door: see the home screen and the house (read only). The name is from before and stays: paired screens hold it.
-export const SCOPES = ['door', 'arrange', 'ask', 'voice', 'workshop', 'notify', 'setup', 'admin'];
+export const SCOPES = ['door', 'arrange', 'ask', 'voice', 'workshop', 'notify', 'setup', 'admin', 'tablet'];
 export const COMPUTER_SCOPES = ['workshop'];
 
 export const DEFAULT_SCOPES = ['door', 'arrange', 'ask', 'voice'];
@@ -123,6 +128,8 @@ export const DEFAULT_SCOPES = ['door', 'arrange', 'ask', 'voice'];
 export const TV_SCOPES = ['door'];
 /** A phone is someone's: someone's sees, ticks, asks and gets notes; a kid's sees, ticks and gets notes. */
 export const PHONE_SCOPES = { grownup: ['door', 'arrange', 'ask', 'notify', 'voice'], kid: ['door', 'arrange', 'notify'] };
+/** Another Opie tablet in the household (docs/multi-tablet.md): what a screen does, and the few things its own shell asks. */
+export const TABLET_SCOPES = ['door', 'arrange', 'ask', 'voice', 'tablet'];
 /** A hub's settings device (docs/hub.md): a screen that may also change the hub's settings. */
 export const ADMIN_SCOPES = [...DEFAULT_SCOPES, 'admin'];
 export function allowed(scopes, method, pathname) {
@@ -169,7 +176,7 @@ const appHeaders = (host) => ({
 });
 const APP_ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 /** Which apps a kind of screen shows (app.json "screens"). */
-export const SCREEN_KINDS = ['tv', 'phone'];
+export const SCREEN_KINDS = ['tv', 'phone', 'tablet'];
 
 // One app's files for a phone (docs/phones.md, "Every app"): the phone's page runs the app in a sandboxed frame with no
 // origin of its own, which can't load anything from the tablet itself, so its files come in one sealed reply (kept on
@@ -269,9 +276,11 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
   const sweep = () => {
     for (const [id, p] of pairs) if (p.until < Date.now()) { pairs.delete(id); for (const w of p.waiters) w(); }
     if (connect && connect.until < Date.now()) closeConnect();
-    if (setupNamed && ![...pairs.values()].some((x) => x.setup)) { setupNamed = false; if (!connect) named.stop(); }
+    if (setupNamed && ![...pairs.values()].some((x) => x.setup)) { setupNamed = false; if (!connect && !tabletNamed) named.stop(); }
+    if (tabletNamed && ![...pairs.values()].some((x) => x.kind === 'tablet' && !x.answer)) { tabletNamed = false; if (!connect && !setupNamed) named.stop(); }
     const n = state.invites.length; state.invites = state.invites.filter((v) => v.until > Date.now() && pairs.has(v.pair)); if (state.invites.length !== n) write();
   };
+  let tabletNamed = false; // and while a tablet's code lasts (docs/multi-tablet.md)
   let setupNamed = false; // opie.local answers while the setup's code lasts (a computer types the address)
   // The Connect screen's page (connect-page.js): open with one computer pairing, for as long as it lasts.
   let connect = null; // { pair, address, until, away } (never the code: the page mustn't have it)
@@ -380,12 +389,18 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     let welcome = { refused: true };
     if (yes) {
       const computer = x.kind === 'computer';
-      const s = { id: (computer ? 'c-' : 's-') + crypto.randomBytes(4).toString('hex'), name: x.typedName || x.name, kind: x.kind, key: b64(crypto.randomBytes(32)), scopes: [...(computer ? COMPUTER_SCOPES : x.kind === 'tv' ? TV_SCOPES : x.kind === 'phone' ? PHONE_SCOPES[x.grownup ? 'grownup' : 'kid'] : x.admin ? ADMIN_SCOPES : DEFAULT_SCOPES), ...(x.setup ? ['setup'] : [])], added: Date.now(), seen: null, high: 0, floor: 0,
+      const s = { id: (computer ? 'c-' : 's-') + crypto.randomBytes(4).toString('hex'), name: x.typedName || x.name, kind: x.kind, key: b64(crypto.randomBytes(32)), scopes: [...(computer ? COMPUTER_SCOPES : x.kind === 'tv' ? TV_SCOPES : x.kind === 'tablet' ? TABLET_SCOPES : x.kind === 'phone' ? PHONE_SCOPES[x.grownup ? 'grownup' : 'kid'] : x.admin ? ADMIN_SCOPES : DEFAULT_SCOPES), ...(x.setup ? ['setup'] : [])], added: Date.now(), seen: null, high: 0, floor: 0,
         ...(x.kind === 'phone' ? { person: x.person } : {}) };
       state.screens.push(s); write(); changed();
       welcome = { id: s.id, key: s.key, scopes: s.scopes, name: s.name, kind: s.kind, ...(s.person ? { person: s.person } : {}) };
       // A computer may have paired through the cloud (the setup page's prompt, from a chat's sandbox or away from home):
       // where to find the tablet afterwards, on the Wi-Fi and through the relay (its token comes from the key).
+      if (x.kind === 'tablet') { // where the new tablet finds this one afterwards: the Wi-Fi, the relay, the tailnet
+        const home = !TLS && lanTls?.base(); if (home) welcome.base = home; // its https name at home (else the address it joined at)
+        const r = handle.relayAt?.();
+        if (r?.url && r.relay) welcome.relay = { url: r.url, relay: r.relay, token: relayToken(s.key) };
+        if (tailnet()) welcome.tailnet = tailnet().base;
+      }
       if (computer) {
         if (connect?.pair === pairId && connect.address) welcome.base = `http://${connect.address}:${PORT}`;
         const r = handle.relayAt?.();
@@ -415,7 +430,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     if (p === '/screens/address') { const ok = !!lanTls?.address(b.address); json(res, ok ? 200 : 400, { ok, https: lanTls?.status() || null, base: lanBase(), ...via() }); return true; }
     if (p === '/screens/lan') { state.lan = !!b.on; write(); state.lan ? startLan() : stopLan(); json(res, 200, { ok: true, lan: state.lan }); return true; }
     if (p === '/screens/pair') {
-      const computer = b.kind === 'computer', tv = b.kind === 'tv', phone = b.kind === 'phone' || b.setup === true, setup = b.setup === true;
+      const computer = b.kind === 'computer', tv = b.kind === 'tv', tablet = b.kind === 'tablet', phone = !tablet && (b.kind === 'phone' || b.setup === true), setup = !tablet && b.setup === true;
       const person = phone ? String(b.person || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) : null;
       if (phone && !person) { json(res, 400, { error: 'whose phone?' }); return true; }
       let pair, key, code = null;
@@ -437,16 +452,23 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
         const address = /^\d{1,3}(\.\d{1,3}){3}$/.test(String(b.address || '')) ? String(b.address) : null;
         if (address) { named.start(address); setupNamed = true; }
       }
+      else if (tablet) { // another Opie tablet (docs/multi-tablet.md): it scans the code this tablet shows, or types it; one at a time
+        for (const [id, x] of pairs) if (x.kind === 'tablet') pairs.delete(id);
+        do { code = newCode(); ({ pair, key } = pairingFromCode(code)); } while (pairs.has(pair));
+        const address = /^\d{1,3}(\.\d{1,3}){3}$/.test(String(b.address || '')) ? String(b.address) : null;
+        if (address) { named.start(address); tabletNamed = true; } // opie.local, so a tablet that only typed the code finds this one
+      }
       else if (b.code === true) { // a hub's settings page (docs/hub.md): a code to type on the device, besides its link
         do { code = newCode(); ({ pair, key } = pairingFromCode(code)); } while (pairs.has(pair));
       }
       else { pair = b64(crypto.randomBytes(6)); key = crypto.randomBytes(32); }
-      pairs.set(pair, { key, kind: computer ? 'computer' : tv ? 'tv' : phone ? 'phone' : 'screen', admin: !computer && !tv && !phone && b.admin === true, person, grownup: phone && (b.grownup === true || setup), setup, pre: setup || phone, typed: tv, typedName: tv ? String(b.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) || null : null, until: Date.now() + 10 * 60e3, name: null, asked: false, answer: null, waiters: new Set(), misses: 0 });
+      pairs.set(pair, { key, kind: computer ? 'computer' : tv ? 'tv' : tablet ? 'tablet' : phone ? 'phone' : 'screen', admin: !computer && !tv && !phone && !tablet && b.admin === true, person, grownup: phone && (b.grownup === true || setup), setup, pre: setup || phone || tablet, typed: tv, typedName: tv ? String(b.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) || null : null, until: Date.now() + 10 * 60e3, name: null, asked: false, answer: null, waiters: new Set(), misses: 0 });
       if (!state.lan) { state.lan = true; write(); }
       startLan();
       if (computer) changed(); // the relay hears of the code (relay.js), for the web connector
       if (setup) pairs.get(pair).until = Date.now() + 30 * 60e3;
       json(res, 200, computer ? { pair, code, port: PORT, minutes: 10, host: connect.address ? HOSTNAME : null, away: connect.away, extension: httpsCopy()?.url || null } : tv ? { pair, port: PORT, minutes: 10 }
+        : tablet ? { pair, code, port: PORT, minutes: 10, host: tabletNamed ? HOSTNAME : null, base: lanBase(), ...via() }
         : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, host: setupNamed ? HOSTNAME : null, base: lanBase(), ...via() } : { pair, key: b64(key), port: PORT, minutes: 10, base: lanBase(), ...via(), ...(code ? { code } : {}) });
       return true;
     }
@@ -652,7 +674,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     // rights, checked by dispatch as on the tablet, not the phone's routes.)
     const sc = s.scopes || [];
     const appOk = fromApp === null || (APP_ID.test(fromApp) && appsFor(s).some((a) => a.id === fromApp) && !share
-      && (msg.m === 'GET' ? sc.includes('door') : s.kind === 'phone' && sc.includes('arrange')));
+      && (msg.m === 'GET' ? sc.includes('door') : (s.kind === 'phone' || s.kind === 'tablet') && sc.includes('arrange')));
     if (!url || !appOk || (share ? !(msg.m === 'POST' && url.pathname === '/phone/share' && sc.includes('ask')) : fromApp === null && !allowed(sc, msg.m, url.pathname))) {
       frame(0, JSON.stringify({ status: 403, type: 'application/json' })); frame(1, '{"error":"not for screens"}'); frame(2, ''); return res.end();
     }
@@ -841,13 +863,13 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     if (!s) { json(res, 403, { error: 'only a paired screen' }); return true; }
     if (url.pathname === '/screens/app-files') {
       const id = String(url.searchParams.get('app') || '');
-      if (s.kind !== 'phone' || !APP_ID.test(id) || !appsFor(s).some((a) => a.id === id) || usesPackages(appFileList(APP_DIR, id, KIT))) { json(res, 404, { error: 'not on this phone' }); return true; }
+      if (!['phone', 'tablet'].includes(s.kind) || !APP_ID.test(id) || !appsFor(s).some((a) => a.id === id) || (s.kind === 'phone' && usesPackages(appFileList(APP_DIR, id, KIT)))) { json(res, 404, { error: 'not on this phone' }); return true; }
       json(res, 200, appFiles(APP_DIR, id, KIT));
       return true;
     }
-    if (s.kind === 'phone') {
+    if (s.kind === 'phone' || s.kind === 'tablet') { // (a tablet's own dev server has the libraries an app imports)
       const out = [];
-      for (const a of appsFor(s)) { const files = appFileList(APP_DIR, a.id, KIT); if (!usesPackages(files)) out.push({ id: a.id, name: a.name, icon: a.icon || null, tabIcon: a.tabIcon || null, shared: !!a.shared, reaches: a.reaches || [], v: appVersion(files) }); }
+      for (const a of appsFor(s)) { const files = appFileList(APP_DIR, a.id, KIT); if (s.kind === 'tablet' || !usesPackages(files)) out.push({ id: a.id, name: a.name, icon: a.icon || null, tabIcon: a.tabIcon || null, shared: !!a.shared, reaches: a.reaches || [], v: appVersion(files) }); }
       json(res, 200, out); return true;
     }
     // v: when its files last changed, so a TV showing it loads it again after an edit.
