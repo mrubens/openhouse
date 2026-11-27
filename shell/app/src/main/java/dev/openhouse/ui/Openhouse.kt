@@ -527,6 +527,13 @@ object Openhouse : AnswerActions {
     var typingFocused = false
     /** A key typed on a keyboard while the typing box is closed (the shell routes these here). */
     fun typed(ch: String) { if (typing == null && (setupStep != null || showWelcome)) return; if (typing == null) { typingFocused = false; openTyping(seed = ch) } else draft += ch }
+    /** The keyboard's AI key: Opie open (talking, its typing box, a conversation) goes away; otherwise it comes out, as a tap. */
+    fun aiKey() {
+        if (Listening.liveEndHook?.invoke() == true) { typing = null; draft = ""; return }
+        if (typing != null) { closeTyping(); return }
+        if (showConversation) { closeConversation(); return }
+        tapToTalk()
+    }
     fun closeTyping() { if (dictating) Listening.dictate(); typing = null; draft = "" }
     /** The typing box's text changed on screen (the on-screen keyboard). */
     fun editDraft(text: String) { draft = text }

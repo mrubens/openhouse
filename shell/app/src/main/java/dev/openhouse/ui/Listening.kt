@@ -95,6 +95,8 @@ internal object Listening {
 
     /** OpenAI's live voice (shell LiveVoice): (what was heard, how: wake, tap or heard, when) → true when a session is starting. */
     @Volatile var liveHook: ((String, String, Long) -> Boolean)? = null
+    /** Ends OpenAI's live voice if a session is open (shell LiveVoice): true when one was. */
+    @Volatile var liveEndHook: (() -> Boolean)? = null
 
     suspend fun events() {
         while (true) {

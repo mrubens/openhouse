@@ -96,6 +96,7 @@ internal object LiveVoice {
             else if (web != null) true // (already listening)
             else { val asked = cmd.count { it.isLetter() } >= 2; main.post { start(a, asked, how = how, at = at) }; true }
         }
+        Listening.liveEndHook = { if (web != null) { end("closed with the AI key"); true } else false }
         // The web view's first start loads Chromium (a few hundred ms): done once now, not while someone waits.
         main.postDelayed({ runCatching { WebView(a).destroy() } }, 5000)
         // With the live voice on, it's the only voice: nothing falls back to the tablet's own. Whatever is to be said

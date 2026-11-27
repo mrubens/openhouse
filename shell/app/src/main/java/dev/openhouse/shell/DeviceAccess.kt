@@ -55,12 +55,12 @@ class DeviceAccess : AccessibilityService() {
     }
     override fun onInterrupt() {}
 
-    /** The keyboard's AI / assistant key, anywhere: the assistant comes out and listens (pressed again: stops). */
+    /** The keyboard's AI / assistant key, anywhere: the assistant comes out and listens; pressed while it's open, it goes. */
     override fun onKeyEvent(e: android.view.KeyEvent): Boolean {
         // Over another app: typing to the assistant (after a tap or the AI key, or with its box open) goes to it.
         if (e.keyCode !in AI_KEYS && !Buddy.shellOnTop && dev.openhouse.ui.Openhouse.typeKey(e)) return true
         if (e.keyCode !in AI_KEYS) { if (e.action == android.view.KeyEvent.ACTION_DOWN && !e.isPrintingKey) Log.d(TAG, "key ${e.keyCode} ${android.view.KeyEvent.keyCodeToString(e.keyCode)} scan ${e.scanCode}"); return false }
-        if (e.action == android.view.KeyEvent.ACTION_UP) main.post { dev.openhouse.ui.Openhouse.tapToTalk() }
+        if (e.action == android.view.KeyEvent.ACTION_UP) main.post { dev.openhouse.ui.Openhouse.aiKey() }
         return true
     }
     override fun onDestroy() { buddy?.close(); if (instance === this) instance = null; super.onDestroy() }

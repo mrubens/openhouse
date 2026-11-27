@@ -397,7 +397,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
             if (event.action == android.view.KeyEvent.ACTION_DOWN && LiveVoice.volumeKey(this, event.keyCode == android.view.KeyEvent.KEYCODE_VOLUME_UP)) return true
             if (event.action == android.view.KeyEvent.ACTION_UP && LiveVoice.active) return true
         }
-        if (event.keyCode in AI_KEYS) { if (event.action == android.view.KeyEvent.ACTION_UP) o.tapToTalk(); return true } // when device control is off
+        if (event.keyCode in AI_KEYS) { if (event.action == android.view.KeyEvent.ACTION_UP) o.aiKey(); return true } // when device control is off
         // Typing to the assistant (its box is open, or it's listening): over apps and games too, wherever focus is.
         if (!o.showConversation && !fields && !(o.webEditing && o.typing == null) && o.typeKey(event)) return true
         if (onBoard && !o.webEditing && (o.typing == null || !o.typingFocused) && event.action == android.view.KeyEvent.ACTION_DOWN && !event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed) {
