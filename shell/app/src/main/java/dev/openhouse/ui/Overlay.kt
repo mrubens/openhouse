@@ -120,6 +120,16 @@ fun ShellOverlay() {
                 }
                 // Off the internet for more than a moment (not a blip): why it can't answer, and the way back on.
                 if (o.net != Net.Online && o.now - o.netSince > 15_000 && o.typing == null && mine == null) OfflineNote()
+                // Part of another tablet's household, and that tablet isn't answering (docs/multi-tablet.md): this one shows
+                // what it last showed, and changes wait until it's back. Asked every 10 s.
+                var brainAway by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) { while (true) { brainAway = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { dev.openhouse.shell.Satellite.refresh(o.bridgeUrl)?.let { it.optBoolean("satellite") && (!it.optBoolean("reachable", true) || it.optBoolean("removed")) } == true }; kotlinx.coroutines.delay(10_000) } }
+                if (brainAway && o.net == Net.Online && o.typing == null && mine == null) {
+                    val bubble = AssistantCardShape
+                    Text(if (dev.openhouse.shell.Satellite.state?.optBoolean("removed") == true) "The main tablet removed this one" else "Can't reach the main tablet. Showing what it last showed.",
+                        style = quietText(19, FontWeight.Medium, PaperLook.ink),
+                        modifier = Modifier.shadow(18.u, bubble).clip(bubble).background(Color.White).padding(horizontal = 22.u, vertical = 14.u))
+                }
             }
             // The assistant: no button at rest (the user: "it would be cleaner to just get rid of it"). Say "Hey Opie", or
             // just type; it shows in the bottom-left corner only while it listens, works or answers.

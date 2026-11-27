@@ -90,7 +90,7 @@ internal object Screens {
             val url = "${base(p, ip.hostAddress)}/tablet#$code"
             val left = Calm.column(a, 18).apply {
                 addView(Calm.text(a, "On the new tablet, tap Add this tablet to your Opie (in its welcome, or Settings, Advanced). Then scan this code, or type it:", 20f, 400))
-                addView(Calm.text(a, code, 52f, 600).apply { letterSpacing = .08f; setTextIsSelectable(true) })
+                addView(Calm.text(a, code, 40f, 600).apply { letterSpacing = .06f; maxLines = 1; setTextIsSelectable(true) })
                 addView(Calm.small(a, "The new tablet on the same Wi-Fi as this one. The code lasts 10 minutes, while this shows. It then shows this household, kept here: nothing to set up again."))
             }
             val col = Calm.row(a, 40).apply {

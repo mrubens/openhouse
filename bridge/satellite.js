@@ -46,7 +46,7 @@ export function forgetPairing(DISPLAY) {
 export function parseJoin(text) {
   const t = String(text || '').trim();
   const m = /^(https?:\/\/[a-z0-9.[\]:-]{1,200})\/tablet\/?#([0-9a-z-]{12,16})$/i.exec(t);
-  if (m) { const code = cleanCode(m[2]); return code ? { code, base: m[1] } : null; }
+  if (m) { const code = cleanCode(m[2]); return code ? { code, base: m[1].toLowerCase() } : null; } // (a code box that types capitals: HTTP://10.0.0.5:8788)
   const code = cleanCode(t);
   return code ? { code, base: null } : null;
 }

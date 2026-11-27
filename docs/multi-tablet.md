@@ -1,7 +1,9 @@
 # More than one tablet in a household
 
-2026-11-25. Status: the design, decided 2026-11-25 and not built: phase 1 waits for a household that wants a second tablet. The
-proof of concept below (`bridge/satellite.js`, `spikes/satellite/demo.mjs`) was built alongside it and isn't in main yet.
+2026-11-25, design; 2026-11-27, phase 1 built (below, "Built: phase 1"). The main tablet (the brain) can be any
+device that keeps the household: a tablet, or a hub on a spare computer (docs/host.md, docs/hub.md); a satellite talks
+to it the same way either way. Away from home it reaches the brain through the relay or the household's own Tailscale,
+as any paired device does.
 
 Some households want a tablet in the kitchen and another in the den or by the back door, showing the same calendar,
 lists, chores and meals. Today each tablet is its own brain: two tablets on one account share only the account, the AI
@@ -199,25 +201,48 @@ data isn't offered (one is chosen, the other's kept as a backup).
 **Later, if asked for:** a home screen per tablet (each tablet its own Home layout, sharing the household's tabs and
 data), using the per-kind layouts TVs already have (`/screens/apps`).
 
-## The proof of concept
+## Built: phase 1
 
-`bridge/satellite.js` is the satellite's forwarder: scopes decide what goes to the brain, a few routes stay local,
-the rest are refused; the last home screen is kept read-only for when the brain is away. `spikes/satellite/demo.mjs`
-runs a real bridge as the kitchen tablet and the forwarder as the den tablet:
+Adding a tablet is like adding a phone: the main tablet shows a code, the new one scans it (or types it), and it joins
+at once, in its welcome or later.
 
-```bash
-node spikes/satellite/demo.mjs
-```
+| Piece | Where |
+| --- | --- |
+| The code | On the main tablet: Settings → Linked devices → Add → Another Opie tablet (`shell/Screens.kt` `tablet`, behind the PIN). `POST /screens/pair {kind: 'tablet', address}` makes a 12-letter code (`pair-code.js`), good once for 10 minutes; the QR code is `<address>/tablet#<code>`. While it shows, the tablet answers on the Wi-Fi as `_openhouse._tcp`, so a tablet that only typed the code finds it. Whoever has the code is standing at the main tablet, so it joins with no Allow, as a phone's code does |
+| Joining | On the new tablet: the welcome's "Already have Opie in another room? Add this tablet to it", or Settings → Advanced → Add this tablet to another Opie (behind the PIN, personOnly). `shell/Satellite.kt`: scan (CameraX and ZXing) or type the code, say which room. Its bridge (`POST /satellite/join`, brain.js) pairs as kind `tablet` and keeps the pairing in `.satellite/pairing.json` (0600, never in a backup); the runtime starts again |
+| Which bridge runs | `bridge/server.js` starts `brain.js` (the household's brain, what `server.js` was) or, with a pairing, `satellite-server.js`. Only one ever loads, so nothing on a satellite opens, changes or sends the household's things it had before; nothing that runs by itself in a brain (heartbeat, reminders, calendar sync, backups, mail, relay, the home network's port) runs on a satellite |
+| The satellite's bridge | `satellite-server.js`: the same loopback port and secret, so the shell, the home screen page and the apps are unchanged. Its own: listening for "Hey Opie" (`voice.js`), the pages and the kit, its apps' keys. Passed to the brain, sealed (`satellite.js` forwarder, with `chat/src/screen-client.js`: Wi-Fi, then tailnet, then relay): what `TABLET_SCOPES` allow (`door`, `arrange`, `ask`, `voice`, and `tablet`: Opie's voice state, the household's names). Everything else: 403 "That's on the main tablet" |
+| Apps | The brain's apps are copied into `.satellite/webapp` (`satellite.js` mirror, from `GET /screens/apps` and `/screens/app-files`, every 30 s), and the runtime's dev server serves them there (`device/runtime-start.sh`). What an app reads or changes goes to the brain marked with the app, so the brain answers only what that app may do (as on a phone) |
+| Opie | The satellite's live voice starts through the brain (`/cloud/live/start` → the brain's `/live/start`, its account and allowance), and its tools run on the brain. Tools that act on the tablet itself (its screen, volume, camera, media, other apps) are left out there (`live-tools.js` `ON_THIS_DEVICE`): they would act on the main tablet |
+| While the brain is away | The satellite serves the home screen and the house as last seen, marked `away`, and refuses changes ("Can't reach the main tablet"). Removed on the main tablet: 410 at once, and Settings says so |
+| Settings on a satellite | Household (which, and Leave, behind the PIN, personOnly), Brightness, Time, Updates, Advanced. Leaving takes the pairing and the app copies away; the bridge starts again as this tablet's own brain, with what it had before it joined |
+| Tests | `bridge/test/satellite.test.mjs`: joining with the code (once, wrong code refused), the household's changes landing on the brain and nothing of the satellite's own changed, what's refused on the satellite and by the brain itself, removed and leaving with its own things back |
 
-What it showed (2026-11-25):
-- the den tablet joined through Add a screen and Allow, and got `door, arrange, ask, voice`;
-- milk added to Groceries on the den tablet was on the kitchen tablet's list;
-- both had the same home screen;
-- undo, restore, linked devices and backups were refused on the den tablet ("That is on the main tablet");
-- its voice routes were answered on the den tablet;
-- with the kitchen tablet off, the den tablet showed the last home screen marked away and refused adding eggs; when it
-  came back, adding eggs worked;
-- removing the den tablet on the kitchen tablet ended it at once.
+Not in phase 1 (phase 2 above): a timer ringing only where it was set, Opie's device tools on the tablet it's
+talking at, one PIN for the household, approval cards on every tablet, household settings on a satellite.
 
-Not in it: the shell (nothing runs on a real second tablet yet), a `tablet` pairing kind (it pairs as a screen),
-streamed answers, live voice, and the setup screen.
+### Tried on two emulators (2026-11-27)
+
+Two emulator tablets running a local release build (1.0.55-local.70), the kitchen as the brain and the den as the new
+tablet, the den reaching the kitchen's home-network port through the computer (emulators can't see each other's
+Wi-Fi, so no Bonjour and no camera scan):
+- Kitchen: Settings → Linked devices → Add (the PIN) → Another Opie tablet showed the code and its QR code.
+- Den, already set up with a list of its own: Settings → Advanced (the PIN) → Add this tablet to another Opie, the
+  main tablet's link typed into the code box, room "Den". It joined as `Den tablet`, kind `tablet`.
+- After its runtime started again, the den showed the kitchen's household: its family, Today and Groceries. A tick on
+  the den's Home landed on the kitchen; Milk added in the den's Lists app (served from the copied apps, its calls
+  going to the kitchen as that app) was on the kitchen's list. The den's own "To do" item wasn't shown.
+- Undo, backups and pairing were refused on the den (403). Settings there showed only Household, Brightness, Time,
+  Updates and Advanced.
+- With the kitchen unreachable, the den kept showing its last Home and Groceries, marked away, and refused adding an
+  item ("Can't reach the main tablet"); with the kitchen back, adding worked again.
+- Household → Leave the household (the PIN, then Leave): the den started again as its own Opie, with its own list
+  and none of the household's.
+
+Found and fixed on the way: the code box types capitals, so a typed link arrived as `HTTP://…` and wasn't taken.
+
+Needs two real tablets: scanning the QR code with the camera; finding the main tablet by Bonjour when only the code is
+typed; "Hey Opie" and a live conversation on the second tablet (its session through the main tablet's account); the
+apps that import libraries, from the copies; a timer started on one ringing on both; a tablet away from home through
+the relay or Tailscale; a main tablet that's a hub (`docs/hub.md`) rather than a tablet.
+

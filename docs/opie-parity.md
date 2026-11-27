@@ -101,6 +101,9 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the row, the tablet asks for the PIN, Opie carries on there; adding one by link is add_calendar |
 | What Opie remembers | yes | remember_preference, forget_preference |
 | Linked devices: pair or remove a screen, phone, computer, TV | screen, with the PIN | Add and Remove ask for the PIN; the pairing code itself is shown for the person's own device |
+| Linked devices → Add → Another Opie tablet: the code another tablet scans to join this household (docs/multi-tablet.md) | screen, with the PIN | Opie opens it (Settings → Linked devices → Add); the tablet asks for the PIN; the code is for the person standing at the new tablet |
+| Advanced → Add this tablet to another Opie; on a tablet that's part of another's household, Household → Leave the household | no, on purpose | personOnly, as pairing and Tailscale are: it changes which household this tablet shows and hears for. Opie can open the row; the tap, the code and the PIN are a person's |
+| On a tablet that's part of another's household: Opie's own tools for that tablet (its screen, volume, camera, media, other apps) | not yet | Its conversations run with the main tablet's tools, which would act on the main tablet: those are left out there (live-tools.js ON_THIS_DEVICE), and Opie says so. Phase 2 of docs/multi-tablet.md sends them to the tablet they're at |
 | Linked devices: the house's speakers, streamers, printers and their buttons | **new** | home_devices (tv, bluetooth and volume were already there); turning on or opening something asks the room first |
 | Brightness | **new** | tablet_screen (Settings' row has no PIN) |
 | Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
