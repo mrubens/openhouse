@@ -38,12 +38,12 @@
 
 <table>
   <tr>
+    <td><img src="docs/recipes-box.png" alt="The recipe box" width="400"></td>
     <td><img src="docs/recipes-step.png" alt="Cooking a recipe step by step" width="400"></td>
-    <td><img src="docs/web-chat-countdown.png" alt="A countdown app made by asking" width="400"></td>
   </tr>
   <tr>
+    <td><img src="docs/web-chat-countdown.png" alt="A countdown app made by asking" width="400"></td>
     <td><img src="docs/tv-today.jpg" alt="Today on a TV" width="400"></td>
-    <td><img src="docs/phone-display.png" alt="Opie on a phone" width="400"></td>
   </tr>
 </table>
 
