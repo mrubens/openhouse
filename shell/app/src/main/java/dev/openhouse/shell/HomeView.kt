@@ -138,21 +138,32 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
     private val breathe = android.animation.ObjectAnimator.ofFloat(logo, View.ALPHA, 1f, .55f).apply {
         duration = 1400; repeatMode = android.animation.ValueAnimator.REVERSE; repeatCount = android.animation.ValueAnimator.INFINITE
     }
+    /** Under the name, how far starting has got: the bridge not answering yet, then the page loading; after a minute
+     *  without the bridge, that it's still at it (a slower tablet's first start can take a few minutes). */
+    private val stage = dev.openhouse.ui.Calm.lead(act, "Starting")
+    private var stageSince = 0L
+    private val slow = Runnable { if (splash.visibility == View.VISIBLE && stage.text == "Starting") stage.text = "Still starting" }
+    private fun stage(s: String) {
+        if (s == "Starting" && (stage.text == "Starting" || stage.text == "Still starting")) return // (each retry: the same step)
+        stage.text = s; main.removeCallbacks(slow)
+        if (s == "Starting") main.postDelayed(slow, 60_000)
+    }
     private val splash = dev.openhouse.ui.Calm.column(act).apply {
         val K = dev.openhouse.ui.Calm
         gravity = Gravity.CENTER_HORIZONTAL
         addView(logo, android.widget.LinearLayout.LayoutParams(K.px(act, 148), K.px(act, 148)))
         addView(K.text(act, "Opie", 34f, 600).apply { letterSpacing = -.01f }, android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = K.px(act, 26) })
+        addView(stage, android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = K.px(act, 10) })
     }
     private fun loading(on: Boolean) {
         splash.visibility = if (on) View.VISIBLE else View.GONE
-        if (on) { if (!breathe.isStarted) breathe.start() } else { breathe.cancel(); logo.alpha = 1f }
+        if (on) { if (!breathe.isStarted) breathe.start() } else { breathe.cancel(); logo.alpha = 1f; main.removeCallbacks(slow); stage.text = "Starting" }
     }
 
     fun start() {
         if (web != null) return
         layer.addView(splash, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        loading(true)
+        loading(true); main.postDelayed(slow, 60_000)
         layer.addView(make(), 1, FrameLayout.LayoutParams(-1, -1))
         layer.addView(banner, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
         load()
@@ -160,7 +171,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
 
     /** The activity is going: the page stops too (else it keeps running, hidden, polling and placing things). */
     fun destroy() {
-        gone = true; main.removeCallbacks(again); main.removeCallbacks(remake)
+        gone = true; main.removeCallbacks(again); main.removeCallbacks(remake); main.removeCallbacks(slow)
         breathe.cancel(); web?.let { it.stopLoading(); it.loadUrl("about:blank"); it.destroy() }; web = null
     }
     private var gone = false
@@ -224,11 +235,13 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
             private var failed = false
             private fun retry(why: String) {
                 Log.w(TAG, "homeScreen didn't load: $why") // try again shortly
-                failed = true; v().visibility = View.INVISIBLE; loading(true)
+                failed = true; v().visibility = View.INVISIBLE; loading(true); stage("Starting")
                 main.removeCallbacks(again); main.postDelayed(again, 2000)
             }
             private fun v() = web!!
             override fun onPageStarted(v: WebView, url: String?, b: android.graphics.Bitmap?) { calls.ours = ours(url); calls.fresh(); failed = false; banner.visibility = View.GONE }
+            // The bridge answered: what's left is the page itself (slow on a slower tablet's first load).
+            override fun onPageCommitVisible(v: WebView, url: String?) { if (!failed && ours(url) && splash.visibility == View.VISIBLE) stage("Opening the home screen") }
             override fun onPageFinished(v: WebView, url: String?) { if (!failed && ours(url)) { v.visibility = View.VISIBLE; loading(false); Updater.homeLoaded = true; (act as? MainActivity)?.lock?.syncCalendar() } } // (syncCalendar: the bridge answers now)
             override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) { if (r.isForMainFrame) retry(e.description.toString()) }
             override fun onReceivedHttpError(v: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) { if (r.isForMainFrame) retry("HTTP ${e.statusCode}") }
