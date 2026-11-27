@@ -204,9 +204,9 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms", "/mic-check")
+    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms", "/mic-check")
     /** What the shell can do, for /host (bridge/host.js CAPS; its TABLET_CAPS is the same list, for a shell older than /host). */
-    private val HOST_CAN = listOf("screen", "approve", "calendar", "calendar-accounts", "openai", "pin", "voice-setup", "google-signin", "drive", "updates",
+    private val HOST_CAN = listOf("screen", "approve", "calendar", "calendar-accounts", "openai", "pin", "google-signin", "drive", "updates",
         "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage", "alarms", "mic-check")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
@@ -311,8 +311,6 @@ object DeviceServer {
             // The household's own OpenAI key (OwnKey): the bridge's call, sent on to a fixed path at OpenAI with the key
             // added here; never logged, and the key never comes back.
             "/openai" -> OwnKey.forward(b.optString("kind"), (b.optJSONObject("body") ?: JSONObject()).toString())
-            // The household's own OpenAI key, sent from the phone or computer the tablet is being set up from (bridge
-            // /setup/openai): checked and kept here (the PIN first, with the lock on); never logged, never answered back.
             // The setup's phone or computer (bridge /setup/google, /setup/icloud): a Google sign-in that opens there (its
             // address back, for the phone to open), and an iCloud sign-in typed there; the calendars are chosen here.
             "/setup/google" -> {
@@ -340,20 +338,8 @@ object DeviceServer {
                 handler.post { dev.openhouse.ui.Openhouse.settingsChanged() }
                 200 to JSONObject().put("ok", true).putOpt("recovery", code?.chunked(4)?.joinToString("-")).toString()
             }
-            // Opie's voice from the setup's phone or computer: hear one (sample: said here, by the tablet) or turn it on.
-            "/setup/voice" -> {
-                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
-                val voice = b.optString("voice").takeIf { v -> CloudVoiceMenu.VOICES.any { it.first == v } } ?: "marin"
-                val got = java.util.concurrent.LinkedBlockingQueue<String>()
-                handler.post { CloudVoiceMenu(a).fromSetup(if (b.optString("do") == "sample") "sample" else "on", voice, { got.offer(it) }, fromPhone = true) }
-                if (b.optString("do") == "sample") 200 to """{"ok":true}"""
-                else when (val r = got.poll(60, java.util.concurrent.TimeUnit.SECONDS)) {
-                    "on" -> 200 to """{"on":true}"""
-                    "notYet" -> 200 to """{"on":false,"notYet":true}"""
-                    null -> 504 to """{"error":"The tablet didn't answer."}"""
-                    else -> 400 to JSONObject().put("error", r.ifEmpty { "Not turned on." }).toString()
-                }
-            }
+            // The household's own OpenAI key from a settings page (bridge /setup/openai): checked and kept here (the PIN
+            // first, with the lock on); never logged, never answered back.
             "/ownkey" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
                 val got = java.util.concurrent.LinkedBlockingQueue<String>()

@@ -268,7 +268,7 @@ object CalendarAccounts {
         self = h.url!!.substringBefore('#')
         // From the setup's phone or computer (DeviceServer /setup/google): the sign-in opens there, with no code to scan.
         remote?.invoke(h.url!!)
-        val col = if (remote != null) Calm.column(a).apply { addView(Calm.caption(a, "Sign in to Google on the phone or computer: it's open there now. Then choose the calendars here.")) }
+        val col = if (remote != null) Calm.column(a).apply { addView(Calm.caption(a, "Sign in to Google on the phone or computer, then choose the calendars here.")) }
             else Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }, Calm.caption(a, "Scan with a phone on this Wi-Fi to sign in to Google. Then choose the calendars here."), 360) { Handoff.share(a, h.url!!) }
         dialog = CalmDialog(a).setTitle("Google Calendar").setWidth(560f).setView(col).setNegativeButton("Cancel", null)
             .setOnDismissListener {

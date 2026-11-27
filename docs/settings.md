@@ -19,10 +19,10 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 | Account | the family's name, or Off | link or unlink, Backups (the cloud, a USB drive or your own storage), reach from away | yes |
 | Advanced | | Lock (PIN Lock, PIN recovery code, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
 
-Voice can also be turned on in the first setup's last step, **Talk to Opie** (docs/onboarding.md): the same voices and
-the same line about OpenAI, a person's tap behind the PIN when the lock is on. The setup before it is quiet (no
-microphone, nothing said aloud). Its **Not now** is an Off, kept like this row's, so the voice isn't turned on by
-itself later; this row is the way to turn it on then.
+Voice also comes on when the first setup ends, where it can work (docs/onboarding.md, **Opie is ready**), with the
+same line about OpenAI; the setup itself is quiet (no microphone, nothing said aloud). That dialog's **Turn off** is an
+Off, kept like this row's, so the voice isn't turned on by itself later; this row is the way to turn it on then, and to
+put in the household's own OpenAI key.
 
 The tabs, the look and Home's cards have no panel on Home for now (since 2026-11-26, the user: "that stuff can just go
 through Opie instead of needing a clunky UI"): asking Opie does them (`set_home`, `today_card`).

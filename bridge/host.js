@@ -22,7 +22,6 @@ export const CAPS = {
   'calendar-accounts': 'POST /calendar/accounts, /calendar/request, /setup/icloud: two-way calendars signed in there',
   openai: 'POST /openai, /ownkey: the household\'s own OpenAI key, kept there and added to the bridge\'s calls',
   pin: 'POST /setup/pin: the PIN, chosen during the setup, kept there (only its hash), and checked there',
-  'voice-setup': 'POST /setup/voice: it turns on Opie\'s voice from the setup (else the bridge does)',
   'google-signin': 'POST /setup/google: it starts Google\'s sign-in from the setup (else the bridge does, back to its own address)',
   drive: 'a USB drive it owns, for backups (else they go to a folder)',
   storage: 'POST /storage/status, /storage/set, /storage/sign, /storage/remove: the household\'s own storage bucket (S3), its key kept there; it signs one request at a time for backups',
@@ -37,7 +36,7 @@ export const CAPS = {
   'mic-check': 'POST /mic-check: the microphone check on its screen (Settings → Voice), and how the last one went',
 };
 // What a tablet's shell can do when it doesn't answer /host (one older than the host interface).
-export const TABLET_CAPS = ['screen', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin', 'voice-setup', 'google-signin', 'drive', 'updates',
+export const TABLET_CAPS = ['screen', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin', 'google-signin', 'drive', 'updates',
   'mail-convert', 'stills', 'speaker', 'apps', 'bluetooth', 'camera', 'media', 'multicast', 'share', 'brightness'];
 
 const answer = async (url, auth, p, b, ms) => {

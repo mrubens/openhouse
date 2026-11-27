@@ -29,7 +29,6 @@ by these, never by the host's kind (`host.js CAPS`):
 | `calendar-accounts` | signs in to Google and iCloud calendars (`/calendar/accounts`, `/calendar/request`, `/setup/icloud`) | ✓ | ✓ |
 | `openai` | keeps the household's own OpenAI key (`/ownkey`) and adds it to the bridge's calls (`/openai`) | ✓ | ✓ |
 | `pin` | keeps the PIN (`/setup/pin`), only its hash, and checks it itself | ✓ | ✓ |
-| `voice-setup` | turns on Opie's voice from the setup (`/setup/voice`); else the bridge does | ✓ | |
 | `google-signin` | starts Google's sign-in from the setup (`/setup/google`); else the bridge does, back to its own address | ✓ | |
 | `drive` | owns a USB drive for backups; else they go to a folder | ✓ | |
 | `storage` | keeps the household's own storage bucket's key (S3 and the like) and signs one request at a time for backups (`/storage/*`) | ✓ | ✓ |

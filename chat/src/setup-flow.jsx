@@ -10,8 +10,9 @@ const THE = () => (HUB ? 'the hub' : 'the tablet');
 const The = () => (HUB ? 'The hub' : 'The tablet');
 const mine = (me, who) => String(who || '').toLowerCase() === String(me?.person || '').toLowerCase();
 const kidOrPet = (note) => /^\d{1,2}$/.test(String(note || '').trim()) || /\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(note || ''));
-/** The tablet's next setup step after one sent from here (Setup.kt STEPS). */
-const AFTER = { calendar: 'photos', photos: 'ai', ai: 'pin', pin: 'voice', voice: 'android' };
+/** The tablet's next setup step after one sent from here (Setup.kt STEPS). ai and voice: a tablet from before they
+ *  left the setup (this page may be the cloud's copy, newer than the tablet), moved on past them from here. */
+const AFTER = { calendar: 'photos', photos: 'pin', pin: 'android', ai: 'pin', voice: 'android' };
 export function SetupFlow({ me, c, h, onDone }) {
   const computer = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   // It carries on the tablet's setup rather than repeating it: the tablet's step ({step, photos?}, GET /setup/step)
@@ -44,8 +45,7 @@ export function SetupFlow({ me, c, h, onDone }) {
       <div className="brand">Opie</div>
       {step === 'calendar' && <>
         <h1>Your calendars</h1>
-        <SignIns c={c} family={h.house?.family || []} />
-        <AddLink c={c} kind="calendar" family={h.house?.family || []} sub />
+        <CalendarsHere c={c} family={h.house?.family || []} computer={computer} />
       </>}
       {step === 'photos' && <>
         <AddLink c={c} kind="album" />
@@ -56,13 +56,11 @@ export function SetupFlow({ me, c, h, onDone }) {
           ? <a className="go act" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
           : <p className="soft">First tap Let phones send photos on the tablet.</p>}</>}
       </>}
-      {step === 'ai' && <AiHere c={c} computer={computer} />}
       {step === 'pin' && <PinHere c={c} />}
-      {step === 'voice' && <VoiceHere c={c} />}
       {step === 'android' && <><h1>Last, at the tablet</h1><p>Two Android settings only the tablet can change. Tap Done there when you’re finished.</p></>}
       {step === 'people' && <SetupPeople c={c} />}
       {step === 'place' && <SetupPlace c={c} />}
-      {!['calendar', 'photos', 'ai', 'people', 'place', 'pin', 'voice', 'android'].includes(step) && <>
+      {!['calendar', 'photos', 'people', 'place', 'pin', 'android'].includes(step) && <>
         <h1>Connected</h1>
         <p>{step === 'devices' ? 'Starting…' : `Carry on at ${THE()}.`}</p>
       </>}
@@ -93,20 +91,39 @@ const HOW = {
   calendar: { title: 'Your calendars', hint: 'Calendar link (iCal)', help: 'Google: the calendar’s settings, Secret address in iCal format. iCloud: share it as Public. Outlook: Publish, ICS link.', path: '/setup/calendar' },
   album: { title: 'Photos', hint: 'iCloud shared album link', help: 'In Photos, turn on Public Website for a shared album and paste its link.', path: '/setup/album' },
 };
-/** Calendars you sign in to, from here: Google (its sign-in opens here; only on a tablet linked to an Opie account) and
- *  iCloud (the Apple ID and an app-specific password, typed here and sealed to the tablet). Which calendars to show is
- *  chosen at the tablet. */
-export function SignIns({ c, family = [] }) {
-  const [linked, setLinked] = useState(null), [g, setG] = useState(null), [ic, setIc] = useState(false), [f, setF] = useState({ user: '', pass: '', who: '' }), [st, setSt] = useState(null);
-  useEffect(() => { c.json('GET', '/setup/household').then((r) => setLinked(!!r.json?.linked)).catch(() => setLinked(false)); }, []);
-  async function google() {
-    setG('…');
-    try {
-      const r = await c.json('POST', '/setup/google', HUB ? { r: location.origin + '/' } : {});
-      if (r.status !== 200 || !r.json?.url) return setG(r.json?.error || 'That didn’t work.');
-      window.open(r.json.url, '_blank', 'noopener'); setG(HUB ? 'Sign in to Google on the page that opened.' : 'Sign in to Google on the page that opened, then choose the calendars on the tablet.');
-    } catch { setG(`${The()} isn’t in touch right now.`); }
-  }
+/** A page that opens in its own tab once the tablet says where, after a round trip: the tab is opened at the tap
+ *  itself, since a phone's browser blocks one opened later (Safari always), and pointed there once the address comes.
+ *  go is false where even that was blocked: then the address is shown as a link to tap. */
+function tabForLater() {
+  let w = null;
+  try { w = window.open('', '_blank'); } catch {}
+  return {
+    go(url) { try { if (w && !w.closed) { w.opener = null; w.location.href = url; return true; } } catch {} return false; },
+    close() { try { w?.close(); } catch {} },
+  };
+}
+/** A sign-in that opened (or a link to it, where the tab couldn't open), and what to do there. */
+function Opened({ st }) {
+  if (!st) return null;
+  return st.url ? <a className="go act" href={st.url} target="_blank" rel="noopener noreferrer">{st.link}</a> : <p className="soft">{st.say}</p>;
+}
+/** Starts a Google sign-in from here (bridge /setup/google): its page opens in a new tab. */
+async function googleFrom(c, body, set, said) {
+  const tab = tabForLater();
+  set({ say: '…' });
+  try {
+    const r = await c.json('POST', '/setup/google', { ...body, ...(HUB ? { r: location.origin + '/' } : {}) });
+    if (r.status !== 200 || !r.json?.url) { tab.close(); return set({ say: r.json?.error || 'That didn’t work.' }); }
+    set(tab.go(r.json.url) ? { say: said } : { url: r.json.url, link: 'Open Google’s sign-in' });
+  } catch { tab.close(); set({ say: `${The()} isn’t in touch right now.` }); }
+}
+/** Calendars you sign in to, from here: Google (its sign-in opens here, in a new tab: the tablet's own page for it, on
+ *  the home Wi-Fi, then Google's; only on a tablet linked to an Opie account) and iCloud (the Apple ID and an
+ *  app-specific password, typed here and sealed to the tablet). Which calendars to show is chosen at the tablet. */
+export function SignIns({ c, family = [], linked: given }) {
+  const known = useLinked(c), linked = given ?? known;
+  const [g, setG] = useState(null), [ic, setIc] = useState(false), [f, setF] = useState({ user: '', pass: '', who: '' }), [st, setSt] = useState(null);
+  const google = () => googleFrom(c, {}, setG, HUB ? 'Sign in to Google in the new tab.' : 'Sign in to Google in the new tab, then choose the calendars on the tablet.');
   async function icloud() {
     setSt('sending');
     try {
@@ -120,9 +137,10 @@ export function SignIns({ c, family = [] }) {
       {linked && <button className="quiet" onClick={google}>Sign in with Google</button>}
       <button className="quiet" onClick={() => setIc(!ic)}>{linked ? 'iCloud' : 'Sign in to iCloud'}</button>
     </div>
-    {g && <p className="soft">{g}</p>}
+    <Opened st={g} />
     {ic && <>
-      <p>Make an app-specific password at appleid.apple.com, under Sign-In and Security. It goes only to {THE()}.</p>
+      {/* Apple's own page for it opens in a new tab: an app-specific password is made only there (not in iOS Settings). */}
+      <p>Make an app-specific password at <a href="https://account.apple.com/account/manage" target="_blank" rel="noopener noreferrer">account.apple.com</a>, in Sign-In and Security, and paste it here.</p>
       <input value={f.user} onChange={(e) => setF({ ...f, user: e.target.value })} placeholder="Apple ID (email)" type="email" autoCapitalize="off" autoComplete="off" />
       <input value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} placeholder="App-specific password" type="password" autoComplete="off" />
       {family.length > 0 && <div className="chips">{family.map((p) => <button key={p.name} className={'chip' + (f.who === p.name ? ' on' : '')} onClick={() => setF({ ...f, who: f.who === p.name ? '' : p.name })}>{p.name}</button>)}</div>}
@@ -131,22 +149,35 @@ export function SignIns({ c, family = [] }) {
     {st && st !== 'sending' && <p className="soft">{st}</p>}
   </>;
 }
+/** Whether the tablet is linked to an Opie account (Google's sign-ins go through it), or null until it's known. */
+function useLinked(c) {
+  const [linked, setLinked] = useState(null);
+  useEffect(() => { c.json('GET', '/setup/household').then((r) => setLinked(!!r.json?.linked)).catch(() => setLinked(false)); }, []);
+  return linked;
+}
 /** Google Photos, picked from here (the tablet's account linked): its sign-in and picker open here; the tablet copies them. */
 export function GooglePhotosHere({ c }) {
-  const [linked, setLinked] = useState(null), [st, setSt] = useState(null);
-  useEffect(() => { c.json('GET', '/setup/household').then((r) => setLinked(!!r.json?.linked)).catch(() => setLinked(false)); }, []);
+  const linked = useLinked(c), [st, setSt] = useState(null);
   if (!linked) return null;
-  async function go() {
-    setSt('…');
-    try {
-      const r = await c.json('POST', '/setup/google', { kind: 'photos', ...(HUB ? { r: location.origin + '/' } : {}) });
-      if (r.status !== 200 || !r.json?.url) return setSt(r.json?.error || 'That didn’t work.');
-      window.open(r.json.url, '_blank', 'noopener'); setSt('Sign in to Google and pick the photos on the page that opened.');
-    } catch { setSt(`${The()} isn’t in touch right now.`); }
-  }
-  return <><h2>Google Photos</h2><button className="quiet" onClick={go}>Pick from Google Photos</button>{st && <p className="soft">{st}</p>}</>;
+  return <><h2>Google Photos</h2><button className="quiet" onClick={() => googleFrom(c, { kind: 'photos' }, setSt, 'Sign in to Google and pick the photos in the new tab.')}>Pick from Google Photos</button><Opened st={st} /></>;
 }
-export function AddLink({ c, kind, family = [], sub = false, heading = true }) {
+/** The setup's calendar step here: the sign-ins, then a calendar's link. */
+export function CalendarsHere({ c, family = [], computer }) {
+  const linked = useLinked(c);
+  if (linked === null) return <p className="soft">…</p>;
+  return <>
+    <SignIns c={c} family={family} linked={linked} />
+    <AddLink c={c} kind="calendar" family={family} sub help={calendarHelp(linked, computer)} />
+  </>;
+}
+/** Where a calendar's link is: Google's secret address is only in Google Calendar on a computer (its app on a phone has
+ *  none), so on a phone it's left out where Google's sign-in is here instead, and said to be on a computer where not. */
+function calendarHelp(linked, computer) {
+  const rest = 'iCloud: share it as Public. Outlook: Publish, ICS link.';
+  if (computer) return `Google: the calendar’s settings, Secret address in iCal format. ${rest}`;
+  return linked ? rest : `${rest} Google: on a computer, the calendar’s settings, Secret address in iCal format.`;
+}
+export function AddLink({ c, kind, family = [], sub = false, heading = true, help }) {
   const how = HOW[kind];
   const [link, setLink] = useState(''), [who, setWho] = useState(''), [state, setState] = useState(null), [added, setAdded] = useState([]);
   async function add() {
@@ -159,7 +190,7 @@ export function AddLink({ c, kind, family = [], sub = false, heading = true }) {
   }
   return <>
     {sub ? <h2>Or a link</h2> : heading ? <h1>{how.title}</h1> : null}
-    <p>{how.help}</p>
+    <p>{help || how.help}</p>
     <input value={link} onChange={(e) => { setLink(e.target.value); setState(null); }} placeholder={how.hint} inputMode="url" autoCapitalize="off" autoComplete="off" />
     {kind === 'calendar' && family.length > 0 && <div className="chips">{family.filter((f) => !/\b(dog|cat|pet|fish|bird|hamster|rabbit)\b/i.test(String(f.note || ''))).map((f) => <button key={f.name} className={'chip' + (who === f.name ? ' on' : '')} onClick={() => setWho(who === f.name ? '' : f.name)}>{f.name}</button>)}</div>}
     {/* The tablet reads the link once before keeping it: "Added" only when it read, else what went wrong. */}
@@ -232,17 +263,6 @@ function SetupPlace({ c }) {
     {state && state !== 'saving' && <p className="soft">{state}</p>}
   </>;
 }
-/** Opie's AI: nothing to do when the account's voice is on for the household (or a key is in); else their own OpenAI
- *  key, or linking to an account (whose voice comes once the household is let in). */
-function AiHere({ c, computer }) {
-  const [v, setV] = useState(undefined);
-  useEffect(() => { c.json('GET', '/setup/household').then((r) => setV(r.json?.voice || null)).catch(() => setV(null)); }, []);
-  if (v === undefined) return <p className="soft">…</p>;
-  if (v?.own) return <><h1>Opie’s AI</h1><p>Using your own OpenAI key.</p></>;
-  if (v?.available) return <><h1>Opie’s AI</h1><p>Included with your Opie account.</p></>;
-  // (Opie accounts aren't offered in the setup until they're open to everyone: a beta household's tablet comes linked.)
-  return <><h1>Opie’s AI</h1><AddKey c={c} computer={computer} /></>;
-}
 /** The PIN, chosen here: it guards the tablet's Settings and saying yes to new apps. On a tablet without an account, its
  *  recovery code is shown here once, to keep. */
 function PinHere({ c }) {
@@ -274,34 +294,8 @@ function PinHere({ c }) {
     {st && st !== '…' && <p className="soft">{st}</p>}
   </>;
 }
-const VOICES = ['marin', 'gleam', 'meridian', 'delta', 'cinder', 'willow', 'stone', 'vesper', 'quartz', 'ripple', 'beacon', 'bossa', 'tempo', 'brise', 'sillage', 'nuri', 'juni', 'flitz', 'nira', 'harema', 'shida', 'noeul'];
-/** Opie's voice: pick one (the tablet says a line in it once it's on), then turn it on: what's said after "Hey Opie"
- *  goes to OpenAI. The try is at the tablet, where Opie listens. */
-function VoiceHere({ c }) {
-  const [v, setV] = useState(undefined), [voice, setVoice] = useState('marin'), [st, setSt] = useState(null);
-  useEffect(() => { c.json('GET', '/setup/household').then((r) => setV(r.json?.voice || null)).catch(() => setV(null)); }, []);
-  async function on() {
-    setSt('…');
-    try {
-      const r = await c.json('POST', '/setup/voice', { voice });
-      if (r.json?.on) { setSt(null); setV({ ...v, on: true }); } else setSt(r.json?.notYet ? 'Opie’s voice isn’t on for your household yet. It comes on by itself once it is.' : r.json?.error || 'That didn’t work.');
-    } catch { setSt(`${The()} isn’t in touch right now.`); }
-  }
-  const pick = (id) => { setVoice(id); if (v?.on) c.json('POST', '/setup/voice', { voice: id, do: 'sample' }).catch(() => {}); };
-  if (v === undefined) return <p className="soft">…</p>;
-  if (!v?.own && !v?.available) return <><h1>Talk to Opie</h1><p>This needs Opie’s AI. You can add a key later in {HUB ? 'the hub’s settings' : 'the tablet’s Settings, Voice'}.</p></>;
-  return <>
-    <h1>Talk to Opie</h1>
-    <p>{HUB ? 'Tap Opie on a phone or screen, then ask.' : 'Say “Hey Opie” at the tablet, then ask.'} What follows goes to OpenAI.</p>
-    <h2>Choose a voice</h2>
-    <div className="chips">{VOICES.map((id) => <button key={id} className={'chip' + (voice === id ? ' on' : '')} onClick={() => pick(id)}>{id[0].toUpperCase() + id.slice(1)}</button>)}</div>
-    {v?.on ? <p>{HUB ? 'It’s on.' : 'It’s on. Tap a voice to hear it at the tablet.'}</p>
-      : <button className="go act" disabled={st === '…'} onClick={on}>Turn on Opie’s voice</button>}
-    {st && st !== '…' && <p className="soft">{st}</p>}
-  </>;
-}
-/** The household's own OpenAI key, for the tablet's Opie's AI step: sent straight to the tablet on the home Wi-Fi,
- *  sealed, where it's checked and kept (OwnKey.kt). Never kept on this page, and never shown again. */
+/** The household's own OpenAI key, from a hub's settings page (hub.jsx; a tablet's is in its Settings, Voice): sent
+ *  straight on, sealed, where it's checked and kept. Never kept on this page, and never shown again. */
 export function AddKey({ c, computer }) {
   const [key, setKey] = useState(''), [state, setState] = useState(null);
   async function send() {

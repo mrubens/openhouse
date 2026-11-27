@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /** The setup, driven here: the steps the settings device shows (chat/src/setup-flow.jsx), and where it is. */
-export const SETUP_STEPS = ['people', 'place', 'calendar', 'photos', 'ai', 'pin', 'voice'];
+export const SETUP_STEPS = ['people', 'place', 'calendar', 'photos', 'pin'];
 export function setupSteps({ DISPLAY, household = () => ({}) }) {
   const FILE = path.join(DISPLAY, 'hub-setup.json');
   const read = () => { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { return null; } };

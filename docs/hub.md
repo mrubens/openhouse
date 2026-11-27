@@ -88,8 +88,8 @@ running starts one of its own (a laptop trying it).
 ### Setup, cards and the PIN
 
 - **The setup.** The first settings device (the code from the console) goes straight into the same setup a tablet's
-  phone shows (`chat/src/setup-flow.jsx`): who lives here, where, calendar links, iCloud albums, Opie's AI (their own
-  OpenAI key), the PIN, the voice, then invites for the family. The hub's bridge moves the steps on itself
+  phone shows (`chat/src/setup-flow.jsx`): who lives here, where, calendar links, iCloud albums, the PIN, then invites
+  for the family (their own OpenAI key is on the settings page). The hub's bridge moves the steps on itself
   (`hub-setup.json` in the data folder).
 - **"Is this OK?" cards.** What the tablet asks someone there (a workshop fix, a plugin, an app made here, a calendar
   sent by the assistant) shows on the settings page and on grown-ups' phones (`chat/src/asks.jsx`), with its yes and No; one that needs the PIN asks for it there. Nobody

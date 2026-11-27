@@ -177,14 +177,8 @@ export function recentTalk({ keepMs = 30 * 60e3, max = 60, clock = () => Date.no
 }
 
 
-/** The first setup on the tablet's screen (the shell's SetupSheet, POST /setup/step). It's quiet, typed and tapped,
- *  until its last step, the only one with a voice: talking to Opie, where they've just turned the voice on and try it. */
-export const SETUP_STEPS = {
-  voice: 'The setup\'s last step, Talk to Opie: they have just turned your voice on and are trying it, perhaps with "what\'s the weather?". Answer as you always would, briefly. Never ask for a PIN aloud (you never see or hear it).',
-};
 
 export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '', assistantName = () => 'Opie', now = () => '', json, body, talk = recentTalk(), household = null }) {
-  let setupStep = null, setupAt = 0;
   // Which setup step the tablet shows, whatever it is (the setup phone or computer follows it: chat/src/phone.jsx).
   // On the photos step, the household's photo page (PhotoShare's link) once someone turned it on there: the setup
   // phone or computer opens it, rather than a second code to scan.
@@ -212,7 +206,6 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   // go_away tool would end it, so after each thing heard /live/said answers {end: true} when it should stop.
   const shouldStop = () => judge(`Should ${assistantName()}, the household's voice assistant, stop listening and end this conversation now, given what the person said last? ` +
     'Yes if they are done with it: dismissing it, telling it to go away or hang up, or saying goodbye to it. No if they still want something from it, or are asking it to stop or end something else (a timer, the music, a list).', 0.7);
-  const inSetup = () => setupStep && household && Date.now() - setupAt < 30 * 60e3;
   // Voice actions the apps declare (plugins.js voiceTools/callVoice), set once the plugins are up: data only, each one
   // done by its app's own page.
   let builds = null; // (text, who, {phone}) => {ok, queued?, busy?}: the builder (builder.js request), when apps are made on the tablet
@@ -231,11 +224,10 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
     const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name));
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds && !inSetup() ? [MAKE_APP_TOOL, ...waitTools()] : [])];
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds ? [MAKE_APP_TOOL, ...waitTools()] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
-  const setupText = () => !inSetup() ? '' : '\n\n---\n\nThe tablet was just set up, and its setup is on the screen now. ' + SETUP_STEPS[setupStep];
-  const instructions = () => livePreamble(assistantName(), !!builds) + read('CHAT.md') + (device?.rules() || '') + prefsBlock() + setupText();
+  const instructions = () => livePreamble(assistantName(), !!builds) + read('CHAT.md') + (device?.rules() || '') + prefsBlock();
   /** One tool, as the assistant would call it (outside any conversation's turn). */
   const lately = []; // [{at, key}]: the calls of the last minute, to stop the same one being made over and over
   // The voice's backend fills in every part of a tool's schema (strict function calling): tool-args.js takes out what
@@ -368,10 +360,11 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   function heard(text) { try { return device?.heard(text) || false; } catch { return false; } }
   async function handle(req, res, url) {
     if (req.method === 'POST' && url.pathname === '/setup/step') { // the display only (its secret), like every route here
-      const b = await body(req); const s = String(b.step || ''); setupStep = SETUP_STEPS[s] ? s : null; setupAt = Date.now();
-      shownStep = /^[a-z]{1,20}$/.test(s) ? s : null; shownAt = setupAt;
+      // (The setup is quiet throughout: nothing listens until it's over, so the live voice is never told about it.)
+      const b = await body(req); const s = String(b.step || '');
+      shownStep = /^[a-z]{1,20}$/.test(s) ? s : null; shownAt = Date.now();
       shownPhotos = shownStep === 'photos' && /^https?:\/\/[^\s"'<>]{1,600}$/.test(String(b.photos || '')) ? String(b.photos) : null;
-      json(res, 200, { ok: true, step: setupStep }); return true;
+      json(res, 200, { ok: true, step: shownStep }); return true;
     }
     if (req.method === 'POST' && url.pathname === '/setup/guess') { // the display: where it guesses it is, for the place step on the phone
       const b = await body(req), t = (v) => String(v || '').trim().slice(0, 120);
