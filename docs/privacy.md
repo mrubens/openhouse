@@ -77,6 +77,25 @@ Google API Services User Data Policy (developers.google.com/terms/api-services-u
 the Limited Use requirements. We don't sell it, use it for advertising, or use it to train AI models, and no person
 reads it except, with the household's permission, to help with a problem they report.
 
+## How we protect data
+
+This covers everything above, including data from Google (calendar events, photos and sign-in tokens).
+
+- **In transit:** everything between the household's devices, our service and Google goes over https (TLS). Our
+  service refuses plain http. Between the household's own phones and tablet, requests are also sealed with keys only
+  those devices hold, so our relay can't read them.
+- **On the tablet:** Google's refresh token is encrypted with AES-256-GCM, using a key kept in the device's Android
+  Keystore that can't be copied off the device. It's kept in Opie's private storage, apart from the household's
+  files, and never goes into a backup. Android encrypts the rest of the device's storage.
+- **On our service:** we keep no Google tokens, events or photos. Google's sign-in passes through it once and the
+  token goes only to the household's device that asked for it; it is never written to a database or log. Our Google client secret is
+  kept in AWS's encrypted parameter store, readable only by the service itself.
+- **Stored data:** the account database and backups are encrypted at rest by AWS. Backups are also encrypted on the
+  tablet before they're uploaded. Storage is never public, and only accepts https.
+- **Who can reach it:** only the people who run Opie, through individual accounts with single sign-on. No one reads a
+  household's data except, with the household's permission, to help with a problem they report.
+- **Problems:** if we learn of a breach affecting a household's data, we tell them by email and fix the cause.
+
 ## Companies that help run it
 
 - **Amazon Web Services** (United States): hosting, storage of encrypted backups, receiving email to the tablet, and
