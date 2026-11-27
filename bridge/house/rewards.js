@@ -12,8 +12,9 @@ export default function (house) {
     data.asks = data.asks.filter((x) => x.id !== ask.id);
   }
   async function askGrownUp(ask) {
-    // The shell's "Is this OK?" card, with the PIN when there is one. Nothing the assistant says answers it.
-    const r = await house.shell('/approve', { title: `${ask.who}: ${ask.title}?`, detail: `For ${ask.stars} stars.`, pin: true, yes: 'Give it' }, 100_000);
+    // The shell's "Is this OK?" card, with the PIN when there is one and Give rewards asks for it (for: the shell's
+    // PinChoices). Nothing the assistant says answers it.
+    const r = await house.shell('/approve', { title: `${ask.who}: ${ask.title}?`, detail: `For ${ask.stars} stars.`, pin: true, for: 'rewards', yes: 'Give it' }, 100_000);
     if (!data.asks.some((x) => x.id === ask.id)) return;
     // No card on this display (device access off): the Chores app shows the ask, but only a no counts from there. No answer
     // in time (nobody came): it's dropped, and the kid asks again; it never falls to a button anyone can tap.
@@ -33,7 +34,7 @@ export default function (house) {
     if (!adds.length && !removes.length) return [];
     if (!house.canAsk()) return setUpRewards(adds, removes);
     const what = [...adds.map((x) => `${str(x.title, 60)} for ${Math.max(1, Math.min(500, Math.round(Number(x.stars) || 10)))} stars`), ...removes.map((x) => `take off ${data.rewards.find((y) => y.id === x || same(y.title, x))?.title || x}`)].join('; ');
-    house.shell('/approve', { title: 'Change the rewards?', detail: what, pin: true, yes: 'Change' }, 100_000).then((r) => {
+    house.shell('/approve', { title: 'Change the rewards?', detail: what, pin: true, for: 'rewards', yes: 'Change' }, 100_000).then((r) => {
       if (r?.yes === true) { setUpRewards(adds, removes); save(); }
     });
     return [`asked someone to OK it on the display (${what})`];

@@ -291,20 +291,20 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         if (trusted) thread { CalendarLinks.add(who, url, name, only); CalendarLinks.sync(); main.post { done(true) } }
         else CalendarLinks.offer(this, { ok -> ok() }, who, url, from, ::immersive, done, name, only)
     /** "Add an iCloud album" from the Photos app: behind the PIN when the lock is on, then the paste box. */
-    internal fun addAlbum() = lock.withPin { PhotoAlbums.add(this, ::immersive) }
+    internal fun addAlbum() = lock.withPin(choice = PinChoices.PHOTOS) { PhotoAlbums.add(this, ::immersive) }
     /** "Photos from phones, any time": behind the PIN when the lock is on, the lasting link's QR code (PhotoShare). */
-    internal fun sharePhotos() = lock.withPin { PhotoShare.show(this, ::immersive) }
+    internal fun sharePhotos() = lock.withPin(choice = PinChoices.PHOTOS) { PhotoShare.show(this, ::immersive) }
     /** The setup's photos step, with its phone or computer connected: the same yes as above, then no code to scan (the
      *  link goes to that phone or computer: ui/Setup.kt). */
-    internal fun sharePhotosOn() = lock.withPin { PhotoShare.turnOn(this, ::immersive) }
+    internal fun sharePhotosOn() = lock.withPin(choice = PinChoices.PHOTOS) { PhotoShare.turnOn(this, ::immersive) }
     /** "Add photos from Google": behind the PIN when the lock is on, the phone page for Google Photos' picker (GooglePhotos). */
-    internal fun googlePhotos() = lock.withPin { GooglePhotos.show(this, ::immersive) }
+    internal fun googlePhotos() = lock.withPin(choice = PinChoices.PHOTOS) { GooglePhotos.show(this, ::immersive) }
     /** An album link from the computer or the assistant (DeviceServer /album): the tablet's card, then the PIN. */
     /** A linked album taken off, from the Photos app (it asked first): behind the PIN when the lock is on. */
-    internal fun stopAlbum(id: String) = lock.withPin { thread { PhotoAlbums.remove(id) } }
+    internal fun stopAlbum(id: String) = lock.withPin(choice = PinChoices.PHOTOS) { thread { PhotoAlbums.remove(id) } }
     internal fun offerAlbum(url: String, from: String, done: (Boolean) -> Unit, trusted: Boolean = false) =
-        if (trusted && !lock.on) thread { PhotoAlbums.add(url); PhotoAlbums.sync(); main.post { done(true) } }
-        else PhotoAlbums.offer(this, { ok -> lock.withPin(ok = ok) }, url, from, ::immersive, done)
+        if (trusted && !lock.asks(PinChoices.PHOTOS)) thread { PhotoAlbums.add(url); PhotoAlbums.sync(); main.post { done(true) } }
+        else PhotoAlbums.offer(this, { ok -> lock.withPin(choice = PinChoices.PHOTOS, ok = ok) }, url, from, ::immersive, done)
     /** Out of kiosk until the display is opened again from its icon (the tablet's own home screen meanwhile). */
     internal fun leaveKioskForGood() { kioskPaused = true; DeviceOwner.leaveForGood(this) }
     internal val safeMode get() = getSharedPreferences("shell", MODE_PRIVATE).getBoolean("safe_mode", false)
@@ -451,7 +451,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
                     val open = { leaveKiosk(); startActivity(Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)) }
                     val settings = { lock.withPinSet(back = {}) { open() } }
                     when {
-                        firstSetup -> lock.withPin { open() }
+                        firstSetup -> lock.always { open() }
                         DeviceOwner.isOwner(this@MainActivity) -> WifiJoin.show(this@MainActivity, settings)
                         else -> settings()
                     }
@@ -518,7 +518,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     fun openAurora() {
         val acc = DeviceAccess.instance ?: return toast("Opie's access to the tablet is off, so Aurora Store can't open")
         thread {
-            if (!acc.approve("Open Aurora Store?", "Android apps from Google Play. Each one you install asks here first.", parent = ParentPin.isSet(this), yes = "Open")) return@thread
+            if (!acc.approve("Open Aurora Store?", "Android apps from Google Play. Each one you install asks here first.", parent = PinChoices.needed(this, PinChoices.APPS), yes = "Open")) return@thread
             AuroraInstall.openStore(acc)?.let { e -> main.post { toast(e) } }
         }
     }
@@ -526,7 +526,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     /** An Android app from the board. One that leads out of kiosk mode (Settings, a store) needs the PIN on the card. */
     private fun openAndroidApp(pkg: String) {
         if (!KioskApps.needsParent(pkg)) { KioskApps.openApp(pkg); return }
-        val acc = DeviceAccess.instance ?: return lock.withPin { KioskApps.openApp(pkg, parentOk = true) }
+        val acc = DeviceAccess.instance ?: return lock.always { KioskApps.openApp(pkg, parentOk = true) } // (a way out of Opie: always)
         thread { if (acc.approve("Open ${AppStore.label(pkg)}?", "", parent = ParentPin.isSet(this), yes = "Open")) main.post { KioskApps.openApp(pkg, parentOk = true) } }
     }
 

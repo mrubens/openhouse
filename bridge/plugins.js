@@ -708,7 +708,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     if (!approve) return { ok: false, error: 'Nobody here to ask.' };
     asking.add(app);
     let yes = false;
-    try { yes = await approve(`Let ${a.name || app} reach ${h}?`, '', true, { rights: [{ kind: 'web', text: `${setup.why.replace(/\.$/, '')}.` }], more: `${a.name || app}${o.e.title && o.e.title !== a.name ? ` (the ${o.e.title} plugin)` : ''} reads from ${h} through the tablet. Settings, Plugins takes it away again.` }); }
+    try { yes = await approve(`Let ${a.name || app} reach ${h}?`, '', true, { for: 'apps', rights: [{ kind: 'web', text: `${setup.why.replace(/\.$/, '')}.` }], more: `${a.name || app}${o.e.title && o.e.title !== a.name ? ` (the ${o.e.title} plugin)` : ''} reads from ${h} through the tablet. Settings, Plugins takes it away again.` }); }
     finally { asking.delete(app); }
     if (yes !== true) return { ok: false, error: 'Not this time.' };
     const r = inChange(`Let ${a.name || app} reach ${h}`, null, null, () => {
@@ -1150,14 +1150,15 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     return { f, p: x.p };
   }
   /** The tablet's card for an update: what's new, everything it may do then, and where it's from when that isn't
-   *  where it came from before (then the PIN, always). */
+   *  where it came from before (then the PIN, always: no PIN choice for it). Otherwise the PIN follows the household's
+   *  choice for adding apps (for: 'apps', the shell's PinChoices), as adding one does. */
   function askUpdate(f, p, d, choice, { pin = false, source = null } = {}) {
     const from = f.e.version || f.e.commit?.slice(0, 7), to = p.version || p.commit?.slice(0, 7);
     const moved = !!source && sourceOf({ source: p.src.key || p.src.label }) !== sourceOf(f.e);
     const rights = [...(moved ? [{ kind: 'from', text: p.src.catalog ? `From Opie's list, reviewed, not ${sourceOf(f.e)} as before.` : `From ${p.src.label}, not ${sourceOf(f.e)} as before. Not reviewed for Opie's list.` }] : []),
       ...d.newRights.map((t) => ({ kind: 'new', text: `New: ${t}` })), ...rightsList(p.apps)];
     return approve(`Update ${f.e.title}?`, choice === 'both' ? 'Their new version, with the household\'s changes kept.' : '', pin || moved || d.newRights.length > 0,
-      { yes: 'Update', rights, more: [from, to].filter(Boolean).join(' to ') }).then((yes) => ({ yes, moved }));
+      { yes: 'Update', ...(moved ? {} : { for: 'apps' }), rights, more: [from, to].filter(Boolean).join(' to ') }).then((yes) => ({ yes, moved }));
   }
   /** One of the household's choices for an update: 'theirs' (replaces their changes), 'both' (merge), 'keep' (skip it). */
   async function choose(name, p, choice, ctx) {
@@ -1289,7 +1290,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
         const p = await inspect(a.source);
         if (readAll()[p.name]?.kind === 'shared') return err(`The ${p.title} plugin is already on this tablet: update_plugin brings a newer version.`);
         if (!approve) return err(cantAsk);
-        const yes = await approve(`Add ${p.title}?`, '', true, { yes: 'Add', ...card(p, { already: false }) });
+        const yes = await approve(`Add ${p.title}?`, '', true, { yes: 'Add', for: 'apps', ...card(p, { already: false }) });
         if (yes === null) return err(cantAsk);
         if (!yes) return err('Not added: someone said no, or nobody answered.');
         const r = put(p, { tabs: a.tabs !== false, who, by });
@@ -1382,7 +1383,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       if (url.pathname === '/plugins/install') {
         const p = await inspect(b.source);
         if (readAll()[p.name]?.kind === 'shared') { json(res, 200, { already: true, name: p.name, title: p.title }); return true; }
-        const yes = approve ? await approve(`Add ${p.title}?`, '', true, { yes: 'Add', ...card(p, { already: false }) }) : null;
+        const yes = approve ? await approve(`Add ${p.title}?`, '', true, { yes: 'Add', for: 'apps', ...card(p, { already: false }) }) : null;
         if (yes === null) { json(res, 409, { error: cantAsk }); return true; }
         if (!yes) { json(res, 200, { declined: true, title: p.title }); return true; }
         const r = put(p, { tabs: b.tabs !== false, who: 'someone' }); json(res, r.error ? 409 : 200, { title: p.title, ...r }); return true;

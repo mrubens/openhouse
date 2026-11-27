@@ -164,7 +164,7 @@ object OwnKey {
             }
             Unit
         }
-        if (!act.lock.on) return go()
+        if (!act.lock.asks(PinChoices.SETTINGS)) return go()
         PinPrompt.ask(act, act, "Use the OpenAI key sent from the phone?", { go() }, cancelled = { done("Nobody typed the PIN on the tablet, so the key wasn't kept.") })
     }
 

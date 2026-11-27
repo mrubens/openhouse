@@ -14,12 +14,16 @@ the tablet", and from a phone, that it's on the tablet itself. The rules that do
 - What is person-only (`DeviceServer.personOnly`: turning on email, allowing a held email, Opie uses apps and other
   switches that widen what Opie may do, ways out of Opie, saying yes to a calendar or album someone sent, or to the account that entered the link code) needs a
   person's own tap, PIN or not. Opie can open the screen; the tap is theirs.
+- Which everyday things ask for the PIN (Settings → Advanced → Ask for the PIN, docs/settings.md): Opie changes a
+  switch only when asked (`pin_choices`), and the tablet asks for the PIN on its own card; the switch itself is a
+  person's own tap. A switch that's off means a person's plain yes, never Opie's.
 - PIN Lock itself (turning it off, changing the PIN, Forgot PIN? and its Reset with your account, whose code card is
   a person card with the PIN pad's mark) and leaving kiosk mode: Opie only opens the screen. Asking Opie to
   take off the lock that guards against Opie makes no sense, and leaving kiosk mode takes the tablet out of Opie.
 
 `test/house.test.mjs` checks the PIN can't be got round: Opie's change to a locked calendar or a reward goes through
-the card, and a no (or no card) leaves things as they were.
+the card, naming its switch, and a no (or no card) leaves things as they were. The shell's `PinChoicesTest` checks a
+switch that's on still asks, what isn't a switch always asks and can't be turned off, and changing one takes the PIN.
 
 Opie's tools: `LIVE_TOOLS` and the voice's own tools in `bridge/live-tools.js` (timer, weather, read_page, volume,
 tablet_screen, home_devices, tv, bluetooth, music, message_family, show_on_screen, the apps' voice actions); the home screen's
@@ -51,8 +55,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Lists card: tick, untick, add | yes | change_list |
 | An app's day notes: week, today only, off | **new** | calendar_event settings.app_notes |
 | Sleep now (the moon) | **new** | tablet_screen sleep |
-| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and a grown-up says yes on the tablet's card, with the PIN, before it goes in; the card also names any exact websites the app asked to reach (docs/building-on-the-tablet.md) |
-| Home: "… is waiting for a grown-up" (an app made on the tablet nobody said yes to yet): its card again | **new** | ask_grownup_again puts the card back up; only a person answers it, with the PIN |
+| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and a grown-up says yes on the tablet's card (with the PIN when Ask for the PIN → Add apps is on) before it goes in; the card also names any exact websites the app asked to reach (docs/building-on-the-tablet.md) |
+| Home: "… is waiting for a grown-up" (an app made on the tablet nobody said yes to yet): its card again | **new** | ask_grownup_again puts the card back up; only a person answers it (with the PIN when Add apps asks) |
 
 ## The built-in apps
 
@@ -63,10 +67,10 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Calendar: the usual reminder and saying it aloud (the bell) | **new** | calendar_event settings |
 | Calendar: an event from a flyer photo sent from a phone | **new** | flyer_photo (was typed-only), then calendar_event |
 | Calendar: Add a calendar | yes | add_calendar; the tablet asks for the PIN |
-| Calendar, with "Calendar needs the PIN" on: any change | **new** | calendar_event asks; the tablet's card takes the PIN, then the calendar is open for 5 minutes, as after the app's unlock. A computer's workshop isn't asked |
+| Calendar, with Ask for the PIN → Change the calendar on: any change | **new** | calendar_event asks; the tablet's card takes the PIN, then the calendar is open for 5 minutes, as after the app's unlock. A computer's workshop isn't asked |
 | Chores: done / not done, who did an Anyone chore, add, change (who, days, every N days, stars, picture, stays until done), skip, remove | yes | change_chores |
 | Chores: rewards add, remove | yes | change_rewards |
-| Chores: spend stars on a reward (Get it!) | **new** | change_rewards redeem: the same card as Get it!, a grown-up's yes with the PIN on the tablet |
+| Chores: spend stars on a reward (Get it!) | **new** | change_rewards redeem: the same card as Get it!, a grown-up's yes on the tablet (with the PIN when Give rewards asks) |
 | Chores: routines add, change, remove, tick a step | yes | change_routines |
 | Lists: tick, add, edit, whose, remove, clear checked, new list, rename, delete list | yes | change_list |
 | Lists: by store section or in the order added | **new** | change_list byAisle |
@@ -77,7 +81,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Recipes: search the web, choose, cook, steps, timers, take a recipe out | yes | the Recipes app's voice actions (recipes__*), save_recipe, set_meals |
 | Photos: take off, put back, caption | **new** | photos |
 | Photos: albums: new, rename, put photos in or out, sleep screen and All, remove | **new** | photos album |
-| Photos: add photos or an iCloud album | yes | Photos come from a phone; add_photo_album asks for the PIN |
+| Photos: add photos or an iCloud album | yes | Photos come from a phone; add_photo_album asks a person's yes (with the PIN when Add photo albums asks) |
 | Photos: stop keeping an iCloud album | screen | On its card in Photos |
 | Weather: where home is | **new** | update_household location (was typed-only) |
 | Whiteboard: draw, clear, save | no | Drawing is the finger's; the board stays on that device (a small picture of it shows on Home's card) |
@@ -89,7 +93,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 
 | Row | Opie | Notes |
 | --- | --- | --- |
-| Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN; then it chooses there |
+| Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN (while Change settings asks); then it chooses there |
 | Voice → Check the microphone (does Opie hear you: the level, then "Hey Opie", and too quiet, too noisy or blocked) | **new** | mic_check: start puts the check on the screen (no PIN: it changes nothing); from the tablet's own voice the conversation ends first so the check can have the microphone, typed or from a phone it waits for the answer; last says how the last one went |
 | "Turn on Opie?", asked once when a linked household's voice becomes available and nobody here had said yes | no, on purpose | personOnly: it's the yes to what goes to OpenAI (and the voice is off then, so there's no Opie to ask) |
 | The first setup's Choose a PIN | no, on purpose | As PIN Lock: Opie can't choose or see a PIN, and the setup is quiet until its last step, so there's no Opie to ask |
@@ -112,6 +116,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Email: turn on, allow a held email, who's read | no, on purpose | personOnly (turning it off: screen, with the PIN) |
 | Account: link, backups, reach from away | screen, with the PIN | Opie opens the row; the tablet asks for the PIN. The yes to the account that entered the code is personOnly |
 | Updates (Settings, no PIN); Advanced: home network, cloud address, speech log | screen, with the PIN | Opie opens it; the tablet asks for the PIN |
+| Advanced → Ask for the PIN: a switch on or off (Add apps, Add photo albums, Change the calendar, Give rewards, Change settings) | **new** | pin_choices: get says each and what always asks; set puts the tablet's own card up ("Stop asking for the PIN to add apps?"), which takes the PIN typed by a person (a real finger within the two minutes after it), and a no leaves it. Opie's tap on the switch in Settings is refused (personOnly). With no PIN set it says nothing asks |
+| What always needs the PIN: these switches, PIN Lock, Advanced, Account and Backups, adding a linked device, the ways out of Opie, erasing, a plugin update from somewhere new | no, on purpose | Not a switch: pin_choices says so and can't turn them off. They change who reaches the household, widen what Opie may do, or leave Opie |
 | Advanced: PIN Lock, leave kiosk mode, erase this tablet | no, on purpose | Opie only opens the screen (above); with no PIN set, erase and the ways out (Wi-Fi settings after the first setup, Unlink, Restore too) ask a person to set one first, which outside the first setup needs the tablet linked to an account |
 | Advanced: "We haven't tested this tablet", "Opie's software was stopped by Android" | no, on purpose | Two lines of information, not actions; the steps for the child-process limit end on Android's own Developer options, outside Opie, behind the PIN |
 | Join Wi-Fi (the "Not on Wi-Fi" note): a nearby network and its password, no PIN | no, on purpose | It's for a tablet that's offline, when Opie (the cloud's) can't be reached. Its Wi-Fi settings button is a way out, as above |
@@ -122,9 +128,9 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Night hours | yes | night_hours |
 | Volume (no row: the tablet's buttons) | yes | volume |
 | Advanced: Now playing (shown while Opie can't see what the media apps play) | no, on purpose | personOnly: it widens what Opie may see; Android's own page, with the PIN |
-| Plugins: find, look at, add, update, remove | **new** | find_plugins, look_at_plugin, add_plugin, update_plugin, remove_plugin: each change asks on the tablet, with the PIN |
+| Plugins: find, look at, add, update, remove | **new** | find_plugins, look_at_plugin, add_plugin, update_plugin, remove_plugin: each change asks on the tablet (with the PIN when Add apps asks; an update from somewhere new always) |
 | Signing in to Spotify for the tablet's own player (Settings → Advanced → Spotify) | done | music `spotify_sign_in` puts Spotify's sign-in page on the screen; the person types there |
-| An Android app from Apps → Add apps (its "Music and books" suggestions) | done | install_app: the same Aurora Store steps and the same card, with the PIN when it's on |
+| An Android app from Apps → Add apps (its "Music and books" suggestions) | done | install_app: the same Aurora Store steps and the same card, with the PIN when Add apps asks |
 | Apps → Android apps: Aurora Store itself (a yes first, the PIN when it's on) | done | install_app, for a named app (the same card). Opening the store itself stays a person's: open_app never opens a store (DeviceRules.neverOpen) |
 
 ## The phone page

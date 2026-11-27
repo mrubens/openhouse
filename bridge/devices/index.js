@@ -642,6 +642,25 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     return { ok: true, text: 'The microphone check is on the tablet\'s screen: someone there says "Hey Opie" to it, and it shows what it heard. Ask again (mic_check last) to hear how it went.' };
   }
   handle.micCheck = micCheckDo; handle.micCheckOn = () => host.can('mic-check');
+  /** What asks for the PIN (the voice's "pin_choices" tool): the shell's /pin-choices (PinChoices.kt). Changing one waits
+   *  for the PIN on the tablet's own card, which only a person answers. */
+  async function pinChoicesDo({ do: what = 'get', choice, ask } = {}) {
+    const set = what === 'set';
+    const r = await shell('/pin-choices', set ? { do: 'set', what: String(choice || ''), ask: ask === true } : { do: 'get' }, set ? 110e3 : 5000);
+    if (!r || !Array.isArray(r.choices)) return { ok: false, text: 'The PIN\'s choices need the tablet (the shell isn\'t answering).' };
+    const now = r.choices.map((c) => `${c.label}: ${c.asks ? 'asks for the PIN' : 'no PIN'}`).join('; ');
+    const always = `Always the PIN, whatever the choices: ${(r.always || []).join('; ')}.`;
+    if (!r.pin) return { ok: !set, text: `The tablet has no PIN, so nothing asks for one${set ? ', and the choices can\'t be changed until someone sets one (Settings → Advanced → PIN Lock)' : ''}. Once one is set: ${now}.` };
+    if (!set) return { ok: true, text: `Ask for the PIN to: ${now}. ${always}` };
+    switch (r.changed) {
+      case 'done': return { ok: true, text: `Done. Now: ${now}.` };
+      case 'same': return { ok: true, text: `It was already so. Now: ${now}.` };
+      case 'not_a_choice': return { ok: false, text: `That isn't one of the choices. ${always} Say so; don't look for another way.` };
+      case 'not_confirmed': return { ok: false, text: 'Not changed: nobody typed the PIN on the tablet. Say so; they can ask again when someone is at the tablet.' };
+      default: return { ok: false, text: 'Not changed: the tablet couldn\'t ask for the PIN right now (its screen is busy or off). Someone can change it in Settings → Advanced → Ask for the PIN.' };
+    }
+  }
+  handle.pinChoices = pinChoicesDo; handle.pinChoicesOn = () => host.can('pin-choices');
   /** Music and audiobooks in the tablet's media apps (the voice's "music" tool): the shell's /media (Media.kt,
    *  docs/music.md). What the apps say (titles, artists) is theirs: marked as data. */
   // The tablet's own Spotify player (Media.kt, SpotifyEmbed.kt), once someone signed in to Spotify in Opie: the thing's
