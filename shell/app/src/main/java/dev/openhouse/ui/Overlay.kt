@@ -92,7 +92,7 @@ fun ShellOverlay() {
             val said = live ?: heard?.text?.takeIf { it != "…" && !it.startsWith("Got it") }
             val dropped = o.ignored?.takeIf { o.now - it.at < 3000 }
             // Their words: along the bottom, centred under the sheet, never where the assistant's words are (at the left).
-            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 260.u).padding(bottom = 96.u), contentAlignment = Alignment.Center) {
+            Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = (if (isCompact()) 16 else 260).u).padding(bottom = (if (isCompact()) 140 else 96).u), contentAlignment = Alignment.Center) { // (a phone: above its tabs)
                 AnimatedVisibility(o.typing == null && (said != null || dropped != null), enter = fadeIn(), exit = fadeOut()) {
                     TheirWords(said ?: dropped?.text ?: "", crossed = said == null)
                 }
@@ -134,7 +134,7 @@ fun ShellOverlay() {
             // Typing: a tap anywhere outside the box puts it away (so does a tap on the assistant).
             if (o.typing != null) Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { o.closeTyping() })
             // Above the on-screen keyboard (the window doesn't shrink for it: MainActivity.immersive), never under it.
-            AnimatedVisibility(o.typing != null, Modifier.align(Alignment.BottomCenter).imePadding().padding(horizontal = 260.u), enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut() + slideOutVertically { it / 2 }) {
+            AnimatedVisibility(o.typing != null, Modifier.align(Alignment.BottomCenter).imePadding().padding(horizontal = (if (isCompact()) 16 else 260).u), enter = fadeIn() + slideInVertically { it / 2 }, exit = fadeOut() + slideOutVertically { it / 2 }) {
                 TypeBox(o.typing ?: "")
             }
             LaunchedEffect(Unit) { Devices.ensureLoaded() }

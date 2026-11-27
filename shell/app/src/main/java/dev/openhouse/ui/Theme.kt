@@ -58,6 +58,9 @@ val LocalU = staticCompositionLocalOf { 0.75f }
 val Int.u: Dp @Composable get() = (this * LocalU.current).dp
 val Float.u: Dp @Composable get() = (this * LocalU.current).dp
 
+/** A phone (Calm.compact): its short side under 600 dp. */
+@Composable fun isCompact(): Boolean = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp in 1..599
+
 /** A width (or [height]) of at most the screen's, less a margin: a card drawn for a tablet fits a phone (Calm.compact). */
 @Composable fun fit(w: Dp, height: Boolean = false): Dp = androidx.compose.ui.platform.LocalConfiguration.current.let {
     minOf(w, ((if (height) it.screenHeightDp else it.screenWidthDp) - 24).dp) }

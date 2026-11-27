@@ -83,7 +83,7 @@ internal fun ConversationScreen() {
                         Chip("Close") { o.closeConversation() }
                     }
                     Spacer(Modifier.height(24.u))
-                    Column(Modifier.weight(1f).verticalScroll(scroll).padding(end = 150.u), verticalArrangement = Arrangement.spacedBy(26.u)) {
+                    Column(Modifier.weight(1f).verticalScroll(scroll).padding(end = (if (isCompact()) 0 else 150).u), verticalArrangement = Arrangement.spacedBy(26.u)) {
                         val turns = c?.turns ?: emptyList()
                         turns.forEachIndexed { i, t ->
                             if (t.role == "user") Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
