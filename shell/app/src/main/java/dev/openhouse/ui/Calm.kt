@@ -228,8 +228,12 @@ object Calm {
             override fun onDraw(canvas: android.graphics.Canvas) { svg?.draw(canvas, 0f, 0f, minOf(width, height).toFloat()) }
         }.apply { minimumWidth = px(c, size); minimumHeight = px(c, size) }
     }
-    /** The name, as the first screens show it in their corner (until there's a logo). */
-    fun wordmark(c: Context) = text(c, "Opie", 22f, 600)
+    /** The logo and the name, as the first screens show them in their corner. */
+    fun wordmark(c: Context) = LinearLayout(c).apply {
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        addView(android.widget.ImageView(c).apply { setImageResource(dev.openhouse.shell.R.drawable.logo) }, LinearLayout.LayoutParams(px(c, 30), px(c, 30)))
+        addView(text(c, "Opie", 22f, 600), LinearLayout.LayoutParams(-2, -2).apply { leftMargin = px(c, 10) })
+    }
 
     /** A ScrollView no taller than [maxPx]. */
     class Capped(c: Context, private val maxPx: Int) : ScrollView(c) {

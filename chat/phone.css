@@ -12,6 +12,8 @@ html, body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.4
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 .soft { color: var(--soft); }
 .brand { font-weight: 700; letter-spacing: -.02em; }
+/* The logo before the name, wherever the name stands alone (brand/logo.svg). */
+.brand::before { content: ""; display: inline-block; width: 1.2em; height: 1.2em; margin-right: .4em; vertical-align: -.25em; background: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 512 512%27%3E%3Crect width=%27512%27 height=%27512%27 rx=%27112%27 fill=%27%232a2826%27/%3E%3Cpath d=%27M136 260 256 152l120 108v116a20 20 0 0 1-20 20H156a20 20 0 0 1-20-20Z%27 fill=%27none%27 stroke=%27%23fbf9f5%27 stroke-width=%2728%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E") center / contain no-repeat; }
 .join { max-width: 440px; margin: 0 auto; padding: calc(32px + env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left)); }
 .join .brand { margin-bottom: 44px; }
 .join h1 { font-size: 34px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; margin: 0 0 12px; }

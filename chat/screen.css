@@ -725,3 +725,6 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .home.compact:not(.upright) .h-more-veil { align-items: stretch; justify-content: flex-start; }
 .home.compact:not(.upright) .h-more { flex: none; width: calc(var(--u) * 320); max-height: none; margin: calc(var(--u) * 16) 0 calc(var(--u) * 16) calc(var(--u) * 200); }
 .home.compact:not(.upright) .h-more { align-self: flex-end; } /* (as tall as its tabs, by More) */
+
+/* The logo before the name, wherever the name stands alone (brand/logo.svg). */
+.brand::before { content: ""; display: inline-block; width: 1.2em; height: 1.2em; margin-right: .4em; vertical-align: -.25em; background: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 512 512%27%3E%3Crect width=%27512%27 height=%27512%27 rx=%27112%27 fill=%27%232a2826%27/%3E%3Cpath d=%27M136 260 256 152l120 108v116a20 20 0 0 1-20 20H156a20 20 0 0 1-20-20Z%27 fill=%27none%27 stroke=%27%23fbf9f5%27 stroke-width=%2728%27 stroke-linejoin=%27round%27/%3E%3C/svg%3E") center / contain no-repeat; }
