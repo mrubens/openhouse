@@ -187,6 +187,7 @@ object Alarms {
             view.addView(col, FrameLayout.LayoutParams(-1, -1))
             root.addView(view, FrameLayout.LayoutParams(-1, -1))
             view.bringToFront()
+            view.translationZ = dp(1000).toFloat() // above whatever is brought to the front later (the setup layer, the overlay)
             if (android.os.Build.VERSION.SDK_INT >= 27) { activity.setShowWhenLocked(true); activity.setTurnScreenOn(true) }
             dev.openhouse.ui.Openhouse.touch() // out of the resting screen and night's dimming
             main.post(tick)
