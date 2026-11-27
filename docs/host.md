@@ -32,6 +32,7 @@ by these, never by the host's kind (`host.js CAPS`):
 | `voice-setup` | turns on Opie's voice from the setup (`/setup/voice`); else the bridge does | ✓ | |
 | `google-signin` | starts Google's sign-in from the setup (`/setup/google`); else the bridge does, back to its own address | ✓ | |
 | `drive` | owns a USB drive for backups; else they go to a folder | ✓ | |
+| `storage` | keeps the household's own storage bucket's key (S3 and the like) and signs one request at a time for backups (`/storage/*`) | ✓ | ✓ |
 | `updates` | updates the bridge; else the bridge updates itself (`hub/update.sh`) | ✓ | |
 | `mail-convert` | makes mail attachments readable (`/mail/pdf`, `/mail/heic`) | ✓ | |
 | `stills` | makes a video's still (`/media/still`) | ✓ | |
@@ -57,10 +58,17 @@ The same requests and answers on every host that has them (DeviceServer.kt `home
 - `/openai {kind, body}` → OpenAI's status and answer, with the key added there; `/ownkey {key}` → `{added}`; the
   host tells the bridge only whether one is in (`POST /cloud/own {on}`).
 - `/setup/pin {pin}`: only while no PIN is set.
+- `/storage/status` → `{set, endpoint, region, bucket, prefix}` (never the key or the secret); `/storage/set {endpoint,
+  region, bucket, prefix, keyId, secret}` → `{ok}` once the Check (write, read and delete a small file) works, else
+  `{error}` in the household's words (the tablet asks for the PIN first, with the lock on); `/storage/sign {method,
+  name}` or `{method: 'GET', list: true, token?}` → `{url}`: one presigned URL (SigV4, 15 minutes) for one object
+  under the prefix or its listing, 409 with none set; `/storage/remove`. The bridge sends the URL itself
+  (`bucket-backup.js`); the secret never leaves the host (docs/backups.md, "Your own storage").
 
 ## What stays a person's
 
-On every host: the bridge never holds a key, link or PIN; a card is answered by a person, never by Opie (the tablet's
+On every host: the bridge never holds a key, link or PIN (a storage bucket's secret included: it gets only
+signed URLs); a card is answered by a person, never by Opie (the tablet's
 `DeviceServer.personOnly`; the keeper's cards are answered only from a paired device's page, never by a tool); and
 Opie never sees, hears or types the PIN. Anything but a yes is a no; only a laptop with no host at all may take
 "nobody to ask" as a yes, for building.
