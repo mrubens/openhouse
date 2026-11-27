@@ -31,6 +31,7 @@ import { dayNotes } from './day-notes.js';
 import { forModel, fromModel } from './tool-args.js';
 import { host } from './host.js';
 import { RULES_TOOL, houseRulesCall, rulesBlock } from './house-rules.js';
+import { noteUse } from './usage.js';
 
 // The first conversation: the display introduces itself and learns about the family by talking.
 const ONBOARD = (wakeOn) => `(This tablet was just set up and Opie was just turned on. Nobody has said anything yet: you start. Be clear and brief, not gushing.
@@ -393,6 +394,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     if (quiet) { out = ''; if (c.turns.at(-1)?.role === 'user') c.turns.pop(); }
     if (result.ok && !quiet) c.turns.push({ role: 'assistant', text: out, at: Date.now(), ms: Date.now() - t0, ...(notes.length ? { notes } : {}) });
     if (result.ok && !quiet && !onboard) live.talk.add('assistant', out);
+    if (result.ok && !spoken && !onboard) noteUse({ questions: 1 }); // (Settings → Voice's "This month": usage.js)
     else if (c.turns.at(-1)?.role === 'user' && !c.sessions?.[name]) c.turns.pop(); // nothing happened: don't keep it
     save(c);
     try { fs.appendFileSync(path.join(HERE, 'chats.jsonl'), JSON.stringify({ at: new Date().toISOString(), id: c.id, ok: result.ok, ms: Date.now() - t0, firstTextMs: firstText, warm: warmed, agent: name, model: usedModel || result.model || name, ...(result.usage ? { usage: result.usage } : {}), text: text.slice(0, 200), chars: out.length, ...(steps.length ? { steps } : {}) }) + '\n'); } catch {}

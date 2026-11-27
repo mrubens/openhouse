@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { dayKey } from './dates.js';
 import { buildWaits, markBuilding, unmarkBuilding } from './build-waits.js';
+import { noteUse } from './usage.js';
 
 /** ask(card): the tablet's try-it bar and card (brain.js shellAsk); keepPin(): whether keeping it takes the PIN there; grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home;
  *  say(text): said aloud on the tablet (no longer used when an app is ready: it opens to try instead);
@@ -27,7 +28,7 @@ import { buildWaits, markBuilding, unmarkBuilding } from './build-waits.js';
 export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, keepPin = async () => false, newRights = (card) => !!(card.uses?.length || card.reaches?.length), grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, tell = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
   const waits = buildWaits({ FILE: WAITS_FILE, APP_DIR, edits, ask: async (c) => { const a = await ask(c); if (a === 'yes') for (const id of [c.app, c.draft]) if (id) appErrors.delete(id); return a; }, // (what it threw while being made doesn't count against it once it's in) grant: (c) => grant(c), unmake: (id) => unmake(id), line: (t) => line(t), changed: () => changed(), emit,
-    landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} } });
+    landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} noteUse({ apps: 1 }); } });
   /** A new app put back (a no, a failed run, one set aside to wait): the screens close it, so none is left on a page that's gone. */
   const closeGone = (apps) => { for (const app of apps || []) if (!fs.existsSync(path.join(APP_DIR, 'apps', app))) emit({ type: 'gone', app }); };
   const git = edits.git;
@@ -305,6 +306,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     }
     appendMemory(text, who, result.text);
     edits.commit(owner);
+    noteUse({ apps: Math.max(1, touchedApps.size) }); // (Settings → Voice's "This month": usage.js)
     emit({ type: 'done', spoken: !!ctx.spoken, ok: true, changed: true, text: shortSummary(result.text), full: result.text, files: [...edited], ms, firstEditMs, visibleMs: phases.firstVisible, apps: [...touchedApps] });
     if (touchedApps.size) emit({ type: 'apps' });
     setState({ state: 'idle', request: null, base: null });

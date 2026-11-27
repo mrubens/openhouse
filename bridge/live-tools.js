@@ -137,6 +137,8 @@ export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether t
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['start', 'last'] } } } };
 /** What asks for the tablet's PIN (Settings → Advanced → Ask for the PIN): devices/index.js pinChoicesDo (the shell's
  *  /pin-choices, PinChoices.kt). Changing one always takes the PIN, typed by a person on the tablet's own card. */
+export const USAGE_TOOL = { name: 'how_much_used', description: "How much of Opie the household used this month, as Settings → Voice shows it: minutes talking to Opie, typed questions answered, apps made or changed, and about what it cost so far, and what's left of Opie's credit. For \"how much have we used?\", \"what does this cost us?\", \"how much credit is left?\".",
+  inputSchema: { type: 'object', properties: {} } };
 export const PIN_TOOL = { name: 'pin_choices', description: 'Which everyday things ask for the tablet\'s PIN (Settings → Advanced → Ask for the PIN), when the tablet has one. ' +
     'get says each choice and what always needs the PIN. set turns one on or off only when they ask: the tablet then asks for the PIN on its screen, so tell them to type it on the tablet (never ask them to say it). ' +
     'What always needs the PIN can\'t be turned off.',
@@ -221,6 +223,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   let builds = null; // (text, who, {phone}) => {ok, queued?, busy?}: the builder (builder.js request), when apps are made on the tablet
   let waits = null; // the apps made here waiting to be kept (build-waits.js): waiting(), open(id)
   const waitTools = () => { try { const w = waits?.waiting() || []; return w.length ? [{ ...ASK_AGAIN_TOOL, description: ASK_AGAIN_TOOL.description + ` Waiting now: ${w.map((x) => x.name).join(', ')}.` }] : []; } catch { return []; } };
+  let usageNow = null; // () => this month in words (cloud.js usageNow)
   let extra = null, tvDevices = null, device = null, screen = null, phones = null; // screen: {places(), show(id)} (server.js); phones: screens.js phones(), message()
   const screenTools = () => { try { const p = screen?.places() || []; return p.length ? [screenTool(p)] : []; } catch { return []; } }; // device: Opie using the tablet's other apps (device-tools.js)
   const deviceTools = () => { try { return device?.tools() || []; } catch { return []; } };
@@ -235,7 +238,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
     const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name));
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...pinTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds ? [MAKE_APP_TOOL, ...waitTools()] : [])];
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...pinTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...(usageNow ? [USAGE_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds ? [MAKE_APP_TOOL, ...waitTools()] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   const instructions = () => livePreamble(assistantName(), !!builds) + read('CHAT.md') + (device?.rules() || '') + prefsBlock();
@@ -264,6 +267,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       try { const w = await weather.current(); return { text: JSON.stringify({ ...w, hours: (w.hours || []).slice(0, 12) }), isError: false }; }
       catch { return { text: "The weather isn't available right now.", isError: true }; }
     }
+    if (name === USAGE_TOOL.name && usageNow) { try { return { text: (await usageNow()).text, isError: false }; } catch { return { text: "This month's use isn't available right now.", isError: true }; } }
     if (name === GO_AWAY_TOOL.name) return { text: 'Ending now. Say nothing more, or just "Okay."', isError: false };
     if (name === 'volume' && tvDevices?.volume) { const r = await tvDevices.volume(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === DEVICES_TOOL.name && tvDevices?.devices) { const r = await tvDevices.devices(args || {}); return { text: r.text, isError: !r.ok }; }
@@ -426,7 +430,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const otherTabletNote = (w) => `\n\nThis conversation is on another of the household's tablets, the ${w.name || 'other tablet'}, not this one. The household is the same: its calendar, lists, chores, meals, notes and apps. Its own screen, volume, camera and apps can't be changed from here yet: say so if they ask. Anything that needs the PIN asks for it on the main tablet.`;
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
-  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,
+  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setUsage: (f) => { usageNow = f; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,
     /** The setup step on the tablet's screen now, or null (none, or shown more than an hour ago). */
     /** The setup phone or computer's Next: the tablet goes to [s] at its next look (Setup.kt). */
     setupWant: (s) => { if (/^[a-z]{1,20}$/.test(String(s || ''))) wanted = String(s); },

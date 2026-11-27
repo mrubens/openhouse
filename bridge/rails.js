@@ -17,6 +17,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { staticCheck } from './app-check.js';
+import { overWords } from './usage.js';
 import { USES } from './apps.js';
 import { rightsList, reachOk, MAX_REACH } from './plugins.js';
 
@@ -105,7 +106,7 @@ export function rails(deps) {
       try { r = await ai({ instructions, input: s.input, tools }); }
       catch (e) { // (in plain words for the family; what went wrong, for us, in the log)
         log('model call failed:', e.code || '', e.message);
-        return { ok: false, text: e.code === 'http429' ? "I've used this month's allowance. Someone can see it on the family's account page." : "I couldn't make that just now: Opie's service didn't answer. Try asking again in a minute.", usage: s.usage };
+        return { ok: false, text: overWords(e) ? overWords(e) : "I couldn't make that just now: Opie's service didn't answer. Try asking again in a minute.", usage: s.usage };
       }
       s.steps++;
       const u = r.usage || {};

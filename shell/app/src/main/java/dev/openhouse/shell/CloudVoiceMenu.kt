@@ -38,15 +38,32 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
     /** The household's account doesn't have Opie's voice yet (the cloud's voiceState.available, or its not_enabled). */
     private val notYet = "Opie's voice isn't on for your household yet. It turns on here by itself as soon as it is."
     private fun n(x: Int) = String.format(java.util.Locale.US, "%,d", x)
+    /** The household's Opie credit (the cloud's credits.ts, through bridge/cloud.js): "$7.40 left · about 6¢ a minute", or
+     *  that it's run out or is on hold. null on the household's own key, or on the house. */
+    private fun creditLine(v: JSONObject?): String? {
+        val c = v?.optJSONObject("credit")?.takeIf { !v.optBoolean("own") } ?: return null
+        if (c.optBoolean("frozen")) return "Opie's credit is on hold while we look at a payment."
+        if (!c.optBoolean("paid")) return null
+        val cents = c.optInt("cents")
+        if (cents <= 0) return "Opie's credit has run out. Add more on your account page."
+        return String.format(java.util.Locale.US, "$%.2f left · about %d¢ a minute", cents / 100.0, c.optInt("perMinuteCents", 6))
+    }
+    /** No credit bought yet (a service with credit): how to get Opie's voice. */
+    private val needsCredit = "Opie's voice runs on credit you add on your account page. Or use your own OpenAI key."
 
     /** Settings → Opie → Voice (behind the PIN Lock when it is on; openhouse-cloud/docs/cloud-beta.md): Off, or which of OpenAI's voices it speaks with. Heard from the next
      *  conversation, so it says hello in it at once (a short session just to say it). */
     fun chooseVoice(): Thread = thread {
-        val now = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/cloud/voice", 3000, 8000)).optString("voiceName") }.getOrNull()
+        val v = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/cloud/voice?check=1", 3000, 8000)) }.getOrNull()
+        val now = v?.optString("voiceName")
+        // This month (bridge/usage.js): minutes talking, typed questions, apps made or changed, and about what it cost.
+        // Only once something's been used: a line nobody needs otherwise.
+        val month = v?.optJSONObject("month")?.takeIf { m -> listOf("minutes", "questions", "apps", "cents").any { m.optInt(it) > 0 } }?.optString("text")?.takeIf { it.isNotBlank() }
+        val credit = creditLine(v)
         ui {
             if (now == null) return@ui say(noBridge)
             val checked = if (!LiveVoice.chosen) 0 else 1 + VOICES.indexOfFirst { it.first == now }
-            val d = CalmDialog(act).setTitle("Voice").setMessage(if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.")
+            val d = CalmDialog(act).setTitle("Voice").setMessage((if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.") + (credit?.let { "\n\n$it" } ?: "") + (month?.let { "\n\n$it" } ?: ""))
             // (Check the microphone and House rules are their own rows in Settings → Opie.)
             d.setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }
                 .setSingleChoiceItems((listOf("Off") + VOICES.map { it.second }).toTypedArray(), checked) { d, i ->
@@ -100,6 +117,9 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
                 v == null -> say(noBridge)
                 // Not linked and no key: the voice needs Opie's AI, so their own key (accounts aren't offered until they're open to everyone).
                 !v.optBoolean("own") && !v.optBoolean("linked") -> OwnKey.menu(act)
+                // A service with credit, and none bought yet: where to add it (asking is for older services).
+                v.optJSONObject("credit")?.let { !it.optBoolean("paid") } == true -> CalmDialog(act).setTitle("Opie's voice").setMessage(needsCredit)
+                    .setPositiveButton("Close", null).setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }.show()
                 v.has("available") && !v.isNull("available") && !v.optBoolean("available") -> notYetAsk(v.optString("asked").takeIf { !v.isNull("asked") && it.isNotBlank() })
                 else -> set(true)
             }
