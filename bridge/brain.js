@@ -160,12 +160,12 @@ const apps = appsRoutes({ HERE, APP_DIR, json });
 /** The card for an app made here (builder.js): 'yes', 'no' (someone said no), 'later' (nobody answered, Not now, or the
  *  display couldn't show it), or null with no shell to ask (a laptop). It's up for 3 minutes, longer while someone
  *  chooses a PIN there. */
-const shellAsk = async ({ title, detail, yes, rights, pin, grownup }) => {
-  const r = await host.call('/approve', { title, detail, yes, rights, pin, grownup, later: true, no: "Don't put it in", waitMs: 180e3 }, { ms: 15 * 60e3 });
+const shellAsk = async ({ title, detail, yes, rights, pin, grownup, for: choice }) => { // for: which PIN choice it is (the shell's PinChoices)
+  const r = await host.call('/approve', { title, detail, yes, rights, pin, grownup, for: choice, later: true, no: "Don't put it in", waitMs: 180e3 }, { ms: 15 * 60e3 });
   if (!r) return null;
   return r.ok && r.body?.yes === true ? 'yes' : r.ok && r.body?.answered === true ? 'no' : 'later';
 };
-const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger } (docs/ux.md) // true, false, or null when there's no shell to ask (a laptop)
+const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger, for } (docs/ux.md; for: the PIN choice, shell PinChoices) // true, false, or null when there's no shell to ask (a laptop)
   const r = await host.call('/approve', { ...extra, title, detail, pin }, { ms: 100e3 });
   return r && r.ok && r.body?.yes === true;
 };

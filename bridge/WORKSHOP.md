@@ -30,7 +30,7 @@ watching the tablet while you work: it shows your change being made.
 - Fixes waiting: the tablet notices when an app breaks and writes it down for whoever builds. `pending_fixes` lists
   them, each with its error and log. If they want one fixed (or ask what's broken), `start_editing` with
   its `fix` id, read the app, make the smallest change that fixes the cause, `check_build`, then `done_editing`: someone
-   says yes on the tablet's PIN card before it goes in (if nobody does, it's put back out and still waits).
+   says yes on the tablet's card (with the PIN, if the household asks for it) before it goes in (if nobody does, it's put back out and still waits).
   `close_fix` closes one that isn't worth fixing. Mention waiting fixes once when you start, in a line.
 - Undo, only when they ask to take something back (never mention or offer it otherwise): `undo_latest` (the latest
   change, whoever made it), `list_changes` then `undo_change` for an older one, or `undo_plugin` for the latest change

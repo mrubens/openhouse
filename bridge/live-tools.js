@@ -84,7 +84,7 @@ export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or
   inputSchema: { type: 'object', properties: { what: { type: 'string' } }, required: ['what'] } };
 
 /** An app made on the tablet waiting for a grown-up's yes (build-waits.js): its card up again, as a tap on Home's line. */
-export const ASK_AGAIN_TOOL = { name: 'ask_grownup_again', description: 'An app the tablet made is waiting for a grown-up\'s yes (Home says "… is waiting for a grown-up"): put its card back up on the tablet, where a grown-up says yes with the PIN, or no. Only a person answers it. app: its name.',
+export const ASK_AGAIN_TOOL = { name: 'ask_grownup_again', description: 'An app the tablet made is waiting for a grown-up\'s yes (Home says "… is waiting for a grown-up"): put its card back up on the tablet, where a grown-up says yes (with the PIN, when the tablet asks for it), or no. Only a person answers it. app: its name.',
   inputSchema: { type: 'object', properties: { app: { type: 'string' } } } };
 
 /** The TV, straight from the voice (no agent turn): devices/index.js tv(). Offered only when there's a TV to control. */
@@ -106,7 +106,7 @@ export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (
  *  the PIN on the tablet: Brightness is in Settings' own list, Sleep now is the moon button. */
 /** What acts on this tablet itself (its screen, speaker, camera, media and other apps): not offered to a conversation on
  *  another of the household's tablets (setupFor), which would have them act here, in another room. */
-const ON_THIS_DEVICE = new Set(['look_with_camera', 'open_app', 'install_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'tablet_screen', 'volume', 'music', 'bluetooth']);
+const ON_THIS_DEVICE = new Set(['look_with_camera', 'open_app', 'install_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'tablet_screen', 'volume', 'music', 'bluetooth', 'pin_choices']);
 export const SCREEN_TOOL = { name: 'tablet_screen', description: "The tablet's screen itself: its brightness (Automatic, Low, Medium, High or Full, or a step brighter or dimmer: \"it's too bright\", \"I can't see the screen\"), " +
     'or put it to sleep now, dark as at night until someone touches it ("go to sleep", "turn the screen off"). get says the brightness. For when the screen goes dark every night, that is night_hours.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'brightness', 'sleep'] },
@@ -133,6 +133,14 @@ export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether t
     'start puts the check on the tablet\'s screen: someone says "Hey Opie" to it, and it says plainly whether it heard them, or the microphone is too quiet, too noisy or blocked. ' +
     'Nothing is recorded or sent while it checks. last says how the last check went.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['start', 'last'] } } } };
+/** What asks for the tablet's PIN (Settings → Advanced → Ask for the PIN): devices/index.js pinChoicesDo (the shell's
+ *  /pin-choices, PinChoices.kt). Changing one always takes the PIN, typed by a person on the tablet's own card. */
+export const PIN_TOOL = { name: 'pin_choices', description: 'Which everyday things ask for the tablet\'s PIN (Settings → Advanced → Ask for the PIN), when the tablet has one. ' +
+    'get says each choice and what always needs the PIN. set turns one on or off only when they ask: the tablet then asks for the PIN on its screen, so tell them to type it on the tablet (never ask them to say it). ' +
+    'What always needs the PIN can\'t be turned off.',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'set'] },
+    choice: { type: 'string', enum: ['apps', 'photos', 'calendar', 'rewards', 'settings'], description: 'For set: apps (adding apps and plugins, and the apps you make), photos (photo albums), calendar (changing the calendar), rewards (giving and changing rewards), settings (Voice, Calendars, Time and Email in Settings)' },
+    ask: { type: 'boolean', description: 'For set: true to ask for the PIN, false to stop asking' } } } };
 /** Ending the conversation when asked: the session ends as soon as its last words have played (live-session.cjs). */
 export const GO_AWAY_TOOL = { name: 'go_away', description: 'End this conversation now, when they want you gone: "go away", "stop", "that\'s all", "never mind", "be quiet", "bye". Just call it: you stop listening at once, and the conversation ends once you have finished speaking.',
   inputSchema: { type: 'object', properties: {} } };
@@ -226,12 +234,13 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const btTools = () => { try { return tvDevices?.bluetoothOn?.() ? [BT_TOOL] : []; } catch { return []; } };
   const volumeTools = () => (tvDevices?.volume ? [VOLUME_TOOL] : []);
   const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.micCheckOn?.() ? [MIC_CHECK_TOOL] : []), ...(tvDevices.devices ? [DEVICES_TOOL] : []), ...(tvDevices.media ? [MUSIC_TOOL] : [])] : []);
+  const pinTools = () => { try { return tvDevices?.pinChoicesOn?.() ? [PIN_TOOL] : []; } catch { return []; } };
   const family = () => { try { return (household?.read?.()?.family || []).filter((f) => f?.name); } catch { return []; } };
   const messageTools = () => { const n = [...new Set(family().map((f) => String(f.name)))]; return phones && n.length ? [messageTool(n)] : []; };
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
     const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name));
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds && !inSetup() ? [MAKE_APP_TOOL, ...waitTools()] : [])];
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...pinTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds && !inSetup() ? [MAKE_APP_TOOL, ...waitTools()] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   const setupText = () => !inSetup() ? '' : '\n\n---\n\nThe tablet was just set up, and its setup is on the screen now. ' + SETUP_STEPS[setupStep];
@@ -266,6 +275,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === DEVICES_TOOL.name && tvDevices?.devices) { const r = await tvDevices.devices(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === MUSIC_TOOL.name && tvDevices?.media) { const r = await tvDevices.media(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === MIC_CHECK_TOOL.name && tvDevices?.micCheck) { const r = await tvDevices.micCheck(args || {}, { wait: !!(ctx.typed || ctx.phone) }); return { text: r.text, isError: !r.ok }; }
+    if (name === PIN_TOOL.name && tvDevices?.pinChoices) { const r = await tvDevices.pinChoices(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === SCREEN_TOOL.name && tvDevices?.screen) { const r = await tvDevices.screen(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === 'bluetooth' && tvDevices?.bluetooth) { const r = await tvDevices.bluetooth(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (name === 'tv' && tvDevices) { const r = await tvDevices.tv(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }

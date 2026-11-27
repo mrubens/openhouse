@@ -164,7 +164,7 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
                     }
                 }
                 // The PIN box closed without it: the step's button comes back.
-                if (act.lock.on && !fromPhone) PinPrompt.ask(act, act, "Turn on Opie", go, cancelled = { done("") }) else go()
+                if (act.lock.asks(PinChoices.SETTINGS) && !fromPhone) PinPrompt.ask(act, act, "Turn on Opie", go, cancelled = { done("") }) else go()
             }
         }
     }

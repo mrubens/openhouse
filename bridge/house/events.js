@@ -205,7 +205,7 @@ export default function (house) {
     }
     return { error: 'add or remove' };
   }
-  /** Opie changing a locked calendar (Settings, Calendar needs the PIN): it asks, and the tablet's card takes the PIN
+  /** Opie changing a locked calendar (Settings → Advanced → Ask for the PIN → Change the calendar): it asks, and the tablet's card takes the PIN
    *  from a person, as the Calendar app's unlock does; then the calendar stays open a few minutes, as after that unlock.
    *  Nothing Opie says or types answers it (the card is the shell's own: DeviceAccess.approve). A computer's workshop
    *  is a grown-up's own (paired with the PIN), so it isn't asked. */
@@ -215,7 +215,7 @@ export default function (house) {
       (a?.settings && ['remind', 'remind_aloud', 'app_notes'].some((k) => a.settings[k] != null));
     if (!changes) return null;
     const what = a.add?.title ? `Add "${str(a.add.title, 60)}"` : a.update ? 'Change an event' : a.remove ? 'Remove an event' : 'Change the calendar';
-    const r = await house.shell('/approve', { title: `${what} on the calendar?`, detail: 'Opie was asked to. The calendar needs the PIN.', pin: true, yes: 'Allow' }, 100_000);
+    const r = await house.shell('/approve', { title: `${what} on the calendar?`, detail: 'Opie was asked to. The calendar needs the PIN.', pin: true, for: 'calendar', yes: 'Allow' }, 100_000);
     if (r?.yes === true) { unlockedUntil = Date.now() + 5 * 60e3; changed(); return null; }
     return { content: [{ type: 'text', text: r == null || r.why ? 'Not changed: the calendar needs the PIN, and the tablet can\'t ask for it right now. Someone can unlock it in the Calendar app.' : 'Not changed: the calendar needs the PIN, and nobody typed it on the tablet. Say so; they can ask again when someone is at the tablet.' }], isError: true };
   }

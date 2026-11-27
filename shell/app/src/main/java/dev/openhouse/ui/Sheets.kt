@@ -69,7 +69,7 @@ internal fun QuietCard(modifier: Modifier = Modifier, padding: PaddingValues = P
 /**
  * Settings: one list, in two columns, each row its name and what it is now. A row opens its own sheet or dialog over
  * the list, and closing that comes back here; Back goes up one level, Done closes. With the lock on, the rows it
- * locks show a small lock and ask for the PIN.
+ * locks show a small lock and ask for the PIN (Voice, Calendars, Time and Email only while Change settings asks).
  */
 @Composable
 internal fun SettingsSheet() {
@@ -78,7 +78,8 @@ internal fun SettingsSheet() {
     // What the shell's rows show: read now, again whenever something over the list closes, and every few seconds.
     LaunchedEffect(o.settingsV) { vals = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { o.host.settingValues() }.getOrDefault(vals) } }
     LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(3000); vals = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { runCatching { o.host.settingValues() }.getOrDefault(vals) } } }
-    val locked = vals["lock"] == "On"
+    val locked = vals["lock"] == "On" // Advanced and Account: always behind the PIN when it's on
+    val asks = vals["settingsLock"] == "On" // the rest: unless Ask for the PIN's Change settings is off (shell PinChoices)
     // A tablet that's part of another tablet's household (shell Satellite.kt): its own rows only.
     var sat by remember { mutableStateOf(dev.openhouse.shell.Satellite.on) }
     LaunchedEffect(Unit) { while (true) { sat = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { dev.openhouse.shell.Satellite.refresh(o.bridgeUrl)?.optBoolean("satellite") == true }; kotlinx.coroutines.delay(5000) } }
@@ -95,19 +96,19 @@ internal fun SettingsSheet() {
                     if (sat) { // part of another tablet's household (docs/multi-tablet.md): the household's settings are there
                         SettingsRow("Household", "On the main tablet", onClick = shell("satellite"))
                         SettingsRow("Brightness", vals["brightness"], onClick = shell("brightness"))
-                        SettingsRow("Time", vals["time"], locked, shell("time"))
+                        SettingsRow("Time", vals["time"], asks, shell("time"))
                         SettingsRow("Updates", vals["updates"], onClick = shell("updates"))
                         SettingsRow("Advanced", null, locked, shell("tablet"))
                     } else {
-                    SettingsRow("Voice", vals["voice"], locked, shell("voice"))
+                    SettingsRow("Voice", vals["voice"], asks, shell("voice"))
                     SettingsRow("Family", o.board?.family?.takeIf { it.isNotEmpty() }?.joinToString(", ") { it.name }) { o.showFamily = true }
-                    SettingsRow("Calendars", vals["calendars"], locked, shell("calendars"))
+                    SettingsRow("Calendars", vals["calendars"], asks, shell("calendars"))
                     SettingsRow("What Opie remembers", vals["memory"], onClick = shell("memory"))
                     SettingsRow("Linked devices", ((vals["screens"]?.toIntOrNull() ?: 0) + Devices.controllable.size).takeIf { it > 0 }?.toString()) { Devices.open = true; if (Devices.scannedAt == null) Devices.scan() else Devices.refreshStatus() }
                     SettingsRow("Brightness", vals["brightness"], onClick = shell("brightness")) // not behind the PIN: anyone can see the screen better
                     SettingsRow("Volume", vals["volume"], onClick = shell("volume")) // (nor this: anyone can hear it)
-                    SettingsRow("Time", vals["time"], locked, shell("time"))
-                    SettingsRow("Email", vals["email"], locked, shell("email"))
+                    SettingsRow("Time", vals["time"], asks, shell("time"))
+                    SettingsRow("Email", vals["email"], asks, shell("email"))
                     SettingsRow("Account", vals["account"], locked, shell("account"))
                     SettingsRow("Updates", vals["updates"], onClick = shell("updates"))
                     SettingsRow("Advanced", null, locked, shell("tablet"))

@@ -68,8 +68,10 @@ written: the templates' `index.html` asks the kit (`beingMade`, the bridge's sta
 
 The card ("Put Dino Eggs in Apps?") says what the app is in one plain line (the builder's `done` summary, "Dino Eggs:
 catch the falling eggs before they crack", never the reviewer's notes about a fix), who asked and what they said, and
-what it may use and which websites it may reach. Asked aloud, the tablet says when the card is up. Its yes always takes the PIN, whether or not the lock is on: a child can't put an app in. A tablet
-with no PIN yet asks whoever is there to choose one on the card (the PIN, then its recovery code), and comes back to it.
+what it may use and which websites it may reach. Asked aloud, the tablet says when the card is up. Its yes is a person's own tap, never Opie's. It takes the PIN
+when Settings → Advanced → Ask for the PIN → Add apps is on (off by default since 2026-11-27, the owner finding it
+annoying; docs/settings.md): then a child can't put an app in, and a tablet with no PIN yet asks whoever is there to
+choose one on the card (the PIN, then its recovery code), and comes back to it. Until then it was the PIN always.
 
 - **No** ("Don't put it in") puts everything back.
 - **Nobody answers** in 3 minutes, or **Not now**: nothing is lost. The change is set aside as a commit under

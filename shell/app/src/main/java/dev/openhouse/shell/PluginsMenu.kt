@@ -42,7 +42,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
 
     /** Where a dialog goes back to: Settings' list of plugins, or (from the Apps tab) the gallery. */
     private fun home() { if (fromApps) gallery() else show() }
-    private fun guard(f: () -> Unit) { if (fromApps) askPin(act, act, "PIN", f) else f() }
+    private fun guard(f: () -> Unit) { if (fromApps) act.lock.withPin(choice = PinChoices.APPS, ok = f) else f() } // (from Settings it is inside Advanced: asked there)
     private fun get(path: String, readMs: Int = 15_000) = runCatching { JSONObject(BridgeClient.getText("${act.bridge}$path", 3000, readMs)) }.getOrNull()
     /** The answer (with "error" on a refusal), or null if the bridge didn't answer. */
     private fun post(path: String, body: JSONObject, readMs: Int = 120_000): JSONObject? = runCatching {

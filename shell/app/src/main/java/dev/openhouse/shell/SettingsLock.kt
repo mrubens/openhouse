@@ -2,9 +2,10 @@ package dev.openhouse.shell
 
 // The shell's rows of Settings (the list is ui/Sheets.kt, SettingsSheet; docs/settings.md) and the optional lock:
 // off by default, so nothing everyday asks for a PIN. Turned on, it is a PIN (ParentPin), and the rows it locks ask for
-// it before they open. Erasing the tablet, the ways out of Opie, unlinking and restoring need one set first
-// (withPinSet); a forgotten PIN is reset with its recovery code (PinPrompt.forgot). The dialogs
-// open over the list, so closing one comes back to it.
+// it before they open, those that PinChoices says still ask (Advanced → Ask for the PIN); Advanced, Account, adding a
+// linked device and PIN Lock's own rows always do (always). Erasing the tablet, the ways out of Opie, unlinking and
+// restoring need one set first (withPinSet); a forgotten PIN is reset with its recovery code (PinPrompt.forgot). The
+// dialogs open over the list, so closing one comes back to it.
 
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -18,8 +19,18 @@ import kotlin.concurrent.thread
 internal class SettingsLock(private val act: MainActivity) {
     val on: Boolean get() = ParentPin.isSet(act)
 
-    /** With the lock on, the PIN, then [ok]; with it off, straight to [ok]. */
-    fun withPin(title: String = "PIN", ok: () -> Unit) {
+    /** With the lock on and [choice] asking (PinChoices: Settings' rows by default), the PIN, then [ok]; else straight to [ok]. */
+    fun withPin(title: String = "PIN", choice: String = PinChoices.SETTINGS, ok: () -> Unit) {
+        if (!asks(choice)) return ok()
+        PinPrompt.ask(act, act, title, ok)
+    }
+
+    /** Does [choice] ask for the PIN now (the lock on, and it asks: PinChoices)? */
+    fun asks(choice: String?) = PinChoices.needed(act, choice)
+
+    /** What always takes the PIN with the lock on, whatever PinChoices says (Advanced, Account, adding a linked device,
+     *  PIN Lock's own rows, the ways out before a household is saved). */
+    fun always(title: String = "PIN", ok: () -> Unit) {
         if (!on) return ok()
         PinPrompt.ask(act, act, title, ok)
     }
@@ -45,14 +56,14 @@ internal class SettingsLock(private val act: MainActivity) {
         when (id) {
             "voice" -> withPin { CloudVoiceMenu(act).chooseVoice() }
             "calendars" -> withPin { CalendarLinks.manage(act, act::immersive) }
-            "addLinked" -> withPin { Screens.addMenu(act) }
-            "addTablet" -> withPin { Screens.tablet(act) } // (Opie: show_settings, docs/opie-parity.md)
+            "addLinked" -> always { Screens.addMenu(act) } // (adding any device changes who reaches the household: always)
+            "addTablet" -> always { Screens.tablet(act) } // (Opie: show_settings, docs/opie-parity.md)
             "satellite" -> Satellite.menu(act, this) // a tablet that's part of another's household (docs/multi-tablet.md)
             "joinOther" -> if (Openhouse.showWelcome) Satellite.join(act) else withPinSet(back = {}) { Satellite.join(act) } // (from the welcome: nothing set up yet, no PIN to ask for)
-            "account" -> withPin { CloudMenu(act).show() }
+            "account" -> always { CloudMenu(act).show() } // (backups, restore, unlink: always)
             "email" -> withPin { EmailMenu(act).show() }
             "lock" -> if (on) turnOff() else turnOn()
-            "tablet" -> withPin { tablet() }
+            "tablet" -> always { tablet() } // (Advanced: what Opie may do, the ways out, these choices: always)
             "updates" -> updates() // (no PIN: seeing the version and getting ours is everyone's)
             "nowplaying" -> if (!Media.listening(act)) withPinSet(back = {}) { nowPlaying() } // Home's Now playing card
             "memory" -> memory()
@@ -62,13 +73,13 @@ internal class SettingsLock(private val act: MainActivity) {
             "addCalendar" -> act.addCalendar() // the setup's steps (ui/Setup.kt)
             "addAlbum" -> act.addAlbum()
             "photoPhones" -> act.sharePhotos()
-            "computer" -> withPin { Screens.computer(act) }
+            "computer" -> always { Screens.computer(act) }
             // The setup's calendar and photos steps (ui/Setup.kt): the same screens as Settings' and the Photos app's.
             "calendarGoogle" -> CalendarAccounts.google(act, act::immersive)
             "calendarICloud" -> CalendarAccounts.addICloud(act, act::immersive)
             "calendarLink" -> CalendarLinks.add(act, act::immersive)
             "calendarPaste" -> CalendarLinks.paste(act, act::immersive) // pasted or typed here (a keyboard cover)
-            "albumPaste" -> withPin { PhotoAlbums.paste(act, act::immersive) }
+            "albumPaste" -> withPin(choice = PinChoices.PHOTOS) { PhotoAlbums.paste(act, act::immersive) }
             "photoPhonesOn" -> act.sharePhotosOn()
             "googlePhotos" -> act.googlePhotos()
             // The setup's last step: PIN Lock on (with a recovery code unless linked), then the setup ends. Only while that
@@ -78,9 +89,9 @@ internal class SettingsLock(private val act: MainActivity) {
             // own settings, as Join Wi-Fi is before the first setup (MainActivity.wifi); behind the PIN if one was chosen.
             "setupDeviceControl" -> if (Openhouse.setupStep == "android") {
                 if (act.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED) { DeviceOwner.setDeviceControl(act, true); changed() }
-                else withPin { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+                else always { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             }
-            "setupCharge" -> if (Openhouse.setupStep == "android") withPin { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
+            "setupCharge" -> if (Openhouse.setupStep == "android") always { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
             "ownKey" -> OwnKey.menu(act) // Settings → Voice and the setup's voice step (behind the PIN in OwnKey)
             "reloadHome" -> act.reloadHome()
             "reloadHomeFirst" -> act.reloadHome(first = true) // the setup's end: on Home, whichever tab showed during it
@@ -156,14 +167,14 @@ internal class SettingsLock(private val act: MainActivity) {
 
     /** A new recovery code for the PIN (one set before codes, or the old one lost): after the PIN; the old code stops
      *  working once they've kept the new one. */
-    private fun newCode() = withPin {
+    private fun newCode() = always {
         PinPrompt.showCode(act, RecoveryCode.new(), keep = { ParentPin.setRecovery(act, it); act.toast("New recovery code kept"); tablet() }, back = { tablet() })
     }
 
     /** The lock went on or off (the calendar's own lock goes off with it, never on). */
     fun changed() { syncCalendar(); Openhouse.settingsChanged() }
 
-    /** The Calendar app asks for the PIN only when someone chose that (Calendar needs the PIN, under PIN Lock): off by
+    /** The Calendar app asks for the PIN only when someone chose that (Advanced → Ask for the PIN → Change the calendar: PinChoices): off by
      *  default, and off whenever there's no PIN. Until 1.0.24 it followed the lock itself, so a tablet from before has
      *  it turned off once. */
     fun syncCalendar() {
@@ -172,6 +183,31 @@ internal class SettingsLock(private val act: MainActivity) {
         if (fresh || (House.calendarLock && !on)) setCalendarLock(false) { if (fresh) prefs.edit().putBoolean("calendar_own_choice", true).apply() }
     }
     private fun setCalendarLock(want: Boolean, then: () -> Unit = {}) { thread { if (Openhouse.post("/house/lock", JSONObject().put("calendar", want)) != null) then(); Openhouse.settingsChanged() } }
+
+    // --- Ask for the PIN to… (PinChoices) ---------------------------------------------------------------------------
+
+    /** Advanced's row: which ask, in a word or two. */
+    private fun choicesLabel(): String {
+        val saved = PinChoices.saved(act)
+        val on = PinChoices.ALL.filter { PinChoices.asks(it.key, saved) }
+        return when (on.size) { 0 -> "Nothing more"; 1 -> on[0].label; else -> "${on.size} things" }
+    }
+
+    /** One switch for each choice; a tap turns it over, behind the PIN (always: changing them is never optional). A
+     *  person's own tap (Opie's pin_choices asks on its own card instead), so nothing Opie taps here within the two
+     *  minutes after the PIN changes them. */
+    private fun choices() {
+        val saved = PinChoices.saved(act)
+        val rows = PinChoices.ALL.map { CalmDialog.Row(it.label, value = if (PinChoices.asks(it.key, saved)) "On" else "Off") }
+        CalmDialog(act).setTitle("Ask for the PIN to…").setSettingsLook().setRows(rows) { _, i ->
+            val c = PinChoices.ALL[i]
+            if (DeviceServer.personOnly("Changing what asks for the PIN")) { choices(); return@setRows }
+            always {
+                val want = !PinChoices.asks(c.key, PinChoices.saved(act))
+                thread { PinChoices.save(act, c.key, want); act.runOnUiThread { android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ choices() }, 350) } }
+            }
+        }.setNegativeButton("Back") { _, _ -> tablet() }.show()
+    }
 
     // --- what the rows show ----------------------------------------------------------------------------------------
 
@@ -183,6 +219,7 @@ internal class SettingsLock(private val act: MainActivity) {
         syncCalendar()
         val m = mutableMapOf<String, String>()
         m["lock"] = if (on) "On" else "Off"
+        m["settingsLock"] = if (asks(PinChoices.SETTINGS)) "On" else "Off" // the small lock on Voice, Calendars, Time, Email
         m["updates"] = Updater.installedVersion(act)
         m["deviceControl"] = if (DeviceAccess.instance != null) "On" else "Off" // the setup's Android step (ui/Setup.kt)
         m["brightness"] = Brightness.label(act)
@@ -351,7 +388,7 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("PIN Lock", value = onOff(on)) to { if (on) turnOff() else turnOn() },
         ) + (if (on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("PIN recovery code", value = if (ParentPin.hasRecovery(act)) null else "None") to person("PIN recovery code") { newCode() },
-            CalmDialog.Row("Calendar needs the PIN", value = onOff(House.calendarLock)) to { withPin { setCalendarLock(!House.calendarLock); again() } },
+            CalmDialog.Row("Ask for the PIN", value = choicesLabel()) to { always { choices() } },
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
             head("Opie"),

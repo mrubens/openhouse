@@ -31,7 +31,7 @@ test('rewards: setting one up needs a yes on the display, and an app can never s
     const { call } = house();
     const wait = () => new Promise((r) => setTimeout(r, 150));
     await call('change_rewards', { add: [{ title: 'Ice cream', stars: 1 }] }); await wait();
-    assert.equal(asked.at(-1).pin, true);
+    assert.equal(asked.at(-1).pin, true); assert.equal(asked.at(-1).for, 'rewards', 'named, so Give rewards on still asks');
     assert.equal((await call('family_things', {})).rewards.length, 0, 'a no on the card: not added');
     answer = { yes: true };
     await call('change_rewards', { add: [{ title: 'Movie night', stars: 1 }] }); await wait();
@@ -81,7 +81,7 @@ test('Opie and a locked calendar: it asks, and only the PIN typed on the tablet 
     const events = async () => JSON.parse((await h.call('family_things', {})).content[0].text).events.length;
     // Opie's own words can't be the yes: the card (pin: true) is the only way in, and a no leaves the calendar as it was.
     const no = await h.call('calendar_event', { add: { title: 'Dentist', start: '2026-12-02T09:00' }, yes: true, pin: '1234' }, opie);
-    assert.equal(no.isError, true); assert.equal(asked.length, 1); assert.equal(asked[0].pin, true);
+    assert.equal(no.isError, true); assert.equal(asked.length, 1); assert.equal(asked[0].pin, true); assert.equal(asked[0].for, 'calendar');
     assert.equal(await events(), 0);
     // No card on the tablet (the shell not answering): never falls through to the change.
     process.env.DEVICE_MCP_CONFIG = path.join(root, 'none.json');
@@ -99,7 +99,7 @@ test('Opie and a locked calendar: it asks, and only the PIN typed on the tablet 
     answer = { yes: false }; const n = asked.length;
     const r = await h.call('change_rewards', { redeem: { who: 'Leo', reward: 'Ice cream' } }, opie);
     assert.equal(r.isError, true, r.content[0].text);
-    assert.equal(asked.length, n + 1, r.content[0].text); assert.equal(asked.at(-1).pin, true);
+    assert.equal(asked.length, n + 1, r.content[0].text); assert.equal(asked.at(-1).pin, true); assert.equal(asked.at(-1).for, 'rewards');
     assert.equal(await starsNow(), before, 'no stars spent');
   } finally { srv.close(); process.env.DEVICE_MCP_CONFIG = was; }
 });

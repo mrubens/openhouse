@@ -74,7 +74,7 @@ its own token).
 | Tool | What it does |
 |---|---|
 | `open_app {name}` | Opens an app by its name. A system app (Clock, a browser) asks once on screen, "Let Opie open Clock?" (the PIN when the lock is on); after that it's one of the tablet's added apps (Apps, and kiosk lets it open). Answers with the screen. |
-| `install_app {name, confirmed}` | Without `confirmed`, answers "ask them first". With it, the existing Aurora flow (AuroraInstall.kt): the tablet's own card (PIN when locked), Aurora fetched from F-Droid and checked if missing, the app from Google Play, installed silently by the shell, put in Apps. |
+| `install_app {name, confirmed}` | Without `confirmed`, answers "ask them first". With it, the existing Aurora flow (AuroraInstall.kt): the tablet's own card (the PIN when locked and Ask for the PIN → Add apps is on), Aurora fetched from F-Droid and checked if missing, the app from Google Play, installed silently by the shell, put in Apps. |
 | `look_at_screen {picture?, wait?}` | The screen as numbered elements (`[7] Button "Start" (tap) @1960,1408`). The on-screen keyboard is one line, not its keys. When the list says little (a game, a map) or `picture` is asked for, a quarter-size JPEG goes to the cloud's text model, which describes it in a few lines (the voice's tools take text only). |
 | `tap {id | x,y, long?}` | Taps an element or a point. |
 | `type {text, id?, submit?}` | Types into a field. `submit` presses enter only in a search box. |

@@ -11,13 +11,13 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 
 | Row | Shows | Opens | Locked |
 | --- | --- | --- | --- |
-| Voice | Off, or the voice's name | Off, or one of OpenAI's voices: a voice turns on the live voice and Hey Opie together (linking first if need be); Off turns both off, and the microphone. While it's on, a quiet Check the microphone (below) | yes |
+| Voice | Off, or the voice's name | Off, or one of OpenAI's voices: a voice turns on the live voice and Hey Opie together (linking first if need be); Off turns both off, and the microphone. While it's on, a quiet Check the microphone (below) | Change settings |
 | Family | the names | Family: who, where, chores | |
-| Calendars | how many are shown | Google and iCloud accounts (each one's calendars: shown or not, two-way, whose, where new events go) and calendars' links; Add a calendar | yes |
+| Calendars | how many are shown | Google and iCloud accounts (each one's calendars: shown or not, two-way, whose, where new events go) and calendars' links; Add a calendar | Change settings |
 | What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
-| Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add and Remove |
+| Linked devices | how many | paired screens, TVs, phones and computers (Add, Remove), then the house's TVs, speakers and printers | Add always; Remove: Change settings |
 | Account | the family's name, or Off | link or unlink, Backups (the cloud, a USB drive or your own storage), reach from away | yes |
-| Advanced | | Lock (PIN Lock, PIN recovery code, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
+| Advanced | | Lock (PIN Lock, PIN recovery code, Ask for the PIN, Plugins); Opie (device control, Opie uses apps, check-ins); For developers (home network, cloud address, speech log, USB debugging, Android settings, leave kiosk mode) | yes |
 
 Voice can also be turned on in the first setup's last step, **Talk to Opie** (docs/onboarding.md): the same voices and
 the same line about OpenAI, a person's tap behind the PIN when the lock is on. The setup before it is quiet (no
@@ -57,7 +57,8 @@ Plain Settings (first round):
 - At night: **cut** (later round). Sleep now: **moved** to a moon button on the home screen.
 - PIN for the calendar: **its own choice under Lock**, off by default. With PIN Lock on, Settings, This tablet shows
   "Calendar needs the PIN"; turned on, changing the calendar in the apps asks for the PIN. (Until 1.0.24 it followed
-  the lock itself; tablets from before have it turned off once.)
+  the lock itself; tablets from before have it turned off once.) Since 2026-11-27 it is Change the calendar, one of
+  **Ask for the PIN** (below).
 - Removed: **cut**, from the apps and the settings. Taken-off things stay in the bridge; Opie can put one back when asked.
 - Grown-ups: **gone**. Its rows are in the one list.
 
@@ -128,9 +129,40 @@ One switch, PIN Lock: Off or On.
   refused a PIN outside setup).
 - **On:** turning it on chooses a PIN (typed twice), then shows its recovery code (below). Rows marked with a small
   lock ask for it, then stay open for two minutes as before. The same PIN is the yes on the "Is this OK?" card for the
-  ways out above, for adding apps, for a reward that needs a yes, and for changing the calendar. Those ways out ask
-  for it again, unless it was typed in the last two minutes.
+  ways out above, and for what **Ask for the PIN** (below) has on. Those ways out ask for it again, unless it was typed
+  in the last two minutes.
 - Turning it off asks for the PIN, then forgets it and its recovery code.
+
+### Ask for the PIN to…
+
+Advanced → Ask for the PIN (shown while PIN Lock is on): one switch for each everyday thing, so a household can keep
+the PIN for what matters to them (the user, 2026-11-27: "having to enter the PIN to install apps" was annoying). Its
+value says which are on. Permissive by default:
+
+| Switch | What it covers | Default |
+| --- | --- | --- |
+| Add apps | an Android app (Add apps, install_app, Aurora Store and what it hands over), a plugin (add, an update, an app reaching a website), an app Opie made going in, Apps' plugin gallery | Off |
+| Add photo albums | adding or taking off an iCloud album, phones sending photos, Google Photos | Off |
+| Change the calendar | any change to the calendar from the apps or Opie (the bridge's calendar lock, as before) | Off |
+| Give rewards | spending stars on a reward (Get it!), and changing the rewards | Off |
+| Change settings | Settings' Voice, Calendars, Time and Email (their small lock), removing a linked device, the household's own OpenAI key | On |
+
+Off means a person's plain yes: the card still shows, and only a real finger answers it (`PersonCards`); Opie never
+can. What's `DeviceServer.personOnly` stays a person's own tap, whatever the switches say.
+
+**Always the PIN** (when one is set), never a switch: changing these switches (each one, a person's own tap), PIN Lock
+itself (turning it off, a new recovery code, Forgot PIN?), Advanced (device control, Opie uses apps, Tailscale, the
+home network, Plugins, Now playing), Account and Backups (link, unlink, restore, the backups' code, your own storage),
+adding a linked device (a computer that changes the apps, a phone, a screen, a TV, another tablet) and joining another
+household, the ways out of Opie (leaving kiosk mode, Android's settings and Wi-Fi settings, system apps and other app
+stores, USB debugging), erasing the tablet, and a plugin update from somewhere other than before. These either change
+who can reach the household, widen what Opie may do, or take the tablet out of Opie; a card that names no switch (an
+older bridge, or a hub's settings page, whose keeper doesn't know them) asks as before.
+
+Tablets from before keep their PIN and get these defaults with the update (as the calendar's own choice did in
+1.0.24): adding apps and photos and giving rewards stop asking, Settings keeps asking. Opie changes a switch only when
+asked (`pin_choices`), and the tablet then asks for the PIN on its own card. The code is shell/PinChoices.kt; the
+bridge names the switch on its cards (`/approve` with `for`).
 
 ### Forgot the PIN
 
@@ -160,7 +192,8 @@ start` and `/poll`, the shell's own: a paired device's call is refused); the she
 the answer. The code's card is a person card with the PIN pad's mark, so Opie's screen tools neither read it nor act
 while it's up, and the new PIN is typed on the pad as any other.
 
-Locked rows: Voice, Screens and computers, Account, Backups, Plugins, This tablet, and Calendars. Not locked: what a household uses every day (Hey Opie, the voice, Family's names
+Locked rows: Account (with Backups), Advanced (with Plugins) and adding a linked device always; Voice, Calendars,
+Time, Email and removing a linked device while Change settings is on (the default). Not locked: what a household uses every day (Hey Opie, the voice, Family's names
 and chores, night hours, devices, looking after things, putting things back).
 
 A PIN set over adb (ConfigReceiver `--es pin`) turns the lock on the same way; an empty one turns it off.

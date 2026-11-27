@@ -45,7 +45,8 @@ export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', gr
   /** The card, with the change in the working tree under [owner]'s lock: 'yes' (granted: the caller commits), 'no' or 'later'. */
   async function decide(owner, card) {
     let a;
-    try { a = await ask({ ...card, pin: true, grownup: true }); } catch (e) { log('card:', e.message); a = 'later'; }
+    // The PIN, unless the household turned off asking for it to add apps (for: the shell's PinChoices); a person's yes either way.
+    try { a = await ask({ ...card, pin: true, grownup: true, for: 'apps' }); } catch (e) { log('card:', e.message); a = 'later'; }
     if (a === 'yes') {
       if (card.draft) promote(card); // a change made in a draft: swapped in now, the draft's entry gone
       if (card.limited) grant(card);

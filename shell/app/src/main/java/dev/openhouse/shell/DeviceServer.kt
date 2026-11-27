@@ -204,10 +204,10 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms", "/mic-check")
+    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/setup/voice", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms", "/mic-check", "/pin-choices")
     /** What the shell can do, for /host (bridge/host.js CAPS; its TABLET_CAPS is the same list, for a shell older than /host). */
     private val HOST_CAN = listOf("screen", "approve", "calendar", "calendar-accounts", "openai", "pin", "voice-setup", "google-signin", "drive", "updates",
-        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage", "alarms", "mic-check")
+        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage", "alarms", "mic-check", "pin-choices")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -224,9 +224,12 @@ object DeviceServer {
                 if (acc == null && MainActivity.live == null) return 200 to """{"yes":false,"why":"the display isn't showing"}"""
                 // "pin": a yes that needs the PIN when the lock is on (a reward the kids saved stars for). "grownup": a
                 // yes that always needs the PIN, lock or not (an app made on the tablet going in, bridge/build-waits.js);
-                // a tablet with no PIN yet asks whoever is there to choose one on the card first.
-                val grownUp = b.optBoolean("grownup")
-                val parent = grownUp || (b.optBoolean("pin") && ParentPin.isSet(ctx))
+                // a tablet with no PIN yet asks whoever is there to choose one on the card first. "for": which of the
+                // household's PIN choices this is (PinChoices: apps, photos, calendar, rewards, settings); one they turned
+                // off asks with a person's plain yes instead. None named, or one this shell doesn't know: the PIN, as always.
+                val asks = PinChoices.asks(b.optString("for").ifEmpty { null }, PinChoices.saved(ctx))
+                val grownUp = b.optBoolean("grownup") && asks
+                val parent = grownUp || (b.optBoolean("pin") && asks && ParentPin.isSet(ctx))
                 // "later": the card also has "Not now", which (like no answer) leaves it waiting: "answered" says which.
                 // "no": the word for its no. "waitMs": how long it stays up (90 s by default, at most 10 minutes).
                 val later = b.optBoolean("later")
@@ -287,6 +290,27 @@ object DeviceServer {
             // Opie's tablet_screen (bridge live-tools.js): the brightness, as Settings' Brightness row sets it (not behind
             // the PIN there either), and Sleep now, as the moon button does.
             // The microphone check (MicCheck), for Opie's mic_check: "start" puts it on the screen, "get" says how the last one went.
+            // Opie's pin_choices (bridge devices/index.js): what asks for the PIN (Settings → Advanced → Ask for the PIN), and
+            // changing one, which always takes the PIN typed on this tablet, on a card only a person answers.
+            "/pin-choices" -> {
+                val saved = PinChoices.saved(ctx)
+                fun state(key: String? = null, now: Boolean = false) = JSONObject().put("pin", ParentPin.isSet(ctx))
+                    .put("choices", JSONArray(PinChoices.ALL.map { JSONObject().put("key", it.key).put("label", it.label).put("asks", if (it.key == key) now else PinChoices.asks(it.key, saved)) }))
+                    .put("always", JSONArray(PinChoices.ALWAYS))
+                if (b.optString("do") != "set") return 200 to state().toString()
+                val key = b.optString("what"); val on = b.optBoolean("ask")
+                if (acc == null && MainActivity.live == null) return 200 to state().put("changed", "no_screen").toString()
+                if (!lock.tryLock(60, java.util.concurrent.TimeUnit.SECONDS)) return 200 to state().put("changed", "busy").toString()
+                val label = PinChoices.ALL.firstOrNull { it.key == key }?.label?.replaceFirstChar { it.lowercase() } ?: ""
+                val r = try {
+                    busyWith = "a question on screen for the people here"
+                    PinChoices.change(key, on, ParentPin.isSet(ctx), saved,
+                        confirm = { ApprovalCard.ask(if (on) "Ask for the PIN to $label?" else "Stop asking for the PIN to $label?", "", parent = true, yes = if (on) "Ask" else "Stop asking") },
+                        save = { k, v -> PinChoices.save(ctx, k, v) })
+                } finally { busyWith = null; lock.unlock() }
+                acc?.hideStatus()
+                200 to (if (r == PinChoices.Changed.DONE) state(key, on) else state()).put("changed", r.name.lowercase()).toString()
+            }
             "/mic-check" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
                 if (b.optString("do") == "start") handler.post { MicCheck.open(a) }
