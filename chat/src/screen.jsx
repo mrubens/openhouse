@@ -86,7 +86,7 @@ function Pairing({ onJoined, removed }) {
       {step === 'refused' && <><h1>Not this time</h1><p className="muted">The main display said no.</p></>}
       {(step === 'none' || step === 'ended') && <>
         <h1>{removed ? 'This screen was removed' : 'Scan the code'}</h1>
-        <p className="muted">On the main display: Settings, Screens and computers, Add a screen.</p>
+        <p className="muted">On the main display: Settings, Devices, Add.</p>
       </>}
     </div>
   );
@@ -130,7 +130,7 @@ function TvPairing({ onJoined, removed }) {
       <div className="brand">Opie</div>
       {step === 'joining' ? <h1>Joining</h1> : <>
         <h1>{removed ? 'This TV was removed. To add it again:' : 'To show the household here:'}</h1>
-        <p>On the device, open Settings, Screens, Add a screen, A TV, and type</p>
+        <p>On the device, open Settings, Devices, Add, A TV, and type</p>
         <div className="tv-code">{code}</div>
       </>}
     </div>

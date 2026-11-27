@@ -113,7 +113,7 @@ This covers everything above, including data from Google (calendar events, photo
 
 ## Deleting
 
-Remove a phone on the device (Settings, Screens) and it can no longer reach the household; deleting the app removes
+Remove a phone on the device (Settings, Devices) and it can no longer reach the household; deleting the app removes
 its pairing from the phone. Delete the account on the account page and we delete the account, its devices, backups,
 mail waiting for the device and any copy of the recovery code. The database's own restore copies, kept for disaster recovery, age out within 35 days. Its email address is never given to anyone else. The household's things on the device are the household's to keep or erase.
 

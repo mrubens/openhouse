@@ -52,7 +52,7 @@ export function screenTool(places) {
  *  people in the household's family list, by name, so the model picks one and never makes one up. */
 export function messageTool(names) {
   return { name: 'message_family', description: 'Send a short message now to the phones of someone in the family, or of everyone: "tell Alex dinner\'s ready", ' +
-    '"remind June to bring her lunch", "let everyone know we\'re leaving in 10 minutes". It goes to each phone that person paired with the device, and shows on their phone\'s page. ' +
+    '"remind Maya to bring her lunch", "let everyone know we\'re leaving in 10 minutes". It goes to each phone that person paired with the device, and shows on their phone\'s page. ' +
     'It answers who got it and who has no phone paired or has notifications off: say so in a few words.',
   inputSchema: { type: 'object', required: ['to', 'text'], properties: {
     to: { type: 'string', enum: [...names, 'everyone'], description: 'Who, by name, or everyone' },

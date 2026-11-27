@@ -27,7 +27,7 @@ The starting idea was to split the brain from the screens. Two points from the d
   - Scopes are an allowlist.
   - Revoking ends a screen's open requests at once.
   - Requests reach the same routes the display uses (`route()` in `server.js`); there is no second copy.
-- **Settings → Screens** (`shell/Screens.kt`): the list with last seen, Remove, Add a screen (QR, link, Share),
+- **Settings → Devices** (`shell/Screens.kt`): the list with last seen, Remove, Add a screen (QR, link, Share),
   the Allow/No prompt, and Home network on/off.
 - **Browser screen** (`chat/src/screen.jsx`, served at `/screen/`). It:
   - draws the home screen's pages live: notes, clock, weather, the starting widgets, app icons, timers;
@@ -49,7 +49,7 @@ The starting idea was to split the brain from the screens. Two points from the d
 
 ### Checked between an emulator brain and a desktop browser
 On my own emulator (`display-screens`, a clone of display-grid), with the APK built twice as usual:
-1. Settings → Screens → Add a screen showed the QR code. The browser joined, and Allow on the emulator let it in.
+1. Settings → Devices → Add showed the QR code. The browser joined, and Allow on the emulator let it in.
 2. Both doors showed the same notes, widgets and places.
 3. Moving the clock on the browser moved it on the emulator. Dragging a note on the emulator moved it on the browser.
 4. A typed question from the browser was answered by the brain's assistant (Codex, already signed in on that

@@ -15,7 +15,7 @@ iPhone: a real share sheet entry, notes that open the right screen, widgets, and
   (`relay-box.ts`), the app fetches for it. The page knows it's in the app
   (`window.openhouseApp`) and leaves out what the app does itself: asking to be put on the home screen, turning on
   Web Push, and setting up the Send to Opie shortcut.
-- **Joining**: the app scans the tablet's code (Settings, Screens, Add a screen, Someone's phone), or takes its link
+- **Joining**: the app scans the tablet's code (Settings, Devices, Add, Someone's phone), or takes its link
   pasted. That opens the tablet's own joining page in the web view; once joined, the page goes on to the cloud's copy
   with the pairing after `#`, as it does in Safari, and the app takes the pairing from that address and opens its own
   copy instead. An invite link (the cloud's page with `?for=` and `#pair.key.relay`) joins in the app's own copy too,

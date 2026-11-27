@@ -25,7 +25,7 @@ assistant stays for everyday things (lists, timers, the calendar, notes) and sma
    "working" card, from the computer), the new tab appears, and "undo that" (from the computer or the tablet) takes
    it back.
 
-The computer shows up in Settings, Screens list, where it can be removed (its key stops working at once).
+The computer shows up in Settings, Devices list, where it can be removed (its key stops working at once).
 
 ## Design
 

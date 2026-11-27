@@ -93,7 +93,7 @@ A buzz is for something **you** need to do **soon**. Everything else waits on th
 
 ## 4. Kids' phones
 
-The same page, with less on it. Chosen when the phone is added (Settings, Screens, Add a screen, Someone's phone, and
+The same page, with less on it. Chosen when the phone is added (Settings, Devices, Add, Someone's phone, and
 whether it can ask Opie).
 
 - **Theirs first**: their chores and stars at the top of Today, their events, notes for them.
@@ -159,7 +159,7 @@ The first real try failed: the copy on the home screen opened without its pairin
 The cloud page's manifest said `start_url: /h/`, so the installed copy opened at `/h/` with nothing after `#`, and an
 iPhone's home screen copy has its own storage, so it knew nothing else. Now:
 
-1. On the tablet: Settings, Screens, Add a screen, Someone's phone, whose, and whether it can ask Opie. A code.
+1. On the tablet: Settings, Devices, Add, Someone's phone, whose, and whether it can ask Opie. A code.
 2. The phone's camera scans it. It joins at once: the code was on the tablet's screen, so scanning it is the yes
    (as with an invite link). The tablet's code closes by itself.
 3. On a household that reaches home from away, the page goes straight on to the copy from the cloud, which opens on
