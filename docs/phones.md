@@ -116,8 +116,24 @@ whether it can ask Opie).
 
 Everything through the relay is sealed on the phone and opened on the tablet (or hub). The relay sees sizes and
 times, not words. With no cloud at all, a household still has the Wi-Fi page and loses only the away-from-home,
-install, buzz and voice parts. A household that wants them without our cloud can put the tablet behind its own https
-address (a Tailscale Funnel), as with the web connector.
+install, buzz and voice parts.
+
+**Without our cloud: the household's own Tailscale** (Settings → Advanced → Tailscale; [networking.md](networking.md),
+"Tailscale, for households without Opie cloud"). While it's on, a phone's QR code opens the tablet at its tailnet
+address, `https://opie.<tailnet>.ts.net`, with Tailscale's own certificate: the page's code still comes from the
+tablet, and it works at home and away whenever the phone's Tailscale is on (at home too: the address is the
+tailnet's). Phones joined on the Wi-Fi's address before keep it, learn the tailnet address the next time they're
+home, and go there when the Wi-Fi misses. Sealed the same way; Tailscale carries WireGuard-encrypted bytes it can't
+open either.
+
+| | Through the household's Tailscale (no Opie cloud) |
+|---|---|
+| Today, lists, calendar, chores, ask Opie typed | Yes, anywhere the phone's Tailscale is on |
+| On the home screen | Yes, from the https address (not with HTTPS off for the tailnet: then it's `http://<100.x>:8788`) |
+| Notes and reminders that buzz | Web Push from the https address, as on the Wi-Fi's https name |
+| Talk to Opie | Needs Opie's voice, which is the cloud's |
+| List and photo pages from a QR code (the tablet's own Handoff) | Wi-Fi only: they're served on the Wi-Fi's address, which the tailnet doesn't reach |
+
 
 ## 6. Install: a home-screen web app now, native maybe later
 

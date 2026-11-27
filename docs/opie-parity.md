@@ -110,6 +110,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Join Wi-Fi (the "Not on Wi-Fi" note): a nearby network and its password, no PIN | no, on purpose | It's for a tablet that's offline, when Opie (the cloud's) can't be reached. Its Wi-Fi settings button is a way out, as above |
 | The PIN's recovery code: shown when a PIN is chosen, Forgot PIN?, PIN recovery code | no, on purpose | Like the PIN: only a person sees or types it. Its card and box count as a PIN pad (nothing Opie does lands while they're up) and "I've kept it" takes a real finger. Opie can open the PIN pad; Forgot PIN? is the person's |
 | Advanced: Opie uses apps, device control, USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave Opie |
+| Advanced: Tailscale (turn on, sign in, an auth key, turn off) | no, on purpose | personOnly, as pairing is: it changes who can reach the tablet, from anywhere, and signing in is the person's own Tailscale account (its login opens on their phone; an auth key is pasted by a person). Opie can open Advanced (the tablet asks for the PIN); the row itself refuses Opie's tap. A hub's settings page has the same, for a person on a settings device |
 | Advanced: check-ins (how often, what they look for) | yes | heartbeat_settings |
 | Night hours | yes | night_hours |
 | Volume (no row: the tablet's buttons) | yes | volume |

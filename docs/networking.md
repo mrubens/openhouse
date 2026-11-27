@@ -36,6 +36,7 @@ as whoever serves that page's code. Where each device's code comes from (2026-11
 | The iPhone app | the app itself: the phone page built into it (`chat/phone-page.mjs`, served at `openhouse-app://phone/h/` by `ios/App/PhonePage.swift`) | nothing: Apple-signed |
 | A phone or screen's browser at home, with the tablet's https name | the tablet | https, `t-<random>.<lan domain>` with the tablet's own Let's Encrypt certificate |
 | The same without it (no cloud link, a router that refuses such names, no internet to look the name up) | the tablet | plain http on the Wi-Fi |
+| A phone or screen's browser with the household's own Tailscale on (no cloud needed: "Tailscale, for households without Opie cloud") | the tablet | https at `opie.<tailnet>.ts.net`, Tailscale's certificate (WireGuard underneath) |
 | A phone's browser away from home (the cloud's `/h/`, and list and photo pages: `/l`, `/p/`) | the cloud | https |
 | A computer's MCP | the package installed on the computer | (its own code) |
 
@@ -97,6 +98,9 @@ Before many households (Let's Encrypt's limits, checked 2026-11-25 on letsencryp
 ## The three ways
 
 ### 1. Tailscale on the tablet
+
+Built since 2026-11-27, as an option for households without Opie cloud: "Tailscale, for households without Opie
+cloud" below. What follows was the comparison before.
 
 The tablet runs a userspace Tailscale node (`tailscaled --tun=userspace-networking`, or a small `tsnet` program; both
 are Go, shipped as a native binary in the runtime the way Node is). Android's VPN slot is a poor fit: a kiosk would
@@ -248,6 +252,113 @@ Known limits of this version:
   every hour while it's off, every 6 hours while it's on; a list page when it's opened).
 - The computer's MCP needs a Node with a built-in WebSocket (22 and later); on an older one it stays on the Wi-Fi.
 - No push notifications or remote help yet. The claude.ai and ChatGPT connector is built on the relay: [web-chat-building.md](web-chat-building.md).
+
+## Tailscale, for households without Opie cloud
+
+Built 2026-11-27 (branch `tailscale-away`). For a household that doesn't use Opie cloud: "fine if it's complicated".
+Off until someone turns it on, it's the household's own tailnet (never ours), and it has nothing to do with the cloud:
+it works on a tablet that was never linked. The tailnet is one more carrier for the same sealed requests: pairing,
+scopes and counters are unchanged, and every request still has to be sealed by a paired device.
+
+### How it's built
+
+| Piece | Where |
+| --- | --- |
+| The node, sign-in, https, turning off | `bridge/tailscale.js` (`GET/POST /tailscale`, the display's own; `admin` on a hub's settings device) |
+| Links and QR codes, CORS for `/s` over the tailnet | `bridge/screens.js` (`lanBase`, `overTailnet`, `pageHeaders`) |
+| Paired devices learn the address | `GET /relay/me`'s `tailnet` (`bridge/relay.js`), a computer's welcome (`welcome.tailnet`) |
+| Devices try it when the Wi-Fi misses | `chat/src/screen-client.js` (`tailnet`, `onTailnet`): the Wi-Fi, then the tailnet, then the relay. Screen, phone and hub pages keep it with their pairing; `connect/openhouse-mcp.mjs` too, and `pair opie.<tailnet>.ts.net <code>` pairs over it |
+| Settings → Advanced → Tailscale | `shell/.../TailscaleMenu.kt`; the row is `DeviceServer.personOnly`, inside Advanced's PIN. A hub's settings page: `chat/src/hub.jsx` `Tailscale` |
+| Not in backups | `.tailscale` (the node's state and key) and `.tailscale-bin` (the download): `bridge/stores.js`, and left out of `/backup/export` |
+| Test | `bridge/test/tailscale.test.mjs`: over the tailnet only sealed requests, within the device's scopes; a computer's own Tailscale is never signed out |
+
+**The node.** Tailscale's official static Linux build (`tailscale_<version>_<arch>.tgz` from pkgs.tailscale.com),
+pinned by version and sha256 in `tailscale.js` (`TAILSCALE`), downloaded only when someone turns it on (about 38 MB,
+73 MB unpacked), never in the runtime's tarball. The bridge runs it as its child, inside the runtime (proot Ubuntu):
+
+```
+tailscaled --tun=userspace-networking --statedir=<data>/.tailscale --socket=<data>/.tailscale/tailscaled.sock --port=0 --no-logs-no-support
+```
+
+with `TS_DEBUG_DISABLE_PORTLIST=true` (the tablet's open ports aren't sent with its details) and no log upload. It's
+started again if it stops (2 s, 5 s, 15 s, then every minute), and a bridge that restarts keeps the one already
+answering on its socket. Userspace networking needs no VPN slot: Android's stays free, with no key icon, and the rest of
+the tablet's traffic doesn't go through it. The machine's name is `opie` (Tailscale adds `-1` if it's taken).
+
+**Signing in.** `tailscale up --hostname=opie` prints a login URL; the tablet shows it as a QR code, and a person signs
+in on their phone. Or an auth key from the admin console (Settings → Keys), pasted: it goes to `up` as
+`--auth-key=file:<a 600 file>`, never on a command line, and the file is gone once `up` has it. Tailscale's own
+sign-in, on Tailscale's pages: the tablet never sees a password. A tailnet that approves devices by hand shows
+"Approve Opie in Tailscale". A key Tailscale refuses says so, and the QR code to sign in comes up instead.
+
+**https.** Once the node is Running with a certificate domain (`tailscale status --json`'s `CertDomains`, there when
+the tailnet has HTTPS certificates on), `tailscale serve --bg --yes --https=443 http://127.0.0.1:8788`: the home
+network's port at `https://opie.<tailnet>.ts.net`, with Tailscale's own certificate, which it renews. Serve keeps the
+Host, says `X-Forwarded-Proto: https` and `X-Forwarded-For: <the peer's 100.x>` (which the port counts misses by).
+With HTTPS off, the address is `http://<100.x>:8788` (userspace networking passes the node's own ports on to the
+tablet's loopback), and the tablet's dialog says, in one line behind More, to turn HTTPS on in the admin console under
+DNS. It looks again every minute, so turning it on there is enough.
+
+**Devices.** While it's on and up, links and QR codes for screens and phones use that address (`base`, with
+`via: 'tailscale'`, and the shell's caption says "with Tailscale on"): the page's code still comes from the tablet,
+and it works at home and away, whenever the phone's Tailscale is on. Devices joined before stay on the Wi-Fi's address
+(their storage is that origin's), learn the tailnet address with the relay's (`GET /relay/me`, every 6 hours, on the
+Wi-Fi), and send their sealed requests there when the Wi-Fi misses: CORS (`*`) is open on `/s` and the "am I home?"
+check, and only for requests that came over the tailnet; the page rules (`connect-src`) name the address. A computer's
+MCP gets it in its welcome and keeps it in `pairing.json`.
+
+**A computer with Tailscale of its own** (a hub on a Mac or Linux box): `tailscale` on its PATH, or the Mac app's, is
+used through the same calls instead of a download. Its serve goes on the home network's port (8788), not 443, so
+whatever it serves at https stays as it is; turning it off here takes only that address away (`serve --https=8788
+off`), never the computer's own sign-in. A Mac with no Tailscale says to install it.
+
+**Turning it off** (one button, behind a red "Turn off Tailscale?"): `tailscale logout` (the node leaves the tailnet's
+list), tailscaled stopped, `.tailscale` and `.tailscale-bin` removed. Turning it on again is a fresh node, downloaded
+and signed in again. (The plan had Turn off and Forget; with both signing out and removing the state, they'd be the
+same, so it's one.)
+
+### How to try it
+
+On an emulator: Settings → Advanced → Tailscale → Turn on. Or, from a computer, with the bridge's secret:
+
+```bash
+adb forward tcp:9787 tcp:8787 && T=$(scripts/bridge-token.sh)
+curl -H "X-Openhouse-Token: $T" -H 'content-type: application/json' -d '{"on":true}' localhost:9787/tailscale
+curl -H "X-Openhouse-Token: $T" localhost:9787/tailscale   # state: getting, starting, then signin with its login URL
+```
+
+Tried on an emulator (arm64, Android 15, 2026-11-27): the download and its checksum, `tailscaled` starting in the
+runtime inside the app's own sandbox (no complaint about Android's network limits), the login URL, a refused auth key,
+and turning off (no process, no state, no download left). Not tried yet: a real sign-in, the https address, a phone
+over it, and a hub with its own Tailscale.
+
+### Limits and security
+
+- **Every port of the tablet's loopback is on its tailnet address.** Userspace networking passes any TCP connection to
+  the node's 100.x address on to `127.0.0.1:<port>` (tailscale's `wgengine/netstack/netstack.go`, v1.104.7; there's no
+  switch to turn that off, and `--shields-up` would turn serve off too). Any app on an Android tablet could already
+  reach its loopback, so everything listening there already asks for a secret: the bridge (8787), the shell's device
+  server, the backup drive's. The one that doesn't: the apps' dev server (5173) serves the household's own apps' files
+  (its `/bridge` passes on to the bridge, which still asks for keys). Over the tailnet, that's the household's own
+  devices. A household that wants only the https address reachable can say so in its tailnet's access controls, for
+  example: `{"action": "accept", "src": ["autogroup:member"], "dst": ["opie:443"]}` in place of the default allow-all
+  (with a `hosts` entry for `opie`, its 100.x address).
+- **Two places to remove a lost phone or laptop:** Tailscale's admin console (else it still reaches the tablet's
+  ports from anywhere) and Settings → Linked devices (else its key still opens requests). Either one alone stops it
+  doing anything: without pairing it gets nothing, and without the tailnet it can't get there from away.
+- **A leaked auth key** joins a stranger's machine to the household's tailnet; it still has to pair to do anything.
+  Prefer the QR code, or a one-off key that expires.
+- **Phones need Tailscale on at home too** for codes made while it's on (the address is the tailnet's). The Wi-Fi's
+  address keeps working for devices that joined on it.
+- **List and photo pages from a QR code** (the shell's `Handoff`, on the Wi-Fi's address) aren't reachable over it.
+- **Opie's voice, push through the cloud, the claude.ai connector** are the cloud's; the tablet's own connector
+  (`web-mcp.js`) can sit behind a Tailscale Funnel the household sets up itself.
+- **Misses are counted per tailnet peer** through serve (X-Forwarded-For); over the plain 100.x address (HTTPS off)
+  they all come from 127.0.0.1 and share one count.
+- **Privacy:** Tailscale's coordination server sees the tablet's name (`opie`), OS, addresses and when it's online; a
+  service the household chose. No logs are uploaded and no port list is sent.
+- **Moving the pinned version on:** the new version's `.tgz.sha256` for arm64 and amd64 from pkgs.tailscale.com/stable,
+  into `TAILSCALE` in `tailscale.js`. A tablet with it on downloads the new one (and removes the old) the next time the bridge starts.
 
 ## Still to do
 
