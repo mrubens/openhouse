@@ -33,6 +33,10 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
     @Volatile var screenOff = false
     /** The microphone is open here (an AudioRecord exists). */
     @Volatile var holding = false; private set
+    /** The recorder's audio session while it's open (0: none), so the microphone check can ask Android whether it's silenced. */
+    @Volatile var session = 0; private set
+    /** Why the microphone wouldn't open the last time it tried, or null (it opened): for the microphone check. */
+    @Volatile var failed: String? = null; private set
     private val lock = Object()
     /** Pause and wait until the microphone is let go, up to [ms]: some tablets give it to one recorder at a time. */
     fun pauseAndRelease(ms: Long): Boolean {
@@ -74,7 +78,7 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
             if (!enabled || paused || screenOff) { sleep(500); continue }
             var rec: AudioRecord? = null
             var conn: HttpURLConnection? = null
-            val opened = System.currentTimeMillis()
+            val opened = System.currentTimeMillis(); var opening = false
             try {
                 conn = dev.openhouse.ui.BridgeClient.open(bridge() + "/voice/stream").apply {
                     requestMethod = "POST"; doOutput = true; setChunkedStreamingMode(3200)
@@ -87,18 +91,19 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
                 val plain = dev.openhouse.ui.MicMode.plain
                 val src = if (plain) plainSource() else source()
                 val want = effects(); holding = true; openSource = src; openFx = want
+                opening = true
                 rec = AudioRecord(src, rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(min, rate * 2))
                 if (rec.state != AudioRecord.STATE_INITIALIZED) throw IllegalStateException("microphone unavailable")
                 // The platform's voice processing: gain, noise suppression, and echo cancelling (so it
                 // can hear people while it talks). Each is optional; some sources apply them already.
-                val sid = rec.audioSessionId
+                val sid = rec.audioSessionId; session = sid; failed = null
                 // (Not when the bridge cancels echo itself: it needs the microphone as it is.)
                 val fx = if (plain) emptyList() else listOfNotNull(
                     runCatching { if ("agc" !in want) null else if (android.media.audiofx.AutomaticGainControl.isAvailable()) android.media.audiofx.AutomaticGainControl.create(sid)?.apply { enabled = true } else null }.getOrNull(),
                     runCatching { if ("ns" !in want) null else if (android.media.audiofx.NoiseSuppressor.isAvailable()) android.media.audiofx.NoiseSuppressor.create(sid)?.apply { enabled = true } else null }.getOrNull(),
                     runCatching { if ("aec" !in want) null else if (android.media.audiofx.AcousticEchoCanceler.isAvailable()) android.media.audiofx.AcousticEchoCanceler.create(sid)?.apply { enabled = true } else null }.getOrNull(),
                 )
-                rec.startRecording(); restartReq = false; dev.openhouse.ui.MicClock.began()
+                rec.startRecording(); opening = false; restartReq = false; dev.openhouse.ui.MicClock.began()
                 Log.i(TAG, "listening (source $src, effects: ${if (plain) "none, the bridge cancels echo" else fx.joinToString { it.javaClass.simpleName }})")
                 val stamp = android.media.AudioTimestamp(); var total = 0L
                 var peak = 0; var sum = 0.0; var count = 0; var lastLog = System.currentTimeMillis()
@@ -127,10 +132,11 @@ class Voice(private val bridge: () -> String, private val source: () -> Int = { 
             } catch (e: Exception) {
                 // The bridge may still be starting: wait a moment. But a stream that ran a while and broke is opened again at
                 // once (every second deaf can be the request after its name).
+                if (opening) failed = e.message ?: e.toString()
                 if (running) { Log.w(TAG, "listening stopped: $e"); if (System.currentTimeMillis() - opened < 10_000) sleep(3000) }
             } finally {
                 dev.openhouse.ui.MicClock.ended()
-                letGo(rec); openSource = -1
+                letGo(rec); openSource = -1; session = 0
                 conn?.disconnect()
             }
         }

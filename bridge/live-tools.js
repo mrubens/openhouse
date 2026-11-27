@@ -124,6 +124,11 @@ export const DEVICES_TOOL = { name: 'home_devices', description: "The house's de
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['list', 'act', 'name'] },
     device: { type: 'string', description: 'Which one, by its name or id from list' }, action: { type: 'string', description: 'For act: one of its actions from list' },
     params: { type: 'object', description: 'For act: the action\'s parameters, if any' }, name: { type: 'string', description: 'For name: what the family calls it (empty: its own name)' } } } };
+/** Does the tablet hear them? Settings → Voice's microphone check, on the screen: devices/index.js micCheckDo (the shell's /mic-check). */
+export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether the tablet hears people: when "Hey Opie" isn\'t working, it keeps missing them, or they ask for a microphone check. ' +
+    'start puts the check on the tablet\'s screen: someone says "Hey Opie" to it, and it says plainly whether it heard them, or the microphone is too quiet, too noisy or blocked. ' +
+    'Nothing is recorded or sent while it checks. last says how the last check went.',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['start', 'last'] } } } };
 /** Ending the conversation when asked: the session ends as soon as its last words have played (live-session.cjs). */
 export const GO_AWAY_TOOL = { name: 'go_away', description: 'End this conversation now, when they want you gone: "go away", "stop", "that\'s all", "never mind", "be quiet", "bye". Just call it: you stop listening at once, and the conversation ends once you have finished speaking.',
   inputSchema: { type: 'object', properties: {} } };
@@ -216,7 +221,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const extraTools = () => { try { return extra?.tools() || []; } catch { return []; } };
   const btTools = () => { try { return tvDevices?.bluetoothOn?.() ? [BT_TOOL] : []; } catch { return []; } };
   const volumeTools = () => (tvDevices?.volume ? [VOLUME_TOOL] : []);
-  const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.devices ? [DEVICES_TOOL] : []), ...(tvDevices.media ? [MUSIC_TOOL] : [])] : []);
+  const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.micCheckOn?.() ? [MIC_CHECK_TOOL] : []), ...(tvDevices.devices ? [DEVICES_TOOL] : []), ...(tvDevices.media ? [MUSIC_TOOL] : [])] : []);
   const family = () => { try { return (household?.read?.()?.family || []).filter((f) => f?.name); } catch { return []; } };
   const messageTools = () => { const n = [...new Set(family().map((f) => String(f.name)))]; return phones && n.length ? [messageTool(n)] : []; };
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
@@ -256,6 +261,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === 'volume' && tvDevices?.volume) { const r = await tvDevices.volume(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === DEVICES_TOOL.name && tvDevices?.devices) { const r = await tvDevices.devices(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === MUSIC_TOOL.name && tvDevices?.media) { const r = await tvDevices.media(args || {}); return { text: r.text, isError: !r.ok }; }
+    if (name === MIC_CHECK_TOOL.name && tvDevices?.micCheck) { const r = await tvDevices.micCheck(args || {}, { wait: !!(ctx.typed || ctx.phone) }); return { text: r.text, isError: !r.ok }; }
     if (name === SCREEN_TOOL.name && tvDevices?.screen) { const r = await tvDevices.screen(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === 'bluetooth' && tvDevices?.bluetooth) { const r = await tvDevices.bluetooth(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (name === 'tv' && tvDevices) { const r = await tvDevices.tv(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }

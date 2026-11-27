@@ -11,7 +11,7 @@ One narrow column, six rows, so Settings isn't visually chaotic:
 
 | Row | Shows | Opens | Locked |
 | --- | --- | --- | --- |
-| Voice | Off, or the voice's name | Off, or one of OpenAI's voices: a voice turns on the live voice and Hey Opie together (linking first if need be); Off turns both off, and the microphone | yes |
+| Voice | Off, or the voice's name | Off, or one of OpenAI's voices: a voice turns on the live voice and Hey Opie together (linking first if need be); Off turns both off, and the microphone. While it's on, a quiet Check the microphone (below) | yes |
 | Family | the names | Family: who, where, chores | |
 | Calendars | how many are shown | Google and iCloud accounts (each one's calendars: shown or not, two-way, whose, where new events go) and calendars' links; Add a calendar | yes |
 | What Opie remembers | how many | what it keeps, and a few lines for each day; tap one to forget it (bridge `/memory`) | |
@@ -83,6 +83,26 @@ The old Grown-ups menu (shell/ParentMenu.kt, now shell/SettingsLock.kt):
 
 First run:
 - The "Choose a parent PIN" sheet: **cut**. No PIN by default; the welcome screen comes first.
+
+## Check the microphone
+
+Where someone looks when "Hey Opie" isn't working: Settings → Voice, a quiet link under its line about OpenAI (only
+while the voice is on), or ask Opie (`mic_check`). A card: the title, one line that says what to do ("Say “Hey Opie”"),
+a bar that moves with the room, and Done. Once it has heard its name, or after 8 seconds, the line becomes what it
+found, and a quiet Try again shows:
+
+- heard: Opie heard you (and, with Voice Off, that it won't answer yet)
+- too quiet: the voice never reached the wake model's loudness floor; come closer or speak up
+- too noisy: the voice hardly stood above the room (under about 10 dB)
+- heard something, but not "Hey Opie"
+- blocked: not allowed to use the microphone (with Allow), another app has it (Android silences us, or it wouldn't
+  open), or it hears nothing but silence (Android's microphone switch, or another app)
+- still getting ready: no wake model on this tablet yet
+
+While it runs the bridge only measures (`/voice/check`): a "Hey Opie" opens no conversation and isn't counted with
+the false wakes, and nothing heard is kept, recorded (no clips, no test recording) or sent anywhere. A conversation
+going ends first, since it holds the microphone. The microphone opens for the check even with Voice Off, then goes
+back to what it was. (shell MicCheck.kt; the verdict is bridge/voice.js `micVerdict`.)
 
 ## The lock
 

@@ -73,6 +73,13 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     internal fun micHeld() = voice.holding && !voice.paused
     internal fun micRecent(ms: Int) = voice.recent(ms)
     internal fun micTap(f: ((ByteArray, Int) -> Unit)?) { voice.tap = f }
+    /** The microphone check (MicCheck) began or ended: the microphone opens for it, whatever the voice is set to, and
+     *  goes back to what it was. */
+    internal fun micCheck(on: Boolean) = main.post { voice.enabled = micWanted() || on; if (on) startVoice() }
+    /** For the microphone check: the microphone is open and reading, why it last wouldn't open, its audio session. */
+    internal fun micOpen() = voice.holding && !voice.paused && !voice.screenOff
+    internal fun micFailed() = voice.failed
+    internal fun micSession() = voice.session
     private val voice = Voice({ bridge }, { getSharedPreferences("shell", MODE_PRIVATE).getInt("mic", Voice.DEFAULT_SOURCE) }, {
         // While the bridge cancels echo: the source with nothing done to the sound, where the device has one (the plain
         // microphone source may still have the maker's noise suppression in it); else the one for voice recognition,
@@ -204,23 +211,23 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     private fun startVoice() {
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) return
         watchScreen()
-        voice.enabled = micWanted()
+        voice.enabled = micWanted() || MicCheck.running
         voice.start()
     }
     /** The live voice went on or off: the microphone follows, and the wake model comes if this display has none yet. */
     private fun liveChanged() = main.post {
-        voice.enabled = micWanted()
+        voice.enabled = micWanted() || MicCheck.running
         if (micWanted()) { startVoice(); VoiceModels.ensure(this, bridge, now = true) }
     }
     /** The welcome or the setup came or went (Setup.hushed): the microphone follows, and a live session going ends. */
     private fun micFollows() = main.post {
-        voice.enabled = micWanted()
+        voice.enabled = micWanted() || MicCheck.running
         if (!micWanted()) LiveVoice.stopNow() else { startVoice(); VoiceModels.ensure(this, bridge, now = true) }
     }
     /** The microphone (Settings, Hey Opie, with the wake word). */
     internal fun setListening(on: Boolean) {
         getSharedPreferences("shell", MODE_PRIVATE).edit().putBoolean("listen", on).apply()
-        voice.enabled = micWanted()
+        voice.enabled = micWanted() || MicCheck.running
         if (!on) LiveVoice.stopNow()
         if (micWanted()) { startVoice(); VoiceModels.ensure(this, bridge, now = true) } // the models, if this display has none yet
     }

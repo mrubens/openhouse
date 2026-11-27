@@ -612,6 +612,30 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     return { ok: true, text: what === 'brightness' ? `Brightness now ${r.brightness}.` : `The brightness is ${r.brightness}.` };
   }
   handle.screen = screenDo;
+  /** The microphone check (the voice's "mic_check" tool): the shell's /mic-check puts Settings → Voice's check on the
+   *  screen (MicCheck.kt). [wait]: typed or from a phone, where nothing holds the tablet's microphone, so it waits for
+   *  how it went; the tablet's own voice can't (its conversation holds the microphone): it ends, and the check listens. */
+  async function micCheckDo({ do: what = 'start' } = {}, { wait = false } = {}) {
+    const told = (l) => {
+      if (!l) return 'No microphone check has been done yet.';
+      const mins = Math.round((Date.now() - Number(l.at)) / 60e3);
+      return `The last microphone check (${mins < 1 ? 'just now' : `${mins} min ago`}): ${l.verdict}. The tablet showed: "${l.words}"` +
+        (l.verdict === 'heard' ? '' : ' Tell them what to do about it, in a few words.');
+    };
+    if (what === 'last') { const g = await shell('/mic-check', { do: 'get' }); return g ? { ok: true, text: told(g.last) } : { ok: false, text: 'The microphone check needs the tablet (the shell isn\'t answering).' }; }
+    const r = await shell('/mic-check', { do: 'start' }, 5000);
+    if (!r) return { ok: false, text: 'The microphone check needs the tablet (the shell isn\'t answering).' };
+    if (r.error) return { ok: false, text: r.error };
+    if (!wait) return { ok: true, text: 'The microphone check is on the tablet\'s screen; it starts listening once this conversation ends. Say only one short sentence: once you stop, they say "Hey Opie" to the tablet, and the screen shows what it heard. Then call go_away.' };
+    const before = Number(r.last?.at) || 0, t0 = Date.now();
+    while (Date.now() - t0 < 20e3) {
+      await new Promise((ok) => setTimeout(ok, 700));
+      const g = await shell('/mic-check', { do: 'get' });
+      if (g && !g.running && Number(g.last?.at) > before) return { ok: true, text: told(g.last) };
+    }
+    return { ok: true, text: 'The microphone check is on the tablet\'s screen: someone there says "Hey Opie" to it, and it shows what it heard. Ask again (mic_check last) to hear how it went.' };
+  }
+  handle.micCheck = micCheckDo; handle.micCheckOn = () => host.can('mic-check');
   /** Music and audiobooks in the tablet's media apps (the voice's "music" tool): the shell's /media (Media.kt,
    *  docs/music.md). What the apps say (titles, artists) is theirs: marked as data. */
   // The tablet's own Spotify player (Media.kt, SpotifyEmbed.kt), once someone signed in to Spotify in Opie: the thing's

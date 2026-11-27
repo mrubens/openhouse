@@ -33,6 +33,7 @@ export const CAPS = {
   apps: 'the device tools (its MCP server: screen, tap, open_app...), /front and /halt',
   bluetooth: 'POST /bt', camera: 'POST /camera', media: 'POST /media', multicast: 'POST /multicast', share: 'POST /share',
   brightness: 'POST /screen: brightness and sleep',
+  'mic-check': 'POST /mic-check: the microphone check on its screen (Settings → Voice), and how the last one went',
 };
 // What a tablet's shell can do when it doesn't answer /host (one older than the host interface).
 export const TABLET_CAPS = ['screen', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin', 'voice-setup', 'google-signin', 'drive', 'updates',
