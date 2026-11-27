@@ -6,7 +6,7 @@
 //  - a countdown to a one-off event ("Trip to Chicago in 4 days"): until it starts (never a daily or weekly event);
 //  - a broken app ("Drawing has a problem: ask Opie to fix it"): while its fix waits, or while it's failing.
 //  - an app's own line ("Lunch: Popcorn Chicken · Tacos tomorrow", kit today.show): one per app, until it says.
-//  - an app made on the tablet waiting for a grown-up's yes ("Reading Streak is waiting for a grown-up", build-waits.js):
+//  - an app made on the tablet nobody kept or turned down yet ("Reading Streak is ready to try", build-waits.js):
 //    first, until it's answered or put back after a day; a tap ("build") shows its card again.
 // A tap does what the line is about: opens its tab ("open": Meals for dinner, Calendar for an event, Map to leave by),
 // or asks Opie ("ask": "Help us plan dinner tonight"); a reminder or countdown opens Calendar. Its x takes it down, as
@@ -133,9 +133,9 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     for (const x of live()) out.push({ id: x.id, kind: x.kind, text: x.kind === 'broken' ? brokenText(x.text) : x.text, when: x.kind === 'broken' ? t + DAY : x.until, until: x.until, ...(x.app ? { app: x.app } : {}), ...(x.open ? { open: x.open } : {}), ...(x.ask ? { ask: x.ask } : {}) });
     let fixes = []; try { fixes = fixesOf() || []; } catch {}
     for (const f of fixes) if (!out.some((x) => x.app === f.app && x.kind === 'broken')) out.push({ id: `fix-${f.id}`, kind: 'broken', text: brokenText(f.name || f.app), when: t + DAY, app: f.app });
-    // An app made here, waiting for a grown-up's yes (build-waits.js): first, so it isn't missed; a tap asks its card again.
+    // An app made here, waiting to be kept (build-waits.js): first, so it isn't missed; a tap opens it to try again.
     let waits = []; try { waits = waitsOf() || []; } catch {}
-    for (const w of waits) out.push({ id: `build-${w.id}`, kind: 'waiting', text: `${plain(w.name)} is waiting for a grown-up`, when: t - DAY, app: w.app, build: w.id });
+    for (const w of waits) out.push({ id: `build-${w.id}`, kind: 'waiting', text: `${plain(w.name)} is ready to try`, when: t - DAY, app: w.app, build: w.id });
     const seen = new Set();
     for (const e of [...(house.events || [])].filter((x) => x.countdown && Date.parse(x.start) > t && !(x.local && EVERY.has(x.repeat))).sort((a, b) => Date.parse(a.start) - Date.parse(b.start))) {
       const k = `${e.uid || e.id}|${e.start}`, series = String(e.id || e.uid || e.title);

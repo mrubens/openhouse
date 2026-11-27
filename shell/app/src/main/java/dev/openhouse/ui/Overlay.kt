@@ -356,17 +356,17 @@ private fun MicButton(on: Boolean, dark: Boolean = false, onTap: () -> Unit) {
 @Composable
 fun BuildChip(modifier: Modifier = Modifier) {
     val o = Openhouse
-    val b = o.build?.takeIf { !it.done } ?: return
+    val b = o.build?.takeIf { !it.done && !it.waiting } ?: return // (made: the app is open to try, with its own bar)
     val name = b.app?.let { id -> o.apps.firstOrNull { it.id == id }?.name ?: id.replace('-', ' ').replaceFirstChar { it.uppercase() } }
     val then = o.buildQueue.firstOrNull()
     val shape = RoundedCornerShape(18.u)
-    // most builds take a minute or two; made and waiting for a yes, it stands full and still
-    val part = if (b.waiting) 1f else ((o.now - b.startedAt) / 90_000f).coerceIn(0.04f, 0.92f)
+    // most builds take a minute or two
+    val part = ((o.now - b.startedAt) / 90_000f).coerceIn(0.04f, 0.92f)
     val shown by animateFloatAsState(part, label = "made")
     Column(modifier.widthIn(min = 260.u, max = 420.u).shadow(10.u, shape).clip(shape).background(Color.White)
         .clickable { if (b.app != null && o.openAppId != b.app) o.openApp(b.app) else o.showJobs = true }
         .padding(start = 20.u, end = 20.u, top = 12.u, bottom = 12.u), verticalArrangement = Arrangement.spacedBy(6.u)) {
-        Text(if (b.waiting) (name ?: "It") + " is made" else if (name != null) "Making $name…" else "Making it…", style = quietText(17, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(if (name != null) "Making $name…" else "Making it…", style = quietText(17, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(listOfNotNull(b.live ?: b.stage, then?.let { "then: $it" + if (o.buildQueue.size > 1) " and ${o.buildQueue.size - 1} more" else "" }).joinToString(" · "),
             style = quietText(14, color = PaperLook.inkSoft), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Box(Modifier.fillMaxWidth().height(3.u).clip(RoundedCornerShape(2.u)).background(PaperLook.ink.copy(alpha = .08f))) {

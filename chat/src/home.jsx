@@ -794,7 +794,7 @@ const Note = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="non
 
 /** The things on Home (the bridge's things.js): a reminder due, a suggestion, a countdown, a broken app; one line
  *  each, at most three, most urgent first, each gone once it no longer matters. A tap does what it's about: its tab
- *  (go), or asks Opie (ask), or for an app made here waiting for a grown-up (build), puts its card up again; its x
+ *  (go), or asks Opie (ask), or for an app made here waiting to be kept (build), opens it to try again; its x
  *  takes it down. */
 export function Things({ c, things, className = 't-things', go, tabs, ask }) {
   const [gone, setGone] = useState(() => new Set());

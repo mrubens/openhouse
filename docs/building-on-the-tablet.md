@@ -2,8 +2,8 @@
 
 Someone asks the tablet for a game or a small tab ("a reading streak tracker for Maya and Leo"), or to change one of
 its apps ("make the text on Chores bigger"), and the tablet makes it: no computer, no AI subscription of their own.
-It uses the cloud's cheap text model (`gpt-6-luna`, the cloud assistant's), on rails, and a grown-up says yes on the
-tablet before anything goes in. Bigger or open-ended work stays with someone's own Claude or ChatGPT on a computer
+It uses the cloud's cheap text model (`gpt-6-luna`, the cloud assistant's), on rails. What it makes opens on the tablet to
+try, and goes in only when someone there keeps it. Bigger or open-ended work stays with someone's own Claude or ChatGPT on a computer
 (the workshop, `docs/workshop-mcp.md`). Why the rails look like this, with numbers: `docs/luna-build-eval.md`.
 
 ## How a request gets there
@@ -30,7 +30,7 @@ Asked aloud, Opie says once that it's making it and that the tablet will say whe
 ends as usual. While it works, a quiet chip in the bottom corner, on the home screen and over apps, says what's
 being made ("Making Reading Streak…"), what it's doing, and what waits after it ("then: …"). Its line fills with
 the time a build usually takes, and a tap opens what's being made (`BuildChip`, `Overlay.kt` and `Buddy.kt`). When
-it's ready for the card, the tablet says so (`rails.js say`). If the build doesn't work, the tablet says why.
+it's ready, the app opens to try and, asked aloud, the tablet says so (builder.js `say`). If the build doesn't work, the tablet says why.
 
 ## The rails (`bridge/rails.js`)
 
@@ -58,30 +58,47 @@ it's ready for the card, the tablet says so (`rails.js say`). If the build doesn
 6. **Each step under 30 seconds.** The service stops a model call at 30 s (its HTTP API), so a long file is written
    in parts (`write_file`, then `add_to_file`, about 9,000 characters a step).
 7. **A budget**: 40 model calls, and a stop when it makes the same call four times.
-8. **A grown-up's yes** (below).
+8. **Tried, then kept** (below).
 
 While a new app is being made its page shows one quiet line, "Making Dino Eggs…", not the template or a page half
 written: the templates' `index.html` asks the kit (`beingMade`, the bridge's state `making`), which rails sets at
 `start` and clears once `check_build` first passes. From then on the family (and `look_at_tablet`) see it as it is.
 
-## A grown-up's yes
+## Tried, then kept
 
-The card ("Put Dino Eggs in Apps?") says what the app is in one plain line (the builder's `done` summary, "Dino Eggs:
-catch the falling eggs before they crack", never the reviewer's notes about a fix), who asked and what they said, and
-what it may use and which websites it may reach. Asked aloud, the tablet says when the card is up. Its yes is a person's own tap, never Opie's. It takes the PIN
-when Settings → Advanced → Ask for the PIN → Add apps is on (off by default since 2026-11-27, the owner finding it
-annoying; docs/settings.md): then a child can't put an app in, and a tablet with no PIN yet asks whoever is there to
-choose one on the card (the PIN, then its recovery code), and comes back to it. Until then it was the PIN always.
+"Make me a dinosaur game", asked aloud: Opie calls `make_app` and says it's making it; the chip shows it being made.
+When it's done, the game is open on the tablet (it opened as it was written), and a small bar at the top over it says
+"Keep Dino Eggs?" with **Not this** and **Keep it** (filled). Asked aloud, the tablet says "Dino Eggs is ready. Try it
+on the tablet." (with "keeping it takes the PIN" when Add apps asks for it). It used to put the approval card over
+the app at once, before anyone had played it (the owner, 2026-11-27: "it's weird to ask to add it before I even try
+it").
 
-- **No** ("Don't put it in") puts everything back.
-- **Nobody answers** in 3 minutes, or **Not now**: nothing is lost. The change is set aside as a commit under
-  `refs/opie/waiting/<id>` in the apps' repo (not their history; `bridge/build-waits.js`, listed in
-  `waiting-builds.json`), the files are put back so nothing else waits on it, and any app open on screen for it is
-  closed (the `gone` event). Home shows "Dino Eggs is waiting for a grown-up" first among its things; a tap there (or
-  Opie's `ask_grownup_again`) puts the change back in, opens the app behind the card and asks again.
-- One nobody answers for a day is put back for good, with a line on Home saying so.
-- The bridge asks, and only the card's answer counts: `POST /build/open` only puts the card up again. With no screen
-  to ask (a hub, or a bridge on a laptop) nothing goes in and nothing is granted.
+- **Keep it** is the card's yes (build-waits.js `decide`, the shell's `/approve` with `try`, ApprovalCard): a person's
+  own tap, never Opie's (a real finger only, and Opie's screen tools do nothing while the bar is up). When keeping it
+  takes the PIN (Settings → Advanced → Ask for the PIN → Add apps, off by default since 2026-11-27; docs/settings.md),
+  or when it would get some of the family's things or websites (`grants`), Keep it brings up the card first: what
+  the app is in one plain line (the `done` summary, "Dino Eggs: catch the falling eggs before they crack"), who asked
+  and what they said, what it may use and reach, and the PIN pad (a tablet with no PIN yet asks whoever is there to
+  choose one, then comes back); its Back returns to the app and its bar. Otherwise the tap is the yes.
+- **Not this** puts everything back, as the card's no did.
+- **Leaving it** (Back, Home, another app) without choosing, or 10 minutes of trying: nothing is lost. The change is
+  set aside as a commit under `refs/opie/waiting/<id>` in the apps' repo (not their history; `bridge/build-waits.js`,
+  listed in `waiting-builds.json`), the files are put back so nothing else waits on it, and any app open on screen
+  for it is closed (the `gone` event). Home shows "Dino Eggs is ready to try" first among its things; a tap there (or
+  Opie's `try_made_app`) puts the change back in and opens it again with its bar.
+- One nobody keeps for a day is put back for good, with a line on Home saying so.
+- The bridge asks, and only the bar's or card's answer counts: `POST /build/open` only opens it to try. With no
+  screen to ask (a hub, or a bridge on a laptop) nothing goes in and nothing is granted.
+- Without Device control there's no bar over another app (the shell's own window can't sit over an app running as
+  its own Android app), so it's the card, as before, with the same words.
+
+**What runs while it's tried**: the not-yet-kept version, exactly as it was made, with nothing more. A build holds
+the edit lock with its change in the apps' working tree until it's answered, and the page server serves it from
+there; a new app is already limited at `start` (nothing granted, its own origin), and a change to an app with its own
+rights is already a limited draft. So trying needed no new way to run it: the bar replaces the card over the same
+running app, and the lock stays held while it's tried, as it was while the card was up. The family's things read
+empty and its websites aren't reached until Keep it grants what the card names; a game needs neither, and an app
+that asked for a website says plainly that it can't reach it yet (rails rule 7).
 
 ## What an app made here may do
 
@@ -99,7 +116,7 @@ A new app made on the tablet is the household's own plugin, but limited like one
 A change to one of OpenHouse's apps or the household's own keeps that app's rights as they were. The change can't
 widen them (point 3 above).
 
-While it's being made, and until the yes, nothing of it runs with more than that:
+While it's being made and tried, until it's kept, nothing of it runs with more than that:
 
 - A new app is marked limited, with nothing granted, at `start`, before its first file is written (rails.js
   `register`, plugins.js `madeHere`), so it's on its own origin from its first paint and reads the family's things
@@ -132,8 +149,6 @@ bridge's environment) leaves making apps to a computer, as before.
 
 - A setting for it (it's on whenever the cloud assistant is), and a per-day cap on builds.
 - Granting an app made here more later (a list it should use) from Settings, rather than by asking for it again.
-- The approval card is the general one. As the build ends the app is open behind it, and when it's asked again from
-  Home the app opens behind it too; the card itself doesn't show it.
 - The cloud's 30 s limit per call is tight for Luna (17–26 s for a whole game file before writing in parts) and
   rules out Terra. Builds would be safer on a route without it (a Lambda function URL, or a streamed answer).
 - Undo of a build works as for any change. A failed build tells the family it didn't work in one plain sentence.

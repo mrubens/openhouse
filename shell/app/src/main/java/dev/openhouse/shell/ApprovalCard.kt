@@ -63,8 +63,9 @@ object ApprovalCard {
     /** How long a card's yes waits after the card is up before it takes a tap (a tap meant for what was there before). */
     const val YES_AFTER_MS = 800L
 
-    /** Where a card goes up and comes down. */
-    private class Host(val c: Context, val show: (View) -> Unit, val hide: (View) -> Unit)
+    /** Where a card goes up and comes down. [bar]: a small bar over the app in front, taps elsewhere reaching the app
+     *  (null where there's none: the display's own window can't sit over an app running as its own Android app). */
+    private class Host(val c: Context, val show: (View) -> Unit, val hide: (View) -> Unit, val bar: ((View) -> Unit)? = null)
 
     /** The display's own window for it, over its dialogs (Settings' may be open), the display brought to the front. */
     private fun displayHost(a: MainActivity): Host {
@@ -108,17 +109,21 @@ object ApprovalCard {
      * made on the tablet waits on Home) besides its no, worded [no]. [grownUp]: the yes always takes the PIN, lock or
      * not; with no PIN set yet the card asks whoever is there to choose one (PinPrompt.choose, with its recovery code),
      * then comes back, and the time it took doesn't count against [timeoutMs] (up to 10 minutes more).
+     * [tryApp]: an app made on the tablet, to try first. It's opened, with a small bar at the top ([title], [no], [yes])
+     * instead of the card, over it as it runs. Its yes brings the card (rights, the PIN) when there's the PIN to type or
+     * [grants] (it would get some of the family's things or websites), and is the yes itself otherwise. Leaving the app
+     * is no answer (NONE). Without Device control (no bar over another app) it's the card, as before.
      */
     fun answer(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false, yes: String = "Allow",
                rights: List<Pair<String, String>> = emptyList(), more: String? = null, danger: Boolean = false,
-               grownUp: Boolean = false, later: Boolean = false, no: String? = null): Answer =
+               grownUp: Boolean = false, later: Boolean = false, no: String? = null, tryApp: String? = null, grants: Boolean = true): Answer =
         shown(plain(title), plain(detail, lines = true), timeoutMs, parent, plain(yes).ifEmpty { "Allow" },
-            rights.map { (k, t) -> plain(k) to plain(t) }, more?.let { plain(it, lines = true) }, danger, grownUp, later, no?.let { plain(it) })
+            rights.map { (k, t) -> plain(k) to plain(t) }, more?.let { plain(it, lines = true) }, danger, grownUp, later, no?.let { plain(it) }, tryApp, grants)
 
     private fun shown(title: String, detail: String, timeoutMs: Long, parent: Boolean, yes: String,
                       rights: List<Pair<String, String>>, more: String?, danger: Boolean,
-                      grownUp: Boolean, later: Boolean, no: String?): Answer = synchronized(ASKING) {
-        val host = DeviceAccess.instance?.let { acc -> Host(acc, acc::showOverlay, acc::hideOverlay) }
+                      grownUp: Boolean, later: Boolean, no: String?, tryApp: String?, grants: Boolean): Answer = synchronized(ASKING) {
+        val host = DeviceAccess.instance?.let { acc -> Host(acc, acc::showOverlay, acc::hideOverlay, acc::showBar) }
             ?: MainActivity.live?.let(::displayHost)
             ?: return Answer.NONE.also { Log.i(TAG, "nowhere to ask \"$title\"") }
         val c = host.c
@@ -130,7 +135,13 @@ object ApprovalCard {
         fun hide() { shown?.let { v -> runCatching { host.hide(v) }; (v.parent as? ViewGroup)?.removeView(v) }; shown = null }
         fun answer(a: Answer) { if (done.count == 0L) return; said = a; done.countDown() }
         lateinit var put: () -> Unit
+        // [tryApp]: an app made on the tablet, open to try, with a small bar over it (putBar) instead of the card. Its
+        // "Keep it" is the card's yes; the full card (what it may use, the PIN) comes up only when there's that to show.
+        val trying = tryApp != null && host.bar != null
+        val barUp = java.util.concurrent.atomic.AtomicBoolean(false)
+        lateinit var putBar: () -> Unit
         put = {
+            barUp.set(false)
             // The shared look (Calm), as the shell's own dialogs; the house rules in docs/ux.md: the title is the
             // question, one short line, the rights as a list (never behind More), then the verb.
             val K = dev.openhouse.ui.Calm
@@ -152,6 +163,7 @@ object ApprovalCard {
             val row = K.row(c, 8).apply { gravity = Gravity.END or Gravity.CENTER_VERTICAL; setPadding(0, K.px(c, 28), 0, 0) }
             // The quiet ones: its no, and on a [later] card "Not now", which leaves it waiting.
             fun quiet() {
+                if (trying) { row.addView(K.quiet(c, "Back") { hide(); putBar() }); return } // (to the app and its bar)
                 if (later) row.addView(K.quiet(c, no ?: "No") { answer(Answer.NO) })
                 row.addView(K.quiet(c, "Not now") { answer(if (later) Answer.NONE else Answer.NO) })
             }
@@ -160,8 +172,8 @@ object ApprovalCard {
             fun ready() = android.os.SystemClock.uptimeMillis() >= liveAt
             val noPinYet = grownUp && !ParentPin.isSet(c)
             val needPin = (parent || grownUp) && ParentPin.isSet(c) && !ParentGrace.isOpen()
-            if (noPinYet) { // a grown-up's yes needs a PIN, and there's none yet: choosing one is the first step
-                col.addView(K.text(c, "This needs a grown-up's PIN, and the tablet has none yet. Choose one, then ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(c, 20), 0, 0) })
+            if (noPinYet) { // a yes that needs the PIN, and there's none yet: choosing one is the first step
+                col.addView(K.text(c, "This needs the PIN, and the tablet has none yet. Choose one, then ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(c, 20), 0, 0) })
                 quiet()
                 var byHand: () -> Boolean = { false }
                 row.addView(K.primary(c, "Choose a PIN") {
@@ -196,12 +208,41 @@ object ApprovalCard {
             if (runCatching { host.show(dim) }.onFailure { Log.w(TAG, "couldn't show the card: $it") }.isFailure) answer(Answer.NONE)
             else { shown = dim; Log.i(TAG, "asking: $title") }
         }
-        main.post { put() }
+        putBar = {
+            barUp.set(true)
+            val K = dev.openhouse.ui.Calm
+            val bar = K.row(c, 8).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(K.px(c, 24), K.px(c, 8), K.px(c, 8), K.px(c, 8))
+                background = K.rounded(K.SHEET, K.R_SHEET * K.u(c)); elevation = 16f
+            }
+            bar.addView(K.text(c, title, K.LABEL, 600).apply { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END; maxWidth = K.px(c, 420) },
+                android.widget.LinearLayout.LayoutParams(-2, -2).apply { marginEnd = K.px(c, 12) })
+            bar.addView(K.quiet(c, no ?: "No") { answer(Answer.NO) })
+            val liveAt = android.os.SystemClock.uptimeMillis() + YES_AFTER_MS
+            var byHand: () -> Boolean = { false }
+            bar.addView(K.primary(c, yes) {
+                if (android.os.SystemClock.uptimeMillis() < liveAt || !byHand()) return@primary
+                val pin = (grownUp && !ParentPin.isSet(c)) || ((parent || grownUp) && ParentPin.isSet(c) && !ParentGrace.isOpen())
+                if (!pin && !grants) answer(Answer.YES) else { hide(); put() } // the PIN, or what it may use: the card
+            }.also { it.filterTouchesWhenObscured = true; byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
+            val wrap = android.widget.FrameLayout(c).apply { setPadding(K.px(c, 12), K.px(c, 12), K.px(c, 12), K.px(c, 12)); addView(bar) } // (room for its shadow)
+            if (runCatching { host.bar!!(wrap) }.onFailure { Log.w(TAG, "couldn't show the bar: $it") }.isFailure) put()
+            else { shown = wrap; Log.i(TAG, "to try: $title") }
+            // The app itself, in front (it opened as it was made; again here when it was asked for from Home or by Opie).
+            MainActivity.live?.let { a -> if (runCatching { dev.openhouse.ui.Openhouse.openAppId }.getOrNull() != tryApp) a.openApp(tryApp!!) }
+        }
+        main.post { if (trying) putBar() else put() }
         try { // no answer in [timeoutMs] of the card being up (time choosing a PIN doesn't count, up to 10 minutes of it)
             var up = 0L; var aside = 0L
+            var seen = false // (trying: the app has been in front; leaving it is no answer, and it waits on Home)
             while (!done.await(500, TimeUnit.MILLISECONDS)) {
                 if (choosing.get()) aside += 500 else up += 500
                 if (up >= timeoutMs || aside >= 600_000) break
+                if (trying && barUp.get()) {
+                    val front = runCatching { dev.openhouse.ui.Openhouse.openAppId }.getOrNull()
+                    if (front == tryApp) seen = true else if (seen) { Log.i(TAG, "left $tryApp without choosing"); break }
+                }
             }
         } finally {
             main.post { hide() }

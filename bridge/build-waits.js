@@ -1,9 +1,13 @@
-// An app made on the tablet waits for a grown-up's yes (docs/building-on-the-tablet.md, "A grown-up's yes"). The card
-// is asked as the build ends, with the PIN always (a tablet with none asks someone to choose one there). Its yes puts
-// the app in; its no puts everything back. Nobody answering (or "Not now") loses nothing: the change is kept aside as
-// a commit under refs/opie/waiting/<id> (not on the apps' history), the files are put back so nothing else waits on
-// it, and Home shows "Reading Streak is waiting for a grown-up" (things.js); a tap there, or Opie asked, puts the change
-// back in and asks the card again. One nobody answers for a day is put back for good, with a line on Home saying so.
+// An app made on the tablet is tried before it goes in (docs/building-on-the-tablet.md, "Try it, then keep it"). As the
+// build ends it opens with a small bar to keep it or not (the shell's ApprovalCard, try): its Keep it is a person's own
+// tap, with the PIN when Add apps asks for it (a tablet with none asks someone to choose one there), and puts the app
+// in; Not this puts everything back. Leaving it without choosing loses nothing: the change is kept aside as a commit
+// under refs/opie/waiting/<id> (not on the apps' history), the files are put back so nothing else waits on it, and Home
+// shows "Reading Streak is ready to try" (things.js); a tap there, or Opie asked, puts the change back in and opens it
+// to try again. One nobody keeps for a day is put back for good, with a line on Home saying so.
+//
+// While it's tried it runs as it was made: limited like an app from a link (plugins.js madeHere, nothing granted), on
+// its own origin, a change to an app with its own rights in its draft copy. Keep it grants what its card names.
 //
 // file: waiting-builds.json beside undo.json: [{ id, commit, at, who, text, card }]
 import fs from 'node:fs';
@@ -45,14 +49,16 @@ export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', gr
   /** The card, with the change in the working tree under [owner]'s lock: 'yes' (granted: the caller commits), 'no' or 'later'. */
   async function decide(owner, card) {
     let a;
-    // The PIN, unless the household turned off asking for it to add apps (for: the shell's PinChoices); a person's yes either way.
-    try { a = await ask({ ...card, pin: true, grownup: true, for: 'apps' }); } catch (e) { log('card:', e.message); a = 'later'; }
+    // Open to try (try: the app on screen, its draft for a change made in one), its bar's Keep it the yes. The PIN, unless
+    // the household turned off asking for it to add apps (for: the shell's PinChoices); a person's own tap either way.
+    // grants: keeping it gives it some of the family's things or websites, so Keep it shows the card with them first.
+    try { a = await ask({ ...card, pin: true, grownup: true, for: 'apps', try: card.draft || card.app, grants: !!(card.uses?.length || card.reaches?.length) }); } catch (e) { log('card:', e.message); a = 'later'; }
     if (a === 'yes') {
       if (card.draft) promote(card); // a change made in a draft: swapped in now, the draft's entry gone
       if (card.limited) grant(card);
       return 'yes';
     }
-    // null: no screen here to ask a grown-up (a hub, a bridge on a laptop): nothing goes in, nothing is granted.
+    // null: no screen here to ask (a hub, a bridge on a laptop): nothing goes in, nothing is granted.
     return a === 'later' ? 'later' : 'no';
   }
 
@@ -75,7 +81,7 @@ export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', gr
     edits.discard(owner);
     list.push({ id, commit, at: now(), who, text, card });
     save();
-    log(`${card.name} waits for a grown-up (${id})`);
+    log(`${card.name} waits to be kept (${id})`);
     emit({ type: 'waiting', id, app: card.app, name: card.name });
     return id;
   }
@@ -92,13 +98,13 @@ export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', gr
   }
 
   /**
-   * Its card again (a tap on Home's line, or Opie): the change goes back in, the app shows behind the card, and the
-   * answer settles it. Resolves { ok, answer } or { ok: false, error }.
+   * To try again (a tap on Home's line, or Opie): the change goes back in, the app opens with its bar, and the answer
+   * settles it. Resolves { ok, answer } or { ok: false, error }.
    */
   async function open(id, { timeoutMs = 60e3 } = {}) {
     expire();
     const w = list.find((x) => x.id === id || x.card?.app === id || x.card?.name?.toLowerCase() === String(id || '').toLowerCase());
-    if (!w) return { ok: false, error: 'Nothing is waiting for a yes.' };
+    if (!w) return { ok: false, error: 'Nothing is waiting to be kept.' };
     if (opening.has(w.id)) return { ok: true, answer: 'asking' };
     opening.add(w.id);
     const owner = { id: `wait-${w.id}`, kind: 'build', who: w.who, text: w.text };
@@ -114,7 +120,7 @@ export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', gr
           return { ok: false, error: `${w.card.name} couldn't be put back in: the apps changed since. Ask for it again.` };
         }
         const shownApp = w.card.draft || w.card.app; // (a change made in a draft: the draft, limited, is what shows)
-        emit({ type: 'edit', app: shownApp, text: `apps/${shownApp}/` }); // the app shows behind its card
+        emit({ type: 'edit', app: shownApp, text: `apps/${shownApp}/` }); // the app opens, to try
         answer = await decide(owner, w.card);
         if (answer === 'yes') {
           edits.commit(owner);
@@ -137,8 +143,8 @@ export function buildWaits({ FILE, APP_DIR, edits, ask = async () => 'later', gr
   function expire() {
     for (const w of list.filter((x) => now() - x.at > DAY && !opening.has(x.id))) {
       drop(w);
-      log(`${w.card.name}: nobody said yes in a day, put back`);
-      try { line(`${w.card.name} wasn't put in: nobody said yes for a day`); } catch {}
+      log(`${w.card.name}: nobody kept it in a day, put back`);
+      try { line(`${w.card.name} wasn't kept: nobody chose for a day`); } catch {}
       emit({ type: 'waiting', id: w.id, app: w.card.app, name: w.card.name, gone: true });
     }
   }

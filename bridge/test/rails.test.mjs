@@ -1,5 +1,5 @@
 // Apps made on the tablet (rails.js): the model writes only into the one app it started, can't change what an app
-// may reach, and a new app goes in only with a grown-up's yes (the PIN always), with only the family's things and the
+// may reach, and a new app goes in only with a person's Keep it after trying it (the PIN when Add apps asks), with only the family's things and the
 // exact websites its card named. A build nobody answers waits (build-waits.js): nothing of it is in, and nothing of it is lost.
 //   cd bridge && npm test
 import { test } from 'node:test';
@@ -76,7 +76,7 @@ test('made on the tablet: only its own app, and only the family\'s things and ex
   assert.equal(fs.readFileSync(path.join(APP_DIR, 'apps/chores/main.js'), 'utf8'), 'document.body.textContent = "chores";\n');
   assert.ok(!fs.readFileSync(path.join(APP_DIR, 'apps/dino/index.html'), 'utf8').includes('evil'));
   assert.equal(fs.readFileSync(path.join(APP_DIR, 'apps/dino/game.js'), 'utf8'), fs.readFileSync(new URL('../templates/game/game.js', import.meta.url), 'utf8'));
-  // While it's being made, and until a grown-up's yes: limited like an app from a link, with nothing granted, whatever
+  // While it's being made, and until someone keeps it: limited like an app from a link, with nothing granted, whatever
   // its app.json asks (so it's on its own origin, and none of the family's things)
   assert.deepEqual([...pl.rightsOf('dino')], []);
   assert.deepEqual(pl.reachesOf('dino'), []);
@@ -85,11 +85,12 @@ test('made on the tablet: only its own app, and only the family\'s things and ex
   const nobody = waitsWith([null]);
   assert.equal(await nobody.decide(owner, r.card), 'no'); nobody.stop();
   assert.deepEqual([...pl.rightsOf('dino')], []);
-  // A grown-up's yes, on a card that always takes the PIN and names the sites it may reach
+  // Keep it, on a card that takes the PIN (when Add apps asks) and names the sites it may reach
   const waits = waitsWith(['yes']);
   assert.equal(await waits.decide(owner, r.card), 'yes');
   assert.equal(waits.asked.length, 1); assert.equal(waits.asked[0].pin, true); assert.equal(waits.asked[0].grownup, true);
   assert.ok(waits.asked[0].rights.some((x) => x.kind === 'web' && x.text.includes('api.weather.gov')));
+  assert.equal(waits.asked[0].grants, true); // (so its Keep it shows these on the card before they're granted)
   edits.finish(owner, true); waits.stop();
   assert.deepEqual([...pl.rightsOf('dino')], ['lists']);
   assert.deepEqual(pl.reachesOf('dino'), ['api.weather.gov']);

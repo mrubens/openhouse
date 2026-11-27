@@ -9,21 +9,22 @@
 // POST /cancel                 stop the run and put back what it changed
 // POST /apperror {app, text}   an app's page threw (the shell's web view, or the kit); its next check sees it. From an
 //                              app's own key, app is always the caller (server.js appCall), whatever the body says
-// GET  /build/waiting          apps made here waiting for a grown-up's yes (build-waits.js)
-// POST /build/open {id}        one of them: its card on the tablet again (Home's "waiting for a grown-up" line)
+// GET  /build/waiting          apps made here that nobody kept or turned down yet (build-waits.js)
+// POST /build/open {id}        one of them: open on the tablet to try again (Home's "ready to try" line)
 //
-// A run whose agent hands back a card (rails.js) goes in only on a grown-up's yes on that card, with the PIN; a no puts
-// it back, and no answer keeps it waiting (build-waits.js), so a parent called from another room loses nothing.
+// A run whose agent hands back a card (rails.js) opens on the tablet to try, and goes in only on a person's Keep it
+// there (with the PIN when Add apps asks for it); Not this puts it back, and leaving it keeps it waiting
+// (build-waits.js), so nothing is lost.
 import { requestApp, showingTab } from './home-screen.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { dayKey } from './dates.js';
 import { buildWaits, markBuilding, unmarkBuilding } from './build-waits.js';
 
-/** ask(card): the tablet's card (server.js shellAsk); grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home;
- *  say(text): said aloud on the tablet (a request asked aloud hears that it's ready for the card);
+/** ask(card): the tablet's try-it bar and card (brain.js shellAsk); keepPin(): whether keeping it takes the PIN there; grant(card): what its yes grants (plugins.js madeHere); line(text): one line on Home;
+ *  say(text): said aloud on the tablet (a request asked aloud hears that it's ready to try);
  *  tell(conversation, text): a typed request's conversation hears, in writing, that it didn't work (chat.js tell). */
-export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, tell = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
+export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json, ask = async () => null, keepPin = async () => false, grant = () => {}, unmake = () => {}, line = () => {}, changed = () => {}, say = () => {}, tell = () => {}, WAITS_FILE = path.join(HERE, 'waiting-builds.json') }) {
   const { emit, setState } = events;
   const waits = buildWaits({ FILE: WAITS_FILE, APP_DIR, edits, ask: async (c) => { const a = await ask(c); if (a === 'yes') for (const id of [c.app, c.draft]) if (id) appErrors.delete(id); return a; }, // (what it threw while being made doesn't count against it once it's in) grant: (c) => grant(c), unmake: (id) => unmake(id), line: (t) => line(t), changed: () => changed(), emit,
     landed: (w) => { try { appendMemory(w.text, w.who, w.card.summary || ''); } catch {} } });
@@ -239,7 +240,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
 
     // An app's page must load without errors. Feed what it threw back to the same agent session (up to 3 tries).
     let fixRounds = 0;
-    while (result.ok && !result.checked && touchedApps.size && events.state.state === 'working' && fixRounds < 3) { // (checked: the agent did this itself, before a parent's yes: rails.js)
+    while (result.ok && !result.checked && touchedApps.size && events.state.state === 'working' && fixRounds < 3) { // (checked: the agent did this itself, before it's tried: rails.js)
       emit({ type: 'phase', name: 'checking' });
       const failed = [];
       for (const app of touchedApps) {
@@ -274,19 +275,23 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       setState({ state: 'idle', request: null, base: null });
       return true;
     }
-    // A grown-up's yes on the tablet before it goes in (the agent's card: rails.js), with the PIN. A no puts it back;
-    // no answer (or "Not now") keeps it waiting, put aside, with a line on Home that asks again (build-waits.js).
+    // Tried on the tablet, then kept or not (the agent's card: rails.js): Keep it is a person's own tap (with the PIN when
+    // Add apps asks for it). Not this puts it back; leaving it keeps it waiting, put aside, with a line on Home that
+    // opens it to try again (build-waits.js).
     if (result.card) {
       const card = result.card;
       touchedApps.add(card.app); // (closed on screen if it's put back or set aside: closeGone)
       emit({ type: 'phase', name: 'asking' });
-      // Asked aloud: the voice may have gone quiet by now, so the tablet says the card is up.
-      if (owner.spoken) { try { say(card.fresh ? `${card.name} is ready. A grown-up can put it in on the tablet.` : `The change to ${card.name} is ready. A grown-up can put it in on the tablet.`); } catch {} }
+      // Asked aloud: the voice may have gone quiet by now, so the tablet says it's ready to try.
+      if (owner.spoken) {
+        const pin = await keepPin().catch(() => false);
+        try { say(`${card.fresh ? `${card.name} is ready` : `The change to ${card.name} is ready`}. Try it on the tablet${pin ? '; keeping it takes the PIN' : ''}.`); } catch {}
+      }
       const a = await waits.decide(owner, card);
       if (events.state.state !== 'working' || owner.abort.signal.aborted) return false; // cancelled while the card was up
       if (a === 'no') {
         edits.discard(owner);
-        const said = card.fresh ? `${card.name} wasn't put in.` : `The change to ${card.name} wasn't put in.`;
+        const said = card.fresh ? `${card.name} wasn't kept.` : `The change to ${card.name} wasn't kept.`;
         emit({ type: 'done', spoken: !!ctx.spoken, ok: false, text: said, conversation: ctx.conversation || null, ms, firstEditMs });
         told(ctx, said);
         setState({ state: 'idle', request: null, base: null, making: null });
@@ -294,7 +299,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       }
       if (a === 'later') {
         waits.park(owner, card, { who, text });
-        emit({ type: 'done', spoken: !!ctx.spoken, ok: true, changed: false, waiting: true, app: card.app, text: `${card.name} is waiting for a grown-up's yes: it's on Home.`, ms, firstEditMs });
+        emit({ type: 'done', spoken: !!ctx.spoken, ok: true, changed: false, waiting: true, app: card.app, text: `${card.name} is on Home, to try again.`, ms, firstEditMs });
         setState({ state: 'idle', request: null, base: null, making: null });
         return true; // (kept aside: nothing to put back)
       }

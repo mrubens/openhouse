@@ -223,7 +223,7 @@ object DeviceServer {
                 // window of the display, so plugin adds and rewards are asked there too.
                 if (acc == null && MainActivity.live == null) return 200 to """{"yes":false,"why":"the display isn't showing"}"""
                 // "pin": a yes that needs the PIN when the lock is on (a reward the kids saved stars for). "grownup": a
-                // yes that always needs the PIN, lock or not (an app made on the tablet going in, bridge/build-waits.js);
+                // yes that always needs the PIN, lock or not (unless its PIN choice is off, below) (an app made on the tablet going in, bridge/build-waits.js);
                 // a tablet with no PIN yet asks whoever is there to choose one on the card first. "for": which of the
                 // household's PIN choices this is (PinChoices: apps, photos, calendar, rewards, settings); one they turned
                 // off asks with a person's plain yes instead. None named, or one this shell doesn't know: the PIN, as always.
@@ -235,6 +235,11 @@ object DeviceServer {
                 val later = b.optBoolean("later")
                 val noWord = b.optString("no").trim().take(24).ifEmpty { null }
                 val waitMs = b.optLong("waitMs", 90_000).coerceIn(10_000, 600_000)
+                // "try": an app made on the tablet (its id, or its draft's), opened to try with a small bar to keep it or
+                // not, rather than the card over it (ApprovalCard). "grants": keeping it gives it some of the family's
+                // things or websites, so its yes shows the card with them first.
+                val tryApp = b.optString("try").takeIf { Regex("^[a-z0-9][a-z0-9-]{0,60}$").matches(it) }
+                val grants = b.optBoolean("grants", true)
                 // The card's words (docs/ux.md): a verb for the yes, what it may do as a list (always shown), and
                 // the rest behind More. All of them, as the voice model gets them: one too long to show is a no, never cut.
                 val rights = b.optJSONArray("rights")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { it.optString("kind").take(20) to it.optString("text") } }.orEmpty()
@@ -246,7 +251,7 @@ object DeviceServer {
                 val said = try {
                     busyWith = "a question on screen for the people here"
                     ApprovalCard.answer(title, detail, timeoutMs = waitMs, parent = parent, yes = yesWord, rights = rights, more = more,
-                        danger = b.optBoolean("danger"), grownUp = grownUp, later = later, no = noWord)
+                        danger = b.optBoolean("danger"), grownUp = grownUp, later = later, no = noWord, tryApp = tryApp, grants = grants)
                 } finally { busyWith = null; lock.unlock() }
                 acc?.hideStatus()
                 200 to JSONObject().put("yes", said == ApprovalCard.Answer.YES).put("answered", said != ApprovalCard.Answer.NONE).toString()

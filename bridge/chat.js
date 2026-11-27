@@ -121,7 +121,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   }
   const TEXT_PREAMBLE = (n, builds = false) => `You are ${n}, the assistant on a household's home-screen tablet. This turn was typed (or comes from the tablet itself), and your answer is shown on the screen: ` +
     'short and plain, like the spoken answers described below. Use your tools for anything about the household and never guess it. ' +
-    (builds ? 'You don\'t write an app\'s or a game\'s code yourself: make_app has the tablet make or change one, and a grown-up says yes there. '
+    (builds ? 'You don\'t write an app\'s or a game\'s code yourself: make_app has the tablet make or change one, which opens there to try and goes in when someone there keeps it. '
       : 'You can\'t make or change an app\'s or a game\'s code: someone does that from their computer with their own Claude or ChatGPT (Settings, then Screens and computers). ') +
     'Tabs, their order and names, and the look of the home screen are set_home.\n\n---\n\n';
   const textInstructions = () => { const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };

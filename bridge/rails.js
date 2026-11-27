@@ -8,9 +8,9 @@
 //     which the card shows.
 //   - Checked before it's done: each script parses, what index.html loads is there, and (on the tablet) what the page
 //     threw; with Device control on, it can look at the screen.
-//   - A grown-up's yes on the tablet before it goes in: run() ends with the card to ask (what the app is, in the line
-//     done gave, who asked, what it may use and reach), and the builder asks it with the PIN and keeps the build
-//     waiting until someone answers (builder.js, build-waits.js). A new app gets none of the family's things and no
+//   - Tried, then kept by a person on the tablet before it goes in: run() ends with the card to ask (what the app is, in
+//     the line done gave, who asked, what it may use and reach); the builder opens the app to try with a bar to keep it
+//     or not, and keeps the build waiting until someone chooses (builder.js, build-waits.js). A new app gets none of the family's things and no
 //     websites but those the card named (plugins.js madeHere): it runs like one from a link.
 //   - A step budget and a stop when it repeats itself.
 import fs from 'node:fs';
@@ -37,8 +37,8 @@ const RULES = `You make and change the household's apps on their kitchen tablet,
 3. For a change: read the app's files first, then change only what was asked, with edit_file where you can. Keep everything else working as it was.
 4. The app's own things (what someone typed, ticked or scored) are saved with the kit's store (store.get / store.set), never only in memory. A tab follows "How a tab should look" in the guide, including "Not the generic look": no grid of cards with big numbers and a pill button; pick the form that fits (a timeline for a plan, a strip of days for a streak, rows for a list), fill it with the household's real names, dates and tasks, fit its box with nothing cut off, and work on a phone. A game can be bold, with a drawn world and big touch targets.
 5. Write in parts: at most about 200 lines (9,000 characters) in one write_file; write the first part, then add_to_file the next ones.
-6. check_build after writing, and fix what it finds${'${LOOK}'}. If what you see is a grid of boxes, rework it. Then done, with one plain line saying what the app is: its name, what it shows or does, and who it's for ("Reading Streak: a shelf for Maya and Leo with the days they read"). A grown-up reads it before saying yes, so it describes the app, never a fix or how you made it.
-7. To read something on the web (a public API, a feed), ask for it: put its exact host in app.json "reaches" (["api.example.com"], at most ${MAX_REACH}, no "*."), and read it with the kit's web.get(url) / web.json(url) (https GETs only, through the tablet). A grown-up sees the hosts on the card and says yes or no; ask only for what the app needs, and make it still work, saying so plainly, when a site can't be reached.
+6. check_build after writing, and fix what it finds${'${LOOK}'}. If what you see is a grid of boxes, rework it. Then done, with one plain line saying what the app is: its name, what it shows or does, and who it's for ("Reading Streak: a shelf for Maya and Leo with the days they read"). Whoever keeps it may read it, so it describes the app, never a fix or how you made it.
+7. To read something on the web (a public API, a feed), ask for it: put its exact host in app.json "reaches" (["api.example.com"], at most ${MAX_REACH}, no "*."), and read it with the kit's web.get(url) / web.json(url) (https GETs only, through the tablet). Whoever keeps the app sees the hosts on its card first, and until then it can't reach them; ask only for what the app needs, and make it still work, saying so plainly, when a site can't be reached.
 Never write outside the app, never use alert/confirm/prompt, never load scripts, styles or pictures from the internet (no <script src="https://...">, no fetch to other sites).`;
 
 /**
@@ -50,7 +50,7 @@ Never write outside the app, never use alert/confirm/prompt, never load scripts,
  * review(q) (optional: a second model's look at the code before it's done, the same call as ai; null for none),
  * say(text) (the tablet says it aloud: for a request asked aloud, owner.spoken, why it didn't work; that it's ready
  * for the card is said by the builder, where the card is asked), log }.
- * Nothing goes in here: run() ends with the card a grown-up answers, and the builder asks it (builder.js).
+ * Nothing goes in here: run() ends with the card a person answers after trying it, and the builder asks it (builder.js).
  */
 export function rails(deps) {
   const { ai, review = null, APP_DIR, guide = () => '', checkBuild = async () => ({ ok: true }), look = async () => null, limited = () => false, register = () => false, show = () => {}, making = () => {}, say = () => {}, log = (...a) => console.log('[rails]', ...a) } = deps;
@@ -67,7 +67,7 @@ export function rails(deps) {
     { name: 'edit_file', description: 'Change part of a file of the app you started: old is text in it now, exactly once; new replaces it.', parameters: { type: 'object', required: ['path', 'old', 'new'], properties: { path: { type: 'string' }, old: { type: 'string' }, new: { type: 'string' } } } },
     { name: 'check_build', description: 'Check the app: its scripts parse, what index.html loads is there, and what the page threw on the tablet.', parameters: { type: 'object', properties: {} } },
     ...(canLook ? [{ name: 'look_at_tablet', description: 'A picture of the tablet\'s screen now, with the app on it: see what you made the way the family will.', parameters: { type: 'object', properties: {} } }] : []),
-    { name: 'done', description: 'Finish. summary: one plain line saying what the app is, for the grown-up who says yes: its name, what it shows or does, who it\'s for ("Reading Streak: a shelf for Maya and Leo with the days they read"). For a change, the app as it is now ("Chores: bigger text, each person\'s chores in a row"). About the app, never about a fix or how it was made.',
+    { name: 'done', description: 'Finish. summary: one plain line saying what the app is, for whoever keeps it: its name, what it shows or does, who it\'s for ("Reading Streak: a shelf for Maya and Leo with the days they read"). For a change, the app as it is now ("Chores: bigger text, each person\'s chores in a row"). About the app, never about a fix or how it was made.',
       parameters: { type: 'object', required: ['summary'], properties: { summary: { type: 'string', description: 'What the app is, in one plain line (not what was fixed)' } } } },
   ].map((t) => ({ type: 'function', ...t }));
 
@@ -78,7 +78,7 @@ export function rails(deps) {
   const metaOf = (text) => { try { const m = JSON.parse(text); return m && typeof m === 'object' && !Array.isArray(m) ? m : null; } catch { return null; } };
 
   /** One request: the builder's agent interface (builder.js runBuild). Resolves { ok, text, usage, model, card? }: card is
-   *  what a grown-up is asked before it goes in (builder.js asks it; nothing is granted or kept here). */
+   *  what a person is asked, after trying it, before it goes in (builder.js asks it; nothing is granted or kept here). */
   // Asked aloud: the voice may have gone quiet by now, so the tablet says why it didn't work (that it's ready for the
   // card, the builder says as it shows it). A cancel says nothing. Typed: the builder writes it in that conversation
   // and the screen shows it (builder.js tell), so nothing is said.
@@ -141,8 +141,8 @@ export function rails(deps) {
     if (!finished && s.steps >= MAX_STEPS) return { ok: false, text: 'That took too many steps. Try asking for something smaller.', usage: s.usage };
     const problems = await staticCheck(appsDir, s.dir);
     if (problems.length) return { ok: false, text: `It didn't come out right, so I put everything back. (${problems[0]})`, usage: s.usage };
-    // What a grown-up is asked on the tablet before it goes in: what the app is (done's line, never the reviewer's
-    // notes), who asked, and for a new app what it may use. The builder asks it, with the PIN, and keeps it waiting.
+    // What a person is asked on the tablet, after trying it, before it goes in: what the app is (done's line, never the
+    // reviewer's notes), who asked, and for a new app what it may use. The builder asks it and keeps it waiting.
     const meta = metaOf(fs.readFileSync(path.join(appsDir, s.dir, 'app.json'), 'utf8')) || {};
     const asks = (Array.isArray(meta.uses) ? meta.uses : []).filter((u) => USES.includes(u));
     const isLimited = s.fresh || limited(s.target);
@@ -153,9 +153,9 @@ export function rails(deps) {
     sessions.delete(id);
     return { ok: true, checked: true, text: line, usage: s.usage, model: 'cloud', app: s.target,
       card: { app: s.target, ...(s.draft ? { draft: s.draft } : {}), name, fresh: s.fresh, limited: isLimited, uses: asks, reaches: hosts, summary: line,
-        title: s.fresh ? `Put ${name} in Apps?` : `Put in the change to ${name}?`,
+        title: s.fresh ? `Keep ${name}?` : `Keep the change to ${name}?`,
         detail: `${line}${said ? `\n${who ? `${who} asked` : 'Asked'}: “${said}”` : ''}`,
-        yes: 'Put it in', ...(isLimited ? { rights: rightsList([{ name, uses: asks, reaches: hosts }]) } : {}) } };
+        yes: 'Keep it', no: 'Not this', ...(isLimited ? { rights: rightsList([{ name, uses: asks, reaches: hosts }]) } : {}) } };
   }
 
   /** Why app.json's "reaches" can't be asked for as it is, or null: exact hosts ("api.example.com"), a few. */
@@ -215,22 +215,22 @@ export function rails(deps) {
           if (!exists) return err(`There's no app ${app}. These are there: ${appIds().join(', ')}.`);
           s.target = app; s.kind = 'change'; s.dir = app;
           // An app with its own rights (ours, the household's) is never rewritten live: the change is made in a draft, a
-          // copy limited like one from a link (nothing granted, its own origin), swapped in on a grown-up's yes.
+          // copy limited like one from a link (nothing granted, its own origin), swapped in when someone keeps it.
           if (!limited(app)) {
             const draft = `${app.slice(0, 40)}--draft`;
-            if (fs.existsSync(path.join(appsDir, draft))) return err(`A change to ${app} is already waiting for a grown-up's yes: that one first.`);
+            if (fs.existsSync(path.join(appsDir, draft))) return err(`A change to ${app} is already waiting to be kept or not: that one first.`);
             if (!register(draft)) return err("Apps can't be changed on the tablet right now.");
             fs.cpSync(path.join(appsDir, app), path.join(appsDir, draft), { recursive: true, filter: (f) => !path.basename(f).startsWith('.') || f === path.join(appsDir, app) });
             s.draft = s.dir = draft;
           }
           show(s.dir);
-          return { text: `Changing ${app} ("${appName(app)}"). Its files:\n${fs.readdirSync(path.join(appsDir, s.dir)).filter((f) => !f.startsWith('.')).join('\n')}\nRead what you change first. Keep writing to apps/${app}/.${s.draft ? ' While it\'s being changed it runs as a copy without the family\'s things (they read empty and changes are refused) until a grown-up says yes: that\'s expected, don\'t work around it.' : ''}` };
+          return { text: `Changing ${app} ("${appName(app)}"). Its files:\n${fs.readdirSync(path.join(appsDir, s.dir)).filter((f) => !f.startsWith('.')).join('\n')}\nRead what you change first. Keep writing to apps/${app}/.${s.draft ? ' While it\'s being changed it runs as a copy without the family\'s things (they read empty and changes are refused) until someone keeps it: that\'s expected, don\'t work around it.' : ''}` };
         }
         if (!KINDS[a.kind]) return err('kind: "game", "tab" or "change".');
         if (exists || fs.existsSync(path.join(appsDir, app))) return err(`There's an app ${app} already: pick another id, or kind "change" to change it.`);
         const tpl = path.join(HERE, 'templates', KINDS[a.kind]);
         // Limited like an app from a link before its first file is written: nothing of the family's, no websites, its
-        // own origin. A grown-up's yes grants what its card says (madeHere), a no takes the entry back with the files.
+        // own origin. Keeping it grants what its card says (madeHere), a no takes the entry back with the files.
         if (!register(app)) return err("Apps can't be made on the tablet right now.");
         fs.mkdirSync(path.join(appsDir, app), { recursive: true });
         const nm = String(a.name || app.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase())).replace(/[\p{Cc}\p{Cf}"\\<>`]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 40) || app;
@@ -241,7 +241,7 @@ export function rails(deps) {
         making(app); // its page says "Making <name>…" until check_build first passes, not a page half written
         show(app);
         const own = a.kind === 'game' ? 'main.js (and icon.svg)' : 'main.js and app.css (and icon.svg)';
-        return { text: `Made apps/${app} from the ${a.kind} template; it loads already. Until a grown-up says yes it has none of the family's things (they read empty and changes are refused): that's expected. Its files: ${fs.readdirSync(path.join(appsDir, app)).join(', ')}. Read main.js${a.kind === 'game' ? ' and the top of game.js (the engine)' : ', app.css and kit/quiet.css\'s top comment'}, then write ${own}. index.html${a.kind === 'game' ? ' and game.js stay' : ' stays'} as they are.` };
+        return { text: `Made apps/${app} from the ${a.kind} template; it loads already. Until someone keeps it it has none of the family's things (they read empty and changes are refused): that's expected. Its files: ${fs.readdirSync(path.join(appsDir, app)).join(', ')}. Read main.js${a.kind === 'game' ? ' and the top of game.js (the engine)' : ', app.css and kit/quiet.css\'s top comment'}, then write ${own}. index.html${a.kind === 'game' ? ' and game.js stay' : ' stays'} as they are.` };
       }
       case 'list_files': {
         if (!a.app) return { text: appIds().map((id) => `${id} ("${appName(id)}")`).join('\n') + '\nThe kit: kit/openhouse.js, kit/quiet.css, kit/openhouse.css' };
@@ -290,10 +290,10 @@ export function rails(deps) {
           const m = metaOf(next), old = metaOf(was || '{}') || {};
           if (!m) return err('app.json must be a JSON object ({"name": ..., "kit": 2, ...}).');
           // What an app may do isn't the builder's to change: an app made here may ask for groups and exact websites (the
-          // card shows them and a parent's yes grants them: madeHere); the household's own and ours keep theirs as they were.
+          // card shows them and keeping it grants them: madeHere); the household's own and ours keep theirs as they were.
           const asking = s.fresh || limited(s.target);
           for (const k of GUARDED) {
-            if (asking && k === 'uses') { if (m.uses !== undefined && !(Array.isArray(m.uses) && m.uses.every((u) => USES.includes(u)))) return err(`uses: some of ${USES.join(', ')}; the card asks a parent.`); continue; }
+            if (asking && k === 'uses') { if (m.uses !== undefined && !(Array.isArray(m.uses) && m.uses.every((u) => USES.includes(u)))) return err(`uses: some of ${USES.join(', ')}; the card shows them when it's kept.`); continue; }
             if (asking && k === 'reaches') { const bad = reachProblem(m.reaches); if (bad) return err(bad); continue; }
             if (JSON.stringify(m[k]) !== JSON.stringify(old[k])) return err(`app.json's "${k}" stays as it was: what an app may do is the family's to grant, not part of this change.`);
           }

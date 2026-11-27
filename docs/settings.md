@@ -141,7 +141,7 @@ value says which are on. Permissive by default:
 
 | Switch | What it covers | Default |
 | --- | --- | --- |
-| Add apps | an Android app (Add apps, install_app, Aurora Store and what it hands over), a plugin (add, an update, an app reaching a website), an app Opie made going in, Apps' plugin gallery | Off |
+| Add apps | an Android app (Add apps, install_app, Aurora Store and what it hands over), a plugin (add, an update, an app reaching a website), keeping an app Opie made (its Keep it), Apps' plugin gallery | Off |
 | Add photo albums | adding or taking off an iCloud album, phones sending photos, Google Photos | Off |
 | Change the calendar | any change to the calendar from the apps or Opie (the bridge's calendar lock, as before) | Off |
 | Give rewards | spending stars on a reward (Get it!), and changing the rewards | Off |

@@ -77,14 +77,14 @@ export const livePreamble = (name, builds = false) => `You are ${name}, the voic
   'Something behind the tablet\'s PIN isn\'t a reason to refuse: do it, and when the tablet asks for the PIN (a tool says so), tell them to type it on the tablet. Never ask them to say the PIN to you. ' +
   'Make each change once, then say it\'s done; don\'t repeat a call that worked. Something repeats only if they said so ("every Friday"). If someone talks over you, stop and listen. If people are talking to each other and not to you, stay quiet.\n\n' +
   'What follows is how the family\'s assistant works and what this family asked for. Follow it, except the parts about making or changing an app\'s code, ' +
-  (builds ? 'which is make_app (the tablet makes it, and a grown-up says yes there); ' : 'which isn\'t yours to do (someone does that from their computer); ') + 'the home screen\'s tabs and look are set_home.\n\n---\n\n';
+  (builds ? 'which is make_app (the tablet makes it, it opens there to try, and someone there keeps it); ' : 'which isn\'t yours to do (someone does that from their computer); ') + 'the home screen\'s tabs and look are set_home.\n\n---\n\n';
 
 /** Making or changing an app on the tablet itself (rails.js, through the builder), when the household has it on. */
-export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or game, or change one of the household\'s apps ("make the text on Chores bigger"), on the tablet itself: it takes a minute or two, the screen shows it working, and a grown-up says yes on the tablet before it goes in. Before you call it for a new app or game, ask about the details that would change what gets made (who it\'s for, what goes on it, how it should work or look), one short question at a time since this is spoken, until you know enough to make something they\'ll like; skip the questions when they\'ve already said, ask you to just make it, or the change is small. what: what they asked for, in their words, with what you know (who it\'s for, what it should do) and their answers. Each change they ask for is its own call, also while one is still being made (it waits its turn): never say you\'ve asked for something without calling this for it. Only an app\'s code: the family\'s things (lists, events, a countdown on the calendar, chores) and the tabs and look have their own tools.',
+export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or game, or change one of the household\'s apps ("make the text on Chores bigger"), on the tablet itself: it takes a minute or two, the screen shows it working, then it opens there to try, and it goes in only when someone taps Keep it there (never you). Before you call it for a new app or game, ask about the details that would change what gets made (who it\'s for, what goes on it, how it should work or look), one short question at a time since this is spoken, until you know enough to make something they\'ll like; skip the questions when they\'ve already said, ask you to just make it, or the change is small. what: what they asked for, in their words, with what you know (who it\'s for, what it should do) and their answers. Each change they ask for is its own call, also while one is still being made (it waits its turn): never say you\'ve asked for something without calling this for it. Only an app\'s code: the family\'s things (lists, events, a countdown on the calendar, chores) and the tabs and look have their own tools.',
   inputSchema: { type: 'object', properties: { what: { type: 'string' } }, required: ['what'] } };
 
-/** An app made on the tablet waiting for a grown-up's yes (build-waits.js): its card up again, as a tap on Home's line. */
-export const ASK_AGAIN_TOOL = { name: 'ask_grownup_again', description: 'An app the tablet made is waiting for a grown-up\'s yes (Home says "… is waiting for a grown-up"): put its card back up on the tablet, where a grown-up says yes (with the PIN, when the tablet asks for it), or no. Only a person answers it. app: its name.',
+/** An app made on the tablet that nobody kept or turned down yet (build-waits.js): open to try again, as a tap on Home's line. */
+export const ASK_AGAIN_TOOL = { name: 'try_made_app', description: 'An app or game the tablet made is waiting to be kept (Home says "… is ready to try"): open it on the tablet to try, with its bar to keep it or not. Only a person keeps it (Keep it, with the PIN when the tablet asks for one); you can\'t. app: its name.',
   inputSchema: { type: 'object', properties: { app: { type: 'string' } } } };
 
 /** The TV, straight from the voice (no agent turn): devices/index.js tv(). Offered only when there's a TV to control. */
@@ -217,7 +217,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   // Voice actions the apps declare (plugins.js voiceTools/callVoice), set once the plugins are up: data only, each one
   // done by its app's own page.
   let builds = null; // (text, who, {phone}) => {ok, queued?, busy?}: the builder (builder.js request), when apps are made on the tablet
-  let waits = null; // the apps made here waiting for a grown-up's yes (build-waits.js): waiting(), open(id)
+  let waits = null; // the apps made here waiting to be kept (build-waits.js): waiting(), open(id)
   const waitTools = () => { try { const w = waits?.waiting() || []; return w.length ? [{ ...ASK_AGAIN_TOOL, description: ASK_AGAIN_TOOL.description + ` Waiting now: ${w.map((x) => x.name).join(', ')}.` }] : []; } catch { return []; } };
   let extra = null, tvDevices = null, device = null, screen = null, phones = null; // screen: {places(), show(id)} (server.js); phones: screens.js phones(), message()
   const screenTools = () => { try { const p = screen?.places() || []; return p.length ? [screenTool(p)] : []; } catch { return []; } }; // device: Opie using the tablet's other apps (device-tools.js)
@@ -298,17 +298,17 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       return { text: `The screen shows ${p.name}${p.tab ? '' : ', full screen'}. look_at_screen to see what's on it.`, isError: false };
     }
     if (name === MESSAGE_NAME && phones) return sendMessage(args || {}, ctx.phone?.person || null);
-    if (name === ASK_AGAIN_TOOL.name && waits) { // (Home's "waiting for a grown-up" line, tapped: the card again; only a person answers it)
+    if (name === ASK_AGAIN_TOOL.name && waits) { // (Home's "ready to try" line, tapped: the app again, to try; only a person keeps it)
       const w = waits.waiting(), want = String(args?.app || '').trim().toLowerCase();
       const one = w.find((x) => x.name.toLowerCase() === want || x.app === want) || (w.length === 1 ? w[0] : null);
-      if (!one) return { text: w.length ? `Which one? ${w.map((x) => x.name).join(', ')}.` : 'Nothing is waiting for a grown-up.', isError: true };
+      if (!one) return { text: w.length ? `Which one? ${w.map((x) => x.name).join(', ')}.` : 'Nothing the tablet made is waiting to be kept.', isError: true };
       waits.open(one.id).catch(() => {});
-      return { text: `${one.name}'s card is up on the tablet. Tell them a grown-up says yes there with the PIN (or no); it isn't yours to answer.`, isError: false };
+      return { text: `${one.name} is opening on the tablet to try. Keeping it is their own tap there (Keep it); you can't keep it for them.`, isError: false };
     }
     if (name === MAKE_APP_TOOL.name && builds) {
       const r = await builds(String(args?.what || ''), ctx.phone?.person || null, { phone: !!ctx.phone, typed: ctx.typed || null }).catch(() => ({ ok: false }));
-      // Said once, then the conversation ends as usual: the tablet shows it being made, and how it went (ready for a
-      // grown-up's yes, or why it couldn't). So the line promises no outcome: a build can still fail.
+      // Said once, then the conversation ends as usual: the tablet shows it being made, and how it went (open to try,
+      // or why it couldn't). So the line promises no outcome: a build can still fail.
       return r.queued ? { text: `Queued: the tablet makes it right after what it's making now${r.queued > 1 ? ` (${r.queued - 1} more before it)` : ''}. Tell them in one short sentence that it's next and it'll show here when it's ready; promise nothing more, and don't wait for it.`, isError: false }
         : r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them in one short sentence that you\'re making it and it\'ll show here when it\'s ready; promise nothing more (it can still fail), and don\'t wait for it.', isError: false }
         : { text: r.busy ? 'The tablet already has a few things waiting to be made: tell them to ask again once those are done.' : 'Making apps on the tablet isn\'t on: someone does it from their computer (Settings, then Screens and computers).', isError: true };

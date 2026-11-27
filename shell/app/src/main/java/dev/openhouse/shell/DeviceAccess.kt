@@ -278,6 +278,8 @@ class DeviceAccess : AccessibilityService() {
     /** The approval card ([ApprovalCard]) as an accessibility overlay: over whatever app is in front. On the main thread. */
     internal fun showOverlay(v: View) { wm.addView(v, overlayParams(-1, -1, Gravity.CENTER, false).apply { y = 0 }) }
     internal fun hideOverlay(v: View) { runCatching { wm.removeView(v) } }
+    /** A card's small bar (an app made here, to try: [ApprovalCard]), at the top over that app: taps elsewhere reach the app. */
+    internal fun showBar(v: View) { wm.addView(v, overlayParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL, false)) }
 
     /** The "Is this OK?" card ([ApprovalCard.ask]), here over whatever app is in front. */
     fun approve(title: String, detail: String, timeoutMs: Long = 90_000, parent: Boolean = false, yes: String = "Allow",

@@ -12,7 +12,7 @@ the tablet", and from a phone, that it's on the tablet itself. The rules that do
   album link someone sent, the account that entered the link code: `ui/PersonCards.kt`), every device tool is refused, reading the screen included, and Opie
   tells them it's theirs to answer. The card's yes also takes only a real touch, not an injected one.
 - What is person-only (`DeviceServer.personOnly`: turning on email, allowing a held email, Opie uses apps and other
-  switches that widen what Opie may do, ways out of Opie, saying yes to a calendar or album someone sent, or to the account that entered the link code) needs a
+  switches that widen what Opie may do, ways out of Opie, saying yes to a calendar or album someone sent, or to the account that entered the link code, keeping an app made on the tablet) needs a
   person's own tap, PIN or not. Opie can open the screen; the tap is theirs.
 - Which everyday things ask for the PIN (Settings → Advanced → Ask for the PIN, docs/settings.md): Opie changes a
   switch only when asked (`pin_choices`), and the tablet asks for the PIN on its own card; the switch itself is a
@@ -55,8 +55,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Lists card: tick, untick, add | yes | change_list |
 | An app's day notes: week, today only, off | **new** | calendar_event settings.app_notes |
 | Sleep now (the moon) | **new** | tablet_screen sleep |
-| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and a grown-up says yes on the tablet's card (with the PIN when Ask for the PIN → Add apps is on) before it goes in; the card also names any exact websites the app asked to reach (docs/building-on-the-tablet.md) |
-| Home: "… is waiting for a grown-up" (an app made on the tablet nobody said yes to yet): its card again | **new** | ask_grownup_again puts the card back up; only a person answers it (with the PIN when Add apps asks) |
+| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and it opens on the tablet to try; it goes in only on a person's Keep it there (with the PIN when Ask for the PIN → Add apps is on; the card then also names what it may use and any exact websites it asked to reach). Opie can't keep it (docs/building-on-the-tablet.md) |
+| Home: "… is ready to try" (an app made on the tablet nobody kept yet): open it to try again | **new** | try_made_app opens it with its bar; Keep it stays a person's own tap (with the PIN when Add apps asks), never Opie's |
 
 ## The built-in apps
 

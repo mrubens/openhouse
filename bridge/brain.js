@@ -122,10 +122,11 @@ const git = edits.git;
 putBackUnfinished({ HERE, edits });
 const reopened = reopenChanges({ HERE, edits });
 edits.watch();
-// An app made here goes in on a grown-up's yes on the tablet's card, always with the PIN (grownup: a tablet with no PIN
-// asks someone to choose one there); no answer keeps it waiting, on Home (build-waits.js). shellAsk, plugins, chat: below.
+// An app made here opens to try and goes in on a person's Keep it there, with the PIN when Add apps asks for it (grownup:
+// a tablet with no PIN asks someone to choose one there); leaving it keeps it waiting, on Home (build-waits.js).
+// shellAsk, plugins, chat: below.
 const builder = builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, events, json,
-  ask: (card) => shellAsk(card), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), unmake: (id) => plugins.unmake(id), say: (t) => chat.voice.say(t),
+  ask: (card) => shellAsk(card), keepPin: () => keepTakesPin(), grant: (card) => plugins.madeHere(card.app, { uses: card.uses, reaches: card.reaches || [] }), unmake: (id) => plugins.unmake(id), say: (t) => chat.voice.say(t),
   line: (text) => chat.things.put({ text, minutes: 12 * 60, by: 'builder' }), changed: () => chat.house?.changed?.(), tell: (id, text) => chat.tell(id, text) });
 
 const devices = devicesRoutes({ HERE, json, body }); // first: it sets HOME_MCP_* for the agents
@@ -157,14 +158,16 @@ process.env.OPENHOUSE_APP_DIR = APP_DIR;
 const apps = appsRoutes({ HERE, APP_DIR, json });
 // Plugins (plugins.js, docs/plugins.md): apps and a look another family made, added as one change after someone's
 // yes on the tablet's card. An app from a plugin gets only what its plugin was granted (rightsOf, below).
-/** The card for an app made here (builder.js): 'yes', 'no' (someone said no), 'later' (nobody answered, Not now, or the
- *  display couldn't show it), or null with no shell to ask (a laptop). It's up for 3 minutes, longer while someone
- *  chooses a PIN there. */
-const shellAsk = async ({ title, detail, yes, rights, pin, grownup, for: choice }) => { // for: which PIN choice it is (the shell's PinChoices)
-  const r = await host.call('/approve', { title, detail, yes, rights, pin, grownup, for: choice, later: true, no: "Don't put it in", waitMs: 180e3 }, { ms: 15 * 60e3 });
+/** An app made here, to keep or not (builder.js): 'yes' (Keep it), 'no' (Not this), 'later' (they left it, Not now, nobody
+ *  answered, or the display couldn't show it), or null with no shell to ask (a laptop). try: open it to try, with a bar
+ *  over it (a shell without that shows the card); up to 10 minutes of trying, longer while someone chooses a PIN there. */
+const shellAsk = async ({ title, detail, yes, no, rights, pin, grownup, for: choice, try: tryApp, grants }) => { // for: which PIN choice it is (the shell's PinChoices)
+  const r = await host.call('/approve', { title, detail, yes, rights, pin, grownup, for: choice, later: true, no: no || 'Not this', try: tryApp, grants, waitMs: tryApp ? 600e3 : 180e3 }, { ms: 25 * 60e3 });
   if (!r) return null;
   return r.ok && r.body?.yes === true ? 'yes' : r.ok && r.body?.answered === true ? 'no' : 'later';
 };
+/** Whether keeping an app made here takes the PIN there (Ask for the PIN → Add apps): what the tablet says when it's ready. */
+const keepTakesPin = async () => { if (!host.can('pin-choices')) return false; const b = await host.json('/pin-choices', { do: 'get' }, 3000); return !!(b?.choices || []).some((c) => c.key === 'apps' && c.asks); };
 const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger, for } (docs/ux.md; for: the PIN choice, shell PinChoices) // true, false, or null when there's no shell to ask (a laptop)
   const r = await host.call('/approve', { ...extra, title, detail, pin }, { ms: 100e3 });
   return r && r.ok && r.body?.yes === true;
@@ -219,7 +222,7 @@ const HB_DIR = path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'))
 const fixes = fixQueue({ DIR: HB_DIR });
 chat.homeScreen.addTools(fixes.tools, fixes.call);
 chat.things.setFixes(() => fixes.open()); // a broken app waiting for its fix shows on Home (things.js)
-chat.things.setWaits(() => builder.waits.waiting()); // and an app made here waiting for a grown-up's yes
+chat.things.setWaits(() => builder.waits.waiting()); // and an app made here waiting to be kept
 const checksFromApps = appChecks({ APP_DIR, readData: dataReader(path.resolve(HB_DIR, '../appdata')), houseView: () => chat.house.view(),
   houseKeysOf: (app) => { const r = plugins.rightsOf(app); return r ? new Set(Object.keys(houseFor(chat.house.view(), r))) : null; },
   fixedChecks: (app) => plugins.checksOf(app) });
