@@ -7,6 +7,7 @@ follow [the setup guide](setup.md).
 |---|---|---|
 | **Samsung Galaxy Tab S10 FE**, Wi-Fi (SM-X520) | **Works** | Opie is built on it. Release and date of its full test run: to be recorded |
 | **Samsung Galaxy Tab A11+**, Wi-Fi (SM-X230) | **Being tested** | Voice fixes for it are in. It moves up once its results are in [hardware.md](hardware.md) |
+| **Lenovo Tab One**, Wi-Fi (4 GB) | **Being tested** | Setup by code, linking to Opie Cloud, voice and the home screen all worked on 1.0.55 (2026-11-27) |
 | **Xiaomi** tablets on HyperOS (Redmi Pad 2 Pro and others) | **Doesn't work** | HyperOS refuses the setup that makes Opie the tablet's owner, and lets Home leave kiosk mode |
 | Anything else | Not tried | Tell us what happened: [the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml) |
 
@@ -46,7 +47,8 @@ It has a fair chance of working if it has:
   still to come, is what we'd buy.
 - **Setup by QR code as the device owner.** Android's own: tap the first welcome screen six times and a code scanner
   opens. Most tablets with Google's Android have it; some makers' own versions remove or break it (Xiaomi's HyperOS).
-- **6 GB of memory or more** (6–8 GB, [hardware.md](hardware.md)).
+- **4 GB of memory or more.** Opie itself needs little now that speech runs in the cloud; 4 GB runs it (the Lenovo Tab
+  One), and 6 GB leaves room for bigger apps.
 - **A charge limit**, since it stays plugged in. Not needed, but the battery lasts longer.
 
 Then follow [the setup guide](setup.md) and fill in [the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml)

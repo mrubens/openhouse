@@ -10,7 +10,7 @@ The current tablet is a **Samsung Galaxy Tab S10 FE (SM-X520)**, bought for $362
 2. **Speaker.** Loud and clear in a kitchen.
 3. **Android.** Device-owner QR provisioning and lock-task kiosk. Android 15 or 16 with years of security updates.
 4. **Screen.** About 10–12 inches, bright enough, fine on all day.
-5. **Performance.** 6–8 GB of RAM and a mid-range chip for the WebView and the background Node process.
+5. **Performance.** 4 GB of RAM or more (6 GB for headroom) and a chip that keeps the WebView smooth. 6–8 GB was the bar while speech recognition and a coding agent ran on the tablet; both are gone, and a 4 GB Lenovo Tab One runs Opie (2026-11-27).
 6. **Charging.** A charge limit for a tablet that is always plugged in.
 
 ## The candidates
