@@ -63,37 +63,58 @@ export class Removed extends Error {}
  * Away from home (docs/networking.md): with `relay` ({url, relay, token}, from GET /relay/me), a request that can't
  * reach the home network goes through the cloud's relay instead, sealed the same way. onRelay(cfg or null) is told
  * what the tablet says about the relay now and then (keep it with the pairing).
+ *
+ * Or over the household's own Tailscale (bridge/tailscale.js): with `tailnet` (the tablet's tailnet address,
+ * https://<machine>.<tailnet>.ts.net, from the same GET /relay/me or a computer's welcome), a request that can't reach
+ * the home network goes there next, before the relay: the same sealed bytes to the same /s. onTailnet(address or
+ * null) is told when the tablet says it changed (keep it with the pairing too).
  */
-export function client({ base = '', id, key, fetch: f = fetch, relay = null, onRelay = null, WS = globalThis.WebSocket, probeMs = 3000, onlyRelay = false, api = null }) {
+export function client({ base = '', id, key, fetch: f = fetch, relay = null, onRelay = null, tailnet = null, onTailnet = null, WS = globalThis.WebSocket, probeMs = 3000, onlyRelay = false, api = null }) {
   const K = b64.dec(key);
   let last = 0;
   const next = () => (last = Math.max(Date.now() * 1000, last + 1));
-  let rt = null, away = 0, checked = 0, asked = 0;
+  let rt = null, away = 0, checked = 0, asked = 0, tnAway = 0, tnChecked = 0;
   const viaRelay = () => (rt ??= relayTransport(relay, { WS, api }));
   /** On the home network? A quick answer from it (any status) says yes; asked at most every 30 s. */
   async function home() {
-    if (!relay) return true;
+    if (!relay && !tailnet) return true;
     if (onlyRelay) return false; // a page served by the cloud: the tablet is only ever through the relay
     if (Date.now() < away) return false;
     if (Date.now() - checked < 30e3) return true;
     try { await f(base + '/pair/wait?pair=-', { signal: AbortSignal.timeout(probeMs) }); checked = Date.now(); return true; }
     catch { away = Date.now() + 60e3; return false; }
   }
+  /** The tablet over the tailnet: a quick answer from it says this device's Tailscale is on; asked at most every 30 s. */
+  async function overTailnet() {
+    if (!tailnet || Date.now() < tnAway) return false;
+    if (Date.now() - tnChecked < 30e3) return true;
+    try { await f(tailnet + '/pair/wait?pair=-', { signal: AbortSignal.timeout(probeMs) }); tnChecked = Date.now(); return true; }
+    catch { tnAway = Date.now() + 60e3; return false; }
+  }
   async function post(box, signal, big) {
-    if (onlyRelay && !relay) throw new TypeError('no relay'); // (a page served by the cloud has no home network to try)
+    if (onlyRelay && !relay && !tailnet) throw new TypeError('no relay'); // (a page served by the cloud has no home network to try)
+    const send = (at) => f(at + '/s', { method: 'POST', headers: { 'x-screen': id, 'content-type': 'application/octet-stream' }, body: box, signal });
     if (await home()) {
-      try { return await f(base + '/s', { method: 'POST', headers: { 'x-screen': id, 'content-type': 'application/octet-stream' }, body: box, signal }); }
-      catch (e) { if (!relay || signal?.aborted) throw e; away = Date.now() + 60e3; }
+      try { return await send(base); }
+      catch (e) { if ((!relay && !tailnet) || signal?.aborted) throw e; away = Date.now() + 60e3; }
     }
+    if (await overTailnet()) {
+      try { return await send(tailnet); }
+      catch (e) { if (!relay || signal?.aborted) throw e; tnAway = Date.now() + 60e3; }
+    }
+    if (!relay) throw new TypeError("can't reach the tablet");
     try { return await viaRelay().request({ k: 's', id }, box, { signal, big }); }
     catch (e) { if (e instanceof Refused) { relay = null; rt = null; onRelay?.(null); } throw e; }
   }
   /** Ask the tablet for the relay's address and this device's token (on the home network, every few hours). */
   function refreshRelay() {
-    if (!onRelay || Date.now() - asked < (relay ? 6 : 1) * 3600e3) return;
+    if ((!onRelay && !onTailnet) || Date.now() - asked < (relay || tailnet ? 6 : 1) * 3600e3) return;
     asked = Date.now();
     json('GET', '/relay/me').then((r) => {
       if (r.status !== 200 || !r.json) return;
+      const tn = typeof r.json.tailnet === 'string' && /^https?:\/\/[a-z0-9.-]+(:\d{2,5})?$/i.test(r.json.tailnet) ? r.json.tailnet : null;
+      if (onTailnet && tn !== tailnet) { tailnet = tn; tnAway = 0; tnChecked = 0; onTailnet(tn); }
+      if (!onRelay) return;
       const cfg = r.json.off ? null : { url: r.json.url, relay: r.json.relay, token: r.json.token, ...(r.json.page ? { page: r.json.page } : {}) };
       if (JSON.stringify(cfg) !== JSON.stringify(relay)) { relay = cfg; rt = null; onRelay(cfg); }
     }).catch(() => { asked = 0; });

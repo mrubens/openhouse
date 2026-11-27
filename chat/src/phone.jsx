@@ -470,7 +470,8 @@ function App() {
   useEffect(() => { if (CLOUD_RELAY && me) put(STORE, me); }, []);
   const c = useMemo(() => me && (CLOUD_RELAY
     ? client({ id: me.id, key: me.key, relay: me.relay, onlyRelay: true, api: location.origin }) // (the cloud's copy: big replies may come as boxes)
-    : client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => { const n = { ...(get(STORE) || me), relay: r || undefined }; put(STORE, n); setMe(n); } })), [me?.id, me?.relay?.token]);
+    : client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => { const n = { ...(get(STORE) || me), relay: r || undefined }; put(STORE, n); setMe(n); },
+      tailnet: me.tailnet || null, onTailnet: (t) => { const n = { ...(get(STORE) || me), tailnet: t || undefined }; put(STORE, n); setMe(n); } })), [me?.id, me?.relay?.token, me?.tailnet]); // (the household's Tailscale: bridge/tailscale.js)
   if (CLOUD_RELAY && !me && invite) return <Join onJoined={(w) => { put(STORE, w); setMe(w); tellApp(w); }} />; // an invite, opened anywhere
   if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">Opie</div><h1>Not linked to a home yet</h1><p>On the tablet: Settings, Screens, Add a screen, Someone's phone. Scan the code with this phone's camera.</p></main>;
   if (!c) return <Join removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;

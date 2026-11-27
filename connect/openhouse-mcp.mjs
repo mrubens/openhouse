@@ -32,7 +32,7 @@ const PORT = 8788;
 // away from home" on. OPENHOUSE_RELAY_URL: another one (a local cloud, for trying it).
 const RELAY = process.env.OPENHOUSE_RELAY_URL || 'wss://relay.openhouse.computer';
 
-const load = () => { try { const p = JSON.parse(fs.readFileSync(FILE, 'utf8')); return (p.base || p.relay) && p.id && p.key ? p : null; } catch { return null; } };
+const load = () => { try { const p = JSON.parse(fs.readFileSync(FILE, 'utf8')); return (p.base || p.relay || p.tailnet) && p.id && p.key ? p : null; } catch { return null; } };
 function save(p) {
   fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 });
   fs.writeFileSync(FILE + '.tmp', JSON.stringify(p, null, 1), { mode: 0o600 });
@@ -46,9 +46,15 @@ function computerName() {
   return os.hostname().replace(/\.local$/, '').replace(/[-_]+/g, ' ').slice(0, 40) || 'A computer';
 }
 
-/** What the person typed: "K7QM-2XD9-HPA4", or with the tablet's address ("192.168.1.23:8788 K7QM-2XD9-HPA4"). */
+/** What the person typed: "K7QM-2XD9-HPA4", or with the tablet's address ("192.168.1.23:8788 K7QM-2XD9-HPA4"), or its
+ *  Tailscale address ("opie.tail1234.ts.net K7QM-2XD9-HPA4": https, through the household's own tailnet). */
 export function parseInvite(text) {
   const s = String(text || '').trim();
+  const ts = s.match(/(?:https:\/\/)?((?:[a-z0-9-]+\.)+ts\.net)(?::(\d{2,5}))?\/?/i);
+  if (ts) {
+    const code = (s.replace(ts[0], ' ').match(/[0-9A-Za-z]{4}[\s-]?[0-9A-Za-z]{4}[\s-]?[0-9A-Za-z]{4}/) || [])[0];
+    return { base: `https://${ts[1].toLowerCase()}${ts[2] ? ':' + ts[2] : ''}`, code: cleanCode(code) };
+  }
   const host = s.match(/(?:https?:\/\/)?((?:\d{1,3}\.){3}\d{1,3}|localhost|[a-z0-9-]+\.local)(?::(\d{2,5}))?/i);
   const rest = host ? s.replace(host[0], ' ') : s;
   const code = (rest.match(/[0-9A-Za-z]{4}[\s-]?[0-9A-Za-z]{4}[\s-]?[0-9A-Za-z]{4}/) || [])[0];
@@ -77,6 +83,9 @@ async function relayPair({ pair, key, name, onAsked, signal }) {
   } finally { rt.close(); }
 }
 
+/** The tablet's address over the household's Tailscale, as its welcome says (bridge/tailscale.js). */
+const okTailnet = (t) => typeof t === 'string' && /^https?:\/\/[a-z0-9.-]+(:\d{2,5})?$/i.test(t);
+
 const WHERE = 'On the tablet: the gear, then Screens and computers, then "A computer, to change the apps".';
 let pending = null; // a pairing waiting for Allow on the tablet
 
@@ -90,11 +99,11 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
   // A name (opie.local, answered only while the Connect screen shows) becomes the tablet's address now, so the
   // pairing keeps working after the screen closes.
   let named = null;
-  if (inv.base && !/^http:\/\/[\d.]+:/.test(inv.base)) {
+  if (inv.base && !/^http:\/\/[\d.]+:/.test(inv.base) && !inv.base.startsWith('https://')) {
     const u = new URL(inv.base);
     try { named = `http://${(await dns.promises.lookup(u.hostname, { family: 4 })).address}:${u.port || PORT}`; } catch {}
   }
-  let bases = named ? [named] : inv.base && !/[a-z]/i.test(new URL(inv.base).hostname) ? [inv.base] : [];
+  let bases = named ? [named] : inv.base && (!/[a-z]/i.test(new URL(inv.base).hostname) || inv.base.startsWith('https://')) ? [inv.base] : [];
   const name = computerName();
   // No address: through the cloud first (it works from anywhere, a chat's sandbox too), then the Wi-Fi.
   if (!inv.base && globalThis.WebSocket) {
@@ -103,9 +112,9 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
     const promise = relayPair({ pair: p.pair, key: b64.enc(p.key), name, signal: stop.signal, onAsked: () => { asked = true; told(); } })
       .then(async (w) => {
         if (w.refused) return { ok: false, text: 'The tablet said no.' };
-        if (!w.base && !w.relay) return { ok: false, text: 'This Opie needs an update before it can be paired this way. Pair on its Wi-Fi instead.' };
+        if (!w.base && !w.relay && !okTailnet(w.tailnet)) return { ok: false, text: 'This Opie needs an update before it can be paired this way. Pair on its Wi-Fi instead.' };
         const relay = w.relay ? { url: RELAY, relay: w.relay.relay, token: await relayTokenOf(w.key) } : undefined;
-        save({ base: w.base || null, ...(relay ? { relay } : {}), id: w.id, key: w.key, name: w.name, paired: Date.now() });
+        save({ base: w.base || null, ...(relay ? { relay } : {}), ...(okTailnet(w.tailnet) ? { tailnet: w.tailnet } : {}), id: w.id, key: w.key, name: w.name, paired: Date.now() });
         return { ok: true, text: `Paired: "${w.name}" can change this Opie now. Call get_guide before changing anything.` };
       })
       .catch((error) => ({ ok: false, asked, error }));
@@ -121,7 +130,7 @@ async function doPair(code, address, { waitMs = 100e3, onAsked: told = () => {} 
     const promise = pairScreen({ base, pair: p.pair, key: b64.enc(p.key), name, onAsked: () => { asked = true; told(); } })
       .then((w) => {
         if (w.refused) return { ok: false, text: 'The tablet said no.' };
-        save({ base, id: w.id, key: w.key, name: w.name, paired: Date.now() });
+        save({ base, ...(okTailnet(w.tailnet) && w.tailnet !== base ? { tailnet: w.tailnet } : {}), id: w.id, key: w.key, name: w.name, paired: Date.now() });
         return { ok: true, text: `Paired: "${w.name}" can change this Opie now. Call get_guide before changing anything.` };
       })
       .catch((e) => ({ ok: false, asked, error: e }));
@@ -150,7 +159,9 @@ let link = null; // { pairing, c }
 function connect() {
   const p = load();
   const relay = p?.relay ? { ...p.relay, ...(process.env.OPENHOUSE_RELAY_URL ? { url: process.env.OPENHOUSE_RELAY_URL } : {}) } : null;
-  link = p ? { pairing: p, c: sealedClient({ base: p.base || '', onlyRelay: !p.base, id: p.id, key: p.key, relay, onRelay: (r) => { const now = load(); if (now?.id === p.id) save({ ...now, relay: r || undefined }); } }) } : null;
+  // And over the household's own Tailscale (bridge/tailscale.js), when the tablet has it on: tried after the Wi-Fi, before the relay.
+  const keep = (k) => (v) => { const now = load(); if (now?.id === p.id) save({ ...now, [k]: v || undefined }); };
+  link = p ? { pairing: p, c: sealedClient({ base: p.base || '', onlyRelay: !p.base, id: p.id, key: p.key, relay, onRelay: keep('relay'), tailnet: okTailnet(p.tailnet) ? p.tailnet : null, onTailnet: keep('tailnet') }) } : null;
   return link;
 }
 connect();

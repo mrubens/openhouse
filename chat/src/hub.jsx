@@ -155,6 +155,7 @@ function Account({ c, onRemoved }) {
           <button className="go small" onClick={() => post('/cloud/link/start', { name: 'Home hub' }, reload)}>Link to an account</button></div>
       )}
       <OwnAddress c={c} onRemoved={onRemoved} />
+      <Tailscale c={c} onRemoved={onRemoved} />
       {err && <p className="soft">{err}</p>}
     </section>
   );
@@ -169,6 +170,28 @@ function OwnAddress({ c, onRemoved }) {
     ? <div className="card"><div className="t">The connector at {w.url}</div><p className="soft small">Claude and ChatGPT reach the hub there (port {w.port} on this machine).</p><button className="plain" onClick={() => set(false)}>Turn off</button></div>
     : <div className="card"><div className="t">Or at your own address</div><p className="soft small">For Claude or ChatGPT with no account: an https address that reaches port {w.port} here (a Tailscale Funnel, a tunnel).</p>
       <input className="field" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="https://hub.example.ts.net" /><button className="pill" disabled={!/^https:\/\//.test(addr.trim())} onClick={() => set(true)}>Use it</button></div>;
+}
+
+/** Away from home with the household's own Tailscale (bridge/tailscale.js): no account needed. */
+function Tailscale({ c, onRemoved }) {
+  const [t, reload] = useGet(c, '/tailscale', 0, onRemoved), [key, setKey] = useState(''), [err, setErr] = useState('');
+  const busy = t && t.on && t.state !== 'on' && t.state !== 'error';
+  useEffect(() => { if (!busy) return; const x = setTimeout(reload, 2000); return () => clearTimeout(x); }, [t]);
+  if (!t || t.error === 404) return null;
+  const set = async (b) => { setErr(''); const r = await c.json('POST', '/tailscale', b); if (r.status !== 200) setErr(r.json?.error || 'That didn\'t work.'); setKey(''); reload(); };
+  if (!t.on) return <div className="card"><div className="t">Away from home with Tailscale</div><button className="pill" onClick={() => set({ on: true })}>Turn on</button>{err && <p className="soft small">{err}</p>}</div>;
+  return (
+    <div className="card"><div className="t">Away from home with Tailscale</div>
+      {t.state === 'on' && t.address && <p className="mono">{t.address}</p>}
+      {t.state === 'on' && !t.https && <p className="soft small">For https, turn on HTTPS in Tailscale's admin console, under DNS.</p>}
+      {t.state === 'signin' && t.login && <p><a href={t.login} target="_blank" rel="noreferrer">Sign in to Tailscale</a></p>}
+      {t.state === 'signin' && <div><input className="field" value={key} onChange={(e) => setKey(e.target.value)} placeholder="Or an auth key" /><button className="pill" disabled={!/^tskey-/.test(key.trim())} onClick={() => set({ on: true, key: key.trim() })}>Use it</button></div>}
+      {t.state === 'approve' && <p className="soft small">Approve it in Tailscale's admin console.</p>}
+      {(t.state === 'getting' || t.state === 'starting') && <p className="soft small">Starting…</p>}
+      {(t.error || err) && <p className="soft small">{err || t.error}</p>}
+      <button className="plain" onClick={() => set({ on: false })}>Turn off</button>
+    </div>
+  );
 }
 
 function Backups({ c, onRemoved }) {

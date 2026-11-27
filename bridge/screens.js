@@ -31,6 +31,10 @@
 // Away from home (relay.js, docs/networking.md): the same sealed requests can arrive through the cloud's relay
 // instead of the home network (handle.relayed), from a device holding its relay token (handle.relayTokens: derived
 // from its key, handed over sealed by GET /relay/me). `away` is when one last came that way.
+// Or over the household's own tailnet (tailscale.js): `tailscale serve` passes https://<machine>.<tailnet>.ts.net on
+// to this port, and the tablet's 100.x address reaches it too. The same routes, sealed the same way: the tailnet is one
+// more carrier. While it's up, links and QR codes use that address (lanBase), and a page on the Wi-Fi's address may
+// send its sealed requests there (CORS on /s, for requests that came over the tailnet only).
 //
 // Apps for screens (docs/phones-and-tv.md): an app whose app.json says "screens": ["tv"] is what a paired TV shows.
 //   GET /screens/apps  (sealed, door scope)  [{id, name, at}]: the apps for this screen's kind, the household's own first;
@@ -57,6 +61,7 @@ import { responder, page as connectPage, downloads, extensionCopy, HOSTNAME } fr
 import * as push from './web-push.js';
 import { homePath } from './home-screen.js';
 import { kitFile } from './kit-version.js';
+import { tailnetIp } from './tailscale.js';
 
 export { newCode, pairingFromCode };
 
@@ -101,6 +106,7 @@ const RULES = [
   ['admin', 'POST', /^\/cloud\/(link\/start|link\/confirm|link\/cancel|unlink|voice|voice\/name)$/],
   ['admin', 'POST', /^\/backup\/(dest|now|restore|escrow|recovery-code\/confirmed)$/],
   ['admin', 'POST', /^\/(relay|hub\/update|webmcp)$/], ['admin', 'GET', /^\/webmcp$/], // the connector at the household's own address (web-mcp.js)
+  ['admin', 'GET', /^\/tailscale$/], ['admin', 'POST', /^\/tailscale$/], // away from home with the household's own Tailscale (tailscale.js)
   // On a hub the settings device is also the setup's (headless.js drives the steps), answers the "Is this OK?" cards,
   // keeps the PIN and the household's own OpenAI key (in the keeper, hub/keeper.mjs: never here).
   ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|google|icloud|pin|voice)$/],
@@ -345,8 +351,20 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     plainLan = null; secureLan = null; secureFor = null;
     console.log('[screens] off the home network');
   }
-  /** Where a phone or screen on the Wi-Fi goes for this tablet: its https name while that works (lan-tls.js), else null. */
-  const lanBase = () => (TLS ? null : lanTls?.base() || null);
+  /** Where a phone or screen goes for this tablet: its tailnet address while Tailscale is on and up (tailscale.js: it
+   *  works at home and away, whenever the phone's Tailscale is on), else its https name on the Wi-Fi while that works
+   *  (lan-tls.js), else null (its plain address on the Wi-Fi). */
+  const tailnet = () => handle.tailnetAt?.() || null;
+  const lanBase = () => tailnet()?.base || (TLS ? null : lanTls?.base() || null);
+  const via = () => (tailnet() ? { via: 'tailscale' } : {});
+  /** A request that came over the tailnet: to the tablet's tailnet name or address (tailscale serve keeps the Host). */
+  const overTailnet = (req) => { const t = tailnet(); if (!t) return false; const h = String(req.headers.host || '').toLowerCase().replace(/:\d+$/, ''); return h === t.name || h === t.ip; };
+  /** Who asked, for counting requests that don't open: tailscale serve's X-Forwarded-For when it came that way. */
+  const caller = (req) => { const ip = req.socket.remoteAddress || '?'; const f = String(req.headers['x-forwarded-for'] || ''); return /^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(ip) && tailnetIp(f) ? `tailnet:${f}` : ip; };
+  /** https: on this port's own TLS, or through tailscale serve (which says so). */
+  const secure = (req) => !!req.socket.encrypted || (/^(127\.0\.0\.1|::1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '') && req.headers['x-forwarded-proto'] === 'https');
+  /** The page rules, with the tablet's tailnet address among the places a page may send its sealed requests. */
+  const pageHeaders = () => { const t = tailnet(); return t ? { ...PAGE_HEADERS, 'content-security-policy': PAGE_HEADERS['content-security-policy'].replace("connect-src 'self'", `connect-src 'self' ${t.base}`) } : PAGE_HEADERS; };
   if (state.lan) startLan();
 
   /** A screen's token for an app's files: from its key, so it's the screen's own and ends with it. */
@@ -372,6 +390,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
         if (connect?.pair === pairId && connect.address) welcome.base = `http://${connect.address}:${PORT}`;
         const r = handle.relayAt?.();
         if (r?.url && r.relay) welcome.relay = { url: r.url, relay: r.relay };
+        if (tailnet()) welcome.tailnet = tailnet().base; // and over the household's tailnet (tailscale.js)
       }
     }
     x.answer = seal(x.key, `welcome:${pairId}`, Buffer.from(JSON.stringify(welcome)));
@@ -386,14 +405,14 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     if (p !== '/screens' && !p.startsWith('/screens/')) return false;
     sweep();
     if (req.method === 'GET' && p === '/screens') {
-      json(res, 200, { lan: !!state.lan, listening: !!lan, port: PORT, base: lanBase(), https: lanTls?.status() || null, screens: state.screens.map(pub), invites: state.invites.map((v) => v.person),
+      json(res, 200, { lan: !!state.lan, listening: !!lan, port: PORT, base: lanBase(), ...via(), https: lanTls?.status() || null, screens: state.screens.map(pub), invites: state.invites.map((v) => v.person),
         asking: [...pairs].filter(([, x]) => x.asked && !x.answer).map(([pair, x]) => ({ pair, name: x.name, kind: x.kind, via: x.via, ...(x.person ? { person: x.person } : {}) })) });
       return true;
     }
     if (req.method !== 'POST') return false;
     const b = await body(req);
     // The tablet's address on the Wi-Fi, from the shell (as the router gives it): for its https name (lan-tls.js).
-    if (p === '/screens/address') { const ok = !!lanTls?.address(b.address); json(res, ok ? 200 : 400, { ok, https: lanTls?.status() || null, base: lanBase() }); return true; }
+    if (p === '/screens/address') { const ok = !!lanTls?.address(b.address); json(res, ok ? 200 : 400, { ok, https: lanTls?.status() || null, base: lanBase(), ...via() }); return true; }
     if (p === '/screens/lan') { state.lan = !!b.on; write(); state.lan ? startLan() : stopLan(); json(res, 200, { ok: true, lan: state.lan }); return true; }
     if (p === '/screens/pair') {
       const computer = b.kind === 'computer', tv = b.kind === 'tv', phone = b.kind === 'phone' || b.setup === true, setup = b.setup === true;
@@ -428,7 +447,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
       if (computer) changed(); // the relay hears of the code (relay.js), for the web connector
       if (setup) pairs.get(pair).until = Date.now() + 30 * 60e3;
       json(res, 200, computer ? { pair, code, port: PORT, minutes: 10, host: connect.address ? HOSTNAME : null, away: connect.away, extension: httpsCopy()?.url || null } : tv ? { pair, port: PORT, minutes: 10 }
-        : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, host: setupNamed ? HOSTNAME : null, base: lanBase() } : { pair, key: b64(key), port: PORT, minutes: 10, base: lanBase(), ...(code ? { code } : {}) });
+        : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, host: setupNamed ? HOSTNAME : null, base: lanBase(), ...via() } : { pair, key: b64(key), port: PORT, minutes: 10, base: lanBase(), ...via(), ...(code ? { code } : {}) });
       return true;
     }
     if (p === '/screens/pair/end') { closeConnect(String(b.pair || '')); json(res, 200, { ok: true }); return true; }
@@ -484,10 +503,17 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
 
   /** The home-network listener. */
   async function onLan(req, res) {
-    const ip = req.socket.remoteAddress || '?';
+    const ip = caller(req);
     const url = new URL(req.url, 'http://x');
     const p = url.pathname;
     try {
+      // A page on the Wi-Fi's address whose Wi-Fi missed sends its sealed requests to the tailnet address instead
+      // (screen-client.js): only /s and the "am I home?" check, and only for requests that came over the tailnet.
+      // Everything there is sealed with the device's own key, so another origin reading it learns nothing.
+      if ((p === '/s' || (p === '/pair/wait' && url.searchParams.get('pair') === '-')) && overTailnet(req)) {
+        res.setHeader('access-control-allow-origin', '*');
+        if (req.method === 'OPTIONS') { res.writeHead(204, { 'access-control-allow-methods': 'POST, GET', 'access-control-allow-headers': 'x-screen, content-type', 'access-control-max-age': '600' }); return res.end(); }
+      }
       if (connect && connect.until < Date.now()) closeConnect();
       if (connect && req.method === 'GET' && (p === '/' || p === '/openhouse.mcpb' || p === '/openhouse-mcp.mjs')) return connectRoute(req, res, p);
       // While the setup's code lasts, the bare address (opie.local:8788, typed on a computer) is the page to type it on.
@@ -495,7 +521,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
       // A host with no screen (a hub): Google's sign-in comes back to its bare address (the cloud's /g/done, #g=… or #gc=…), which hands it to the
       // settings page; anything else goes on to the home screen (hub/back.js). A fragment never reaches a server.
       if (req.method === 'GET' && p === '/' && noScreen()) {
-        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...PAGE_HEADERS });
+        res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...pageHeaders() });
         return res.end('<!doctype html><meta charset="utf-8"><meta name="referrer" content="no-referrer"><title>Opie</title><script src="/hub/back.js"></script>');
       }
       if (req.method === 'GET' && (p === '/' || p === '/screen')) { res.writeHead(302, { location: '/screen/' }); return res.end(); }
@@ -510,7 +536,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
         const f = path.join(PUBLIC, 'phone', file[2]);
         if (!fs.existsSync(f)) return plain(res, 404, { error: 'not found' });
         const host = /^[a-z0-9.-]{1,80}(:\d{2,5})?$/i.test(String(req.headers.host || '')) ? req.headers.host : `127.0.0.1:${PORT}`;
-        res.writeHead(200, { 'content-type': TYPES[path.extname(f)], ...frameHeaders(`${req.socket.encrypted ? 'https' : 'http'}://${host}`, frameReaches(url.searchParams.get('r'))) });
+        res.writeHead(200, { 'content-type': TYPES[path.extname(f)], ...frameHeaders(`${secure(req) ? 'https' : 'http'}://${host}`, frameReaches(url.searchParams.get('r'))) });
         return res.end(fs.readFileSync(f));
       }
       if (file) {
@@ -518,8 +544,9 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
         const f = path.join(root, path.normalize(file[2] || 'index.html').replace(/^(\.\.[/\\])+/, ''));
         if (!f.startsWith(root + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory()) return plain(res, 404, { error: 'not found' });
         // A phone's page frames only its apps' starting page (here): an app can't send its frame anywhere else.
-        const csp = file[1] === 'phone' ? { 'content-security-policy': PAGE_HEADERS['content-security-policy'].replace(/frame-src [^;]*/, "frame-src 'self'") } : {};
-        res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', ...PAGE_HEADERS, ...csp });
+        const ph = pageHeaders();
+        const csp = file[1] === 'phone' ? { 'content-security-policy': ph['content-security-policy'].replace(/frame-src [^;]*/, "frame-src 'self'") } : {};
+        res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', ...ph, ...csp });
         return res.end(fs.readFileSync(f));
       }
       if (blocked(ip)) return plain(res, 429, { error: 'wait' });
@@ -561,7 +588,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     const f = path.join(root, path.normalize(rel || 'index.html').replace(/^(\.\.[/\\])+/, ''));
     if (!f.startsWith(root + path.sep) || !fs.existsSync(f) || fs.statSync(f).isDirectory() || path.basename(f) === 'app.json') return plain(res, 404, { error: 'not found' });
     const host = /^[a-z0-9.-]{1,80}(:\d{2,5})?$/i.test(String(req.headers.host || '')) ? req.headers.host : `127.0.0.1:${PORT}`;
-    res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', ...appHeaders(`${req.socket.encrypted ? 'https' : 'http'}://${host}`) });
+    res.writeHead(200, { 'content-type': TYPES[path.extname(f)] || 'application/octet-stream', ...appHeaders(`${secure(req) ? 'https' : 'http'}://${host}`) });
     return res.end(fs.readFileSync(f));
   }
 
@@ -778,6 +805,8 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     return { status: 200, json: { waiting: true } };
   };
   handle.stop = () => { closeConnect(); stopLan(); };
+  /** The home network's port on (Tailscale's address is passed on to it: tailscale.js). Screens stay as they are. */
+  handle.lanOn = () => { if (!state.lan) { state.lan = true; write(); } startLan(); };
   /** A hub's first settings device (docs/hub.md): a code to type at /hub/, printed where only someone with the hub's console
    *  sees it. Typing it joins with no Allow (there's no screen on the hub to say it), as an admin. One at a time. */
   handle.ownerCode = (minutes = 24 * 60) => {

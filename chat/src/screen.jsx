@@ -864,7 +864,8 @@ function Reminders({ c, house }) {
 // ---- the page -----------------------------------------------------------------------------------------
 function App() {
   const [me, setMe] = useState(() => (shell ? { display: true } : load())), [removed, setRemoved] = useState(false), [asking, setAsking] = useState(false);
-  const c = useMemo(() => (shell ? displayClient() : me && client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => keep({ ...(load() || me), relay: r || undefined }) })), [me]);
+  const c = useMemo(() => (shell ? displayClient() : me && client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => keep({ ...(load() || me), relay: r || undefined }),
+    tailnet: me.tailnet || null, onTailnet: (t) => keep({ ...(load() || me), tailnet: t || undefined }) })), [me]); // (the household's Tailscale: bridge/tailscale.js)
   // Whether the display has rested (the shell says), asked each second; the time is each part's own (now.js), so the
   // page isn't drawn again every second.
   const [idle, setIdle] = useState(false);

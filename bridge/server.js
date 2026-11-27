@@ -44,6 +44,7 @@ import { unsaved } from './store.js';
 import { cloudRoutes, noteError } from './cloud.js';
 import { lanTls } from './lan-tls.js';
 import { relayRoutes } from './relay.js';
+import { tailscaleRoutes } from './tailscale.js';
 import { mailRoutes } from './mail.js';
 import { phoneBuzz } from './phone-buzz.js';
 import { phoneShareRoutes } from './phone-share.js';
@@ -312,6 +313,9 @@ const screens = screensRoutes({ noScreen: () => host.can('cards'), HERE, json, b
 //  linked, and/or its own mailbox (the shell's IMAP). Display only, like the cloud's settings.
 const mail = mailRoutes({ DISPLAY, json, body, house: chat.house, cloud, shell: !host.can('mail-convert') ? null : (p, b) => shellCall(p, b, { timeoutMs: 60e3 }).then((r) => (r.error ? null : r)), every: process.env.MAIL === 'off' ? 0 : 5 * 60e3 });
 relay = relayRoutes({ DISPLAY, json, body, screens, cloud, onMail: () => mail.nudge() });
+// Away from home with Tailscale (tailscale.js, docs/networking.md): the household's own tailnet, for one with no Opie
+// cloud. Off until someone turns it on (Settings → Advanced); one more carrier for the same sealed requests.
+const tailscale = tailscaleRoutes({ DISPLAY, json, body, screens });
 chat.live.setWhoOf?.((id) => screens.who(id)); // Opie on someone's phone knows who it's talking with (live-tools.js)
 chat.live.setPhones?.({ phones: () => screens.phones(), message: (people, m) => screens.message(people, m) }); // message_family: a message to someone's phones (live-tools.js)
 // A note for someone: their phone gets it (Web Push from the tablet itself; only phones that allowed notifications).
@@ -602,6 +606,7 @@ async function route(req, res, url) {
     if (await workshop(req, res, url)) return true;
     if (await webMcp(req, res, url)) return true;
     if (await relay(req, res, url)) return true;
+    if (await tailscale(req, res, url)) return true;
     if (await phoneShare(req, res, url)) return true;
     if (await screens.phone(req, res, url)) return true;
     if (await screens.apps(req, res, url)) return true; // a TV's layout (an app for screens) // a paired phone's push address (docs/phones-and-tv.md)

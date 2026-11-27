@@ -277,7 +277,9 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () =
       const mine = screen && screens.relayTokens().find((s) => s.id === screen);
       if (!mine) { json(res, 404, { error: 'not a paired device' }); return true; }
       const api = cloud.apiBase?.(); // where a phone's installable page is (openhouse-cloud/lambda/app.ts, GET /h/)
-      json(res, 200, on() && relayId && url ? { url, relay: relayId, token: mine.token, ...(api ? { page: `${api.replace(/\/+$/, '')}/h/` } : {}) } : { off: true });
+      // tailnet: the household's own Tailscale address, while it's up (tailscale.js): another way here from away.
+      const tailnet = screens.tailnetAt?.()?.base;
+      json(res, 200, { ...(on() && relayId && url ? { url, relay: relayId, token: mine.token, ...(api ? { page: `${api.replace(/\/+$/, '')}/h/` } : {}) } : { off: true }), ...(tailnet ? { tailnet } : {}) });
       return true;
     }
     if (screen) { json(res, 403, { error: 'not for screens' }); return true; }
