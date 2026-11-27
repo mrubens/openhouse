@@ -235,13 +235,13 @@ object ApprovalCard {
         main.post { if (trying) putBar() else put() }
         try { // no answer in [timeoutMs] of the card being up (time choosing a PIN doesn't count, up to 10 minutes of it)
             var up = 0L; var aside = 0L
-            var seen = false // (trying: the app has been in front; leaving it is no answer, and it waits on Home)
+            var seen = false; var away = 0 // (trying: the app has been in front; leaving it, for 2 s, is no answer: it waits on Home)
             while (!done.await(500, TimeUnit.MILLISECONDS)) {
                 if (choosing.get()) aside += 500 else up += 500
                 if (up >= timeoutMs || aside >= 600_000) break
                 if (trying && barUp.get()) {
                     val front = runCatching { dev.openhouse.ui.Openhouse.openAppId }.getOrNull()
-                    if (front == tryApp) seen = true else if (seen) { Log.i(TAG, "left $tryApp without choosing"); break }
+                    if (front == tryApp) { seen = true; away = 0 } else if (seen && ++away >= 4) { Log.i(TAG, "left $tryApp without choosing"); break }
                 }
             }
         } finally {
