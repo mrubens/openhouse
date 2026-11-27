@@ -45,7 +45,7 @@ echo '<p class="warn">This erases the tablet and makes it Opie'"'"'s. It takes 3
 echo '<div class="code">'; cat "$SVG"; echo '</div>'
 cat <<'HTML'
 <ol>
-  <li>Remove any Google or Samsung account from the tablet, then reset it from Android's settings. A new tablet needs neither.</li>
+  <li>Remove any Google or Samsung account from the tablet, then reset it from Android's settings.</li>
   <li>On the first welcome screen, tap the same spot six times. A code scanner opens.</li>
   <li>Connect to Wi-Fi if it asks, then scan this code.</li>
   <li>Tap through Android's screens. "Belongs to your organization" means Opie looks after the tablet. It's still yours.</li>
