@@ -604,12 +604,20 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   handle.volume = volumeDo;
   /** The tablet's screen (the voice's "tablet_screen" tool): its brightness as Settings' Brightness row sets it, and
    *  Sleep now as the moon button does (the shell's /screen). */
-  async function screenDo({ do: what = 'get', level } = {}) {
-    const r = await shell('/screen', { do: what, level: String(level || '') }, 5000);
+  async function screenDo({ do: what = 'get', level, on } = {}) {
+    const r = await shell('/screen', { do: what, level: String(level || ''), ...(typeof on === 'boolean' ? { on } : {}) }, 5000);
     if (!r) return { ok: false, text: 'The screen\'s settings need the tablet (the shell isn\'t answering).' };
     if (r.error) return { ok: false, text: r.error };
     if (r.sleeping) return { ok: true, text: 'The screen is going dark now, as at night, until someone touches it (or morning). Say at most "Good night" or "Okay".' };
-    return { ok: true, text: what === 'brightness' ? `Brightness now ${r.brightness}.` : `The brightness is ${r.brightness}.` };
+    // Wake when someone walks up (the shell's WalkUp.kt): turning it on shows the tablet's own card (what the camera
+    // does, Turn on, the PIN when the lock is on), for someone there to answer.
+    if (what === 'walkup') {
+      if (r.walkup === 'none') return { ok: false, text: 'This tablet has no front camera, so it can\'t tell when someone walks up.' };
+      if (r.walkup === 'asking') return { ok: true, text: 'The tablet is showing a card to turn it on: someone taps Turn on there (and the PIN, if the lock is on). The front camera watches for movement only while the screen sleeps by day; it is used only on the tablet, nothing is saved or sent.' };
+      return { ok: true, text: `Wake when someone walks up: ${r.walkup}.` };
+    }
+    const walk = r.walkup && r.walkup !== 'none' ? ` Wake when someone walks up: ${r.walkup}.` : '';
+    return { ok: true, text: (what === 'brightness' ? `Brightness now ${r.brightness}.` : `The brightness is ${r.brightness}.`) + (what === 'get' ? walk : '') };
   }
   handle.screen = screenDo;
   /** Music and audiobooks in the tablet's media apps (the voice's "music" tool): the shell's /media (Media.kt,

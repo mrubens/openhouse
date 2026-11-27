@@ -69,7 +69,7 @@ object CameraLook {
     }
 
     /** The camera permission, granted by the device owner to itself (asked once, at Allow). */
-    private fun granted(a: MainActivity): Boolean {
+    internal fun granted(a: MainActivity): Boolean {
         val p = android.Manifest.permission.CAMERA
         if (a.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED) return true
         runCatching {

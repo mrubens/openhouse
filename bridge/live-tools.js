@@ -104,9 +104,11 @@ export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (
 /** The tablet's own screen, straight from the voice: devices/index.js screenDo (the shell's /screen). Neither is behind
  *  the PIN on the tablet: Brightness is in Settings' own list, Sleep now is the moon button. */
 export const SCREEN_TOOL = { name: 'tablet_screen', description: "The tablet's screen itself: its brightness (Automatic, Low, Medium, High or Full, or a step brighter or dimmer: \"it's too bright\", \"I can't see the screen\"), " +
-    'or put it to sleep now, dark as at night until someone touches it ("go to sleep", "turn the screen off"). get says the brightness. For when the screen goes dark every night, that is night_hours.',
-  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'brightness', 'sleep'] },
-    level: { type: 'string', enum: ['Automatic', 'Low', 'Medium', 'High', 'Full', 'brighter', 'dimmer'], description: 'For brightness' } } } };
+    'or put it to sleep now, dark as at night until someone touches it ("go to sleep", "turn the screen off"), ' +
+    'or whether the sleep screen wakes when someone walks up (walkup, with on; the front camera, used only on the tablet). get says the brightness and walkup. For when the screen goes dark every night, that is night_hours.',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'brightness', 'sleep', 'walkup'] },
+    level: { type: 'string', enum: ['Automatic', 'Low', 'Medium', 'High', 'Full', 'brighter', 'dimmer'], description: 'For brightness' },
+    on: { type: 'boolean', description: 'For walkup: turn it on or off' } } } };
 /** Music, audiobooks and podcasts in the tablet's media apps: devices/index.js mediaDo (the shell's /media, Media.kt). */
 export const MUSIC_TOOL = { name: 'music', description: "Music, audiobooks and podcasts on the tablet, in its media apps (the ones someone added and signed in to): " +
     'search plays something (what, and which app by its name when they said or it matters; otherwise the app they last played from), ' +

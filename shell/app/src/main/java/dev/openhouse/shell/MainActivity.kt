@@ -139,6 +139,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         Runtime.setSafeMode(safeMode)
         root.addView(home.layer, FrameLayout.LayoutParams(-1, -1))
         dev.openhouse.ui.Openhouse.start(OpenhouseHost())
+        WalkUp.start() // the sleep screen waking when someone walks up, once someone turned it on (Settings → Brightness)
         apps = AppHost(this, { bridge }, { uiUrl })
         root.addView(apps.layer, FrameLayout.LayoutParams(-1, -1))
         // Over the board and apps: the overlay (the assistant's note, what it hears, typing, the agent at work,

@@ -295,7 +295,16 @@ object DeviceServer {
                         200 to JSONObject().put("brightness", level).toString()
                     }
                     "sleep" -> { handler.post { dev.openhouse.ui.Openhouse.sleepNow(); dev.openhouse.ui.Heartbeat.sleep() }; 200 to """{"sleeping":true}""" }
-                    else -> 200 to JSONObject().put("brightness", Brightness.label(a)).toString()
+                    // Wake when someone walks up (WalkUp.kt), as Brightness' row: off at once; on, the same card a tap shows
+                    // (what the camera does, Turn on, the PIN when the lock is on), for someone at the tablet to answer.
+                    "walkup" -> when {
+                        !WalkUp.available(a) -> 200 to """{"walkup":"none"}"""
+                        !b.has("on") -> 200 to JSONObject().put("walkup", WalkUp.label(a)).toString()
+                        !b.optBoolean("on") -> { WalkUp.set(a, false); 200 to """{"walkup":"Off"}""" }
+                        WalkUp.on(a) -> 200 to """{"walkup":"On"}"""
+                        else -> { handler.post { dev.openhouse.ui.Openhouse.touch(); Brightness.walkUp(a, true) }; 200 to """{"walkup":"asking"}""" }
+                    }
+                    else -> 200 to JSONObject().put("brightness", Brightness.label(a)).put("walkup", if (WalkUp.available(a)) WalkUp.label(a) else "none").toString()
                 }
             }
             // A video's still for Photos (bridge/stills.js): a frame from a file in the photos folder, as a JPEG.

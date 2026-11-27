@@ -21,11 +21,27 @@ object Brightness {
     /** What the row shows: Automatic, or the nearest named level. */
     fun label(a: Activity): String = if (auto(a)) "Automatic" else LEVELS.drop(1).minByOrNull { kotlin.math.abs(it.second - level(a)) }!!.first
 
+    /** The levels, then (on a tablet with a front camera) Wake when someone walks up (WalkUp.kt). */
     fun choose(a: Activity, immersive: () -> Unit, done: () -> Unit) {
         val now = label(a)
-        val rows = LEVELS.map { (name, _) -> CalmDialog.Row(name, value = if (name == now) "Now" else null) }
-        CalmDialog(a).setTitle("Brightness").setRows(rows) { _, i -> set(a, LEVELS[i].second); done() }
-            .setNegativeButton("Close", null).show().also { immersive() }
+        val rows = LEVELS.map { (name, _) -> CalmDialog.Row(name, value = if (name == now) "Now" else null) } +
+            (if (WalkUp.available(a)) listOf(CalmDialog.Row("Sleep screen", header = true), CalmDialog.Row(WALK_UP, value = WalkUp.label(a))) else emptyList())
+        CalmDialog(a).setTitle("Brightness").setRows(rows) { _, i ->
+            if (i < LEVELS.size) { set(a, LEVELS[i].second); done() }
+            else if (i == LEVELS.size + 1) walkUp(a as MainActivity, !WalkUp.on(a), immersive, done)
+        }.setNegativeButton("Close", null).show().also { immersive() }
+    }
+
+    const val WALK_UP = "Wake when someone walks up"
+
+    /** Turning it on says what the camera does, then (with the lock on) the PIN; turning it off is anyone's. Opie's
+     *  tablet_screen does the same through [walkUpFromOpie]. */
+    fun walkUp(a: MainActivity, on: Boolean, immersive: () -> Unit = a::immersive, done: () -> Unit = {}) {
+        if (!on) { WalkUp.set(a, false); done(); return }
+        CalmDialog(a).setTitle("$WALK_UP?")
+            .setMessage("The front camera watches for movement while the screen sleeps. It is used only on this tablet: nothing is saved or sent.")
+            .setPositiveButton("Turn on") { _, _ -> a.lock.withPin { WalkUp.set(a, true); done() } }
+            .setNegativeButton("Cancel", null).show().also { immersive() }
     }
 
     /** Opie's brightness tool (DeviceServer /screen): a level by its name as the row shows it ("Automatic", "Low"...),
