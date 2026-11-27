@@ -167,7 +167,7 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
     /** An app being made (dev.openhouse.ui.BuildChip): its quiet chip in the bottom corner, over whatever app is open. */
     private val chip = ComposeView(svc).apply {
         setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner)
-        setContent { CompositionLocalProvider(LocalU provides LocalConfiguration.current.screenWidthDp / 1536f) { dev.openhouse.ui.BuildChip(Modifier.padding(12.u)) } }
+        setContent { CompositionLocalProvider(LocalU provides dpPerU(LocalConfiguration.current)) { dev.openhouse.ui.BuildChip(Modifier.padding(12.u)) } }
     }
     private val chipLp = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
@@ -193,7 +193,8 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
     }
 
     private fun screen() = wm.currentWindowMetrics.bounds
-    private fun unit() = screen().width() / 1536f // px per u (see Theme.kt)
+    private fun unit() = screen().let { b -> // px per u (see Theme.kt; a phone: 560 u across its short side)
+        if (svc.resources.configuration.smallestScreenWidthDp in 1..599) minOf(b.width(), b.height()) / 560f else b.width() / 1536f }
     private fun face() = 92 * unit()
     private fun faceW() = (if (Buddy.atHome) 172 else 92) * unit() // the pill in its corner, the round button beside a tap
     private fun faceH() = (if (Buddy.atHome) 76 else 92) * unit()
@@ -275,7 +276,7 @@ private enum class Mood { Asleep, Typing, Listening, Hearing, Talking, Thinking,
 
 @Composable
 private fun BuddyView() {
-    val u = LocalConfiguration.current.screenWidthDp / 1536f
+    val u = dpPerU(LocalConfiguration.current)
     CompositionLocalProvider(LocalU provides u) {
         val now by produceState(System.currentTimeMillis()) { while (true) { value = System.currentTimeMillis(); kotlinx.coroutines.delay(200) } }
         val o = Openhouse
@@ -515,3 +516,7 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
         // (No dot at its shoulder for what's in flight: it read as a notification. The moving bars already say it's working.)
     }
 }
+
+/** dp per u (Theme.kt): a 1536-wide layout, or on a phone (Calm.compact) 560 u across its short side. */
+internal fun dpPerU(cfg: android.content.res.Configuration) =
+    if (cfg.smallestScreenWidthDp in 1..599) cfg.smallestScreenWidthDp / 560f else cfg.screenWidthDp / 1536f

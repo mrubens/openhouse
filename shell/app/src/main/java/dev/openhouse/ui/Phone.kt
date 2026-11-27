@@ -50,7 +50,7 @@ fun PhoneQr(title: String, help: String, page: String, info: JSONObject, maxByte
     val url = if (handoff.url != null) link ?: handoff.url else null
     val code = remember(started, url) { url?.let { runCatching { Handoff.qr(it, 520).asImageBitmap() }.getOrNull() } }
     Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(MutableInteractionSource(), null) { onClose() }, contentAlignment = Alignment.Center) {
-        Column(Modifier.width(820.u).clip(RoundedCornerShape(30.u)).background(PaperLook.paper).clickable(MutableInteractionSource(), null) {}.padding(36.u),
+        Column(Modifier.width(fit(820.u)).clip(RoundedCornerShape(30.u)).background(PaperLook.paper).clickable(MutableInteractionSource(), null) {}.padding(36.u),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(20.u)) {
             Text(title, style = roundText(40, FontWeight.ExtraBold), modifier = Modifier.fillMaxWidth())
             if (code != null) {

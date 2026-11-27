@@ -92,6 +92,15 @@ function LessMinute({ t, onClick }) {
   return <button onClick={onClick} disabled={t.endAt <= now + 60e3}>−1 min</button>;
 }
 
+/** A phone (its short side under 600 px, as the shell's Calm.compact): the glance and a bar of tabs upright, the rail on its side. */
+const compactNow = () => Math.min(innerWidth, innerHeight) < 600;
+function useCompact() {
+  const look = () => ({ compact: compactNow(), upright: innerHeight > innerWidth });
+  const [k, setK] = useState(look);
+  useEffect(() => { const f = () => setK((was) => { const n = look(); return n.compact === was.compact && n.upright === was.upright ? was : n; }); addEventListener('resize', f); return () => removeEventListener('resize', f); }, []);
+  return k;
+}
+
 export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoShow, Gear }) {
   const { homeScreen, house, weather, apps, appsLoaded } = brain;
   const st = homeScreen?.style || {};
@@ -131,6 +140,17 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
   // Back to the first tab when the screen has rested, as a glance is what it's for.
   useEffect(() => { if (idle && tabs[0]) go(tabs[0].id); }, [idle]);
   const [timerOpen, setTimerOpen] = useState(null);
+  const { compact, upright } = useCompact(), bar = compact && upright;
+  const [more, setMore] = useState(false);
+  // On its side, the rail shows the tabs that fit whole; the rest are in More.
+  const railTabsRef = useRef(null), [fit, setFit] = useState(99);
+  useLayoutEffect(() => {
+    if (!compact || bar) { setFit(99); return; }
+    const el = railTabsRef.current; if (!el) return;
+    const f = () => { const t = el.querySelector('.h-tab'); if (!t) return; const gap = parseFloat(getComputedStyle(el).rowGap) || 0; setFit(Math.max(2, Math.floor((el.clientHeight + gap) / (t.offsetHeight + gap)))); };
+    f(); const o = new ResizeObserver(f); o.observe(el); return () => o.disconnect();
+  }, [compact, bar]);
+  const railShown = !compact || bar || tabs.length <= fit ? tabs.length : fit - 1, inMore = bar ? tabs.slice(4) : tabs.slice(railShown);
   // A minute more or less (or five more): the same timer, ending later or sooner (the shell's ringing follows /home/timer).
   const moveTimer = (t, secs) => {
     const endAt = Math.max(Date.now() + 5e3, t.endAt + secs * 1000), total = Math.max(5, (t.total || 0) + secs);
@@ -144,15 +164,16 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
   const making = (id) => busy.includes(id) || (id === 'apps' && busy.some((a) => !tabs.some((t) => t.id === a)));
   const timers = homeScreen?.timers || [];
   return (
-    <div className={'home' + (st.density === 'snug' ? ' snug' : '') + (st.type === 'hand' ? ' hand-type' : '') + (st.backdrop === 'photos' ? ' over-photos' : '') + (st.palette === 'dusk' ? ' dark' : '')} data-tab={cur} style={lookVars(st, worldTab(tabs.find((t) => t.id === cur), appBy))}>
+    <div className={'home' + (st.density === 'snug' ? ' snug' : '') + (st.type === 'hand' ? ' hand-type' : '') + (st.backdrop === 'photos' ? ' over-photos' : '') + (st.palette === 'dusk' ? ' dark' : '') + (compact ? ' compact' : '') + (bar ? ' upright' : '')} data-tab={cur} style={lookVars(st, worldTab(tabs.find((t) => t.id === cur), appBy))}>
       {st.backdrop === 'photos' && <Backdrop c={c} names={house?.screensaver || house?.photos || []} usePhoto={usePhoto} />}
-      <aside className="h-rail">
+      {!bar && <aside className="h-rail">
         <RailClock shell={shell} />
         {weather && !weather.error && <div className="h-wx"><span className="h-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(weather.code, weather.isDay !== false) }} />{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}
         {/* Tap a timer to change or clear it (a small sheet over the screen). */}
         {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b><TimeLeft t={t} /></b></button>)}
-        <nav className="h-tabs">
-          {tabs.map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '') + (making(t.id) ? ' making' : '')} onClick={() => go(t.id)}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
+        <nav className="h-tabs" ref={railTabsRef}>
+          {tabs.slice(0, railShown).map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur && !more ? ' on' : '') + (making(t.id) ? ' making' : '')} onClick={() => { setMore(false); go(t.id); }}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
+          {railShown < tabs.length && <button className={'h-tab' + (more || inMore.some((t) => t.id === cur) ? ' on' : '')} onClick={() => setMore(!more)}><svg className="h-tab-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg>More</button>}
         </nav>
         <BatteryLine shell={shell} />
         <div className="h-tools">
@@ -164,11 +185,12 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           {shell?.sleep && <button className="h-tool" onClick={() => shell.sleep()} aria-label="Sleep"><Moon /></button>}
           {shell && <button className="h-tool" onClick={() => shell.settings()} aria-label="Settings"><Gear /></button>}
         </div>
-      </aside>
+      </aside>}
       <main className="h-sheet">
         {tabs.filter((t) => seen.has(t.id) || t.id === cur).map((t) => (
           <section key={t.id} className="h-page" hidden={t.id !== cur}>
-            {t.id === 'today' ? <Today c={c} house={house} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} boardAt={homeScreen?.whiteboard || 0} />
+            {t.id === 'today' && compact ? <Glance c={c} house={house} weather={weather} timers={timers} tabs={tabs} appBy={appBy} go={go} openApp={openApp} shell={shell} handsFree={homeScreen?.handsFree} onTimer={setTimerOpen} onAsk={onAsk} />
+              : t.id === 'today' ? <Today c={c} house={house} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} boardAt={homeScreen?.whiteboard || 0} />
               : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} family={house?.family || []} />
               : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} add={addIn?.id === t.id ? addIn.at : 0} addExtra={addIn?.id === t.id ? addIn.extra : ''} />
               : <div className="h-widget"><Widget id={t.id} app={appBy.get(t.id)} w={4} h={4} house={house} c={c} Photo={(p) => <PhotoShow c={c} {...p} />}
@@ -181,6 +203,22 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           <section key={'bg-' + a.id} className="h-page" hidden><AppFrame c={c} shell={shell} app={a} look={st} v={homeScreen?.appsV?.[a.id] || 0} onOpen={openApp} /></section>
         ))}
       </main>
+      {/* Upright on a phone: the first tabs on a bar along the foot, and More (every tab, and the rail's tools). */}
+      {bar && <nav className="h-bar">
+        {tabs.slice(0, 4).map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur && !more ? ' on' : '') + (making(t.id) ? ' making' : '')} onClick={() => { setMore(false); go(t.id); }}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg><span>{nameOf(t)}</span></button>; })}
+        {tabs.length > 4 && <button className={'h-tab' + (more || tabs.slice(4).some((t) => t.id === cur) ? ' on' : '')} onClick={() => setMore(!more)}><svg className="h-tab-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg><span>More</span></button>}
+      </nav>}
+      {more && inMore.length > 0 && <div className="h-veil h-more-veil" onClick={() => setMore(false)}>
+        <div className="h-more" onClick={(e) => e.stopPropagation()}>
+          <nav className="h-tabs">{inMore.map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur ? ' on' : '')} onClick={() => { setMore(false); go(t.id); }}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}</nav>
+          {bar && <BatteryLine shell={shell} />}
+          {bar && <div className="h-tools">
+            {!shell && <button className="h-voice own" onClick={() => { setMore(false); onAsk(); }} aria-label="Ask"><i /><i /><i /><i /></button>}
+            {shell?.sleep && <button className="h-tool" onClick={() => { setMore(false); shell.sleep(); }} aria-label="Sleep"><Moon /></button>}
+            {shell && <button className="h-tool" onClick={() => { setMore(false); shell.settings(); }} aria-label="Settings"><Gear /></button>}
+          </div>}
+        </div>
+      </div>}
       {(() => { const t = timers.find((x) => x.endAt === timerOpen); return t && (
         <div className="h-veil" onClick={() => setTimerOpen(null)}>
           <div className="h-timer-card" onClick={(e) => e.stopPropagation()}>
@@ -202,6 +240,47 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
 }
 
 /** The family's photos behind everything, one every 5 minutes, crossfading. */
+/**
+ * Home on a phone: a glance, in big type. The time and the day, the weather, then only what's on now: cooking, timers,
+ * the next thing on the calendar, the shopping list; and asking Opie. Each opens its tab.
+ */
+function Glance({ c, house, weather, timers, tabs, appBy, go, openApp, shell, handsFree, onTimer, onAsk }) {
+  const now = useNow(30e3), d = new Date(now), h = house || {};
+  const kinds = new Map(); for (const t of tabs) { const k = kindOf(t, appBy.get(t.id)); if (k && !kinds.has(k)) kinds.set(k, t.id); }
+  const open = (kind) => kinds.has(kind) ? () => go(kinds.get(kind)) : undefined;
+  const w = weather && !weather.error && Number.isFinite(weather.temp) ? weather : null, wd = w?.days?.[0];
+  const day = new Date(d); day.setHours(0, 0, 0, 0);
+  const next = (h.events || []).filter((e) => (e.allDay ? +dayOf(e) >= +day : Date.parse(e.end || e.start) > now))
+    .sort((a, b) => (dayOf(a) - dayOf(b)) || (b.allDay - a.allDay) || (Date.parse(a.start) - Date.parse(b.start)))[0];
+  const mins = next && !next.allDay ? Math.round((Date.parse(next.start) - now) / 60e3) : null;
+  const nextDay = next && Math.round((dayOf(next) - day) / 864e5);
+  const nextLabel = !next ? '' : mins != null && mins <= 0 ? 'Now' : mins != null && mins < 60 ? `Next · in ${mins} min` : nextDay === 0 ? 'Next · today'
+    : nextDay === 1 && !smallHours(now) ? 'Tomorrow' : weekday(dayOf(next), true);
+  const isPerson = (n) => (h.family || []).some((p) => p.name === n);
+  const list = (h.lists || []).find((l) => l.id === 'groceries') || (h.lists || [])[0];
+  const items = (list?.items || []).filter((i) => !i.done);
+  const cooking = handsFree?.app && appBy.get(handsFree.app);
+  return (
+    <div className="g">
+      <div className="g-head">
+        <div className="g-time">{railTime(d, shell?.clock24?.())}</div>
+        <div className="g-day">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
+        {w && <button className="g-wx" onClick={open('weather') || (() => shell?.weather?.())}><span className="g-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(w.code, w.isDay !== false) }} />
+          {[`${w.temp}° ${String(w.condition || '').toLowerCase()}`, Number.isFinite(wd?.high) && `high ${wd.high}°`].filter(Boolean).join(' · ')}</button>}
+      </div>
+      <div className="g-rows">
+        {cooking && <button className="g-row" onClick={() => openApp(cooking.id)}><span className="g-label">Cooking</span><span className="g-big">{cooking.meta?.name || cooking.id}</span></button>}
+        {timers.map((t) => <button key={t.endAt} className="g-row g-timer" onClick={() => onTimer(t.endAt)}><span className="g-label">{t.label || 'Timer'}</span><span className="g-big"><TimeLeft t={t} /></span></button>)}
+        {next && <button className="g-row" onClick={open('calendar')}><span className="g-label">{nextLabel}</span><span className="g-big">{next.title}</span>
+          <span className="g-soft">{[timeOf(next) || 'All day', isPerson(next.who) && next.who].filter(Boolean).join(' · ')}</span></button>}
+        {list && items.length > 0 && <button className="g-row" onClick={open('lists')}><span className="g-label">{list.name}</span>
+          {items.slice(0, 4).map((i) => <span key={i.id} className="g-item">{i.text}</span>)}{items.length > 4 && <span className="g-soft">{items.length - 4} more</span>}</button>}
+      </div>
+      {(shell?.type || !shell) && <button className="g-ask" onClick={() => (shell?.type ? shell.type() : onAsk())}><span className="g-ask-i"><Keys /></span>{shell?.wakeOn?.() ? 'Say “Hey Opie”, or tap to type' : 'Ask Opie'}</button>}
+    </div>
+  );
+}
+
 function Backdrop({ c, names, usePhoto }) {
   const now = useNow(300e3);
   const name = names.length ? names[Math.floor(now / 300e3) % names.length] : null;

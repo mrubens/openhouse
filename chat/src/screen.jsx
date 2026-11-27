@@ -32,7 +32,7 @@ const shell = (() => {
   if (!hi?.gate) return null;
   const g = hi.gate;
   return { token: () => hi.token, ui: hi.ui, openApp: (id) => raw.openApp(g, id), settings: () => raw.settings(g), plugins: raw.plugins ? () => raw.plugins(g) : null, makeApp: raw.makeApp ? (note) => raw.makeApp(g, String(note || '')) : null, aurora: raw.aurora ? () => raw.aurora(g) : null, type: raw.type ? () => raw.type(g) : undefined, sleep: raw.sleep ? () => raw.sleep(g) : undefined, weather: () => raw.weather(g), touch: () => raw.touch(g),
-    idle: () => raw.idle(g), clock24: () => { try { return !!raw.clock24(g); } catch { return false; } }, battery: () => { try { return JSON.parse(raw.battery(g) || 'null'); } catch { return null; } }, sleeping: () => { try { return !!raw.sleeping(g); } catch { return false; } }, dim: (on) => { try { raw.dim(g, !!on); } catch {} }, ask: (t) => raw.ask(g, t), androidApps: () => raw.androidApps(g), video: (u) => raw.video(g, u),
+    idle: () => raw.idle(g), clock24: () => { try { return !!raw.clock24(g); } catch { return false; } }, wakeOn: () => { try { return !!raw.wakeOn?.(g); } catch { return false; } }, battery: () => { try { return JSON.parse(raw.battery(g) || 'null'); } catch { return null; } }, sleeping: () => { try { return !!raw.sleeping(g); } catch { return false; } }, dim: (on) => { try { raw.dim(g, !!on); } catch {} }, ask: (t) => raw.ask(g, t), androidApps: () => raw.androidApps(g), video: (u) => raw.video(g, u),
     spotifyState: raw.spotifyState ? (j) => { try { raw.spotifyState(g, j); } catch {} } : null,
     media: raw.media ? (what) => { try { return JSON.parse(raw.media(g, what) || '{}'); } catch { return {}; } } : null,
     phone: raw.phone ? (kind, arg) => raw.phone(g, kind, arg) : null, editing: (on) => { try { raw.editing(g, !!on); } catch {} } };
@@ -977,8 +977,9 @@ function useWake(c, scopes, here) {
 }
 
 if (shell) document.documentElement.classList.add('display');
-// u: one pixel of a 1536-wide screen, like the display's sizes.
-const setU = () => document.documentElement.style.setProperty('--u', `${innerWidth / 1536}px`);
+// u: one pixel of a 1536-wide screen, like the display's sizes; on a phone (its short side under 600 px, as the shell's
+// Calm.compact), 560 across its short side, upright or not.
+const setU = () => { const short = Math.min(innerWidth, innerHeight); document.documentElement.style.setProperty('--u', `${short < 600 ? short / 560 : innerWidth / 1536}px`); };
 setU(); addEventListener('resize', setU);
 addEventListener('hashchange', () => location.reload()); // a new code opened in this tab: start over with it
 createRoot(document.getElementById('root')).render(<App />);

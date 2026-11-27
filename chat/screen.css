@@ -655,3 +655,73 @@ html.tv, html.tv body { background: #14130f; cursor: none; overflow: hidden; }
 .wake-offer{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;align-items:center;gap:14px;background:var(--card,#fff);color:var(--ink,#222);border-radius:999px;padding:8px 10px 8px 20px;box-shadow:0 10px 30px -12px rgba(0,0,0,.35);z-index:41;font-size:16px;white-space:nowrap}
 .wake-offer button{border:0;border-radius:999px;padding:8px 16px;background:var(--tint,#eee);color:inherit;font:inherit;font-weight:600;cursor:pointer}
 .wake-offer button.quiet{background:none;color:var(--soft,#777);font-weight:400}
+
+/* A phone (home.jsx useCompact: the short side under 600 px; --u is 560 across it, screen.jsx). Upright: the tab on the
+   whole screen and the first tabs on a bar along the foot (More: the rest, and the tools); on its side, the rail, its tabs
+   scrolling. Home is the glance (home.jsx Glance). Type: the time, a big line, the words, a label. */
+.home.compact .h-sheet { margin: calc(var(--u) * 14); }
+.home.compact .h-rail { width: calc(var(--u) * 200); padding: calc(var(--u) * 20) calc(var(--u) * 8) calc(var(--u) * 14) calc(var(--u) * 20); }
+.home.compact .h-rail .h-day, .home.compact .h-rail .h-wx:not(.h-batt), .home.compact[data-tab="today"] .h-rail .h-time, .home.compact[data-tab="today"] .h-rail .h-timer { display: none; } /* (the glance has them) */
+.home.compact[data-tab="today"] .h-rail .h-tabs { margin-top: 0; }
+.home.compact .h-rail .h-tabs { width: auto; flex: 1 1 0; overflow: hidden; margin-top: calc(var(--u) * 16); } /* as many as fit whole; More has the rest (home.jsx) */
+.home.compact .h-rail .h-tabs::-webkit-scrollbar { display: none; }
+.home.compact .h-rail .h-tools { padding-top: calc(var(--u) * 10); }
+.home.compact .h-rail .h-batt { margin-top: calc(var(--u) * 10); }
+.home.compact:not(.upright) .h-app { max-width: calc(var(--u) * 640); margin: 0 auto; } /* on its side an app keeps its upright layout (narrow.css) */
+.home.upright { flex-direction: column; }
+.home.upright .h-sheet { margin: calc(var(--u) * 14 + env(safe-area-inset-top)) calc(var(--u) * 14) calc(var(--u) * 124 + env(safe-area-inset-bottom)); }
+.h-bar { position: absolute; left: calc(var(--u) * 16); right: calc(var(--u) * 16); bottom: calc(var(--u) * 16 + env(safe-area-inset-bottom)); z-index: 15; height: calc(var(--u) * 96); display: flex; padding: calc(var(--u) * 7); box-sizing: border-box;
+  border-radius: calc(var(--u) * 48); background: var(--h-sheet); box-shadow: var(--h-shadow), 0 18px 36px -14px rgba(40,30,10,.35); }
+.h-bar .h-tab { flex: 1; min-width: 0; height: 100%; flex-direction: column; justify-content: center; gap: calc(var(--u) * 4); padding: 0 calc(var(--u) * 2); border-radius: calc(var(--u) * 41); font-size: calc(var(--u) * 15.5); }
+.h-bar .h-tab span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.h-bar .h-tab.on { background: var(--h-tint); box-shadow: none; }
+.h-bar .h-tab-i { width: calc(var(--u) * 32); height: calc(var(--u) * 32); }
+.h-more-veil { align-items: flex-end; justify-content: stretch; }
+.h-more { flex: 1; display: flex; flex-direction: column; margin: 0 calc(var(--u) * 16) calc(var(--u) * 124 + env(safe-area-inset-bottom)); max-height: calc(100% - var(--u) * 160); padding: calc(var(--u) * 14); border-radius: calc(var(--u) * 36); background: var(--h-sheet); color: var(--h-ink); box-shadow: var(--h-lift); box-sizing: border-box; }
+.h-more .h-tabs { width: auto; margin: 0; overflow-y: auto; }
+.h-more .h-tab { height: calc(var(--u) * 70); font-size: calc(var(--u) * 24); color: var(--h-ink); }
+.h-more .h-tab-i { width: calc(var(--u) * 32); height: calc(var(--u) * 32); }
+.h-more .h-tab.on { background: var(--h-tint); box-shadow: none; }
+.h-more .h-batt { margin: calc(var(--u) * 10) 0 0 calc(var(--u) * 12); font-size: calc(var(--u) * 20); }
+.h-more .h-tools { margin: 0; padding: calc(var(--u) * 14) calc(var(--u) * 8) calc(var(--u) * 4); gap: calc(var(--u) * 12); }
+.h-more .h-tool, .h-more .h-voice { width: calc(var(--u) * 64); height: calc(var(--u) * 64); padding: calc(var(--u) * 17); }
+.home.compact .h-timer-card { width: calc(100% - var(--u) * 40); max-width: calc(var(--u) * 520); }
+.home.compact .h-timer-do button { font-size: calc(var(--u) * 22); padding: calc(var(--u) * 16) calc(var(--u) * 22); }
+
+/* the glance */
+.g { position: absolute; inset: 0; overflow-y: auto; scrollbar-width: none; display: flex; flex-direction: column; gap: calc(var(--u) * 18); padding: calc(var(--u) * 10) calc(var(--u) * 6) calc(var(--u) * 6); box-sizing: border-box; }
+.g::-webkit-scrollbar { display: none; }
+.g button { text-align: left; color: inherit; font: inherit; }
+.g-head { padding: 0 calc(var(--u) * 10) calc(var(--u) * 6); }
+.g-time { font-weight: 250; font-size: calc(var(--u) * 160); line-height: .95; letter-spacing: -.05em; margin-left: calc(var(--u) * -6); font-variant-numeric: lining-nums tabular-nums; }
+.g-time small { font-size: .3em; font-weight: 400; letter-spacing: 0; margin-left: .1em; }
+.g-day, .g-wx, .g-soft, .g-item, .g-ask { font-size: calc(var(--u) * 23); font-weight: 500; line-height: 1.3; }
+.g-day { margin-top: calc(var(--u) * 12); color: var(--h-soft); }
+.g-wx { display: flex; align-items: center; gap: calc(var(--u) * 10); margin-top: calc(var(--u) * 6); padding: 0; }
+.g-wx-i { width: calc(var(--u) * 30); height: calc(var(--u) * 30); flex: none; }
+.g-wx-i svg { width: 100%; height: 100%; display: block; }
+.g-rows { display: flex; flex-direction: column; background: var(--h-sheet); border-radius: calc(var(--u) * 30); box-shadow: var(--h-shadow); overflow: hidden; }
+.g-rows:empty { display: none; }
+.g-row { display: flex; flex-direction: column; gap: calc(var(--u) * 4); padding: calc(var(--u) * 22) calc(var(--u) * 26); }
+.g-row + .g-row { border-top: 1px solid var(--h-line); }
+.g-row:active { background: var(--h-tint); }
+.g-label { font-size: calc(var(--u) * 17); font-weight: 650; letter-spacing: .12em; text-transform: uppercase; color: var(--h-soft); }
+.g-big { font-size: calc(var(--u) * 36); font-weight: 650; line-height: 1.15; letter-spacing: -.02em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.g-timer .g-big { color: var(--h-accent); font-variant-numeric: tabular-nums; }
+.g-soft { color: var(--h-soft); }
+.g-item { display: flex; align-items: center; gap: calc(var(--u) * 12); }
+.g-item::before { content: ''; flex: none; width: calc(var(--u) * 20); height: calc(var(--u) * 20); border-radius: calc(var(--u) * 6); border: calc(var(--u) * 2.5) solid var(--h-faint); box-sizing: border-box; }
+.g-ask { margin-top: auto; flex: none; display: flex; align-items: center; gap: calc(var(--u) * 14); padding: calc(var(--u) * 18) calc(var(--u) * 24); border-radius: calc(var(--u) * 30); background: var(--h-tint); color: var(--h-ink); }
+.g-ask-i { width: calc(var(--u) * 30); height: calc(var(--u) * 30); flex: none; }
+/* on its side: the time and the weather beside the rest */
+.home.compact:not(.upright) .g { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-rows: auto 1fr auto; align-content: start; column-gap: calc(var(--u) * 20); }
+.home.compact:not(.upright) .g-head { grid-row: 1 / span 2; }
+.home.compact:not(.upright) .g-rows { grid-column: 2; grid-row: 1 / span 3; align-self: start; }
+.home.compact:not(.upright) .g-ask { grid-column: 1; grid-row: 3; }
+.home.compact:not(.upright) .g-time { font-size: calc(var(--u) * 130); }
+/* Apps on a phone: as many columns as fit */
+.home.compact .h-app-grid { grid-template-columns: repeat(auto-fill, minmax(calc(var(--u) * 160), 1fr)); }
+/* More on its side: beside the rail */
+.home.compact:not(.upright) .h-more-veil { align-items: stretch; justify-content: flex-start; }
+.home.compact:not(.upright) .h-more { flex: none; width: calc(var(--u) * 320); max-height: none; margin: calc(var(--u) * 16) 0 calc(var(--u) * 16) calc(var(--u) * 200); }
+.home.compact:not(.upright) .h-more { align-self: flex-end; } /* (as tall as its tabs, by More) */

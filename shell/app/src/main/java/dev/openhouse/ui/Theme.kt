@@ -17,7 +17,8 @@ import androidx.compose.ui.unit.dp
  * openhouse's look, shared by the fixed parts of the shell and the board the family's agent edits.
  *
  * Sizes are in "u": one u is one pixel of a 1536-wide layout, scaled to the actual screen, so
- * the same design reads the same on any tablet and from across a room (`22.u`, `fontU(22)`).
+ * the same design reads the same on any tablet and from across a room (`22.u`, `fontU(22)`). On a phone (Calm.compact)
+ * the short side is 560 u instead.
  */
 @Immutable
 object Oh {
@@ -57,6 +58,13 @@ val LocalU = staticCompositionLocalOf { 0.75f }
 val Int.u: Dp @Composable get() = (this * LocalU.current).dp
 val Float.u: Dp @Composable get() = (this * LocalU.current).dp
 
+/** A phone (Calm.compact): its short side under 600 dp. */
+@Composable fun isCompact(): Boolean = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp in 1..599
+
+/** A width (or [height]) of at most the screen's, less a margin: a card drawn for a tablet fits a phone (Calm.compact). */
+@Composable fun fit(w: Dp, height: Boolean = false): Dp = androidx.compose.ui.platform.LocalConfiguration.current.let {
+    minOf(w, ((if (height) it.screenHeightDp else it.screenWidthDp) - 24).dp) }
+
 /** A font size in u, ignoring the system font scale (the layout is designed for a fixed width). */
 @Composable fun fontU(v: Number): TextUnit = with(LocalDensity.current) { (v.toFloat() * LocalU.current).dp.toSp() }
 
@@ -66,7 +74,8 @@ val Float.u: Dp @Composable get() = (this * LocalU.current).dp
 /** Measures the screen and provides u for everything inside. Wrap whole screens in it. */
 @Composable fun OhScreen(content: @Composable () -> Unit) {
     BoxWithConstraints {
-        val u = maxWidth.value / 1536f
+        val cfg = androidx.compose.ui.platform.LocalConfiguration.current
+        val u = if (cfg.smallestScreenWidthDp in 1..599) cfg.smallestScreenWidthDp / 560f else maxWidth.value / 1536f // a phone: Calm.compact
         CompositionLocalProvider(LocalU provides u) { content() }
     }
 }

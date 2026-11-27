@@ -126,7 +126,7 @@ internal fun SetupSheet() {
         // The setup has the screen to itself: nothing of the home screen behind it.
         val onPhone = step in Setup.ON_PHONE || step == "devices"
         Box(Modifier.fillMaxSize().background(Calm.paper).clickable(enabled = false) {}.imePadding(), contentAlignment = Alignment.TopCenter) {
-            QuietCard(Modifier.padding(top = if (ime) 16.u else if (step == "voice") 36.u else 110.u, bottom = 16.u).width(860.u), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
+            QuietCard(Modifier.padding(top = if (ime) 16.u else if (step == "voice") 36.u else 110.u, bottom = 16.u).width(fit(860.u)), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
                     Progress(Setup.STEPS.indexOf(step).toFloat() / Setup.STEPS.size, Modifier.weight(1f))
                     if (step != "voice") Chip("Later") { save[0](); Setup.finish() }
@@ -334,13 +334,17 @@ private fun DevicesStep() {
             Row(horizontalArrangement = Arrangement.spacedBy(8.u)) { names.forEach { n -> Chip(n, selected = who == n) { who = n } } }
         }
         Spacer(Modifier.height(10.u))
-        Row(horizontalArrangement = Arrangement.spacedBy(32.u), verticalAlignment = Alignment.CenterVertically) {
+        // The code beside its words; on a phone (Calm.compact) the words under it.
+        val stack = androidx.compose.ui.platform.LocalConfiguration.current.smallestScreenWidthDp in 1..599
+        val code: @Composable () -> Unit = {
             Box(Modifier.size(232.u).clip(RoundedCornerShape(Calm.R_CARD.u)).background(androidx.compose.ui.graphics.Color.White), contentAlignment = Alignment.Center) {
                 val url = pair?.optString("url")
                 val bmp = remember(url) { url?.let { runCatching { dev.openhouse.shell.Handoff.qr(it, 480).asImageBitmap() }.getOrNull() } }
                 if (bmp != null) Image(bmp, "Code to scan", Modifier.size(212.u)) else Text("…", style = calmText(30, color = Calm.soft))
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(18.u)) {
+        }
+        val words: @Composable (Modifier) -> Unit = { m ->
+            Column(m, verticalArrangement = Arrangement.spacedBy(18.u)) {
                 Text("On a phone, scan this code.", style = calmText(Calm.LEAD))
                 pair?.let { p ->
                     // Only the tablet's name, never its raw Wi-Fi address; without a name, a phone it is.
@@ -355,6 +359,8 @@ private fun DevicesStep() {
                 }
             }
         }
+        if (stack) Column(verticalArrangement = Arrangement.spacedBy(24.u)) { code(); words(Modifier) }
+        else Row(horizontalArrangement = Arrangement.spacedBy(32.u), verticalAlignment = Alignment.CenterVertically) { code(); words(Modifier.weight(1f)) }
         device?.let {
             Spacer(Modifier.height(6.u))
             Text("Connected: $it" + if (count > 1) " and ${count - 1} more" else "", style = calmText(19, FontWeight.Medium))

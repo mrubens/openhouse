@@ -91,7 +91,7 @@ internal fun FamilySheet() {
         // Above Android's on-screen keyboard when it's up: the card shrinks to what's left (its columns scroll), so the
         // field being typed in and Save stay in sight.
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable(enabled = false) {}.imePadding().padding(vertical = 20.u), contentAlignment = Alignment.Center) {
-            QuietCard(Modifier.width(1380.u).heightIn(max = 880.u).fillMaxHeight(), padding = PaddingValues(horizontal = 44.u, vertical = 30.u)) {
+            QuietCard(Modifier.width(fit(1380.u)).heightIn(max = 880.u).fillMaxHeight(), padding = PaddingValues(horizontal = 44.u, vertical = 30.u)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.u)) {
                     SettingsBack()
                     Column(Modifier.weight(1f)) {

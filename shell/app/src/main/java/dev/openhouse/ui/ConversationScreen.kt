@@ -83,7 +83,7 @@ internal fun ConversationScreen() {
                         Chip("Close") { o.closeConversation() }
                     }
                     Spacer(Modifier.height(24.u))
-                    Column(Modifier.weight(1f).verticalScroll(scroll).padding(end = 150.u), verticalArrangement = Arrangement.spacedBy(26.u)) {
+                    Column(Modifier.weight(1f).verticalScroll(scroll).padding(end = (if (isCompact()) 0 else 150).u), verticalArrangement = Arrangement.spacedBy(26.u)) {
                         val turns = c?.turns ?: emptyList()
                         turns.forEachIndexed { i, t ->
                             if (t.role == "user") Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.End) {
@@ -126,7 +126,7 @@ internal fun FullNote(n: HomeNote) {
     CompositionLocalProvider(LocalPalette provides paperPalette(), LocalView provides "full", LocalTwoColumns provides true, LocalAnswerActions provides o) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .45f)).clickable { o.closeNote() }) {
             Paper(
-                Modifier.align(Alignment.Center).size(1340.u, 860.u).clickable(enabled = false) {}, kind = PaperKind.Card,
+                Modifier.align(Alignment.Center).size(fit(1340.u), fit(860.u, height = true)).clickable(enabled = false) {}, kind = PaperKind.Card,
                 magnet = o.person(n.forWho)?.color ?: PaperLook.magnets[(n.id.hashCode() and 0xff) % PaperLook.magnets.size], fill = true,
                 padding = PaddingValues(horizontal = 48.u, vertical = 34.u),
             ) {

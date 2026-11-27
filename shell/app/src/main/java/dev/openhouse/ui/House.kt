@@ -396,7 +396,7 @@ fun TextAsk(title: String, initial: String = "", hint: String = "", onCancel: ()
     Box(Modifier.fillMaxSize().background(Color(0x99000000)).clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { keyboard?.hide(); onCancel() },
         contentAlignment = androidx.compose.ui.Alignment.TopCenter) {
         androidx.compose.foundation.layout.Column(
-            Modifier.padding(top = 70.u).width(820.u).clip(androidx.compose.foundation.shape.RoundedCornerShape(30.u)).background(PaperLook.paper)
+            Modifier.padding(top = 70.u).width(fit(820.u)).clip(androidx.compose.foundation.shape.RoundedCornerShape(30.u)).background(PaperLook.paper)
                 .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {}
                 .padding(horizontal = 36.u, vertical = 30.u),
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(22.u),

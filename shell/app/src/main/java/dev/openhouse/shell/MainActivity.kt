@@ -53,7 +53,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
             addView(setupNote, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = C.px(this@MainActivity, 14) })
             addView(setupBar, android.widget.LinearLayout.LayoutParams(-1, C.px(this@MainActivity, 8)).apply { topMargin = C.px(this@MainActivity, 48) })
         }
-        setupLayer.addView(col, FrameLayout.LayoutParams(C.px(this, 900), -2, Gravity.CENTER))
+        setupLayer.addView(col, FrameLayout.LayoutParams(minOf(C.px(this, 900), resources.displayMetrics.widthPixels - C.px(this, 24)), -2, Gravity.CENTER))
     }
     private val main = Handler(Looper.getMainLooper())
     /**
@@ -97,6 +97,8 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A phone turns upright too (the manifest keeps tablets sideways, as they always were): Calm.compact.
+        if (dev.openhouse.ui.Calm.compact(this)) requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         PinPrompt.watchScreen(this) // the PIN's two-minute grace ends when the screen sleeps
         // Moving to Opie's IDs (Move.kt): the new display takes over first; the old one, once it has handed over,
         // only steps aside.

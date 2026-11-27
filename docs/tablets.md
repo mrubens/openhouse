@@ -20,6 +20,24 @@ What the states mean:
 
 Prices change too fast to list. When a price appears in this repo it carries its date (as in [hardware.md](hardware.md)).
 
+## A spare phone
+
+The same app runs on an Android phone, as the household's hub or a small panel on a counter or wall. A phone is any
+screen whose short side is under 600 dp (`Calm.compact` in the shell, `useCompact` in `chat/src/home.jsx`); a tablet
+never is, and stays exactly as it was. On a phone:
+
+- It turns upright as well as sideways (the manifest keeps tablets sideways; `MainActivity` lets a phone turn).
+- Sizes come from the short side: 560 u across it, upright or not (a tablet's long side is 1536 u). The home page's
+  `--u` and the shell's `u` follow the same rule, and the apps in tabs take their own phone layout (`narrow.css`).
+  Cards drawn for a tablet are no wider than the screen (`fit()` in `Theme.kt`, and dialogs).
+- Home is a glance in big type: the time and the day, the weather, then what's on now (cooking, timers, what's next on
+  the calendar, the shopping list) and asking Opie. Upright, the first four tabs are on a bar along the foot and More
+  has the rest, sleep and Settings; sideways, the rail has the tabs.
+
+![The glance on a phone](phone-display.png)
+
+Not tried on a real phone yet: the emulator only (a Pixel 7's screen).
+
 ## Trying a tablet that isn't listed
 
 It has a fair chance of working if it has:

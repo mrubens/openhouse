@@ -320,6 +320,8 @@ class MoveActivity : Activity() {
     @Volatile private var running = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // A phone turns upright too (the manifest keeps tablets sideways, as they always were): Calm.compact.
+        if (dev.openhouse.ui.Calm.compact(this)) requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_USER
         val text = TextView(this).apply {
             textSize = 30f; setTextColor(Color.rgb(29, 28, 26)); gravity = Gravity.CENTER; setBackgroundColor(Color.rgb(253, 250, 243))
             text = "Moving to Opie…"
