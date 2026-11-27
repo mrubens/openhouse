@@ -17,6 +17,9 @@ nothing listens, and Settings shows Live voice: Off (Hey Opie only shows while i
 (1.0, 1.6 and 2.2 s in, then at the end) and looked for the ways it writes "Opie". It was slow, it ran Parakeet on
 all the talk in the room, and it missed half the time.
 
+**Against other engines (2026-11-27):** openWakeWord's and microWakeWord's standard recipes, sherpa-onnx's keyword
+spotter, LiveKit WakeWord and Porcupine, on this test set: `docs/wake-eval.md`. Ours stays.
+
 ## Round 7 (2026-11-24): no better than round 6, not shipped
 
 35,690 more "Hey Opie" clips said every way (`HEY` in `synth.py`), half child-like (said slower, then played faster:
