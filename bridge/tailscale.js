@@ -126,8 +126,9 @@ export function tailscaleRoutes({ DISPLAY, json, body, screens, PORT = Number(pr
     set('starting');
     const p = spawnFn(path.join(BIN, 'tailscaled'), ['--tun=userspace-networking', `--statedir=${STATE}`, `--socket=${SOCK}`, '--port=0', '--no-logs-no-support'], {
       stdio: ['ignore', 'pipe', 'pipe'],
-      // No log upload to Tailscale, and no list of the tablet's open ports sent with its details.
-      env: { ...env, TS_NO_LOGS_NO_SUPPORT: 'true', TS_DEBUG_DISABLE_PORTLIST: 'true' },
+      // No log upload to Tailscale, and no list of the tablet's open ports sent with its details. Its log's own files in
+      // its state folder too (else /var/lib/tailscale, which turning it off wouldn't clear).
+      env: { ...env, TS_NO_LOGS_NO_SUPPORT: 'true', TS_DEBUG_DISABLE_PORTLIST: 'true', TS_LOGS_DIR: STATE },
     });
     daemon = p;
     try { fs.writeFileSync(path.join(STATE, 'tailscaled.pid'), String(p.pid)); } catch {}
@@ -142,6 +143,13 @@ export function tailscaleRoutes({ DISPLAY, json, body, screens, PORT = Number(pr
       set('error', 'Tailscale stopped.');
       later([2e3, 5e3, 15e3, 60e3][Math.min(deaths++, 3)]);
     });
+    // Still not answering after a while (seen once on an emulator, its first start after the download): what it said
+    // goes in the bridge's log, and it's started again (the exit above), which got it going.
+    setTimeout(async () => {
+      if (daemon !== p || (await status())) return;
+      log('tailscaled not answering: starting it again |', tail.slice(-8).join(' | '));
+      try { p.kill('SIGKILL'); } catch {}
+    }, 45e3).unref?.();
     for (let i = 0; i < 40 && daemon === p; i++) { if (await status()) return; await new Promise((r) => setTimeout(r, 250)); }
   }
   function stopDaemon() {
@@ -212,6 +220,8 @@ export function tailscaleRoutes({ DISPLAY, json, body, screens, PORT = Number(pr
     if (address) { address = null; changed(); }
     if (bs === 'NeedsMachineAuth') { set('approve'); return later(5e3); }
     if (bs === 'NeedsLogin' || bs === 'Stopped' || bs === 'NoState') {
+      // A computer's own Tailscale is signed in there, by whoever runs it: never `up` here, which would change its settings.
+      if (!own) { set('error', 'Sign in to Tailscale on this computer first.'); return later(30e3); }
       if (st.AuthURL) login = st.AuthURL;
       if (!up) { startUp(pendingKey); pendingKey = null; }
       set(login ? 'signin' : 'starting', keyError);
@@ -267,6 +277,7 @@ export function tailscaleRoutes({ DISPLAY, json, body, screens, PORT = Number(pr
     if (b.on === true) {
       const key = b.key == null || b.key === '' ? null : String(b.key).trim();
       if (key && !AUTH_KEY.test(key)) { json(res, 400, { error: "That isn't a Tailscale auth key. It starts with tskey-." }); return true; }
+      if (key && !own) { json(res, 400, { error: 'Sign in to Tailscale on this computer instead.' }); return true; }
       await turnOn(key);
     } else if (b.on === false) await turnOff();
     else { json(res, 400, { error: 'on' }); return true; }

@@ -15,7 +15,8 @@ import org.json.JSONObject
 import kotlin.concurrent.thread
 
 internal class TailscaleMenu(private val act: MainActivity, private val back: () -> Unit) {
-    private fun get() = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/tailscale", 3000, 10_000)) }.getOrNull()
+    /** Its state, or null if the bridge didn't answer it (a bridge starting again answers other things first). */
+    private fun get() = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/tailscale", 3000, 10_000)) }.getOrNull()?.takeIf { it.has("state") }
     /** The answer (with "error" on a refusal: a key that isn't one), or null if the bridge didn't answer. */
     private fun post(body: JSONObject): JSONObject? = runCatching {
         val c = BridgeClient.open("${act.bridge}/tailscale")
@@ -77,8 +78,9 @@ internal class TailscaleMenu(private val act: MainActivity, private val back: ()
     private fun signIn(login: String, error: String?) {
         var showing = true
         val col = Calm.qr(act, ImageView(act).apply { setImageBitmap(Handoff.qr(login, 520)) }, Calm.caption(act, error ?: "Scan with your phone and sign in."), 340)
-        col.addView(Calm.quiet(act, "Use an auth key") { key() })
-        val d = CalmDialog(act).setTitle("Sign in to Tailscale").setView(col)
+        var d: android.app.Dialog? = null
+        col.addView(Calm.quiet(act, "Use an auth key") { showing = false; d?.dismiss(); key() }) // (this one goes: the key's answer opens the next)
+        d = CalmDialog(act).setTitle("Sign in to Tailscale").setView(col)
             .setPositiveButton("Close") { _, _ -> back() }.setNegativeButton("Turn off") { _, _ -> turnOff() }
             .setOnDismissListener { showing = false }.show()
         thread {
@@ -87,7 +89,7 @@ internal class TailscaleMenu(private val act: MainActivity, private val back: ()
                 Thread.sleep(2000)
                 val s = get() ?: continue
                 if (s.optBoolean("on") && s.optString("state") == "signin" && s.optString("login") == login) continue
-                ui { if (showing) { d.dismiss(); open(s) } }
+                ui { if (showing) { d?.dismiss(); open(s) } }
                 return@thread
             }
         }
