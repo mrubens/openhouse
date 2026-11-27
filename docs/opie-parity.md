@@ -90,6 +90,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Row | Opie | Notes |
 | --- | --- | --- |
 | Voice (the voice, Hey Opie, the microphone) | screen, with the PIN | Opie opens the row and the tablet asks for the PIN; then it chooses there |
+| Voice → Check the microphone (does Opie hear you: the level, then "Hey Opie", and too quiet, too noisy or blocked) | **new** | mic_check: start puts the check on the screen (no PIN: it changes nothing); from the tablet's own voice the conversation ends first so the check can have the microphone, typed or from a phone it waits for the answer; last says how the last one went |
 | "Turn on Opie?", asked once when a linked household's voice becomes available and nobody here had said yes | no, on purpose | personOnly: it's the yes to what goes to OpenAI (and the voice is off then, so there's no Opie to ask) |
 | The first setup's Choose a PIN | no, on purpose | As PIN Lock: Opie can't choose or see a PIN, and the setup is quiet until its last step, so there's no Opie to ask |
 | The first setup's calendar and photos steps | yes, by link / no for sign-ins | add_calendar and add_photo_album take a link, as anywhere (the tablet asks a person's yes); signing in to Google or iCloud stays on the screen, as in Settings → Calendars. Typing to Opie waits until the setup is done |

@@ -39,6 +39,7 @@ by these, never by the host's kind (`host.js CAPS`):
 | `speaker` | says things (`/say`) on a speaker of its own | ✓ | |
 | `apps` | offers the device tools over MCP (`screen`, `tap`, `open_app`…), `/front`, `/halt` | ✓ | |
 | `bluetooth`, `camera`, `media`, `multicast`, `share`, `brightness` | `/bt`, `/camera`, `/media`, `/multicast`, `/share`, `/screen` | ✓ | |
+| `mic-check` | puts the microphone check on its screen (`/mic-check {do: start}`), and says how the last one went (`{do: get}`) | ✓ | |
 
 A shell older than `/host` gets the tablet's list (`TABLET_CAPS`). A path a host doesn't have answers an error, as it
 always has, so a caller that copes with a failed call needs no capability check.

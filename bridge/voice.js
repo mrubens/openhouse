@@ -21,6 +21,9 @@
 //                               default; off deletes them); GET /voice/clips lists, GET /voice/clips/<file> reads one (wav),
 //                               POST /voice/clips/clear deletes them all
 // GET  /voice/events            SSE: wake, say, recording
+// POST /voice/check {on}        the microphone check (shell MicCheck.kt): for a few seconds a "Hey Opie" opens nothing and
+//                               nothing heard is kept or recorded, only how loud it was and whether its name was heard;
+//                               off answers what it found, with its verdict (micVerdict); GET /voice/check: so far
 
 import fs from 'node:fs';
 import { writeJson } from './store.js';
@@ -59,6 +62,11 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
   let listening = 0, injectN = 0;
   const waiting = new Map(); // src -> resolve
   const heardBy = new Map(); // a browser screen's src -> when its name was heard (/voice/listen)
+  // The microphone check: on until it's turned off, or a minute at most. What the listener found so far comes back to
+  // each question in turn.
+  let checking = null; const checkAsks = [];
+  const checkAsk = (msg) => new Promise((resolve) => { if (!worker) return resolve(null); checkAsks.push(resolve); worker.send(msg); setTimeout(() => { const i = checkAsks.indexOf(resolve); if (i >= 0) { checkAsks.splice(i, 1); resolve(null); } }, 2000); });
+  function checkOff() { if (!checking) return Promise.resolve(null); clearTimeout(checking); checking = null; vlog('mic-check', { on: false }); return checkAsk({ type: 'check', on: false }); }
   const clients = new Set();
   // The speech log: what it did, in order (on this device only), so a bad moment can be looked at afterwards. Off
   // unless someone turned it on. GET /voice/log?n=300 reads the end of it.
@@ -162,6 +170,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
       worker = null; ready = false; setTimeout(start, Date.now() - began > 30000 ? 500 : 10000);
       console.error(`[voice] the listener stopped (${signal || 'code ' + code}); starting it again`); vlog('listener-stopped', { code, signal });
       for (const [, r] of waiting) r({ error: error || 'listening stopped' }); waiting.clear();
+      for (const r of checkAsks.splice(0)) r(null); if (checking) { clearTimeout(checking); checking = null; }
     });
   }
 
@@ -177,6 +186,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
     if (m.type === 'wake') { if (m.src !== 'mic') return; vlog('wake-word', { p: m.p }); clipWake(m.p); handle.onWake?.(); emit({ type: 'wake', at: Date.now(), p: m.p }); return; }
     if (m.type === 'note') { vlog('note', { text: m.text }); console.log('[voice] ' + m.text); return; }
     if (m.type === 'mic-level') { try { writeJson(MIC_LEVEL, { usual: m.level }, { bak: false }); } catch {} return; }
+    if (m.type === 'check') { const r = checkAsks.shift(); if (r) { const { type, ...c } = m; r(c.seconds == null ? null : c); } return; }
     if (m.type === 'flushed') { const r = waiting.get(m.src); if (r) { waiting.delete(m.src); r({ woke: m.woke > 0, wakes: m.woke, peak: m.peak }); } }
   }
 
@@ -247,6 +257,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
       res.writeHead(200, { 'content-type': name.endsWith('.pcm') ? 'application/octet-stream' : 'text/plain; charset=utf-8', 'content-length': fs.statSync(f).size });
       fs.createReadStream(f).pipe(res); return true;
     }
+    if (req.method === 'GET' && p === '/voice/check') { const c = checking ? await checkAsk({ type: 'check-get' }) : null; json(res, 200, { on: !!checking, ...(c ? { ...c, verdict: micVerdict(c) } : {}) }); return true; }
     if (req.method !== 'POST') return false;
 
     // A browser screen listening for its name (a hub's screens, chat/src/wake-listen.js): its microphone a moment at a
@@ -268,8 +279,9 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
       req.on('data', (d) => {
         if (carry) { d = Buffer.concat([carry, d]); carry = null; }
         if (d.length & 1) { carry = d.subarray(d.length - 1); d = d.subarray(0, d.length - 1); }
-        if (!worker || !ready || !d.length) return;
+        if (!worker || !(ready || checking) || !d.length) return;
         worker.send({ type: 'audio', src: 'mic', samples: toFloat(d) });
+        if (checking) return; // (a check keeps nothing it hears: no clips, no test recording)
         ringAdd(d);
         if (rec) { try { fs.writeSync(rec.pcm, d); rec.samples += d.length >> 1; } catch (e) { recStop(e.message); } if (rec && rec.samples * 2 > REC_MAX) recStop('full'); }
       });
@@ -285,6 +297,13 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
       const padded = new Float32Array(f.length + RATE); padded.set(f, RATE / 2); // a little silence around it
       const r = await new Promise((resolve) => { waiting.set(src, resolve); worker.send({ type: 'audio', src, samples: padded, flush: true }); });
       json(res, r.error ? 503 : 200, r); return true;
+    }
+    if (p === '/voice/check') {
+      const on = (await body(req)).on === true;
+      if (!on) { const c = await checkOff(); json(res, 200, { on: false, ...(c ? { ...c, verdict: micVerdict(c) } : { verdict: worker ? 'none' : 'notReady' }) }); return true; }
+      if (!worker) { json(res, 200, { on: false, ready: false, verdict: 'notReady', error: error || 'listening is starting' }); return true; }
+      clearTimeout(checking); checking = setTimeout(() => { checkOff(); }, 60e3); worker.send({ type: 'check', on: true }); vlog('mic-check', { on: true });
+      json(res, 200, { on: true, ready }); return true;
     }
     if (p === '/voice/reload') { // the display put new models in place: load them (the listener starts again)
       clearOld();
@@ -325,4 +344,21 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
     if (p === '/voice/log') { vlog('display', { event: String(b.event || '').slice(0, 60), text: b.text ? String(b.text).slice(0, 300) : undefined, who: b.who || undefined }); json(res, 200, { ok: true }); return true; }
     return false;
   }
+}
+
+/**
+ * What a microphone check found, in a word (the shell and Opie's mic_check say it in their own words): heard (it woke, as
+ * "Hey Opie" would), quiet (the voice never reached the wake model's loudness floor), noisy (the voice hardly stood above
+ * the room), silent (nothing but exact zeros: blocked), nothing (no sound came at all), notReady (no wake model here yet),
+ * or unclear (loud and clear enough, but not heard as "Hey Opie"). [c]: the listener's numbers (voice-worker.js checkNow).
+ */
+export function micVerdict(c) {
+  if (!c) return 'nothing';
+  if (c.heard) return 'heard';
+  if (!(c.seconds >= 1)) return 'nothing';
+  if (c.silent) return 'silent';
+  if (c.peak < (c.floor || 0.01)) return 'quiet';
+  if (c.room >= c.peak / 3) return 'noisy'; // (under about 10 dB between the room and the loudest moment)
+  if (!c.ready) return 'notReady';
+  return 'unclear';
 }

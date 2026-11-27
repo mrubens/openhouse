@@ -3,9 +3,11 @@
 // the model's own threshold (models/wake/opie.json, 0.9 without one) is "Hey Opie". That's all it does: nothing is transcribed, kept or sent anywhere. What comes
 // after the name is OpenAI's live voice's to hear (shell LiveVoice). docs/wake-word.md
 //
-// In:  {type: 'audio', src, samples?, flush?, ack?, at?}, {type: 'wake-on', on}, {type: 'mic-level', level}
+// In:  {type: 'audio', src, samples?, flush?, ack?, at?}, {type: 'wake-on', on}, {type: 'mic-level', level},
+//      {type: 'check', on}, {type: 'check-get'} (the microphone check: voice.js /voice/check)
 // Out: {type: 'ready', model, wake}, {type: 'wake', src, by: 'model', p}, {type: 'model-wake', src, p, what},
 //      {type: 'mic-level', level}, {type: 'note', text}, {type: 'ack', at}, {type: 'flushed', src, woke, peak},
+//      {type: 'check', ...checkNow()} (to check-get, and when a check ends),
 //      and with VOICE_DEBUG_WAKE {type: 'wake-score', src, p} (the bench).
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -63,6 +65,22 @@ function rawPeak(x) { for (let i = 0; i < x.length; i += 1600) { let p = 0; cons
 const loudEnough = () => !FLOOR || Math.max(...rawPeaks) >= FLOOR;
 const amplify = (x, g) => { const y = new Float32Array(x.length); for (let i = 0; i < x.length; i++) y[i] = Math.tanh(x[i] * g); return y; };
 
+// The microphone check (Settings → Voice, or asked of Opie): for a few seconds the microphone's own loudness each 0.1 s
+// (before the gain) and the wake model's best score. A "Hey Opie" heard then is the check's, not a wake: nothing opens,
+// and it isn't counted with the false wakes. Only numbers are kept, and only until the check ends.
+let check = null;
+function checkNow(c = check) {
+  if (!c) return null;
+  const s = [...c.peaks].sort((a, b) => a - b);
+  return { heard: c.heard, best: +c.best.toFixed(3), peak: +(s[s.length - 1] || 0).toFixed(4), room: +(s[Math.floor(s.length * 0.2)] || 0).toFixed(4),
+    seconds: +(c.n / RATE).toFixed(1), silent: c.n > 0 && !c.sound, floor: FLOOR, threshold: WAKE_T, ready: !!wakeModel };
+}
+function checkHear(x) {
+  check.n += x.length;
+  for (let i = 0; i < x.length; i += 1600) { let p = 0; const e = Math.min(x.length, i + 1600); for (let j = i; j < e; j++) { const a = Math.abs(x[j]); if (a > p) p = a; } check.peaks.push(p); if (p > 0) check.sound = true; }
+  if (check.peaks.length > 600) check.peaks.splice(0, check.peaks.length - 600);
+}
+
 let wakeModel = null, why = null;
 const srcs = new Map(); // src -> {listen, n (samples so far), firedAt, peak, woke}
 const M = (...p) => path.join(dir, 'models', ...p);
@@ -80,6 +98,7 @@ function state(src) {
 function heard(src, v, p, end) {
   if (p > v.peak) v.peak = p;
   if (process.env.VOICE_DEBUG_WAKE && p >= 0.05) port.post({ type: 'wake-score', src, p: +p.toFixed(3) });
+  if (check && src === 'mic') { if (p > check.best) check.best = p; if (p >= WAKE_T && loudEnough()) check.heard = true; return; } // (the check's: no wake)
   if (p < WAKE_T || !wakeOn || end - v.firedAt < AGAIN) return;
   if (src === 'mic' && !loudEnough()) return;
   v.firedAt = end; v.woke++;
@@ -90,6 +109,14 @@ function heard(src, v, p, end) {
 function take(msg) {
   if (msg.type === 'wake-on') { wakeOn = !!msg.on; return; }
   if (msg.type === 'mic-level') { if (level == null) setLevel(Number(msg.level)); return; }
+  if (msg.type === 'check') {
+    if (msg.on) { check = { peaks: [], best: 0, heard: false, n: 0, sound: false }; return; }
+    const was = check, mic = srcs.get('mic'); // (once what it has heard is scored)
+    Promise.resolve(mic && wakeModel ? mic.listen.idle() : null).then(() => { if (check === was) check = null; port.post({ type: 'check', ...checkNow(was) }); });
+    return;
+  }
+  if (msg.type === 'check-get') { port.post({ type: 'check', ...checkNow() }); return; }
+  if (msg.type === 'audio' && msg.src === 'mic' && check && msg.samples?.length) checkHear(msg.samples);
   if (msg.type !== 'audio' || !wakeModel) return;
   const src = msg.src, v = state(src);
   if (msg.samples?.length) {

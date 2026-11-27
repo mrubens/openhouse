@@ -46,7 +46,11 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
         ui {
             if (now == null) return@ui say(noBridge)
             val checked = if (!LiveVoice.chosen) 0 else 1 + VOICES.indexOfFirst { it.first == now }
-            CalmDialog(act).setTitle("Voice").setMessage(if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.")
+            val d = CalmDialog(act).setTitle("Voice").setMessage(if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.")
+            // Where someone looks when "Hey Opie" isn't working: does Opie hear them here? (MicCheck)
+            var shown: android.app.Dialog? = null
+            if (LiveVoice.chosen) d.setView(dev.openhouse.ui.Calm.quiet(act, "Check the microphone") { shown?.dismiss(); MicCheck.open(act) }.apply { gravity = android.view.Gravity.START or android.view.Gravity.CENTER_VERTICAL; setPadding(0, 0, 0, 0) })
+            shown = d
                 .setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }
                 .setSingleChoiceItems((listOf("Off") + VOICES.map { it.second }).toTypedArray(), checked) { d, i ->
                     d.dismiss()

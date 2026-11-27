@@ -34,6 +34,7 @@ export const CAPS = {
   bluetooth: 'POST /bt', camera: 'POST /camera', media: 'POST /media', multicast: 'POST /multicast', share: 'POST /share',
   brightness: 'POST /screen: brightness and sleep',
   alarms: 'POST /alarms: it rings the alarm clocks (from the home view) and stops or snoozes the one ringing',
+  'mic-check': 'POST /mic-check: the microphone check on its screen (Settings → Voice), and how the last one went',
 };
 // What a tablet's shell can do when it doesn't answer /host (one older than the host interface).
 export const TABLET_CAPS = ['screen', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin', 'voice-setup', 'google-signin', 'drive', 'updates',
