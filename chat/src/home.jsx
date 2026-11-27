@@ -747,10 +747,11 @@ const PAUSED_FOR = 5 * 60e3;
 const isOn = (n) => n?.state === 'playing' || n?.state === 'starting';
 const CLOSED = 'openhouse.nowplaying.closed', OFFER = 'openhouse.nowplaying.offer';
 function NowPlaying({ shell }) {
-  const [r, setR] = useState(null), seen = useRef(0);
+  const [r, setR] = useState(null), seen = useRef({}); // when each song was last seen playing here (app|title)
   const [closed, setClosed] = useState(() => { try { return JSON.parse(store.get(CLOSED) || 'null'); } catch { return null; } });
   const [offerGone, setOfferGone] = useState(() => !!store.get(OFFER));
-  const ask = () => { const x = shell.media('status') || {}; if (isOn(x.now)) seen.current = Date.now(); setR(x); };
+  const keyOf = (n) => (n?.pkg || n?.app) + '|' + (n?.title || '');
+  const ask = () => { const x = shell.media('status') || {}; if (isOn(x.now)) seen.current[keyOf(x.now)] = Date.now(); setR(x); };
   useEffect(() => { ask(); const t = setInterval(() => { if (!document.hidden) ask(); }, 4000); return () => clearInterval(t); }, []);
   const now = r?.now && (r.now.title || r.now.app) && !r.now.embed ? r.now : null; // (Spotify's own player shows itself: SpotifySlot)
   const stop = (e) => e.stopPropagation();
@@ -763,10 +764,11 @@ function NowPlaying({ shell }) {
       <div className="t-now-btns"><span role="button" className="t-now-go" onClick={(e) => { stop(e); shell.media('setup'); }}>Turn on</span><span role="button" aria-label="Close" onClick={close}><Cross /></span></div>
     </div>;
   }
-  const on = isOn(now), key = (now.pkg || now.app) + '|' + (now.title || '');
-  if (!on && (now.state !== 'paused' || Date.now() - seen.current > PAUSED_FOR)) return null;
+  const on = isOn(now), key = keyOf(now);
+  // Paused: only what was playing here a little while ago, not an old song another app still holds paused.
+  if (!on && (now.state !== 'paused' || Date.now() - (seen.current[key] || 0) > PAUSED_FOR)) return null;
   if (closed?.key === key && !(closed.paused && on)) return null; // (closed while paused, it's back once it plays again)
-  const tap = (e, what) => { stop(e); shell.media(what); if (what === 'play') seen.current = Date.now();
+  const tap = (e, what) => { stop(e); shell.media(what); if (what === 'play') seen.current[key] = Date.now();
     if (what === 'play' || what === 'pause') setR({ ...r, now: { ...now, state: what === 'play' ? 'playing' : 'paused' } }); setTimeout(ask, 700); setTimeout(ask, 2000); };
   const close = (e) => { stop(e); const c = { key, paused: !on }; setClosed(c); store.set(CLOSED, JSON.stringify(c)); };
   const at = now.lengthS > 0 && now.positionS != null ? Math.min(100, (100 * now.positionS) / now.lengthS) : null;
