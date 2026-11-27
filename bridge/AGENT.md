@@ -1,9 +1,9 @@
 # Opie: how apps are made
 
-(These rules come with the tablet's bridge; a computer's Claude or ChatGPT reads them through the workshop's get_guide,
+(These rules come with the device's bridge; a computer's Claude or ChatGPT reads them through the workshop's get_guide,
 bridge/workshop.js. They are not part of the apps folder.)
 
-How the family's apps, games and the home screen work, for when you make or change them.
+How the household's apps, games and the home screen work, for when you make or change them.
 Requests come from someone in the household (sometimes a kid), who may be watching.
 
 ## The screen
@@ -20,7 +20,7 @@ looking at (an app, the Home tab or the Apps tab); "this" and "it" mean that.
   then the app they're looking at (its `main.js` or `index.html`). Make a new app only when they ask for something
   that doesn't exist yet.
 - Removing is a change like any other: take the tab out with `set_home` (the app stays in the Apps tab), or delete the
-  app's folder when they want it gone for good. The family's data is never in an app, so nothing they entered is lost.
+  app's folder when they want it gone for good. The household's data is never in an app, so nothing they entered is lost.
 - Keep the change to what they asked. Don't redesign the rest of the app on the way.
 - Say what you changed in one short sentence. Don't mention or offer undo: when someone asks to take a change back, take it back.
 
@@ -28,7 +28,7 @@ looking at (an app, the Home tab or the Apps tab); "this" and "it" mean that.
 The screen everyone sees is the display's own page (not code you edit): a column on the left with the time, the day
 and the tabs, and one sheet beside it showing the chosen tab. A tab is Today (a card for each tab's most important bit, opening that tab, and one for your notes),
 Apps (a calm grid of every app that isn't a tab of its own, and the Android apps added; a hold there makes
-one a tab or takes it off), or one of the family's apps running right in the sheet. There is no board any more: no
+one a tab or takes it off), or one of the household's apps running right in the sheet. There is no board any more: no
 widgets, no cells. The same screen shows on any other screen in the house (an old tablet, a frame).
 You change it these ways, lightest first:
 - Notes (`put_note`, `update_note`): they show on Home. Information (a list, a plan, a recipe) goes on a note, kept
@@ -58,11 +58,11 @@ by the display over the page. Leave that corner clear.
   brings it back. Never delete `apps/home`. If it isn't clear which one they mean, change nothing
   and say which apps there are.
 
-## The family's things: calendar, chores, lists, meals, photos
+## The household's things: calendar, chores, lists, meals, photos
 The display starts with these apps: `apps/calendar`, `apps/chores`, `apps/lists`, `apps/meals`, `apps/photos`,
 `apps/recipes`, `apps/map`, `apps/weather`, `apps/whiteboard` and `apps/tv` (the TV's). They're ordinary apps: change them like any other ("make the calendar show two weeks" is an edit to
 `apps/calendar/main.js`), and deleting one is deleting its folder. Their data is not in their code: it lives in the
-bridge, so an edit or a delete never loses the family's events, chores, lists or meals. Keep it that way, and use the
+bridge, so an edit or a delete never loses the household's events, chores, lists or meals. Keep it that way, and use the
 same data in any new app that needs it, through the kit (version 2: a new app's `app.json` says `"kit": 2`; an app that names no kit gets version 1, `docs/kit.md`):
 `import { house, store, timer, say, phone, shell, weather } from '/kit/openhouse.js';`
 - `house.subscribe((h) => draw(h))`: now and on every change (the assistant, another screen). `h.lists` (`{id, name,
@@ -95,11 +95,11 @@ same data in any new app that needs it, through the kit (version 2: a new app's 
   in the assistant's voice. `store.get(name)` / `store.set(name, value)`: the app's own saved things, kept by the
   bridge (they survive the app being reinstalled and reach the household's phones). `phone.photos()` / `phone.list(name)`: a card with a QR code for a phone on the home
   Wi-Fi (photos from its camera roll; a list to take to the store). `shell.close()`: back to the home screen.
-- `"screensaver": true` in an app's `app.json` (Photos has it) makes the home screen show the family's photos when idle,
+- `"screensaver": true` in an app's `app.json` (Photos has it) makes the home screen show the household's photos when idle,
   except during `h.night` (set in Photos), when it's a dim clock.
 - The TV: a paired TV shows the app whose `app.json` says `"screens": ["tv"]` (ours is the app `tv`: photos, Today and
   the week, left and right on the remote). "Show Saturday's games on the TV" is a change to that app (or a new one with
-  `"screens": ["tv"]`, which the TV then shows instead). It isn't on the tablet, it can't be seen with `look_at_tablet`,
+  `"screens": ["tv"]`, which the TV then shows instead). It isn't on the device, it can't be seen with `look_at_tablet`,
   and it only reads: `house.subscribe`, `house.photo`, `weather()` work; anything that changes things resolves
   `{ok: false}` there (kit 2).
   Plain files only (no packages), sized in `vh` for across a room, and keys instead of touch (`keydown`: arrows, Enter).
@@ -150,7 +150,7 @@ save. `check_build` reports errors the page throws while it's open.
   size under 700 px; there, lay it out in one column (rows, not columns side by side; a top row that wraps). Leave out
   what only the tablet does when `screen?.kind === 'phone'` (from the kit). One that can't work on a phone says
   `"screens": ["tablet"]` in its app.json. Installed libraries (below) don't load on phones yet.
-- Plain ES modules; the family's data only through the kit (above). Installed libraries (use only these, no CDNs, no
+- Plain ES modules; the household's data only through the kit (above). Installed libraries (use only these, no CDNs, no
   npm installs):
   - 3D: `three`. Use the WebGPU renderer; it falls back to WebGL2 on its own:
     `import * as THREE from 'three/webgpu'` then `const r = new THREE.WebGPURenderer({ antialias: true }); await r.init();`
@@ -167,7 +167,7 @@ save. `check_build` reports errors the page throws while it's open.
   (swipe in from an edge) leaves the app, so there's no Home button.
 - No image or sound files: draw with SVG, canvas, shapes, generated textures, materials and lights; make sound with
   Web Audio. Save the app's own things (high scores, settings) with the kit's `store` (kept by the bridge, on every
-  screen); `localStorage` under `app.<id>.` only for what belongs to one screen. The family's things go through the
+  screen); `localStorage` under `app.<id>.` only for what belongs to one screen. The household's things go through the
   kit.
 - Make it look good: smooth 60 fps motion, easing; in games real lighting and materials in 3D and juice (particles,
   screen shake). Keep pixel ratio ≤ 2 and stop animation loops when `document.hidden`.

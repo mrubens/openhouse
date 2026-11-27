@@ -179,7 +179,7 @@ export function writeJson(file, value, { bak, mode, space, newline = false } = {
  *  Whoever saves keeps nothing of the change in memory either, so what shows is what's on disk. */
 export function unsaved(e) {
   const why = e?.message || String(e);
-  if (e?.code === 'newer' && !e.unmigrated) return { status: 409, error: `It wasn't saved: this tablet's data is from a newer version of Opie, so update the tablet. (${why})` };
+  if (e?.code === 'newer' && !e.unmigrated) return { status: 409, error: `It wasn't saved: this device's data is from a newer version of Opie, so update the device. (${why})` };
   if (e?.code === 'newer' || e?.code === 'held') return { status: 409, error: `It wasn't saved: ${why}` };
   return { status: 500, error: `It wasn't saved: ${why}` };
 }

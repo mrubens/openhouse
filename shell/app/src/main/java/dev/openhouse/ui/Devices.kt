@@ -116,7 +116,7 @@ object Devices {
         val power = r.optString("power").lowercase()
         return when {
             r.optBoolean("bluetooth") -> listOfNotNull(
-                if (r.optBoolean("sound_here")) "Playing the tablet’s sound" else if (r.optBoolean("connected")) "Connected" else if (r.optBoolean("paired")) "Paired" else "Not paired",
+                if (r.optBoolean("sound_here")) "Playing this device’s sound" else if (r.optBoolean("connected")) "Connected" else if (r.optBoolean("paired")) "Paired" else "Not paired",
                 (r.opt("volume") as? Number)?.let { "volume $it" },
                 (r.opt("battery") as? Number)?.let { "battery $it%" },
                 (r.opt("temperature_c") as? Number)?.let { "%.1f°".format(it.toDouble()) },
@@ -329,8 +329,8 @@ private fun DeviceCard(d: HomeDevice, modifier: Modifier) {
             val playing = st?.startsWith("Playing") == true
             // A Bluetooth speaker: where the tablet's sound goes, and its volume while it plays there.
             if ("play_here" in a) {
-                val here = st?.startsWith("Playing the tablet") == true
-                if (here) DeviceButton("Back to the tablet") { Devices.act(d, "stop_here", doing = "Switching…") }
+                val here = st?.startsWith("Playing this device") == true
+                if (here) DeviceButton("Back to this device") { Devices.act(d, "stop_here", doing = "Switching…") }
                 else DeviceButton("Play here", primary = true) { Devices.act(d, "play_here", doing = "Connecting…") }
                 if (here) { DeviceButton("Quieter") { Devices.act(d, "volume_down", doing = "Quieter…") }; DeviceButton("Louder") { Devices.act(d, "volume_up", doing = "Louder…") } }
             }

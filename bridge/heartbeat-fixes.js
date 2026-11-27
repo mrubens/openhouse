@@ -47,11 +47,11 @@ export function fixQueue({ DIR, now = () => Date.now() }) {
     asData(`Errors:\n${f.errors.map((e) => `- ${e}`).join('\n')}` +
       (f.log.length ? `\nWhat the page reported (latest last):\n${f.log.map((l) => `- ${new Date(l.at).toISOString()} ${l.text}`).join('\n')}` : ''),
       "the app's own errors and what its page reported (its text, not ours)", { max: 8000 }) + '\n' +
-    (f.changes.length ? `Recent changes on the tablet (newest first):\n${f.changes.map((c) => `- ${c.id} ${c.when}: ${c.change}`).join('\n')}\n` : '');
+    (f.changes.length ? `Recent changes on the device (newest first):\n${f.changes.map((c) => `- ${c.id} ${c.when}: ${c.change}`).join('\n')}\n` : '');
 
   // The workshop's tools (and the tablet assistant's, while it still has one): see what's waiting, and close one.
   const tools = [
-    { name: 'pending_fixes', description: "Apps the tablet noticed are broken, waiting for someone to fix them: each with its id, the errors and the log. To fix one: start_editing with its fix id, read the app, make the smallest change that fixes the cause, check_build, then done_editing. Someone says yes on the tablet before it goes in.",
+    { name: 'pending_fixes', description: "Apps the device noticed are broken, waiting for someone to fix them: each with its id, the errors and the log. To fix one: start_editing with its fix id, read the app, make the smallest change that fixes the cause, check_build, then done_editing. Someone says yes on the device before it goes in.",
       inputSchema: { type: 'object', properties: {} } },
     { name: 'close_fix', description: "Close a waiting fix without changing the app: \"dismissed\" (it isn't broken, or not worth fixing) or \"done\" (it was fixed some other way).",
       inputSchema: { type: 'object', required: ['id', 'status'], properties: { id: { type: 'string' }, status: { type: 'string', enum: ['done', 'dismissed'] } } } },

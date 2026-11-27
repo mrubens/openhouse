@@ -215,7 +215,7 @@ class UpdateGuard : BroadcastReceiver() {
             val ok = tries == 0 && staged >= 0 && runCatching { pi.openSession(staged).use { it.commit(sender) }; true }.onFailure { Log.w(TAG, "staged session $staged: $it") }.getOrDefault(false)
             if (ok) return
             val f = File(dir(c), "rescue.apk")
-            if (!f.exists()) { rescueFailed(c, "there's no rescue build on the tablet"); return }
+            if (!f.exists()) { rescueFailed(c, "there's no rescue build on the device"); return }
             runCatching {
                 val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
                     setAppPackageName(c.packageName)

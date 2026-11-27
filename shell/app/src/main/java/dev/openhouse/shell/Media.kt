@@ -197,15 +197,15 @@ object Media {
         if (what == "status") return status()
         // The tablet's own Spotify player (SpotifyEmbed): a link Opie found, its sign-in, and its buttons while it's in use.
         if (what == "spotify") return SpotifyEmbed.play(b.optString("url"), b.optString("name").ifBlank { null })
-        if (what == "spotify_sign_in") { val a = MainActivity.live ?: return JSONObject().put("error", "The tablet's screen isn't up.")
-            if (SpotifyEmbed.signedIn()) return JSONObject().put("done", "Spotify is already signed in on the tablet.")
-            main.post { SpotifyEmbed.signIn(a) }; return JSONObject().put("done", "Spotify's sign-in is on the tablet's screen: someone signs in there (Opie never sees it).") }
+        if (what == "spotify_sign_in") { val a = MainActivity.live ?: return JSONObject().put("error", "The device's screen isn't up.")
+            if (SpotifyEmbed.signedIn()) return JSONObject().put("done", "Spotify is already signed in on the device.")
+            main.post { SpotifyEmbed.signIn(a) }; return JSONObject().put("done", "Spotify's sign-in is on the device's screen: someone signs in there (Opie never sees it).") }
         val wantSpotify = b.optString("app").trim().let { it.isEmpty() || it.equals("Spotify", true) }
         if (embed() && wantSpotify && what in setOf("play", "pause", "stop", "next", "previous", "seek")) return SpotifyEmbed.button(what, b.optDouble("seconds", 0.0))
         val apps = apps()
         val want = b.optString("app").trim()
         val app = if (want.isEmpty()) null else named(want, apps)
-            ?: return JSONObject().put("error", "$want isn't one of the media apps on the tablet.").put("missing", true)
+            ?: return JSONObject().put("error", "$want isn't one of the media apps on the device.").put("missing", true)
                 .put("apps", JSONArray(apps.map { JSONObject().put("name", it.label).put("search", it.search) }))
         return when (what) {
             "search" -> search(b.optString("query").trim(), b.optString("focus").trim(), app, apps)
@@ -229,7 +229,7 @@ object Media {
         if (c == null) {
             if (app != null && listening()) return JSONObject().put("error", "${app.label} isn't playing anything.")
             key(when (what) { "pause" -> KeyEvent.KEYCODE_MEDIA_PAUSE; "stop" -> KeyEvent.KEYCODE_MEDIA_STOP; "next" -> KeyEvent.KEYCODE_MEDIA_NEXT; else -> KeyEvent.KEYCODE_MEDIA_PREVIOUS })
-            return done("Sent $what to whatever was playing (the tablet can't see which app).")
+            return done("Sent $what to whatever was playing (the device can't see which app).")
         }
         val tc = c.transportControls
         when (what) { "pause" -> tc.pause(); "stop" -> tc.stop(); "next" -> tc.skipToNext(); else -> tc.skipToPrevious() }
@@ -240,7 +240,7 @@ object Media {
 
     private fun seek(seconds: Double, app: App?): JSONObject {
         if (seconds == 0.0) return JSONObject().put("error", "How many seconds, back (negative) or forward?")
-        val c = current(app?.pkg) ?: return JSONObject().put("error", if (listening()) "Nothing is playing." else "The tablet can't see what's playing, so it can't skip by seconds.")
+        val c = current(app?.pkg) ?: return JSONObject().put("error", if (listening()) "Nothing is playing." else "The device can't see what's playing, so it can't skip by seconds.")
         val s = c.playbackState; val pos = s?.let { position(it) } ?: -1
         if (pos < 0 || s!!.actions and PlaybackState.ACTION_SEEK_TO == 0L) {
             if (seconds > 0) c.transportControls.fastForward() else c.transportControls.rewind()
@@ -258,7 +258,7 @@ object Media {
         val target = app ?: apps().firstOrNull { it.pkg == last() }
         if (target == null) {
             key(KeyEvent.KEYCODE_MEDIA_PLAY)
-            return done("Sent play to the tablet's last media app (the tablet can't see which).")
+            return done("Sent play to the device's last media app (the device can't see which).")
         }
         browse(target)?.let { c -> c.transportControls.play(); return waitPlaying(target.pkg, "${target.label} is playing.") }
         // A play key, as a headset's after a restart: Android gives it to the app that last played, and lets that app
@@ -277,7 +277,7 @@ object Media {
     private fun search(query: String, focus: String, app: App?, apps: List<App>): JSONObject {
         if (query.isEmpty()) return play(app)
         val target = app ?: apps.firstOrNull { it.pkg == last() && it.search } ?: apps.singleOrNull { it.search }
-            ?: return JSONObject().put("error", if (apps.isEmpty()) "No media app is on the tablet." else "Which app?")
+            ?: return JSONObject().put("error", if (apps.isEmpty()) "No media app is on the device." else "Which app?")
                 .put("apps", JSONArray(apps.map { JSONObject().put("name", it.label).put("search", it.search) }))
         val extras = Bundle().apply {
             putString(android.app.SearchManager.QUERY, query)
@@ -293,7 +293,7 @@ object Media {
             if (r.has("done")) return r
         }
         if (!target.search) return openInstead(target, "${target.label} can't be asked for something to play")
-        if (KioskApps.needsParent(target.pkg)) return JSONObject().put("error", "${target.label} is one of the tablet's own apps, so it opens only for someone: they open it from Apps.")
+        if (KioskApps.needsParent(target.pkg)) return JSONObject().put("error", "${target.label} is one of the device's own apps, so it opens only for someone: they open it from Apps.")
         val home = MainActivity.live?.inFront == true
         KioskApps.allowInKiosk(target.pkg)
         val i = Intent(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH).setPackage(target.pkg).putExtras(extras).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -301,7 +301,7 @@ object Media {
         val r = waitPlaying(target.pkg, "${target.label} is playing.", 10_000).let { if (it.has("done")) it else nudge(target.pkg, it) }
         // It came up over Opie to start: Opie back in front, the music going on behind it.
         if (home && r.has("done")) { SystemClock.sleep(if (listening()) 800 else 1500); main.post { KioskApps.goHome() } }
-        return if (r.has("done")) r else JSONObject().put("error", "${target.label} opened but isn't playing: it may need someone to sign in on the tablet, or it didn't find that.")
+        return if (r.has("done")) r else JSONObject().put("error", "${target.label} opened but isn't playing: it may need someone to sign in on the device, or it didn't find that.")
     }
 
     private fun focusOf(f: String) = when (f) {
@@ -329,13 +329,13 @@ object Media {
         // that, not a guess, says whether it started.
         if (!listening()) {
             val am = ctx.getSystemService(AudioManager::class.java); val end = SystemClock.elapsedRealtime() + ms
-            while (SystemClock.elapsedRealtime() < end) { if (am.isMusicActive) { remember(pkg); return done("$text (The tablet hears it playing; it can't see what: Settings → Opie → Now playing.)") }; SystemClock.sleep(400) }
-            return JSONObject().put("error", "${label(pkg)} didn't start playing on the tablet: no sound from it. It may be playing on another device it used last (a phone: its device list switches it to this tablet), or need someone to sign in to it on the tablet, or it didn't find that.")
+            while (SystemClock.elapsedRealtime() < end) { if (am.isMusicActive) { remember(pkg); return done("$text (The device hears it playing; it can't see what: Settings → Opie → Now playing.)") }; SystemClock.sleep(400) }
+            return JSONObject().put("error", "${label(pkg)} didn't start playing on the device: no sound from it. It may be playing on another device it used last (a phone: its device list switches it to this one), or need someone to sign in to it on the device, or it didn't find that.")
         }
         val end = SystemClock.elapsedRealtime() + ms
         while (SystemClock.elapsedRealtime() < end) {
             sessions().firstOrNull { it.packageName == pkg && playing(it) }?.let { remember(pkg)
-                return done(if (away(it)) "${label(pkg)} is playing, but on another device (its last one, such as a phone), not the tablet. ${label(pkg)}'s device list on the tablet (or on that phone) switches it to this tablet." else text, it) }
+                return done(if (away(it)) "${label(pkg)} is playing, but on another device (its last one, such as a phone), not this one. ${label(pkg)}'s device list here (or on that phone) switches it to this device." else text, it) }
             SystemClock.sleep(400)
         }
         return JSONObject().put("error", "${label(pkg)} didn't start playing.").putOpt("now", current(pkg)?.let(::describe))

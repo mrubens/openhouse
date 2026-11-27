@@ -722,7 +722,7 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
             {[0, 1, 2, 3, 4, 5, 6].map((n) => { const d = new Date(+t + n * 864e5); return <div key={n} className={'t-daygroup t-sday' + (n ? ' t-later' : '')} style={n ? { opacity: Math.max(0.15, 0.7 - n * 0.1) } : undefined}>
               <div className="t-sdate"><small>{!n && !small ? 'Today' : weekday(d, true).slice(0, 3)}</small><b>{d.getDate()}</b></div>
               <div className="t-sthings">{n ? <>{n % 3 !== 2 && <div className="t-snone t-ghost" />}<div className="t-snone t-ghost short" /></>
-                : <div className="t-snone t-ask" role="button" onClick={(e) => { e.stopPropagation(); addTo(kinds.get('calendar'), 'do=link'); }}><b>Add your family's calendar</b><span>Google, iCloud or Outlook: its events show here</span></div>}</div>
+                : <div className="t-snone t-ask" role="button" onClick={(e) => { e.stopPropagation(); addTo(kinds.get('calendar'), 'do=link'); }}><b>Add a shared calendar</b><span>Google, iCloud or Outlook: its events show here</span></div>}</div>
             </div>; })}
           </div> : <div className="t-empty"><div className="t-big t-quiet">Nothing coming up</div></div>}
           <Things c={c} things={h.things} go={go} tabs={tabs} ask={shell?.ask} />

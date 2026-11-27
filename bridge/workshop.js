@@ -24,10 +24,10 @@ const ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 const SKIP = new Set(['end_conversation', 'progress', 'start_editing', 'check_build', 'list_changes', 'undo_change']);
 const MAX_READ = 400e3;
 
-const INSTRUCTIONS = `Opie is a family's kitchen tablet: a home screen of tabs (Home, Calendar, Chores, Lists, Meals, Photos, Apps), each tab past Home one of the family's small web apps, and Apps the rest of their apps and games. These tools change it, from the person's computer, while the family may be watching.
+const INSTRUCTIONS = `Opie is a household's home screen, on a tablet, photo frame or phone: tabs (Home, Calendar, Chores, Lists, Meals, Photos, Apps), each tab past Home one of the household's small web apps, and Apps the rest of their apps and games. These tools change it, from the person's computer, while the household may be watching.
 Before changing anything, call get_guide: the home screen as it is now, how to work and how notes should read. Before making or changing an app, also get_guide with topic "apps": how apps are made here (calm, quiet ones that fit a tab), the kit and its CSS.
-Tabs and the look: one set_home call. An app: start_editing, read_file/write_file, check_build, look_at_tablet, then done_editing (always). A new app goes in Apps: when it's done, ask in one short line whether to put it in the sidebar, and call set_home only on a yes. Every app is a plugin: one you make or change here becomes the household's own plugin by itself (no manifest to write; changing one of Opie's own, like Calendar, makes the household's version of it, and reset_plugin puts ours back). When they ask to take a change back: undo_latest (undo_plugin for one app's latest); don't mention or offer undo otherwise. A family calendar (Google, iCloud, Outlook): add_calendar with its link; the tablet keeps it sealed and someone says yes there. An iCloud shared album for Photos: add_photo_album with its public link, the same way.
-Apps the tablet noticed are broken wait in pending_fixes: fix one with start_editing {fix}; someone says yes on the tablet before it goes in.
+Tabs and the look: one set_home call. An app: start_editing, read_file/write_file, check_build, look_at_tablet, then done_editing (always). A new app goes in Apps: when it's done, ask in one short line whether to put it in the sidebar, and call set_home only on a yes. Every app is a plugin: one you make or change here becomes the household's own plugin by itself (no manifest to write; changing one of Opie's own, like Calendar, makes the household's version of it, and reset_plugin puts ours back). When they ask to take a change back: undo_latest (undo_plugin for one app's latest); don't mention or offer undo otherwise. A shared calendar (Google, iCloud, Outlook): add_calendar with its link; the device keeps it sealed and someone says yes there. An iCloud shared album for Photos: add_photo_album with its public link, the same way.
+Apps the device noticed are broken wait in pending_fixes: fix one with start_editing {fix}; someone says yes on the device before it goes in.
 If you have the Opie skills (working-here, apps, notes, plugins, design: from the Opie plugin), use them instead of get_guide, and get_guide with topic "home" for the home screen as it is now.`;
 // For a client on MCP 2026-07-28 that can load this server's skills (server/discover): the guide is in them, and
 // get_guide is for the home screen as it is now.
@@ -80,7 +80,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
     const apps = appIds().filter((a) => a !== 'home').map((a) => `${a} ("${appName(a)}")`);
     const now = showingTab();
     return `Tabs, in order: ${tabs.join(', ')}${st.tabs ? '' : ' (the usual set)'}. Look: ${st.palette}, ${st.type} type, ${st.density}${st.backdrop === 'photos' ? ', photos behind' : ''}.` +
-      `${now ? ` The tablet is showing the ${now} tab.` : ''}\nApps: ${apps.join(', ') || 'none'}.\nApps that aren't tabs are in the Apps tab.\n${homeScreen.describe()}`;
+      `${now ? ` The device is showing the ${now} tab.` : ''}\nApps: ${apps.join(', ') || 'none'}.\nApps that aren't tabs are in the Apps tab.\n${homeScreen.describe()}`;
   }
 
   const { guide, topics, skills, versionLine } = workshopGuide({ read, homeNow });
@@ -99,26 +99,26 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
   const OWN = [
     { name: 'get_guide', description: 'Call first (with the Opie skills, only topic "home"): the home screen as it is now (tabs, look, apps, notes), how to work from a computer, and how notes on Home should read. With topic "apps", before making or changing an app: how apps are made here (calm everyday tools that fit a tab, games, the kit for the family\'s data, icons), how a tab should look and the quiet kit\'s CSS. "notes", "plugins" and "design": those alone; "home": only the home screen as it is now (when this server\'s skills give the rest).',
       inputSchema: { type: 'object', properties: { topic: { type: 'string', enum: topics, description: '"start" (the default), "apps", "notes", "plugins", "design" or "home"' } } } },
-    { name: 'start_editing', description: 'Open a change before writing or deleting any file. what: what the person asked, in their words ("A whiteboard that looks like Chores"); the tablet shows it while you work and undo lists it. Waits if the family\'s assistant is changing something right now. Not needed for set_home, notes or the household tools.',
-      inputSchema: { type: 'object', required: ['what'], properties: { what: { type: 'string' }, fix: { type: 'string', description: 'A waiting fix\'s id (pending_fixes), when this change fixes it: someone says yes on the tablet before it goes in.' } } } },
+    { name: 'start_editing', description: 'Open a change before writing or deleting any file. what: what the person asked, in their words ("A whiteboard that looks like Chores"); the device shows it while you work and undo lists it. Waits if the family\'s assistant is changing something right now. Not needed for set_home, notes or the household tools.',
+      inputSchema: { type: 'object', required: ['what'], properties: { what: { type: 'string' }, fix: { type: 'string', description: 'A waiting fix\'s id (pending_fixes), when this change fixes it: someone says yes on the device before it goes in.' } } } },
     { name: 'list_files', description: 'Without app: every app (id and name) and the kit\'s files. With app: that app\'s files and sizes.', inputSchema: { type: 'object', properties: { app: { type: 'string', description: 'An app id' } } } },
     { name: 'read_file', description: 'Read a file: under apps/ (e.g. "apps/chores/main.js"), or the kit ("kit/openhouse-v2.js" for a new app, "kit/openhouse.js" for one on kit 1, "kit/quiet.css", "kit/openhouse.css").', inputSchema: { type: 'object', required: ['path'], properties: { path: path_ } } },
-    { name: 'write_file', description: 'Write a whole file under apps/ (created with its folder if new). Only while your change is open (start_editing). It shows on the tablet at once, so it must load without errors.',
+    { name: 'write_file', description: 'Write a whole file under apps/ (created with its folder if new). Only while your change is open (start_editing). It shows on the device at once, so it must load without errors.',
       inputSchema: { type: 'object', required: ['path', 'content'], properties: { path: path_, content: { type: 'string' } } } },
     { name: 'edit_file', description: 'Change part of a file under apps/: old is text that is in the file now, exactly once (with enough around it to be unique), new replaces it. Quicker than write_file for a small change to a big file. Only while your change is open.',
       inputSchema: { type: 'object', required: ['path', 'old', 'new'], properties: { path: path_, old: { type: 'string' }, new: { type: 'string' }, all: { type: 'boolean', description: 'Replace every time old appears' } } } },
     { name: 'delete_file', description: 'Delete a file or a whole app folder ("apps/old-game") under apps/. Only while your change is open. Never apps/home.', inputSchema: { type: 'object', required: ['path'], properties: { path: path_ } } },
-    { name: 'check_build', description: 'Errors an app\'s page threw since your last save (it opens the app on the tablet if it isn\'t showing). Fix them and check again.', inputSchema: { type: 'object', required: ['app'], properties: { app: { type: 'string' } } } },
-    { name: 'look_at_tablet', description: 'A picture of the tablet\'s screen now, with what is on it as text, to see what you made the way the family will. While your change is open and its app is showing, also the errors it threw since your last save.', inputSchema: { type: 'object', properties: {} } },
-    { name: 'done_editing', description: 'Finish your change: everything since start_editing becomes one change on the tablet. summary: one plain sentence of what changed. Always call it when you are done. A new app is in Apps: then ask in one short line whether to put it in the sidebar (set_home only on a yes).',
+    { name: 'check_build', description: 'Errors an app\'s page threw since your last save (it opens the app on the device if it isn\'t showing). Fix them and check again.', inputSchema: { type: 'object', required: ['app'], properties: { app: { type: 'string' } } } },
+    { name: 'look_at_tablet', description: 'A picture of the device\'s screen now, with what is on it as text, to see what you made the way the family will. While your change is open and its app is showing, also the errors it threw since your last save.', inputSchema: { type: 'object', properties: {} } },
+    { name: 'done_editing', description: 'Finish your change: everything since start_editing becomes one change on the device. summary: one plain sentence of what changed. Always call it when you are done. A new app is in Apps: then ask in one short line whether to put it in the sidebar (set_home only on a yes).',
       inputSchema: { type: 'object', properties: { summary: { type: 'string' } } } },
-    { name: 'show_on_tablet', description: 'Put the tablet\'s screen on a tab or app, from wherever it is: "today", "apps", or an app id (one that isn\'t a tab opens full screen).',
+    { name: 'show_on_tablet', description: 'Put the device\'s screen on a tab or app, from wherever it is: "today", "apps", or an app id (one that isn\'t a tab opens full screen).',
       inputSchema: { type: 'object', required: ['tab'], properties: { tab: { type: 'string' } } } },
     { name: 'list_changes', description: 'Recent changes to the apps and home screen, newest first (id, when, what was asked), whoever made them.', inputSchema: { type: 'object', properties: {} } },
     { name: 'undo_change', description: 'Take back one change by its id (from list_changes), keeping the ones after it. Itself a change, so it can be undone too.', inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } } },
-    { name: 'undo_latest', description: 'Take back the latest change (the same as saying "undo" to the tablet).', inputSchema: { type: 'object', properties: {} } },
-    { name: 'export_plugin', description: 'Share one of the household\'s plugins (plugin: its name from list_plugins), or make one plugin of several of their apps (and their look, if they want), to share with other families: the files of a plugin folder (package.json, README.md, apps/<id>/...), returned here for you to write into a folder on this computer. Read the warnings: lines with this family\'s names or town in them, to make general first (ask the person). Put it in a git repo of the person\'s own only if they ask; nothing is published from the tablet. Another tablet adds it with add_plugin and the repo\'s link.',
-      inputSchema: { type: 'object', properties: { plugin: { type: 'string', description: 'One plugin on the tablet to share as it is (its name from list_plugins)' }, name: { type: 'string', description: 'The plugin\'s name: lowercase, dashes ("twins-chores")' }, apps: { type: 'array', items: { type: 'string' }, description: 'App ids' }, description: { type: 'string', description: 'One sentence another family reads before taking it' }, look: { type: 'boolean', description: 'Include the home screen\'s look' } } } },
+    { name: 'undo_latest', description: 'Take back the latest change (the same as saying "undo" to the device).', inputSchema: { type: 'object', properties: {} } },
+    { name: 'export_plugin', description: 'Share one of the household\'s plugins (plugin: its name from list_plugins), or make one plugin of several of their apps (and their look, if they want), to share with other households: the files of a plugin folder (package.json, README.md, apps/<id>/...), returned here for you to write into a folder on this computer. Read the warnings: lines with this family\'s names or town in them, to make general first (ask the person). Put it in a git repo of the person\'s own only if they ask; nothing is published from the device. Another device adds it with add_plugin and the repo\'s link.',
+      inputSchema: { type: 'object', properties: { plugin: { type: 'string', description: 'One plugin on the device to share as it is (its name from list_plugins)' }, name: { type: 'string', description: 'The plugin\'s name: lowercase, dashes ("twins-chores")' }, apps: { type: 'array', items: { type: 'string' }, description: 'App ids' }, description: { type: 'string', description: 'One sentence another family reads before taking it' }, look: { type: 'boolean', description: 'Include the home screen\'s look' } } } },
   ];
   // Hints for the chat apps: ChatGPT asks the person before each tool that isn't marked read only, so the ones that
   // only look say so (docs/web-chat-building.md).
@@ -196,7 +196,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
     const ctx = { by: 'assistant', who: who.name, conversation: null, turn: c?.turn || null, touched: [], workshop: true };
     switch (name) {
       case 'export_plugin': {
-        if (!plugins) return err('Plugins aren\'t on this tablet.');
+        if (!plugins) return err('Plugins aren\'t on this device.');
         try { return ok(JSON.stringify(plugins.exportFiles(a), null, 1)); } catch (e) { return err(e.message); }
       }
       case 'get_guide':
@@ -281,7 +281,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
           if (found.length) return err(`Errors:\n${found.join('\n')}`);
           const r = await checkBuild(app);
           if (!r.ok) return err(`Errors:\n${r.errors}`);
-          return ok('Its files parse and what index.html loads is there. It\'s in Apps, not running on the tablet now, so errors it throws while running show once someone opens it.');
+          return ok('Its files parse and what index.html loads is there. It\'s in Apps, not running on the device now, so errors it throws while running show once someone opens it.');
         }
         if (showingTab() !== app) { show(app); await new Promise((r) => setTimeout(r, 4000)); }
         const r = await checkBuild(app);
@@ -289,7 +289,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
       }
       case 'look_at_tablet': {
         const d = deviceServer();
-        if (!d) return err('The tablet\'s screen can\'t be seen from here (no device tools: someone turns on "Device control" in Settings).');
+        if (!d) return err('The device\'s screen can\'t be seen from here (no device tools: someone turns on "Device control" in Settings).');
         try {
           const r = await fetch(d.url, { method: 'POST', headers: { authorization: d.auth, 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'look', arguments: {} } }), signal: AbortSignal.timeout(30e3) });
           const j = await r.json();
@@ -301,8 +301,8 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
             if (c && app && c.shown.has(app)) { try { const r = await checkBuild(app); errs = r.ok ? `${appName(app)}: no errors since its last save.` : `${appName(app)} threw since its last save:\n${r.errors}`; } catch {} }
             return { content: [...j.result.content, ...(errs ? [{ type: 'text', text: errs }] : [])], isError: !!j.result.isError };
           }
-          return err(j.error?.message || 'The tablet didn\'t send a picture.');
-        } catch (e) { return err(`The tablet's screen can't be seen right now (${e.cause?.code || e.message}).`); }
+          return err(j.error?.message || 'The device didn\'t send a picture.');
+        } catch (e) { return err(`The device's screen can't be seen right now (${e.cause?.code || e.message}).`); }
       }
       case 'done_editing': {
         if (!c) return ok('Nothing open: nothing to finish.');
@@ -316,7 +316,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
             try { edits.end(c.turn, false); } catch {}
             fixStatus(c.fix, { status: 'pending' });
             emit({ type: 'apps' });
-            return err('Nobody said yes on the tablet, so the fix was put back out (the app is as it was). It is still waiting: try again when someone is by the tablet.');
+            return err('Nobody said yes on the device, so the fix was put back out (the app is as it was). It is still waiting: try again when someone is by the device.');
           }
         }
         const sha = finish(c, String(a.summary || '').trim().slice(0, 300) || c.what);
@@ -326,7 +326,7 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
         return ok((sha ? `Saved as one change (${sha.slice(0, 7)}): "${c.what}".${which ? ` Plugin: ${which}.` : ''}` : 'Nothing had changed, so there is nothing to save.') + (fixNo ? ` The fix's own status: ${fixNo}` : ''));
       }
       case 'show_on_tablet': { // the same as Opie's show_on_screen (server.js setScreen): from wherever the tablet is
-        if (!live) return err('The tablet\'s screen can\'t be changed from here.');
+        if (!live) return err('The device\'s screen can\'t be changed from here.');
         const r = await live.callTool('show_on_screen', { what: String(a.tab || '') });
         return r.isError ? err(r.text) : ok(r.text.replace(/ look_at_screen.*$/, ''));
       }

@@ -308,7 +308,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     if (a.risky && !(a.boardOk && who === 'board')) { // (a person's own tap on Pair is their yes)
       const what = `${a.says.replace(/\.$/, '')}${Object.keys(p.values).length ? ` (${Object.entries(p.values).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''}`;
       say(`Waiting for a yes: ${label}`);
-      const [title, detail] = d.transport === 'bluetooth' && action === 'pair' ? [`Pair ${label} with the tablet?`, 'The tablet may show a code to check.']
+      const [title, detail] = d.transport === 'bluetooth' && action === 'pair' ? [`Pair ${label} with the device?`, 'The device may show a code to check.']
         : [`${label}: ${what}?`, [app ? `${app.name} asks.` : '', d.room ? `${d.model || ''} in ${d.room}`.trim() : d.model || ''].filter(Boolean).join(' ')];
       if (!(await ask(title, detail, d.transport === 'bluetooth' && action === 'pair' ? { yes: 'Pair' } : {}))) {
         log(`${who}: ${label} ${action} — not approved`); speechLog({ who, device: label, action, ok: false, text: 'not approved' });
@@ -596,7 +596,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     try {
       if (what === 'room_on' || what === 'room_off') {
         const r = await bt.volume('room', what === 'room_on' ? 1 : 0);
-        if (!r.room) return { ok: false, text: 'This tablet needs an update for that.' };
+        if (!r.room) return { ok: false, text: 'This device needs an update for that.' };
         return { ok: true, text: r.room.adjust ? `Adjusting to the room now${r.room.now ? `: ${r.room.now}` : ''}.` : 'No longer adjusting to the room: your voice and the timers follow the volume as set.' };
       }
       const got = await bt.volume('get'), now = got.volume;
@@ -612,7 +612,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
    *  Sleep now as the moon button does (the shell's /screen). */
   async function screenDo({ do: what = 'get', level } = {}) {
     const r = await shell('/screen', { do: what, level: String(level || '') }, 5000);
-    if (!r) return { ok: false, text: 'The screen\'s settings need the tablet (the shell isn\'t answering).' };
+    if (!r) return { ok: false, text: 'The screen\'s settings need the device (the shell isn\'t answering).' };
     if (r.error) return { ok: false, text: r.error };
     if (r.sleeping) return { ok: true, text: 'The screen is going dark now, as at night, until someone touches it (or morning). Say at most "Good night" or "Okay".' };
     return { ok: true, text: what === 'brightness' ? `Brightness now ${r.brightness}.` : `The brightness is ${r.brightness}.` };
@@ -625,21 +625,21 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     const told = (l) => {
       if (!l) return 'No microphone check has been done yet.';
       const mins = Math.round((Date.now() - Number(l.at)) / 60e3);
-      return `The last microphone check (${mins < 1 ? 'just now' : `${mins} min ago`}): ${l.verdict}. The tablet showed: "${l.words}"` +
+      return `The last microphone check (${mins < 1 ? 'just now' : `${mins} min ago`}): ${l.verdict}. The device showed: "${l.words}"` +
         (l.verdict === 'heard' ? '' : ' Tell them what to do about it, in a few words.');
     };
-    if (what === 'last') { const g = await shell('/mic-check', { do: 'get' }); return g ? { ok: true, text: told(g.last) } : { ok: false, text: 'The microphone check needs the tablet (the shell isn\'t answering).' }; }
+    if (what === 'last') { const g = await shell('/mic-check', { do: 'get' }); return g ? { ok: true, text: told(g.last) } : { ok: false, text: 'The microphone check needs the device (the shell isn\'t answering).' }; }
     const r = await shell('/mic-check', { do: 'start' }, 5000);
-    if (!r) return { ok: false, text: 'The microphone check needs the tablet (the shell isn\'t answering).' };
+    if (!r) return { ok: false, text: 'The microphone check needs the device (the shell isn\'t answering).' };
     if (r.error) return { ok: false, text: r.error };
-    if (!wait) return { ok: true, text: 'The microphone check is on the tablet\'s screen; it starts listening once this conversation ends. Say only one short sentence: once you stop, they say "Hey Opie" to the tablet, and the screen shows what it heard. Then call go_away.' };
+    if (!wait) return { ok: true, text: 'The microphone check is on the device\'s screen; it starts listening once this conversation ends. Say only one short sentence: once you stop, they say "Hey Opie" to the device, and the screen shows what it heard. Then call go_away.' };
     const before = Number(r.last?.at) || 0, t0 = Date.now();
     while (Date.now() - t0 < 20e3) {
       await new Promise((ok) => setTimeout(ok, 700));
       const g = await shell('/mic-check', { do: 'get' });
       if (g && !g.running && Number(g.last?.at) > before) return { ok: true, text: told(g.last) };
     }
-    return { ok: true, text: 'The microphone check is on the tablet\'s screen: someone there says "Hey Opie" to it, and it shows what it heard. Ask again (mic_check last) to hear how it went.' };
+    return { ok: true, text: 'The microphone check is on the device\'s screen: someone there says "Hey Opie" to it, and it shows what it heard. Ask again (mic_check last) to hear how it went.' };
   }
   handle.micCheck = micCheckDo; handle.micCheckOn = () => host.can('mic-check');
   /** What asks for the PIN (the voice's "pin_choices" tool): the shell's /pin-choices (PinChoices.kt). Changing one waits
@@ -647,17 +647,17 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   async function pinChoicesDo({ do: what = 'get', choice, ask } = {}) {
     const set = what === 'set';
     const r = await shell('/pin-choices', set ? { do: 'set', what: String(choice || ''), ask: ask === true } : { do: 'get' }, set ? 110e3 : 5000);
-    if (!r || !Array.isArray(r.choices)) return { ok: false, text: 'The PIN\'s choices need the tablet (the shell isn\'t answering).' };
+    if (!r || !Array.isArray(r.choices)) return { ok: false, text: 'The PIN\'s choices need the device (the shell isn\'t answering).' };
     const now = r.choices.map((c) => `${c.label}: ${c.asks ? 'asks for the PIN' : 'no PIN'}`).join('; ');
     const always = `Always the PIN, whatever the choices: ${(r.always || []).join('; ')}.`;
-    if (!r.pin) return { ok: !set, text: `The tablet has no PIN, so nothing asks for one${set ? ', and the choices can\'t be changed until someone sets one (Settings → Advanced → PIN Lock)' : ''}. Once one is set: ${now}.` };
+    if (!r.pin) return { ok: !set, text: `The device has no PIN, so nothing asks for one${set ? ', and the choices can\'t be changed until someone sets one (Settings → Advanced → PIN Lock)' : ''}. Once one is set: ${now}.` };
     if (!set) return { ok: true, text: `Ask for the PIN to: ${now}. ${always}` };
     switch (r.changed) {
       case 'done': return { ok: true, text: `Done. Now: ${now}.` };
       case 'same': return { ok: true, text: `It was already so. Now: ${now}.` };
       case 'not_a_choice': return { ok: false, text: `That isn't one of the choices. ${always} Say so; don't look for another way.` };
-      case 'not_confirmed': return { ok: false, text: 'Not changed: nobody typed the PIN on the tablet. Say so; they can ask again when someone is at the tablet.' };
-      default: return { ok: false, text: 'Not changed: the tablet couldn\'t ask for the PIN right now (its screen is busy or off). Someone can change it in Settings → Advanced → Ask for the PIN.' };
+      case 'not_confirmed': return { ok: false, text: 'Not changed: nobody typed the PIN on the device. Say so; they can ask again when someone is at the device.' };
+      default: return { ok: false, text: 'Not changed: the device couldn\'t ask for the PIN right now (its screen is busy or off). Someone can change it in Settings → Advanced → Ask for the PIN.' };
     }
   }
   handle.pinChoices = pinChoicesDo; handle.pinChoicesOn = () => host.can('pin-choices');
@@ -698,26 +698,26 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       if (!/^\s*yes\b/i.test(same)) { console.warn('[music] spotify link not a match'); return notFound; }
     }
     const r = await shell('/media', { do: 'spotify', url: found.link, name: found.name || '' }, 30_000);
-    return r ? { ...r, found } : { error: 'The tablet isn\'t answering.' };
+    return r ? { ...r, found } : { error: 'The device isn\'t answering.' };
   }
   async function mediaDo({ do: what = 'status', app, query, focus, seconds } = {}) {
     if (what === 'search') { const r = await spotifyFirst(app, query, focus); if (r) return r.done ? { ok: true, text: `${r.done}${r.found?.name ? ' ' + asData(r.found.name, "Spotify's name for it", { max: 200 }) : ''}` } : { ok: false, text: String(r.error || "Spotify's player didn't start.") }; }
     const r = await shell('/media', { do: what, app: String(app || ''), query: String(query || ''), focus: String(focus || ''), seconds: Number(seconds) || 0 }, 20_000);
-    if (!r) return { ok: false, text: 'Music needs the tablet (the shell isn\'t answering).' };
+    if (!r) return { ok: false, text: 'Music needs the device (the shell isn\'t answering).' };
     const apps = (r.apps || []).map((a) => a.name + (a.search ? '' : ' (can\'t be asked for something to play: it opens instead)'));
-    if (r.missing) return { ok: false, text: `${r.error} Say so, and offer to add it (install_app); someone then signs in to it once on the tablet.${apps.length ? ` Media apps on the tablet: ${apps.join(', ')}.` : ''}` };
-    const none = 'No music or audiobook app is on the tablet yet. One can be added (install_app, or Apps → Add apps), and someone signs in to it once on the tablet.';
+    if (r.missing) return { ok: false, text: `${r.error} Say so, and offer to add it (install_app); someone then signs in to it once on the device.${apps.length ? ` Media apps on the device: ${apps.join(', ')}.` : ''}` };
+    const none = 'No music or audiobook app is on the device yet. One can be added (install_app, or Apps → Add apps), and someone signs in to it once on the device.';
     const said = (n) => n ? asData([n.title, n.artist, n.album].filter(Boolean).join(' · ') || '(no title)', `what ${String(n.app).slice(0, 40)} shows (${n.state})`, { max: 300 }) : '';
-    const list = apps.length ? ` Media apps on the tablet: ${apps.join(', ')}.` : '';
+    const list = apps.length ? ` Media apps on the device: ${apps.join(', ')}.` : '';
     if (r.error) return { ok: false, text: r.apps && !apps.length ? none : `${r.error}${list}${r.now ? ` ${said(r.now)}` : ''}` };
     if (what === 'status') {
       if (!apps.length && !r.now) return { ok: true, text: none };
       const min = (s) => Math.round(s / 60);
       const where = r.now?.positionS != null ? ` (${min(r.now.positionS)} of ${r.now.lengthS ? min(r.now.lengthS) : '?'} min)` : '';
-      const lines = [r.now ? `${r.now.app}: ${r.now.state}${r.now.elsewhere ? ' on another device, not the tablet' : ''}${where}. ${said(r.now)}` : r.anyPlaying ? 'Something is playing.' : 'Nothing is playing.',
+      const lines = [r.now ? `${r.now.app}: ${r.now.state}${r.now.elsewhere ? ' on another device, not this one' : ''}${where}. ${said(r.now)}` : r.anyPlaying ? 'Something is playing.' : 'Nothing is playing.',
         ...(r.others || []).map((o) => `Also playing in ${o.app}: ${said(o)}`),
         list.trim() + (r.last ? ` Last played from ${r.last}.` : ''),
-        r.sees ? '' : 'The tablet can\'t see what the apps play yet (Settings → Opie → Now playing), so it only sends play, pause and skip.'];
+        r.sees ? '' : 'The device can\'t see what the apps play yet (Settings → Opie → Now playing), so it only sends play, pause and skip.'];
       return { ok: true, text: lines.filter(Boolean).join('\n') };
     }
     return { ok: true, text: `${r.done}${r.now ? ` ${said(r.now)}` : ''}` };

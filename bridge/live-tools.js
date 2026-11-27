@@ -37,13 +37,13 @@ export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'c
 const WEATHER = { name: 'weather', description: "The weather where the family lives: now, the next 24 hours, and the next 7 days (°F, mph).", inputSchema: { type: 'object', properties: {} } };
 
 /** Kitchen timers (the tablet rings them: home-screen.js timers), as a person sets them on the screen. */
-export const TIMER_TOOL = { name: 'timer', description: 'Timers on the tablet (it rings them, and shows them): start one ("Pasta", 10 minutes), list them (running and finished), or cancel: that stops one ringing and clears it off the screen too. To cancel, no list first: with one timer, just cancel; otherwise by its label, or all.',
+export const TIMER_TOOL = { name: 'timer', description: 'Timers on the device (it rings them, and shows them): start one ("Pasta", 10 minutes), list them (running and finished), or cancel: that stops one ringing and clears it off the screen too. To cancel, no list first: with one timer, just cancel; otherwise by its label, or all.',
   inputSchema: { type: 'object', required: ['action'], properties: { action: { type: 'string', enum: ['start', 'list', 'cancel'] }, label: { type: 'string', description: 'For start: its name. For cancel: which one, by its name' }, all: { type: 'boolean', description: 'For cancel: every timer' }, minutes: { type: 'number' }, seconds: { type: 'number' }, endAt: { type: 'number', description: 'For cancel, optional: the exact one, from list' } } } };
 
 /** Opie putting its own screen on a tab, or one of its apps (setScreen: the tabs and apps there are now). */
 export function screenTool(places) {
   const list = places.map((p) => `${p.id} (${p.name}${p.tab ? ', a tab' : ', opens full screen'})`).join('; ');
-  return { name: 'show_on_screen', description: 'Put the tablet\'s own screen on one of its tabs or apps, whatever is showing now: ' +
+  return { name: 'show_on_screen', description: 'Put the device\'s own screen on one of its tabs or apps, whatever is showing now: ' +
     'when someone asks to see, open or go to one of them. Then look_at_screen, tap, type and scroll work in it, to do what they asked there. The tabs and apps: ' + list + '.',
   inputSchema: { type: 'object', required: ['what'], properties: { what: { type: 'string', enum: places.map((p) => p.id), description: 'Which one, by its id' } } } };
 }
@@ -52,7 +52,7 @@ export function screenTool(places) {
  *  people in the household's family list, by name, so the model picks one and never makes one up. */
 export function messageTool(names) {
   return { name: 'message_family', description: 'Send a short message now to the phones of someone in the family, or of everyone: "tell Alex dinner\'s ready", ' +
-    '"remind June to bring her lunch", "let everyone know we\'re leaving in 10 minutes". It goes to each phone that person paired with the tablet, and shows on their phone\'s page. ' +
+    '"remind June to bring her lunch", "let everyone know we\'re leaving in 10 minutes". It goes to each phone that person paired with the device, and shows on their phone\'s page. ' +
     'It answers who got it and who has no phone paired or has notifications off: say so in a few words.',
   inputSchema: { type: 'object', required: ['to', 'text'], properties: {
     to: { type: 'string', enum: [...names, 'everyone'], description: 'Who, by name, or everyone' },
@@ -65,7 +65,7 @@ const MESSAGE_NAME = 'message_family';
 /** A session the wake model opened (/live/setup?how=wake): it's often wrong at home (talk at dinner, the TV), so the
  *  session checks it was spoken to before saying anything (the user, 2026-11-21: the tablet "kept responding when they
  *  weren't talking to it"). */
-export const wakeNote = (name) => `\n\n---\n\nThis conversation opened because the tablet thought it heard "Hey ${name}", and it is often wrong: ` +
+export const wakeNote = (name) => `\n\n---\n\nThis conversation opened because the device thought it heard "Hey ${name}", and it is often wrong: ` +
   `people talking to each other, someone on a call, a TV or music, and what you hear can be written as "Hey ${name}" when it was other words. ` +
   'Before you say anything, decide from what you hear whether someone is asking you something. Answer only a clear, finished request to you, ' +
   `or "Hey ${name}" on its own (then just "Yes?"). Anything else (other talk, a sentence cut off or that sounds said to a person, the TV, nothing) is not for you: ` +
@@ -73,20 +73,20 @@ export const wakeNote = (name) => `\n\n---\n\nThis conversation opened because t
   'What you get is a transcript of speech, and it is often misheard ("you put all that" for "can you put a"): read it generously, for what they most likely said. ' +
   'If the voice has already answered them (said it is on it, or anything back), it heard them speak to it: never call go_away then. Do what they most likely asked, ' +
   'or if you truly can\'t tell what, ask in a few words.';
-export const livePreamble = (name, builds = false) => `You are ${name}, the voice of a family's kitchen tablet. You talk with the family out loud, so keep it short, warm and plain: ` +
-  'one or two sentences, no lists or markdown. Use your tools for anything about the family (their calendar, lists, chores and stars, meals, notes, the weather) ' +
+export const livePreamble = (name, builds = false) => `You are ${name}, the voice of a household's Opie, on the screen they share at home. You talk with them out loud, so keep it short, warm and plain: ` +
+  'one or two sentences, no lists or markdown. Use your tools for anything about the household (their calendar, lists, chores and stars, meals, notes, the weather) ' +
   'and never guess those. If you can\'t do something or don\'t know, say so plainly in a sentence; never answer a different question instead. Nobody\'s voice is recognised here, so "me" or "my name" doesn\'t say who is talking: if it matters, ask once who they are; once they\'ve said, use it and never ask again. ' +
-  'Something behind the tablet\'s PIN isn\'t a reason to refuse: do it, and when the tablet asks for the PIN (a tool says so), tell them to type it on the tablet. Never ask them to say the PIN to you. ' +
+  'Something behind the device\'s PIN isn\'t a reason to refuse: do it, and when the device asks for the PIN (a tool says so), tell them to type it on the device. Never ask them to say the PIN to you. ' +
   'Make each change once, then say it\'s done; don\'t repeat a call that worked. Something repeats only if they said so ("every Friday"). If someone talks over you, stop and listen. If people are talking to each other and not to you, stay quiet.\n\n' +
   'What follows is how the family\'s assistant works and what this family asked for. Follow it, except the parts about making or changing an app\'s code, ' +
-  (builds ? 'which is make_app (the tablet makes it, it opens there to try, and someone there keeps it); ' : 'which isn\'t yours to do (someone does that from their computer); ') + 'the home screen\'s tabs and look are set_home.\n\n---\n\n';
+  (builds ? 'which is make_app (the device makes it, it opens there to try, and someone there keeps it); ' : 'which isn\'t yours to do (someone does that from their computer); ') + 'the home screen\'s tabs and look are set_home.\n\n---\n\n';
 
 /** Making or changing an app on the tablet itself (rails.js, through the builder), when the household has it on. */
-export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or game, or change one of the household\'s apps ("make the text on Chores bigger"), on the tablet itself: it takes a minute or two, the screen shows it working, then it opens there to try, and it goes in only when someone taps Keep it there (never you). Before you call it for a new app or game, ask about the details that would change what gets made (who it\'s for, what goes on it, how it should work or look), one short question at a time since this is spoken, until you know enough to make something they\'ll like; skip the questions when they\'ve already said, ask you to just make it, or the change is small. what: what they asked for, in their words, with what you know (who it\'s for, what it should do) and their answers. Each change they ask for is its own call, also while one is still being made (it waits its turn): never say you\'ve asked for something without calling this for it. Only an app\'s code: the family\'s things (lists, events, a countdown on the calendar, chores) and the tabs and look have their own tools.',
+export const MAKE_APP_TOOL = { name: 'make_app', description: 'Make a new app or game, or change one of the household\'s apps ("make the text on Chores bigger"), on the device itself: it takes a minute or two, the screen shows it working, then it opens there to try, and it goes in only when someone taps Keep it there (never you). Before you call it for a new app or game, ask about the details that would change what gets made (who it\'s for, what goes on it, how it should work or look), one short question at a time since this is spoken, until you know enough to make something they\'ll like; skip the questions when they\'ve already said, ask you to just make it, or the change is small. what: what they asked for, in their words, with what you know (who it\'s for, what it should do) and their answers. Each change they ask for is its own call, also while one is still being made (it waits its turn): never say you\'ve asked for something without calling this for it. Only an app\'s code: the family\'s things (lists, events, a countdown on the calendar, chores) and the tabs and look have their own tools.',
   inputSchema: { type: 'object', properties: { what: { type: 'string' } }, required: ['what'] } };
 
 /** An app made on the tablet that nobody kept or turned down yet (build-waits.js): open to try again, as a tap on Home's line. */
-export const ASK_AGAIN_TOOL = { name: 'try_made_app', description: 'An app or game the tablet made is waiting to be kept (Home says "… is ready to try"): open it on the tablet to try, with its bar to keep it or not. Only a person keeps it (Keep it, with the PIN when the tablet asks for one); you can\'t. app: its name.',
+export const ASK_AGAIN_TOOL = { name: 'try_made_app', description: 'An app or game the device made is waiting to be kept (Home says "… is ready to try"): open it on the device to try, with its bar to keep it or not. Only a person keeps it (Keep it, with the PIN when the device asks for one); you can\'t. app: its name.',
   inputSchema: { type: 'object', properties: { app: { type: 'string' } } } };
 
 /** The TV, straight from the voice (no agent turn): devices/index.js tv(). Offered only when there's a TV to control. */
@@ -94,14 +94,14 @@ export const TV_TOOL = { name: 'tv', description: "The family's TV: turn it on o
   inputSchema: { type: 'object', properties: { do: { type: 'string', enum: ['off', 'on', 'pause', 'play', 'volume_up', 'volume_down', 'mute', 'open_app', 'status'] }, app: { type: 'string', description: 'For open_app: the app by name' }, steps: { type: 'integer', description: 'For volume: how many steps (1-10)' }, tv: { type: 'string', description: 'Which TV, only when there are several' } }, required: ['do'] } };
 
 /** Bluetooth devices, straight from the voice: devices/index.js bluetooth(). Offered on a tablet with Bluetooth. */
-export const BT_TOOL = { name: 'bluetooth', description: "Bluetooth speakers, headphones and gadgets near the tablet: list or scan for them, pair one (the tablet asks the people here first), " +
-    "play_here sends the tablet's sound (music, timers, your answers) to a paired speaker and stop_here brings it back, louder, quieter or set_volume while it plays there, " +
+export const BT_TOOL = { name: 'bluetooth', description: "Bluetooth speakers, headphones and gadgets near the device: list or scan for them, pair one (the device asks the people here first), " +
+    "play_here sends the device's sound (music, timers, your answers) to a paired speaker and stop_here brings it back, louder, quieter or set_volume while it plays there, " +
     "beep a tag to find it, status for paired or not, battery and readings, forget to unpair. To find a new speaker it must be on and in pairing mode.",
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['list', 'scan', 'pair', 'play_here', 'stop_here', 'louder', 'quieter', 'set_volume', 'beep', 'stop_beep', 'status', 'forget'] },
     device: { type: 'string', description: 'Which one, by name (not needed when only one fits)' }, level: { type: 'integer', description: 'For set_volume: 0-100' } } } };
 
 /** The tablet's volume, straight from the voice: devices/index.js volumeDo (one volume for music, timers and Opie). */
-export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (music, timers and your own voice): louder or quieter (a step), set to a level, mute, or get it. \"Turn it up\", \"too loud\", \"volume to 50\". " +
+export const VOLUME_TOOL = { name: 'volume', description: "The device's volume (music, timers and your own voice): louder or quieter (a step), set to a level, mute, or get it. \"Turn it up\", \"too loud\", \"volume to 50\". " +
     'room_on or room_off: Adjust to the room (Settings → Screen → Volume), where your voice and the timers get a little louder in a noisy room and quieter in a quiet one and at night; music stays as set.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['louder', 'quieter', 'set', 'mute', 'get', 'room_on', 'room_off'] }, level: { type: 'integer', description: 'For set: 0-100' } } } };
 /** The tablet's own screen, straight from the voice: devices/index.js screenDo (the shell's /screen). Neither is behind
@@ -109,38 +109,38 @@ export const VOLUME_TOOL = { name: 'volume', description: "The tablet's volume (
 /** What acts on this tablet itself (its screen, speaker, camera, media and other apps): not offered to a conversation on
  *  another of the household's tablets (setupFor), which would have them act here, in another room. */
 const ON_THIS_DEVICE = new Set(['look_with_camera', 'open_app', 'install_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'tablet_screen', 'volume', 'music', 'bluetooth', 'pin_choices']);
-export const SCREEN_TOOL = { name: 'tablet_screen', description: "The tablet's screen itself: its brightness (Automatic, Low, Medium, High or Full, or a step brighter or dimmer: \"it's too bright\", \"I can't see the screen\"), " +
+export const SCREEN_TOOL = { name: 'tablet_screen', description: "The device's screen itself: its brightness (Automatic, Low, Medium, High or Full, or a step brighter or dimmer: \"it's too bright\", \"I can't see the screen\"), " +
     'or put it to sleep now, dark as at night until someone touches it ("go to sleep", "turn the screen off"). get says the brightness. For when the screen goes dark every night, that is night_hours.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'brightness', 'sleep'] },
     level: { type: 'string', enum: ['Automatic', 'Low', 'Medium', 'High', 'Full', 'brighter', 'dimmer'], description: 'For brightness' } } } };
 /** Music, audiobooks and podcasts in the tablet's media apps: devices/index.js mediaDo (the shell's /media, Media.kt). */
-export const MUSIC_TOOL = { name: 'music', description: "Music, audiobooks and podcasts on the tablet, in its media apps (the ones someone added and signed in to): " +
+export const MUSIC_TOOL = { name: 'music', description: "Music, audiobooks and podcasts on the device, in its media apps (the ones someone added and signed in to): " +
     'search plays something (what, and which app by its name when they said or it matters; otherwise the app they last played from), ' +
-    'play resumes, pause, next, previous, seek some seconds back (negative) or forward ("back 30 seconds"), stop, or status: what is playing and which media apps the tablet has. ' +
+    'play resumes, pause, next, previous, seek some seconds back (negative) or forward ("back 30 seconds"), stop, or status: what is playing and which media apps the device has. ' +
     'A book goes to an audiobook app, music to a music app; if the app they need isn\'t there, say so and offer to add it (install_app). ' +
-    'Spotify plays on the tablet without its app coming up once someone signs in to Spotify in Opie: spotify_sign_in puts its sign-in page on the screen for them (Settings → Opie → Spotify does too).',
+    'Spotify plays on the device without its app coming up once someone signs in to Spotify in Opie: spotify_sign_in puts its sign-in page on the screen for them (Settings → Opie → Spotify does too).',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['status', 'search', 'play', 'pause', 'next', 'previous', 'seek', 'stop', 'spotify_sign_in'] },
     query: { type: 'string', description: 'For search: what to play, as they said it ("Abbey Road", "some jazz for dinner", "the second Harry Potter book")' },
     focus: { type: 'string', enum: ['artist', 'album', 'song', 'playlist', 'genre'], description: 'For search, only when it is clearly one of these' },
-    app: { type: 'string', description: 'Which media app, by its name as on the tablet' }, seconds: { type: 'number', description: 'For seek: negative is back' } } } };
+    app: { type: 'string', description: 'Which media app, by its name as on the device' }, seconds: { type: 'number', description: 'For seek: negative is back' } } } };
 /** The house's other devices (speakers, streamers, printers...), as Settings' Devices buttons work them: devices/index.js devicesDo. */
-export const DEVICES_TOOL = { name: 'home_devices', description: "The house's devices the tablet found on the Wi-Fi and over Bluetooth (speakers, streamers, printers...), as Settings' Devices shows them: " +
+export const DEVICES_TOOL = { name: 'home_devices', description: "The house's devices Opie found on the Wi-Fi and over Bluetooth (speakers, streamers, printers...), as Settings' Devices shows them: " +
     'list them with what each can do, then act: one of a device\'s actions (play, pause, volume_up, set_volume with params {"level": 20}, power_off...), or name one as the family calls it. ' +
-    'Anything that turns on, opens or unlocks something asks the people in the room first. The TV, Bluetooth and the tablet\'s own volume have their own tools.',
+    'Anything that turns on, opens or unlocks something asks the people in the room first. The TV, Bluetooth and the device\'s own volume have their own tools.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['list', 'act', 'name'] },
     device: { type: 'string', description: 'Which one, by its name or id from list' }, action: { type: 'string', description: 'For act: one of its actions from list' },
     params: { type: 'object', description: 'For act: the action\'s parameters, if any' }, name: { type: 'string', description: 'For name: what the family calls it (empty: its own name)' } } } };
 /** Does the tablet hear them? Settings → Opie → Voice's microphone check, on the screen: devices/index.js micCheckDo (the shell's /mic-check). */
-export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether the tablet hears people: when "Hey Opie" isn\'t working, it keeps missing them, or they ask for a microphone check. ' +
-    'start puts the check on the tablet\'s screen: someone says "Hey Opie" to it, and it says plainly whether it heard them, or the microphone is too quiet, too noisy or blocked. ' +
+export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether the device hears people: when "Hey Opie" isn\'t working, it keeps missing them, or they ask for a microphone check. ' +
+    'start puts the check on the device\'s screen: someone says "Hey Opie" to it, and it says plainly whether it heard them, or the microphone is too quiet, too noisy or blocked. ' +
     'Nothing is recorded or sent while it checks. last says how the last check went.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['start', 'last'] } } } };
 /** What asks for the tablet's PIN (Settings → Advanced → Ask for the PIN): devices/index.js pinChoicesDo (the shell's
  *  /pin-choices, PinChoices.kt). Changing one always takes the PIN, typed by a person on the tablet's own card. */
 export const USAGE_TOOL = { name: 'how_much_used', description: "How much of Opie the household used this month, as Settings → Voice shows it: minutes talking to Opie, typed questions answered, apps made or changed, and about what it cost so far, and what's left of Opie's credit. For \"how much have we used?\", \"what does this cost us?\", \"how much credit is left?\".",
   inputSchema: { type: 'object', properties: {} } };
-export const PIN_TOOL = { name: 'pin_choices', description: 'Which everyday things ask for the tablet\'s PIN (Settings → Advanced → Ask for the PIN), when the tablet has one. ' +
-    'get says each choice and what always needs the PIN. set turns one on or off only when they ask: the tablet then asks for the PIN on its screen, so tell them to type it on the tablet (never ask them to say it). ' +
+export const PIN_TOOL = { name: 'pin_choices', description: 'Which everyday things ask for the device\'s PIN (Settings → Advanced → Ask for the PIN), when the device has one. ' +
+    'get says each choice and what always needs the PIN. set turns one on or off only when they ask: the device then asks for the PIN on its screen, so tell them to type it on the device (never ask them to say it). ' +
     'What always needs the PIN can\'t be turned off.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'set'] },
     choice: { type: 'string', enum: ['apps', 'photos', 'calendar', 'rewards', 'settings'], description: 'For set: apps (adding apps and plugins, and the apps you make), photos (photo albums), calendar (changing the calendar), rewards (giving and changing rewards), settings (Voice, Calendars, Time and Email in Settings)' },
@@ -299,7 +299,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     }
     if (name === 'show_on_screen' && screen) {
       const p = (screen.places() || []).find((x) => x.id === String(args?.what || ''));
-      if (!p) return { text: `${args?.what || 'That'} isn't one of the tablet's tabs or apps.`, isError: true };
+      if (!p) return { text: `${args?.what || 'That'} isn't one of the device's tabs or apps.`, isError: true };
       await screen.show(p.id);
       return { text: `The screen shows ${p.name}${p.tab ? '' : ', full screen'}. look_at_screen to see what's on it.`, isError: false };
     }
@@ -307,17 +307,17 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === ASK_AGAIN_TOOL.name && waits) { // (Home's "ready to try" line, tapped: the app again, to try; only a person keeps it)
       const w = waits.waiting(), want = String(args?.app || '').trim().toLowerCase();
       const one = w.find((x) => x.name.toLowerCase() === want || x.app === want) || (w.length === 1 ? w[0] : null);
-      if (!one) return { text: w.length ? `Which one? ${w.map((x) => x.name).join(', ')}.` : 'Nothing the tablet made is waiting to be kept.', isError: true };
+      if (!one) return { text: w.length ? `Which one? ${w.map((x) => x.name).join(', ')}.` : 'Nothing the device made is waiting to be kept.', isError: true };
       waits.open(one.id).catch(() => {});
-      return { text: `${one.name} is opening on the tablet to try. Keeping it is their own tap there (Keep it); you can't keep it for them.`, isError: false };
+      return { text: `${one.name} is opening on the device to try. Keeping it is their own tap there (Keep it); you can't keep it for them.`, isError: false };
     }
     if (name === MAKE_APP_TOOL.name && builds) {
       const r = await builds(String(args?.what || ''), ctx.phone?.person || null, { phone: !!ctx.phone, typed: ctx.typed || null }).catch(() => ({ ok: false }));
       // Said once, then the conversation ends as usual: the tablet shows it being made, and how it went (open to try,
       // or why it couldn't). So the line promises no outcome: a build can still fail.
-      return r.queued ? { text: `Queued: the tablet makes it right after what it's making now${r.queued > 1 ? ` (${r.queued - 1} more before it)` : ''}. Tell them in one short sentence that it's next and it'll show here when it's ready; promise nothing more, and don't wait for it.`, isError: false }
-        : r.ok ? { text: 'Started: the tablet is making it now (a minute or two). Tell them in one short sentence that you\'re making it and it\'ll show here when it\'s ready; promise nothing more (it can still fail), and don\'t wait for it.', isError: false }
-        : { text: r.busy ? 'The tablet already has a few things waiting to be made: tell them to ask again once those are done.' : 'Making apps on the tablet isn\'t on: someone does it from their computer (Settings, then Screens and computers).', isError: true };
+      return r.queued ? { text: `Queued: the device makes it right after what it's making now${r.queued > 1 ? ` (${r.queued - 1} more before it)` : ''}. Tell them in one short sentence that it's next and it'll show here when it's ready; promise nothing more, and don't wait for it.`, isError: false }
+        : r.ok ? { text: 'Started: the device is making it now (a minute or two). Tell them in one short sentence that you\'re making it and it\'ll show here when it\'s ready; promise nothing more (it can still fail), and don\'t wait for it.', isError: false }
+        : { text: r.busy ? 'The device already has a few things waiting to be made: tell them to ask again once those are done.' : 'Making apps on the device isn\'t on: someone does it from their computer (Settings, then Screens and computers).', isError: true };
     }
     if (!LIVE_TOOLS.includes(name)) return { text: `${name} isn't one of this voice's tools.`, isError: true };
     const r = await homeScreen.call(name, args || {}, { by: 'assistant', who: null, conversation: 'live', touched: null });
@@ -335,7 +335,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     const have = phones.phones(), of = (f) => Object.entries(have).find(([p]) => p.toLowerCase() === String(f.name).toLowerCase())?.[1] || { phones: 0, on: 0 };
     const reach = to.filter((f) => of(f).on > 0);
     // (everyone it's for keeps it on their phone's page, notifications on or not; only phones that allowed them buzz)
-    const sent = await phones.message(to.map((f) => f.name), { title: sender ? `From ${sender.name}` : 'From the tablet', text });
+    const sent = await phones.message(to.map((f) => f.name), { title: sender ? `From ${sender.name}` : 'From Opie', text });
     const got = reach.filter((f) => sent[f.name] > 0), failed = reach.filter((f) => !(sent[f.name] > 0));
     const off = to.filter((f) => of(f).phones > 0 && of(f).on === 0), none = to.filter((f) => of(f).phones === 0);
     const who = (l) => l.map((f) => f.name).join(', '); // (names only: "Sam's phone")
@@ -404,8 +404,8 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       json(res, 200, { ok: true }); return true;
     }
     if (req.method === 'POST' && url.pathname === '/live/tool') { const b = await body(req);
-      if (onOtherTablet(req) && ON_THIS_DEVICE.has(String(b.name || ''))) { json(res, 200, { text: "That acts on the main tablet itself, not the tablet they're at.", isError: true }); return true; }
-      if (onPhone(req) && b.name === 'look_with_camera') { json(res, 200, { text: 'The tablet\'s camera is for someone at the tablet, not on a phone.', isError: true }); return true; }
+      if (onOtherTablet(req) && ON_THIS_DEVICE.has(String(b.name || ''))) { json(res, 200, { text: "That acts on the main device itself, not the device they're at.", isError: true }); return true; }
+      if (onPhone(req) && b.name === 'look_with_camera') { json(res, 200, { text: 'The device\'s camera is for someone at the device, not on a phone.', isError: true }); return true; }
       json(res, 200, await callTool(String(b.name || ''), b.args && typeof b.args === 'object' ? b.args : {}, { phone: onPhone(req) })); return true; }
     return false;
   }
@@ -427,9 +427,9 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   // Another Opie tablet in the household (docs/multi-tablet.md): the household's tools work as here, but the tools that
   // act on this tablet's own screen, speaker, camera and apps would act here, not in the room they're talking in.
   const onOtherTablet = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'tablet' ? w : null; };
-  const otherTabletNote = (w) => `\n\nThis conversation is on another of the household's tablets, the ${w.name || 'other tablet'}, not this one. The household is the same: its calendar, lists, chores, meals, notes and apps. Its own screen, volume, camera and apps can't be changed from here yet: say so if they ask. Anything that needs the PIN asks for it on the main tablet.`;
+  const otherTabletNote = (w) => `\n\nThis conversation is on another of the household's devices, the ${w.name || 'other device'}, not this one. The household is the same: its calendar, lists, chores, meals, notes and apps. Its own screen, volume, camera and apps can't be changed from here yet: say so if they ask. Anything that needs the PIN asks for it on the main device.`;
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
-  const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the tablet: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the tablet itself, not this phone: say so, so someone at home can type it.`;
+  const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the device: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the device itself, not this phone: say so, so someone at home can type it.`;
   return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setUsage: (f) => { usageNow = f; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,
     /** The setup step on the tablet's screen now, or null (none, or shown more than an hour ago). */
     /** The setup phone or computer's Next: the tablet goes to [s] at its next look (Setup.kt). */

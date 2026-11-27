@@ -565,12 +565,12 @@ async function route(req, res, url) {
     // yes is asked at the tablet: its code shows only there), Google's sign-in (it opens there; the calendars are
     // chosen at the tablet) and iCloud's (typed there, sealed, straight on to the shell, never kept here).
     if (url.pathname === '/setup/link' && req.method === 'POST') {
-      try { json(res, 200, await cloud.linkFromSetup()); } catch (e) { json(res, 400, { error: 'The tablet couldn\'t reach Opie\'s service just now. Try again in a minute.' }); }
+      try { json(res, 200, await cloud.linkFromSetup()); } catch (e) { json(res, 400, { error: 'The device couldn\'t reach Opie\'s service just now. Try again in a minute.' }); }
       return true;
     }
     if (url.pathname === '/setup/google' && req.method === 'POST') {
       const st = cloud.status();
-      if (!st.linked) { json(res, 409, { error: 'Link the tablet to your Opie account first.' }); return true; }
+      if (!st.linked) { json(res, 409, { error: 'Link the device to your Opie account first.' }); return true; }
       const g = await body(req);
       if (!host.can('google-signin')) { // (a host that doesn't start it: here, back to this bridge's own address, r, on the device: headless.js /hub/google)
         const s = await cloud.googleStart(String(g.r || ''), g.kind === 'photos' ? undefined : 'cal');

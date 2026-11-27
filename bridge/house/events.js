@@ -217,7 +217,7 @@ export default function (house) {
     const what = a.add?.title ? `Add "${str(a.add.title, 60)}"` : a.update ? 'Change an event' : a.remove ? 'Remove an event' : 'Change the calendar';
     const r = await house.shell('/approve', { title: `${what} on the calendar?`, detail: 'Opie was asked to. The calendar needs the PIN.', pin: true, for: 'calendar', yes: 'Allow' }, 100_000);
     if (r?.yes === true) { unlockedUntil = Date.now() + 5 * 60e3; changed(); return null; }
-    return { content: [{ type: 'text', text: r == null || r.why ? 'Not changed: the calendar needs the PIN, and the tablet can\'t ask for it right now. Someone can unlock it in the Calendar app.' : 'Not changed: the calendar needs the PIN, and nobody typed it on the tablet. Say so; they can ask again when someone is at the tablet.' }], isError: true };
+    return { content: [{ type: 'text', text: r == null || r.why ? 'Not changed: the calendar needs the PIN, and the device can\'t ask for it right now. Someone can unlock it in the Calendar app.' : 'Not changed: the calendar needs the PIN, and nobody typed it on the device. Say so; they can ask again when someone is at the device.' }], isError: true };
   }
   const unlocked = () => unlockedUntil;
   function setUnlocked(ms) { unlockedUntil = ms; }

@@ -62,14 +62,14 @@ object SpotifyEmbed {
             ?: return JSONObject().put("error", "That isn't a Spotify link.")
         // Not signed in: Spotify's sign-in on the screen now (not a trip to Settings), and this plays once they're in.
         if (!signedIn()) {
-            val a = MainActivity.live ?: return JSONObject().put("error", "The tablet's screen isn't up.")
+            val a = MainActivity.live ?: return JSONObject().put("error", "The device's screen isn't up.")
             main.post { signIn(a) { ok -> if (ok) Thread { play(link, name) }.start() } }
             return JSONObject().put("done", "Spotify's sign-in is on the screen: once someone signs in there (they type it; Opie never sees it), it plays. Say just that.")
         }
         val uri = "spotify:${m.groupValues[1]}:${m.groupValues[2]}"
         title = name?.take(200); state = JSONObject(); usedAt = SystemClock.elapsedRealtime(); pausedForVoice = false
         Media.pauseOthers() // (one thing playing: the app that was, paused)
-        if (!send(JSONObject().put("do", "load").put("uri", uri).putOpt("title", title))) return JSONObject().put("error", "The tablet's screen isn't up.")
+        if (!send(JSONObject().put("do", "load").put("uri", uri).putOpt("title", title))) return JSONObject().put("error", "The device's screen isn't up.")
         val end = SystemClock.elapsedRealtime() + ms
         var start = -1.0
         while (SystemClock.elapsedRealtime() < end) {
@@ -79,22 +79,22 @@ object SpotifyEmbed {
                 if (!s.optBoolean("paused", true) && !s.optBoolean("buffering") && pos >= 0) {
                     if (start < 0) start = pos else if (pos > start) { // moving: it's playing
                         val len = s.optDouble("len", -1.0)
-                        if (len in 1.0..31.0) return done("Spotify is playing only a 30-second preview: the tablet's Spotify sign-in may have ended (Settings → Opie → Spotify), or the account isn't Premium.")
-                        return done("Spotify is playing on the tablet.")
+                        if (len in 1.0..31.0) return done("Spotify is playing only a 30-second preview: the device's Spotify sign-in may have ended (Settings → Opie → Spotify), or the account isn't Premium.")
+                        return done("Spotify is playing on the device.")
                     }
                 }
             }
             SystemClock.sleep(400)
         }
         send(JSONObject().put("do", "stop")) // (so it can't start later, over whatever plays instead)
-        return JSONObject().put("error", "Spotify's player on the tablet didn't start.").putOpt("now", now())
+        return JSONObject().put("error", "Spotify's player on the device didn't start.").putOpt("now", now())
     }
     private fun done(t: String) = JSONObject().put("done", t).putOpt("now", now())
 
     /** play, pause, stop, seek (seconds, + or -), previous (from the start); Spotify's player takes no next. */
     fun button(what: String, seconds: Double = 0.0): JSONObject {
         pausedForVoice = false // (asked for: what they asked stays after the conversation)
-        if (now() == null) return JSONObject().put("error", "Spotify isn't playing on the tablet.")
+        if (now() == null) return JSONObject().put("error", "Spotify isn't playing on the device.")
         usedAt = SystemClock.elapsedRealtime()
         when (what) {
             "play" -> { Media.pauseOthers(); send(JSONObject().put("do", "play")) }
@@ -102,7 +102,7 @@ object SpotifyEmbed {
             "stop" -> { send(JSONObject().put("do", "stop")); return JSONObject().put("done", "Spotify stopped.") }
             "seek" -> send(JSONObject().put("do", "seek").put("seconds", seconds))
             "previous" -> send(JSONObject().put("do", "restart"))
-            "next" -> return JSONObject().put("error", "Spotify's player on the tablet can't skip ahead: ask for the next thing to play by name instead.")
+            "next" -> return JSONObject().put("error", "Spotify's player on the device can't skip ahead: ask for the next thing to play by name instead.")
         }
         SystemClock.sleep(900)
         return JSONObject().put("done", "Spotify: $what.").putOpt("now", now())

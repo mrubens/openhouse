@@ -52,7 +52,7 @@ let data = null, sel = null, map = null, markers = [], seenShown = 0, routeFor =
 
 // ---- the page ----
 function draw() {
-  if (!data) { app.innerHTML = `<div class="m-off"><div class="q-panel"><span class="mark">${ic('pin')}</span><h1>The map isn't here right now</h1><p>It will show once the tablet can reach it.</p></div></div>`; map = null; return; }
+  if (!data) { app.innerHTML = `<div class="m-off"><div class="q-panel"><span class="mark">${ic('pin')}</span><h1>The map isn't here right now</h1><p>It will show once the device can reach it.</p></div></div>`; map = null; return; }
   if (!data.on) return off();
   if (!map) {
     app.innerHTML = `<div class="mapbox"><div id="map"></div><div class="zoom"><button class="round" data-do="in" aria-label="Closer">${ic('plus')}</button><button class="round" data-do="out" aria-label="Farther">${ic('minus')}</button><button class="round" data-do="fit" aria-label="Everything in view">${ic('fit')}</button></div></div><aside class="side"></aside>`;

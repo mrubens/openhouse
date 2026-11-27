@@ -132,12 +132,12 @@ internal fun WelcomeSheet() {
                 // A second tablet for another room (docs/multi-tablet.md): the household is set up already on the first.
                 if (o.net != Net.NoNetwork) {
                     Spacer(Modifier.height(28.u))
-                    Text("Already have Opie in another room? Add this tablet to it", style = calmText(19, FontWeight.Medium, Calm.soft), modifier = Modifier.clickable { o.host.setting("joinOther") })
+                    Text("Already have Opie in another room? Add this device to it", style = calmText(19, FontWeight.Medium, Calm.soft), modifier = Modifier.clickable { o.host.setting("joinOther") })
                 }
                 // One quiet line on a model we haven't tested (dev.openhouse.shell.Tablets, docs/tablets.md). Never blocks.
                 if (!dev.openhouse.shell.Tablets.tested) {
                     Spacer(Modifier.height(28.u))
-                    Text("We haven't tested this tablet.", style = calmText(19, color = Calm.soft))
+                    Text("We haven't tested this device.", style = calmText(19, color = Calm.soft))
                 }
             }
         }
@@ -152,7 +152,7 @@ internal fun DeleteAppSheet(a: AppInfo) {
         Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .3f)).clickable { o.confirmDelete = null }, contentAlignment = Alignment.Center) {
             QuietCard(Modifier.width(fit(600.u)).clickable(enabled = false) {}) {
                 Text("Delete ${a.name}?", style = quietText(30, FontWeight.SemiBold))
-                Text("It comes off the home screen and the tablet.", style = quietText(18, color = PaperLook.inkSoft))
+                Text("It comes off the home screen and the device.", style = quietText(18, color = PaperLook.inkSoft))
                 Spacer(Modifier.height(22.u))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.u)) { Spacer(Modifier.weight(1f)); Chip("Cancel") { o.confirmDelete = null }
                     // Deleting can't simply be taken back: the red button (docs/ux.md).

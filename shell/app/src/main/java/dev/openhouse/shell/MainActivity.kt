@@ -40,7 +40,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         val C = dev.openhouse.ui.Calm
         setupLayer.addView(C.wordmark(this), FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.START).apply { leftMargin = C.px(this@MainActivity, 56); topMargin = C.px(this@MainActivity, 44) })
         setupText = C.display(this, "Getting Opie ready")
-        setupNote = C.lead(this, "This takes a few minutes. Keep the tablet plugged in and on Wi-Fi.")
+        setupNote = C.lead(this, "This takes a few minutes. Keep the device plugged in and on Wi-Fi.")
         setupBar = android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100; isIndeterminate = false
             progressDrawable = android.graphics.drawable.LayerDrawable(arrayOf(
@@ -251,8 +251,8 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         if (settingUp) return
         settingUp = true
         setupLayer.visibility = View.VISIBLE; setupLayer.bringToFront()
-        if (image == null) { setupText.text = "This tablet isn't set up yet"; setupNote.text = "Set it up again from opie.house/setup."; setupBar.visibility = View.GONE; settingUp = false; return }
-        setupText.text = "Getting Opie ready"; setupNote.text = "This takes a few minutes. Keep the tablet plugged in and on Wi-Fi."; setupBar.visibility = View.VISIBLE
+        if (image == null) { setupText.text = "This device isn't set up yet"; setupNote.text = "Set it up again from opie.house/setup."; setupBar.visibility = View.GONE; settingUp = false; return }
+        setupText.text = "Getting Opie ready"; setupNote.text = "This takes a few minutes. Keep the device plugged in and on Wi-Fi."; setupBar.visibility = View.VISIBLE
         thread(name = "setup") {
             val ok = Runtime.setup(image, { pct -> main.post { setupBar.progress = pct } }) { why ->
                 Log.w("Setup", "runtime: $why"); main.post { setupText.text = "Still getting ready"; setupNote.text = "Check the Wi-Fi. It tries again in half a minute." }
@@ -515,7 +515,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
     /** Apps → Android apps: Aurora Store, after a yes (the PIN when it's on), got and set up first if it isn't yet. */
     fun openAurora() {
-        val acc = DeviceAccess.instance ?: return toast("Opie's access to the tablet is off, so Aurora Store can't open")
+        val acc = DeviceAccess.instance ?: return toast("Opie's access to the device is off, so Aurora Store can't open")
         thread {
             if (!acc.approve("Open Aurora Store?", "Android apps from Google Play. Each one you install asks here first.", parent = PinChoices.needed(this, PinChoices.APPS), yes = "Open")) return@thread
             AuroraInstall.openStore(acc)?.let { e -> main.post { toast(e) } }

@@ -104,7 +104,7 @@ export const DOCS = process.env.CONNECT_DOCS_URL || 'https://cloud.opie.house/do
 /** The prompt to paste into any assistant: add the connector, sign in with the code, read the guide, work out the
  *  rest. No local address in it, so it works from anywhere; no code either (it's on the tablet's screen). */
 export function setupPrompt() {
-  return `Add the Opie MCP server at ${CONNECTOR} (when it asks me to sign in, I'll type the code our tablet shows, then tap Allow there), then read the Opie docs at ${DOCS} and work out how you can best use Opie to help us.`;
+  return `Add the Opie MCP server at ${CONNECTOR} (when it asks me to sign in, I'll type the code our device shows, then tap Allow there), then read the Opie docs at ${DOCS} and work out how you can best use Opie to help us.`;
 }
 
 export function page({ host, away = false, extension = null }) {
@@ -140,18 +140,18 @@ section { margin-top: 56px; padding-top: 28px; border-top: 1px solid var(--line)
 <p>Paste this into Claude, ChatGPT, Codex or another assistant. It adds Opie, and asks you for the code and to tap Allow here.</p>
 <div class="prompt" id="prompt">${esc(prompt)}</div>
 <button class="btn" type="button" id="copy">Copy prompt</button>
-<div class="small">${away ? 'The code works for 10 minutes.' : 'This tablet isn’t linked to Opie’s cloud, which the assistant reaches it through: use the Claude app below, on this Wi-Fi.'} In claude.ai and ChatGPT you add the connector yourself, in Settings; the assistant tells you how.</div>
+<div class="small">${away ? 'The code works for 10 minutes.' : 'This device isn’t linked to Opie’s cloud, which the assistant reaches it through: use the Claude app below, on this Wi-Fi.'} In claude.ai and ChatGPT you add the connector yourself, in Settings; the assistant tells you how.</div>
 <section>
 <h2>The Claude app</h2>
 <p>For the Claude app on a Mac or Windows computer.</p>
 <a class="btn soft" id="get" href="${esc(get)}" download="openhouse.mcpb"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v10M5.5 8.5 10 13l4.5-4.5M4 17h12"/></svg>Download Opie for Claude</a>
 <ol>
 <li><span>Open the file you downloaded. Claude asks to install Opie: choose Install.</span></li>
-<li><span>In Claude, say “Connect to my Opie” and give it the code the tablet shows.</span></li>
-<li><span>Tap Allow on the tablet.</span></li>
+<li><span>In Claude, say “Connect to my Opie” and give it the code the device shows.</span></li>
+<li><span>Tap Allow on the device.</span></li>
 </ol>
 </section>
-<p class="small" style="margin-top:48px">This page is on your tablet, only while its Connect screen is open.</p>
+<p class="small" style="margin-top:48px">This page is on your device, only while its Connect screen is open.</p>
 </main><script>
 // One download per visit: a second click (Safari asking to allow downloads makes the first look like nothing happened)
 // would save "openhouse (1).mcpb" next to the first.

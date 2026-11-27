@@ -194,7 +194,7 @@ object OwnStorage {
         if (cfg == null) return done(why)
         val go = { thread { val w = check(cfg); if (w == null) write(cfg); done(w) }; Unit }
         if (!act.lock.on) return go()
-        PinPrompt.ask(act, act, "Use the storage sent from the other device?", { go() }, cancelled = { done("Nobody typed the PIN on the tablet, so it wasn't kept.") })
+        PinPrompt.ask(act, act, "Use the storage sent from the other device?", { go() }, cancelled = { done("Nobody typed the PIN on the device, so it wasn't kept.") })
     }
 
     // --- the adult's screens (Settings → Backups, already behind the PIN) -------------------------------------
@@ -202,13 +202,13 @@ object OwnStorage {
     private val FIELDS = listOf(
         Triple("endpoint", "Address", "https://s3.us-east-1.amazonaws.com"), Triple("region", "Region", "us-east-1"), Triple("bucket", "Bucket", ""),
         Triple("prefix", "Folder (optional)", ""), Triple("keyId", "Access key ID", ""), Triple("secret", "Secret access key", ""))
-    private const val HELP = "Any storage that works like Amazon S3: Amazon S3, Cloudflare R2, Backblaze B2, MinIO. Make a bucket and a key that can read, write and delete in it. Backups are locked with your recovery code before they leave the tablet, so the storage only ever holds locked files."
+    private const val HELP = "Any storage that works like Amazon S3: Amazon S3, Cloudflare R2, Backblaze B2, MinIO. Make a bucket and a key that can read, write and delete in it. Backups are locked with your recovery code before they leave the device, so the storage only ever holds locked files."
 
     /** Set it up: the fields from a phone or computer on this Wi-Fi, or typed here; [done] once it's checked and kept. */
     fun setUp(act: MainActivity, done: () -> Unit) {
         var dialog: android.app.Dialog? = null
         var got: JSONObject? = null
-        val info = JSONObject().put("title", "Your own storage").put("done", "Sent. Check the tablet.")
+        val info = JSONObject().put("title", "Your own storage").put("done", "Sent. Check the device.")
             .put("fields", JSONArray(FIELDS.map { (id, label, hint) -> JSONObject().put("id", id).put("label", label).put("hint", hint).put("optional", id == "prefix" || id == "region").put("secret", id == "secret") }))
         val h = Handoff(act, info, minutes = 15, onSecret = { got = it; dialog?.dismiss() }, onEnd = { if (got == null) dialog?.dismiss() })
         if (!h.start()) return type(act, JSONObject(), done)

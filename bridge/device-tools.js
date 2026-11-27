@@ -16,8 +16,8 @@ export const DEVICE_NAMES = ['open_app', 'install_app', 'look_at_screen', 'tap',
 /** Opie looking at something through the tablet's camera. The tablet asks on screen every time, and only a person's
  *  Allow opens it (the shell's CameraLook: Opie's screen tools can't see or tap that sheet). The one picture goes from
  *  the shell, in memory, to the household's own cloud AI (describe) and is kept nowhere. */
-export const CAMERA_TOOL = { name: 'look_with_camera', description: 'Look at something someone holds up to the tablet\'s camera: "look at this", "what is this?", "what does this say?", ' +
-    'a flyer or school notice (its events), a recipe card, a shelf or pantry (what is on it). The tablet asks them on screen and only they can allow it; then it takes one picture. ' +
+export const CAMERA_TOOL = { name: 'look_with_camera', description: 'Look at something someone holds up to the device\'s camera: "look at this", "what is this?", "what does this say?", ' +
+    'a flyer or school notice (its events), a recipe card, a shelf or pantry (what is on it). The device asks them on screen and only they can allow it; then it takes one picture. ' +
     'Answers with what the picture shows, as the question asked.',
   inputSchema: { type: 'object', required: ['why', 'question'], properties: {
     why: { type: 'string', description: 'One short line the screen shows them, saying why: "To read the school flyer", "To see what is on the shelf"' },
@@ -27,14 +27,14 @@ const NEVER = 'It never taps a button that pays, places an order, buys, sends a 
   'it stops at that last screen and asks the person to tap it themselves (those taps are refused anyway).';
 
 export const DEVICE_TOOLS = [
-  { name: 'open_app', description: 'Open one of the tablet\'s Android apps by name ("DoorDash", "Clock", "Calculator"), to use it for someone. ' +
+  { name: 'open_app', description: 'Open one of the device\'s Android apps by name ("DoorDash", "Clock", "Calculator"), to use it for someone. ' +
       'Not for Opie\'s own tabs and apps (Calendar, Lists, the Map...): show_on_screen opens those. Afterwards: what is on its screen (numbered elements). Back on the family screen with press home. ' + NEVER,
     inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'The app\'s name, as on its icon' } } } },
-  { name: 'install_app', description: 'Add an Android app to the tablet from Google Play (through Aurora Store, no Google account), by name. ' +
-      'Ask them first in a few words ("Install DoorDash from the Play Store?") and call with confirmed true only after they said yes; the tablet ' +
+  { name: 'install_app', description: 'Add an Android app to the device from Google Play (through Aurora Store, no Google account), by name. ' +
+      'Ask them first in a few words ("Install DoorDash from the Play Store?") and call with confirmed true only after they said yes; the device ' +
       'also asks on screen (with the PIN when the lock is on). It takes a minute or two; then open_app opens it.',
     inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'The app\'s name' }, package: { type: 'string', description: 'Its package, only if you know it' }, confirmed: { type: 'boolean', description: 'They said yes to installing it' } } } },
-  { name: 'look_at_screen', description: 'What is on the tablet\'s screen now (Opie\'s own tabs and apps, or another app you opened): numbered elements with their text, what can be done ' +
+  { name: 'look_at_screen', description: 'What is on the device\'s screen now (Opie\'s own tabs and apps, or another app you opened): numbered elements with their text, what can be done ' +
       'with each (tap, type, scroll) and where. picture: also a short description of a picture of it, for pictures, maps or games the list can\'t ' +
       'show. wait: seconds to wait first for something to load (up to 10). The actions already answer with the screen afterwards, so look only when unsure.',
     inputSchema: { type: 'object', properties: { picture: { type: 'boolean' }, wait: { type: 'number' } } } },
@@ -67,7 +67,7 @@ Anything a person can do on Opie by tapping, you can do when they ask: every tab
 - ${NEVER} At that screen, stop and say what's ready ("Your pizza from Tony's is in the cart for $24: tap Place order when you're happy with it"). Paying, ordering, sending and confirming are always theirs.
 - If an app asks someone to sign in, or for anything you don't know, stop and ask them. If something is refused, don't try another way: say so.
 - If they want you to stop, call stop_using_apps at once.
-- To look at something they show you ("look at this", "what does this say?"), use look_with_camera. Never look_at_screen for that: it shows the screen, not the room. The tablet asks them on screen first, so say so in a few words as you call it ("Tap Allow on the screen, hold it up, then tap Take picture"). It never takes the picture by itself; if they cancel or don't answer, say so in a few words and leave it. Then act on what it found with your usual tools, asking first as always: calendar_event for a flyer's events (say what you found, then add them once they say yes), change_list for things to buy or keep, set_meals recipes to save a recipe (by its name, with its ingredients and steps as notes: it shows in Recipes).`;
+- To look at something they show you ("look at this", "what does this say?"), use look_with_camera. Never look_at_screen for that: it shows the screen, not the room. The device asks them on screen first, so say so in a few words as you call it ("Tap Allow on the screen, hold it up, then tap Take picture"). It never takes the picture by itself; if they cancel or don't answer, say so in a few words and leave it. Then act on what it found with your usual tools, asking first as always: calendar_event for a flyer's events (say what you found, then add them once they say yes), change_list for things to buy or keep, set_meals recipes to save a recipe (by its name, with its ingredients and steps as notes: it shows in Recipes).`;
 
 
 const CARD = /(?:\d[ -]?){13,19}/g;
@@ -107,7 +107,7 @@ export function deviceTools({ server = () => null, describe = null, log = () => 
     console.log(`[device] ${name} ${JSON.stringify(args).slice(0, 200)}`);
     if (name === 'stop_using_apps') { await stop('Someone asked Opie to stop.'); return { text: 'Stopped. Say so in a few words.', isError: false }; }
     if (halted) return { text: `Stopped: ${halted} Don't continue; say in a few words that you stopped.`, isError: true };
-    if (!server()) return { text: 'This tablet can\'t use its other apps from here (no device control).', isError: true };
+    if (!server()) return { text: 'This device can\'t use its other apps from here (no device control).', isError: true };
     const t = clock();
     while (recent.length && t - recent[0] > 60e3) recent.shift();
     if (recent.length >= perMinute) return { text: 'That\'s a lot of steps in a minute. Stop here and tell them where it got to.', isError: true };
@@ -148,7 +148,7 @@ export function deviceTools({ server = () => null, describe = null, log = () => 
         default: return { text: `${name} isn't a device tool.`, isError: true };
       }
     } catch (e) {
-      return { text: e.code === 'none' ? 'This tablet can\'t use its other apps from here.' : `The tablet didn't answer (${e.cause?.code || e.message}).`, isError: true };
+      return { text: e.code === 'none' ? 'This device can\'t use its other apps from here.' : `The device didn't answer (${e.cause?.code || e.message}).`, isError: true };
     }
   }
   function out(r, n) { const text = short(textOf(r) || (r?.isError ? 'That didn\'t work.' : 'Done.'), n); log('device-result', { text: text.slice(0, 300), isError: !!r?.isError }); return { text, isError: !!r?.isError }; }
@@ -159,7 +159,7 @@ export function deviceTools({ server = () => null, describe = null, log = () => 
       const r = await shell('look', { scale: 4 }, 30e3);
       const img = (r?.content || []).find((c) => c.type === 'image');
       if (!img) return '';
-      const d = await describe(img.data, 'This is a screenshot of an Android tablet, at a quarter of its size. In at most 8 short lines: which app and screen it is, ' +
+      const d = await describe(img.data, 'This is a screenshot of an Android device, at a quarter of its size. In at most 8 short lines: which app and screen it is, ' +
         'what it shows, and where the things someone would tap are (as screen coordinates: multiply what you see by 4). No advice.');
       return `\n\nThe picture shows:\n${String(d).slice(0, 1500)}`;
     } catch (e) { return `\n\n(No picture: ${e.message})`; }
@@ -177,7 +177,7 @@ export function deviceTools({ server = () => null, describe = null, log = () => 
     if (!j?.jpeg) return { text: `No picture: ${j?.no || 'the camera didn\'t answer.'} Say so in a few words; ask again only if they want.`, isError: true };
     const day = new Date(), today = `${day.toLocaleDateString('en-CA')} (${day.toLocaleDateString('en-US', { weekday: 'long' })})`;
     try {
-      const said = await describe(j.jpeg, `Someone held this up to their household tablet's camera and asked: "${question}". Today is ${today}.\n` +
+      const said = await describe(j.jpeg, `Someone held this up to their household device's camera and asked: "${question}". Today is ${today}.\n` +
         'Answer that about the picture, in plain text, briefly. Text they want read: as written. Events (a flyer, school notice, invitation, schedule): each one\'s title, ' +
         'date (YYYY-MM-DD; with no year given, the next time that date comes), start and end times, place, and notes such as what to bring or cost. A recipe: its name, ' +
         'ingredients with amounts, and steps. Things on a shelf or in a pantry: each one by name. If you can\'t make it out, say what you can see and that it\'s unclear.');

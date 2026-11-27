@@ -90,17 +90,17 @@ object Bluetooth {
             runCatching { dpm.setPermissionGrantState(admin, ctx.packageName, p, DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED) }
         }
         val still = need.filter { ctx.checkSelfPermission(it) != android.content.pm.PackageManager.PERMISSION_GRANTED }
-        return if (still.isEmpty()) null else "The tablet hasn't allowed Opie to use Bluetooth (${still.joinToString { it.substringAfterLast('.') }})."
+        return if (still.isEmpty()) null else "The device hasn't allowed Opie to use Bluetooth (${still.joinToString { it.substringAfterLast('.') }})."
     }
 
     /** Bluetooth on, or why not. Turning it on is fine: someone asked for a Bluetooth device. */
     private fun ready(): String? {
         perms()?.let { return it }
-        val a = adapter ?: return "This tablet has no Bluetooth."
+        val a = adapter ?: return "This device has no Bluetooth."
         if (!a.isEnabled) {
             @Suppress("DEPRECATION") val asked = runCatching { a.enable() }.getOrDefault(false) // device owners still may
             if (asked) repeat(40) { if (a.isEnabled) return null; Thread.sleep(150) }
-            if (!a.isEnabled) return "Bluetooth is off on the tablet and couldn't be turned on."
+            if (!a.isEnabled) return "Bluetooth is off on the device and couldn't be turned on."
         }
         return null
     }
@@ -259,7 +259,7 @@ object Bluetooth {
         if (d.bondState != BluetoothDevice.BOND_BONDED) return JSONObject().put("unpaired", true)
         val ok = runCatching { d.javaClass.getMethod("removeBond").invoke(d) as Boolean }.getOrDefault(false)
         log("forget ${d.name ?: d.address}: ${if (ok) "done" else "refused"}")
-        return JSONObject().put("unpaired", ok).apply { if (!ok) put("why", "Android didn't let Opie forget it; it can be forgotten in the tablet's Bluetooth settings.") }
+        return JSONObject().put("unpaired", ok).apply { if (!ok) put("why", "Android didn't let Opie forget it; it can be forgotten in the device's Bluetooth settings.") }
     }
 
     // --- GATT ---------------------------------------------------------------------------------
@@ -416,7 +416,7 @@ object Bluetooth {
 
     /** status | connect | disconnect: the speaker as where the tablet's sound goes. */
     private fun audio(d: BluetoothDevice, what: String): JSONObject {
-        val a2dp = profile(BluetoothProfile.A2DP) as? BluetoothA2dp ?: return JSONObject().put("error", "The tablet's Bluetooth audio isn't available.")
+        val a2dp = profile(BluetoothProfile.A2DP) as? BluetoothA2dp ?: return JSONObject().put("error", "The device's Bluetooth audio isn't available.")
         fun state() = JSONObject().put("paired", d.bondState == BluetoothDevice.BOND_BONDED)
             .put("connected", a2dp.getConnectionState(d) == BluetoothProfile.STATE_CONNECTED)
             .put("playing", runCatching { a2dp.isA2dpPlaying(d) }.getOrDefault(false))
@@ -424,13 +424,13 @@ object Bluetooth {
             .put("volume", vol())
         try {
             if (what == "status") return state()
-            if (d.bondState != BluetoothDevice.BOND_BONDED) return state().put("error", "It isn't paired with the tablet yet.")
+            if (d.bondState != BluetoothDevice.BOND_BONDED) return state().put("error", "It isn't paired with the device yet.")
             val name = if (what == "connect") "connect" else "disconnect"
             // Hidden in the SDK (system apps use it); Android may refuse, and then the speaker connects by itself when it comes on.
             val ok = runCatching { BluetoothA2dp::class.java.getMethod(name, BluetoothDevice::class.java).invoke(a2dp, d) as Boolean }
                 .onFailure { Log.w(TAG, "a2dp $name: $it") }.getOrDefault(false)
             log("audio $name ${d.name ?: d.address}: ${if (ok) "asked" else "refused"}")
-            if (!ok) return state().put("error", if (what == "connect") "Android didn't let Opie switch to it directly. Turn the speaker off and on again: a paired speaker connects to the tablet by itself." else "Android didn't let Opie disconnect it. Turning the speaker off sends the sound back to the tablet.")
+            if (!ok) return state().put("error", if (what == "connect") "Android didn't let Opie switch to it directly. Turn the speaker off and on again: a paired speaker connects to the device by itself." else "Android didn't let Opie disconnect it. Turning the speaker off sends the sound back to the device.")
             val want = if (what == "connect") BluetoothProfile.STATE_CONNECTED else BluetoothProfile.STATE_DISCONNECTED
             repeat(40) { if (a2dp.getConnectionState(d) == want) return state(); Thread.sleep(250) }
             return state().put("error", if (what == "connect") "It didn't connect within 10 seconds (is it on, and near?)." else "It's still connected.")

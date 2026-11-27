@@ -50,8 +50,8 @@ internal object DeviceRules {
     /** A card waiting for a person's own answer is up ([card], its title; dev.openhouse.ui.PersonCards): every device
      *  tool is refused until it's gone, so nothing Opie does on screen can answer it. Null when none is up. */
     fun whileCard(card: String?): String? = card?.let {
-        "Not done: the tablet is asking the people here “${it.trimEnd('?')}?”, and a person needs to answer the card on screen. " +
-            "Tell them it's theirs to answer on the tablet; nothing on screen can be done until it's gone."
+        "Not done: the device is asking the people here “${it.trimEnd('?')}?”, and a person needs to answer the card on screen. " +
+            "Tell them it's theirs to answer on the device; nothing on screen can be done until it's gone."
     }
 
     /** What the refusal says, for the assistant to pass on. */

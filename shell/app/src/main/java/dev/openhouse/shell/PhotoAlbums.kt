@@ -50,7 +50,7 @@ object PhotoAlbums {
     private class Said(m: String) : Exception(m) // safe to show: never has the link in it
 
     const val HELP = "In Photos on an iPhone or Mac, make a shared album for this screen and add photos to it. In the album's " +
-        "sharing settings, turn on Public Website and copy the link. Anyone with the link can see the album, so the tablet keeps it sealed. " +
+        "sharing settings, turn on Public Website and copy the link. Anyone with the link can see the album, so the device keeps it sealed. " +
         "New photos show up here within half an hour."
 
     fun init(c: Context) { if (!::ctx.isInitialized) ctx = c.applicationContext }
@@ -327,7 +327,7 @@ object PhotoAlbums {
         var dialog: android.app.Dialog? = null
         var got: JSONObject? = null
         val info = JSONObject().put("title", "Add an iCloud album").put("field", "Shared album link").put("hint", "https://photos.icloud.com/shared/album/…")
-            .put("help", HELP).put("done", "Sent. Check the tablet.")
+            .put("help", HELP).put("done", "Sent. Check the device.")
         val h = Handoff(a, info, onSecret = { got = it; dialog?.dismiss() }, onEnd = { if (got == null) dialog?.dismiss() })
         if (!h.start()) { paste(a, immersive); return } // no Wi-Fi: no phone to send it from
         val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }

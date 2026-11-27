@@ -333,7 +333,7 @@ internal object LiveVoice {
             // Out of Opie credit (the cloud's credits.ts): said as that, not as "couldn't connect".
             if (r?.optString("code") == "over_credit") { trouble(r.optString("error")); toldWhy = true }
             val w = web ?: return@thread
-            main.post { w.evaluateJavascript("answer(${JSONObject.quote((r ?: JSONObject().put("error", "the tablet's software didn't answer")).toString())})", null) }
+            main.post { w.evaluateJavascript("answer(${JSONObject.quote((r ?: JSONObject().put("error", "the device's software didn't answer")).toString())})", null) }
         }
         /** It handed a request over: the family's assistant answers it as if it had been asked aloud. */
         @JavascriptInterface fun delegated(text: String) { val q = text.trim(); if (q.isNotEmpty()) main.post { Openhouse.ask(q, null, voice = true) } }

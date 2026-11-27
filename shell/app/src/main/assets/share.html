@@ -97,9 +97,9 @@ const te = new TextEncoder(), td = new TextDecoder();
   const [k64, rid, rtok] = hash.split('.');
   let key, relay = null;
   try { key = b64.dec(k64 || ''); } catch {}
-  if (!key || key.length !== 32) return say('Scan the code on the tablet again (Photos, Add photos, From the household’s phones).');
+  if (!key || key.length !== 32) return say('Scan the code on the device again (Photos, Add photos, From the household’s phones).');
   if (cloudRelay && rid && rtok) relay = { url: cloudRelay, relay: rid, token: rtok };
-  else if (cloudRelay) return say('Scan the code on the tablet again.');
+  else if (cloudRelay) return say('Scan the code on the device again.');
   try { localStorage.setItem(KEEP, hash); } catch {}
   // (The key stays in the address: a bookmark, or the home screen's copy on an iPhone, which has its own storage.)
   if (cloudRelay && 'serviceWorker' in navigator) navigator.serviceWorker.register('/p/sw.js', { scope: '/p/' }).catch(() => {});
@@ -161,7 +161,7 @@ const te = new TextEncoder(), td = new TextDecoder();
 
   let info;
   try { const r = await call('i'); const box = CP.open(key, te.encode('info'), b64.dec(await r.text())); info = box && JSON.parse(td.decode(box)); } catch {}
-  if (!info) return say(relay ? 'The tablet isn’t answering. It may be off, or reaching it from away is off.' : 'The tablet isn’t answering. Is this phone on the home Wi-Fi?');
+  if (!info) return say(relay ? 'The device isn’t answering. It may be off, or reaching it from away is off.' : 'The device isn’t answering. Is this phone on the home Wi-Fi?');
   if (info.title) $('t').textContent = info.title;
   $('f').hidden = false;
   const ios = /iP(hone|ad|od)/.test(navigator.userAgent), alone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
@@ -200,7 +200,7 @@ const te = new TextEncoder(), td = new TextDecoder();
       $('fill').style.width = `${Math.round(100 * (done + failed) / files.length)}%`;
     }
     shared = []; $('pick').value = ''; $('pick').disabled = false; $('bar').hidden = true; $('fill').style.width = '0'; showReady();
-    say(failed ? `${done} sent, ${failed} didn’t go through. Try those again.` : done === 1 ? 'Sent. It’s in Photos on the tablet.' : `All ${done} sent. They’re in Photos on the tablet.`);
+    say(failed ? `${done} sent, ${failed} didn’t go through. Try those again.` : done === 1 ? 'Sent. It’s in Photos on the device.' : `All ${done} sent. They’re in Photos on the device.`);
   }
   $('go').onclick = send;
   if (shared.length) send(); // shared on purpose: straight on its way

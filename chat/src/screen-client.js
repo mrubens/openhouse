@@ -102,7 +102,7 @@ export function client({ base = '', id, key, fetch: f = fetch, relay = null, onR
       try { return await send(tailnet); }
       catch (e) { if (!relay || signal?.aborted) throw e; tnAway = Date.now() + 60e3; }
     }
-    if (!relay) throw new TypeError("can't reach the tablet");
+    if (!relay) throw new TypeError("can't reach the device");
     try { return await viaRelay().request({ k: 's', id }, box, { signal, big }); }
     catch (e) { if (e instanceof Refused) { relay = null; rt = null; onRelay?.(null); } throw e; }
   }

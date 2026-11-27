@@ -10,7 +10,7 @@ import crypto from 'node:crypto';
 const HOME_SECTIONS = ["Change what's there first", 'The home screen'];
 const APP_SECTIONS = ['The screen', 'Note or app', "The family's things", 'Icons', 'Apps and games'];
 const sha = (t) => `sha256:${crypto.createHash('sha256').update(t, 'utf8').digest('hex')}`;
-const NOW = 'For the home screen as it is now (its tabs, look and apps, and which tab the tablet is showing), call get_guide with topic "home".';
+const NOW = 'For the home screen as it is now (its tabs, look and apps, and which tab the device is showing), call get_guide with topic "home".';
 
 // The bridge's own files the guide is made of: each must ship with the bridge (scripts/runtime-assets.sh).
 export const GUIDE_FILES = ['WORKSHOP.md', 'AGENT.md', 'NOTES.md', 'PLUGINS.md', 'DESIGN.md', 'kit/quiet.css'];
@@ -20,13 +20,13 @@ export function workshopGuide({ read: readFile, homeNow, log = console.error }) 
   // working without it (and tells the person) instead of getting nothing. The rest of the bridge goes on.
   const missing = GUIDE_FILES.filter((f) => !readFile(f));
   if (missing.length) log(`[workshop] MISSING GUIDE FILES: ${missing.join(', ')}. get_guide and the skills are incomplete; this build left them out (scripts/runtime-assets.sh).`);
-  const read = (f) => readFile(f) || `(This tablet is missing its ${f}, so this part of the guide is empty. Tell the person once that the tablet needs an update; go on with care.)`;
+  const read = (f) => readFile(f) || `(This device is missing its ${f}, so this part of the guide is empty. Tell the person once that the device needs an update; go on with care.)`;
   // The tablet assistant's rules (AGENT.md), as they apply on a computer: by section, without the ones about the tablet
   // itself (its other apps and devices, its own reply rules, the code layout it sees), and with no Edit tool to use.
   function agentSections(names) {
     const parts = read('AGENT.md').split(/^(?=## )/m);
     return parts.filter((p) => names.some((n) => p.startsWith(`## ${n}`))).join('\n')
-      .replace(/ The message tells you what they're\s+looking at \(([^)]*)\); "this" and "it" mean that\./, ' The home screen as it is now (get_guide) says which tab the tablet is showing ($1); "this" and "it" usually mean that.')
+      .replace(/ The message tells you what they're\s+looking at \(([^)]*)\); "this" and "it" mean that\./, ' The home screen as it is now (get_guide) says which tab the device is showing ($1); "this" and "it" usually mean that.')
       .replace(/\(the current one is in the message\)/, '(the current ones are in get_guide)')
       .replace(/write them all in one turn, so it appears\s+right away; then improve it with Edit\./, 'write them all first, so it appears right away; then improve it.')
       .replace(/ It runs\s+full screen as its own installed Android app with an icon on the board, and opens automatically while you build it\./, '');
@@ -38,7 +38,7 @@ export function workshopGuide({ read: readFile, homeNow, log = console.error }) 
   const TOPICS = {
     start: {
       skill: 'working-here',
-      description: "How to work on this household's Opie tablet from a computer: which tools to use, in what order, for the tabs and look, notes, an app, waiting fixes, undo and devices, and the rules. Load before changing anything on the Opie.",
+      description: "How to work on this household's Opie device from a computer: which tools to use, in what order, for the tabs and look, notes, an app, waiting fixes, undo and devices, and the rules. Load before changing anything on the Opie.",
       body: () => [read('WORKSHOP.md'), '# Changing the home screen\n\n' + agentSections(HOME_SECTIONS), NOW,
         'How notes on Home should read: the notes skill. Making or changing an app: the apps skill.'].join('\n\n---\n\n'),
       guide: () => [read('WORKSHOP.md'), '# The home screen right now\n\n' + homeNow(), '# Changing the home screen\n\n' + agentSections(HOME_SECTIONS),
@@ -83,7 +83,7 @@ export function workshopGuide({ read: readFile, homeNow, log = console.error }) 
     return h.digest('hex').slice(0, 12);
   }
   /** What the connector says of its guide: the version, and what to do when a copy of the skills is another one. */
-  const versionLine = () => `This tablet's guide is version ${version()}. Opie skills from the Opie plugin say the version they were made from at their end: if it isn't this one, that copy is out of date, so use get_guide (with the skill's topic) instead and tell the person once that the Opie plugin needs updating.`;
+  const versionLine = () => `This device's guide is version ${version()}. Opie skills from the Opie plugin say the version they were made from at their end: if it isn't this one, that copy is out of date, so use get_guide (with the skill's topic) instead and tell the person once that the Opie plugin needs updating.`;
 
   /** get_guide's answer for a topic ("start" when unknown). */
   function guide(topic) {

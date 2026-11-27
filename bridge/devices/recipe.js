@@ -304,7 +304,7 @@ export function fillHex(t, vals) {
 }
 
 async function runBle(a, mac, vals, bt) {
-  if (!bt) throw new Error('Bluetooth needs the tablet.');
+  if (!bt) throw new Error('Bluetooth needs the device.');
   const steps = (a.steps || [a.request]).map((s) => {
     if (s.wait) return { wait: s.wait };
     const b = s.ble, where = { service: bleUuid(b.service), characteristic: bleUuid(b.characteristic) };

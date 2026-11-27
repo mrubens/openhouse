@@ -100,7 +100,7 @@ internal fun SettingsScreen() {
                 // The version is the way to updates (no PIN: seeing it and getting ours is everyone's).
                 Text("Version ${vals["updates"] ?: ""}", style = quietText(18, color = PaperLook.inkSoft),
                     modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { o.host.setting("updates") }.padding(horizontal = 16.u, vertical = 8.u))
-                if (!dev.openhouse.shell.Tablets.tested) Text("We haven't tested this tablet", style = quietText(18, color = PaperLook.inkSoft), modifier = Modifier.padding(horizontal = 16.u))
+                if (!dev.openhouse.shell.Tablets.tested) Text("We haven't tested this device", style = quietText(18, color = PaperLook.inkSoft), modifier = Modifier.padding(horizontal = 16.u))
             }
             if (current != null) Box(Modifier.weight(1f).fillMaxHeight().imePadding()) {
                 Pane(current, vals, compact, lockOn, asks, sat)
@@ -137,7 +137,7 @@ private fun Pane(t: SettingsTab, vals: Map<String, String>, compact: Boolean, lo
         }
         Column(Modifier.offset(x = (-12).u).widthIn(max = 924.u).weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 40.u)) { // (rows' own inset: their words line up with the title)
             when (t.id) {
-                "household" -> SettingsRow("Household", "On the main tablet", onClick = shell("satellite")) // (a satellite: docs/multi-tablet.md)
+                "household" -> SettingsRow("Household", "On the main device", onClick = shell("satellite")) // (a satellite: docs/multi-tablet.md)
                 "opie" -> {
                     SettingsRow("Voice", vals["voice"], asks, shell("voice"))
                     SettingsRow("House rules", vals["houseRules"], lockOn, shell("houseRules")) // always the PIN when one is set (HouseRules.kt)

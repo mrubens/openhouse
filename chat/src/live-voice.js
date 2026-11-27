@@ -41,7 +41,7 @@ export function talk(c, on = {}) {
       // 'off' (the household hasn't turned talking on) comes as 400 from the bridge or 403 from the service; a 403
       // 'not for screens' is the bridge refusing this device (or a tablet too old to take voice from other devices).
       if (a.error === 'off' || /\boff\b/.test(a.error || '')) problem('Talking to Opie is off. It can be turned on in Settings, Voice.');
-      else if (r?.status === 403) problem('The tablet can’t take Opie from this device yet. Update the tablet, then try again.');
+      else if (r?.status === 403) problem('The device can’t take Opie from here yet. Update it, then try again.');
       later((x) => x.answer(JSON.stringify(a)));
     },
     // Its text model normally answers (with the household's tools). Handed to us instead: the household's assistant

@@ -106,7 +106,7 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () =
       ageTimer = setTimeout(() => { try { sock?.close(); } catch {} }, maxAgeMs); ageTimer.unref?.(); // the relay's 2 hours: a fresh socket first
       return;
     }
-    if (m.t === 'no') { error = m.why === 'unlinked' ? 'the family account doesn\'t know this tablet' : String(m.why || 'refused'); tries = Math.max(tries, backoff.length - 1); return; }
+    if (m.t === 'no') { error = m.why === 'unlinked' ? 'the Opie account doesn\'t know this device' : String(m.why || 'refused'); tries = Math.max(tries, backoff.length - 1); return; }
     if (m.t === 'mail') return onMail(); // mail waiting in the cloud for this tablet (mail.js fetches it)
     if (m.t === 'req') return request(m);
     if (m.t === 'cancel' || m.t === 'gone') { const k = `${m.to || m.from}:${m.rid}`; const x = open.get(k); if (x) { open.delete(k); for (const c of x.cancel) c(); } }

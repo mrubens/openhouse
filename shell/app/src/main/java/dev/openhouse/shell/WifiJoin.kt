@@ -64,7 +64,7 @@ internal object WifiJoin {
         act.runOnUiThread {
             if (on) return@runOnUiThread act.toast("Joined ${n.ssid}")
             CalmDialog(act).setTitle("Couldn't join ${n.ssid}")
-                .setMessage(if (ok) "Check the password and try again." else "The tablet didn't take that network.")
+                .setMessage(if (ok) "Check the password and try again." else "The device didn't take that network.")
                 .setPositiveButton("Try again") { _, _ -> password(act, n, settings, optional = n.hidden) }
                 .setNegativeButton("Back") { _, _ -> show(act, settings) }.show()
             act.immersive()

@@ -32,7 +32,7 @@ import { dayKey } from './dates.js';
 export const LEVELS = ['off', 'notice', 'tidy', 'fix'];
 export const DEFAULT_LEVEL = 'tidy';
 export const EVERY = [30, 60, 120, 240]; // minutes between reviews, as the household may choose
-const SETTINGS_TOOL = { name: 'heartbeat_settings', description: 'The tablet\'s check-ins in the background (the heartbeat): how often it looks at the day (every: 30, 60, 120 or 240 minutes), what it looks for (prompt: its instructions in full; reset_prompt: back to ours), and whether it may act (level: off, notice, tidy, fix). With nothing passed it just says how they are now. Change one only when they ask.',
+const SETTINGS_TOOL = { name: 'heartbeat_settings', description: 'The device\'s check-ins in the background (the heartbeat): how often it looks at the day (every: 30, 60, 120 or 240 minutes), what it looks for (prompt: its instructions in full; reset_prompt: back to ours), and whether it may act (level: off, notice, tidy, fix). With nothing passed it just says how they are now. Change one only when they ask.',
   inputSchema: { type: 'object', properties: { every: { type: 'number', enum: EVERY }, prompt: { type: 'string' }, reset_prompt: { type: 'boolean' }, level: { type: 'string', enum: ['off', 'notice', 'tidy', 'fix'] } } } };
 // A day, the judge's path: the same notes; text-model runs; judgments (and an hour's); US$ (gpt-6-luna: a judgment is
 // about $0.0002 and a note about $0.002, so a day at every cap is about $0.03).
@@ -102,7 +102,7 @@ export function morning(events, night, d) {
 }
 
 export function storage(free) {
-  return free != null && free < 1e9 ? [{ key: 'storage', kind: 'storage', level: 'notice', text: `Only ${(free / 1e9).toFixed(1)} GB of storage is left on the tablet` }] : [];
+  return free != null && free < 1e9 ? [{ key: 'storage', kind: 'storage', level: 'notice', text: `Only ${(free / 1e9).toFixed(1)} GB of storage is left on the device` }] : [];
 }
 
 // ---- the heartbeat itself ----
@@ -357,7 +357,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
     const ctx = { by: 'assistant', who: null, quiet: true, allow, notesLeft: Math.max(0, JUDGE_CAPS.notes - st.day.notes) };
     const crashed = list.filter((f) => f.kind === 'crash' && f.app);
     const tools = [...bgTools(allow),
-      ...(lv === 'fix' && fixes && crashed.length ? [{ type: 'function', name: 'queue_fix', description: `Queue a fix for one of the household's apps the checks found broken (${crashed.map((f) => f.app).join(', ')}): whoever builds the household's apps fixes it, and someone says yes on the tablet.`, parameters: { type: 'object', required: ['app'], properties: { app: { type: 'string', enum: crashed.map((f) => f.app) } } } }] : [])];
+      ...(lv === 'fix' && fixes && crashed.length ? [{ type: 'function', name: 'queue_fix', description: `Queue a fix for one of the household's apps the checks found broken (${crashed.map((f) => f.app).join(', ')}): whoever builds the household's apps fixes it, and someone says yes on the device.`, parameters: { type: 'object', required: ['app'], properties: { app: { type: 'string', enum: crashed.map((f) => f.app) } } } }] : [])];
     const put = []; let fixed = null;
     const callTool = async (name, args) => {
       args = argsOf(name, args);

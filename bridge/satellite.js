@@ -59,12 +59,12 @@ export async function join({ DISPLAY, code, base, name = 'Tablet', fetch: f = fe
   const { pair: screenPair } = await clientLib();
   const from = pairingFromCode(code);
   if (!from) throw new Error("That isn't the code. It's 12 letters and numbers, like K7QM-2XD9-HPA4.");
-  if (!/^https?:\/\/[^/]+$/.test(String(base || ''))) throw new Error("Couldn't find the main tablet on this Wi-Fi.");
+  if (!/^https?:\/\/[^/]+$/.test(String(base || ''))) throw new Error("Couldn't find the main device on this Wi-Fi.");
   let w;
   try { w = await screenPair({ base, pair: from.pair, key: Buffer.from(from.key).toString('base64url'), name: String(name).slice(0, 40), fetch: f, signal: AbortSignal.timeout(60e3) }); }
-  catch { throw new Error('That code has run out or was already used. Show a new one on the main tablet.'); }
-  if (w.refused) throw new Error('The main tablet said no.');
-  if (w.kind !== 'tablet') throw new Error("That code is for a phone or screen, not a tablet. On the main tablet choose Another Opie tablet.");
+  catch { throw new Error('That code has run out or was already used. Show a new one on the main device.'); }
+  if (w.refused) throw new Error('The main device said no.');
+  if (w.kind !== 'tablet') throw new Error("That code is for a phone or screen. On the main device choose Another Opie device.");
   const p = { home: base, base: w.base || base, id: w.id, key: w.key, scopes: w.scopes, relay: w.relay || null, tailnet: w.tailnet || null, name: w.name, joined: Date.now() };
   writePairing(DISPLAY, p);
   return p;
@@ -94,8 +94,8 @@ export function forwarder(pairing, { lib, DISPLAY = null, fetch: f = fetch, WS =
 
   async function handle(req, res, url, { body, app = null } = {}) {
     const m = req.method, p = RENAMED[url.pathname] || url.pathname;
-    if (removed) return json(res, 410, { error: 'This tablet was removed from the household.', removed: true });
-    if (!app && !allowed(pairing.scopes, m, p)) return json(res, 403, { error: "That's on the main tablet.", brain: true });
+    if (removed) return json(res, 410, { error: 'This device was removed from the household.', removed: true });
+    if (!app && !allowed(pairing.scopes, m, p)) return json(res, 403, { error: "That's on the main device.", brain: true });
     let head = null;
     const keep = m === 'GET' && !app && KEEP.test(p), parts = [];
     try {
@@ -110,7 +110,7 @@ export function forwarder(pairing, { lib, DISPLAY = null, fetch: f = fetch, WS =
       return;
     } catch (e) {
       if (head) { res.end(); return; } // cut off mid-answer: what came is what it gets
-      if (e instanceof Removed) { removed = true; try { onRemoved(); } catch {} return json(res, 410, { error: 'This tablet was removed from the household.', removed: true }); }
+      if (e instanceof Removed) { removed = true; try { onRemoved(); } catch {} return json(res, 410, { error: 'This device was removed from the household.', removed: true }); }
       reachable = false;
       const last = keep && kept.get(p);
       if (last) { // the home screen as it last was, marked so the page can say the main tablet is away
@@ -119,7 +119,7 @@ export function forwarder(pairing, { lib, DISPLAY = null, fetch: f = fetch, WS =
         res.writeHead(200, { 'content-type': last.type || 'application/json' }); return res.end(last.body);
       }
       if (WAITS.test(p)) await new Promise((ok) => setTimeout(ok, 3000)); // (a page waiting for changes asks again: not at once)
-      return json(res, 503, { error: "Can't reach the main tablet.", away: true });
+      return json(res, 503, { error: "Can't reach the main device.", away: true });
     }
   }
   /** GETs answered whole, for this bridge's own use (the apps' copy, the home screen kept while away). */

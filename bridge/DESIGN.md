@@ -19,7 +19,7 @@ one focal point, one color family, nothing boxed for the sake of it.
 11. The current thing and its action never scroll out of view.
 12. Photos show clean or as the backdrop, with no title across the subject.
 13. Touch targets are 64u or more for things used mid-task (cooking, a timer), 46u elsewhere.
-14. Before calling it done, look at it on the tablet (`look_at_tablet`, 2304x1440) with the longest real content it
+14. Before calling it done, look at it on the device (`look_at_tablet`, 2304x1440) with the longest real content it
     will have.
 15. Squint at it next to Weather: one focal point, one color family. If what you see is boxes, start over.
 

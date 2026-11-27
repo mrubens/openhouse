@@ -30,7 +30,7 @@ export function questions(findings, people = []) {
     qs.push({ type: 'predicate', name: `worth_${n}`, instructions: `Finding ${n}: is it worth doing something about now, for a household that wants a calm screen? Yes for a real problem or a useful nudge. No if it's trivial, already sorted, or something on Home already says it.` });
     qs.push({ type: 'choice', name: `act_${n}`, instructions: `Finding ${n}: what would help most?`, choices: ACTS });
     if (people.length) qs.push({ type: 'choice', name: `for_${n}`, instructions: `Finding ${n}: who is it for?`,
-      choices: [...people.map((p) => ({ value: p, description: `${p} (it's about them, or they'd sort it)` })), { value: 'household', description: 'Whoever looks after the tablet (a setting, the tablet, a link to check)' }, { value: 'everyone', description: 'The whole household' }] });
+      choices: [...people.map((p) => ({ value: p, description: `${p} (it's about them, or they'd sort it)` })), { value: 'household', description: 'Whoever looks after the device (a setting, the device, a link to check)' }, { value: 'everyone', description: 'The whole household' }] });
   });
   return qs;
 }

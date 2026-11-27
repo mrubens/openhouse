@@ -89,7 +89,7 @@ class AppWindow private constructor(private val act: Activity, private val shell
 
     private fun open(key: AppKey?) {
         if (reg.currentState == Lifecycle.State.DESTROYED) return
-        if (key == null) showError("The display's helper isn't answering yet, so the family's things won't load. Go back and try again in a moment.")
+        if (key == null) showError("The display's helper isn't answering yet, so the household's things won't load. Go back and try again in a moment.")
         val w = appView(act, id, key, ui, calls,
             onError = { report(it, "The app hit an error") },
             onLoadFailed = { report(it, "The app didn't load"); main.postDelayed({ web?.reload() }, 3000) },

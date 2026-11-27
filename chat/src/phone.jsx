@@ -55,14 +55,14 @@ function Join({ onJoined, removed }) {
   return (
     <main className="join">
       <div className="brand">Opie</div>
-      {step === 'go' && <><h1>{person ? `${person}'s phone` : 'This phone'}</h1><p>The household's day, lists and chores here, and a note when the tablet has one{person ? ` for ${person}` : ''}.</p><button className="go" onClick={() => join()}>Join</button></>}
-      {step === 'asked' && <><h1>Waiting</h1><p>{hub ? "Say yes on the hub's settings page." : 'Say yes on the tablet.'}</p></>}
-      {step === 'refused' && <><h1>Not this time</h1><p>The tablet said no.</p></>}
+      {step === 'go' && <><h1>{person ? `${person}'s phone` : 'This phone'}</h1><p>The household's day, lists and chores here, and a note when the device has one{person ? ` for ${person}` : ''}.</p><button className="go" onClick={() => join()}>Join</button></>}
+      {step === 'asked' && <><h1>Waiting</h1><p>{hub ? "Say yes on the hub's settings page." : 'Say yes on the device.'}</p></>}
+      {step === 'refused' && <><h1>Not this time</h1><p>The device said no.</p></>}
       {step === 'joining' && <><h1>Joining</h1><p className="soft">A moment.</p></>}
-      {(step === 'none' || step === 'ended') && <><h1>{removed ? 'This was removed' : 'Type the code from the tablet'}</h1>
+      {(step === 'none' || step === 'ended') && <><h1>{removed ? 'This was removed' : 'Type the code from the device'}</h1>
         <input className="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" spellCheck="false" />
         <button className="go" disabled={code.replace(/[^0-9a-z]/gi, '').length !== 12} onClick={typed}>Join</button>
-        {step === 'ended' && <p className="soft">That code didn't work. Check it on the {hub ? "hub's settings page" : 'tablet'}.</p>}</>}
+        {step === 'ended' && <p className="soft">That code didn't work. Check it on the {hub ? "hub's settings page" : 'device'}.</p>}</>}
     </main>
   );
 }
@@ -290,7 +290,7 @@ function PushRow({ c, me }) {
       {state === 'on' && <span className="soft">Notes and reminders for {who} come to this phone.</span>}
       {state === 'denied' && <span className="soft">Notifications are off for this page in the phone's settings.</span>}
       {state === 'failed' && <><span className="soft">That didn't work.</span><button onClick={on}>Try again</button></>}
-      {state === 'cant' && <span className="soft">{CLOUD_RELAY ? 'To get notes here, add this page to the home screen (Share, Add to Home Screen) and open it from there.' : 'Notes on this phone come with the app version, once the tablet is reachable from away (Settings, Cloud).'}</span>}
+      {state === 'cant' && <span className="soft">{CLOUD_RELAY ? 'To get notes here, add this page to the home screen (Share, Add to Home Screen) and open it from there.' : 'Notes on this phone come with the app version, once the device is reachable from away (Settings, Cloud).'}</span>}
     </div>
   );
 }
@@ -485,7 +485,7 @@ function App() {
     : client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => { const n = { ...(get(STORE) || me), relay: r || undefined }; put(STORE, n); setMe(n); },
       tailnet: me.tailnet || null, onTailnet: (t) => { const n = { ...(get(STORE) || me), tailnet: t || undefined }; put(STORE, n); setMe(n); } })), [me?.id, me?.relay?.token, me?.tailnet]); // (the household's Tailscale: bridge/tailscale.js)
   if (CLOUD_RELAY && !me && invite) return <Join onJoined={(w) => { put(STORE, w); setMe(w); tellApp(w); }} />; // an invite, opened anywhere
-  if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">Opie</div><h1>Not linked to a home yet</h1><p>On the tablet: Settings, Screens, Add a screen, Someone's phone. Scan the code with this phone's camera.</p></main>;
+  if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">Opie</div><h1>Not linked to a home yet</h1><p>On the device: Settings, Screens, Add a screen, Someone's phone. Scan the code with this phone's camera.</p></main>;
   if (!c) return <Join removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;
   return <Phone me={me} c={c} onRemoved={() => { put(STORE, null); put(CACHE, null); put(QUEUE, null); setMe(null); setRemoved(true); }} />;
 }

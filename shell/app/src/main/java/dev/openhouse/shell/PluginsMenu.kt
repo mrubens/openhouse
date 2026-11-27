@@ -71,7 +71,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         Triple("YouTube Music", "com.google.android.apps.youtube.music", "Music"),
         Triple("Pocket Casts", "au.com.shiftyjelly.pocketcasts", "Podcasts"),
         Triple("Libby", "com.overdrive.mobile.android.libby", "Library audiobooks and ebooks"))
-    private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
+    private val noBridge = "The device's software isn't answering right now. Try again in a minute."
     private fun objs(a: JSONArray?) = a?.let { x -> (0 until x.length()).map { x.getJSONObject(it) } }.orEmpty()
     private fun strs(a: JSONArray?) = a?.let { x -> (0 until x.length()).map { x.getString(it) } }.orEmpty()
     private fun JSONObject.str(k: String) = optString(k).takeIf { has(k) && !isNull(k) && it.isNotEmpty() }
@@ -226,7 +226,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             val shown = list.filter { e -> val hay = (e.optString("title") + " " + e.optString("description")).lowercase(); words.all { hay.contains(it) } }
             for (e in shown) {
                 val here = e.optJSONObject("installed")
-                val detail = when { here == null -> e.optString("description"); e.optBoolean("update") -> "On this tablet · a newer version is out"; else -> "On this tablet" }
+                val detail = when { here == null -> e.optString("description"); e.optBoolean("update") -> "On this device · a newer version is out"; else -> "On this device" }
                 rows.addView(line(e.optString("title"), detail, pics[e.optString("name")]) { if (here != null) installedOne(here.optString("name")) else look(e.optString("name")) })
             }
             if (shown.isEmpty()) rows.addView(Calm.text(c, error ?: if (list.isEmpty()) "Opie's list is empty right now." else "Nothing called that.", 19f, 400, Calm.SOFT).apply { setPadding(Calm.px(c, 16), Calm.px(c, 16), 0, Calm.px(c, 16)) })
@@ -236,7 +236,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
                 rows.addView(Calm.eyebrow(c, "Music and books").apply { setPadding(Calm.px(c, 16), Calm.px(c, 22), 0, Calm.px(c, 6)) })
                 for ((name, pkg, about) in media) {
                     val here = AppStore.installed(pkg)
-                    rows.addView(line(name, if (here) "On this tablet" else about, null) {
+                    rows.addView(line(name, if (here) "On this device" else about, null) {
                         if (!here) addAndroid(pkg, name) else if (!KioskApps.openApp(pkg)) say(name, "It didn't open. Try it from Apps.")
                     })
                 }
@@ -295,7 +295,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
     /** An Android app from Google Play, through Aurora Store: the same steps (and the same card, with the PIN when
      *  it's on) as Opie's install_app. */
     private fun addAndroid(pkg: String, name: String) {
-        val acc = DeviceAccess.instance ?: return say(name, "Adding apps needs Opie's screen access, and it's off on this tablet. Turn it on in Settings, This tablet.")
+        val acc = DeviceAccess.instance ?: return say(name, "Adding apps needs Opie's screen access, and it's off on this device. Turn it on in Settings, Opie, Device control.")
         act.toast("Adding $name…")
         thread {
             val r = runCatching { AuroraInstall.installApp(acc, pkg, name) }.getOrNull()
@@ -303,7 +303,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             ui {
                 if (r?.optBoolean("declined") == true) Unit // Not now on the card: nothing more to say
                 else if (r == null || r.optBoolean("isError")) say("$name wasn't added", "It couldn't be added just now. Try again in a minute, or ask Opie to add it.")
-                else say("$name is on the tablet", "It's in Apps. Open it once to sign in; then Opie can play from it.")
+                else say("$name is on the device", "It's in Apps. Open it once to sign in; then Opie can play from it.")
             }
         }
     }

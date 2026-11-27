@@ -215,7 +215,7 @@ object CalendarLinks {
                 while (true) { val r = s.read(buf); if (r < 0) break; n += r; if (n > 8_000_000) throw Said("it's too big"); o.write(buf, 0, r) }; o.toByteArray() }
             return String(bytes, Charsets.UTF_8)
         }
-        throw Said("it kept sending the tablet somewhere else")
+        throw Said("it kept sending the device somewhere else")
     }
 
     /**

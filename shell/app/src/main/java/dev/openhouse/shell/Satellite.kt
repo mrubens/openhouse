@@ -41,11 +41,11 @@ internal object Satellite {
         val code = Calm.field(a, "XXXX-XXXX-XXXX", 30f).apply { inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS }
         val room = Calm.field(a, "Which room is it in? (Den)", 22f)
         val col = Calm.column(a, 14).apply {
-            addView(Calm.caption(a, "On the tablet you already have, open Settings, Linked devices, Add, then Another Opie tablet. Scan the code it shows, or type it here."))
+            addView(Calm.caption(a, "On the device you already have, open Settings, Devices, Add, then Another Opie device. Scan the code it shows, or type it here."))
             addView(code); addView(room)
-            addView(Calm.small(a, "This tablet then shows that household: its calendar, lists, chores, apps and Opie. What's on this tablet now is kept, put aside, and comes back if it leaves."))
+            addView(Calm.small(a, "This device then shows that household: its calendar, lists, chores, apps and Opie. What's on this device now is kept, put aside, and comes back if it leaves."))
         }
-        CalmDialog(a).setTitle("Add this tablet to your Opie").setView(col).setNegativeButton("Cancel", null)
+        CalmDialog(a).setTitle("Add this device to your Opie").setView(col).setNegativeButton("Cancel", null)
             .setNeutralButton("Scan the code") { _, _ -> scan(a) { text -> send(a, text, room.text.toString(), done) } }
             .setPositiveButton("Add") { _, _ -> send(a, code.text.toString(), room.text.toString(), done) }
             .show().also { a.immersive() }
@@ -53,18 +53,18 @@ internal object Satellite {
 
     /** The code (or the main tablet's whole link) to the bridge; the main tablet found on the Wi-Fi when only the code was typed. */
     private fun send(a: MainActivity, text: String, room: String, done: () -> Unit) = thread {
-        val name = room.trim().ifEmpty { "Tablet" }.let { if (it.endsWith("tablet", ignoreCase = true)) it else "$it tablet" }
+        val name = room.trim().ifEmpty { "Another device" }
         val linked = text.contains("/tablet#")
-        main.post { a.toast(if (linked) "Joining…" else "Looking for the main tablet…") }
+        main.post { a.toast(if (linked) "Joining…" else "Looking for the main device…") }
         val base = if (linked) null else find(a)
-        if (!linked && base == null) { main.post { say(a, "Couldn't find the main tablet", "Is it on and on this Wi-Fi? Keep its code showing, or scan the code instead.") }; return@thread }
+        if (!linked && base == null) { main.post { say(a, "Couldn't find the main device", "Is it on and on this Wi-Fi? Keep its code showing, or scan the code instead.") }; return@thread }
         val b = JSONObject().put("code", text.trim()).put("name", name).apply { if (base != null) put("base", base) }
         val r = BridgeClient.postAnswer(a.bridge + "/satellite/join", b.toString())
         val j = runCatching { JSONObject(r?.second ?: "") }.getOrNull()
         if (r == null || r.first != 200) { main.post { say(a, "That didn't work", j?.optString("error")?.takeIf { it.isNotEmpty() } ?: "The assistant is starting. Try again in a moment.") }; return@thread }
         Log.i(TAG, "joined the household at ${j?.optString("brain")}")
         Runtime.restart() // the bridge and the apps' server start again, as a satellite
-        main.post { a.toast("Added. This tablet shows your household in a moment."); done() }
+        main.post { a.toast("Added. This device shows your household in a moment."); done() }
         Thread.sleep(6000); refresh(a.bridge)
         main.post { dev.openhouse.ui.Openhouse.joinedHousehold(); dev.openhouse.ui.Openhouse.host.setting("reloadHomeFirst") }
     }
@@ -108,7 +108,7 @@ internal object Satellite {
         val preview = PreviewView(a).apply { scaleType = PreviewView.ScaleType.FILL_CENTER; implementationMode = PreviewView.ImplementationMode.COMPATIBLE }
         val col = Calm.column(a, 12).apply {
             addView(preview, LinearLayout.LayoutParams(-1, Calm.px(a, 420)))
-            addView(Calm.caption(a, "Hold this tablet's camera up to the code on the main tablet."))
+            addView(Calm.caption(a, "Hold this device's camera up to the code on the main device."))
         }
         var provider: ProcessCameraProvider? = null
         val work = Executors.newSingleThreadExecutor()
@@ -142,9 +142,9 @@ internal object Satellite {
         val s = refresh(a.bridge) ?: return@thread
         main.post {
             val where = s.optString("brain").removePrefix("http://").removePrefix("https://")
-            val msg = (if (s.optBoolean("removed")) "The main tablet removed this one." else if (s.optBoolean("reachable", true)) "Part of the household on the main tablet ($where)." else "Can't reach the main tablet ($where) just now.") +
-                " Its calendar, lists, chores, apps and Opie are the main tablet's; this tablet keeps none of them."
-            CalmDialog(a).setTitle(s.optString("name").ifEmpty { "This tablet" }).setMessage(msg)
+            val msg = (if (s.optBoolean("removed")) "The main device removed this one." else if (s.optBoolean("reachable", true)) "Part of the household on the main device ($where)." else "Can't reach the main device ($where) just now.") +
+                " Its calendar, lists, chores, apps and Opie are the main device's; this device keeps none of them."
+            CalmDialog(a).setTitle(s.optString("name").ifEmpty { "This device" }).setMessage(msg)
                 .setNeutralButton("Leave the household") { _, _ -> if (!DeviceServer.personOnly("Leaving the household")) lock.withPinSet(back = {}) { leave(a) } }
                 .setPositiveButton("Close", null).show().also { a.immersive() }
         }
@@ -152,14 +152,14 @@ internal object Satellite {
 
     private fun leave(a: MainActivity) {
         CalmDialog(a).setTitle("Leave the household?")
-            .setMessage("This tablet stops showing the household. What it had before it joined comes back. To join again, show a new code on the main tablet.")
+            .setMessage("This device stops showing the household. What it had before it joined comes back. To join again, show a new code on the main device.")
             .setPositiveButton("Leave") { _, _ ->
                 thread {
                     val r = BridgeClient.postAnswer(a.bridge + "/satellite/leave", "{}")
                     if (r?.first != 200) { main.post { say(a, "That didn't work", "Try again in a moment.") }; return@thread }
                     Runtime.restart()
                     state = null
-                    main.post { a.toast("This tablet is its own again") }
+                    main.post { a.toast("This device is its own again") }
                     Thread.sleep(6000)
                     main.post { dev.openhouse.ui.Openhouse.host.setting("reloadHomeFirst") }
                 }

@@ -32,14 +32,14 @@ const KINDS = { game: 'game', tab: 'tab' };
 // app.json fields that say what an app may do: a change made here leaves them as they were (only a card grants them).
 const GUARDED = ['uses', 'reaches', 'background', 'screens', 'tablet', 'actions', 'checks', 'today'];
 
-const RULES = `You make and change the household's apps on their kitchen tablet, one app per request, for the person who asked. Work in small steps with the tools; nobody watches the tools, so say nothing until you're done.
+const RULES = `You make and change the household's apps on their Opie, one app per request, for the person who asked. Work in small steps with the tools; nobody watches the tools, so say nothing until you're done.
 1. Call start first: a new game or tab (kind "game" or "tab", a short id, its name), or kind "change" with the id of the app to change. Make what was asked as it was asked; when it's unclear, the simplest thing that does it.
 2. A new app starts from a template that already loads: read its files, then write it: for a tab app.css first, then main.js; for a game main.js (draw icon.svg too, square, simple shapes). The family sees "Making <name>…" until check_build first passes. index.html stays as it is, and so does a game's game.js (the engine: read the top of it, and use what it offers rather than writing your own loop, input or collisions).
 3. For a change: read the app's files first, then change only what was asked, with edit_file where you can. Keep everything else working as it was.
 4. The app's own things (what someone typed, ticked or scored) are saved with the kit's store (store.get / store.set), never only in memory. A tab follows "How a tab should look" in the guide, including "Not the generic look": no grid of cards with big numbers and a pill button; pick the form that fits (a timeline for a plan, a strip of days for a streak, rows for a list), fill it with the household's real names, dates and tasks, fit its box with nothing cut off, and work on a phone. A game can be bold, with a drawn world and big touch targets.
 5. Write in parts: at most about 200 lines (9,000 characters) in one write_file; write the first part, then add_to_file the next ones.
 6. check_build after writing, and fix what it finds${'${LOOK}'}. If what you see is a grid of boxes, rework it. Then done, with one plain line saying what the app is: its name, what it shows or does, and who it's for ("Reading Streak: a shelf for Maya and Leo with the days they read"). Whoever keeps it may read it, so it describes the app, never a fix or how you made it.
-7. To read something on the web (a public API, a feed), ask for it: put its exact host in app.json "reaches" (["api.example.com"], at most ${MAX_REACH}, no "*."), and read it with the kit's web.get(url) / web.json(url) (https GETs only, through the tablet). Whoever keeps the app sees the hosts on its card first, and until then it can't reach them; ask only for what the app needs, and make it still work, saying so plainly, when a site can't be reached.
+7. To read something on the web (a public API, a feed), ask for it: put its exact host in app.json "reaches" (["api.example.com"], at most ${MAX_REACH}, no "*."), and read it with the kit's web.get(url) / web.json(url) (https GETs only, through the device). Whoever keeps the app sees the hosts on its card first, and until then it can't reach them; ask only for what the app needs, and make it still work, saying so plainly, when a site can't be reached.
 Never write outside the app, never use alert/confirm/prompt, never load scripts, styles or pictures from the internet (no <script src="https://...">, no fetch to other sites).`;
 
 /**
@@ -66,8 +66,8 @@ export function rails(deps) {
     { name: 'write_file', description: 'Write a whole file of the app you started ("apps/<id>/main.js"). Flat: no folders.', parameters: { type: 'object', required: ['path', 'content'], properties: { path: { type: 'string' }, content: { type: 'string' } } } },
     { name: 'add_to_file', description: 'Add to the end of a file of the app you started: the next part of a file too long to write in one step.', parameters: { type: 'object', required: ['path', 'content'], properties: { path: { type: 'string' }, content: { type: 'string' } } } },
     { name: 'edit_file', description: 'Change part of a file of the app you started: old is text in it now, exactly once; new replaces it.', parameters: { type: 'object', required: ['path', 'old', 'new'], properties: { path: { type: 'string' }, old: { type: 'string' }, new: { type: 'string' } } } },
-    { name: 'check_build', description: 'Check the app: its scripts parse, what index.html loads is there, and what the page threw on the tablet.', parameters: { type: 'object', properties: {} } },
-    ...(canLook ? [{ name: 'look_at_tablet', description: 'A picture of the tablet\'s screen now, with the app on it: see what you made the way the family will.', parameters: { type: 'object', properties: {} } }] : []),
+    { name: 'check_build', description: 'Check the app: its scripts parse, what index.html loads is there, and what the page threw on the device.', parameters: { type: 'object', properties: {} } },
+    ...(canLook ? [{ name: 'look_at_tablet', description: 'A picture of the device\'s screen now, with the app on it: see what you made the way the family will.', parameters: { type: 'object', properties: {} } }] : []),
     { name: 'done', description: 'Finish. summary: one plain line saying what the app is, for whoever keeps it: its name, what it shows or does, who it\'s for ("Reading Streak: a shelf for Maya and Leo with the days they read"). For a change, the app as it is now ("Chores: bigger text, each person\'s chores in a row"). About the app, never about a fix or how it was made.',
       parameters: { type: 'object', required: ['summary'], properties: { summary: { type: 'string', description: 'What the app is, in one plain line (not what was fixed)' } } } },
   ].map((t) => ({ type: 'function', ...t }));
@@ -188,7 +188,7 @@ export function rails(deps) {
       .map((f) => `---- ${f}\n${fs.readFileSync(path.join(dir, f), 'utf8').slice(0, 60e3)}`).join('\n\n');
     const tools = [{ type: 'function', name: 'report', description: 'Your findings: each a concrete bug, in a line, with where it is. An empty list when there are none.',
       parameters: { type: 'object', required: ['bugs'], properties: { bugs: { type: 'array', items: { type: 'string' } } } } }];
-    const instructions = `You check a small web app made for a household's kitchen tablet, before it goes in. Report only bugs that would stop it doing what was asked or break it: state that should be kept but isn't saved with the kit's store or isn't loaded back; something a person can't do on a touch screen (keys only, targets too small to tap); a game that can't be won, lost or restarted, or whose loop stops; wrong date or number logic; errors it will throw; for a change to an app, anything it broke there. Not style or taste. At most 5, the worst first. Call report once.${s.fresh && s.kind === 'game' ? ' The game runs on game.js, a tested engine (not shown): trust it.' : ''}`;
+    const instructions = `You check a small web app made for a household's Opie, before it goes in. Report only bugs that would stop it doing what was asked or break it: state that should be kept but isn't saved with the kit's store or isn't loaded back; something a person can't do on a touch screen (keys only, targets too small to tap); a game that can't be won, lost or restarted, or whose loop stops; wrong date or number logic; errors it will throw; for a change to an app, anything it broke there. Not style or taste. At most 5, the worst first. Call report once.${s.fresh && s.kind === 'game' ? ' The game runs on game.js, a tested engine (not shown): trust it.' : ''}`;
     const r = await review({ instructions, input: [{ role: 'user', content: `What was asked: "${String(asked || '').slice(0, 500)}"\n\nThe app's files:\n${files}` }], tools });
     const u = r.usage || {};
     s.usage.input_tokens += u.input_tokens || 0; s.usage.output_tokens += u.output_tokens || 0; s.usage.cached_tokens += u.cached_tokens || 0;
@@ -220,7 +220,7 @@ export function rails(deps) {
           if (!limited(app)) {
             const draft = `${app.slice(0, 40)}--draft`;
             if (fs.existsSync(path.join(appsDir, draft))) return err(`A change to ${app} is already waiting to be kept or not: that one first.`);
-            if (!register(draft)) return err("Apps can't be changed on the tablet right now.");
+            if (!register(draft)) return err("Apps can't be changed on the device right now.");
             fs.cpSync(path.join(appsDir, app), path.join(appsDir, draft), { recursive: true, filter: (f) => !path.basename(f).startsWith('.') || f === path.join(appsDir, app) });
             s.draft = s.dir = draft;
           }
@@ -232,7 +232,7 @@ export function rails(deps) {
         const tpl = path.join(HERE, 'templates', KINDS[a.kind]);
         // Limited like an app from a link before its first file is written: nothing of the family's, no websites, its
         // own origin. Keeping it grants what its card says (madeHere), a no takes the entry back with the files.
-        if (!register(app)) return err("Apps can't be made on the tablet right now.");
+        if (!register(app)) return err("Apps can't be made on the device right now.");
         fs.mkdirSync(path.join(appsDir, app), { recursive: true });
         const nm = String(a.name || app.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase())).replace(/[\p{Cc}\p{Cf}"\\<>`]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 40) || app;
         // The name as each kind of file needs it: in the template's JS it's in a "…" string, in its HTML text escaped.
@@ -309,7 +309,7 @@ export function rails(deps) {
         making(null); // it loads: the family sees it from here
         const r = await checkBuild(s.dir).catch(() => ({ ok: true }));
         const odd = slips(s.dir);
-        return r.ok ? { text: `It builds and loads without errors.${odd.length ? `\nBut look at these:\n${odd.join('\n')}` : ''}` } : err(`Errors on the tablet:\n${r.errors}${odd.length ? `\n${odd.join('\n')}` : ''}`);
+        return r.ok ? { text: `It builds and loads without errors.${odd.length ? `\nBut look at these:\n${odd.join('\n')}` : ''}` } : err(`Errors on the device:\n${r.errors}${odd.length ? `\n${odd.join('\n')}` : ''}`);
       }
       case 'look_at_tablet': {
         const r = await look().catch(() => null);

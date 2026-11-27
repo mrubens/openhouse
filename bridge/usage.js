@@ -55,7 +55,7 @@ export function monthWords({ liveSecs = 0, questions = 0, apps = 0, cents = 0 },
  *  month's limit was reached. null for anything else. */
 export function overWords(e) {
   if (e?.over === 'credit') return "Opie's credit has run out. Someone can add more on the account page.";
-  if (e?.code === 'http429') return "I've used this month's allowance. Someone can see it on the family's account page.";
+  if (e?.code === 'http429') return "I've used this month's allowance. Someone can see it on the household's account page.";
   return null;
 }
 

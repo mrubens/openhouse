@@ -19,7 +19,7 @@ internal object HouseRules {
     private fun show(act: MainActivity, back: () -> Unit) = thread {
         val now = runCatching { JSONObject(BridgeClient.getText("${act.bridge}/household", 3000, 8000)) }.getOrNull()
         act.runOnUiThread {
-            if (now == null) return@runOnUiThread act.toast("The tablet's software isn't answering right now")
+            if (now == null) return@runOnUiThread act.toast("The device's software isn't answering right now")
             val box = Calm.field(act, "Adults use this too; the news is fine to talk about.", 18f).apply {
                 setText(now.optString("rules")); isSingleLine = false; minLines = 4; maxLines = 10
                 inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES

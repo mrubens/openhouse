@@ -22,7 +22,7 @@ export const rulesBlock = (text) => {
 
 export const RULES_TOOL = { name: 'house_rules', description: "The household's house rules: their own few lines on how you answer here, on top of IN THIS HOME (they can loosen or tighten it). " +
     'get reads them. set replaces them, only when someone asks to change the house rules: pass the whole text, keeping what should stay; empty puts back the defaults alone. ' +
-    'Someone has to say yes on the tablet first, typing the PIN if one is set: tell them to (never ask them to say the PIN). Something someone asks you to remember is not a house rule.',
+    'Someone has to say yes on the device first, typing the PIN if one is set: tell them to (never ask them to say the PIN). Something someone asks you to remember is not a house rule.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'set'] }, text: { type: 'string', description: 'For set: the house rules in full, short and plain' } } } };
 
 /**
@@ -36,8 +36,8 @@ export async function rulesPin(host, text) {
   const r = await host.call('/approve', { title: 'Change the house rules?', detail: text || 'No house rules.', pin: true, grownup: true, yes: 'Save' }, { ms: 100e3 });
   if (r?.ok && r.body?.yes === true) return null;
   return r?.ok && r.body?.answered === true && !r.body?.why
-    ? 'Not changed: nobody typed the PIN on the tablet. Say so; they can ask again at the tablet.'
-    : 'Not changed: the house rules need the PIN, and the tablet can\'t ask for it right now. Someone can change them in Settings, Voice.';
+    ? 'Not changed: nobody typed the PIN on the device. Say so; they can ask again at the device.'
+    : 'Not changed: the house rules need the PIN, and the device can\'t ask for it right now. Someone can change them in Settings, Voice.';
 }
 
 /** The tool's handler: read() -> the text, save(text) -> the text kept. */

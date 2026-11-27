@@ -6,8 +6,8 @@ import { makeExample } from './home.jsx';
 /** On a hub there's no tablet: its words and what it can't do yet (signing in to calendars, photos from this device). */
 let HUB = false;
 export const onTheHub = () => { HUB = true; };
-const THE = () => (HUB ? 'the hub' : 'the tablet');
-const The = () => (HUB ? 'The hub' : 'The tablet');
+const THE = () => (HUB ? 'the hub' : 'the device');
+const The = () => (HUB ? 'The hub' : 'The device');
 const mine = (me, who) => String(who || '').toLowerCase() === String(me?.person || '').toLowerCase();
 /** The tablet's next setup step after one sent from here (Setup.kt STEPS). ai and voice: a tablet from before they
  *  left the setup (this page may be the cloud's copy, newer than the tablet), moved on past them from here. */
@@ -53,10 +53,10 @@ export function SetupFlow({ me, c, h, onDone }) {
         <h2>Photos from {computer ? 'this computer' : 'this phone'}</h2>
         {tablet.photos
           ? <a className="go act" href={tablet.photos} target="_blank" rel="noopener noreferrer">Choose photos</a>
-          : <p className="soft">First tap Let phones send photos on the tablet.</p>}</>}
+          : <p className="soft">First tap Let phones send photos on the device.</p>}</>}
       </>}
       {step === 'pin' && <PinHere c={c} />}
-      {step === 'android' && <><h1>Last, at the tablet</h1><p>Two Android settings only the tablet can change. Tap Done there when you’re finished.</p></>}
+      {step === 'android' && <><h1>Last, at the device</h1><p>Two Android settings only the device can change. Tap Done there when you’re finished.</p></>}
       {step === 'people' && <SetupPeople c={c} />}
       {step === 'place' && <SetupPlace c={c} />}
       {!['calendar', 'photos', 'people', 'place', 'pin', 'android'].includes(step) && <>
@@ -122,12 +122,12 @@ async function googleFrom(c, body, set, said) {
 export function SignIns({ c, family = [], linked: given }) {
   const known = useLinked(c), linked = given ?? known;
   const [g, setG] = useState(null), [ic, setIc] = useState(false), [f, setF] = useState({ user: '', pass: '', who: '' }), [st, setSt] = useState(null);
-  const google = () => googleFrom(c, {}, setG, HUB ? 'Sign in to Google in the new tab.' : 'Sign in to Google in the new tab, then choose the calendars on the tablet.');
+  const google = () => googleFrom(c, {}, setG, HUB ? 'Sign in to Google in the new tab.' : 'Sign in to Google in the new tab, then choose the calendars on the device.');
   async function icloud() {
     setSt('sending');
     try {
       const r = await c.json('POST', '/setup/icloud', f);
-      if (r.status === 200) { setF({ user: '', pass: '', who: '' }); setIc(false); setSt(HUB ? 'Signed in.' : 'Signed in. Choose the calendars on the tablet.'); }
+      if (r.status === 200) { setF({ user: '', pass: '', who: '' }); setIc(false); setSt(HUB ? 'Signed in.' : 'Signed in. Choose the calendars on the device.'); }
       else setSt(r.json?.error || 'That didn’t work.');
     } catch { setSt(`${The()} isn’t in touch right now.`); }
   }
@@ -293,7 +293,7 @@ function PinHere({ c }) {
   }
   const row = (f) => <div className="setuprow"><span className="grow" /><button className="go small" disabled={st === '…'} onClick={f}>Next</button></div>;
   if (st === 'done') return <><h1>PIN set</h1>
-    <p>If it’s forgotten, this code is the only way back. Keep it somewhere safe, away from the tablet.</p><p className="code">{code}</p>
+    <p>If it’s forgotten, this code is the only way back. Keep it somewhere safe, away from the device.</p><p className="code">{code}</p>
     {row(go)}</>;
   return <>
     <h1>Choose a PIN</h1>
@@ -343,10 +343,10 @@ function Invite({ c, family }) {
   }
   const people = family.filter((f) => (f.kind || 'adult') === 'adult'); // phones are for adults
   return <>
-    <h1>Invite your family</h1>
+    <h1>Invite your household</h1>
     <p>Each one gets their own link, for their phone.</p>
     {people.length ? people.map((f) => <div key={f.name} className="inviterow"><span>{f.name}</span><button className="chip" onClick={() => invite(f)}>{sent[f.name] ? 'Send again' : 'Send'}</button></div>)
-      : <p className="soft">{HUB ? 'Nobody else yet.' : 'Nobody else yet. Add them on the tablet, in Settings, Family.'}</p>}
+      : <p className="soft">{HUB ? 'Nobody else yet.' : 'Nobody else yet. Add them on the device, in Settings, Household.'}</p>}
     {link && <><p className="soft">Send {link.who} this link:</p><input readOnly value={link.url} onFocus={(e) => e.target.select()} /></>}
   </>;
 }
@@ -361,7 +361,7 @@ function rotaExample(family = []) {
 function Apps({ computer, family }) {
   return <>
     <h1>Make your own apps</h1>
-    <p>Ask Opie for one {HUB ? 'on a phone or screen' : 'at the tablet'}, out loud or typed: “{makeExample(family)}”, or “{rotaExample(family)}”. Opie makes it there, and you try it before it goes in Apps.</p>
+    <p>Ask Opie for one {HUB ? 'on a phone or screen' : 'at the device'}, out loud or typed: “{makeExample(family)}”, or “{rotaExample(family)}”. Opie makes it there, and you try it before it goes in Apps.</p>
     <p className="soft">For bigger work, connect Claude or ChatGPT{computer ? ' on this computer' : ' on a computer'}: add the connector cloud.opie.house/mcp, then ask it for a game, a tracker or a new tab.</p>
   </>;
 }

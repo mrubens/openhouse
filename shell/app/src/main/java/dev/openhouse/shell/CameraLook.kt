@@ -55,7 +55,7 @@ object CameraLook {
         synchronized(this) { if (showing) return Result.No("The camera is already asking."); showing = true }
         try {
             val a = MainActivity.live ?: return Result.No("The display isn't showing.")
-            if (!a.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) return Result.No("This tablet has no camera.")
+            if (!a.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) return Result.No("This device has no camera.")
             val got = LinkedBlockingQueue<Result>()
             val main = Handler(Looper.getMainLooper())
             main.post { runCatching { KioskApps.goHome(); dev.openhouse.ui.Openhouse.touch() } } // Opie in front, awake
@@ -130,7 +130,7 @@ object CameraLook {
         fun allow() {
             if (finished || DeviceServer.personOnly("Turning on the camera")) return
             h.removeCallbacksAndMessages(null)
-            if (!granted(a)) { finish(Result.No("The tablet hasn't let Opie use the camera.")); return }
+            if (!granted(a)) { finish(Result.No("The device hasn't let Opie use the camera.")); return }
             val c = card()
             val top = K.row(a).apply { gravity = Gravity.CENTER_VERTICAL }
             top.addView(K.text(a, "Camera on", K.LABEL, 600, K.INK), LinearLayout.LayoutParams(0, -2, 1f))

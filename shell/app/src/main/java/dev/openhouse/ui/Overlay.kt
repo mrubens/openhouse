@@ -126,7 +126,7 @@ fun ShellOverlay() {
                 LaunchedEffect(Unit) { while (true) { brainAway = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { dev.openhouse.shell.Satellite.refresh(o.bridgeUrl)?.let { it.optBoolean("satellite") && (!it.optBoolean("reachable", true) || it.optBoolean("removed")) } == true }; kotlinx.coroutines.delay(10_000) } }
                 if (brainAway && o.net == Net.Online && o.typing == null && mine == null) {
                     val bubble = AssistantCardShape
-                    Text(if (dev.openhouse.shell.Satellite.state?.optBoolean("removed") == true) "The main tablet removed this one" else "Can't reach the main tablet. Showing what it last showed.",
+                    Text(if (dev.openhouse.shell.Satellite.state?.optBoolean("removed") == true) "The main device removed this one" else "Can't reach the main device. Showing what it last showed.",
                         style = quietText(19, FontWeight.Medium, PaperLook.ink),
                         modifier = Modifier.shadow(18.u, bubble).clip(bubble).background(Color.White).padding(horizontal = 22.u, vertical = 14.u))
                 }

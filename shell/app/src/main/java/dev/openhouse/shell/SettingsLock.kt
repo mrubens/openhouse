@@ -128,7 +128,7 @@ internal class SettingsLock(private val act: MainActivity) {
      *  and the waiting app fixes and sends them to the service (bridge/cloud.js sendReport). */
     private fun report() {
         CalmDialog(act).setTitle("Send a report?")
-            .setMessage("It sends this tablet's recent logs to us, the people who make Opie, so we can see what went wrong. They can include things said to Opie and your household's names. We keep them 30 days.")
+            .setMessage("It sends this device's recent logs to us, the people who make Opie, so we can see what went wrong. They can include things said to Opie and your household's names. We keep them 30 days.")
             .setPositiveButton("Send") { _, _ ->
                 thread {
                     val log = runCatching { java.lang.Runtime.getRuntime().exec(arrayOf("logcat", "-d", "-t", "5000")).inputStream.bufferedReader().readText() }.getOrDefault("")
@@ -136,8 +136,8 @@ internal class SettingsLock(private val act: MainActivity) {
                     act.runOnUiThread {
                         when {
                             code == 200 -> act.toast("Sent. Thank you")
-                            r?.optString("code") == "unlinked" -> CalmDialog(act).setTitle("Not linked").setMessage("Reports go through your Opie account: link this tablet first, in Settings → Account.").setPositiveButton("OK", null).show()
-                            else -> CalmDialog(act).setTitle("Couldn't send it").setMessage(r?.optString("error")?.takeIf { it.isNotBlank() } ?: "The tablet didn't answer. Try again in a minute.").setPositiveButton("OK", null).show()
+                            r?.optString("code") == "unlinked" -> CalmDialog(act).setTitle("Not linked").setMessage("Reports go through your Opie account: link this device first, in Settings → Account.").setPositiveButton("OK", null).show()
+                            else -> CalmDialog(act).setTitle("Couldn't send it").setMessage(r?.optString("error")?.takeIf { it.isNotBlank() } ?: "The device didn't answer. Try again in a minute.").setPositiveButton("OK", null).show()
                         }
                     }
                 }
@@ -149,7 +149,7 @@ internal class SettingsLock(private val act: MainActivity) {
     private fun childLimit() {
         CalmDialog(act).setTitle("Android stopped Opie's software")
             .setMessage("Android limits how much an app may run in the background, and it stopped part of Opie. Opie started it again, but it can happen again. To switch the limit off, once:\n\n" +
-                "1. In Android's settings, open About tablet (on a Samsung, then Software information) and tap Build number seven times.\n" +
+                "1. In Android's settings, open About tablet or About phone (on a Samsung, then Software information) and tap Build number seven times.\n" +
                 "2. Go back, open Developer options, and switch on Disable child process restrictions.\n" +
                 "3. Press Home to come back.")
             .setPositiveButton("Open Android's settings") { _, _ -> withPinSet { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) } }
@@ -157,8 +157,8 @@ internal class SettingsLock(private val act: MainActivity) {
     }
 
     private fun erase() {
-        CalmDialog(act).setTitle("Erase this tablet?")
-            .setMessage("Everything on it goes: the family, calendars, lists, photos and apps. It's unlinked from the account, whose backups stay there. This can't be undone.")
+        CalmDialog(act).setTitle("Erase this device?")
+            .setMessage("Everything on it goes: the household, calendars, lists, photos and apps. It's unlinked from the account, whose backups stay there. This can't be undone.")
             .setPositiveButton("Erase") { _, _ -> eraseNow(act) }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
     }
 
@@ -182,7 +182,7 @@ internal class SettingsLock(private val act: MainActivity) {
             // meant for it, docs/settings.md), so this says so: a warning, not a wall, as nothing at the tablet tells an
             // adult from anyone else.
             CalmDialog(act).setTitle("Choose a PIN")
-                .setMessage("Whoever chooses this PIN decides who can change Settings and approve apps, so it's for an adult of the household.\n\nThis tablet isn't linked to an Opie account, so a forgotten PIN can only be reset with the recovery code shown next. Keep it somewhere safe, away from the tablet.")
+                .setMessage("Whoever chooses this PIN decides who can change Settings and approve apps, so it's for an adult of the household.\n\nThis device isn't linked to an Opie account, so a forgotten PIN can only be reset with the recovery code shown next. Keep it somewhere safe, away from the device.")
                 .setPositiveButton("Continue") { _, _ -> PinPrompt.choose(act, act, then = then, back = back) }
                 .setNegativeButton("Link it first") { _, _ -> CloudMenu(act).show() }.show()
             act.immersive()
@@ -331,7 +331,7 @@ internal class SettingsLock(private val act: MainActivity) {
     private fun memory(): Thread = thread {
         val j = get("/memory")
         act.runOnUiThread {
-            if (j == null) { CalmDialog(act).setTitle("What Opie remembers").setMessage("The tablet's software isn't answering right now.").setPositiveButton("Close", null).show(); return@runOnUiThread }
+            if (j == null) { CalmDialog(act).setTitle("What Opie remembers").setMessage("The device's software isn't answering right now.").setPositiveButton("Close", null).show(); return@runOnUiThread }
             val things = j.optJSONArray("remembered")?.let { a -> (0 until a.length()).map { a.optString(it) } }.orEmpty().filter { it.isNotBlank() }
             val days = j.optJSONArray("days")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
             val items = mutableListOf<Pair<CalmDialog.Row, JSONObject?>>()
@@ -402,10 +402,10 @@ internal class SettingsLock(private val act: MainActivity) {
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
         ) + (if (Satellite.on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            CalmDialog.Row("Part of another tablet's household") to { Satellite.menu(act, this) },
+            CalmDialog.Row("Part of another device's household") to { Satellite.menu(act, this) },
         ) else listOf<Pair<CalmDialog.Row, () -> Unit>>(
             // Another Opie tablet's household, for a second room (docs/multi-tablet.md): that tablet shows the code.
-            CalmDialog.Row("Add this tablet to another Opie") to person("Add this tablet to another Opie") { withPinSet { Satellite.join(act) } },
+            CalmDialog.Row("Add this device to another Opie") to person("Add this device to another Opie") { withPinSet { Satellite.join(act) } },
         )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Send a report") to person("Send a report") { report() },
         ) + (if (!Runtime.childLimitHit(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
@@ -428,7 +428,7 @@ internal class SettingsLock(private val act: MainActivity) {
                     .setPositiveButton("Leave") { _, _ -> act.leaveKioskForGood() }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
             } },
             // Kiosk mode blocks Android's own factory reset, so this is the way to hand a tablet on (docs/beta.md).
-            CalmDialog.Row("Erase this tablet") to person("Erase this tablet") { withPinSet { erase() } },
+            CalmDialog.Row("Erase this device") to person("Erase this device") { withPinSet { erase() } },
         )
         CalmDialog(act).setTitle("Advanced").setSettingsLook().setRows(items.map { it.first }) { _, i -> items[i].second() }
             .setNegativeButton("Back", null).show()

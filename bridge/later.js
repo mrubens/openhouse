@@ -49,7 +49,7 @@ export function parseWhen(when, inMinutes, now) {
 
 export const LATER_TOOL = { name: 'later', description: 'Say or do something at a later time, once or repeating: "remind Maya at 4 to practice piano, out loud", ' +
     '"in 20 minutes ask if the oven\'s off", "check at 5 whether the package came and tell me", "every weekday at 7:30 tell the kids to get their shoes on". ' +
-    'kind "say": then the tablet says `what` aloud, word for word, and shows it on Home. kind "do": then you do `what` with your tools (look something up, check the calendar, the weather, a device) and say what you found. ' +
+    'kind "say": then the device says `what` aloud, word for word, and shows it on Home. kind "do": then you do `what` with your tools (look something up, check the calendar, the weather, a device) and say what you found. ' +
     'Give `when` (a local time) or `in_minutes`. Give `repeat` only when they asked for it to repeat. For a reminder before an event on the calendar, use calendar_event\'s remind instead; for a countdown that rings, the timer.',
   inputSchema: { type: 'object', required: ['kind', 'what'], properties: {
     kind: { type: 'string', enum: ['say', 'do'] },
@@ -66,7 +66,7 @@ export const LIST_TOOL = { name: 'later_list', description: 'What is set for lat
 
 // A "do" follow-up, run by the text model in the background with the household's tools (heartbeat-review.js runReview).
 const DO_RULES = 'Earlier, someone in the household asked you to do something at this time, and now it is that time. Nobody is talking to you right now. ' +
-  'Do it with your tools, as they asked. Then reply with what to tell them, on one line: one or two short plain sentences, said aloud on the tablet and shown on its screen, ' +
+  'Do it with your tools, as they asked. Then reply with what to tell them, on one line: one or two short plain sentences, said aloud on the device and shown on its screen, ' +
   'like "The package came at 2:10: it\'s on the porch." Say what you found, or plainly that you couldn\'t find out. No emoji, no lists.';
 
 /**

@@ -152,7 +152,7 @@ object PhotoShare {
                     return@post
                 }
                 val url = link()
-                if (url == null) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return@post }
+                if (url == null) { CalmDialog(a).setTitle("Connect the device to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return@post }
                 val anywhere = !url.startsWith("http://") || url.startsWith("http://localhost") || url.startsWith("http://10.0.2.2")
                 val qr = ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }
                 val line = if (anywhere) "Scan with each phone, then add the page to its home screen."

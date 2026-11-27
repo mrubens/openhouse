@@ -68,10 +68,10 @@ object DeviceServer {
         return (0 until n.childCount).any { i -> n.getChild(i)?.let { secretIn(it, depth + 1) } == true }
     }
 
-    private const val PRIVATE = "The tablet is asking for the PIN, and only a person types it: Opie never enters it, hears it or gets round it. " +
-        "Tell them to type the PIN on the tablet (on the tablet itself, when they're talking from a phone), then look_at_screen: it waits for them, and you carry on from there."
+    private const val PRIVATE = "The device is asking for the PIN, and only a person types it: Opie never enters it, hears it or gets round it. " +
+        "Tell them to type the PIN on the device (on the device itself, when they're talking from a phone), then look_at_screen: it waits for them, and you carry on from there."
     /** What Opie's tap or typing just opened is the PIN pad (a locked Settings row, say): not a refusal, the person's turn. */
-    private const val PIN_NOW = "\n\nThe tablet is asking for the PIN now. Tell them to type it on the tablet (never to you), then look_at_screen: it waits for them."
+    private const val PIN_NOW = "\n\nThe device is asking for the PIN now. Tell them to type it on the device (never to you), then look_at_screen: it waits for them."
     /** A PIN pad is up (in Opie or one of its apps): nothing Opie does lands while it is. Everything else a person
      *  can tap in Opie, Settings too, Opie can (Settings' rows ask for the PIN themselves when the lock is on). */
     @Suppress("UNUSED_PARAMETER")
@@ -344,11 +344,11 @@ object DeviceServer {
             // address back, for the phone to open), and an iCloud sign-in typed there; the calendars are chosen here.
             "/setup/google" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
-                val cloud = b.optString("cloud").takeIf { it.startsWith("https://") || it.startsWith("http://10.0.2.2") } ?: return 409 to """{"error":"Link the tablet to your Opie account first."}"""
+                val cloud = b.optString("cloud").takeIf { it.startsWith("https://") || it.startsWith("http://10.0.2.2") } ?: return 409 to """{"error":"Link the device to your Opie account first."}"""
                 val got = java.util.concurrent.LinkedBlockingQueue<String>()
                 handler.post { if (b.optString("kind") == "photos") GooglePhotos.showFor(a, a::immersive, cloud) { got.offer(it ?: "") } else CalendarAccounts.addGoogle(a, cloud, a::immersive) { got.offer(it ?: "") } }
                 val url = got.poll(15, java.util.concurrent.TimeUnit.SECONDS)
-                if (url.isNullOrEmpty()) 409 to """{"error":"The tablet isn't on Wi-Fi."}""" else 200 to JSONObject().put("url", url).toString()
+                if (url.isNullOrEmpty()) 409 to """{"error":"The device isn't on Wi-Fi."}""" else 200 to JSONObject().put("url", url).toString()
             }
             "/setup/icloud" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
@@ -374,7 +374,7 @@ object DeviceServer {
                 val got = java.util.concurrent.LinkedBlockingQueue<String>()
                 handler.post { OwnKey.offer(a, b.optString("key")) { got.offer(it ?: "") } }
                 val why = got.poll(100, java.util.concurrent.TimeUnit.SECONDS)
-                when { why == null -> 200 to JSONObject().put("added", false).put("error", "Nobody answered on the tablet.").toString()
+                when { why == null -> 200 to JSONObject().put("added", false).put("error", "Nobody answered on the device.").toString()
                     why.isEmpty() -> 200 to JSONObject().put("added", true).toString()
                     else -> 400 to JSONObject().put("added", false).put("error", why).toString() }
             }
@@ -386,7 +386,7 @@ object DeviceServer {
                 val got = java.util.concurrent.LinkedBlockingQueue<String>()
                 handler.post { OwnStorage.offer(a, b) { got.offer(it ?: "") } }
                 val why = got.poll(120, java.util.concurrent.TimeUnit.SECONDS)
-                when { why == null -> 400 to JSONObject().put("error", "Nobody answered on the tablet.").toString()
+                when { why == null -> 400 to JSONObject().put("error", "Nobody answered on the device.").toString()
                     why.isEmpty() -> 200 to JSONObject().put("ok", true).toString()
                     else -> 400 to JSONObject().put("error", why).toString() }
             }
@@ -463,12 +463,12 @@ object DeviceServer {
             listOf("text")),
         tool("scroll", "Scroll an element (or the screen) up, down, left or right.",
             JSONObject().put("id", p("integer", "Element number")).put("direction", p("string", "up, down, left or right")), listOf("direction")),
-        tool("key", "Press back, or go home (back to the family display: do this when you are finished).",
+        tool("key", "Press back, or go home (back to Opie's home screen: do this when you are finished).",
             JSONObject().put("key", p("string", "back or home")), listOf("key")),
         tool("pick", "Choose an option in a dropdown (a select): its element number and the option as it reads. Opens it, finds the option, taps it.",
             JSONObject().put("id", p("integer", "The dropdown's element number")).put("option", p("string", "The option, as it reads")), listOf("id", "option")),
         tool("wait", "Wait for the screen to change (seconds, max 10).", JSONObject().put("seconds", p("number", "How long"))),
-        tool("install_app", "Put an Android app on the home screen, by its name (\"Netflix\") or package, in one step. One already on the tablet " +
+        tool("install_app", "Put an Android app on the home screen, by its name (\"Netflix\") or package, in one step. One already on the device " +
             "goes on at once. Otherwise it's found on Google Play (through Aurora Store, no Google account), someone says yes on screen, and it " +
             "downloads, installs and goes on the home screen (a minute or two). It takes the first free spot; move it only if they said where.",
             JSONObject().put("name", p("string", "The app's name")).put("package", p("string", "Its package, if you know it (e.g. com.instagram.android)")),
@@ -496,16 +496,16 @@ object DeviceServer {
         // screen, reading it included, until it's gone.
         DeviceRules.whileCard(dev.openhouse.ui.PersonCards.showing())?.let { return text(it, true) }
         // The camera's sheet is a person's to answer: while it's up Opie neither sees the screen nor touches it (CameraLook).
-        if (CameraLook.showing) return text("Not done: the tablet is asking the people here about the camera, and only they answer it. Wait for look_with_camera to finish.", true)
+        if (CameraLook.showing) return text("Not done: the device is asking the people here about the camera, and only they answer it. Wait for look_with_camera to finish.", true)
         val acc = DeviceAccess.instance
-            ?: return text("Device control is off on this display. It's turned on in Settings, This tablet.", true)
+            ?: return text("Device control is off on this display. It's turned on in Settings, Opie.", true)
         // Opie's own screen (its tabs, and its apps open full screen) is Opie's to use with device control on; other
         // Android apps, and opening or installing one, only with "Opie uses apps" on too.
         val fg = acc.foregroundPackage()
         val own = fg == ctx.packageName || fg?.startsWith(AppStubs.PREFIX) == true
         val onScreen = name.removePrefix("device_") in setOf("look", "screen", "wait", "tap", "type", "scroll", "key", "pick")
         if (name.removePrefix("device_") != "look" && !(own && onScreen) && !appsOn())
-            return text("Opie using apps is off on this tablet. Someone can turn it on in Settings, This tablet, Opie uses apps.", true)
+            return text("Opie using apps is off on this device. Someone can turn it on in Settings, Opie, Opie uses apps.", true)
         acc.usingScreen()
         val app = acc.appLabel(acc.foregroundPackage())
         fun after(msg: String): JSONObject {
@@ -522,7 +522,7 @@ object DeviceServer {
             "screen" -> {
                 // The PIN pad is up (Opie opened something behind the PIN): wait for the person to type it, up to a minute.
                 if (acc.pinShowing()) { acc.status("Waiting for the PIN"); val t0 = System.currentTimeMillis(); while (acc.pinShowing() && System.currentTimeMillis() - t0 < 60_000) Thread.sleep(400); Thread.sleep(600) }
-                if (acc.pinShowing()) return text("Nobody has typed the PIN yet. Ask once more, or leave it for when someone is at the tablet.\n\nOn screen now:\n${acc.describe()}")
+                if (acc.pinShowing()) return text("Nobody has typed the PIN yet. Ask once more, or leave it for when someone is at the device.\n\nOn screen now:\n${acc.describe()}")
                 acc.status("Reading the screen"); text(acc.describe())
             }
             "look" -> {
@@ -542,7 +542,7 @@ object DeviceServer {
                     ?: apps.firstOrNull { it.first.lowercase().startsWith(q) } ?: apps.firstOrNull { it.first.lowercase().contains(q) }
                     ?: return text("No app called \"$q\". Installed: ${apps.joinToString { it.first }}", true)
                 if (DeviceRules.neverOpen(hit.second, KioskApps.settingsPackages()))
-                    return text("Opie doesn't open ${hit.first}: it's a way out of the tablet's own screen. Someone opens it themselves (Settings, This tablet); to add an app, use install_app.", true)
+                    return text("Opie doesn't open ${hit.first}: it's a way out of the device's own screen. Someone opens it themselves (Settings, Advanced); to add an app, use install_app.", true)
                 if (KioskApps.needsParent(hit.second)) { // system apps (a browser, Files...): someone says yes once
                     if (!acc.approve("Let Opie open ${hit.first}?", "", parent = ParentPin.isSet(ctx), yes = "Open"))
                         return text("Nobody said yes, so ${hit.first} stays closed. Say so, and don't try another way in.", true)
@@ -642,7 +642,7 @@ object DeviceServer {
                 after(if (done) "Scrolled $dir." else "Couldn't scroll.")
             }
             "key" -> when (a.optString("key").lowercase()) {
-                "home" -> { KioskApps.goHome(); text("Back on the family display.") }
+                "home" -> { KioskApps.goHome(); text("Back on Opie's home screen.") }
                 else -> { acc.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK); after("Pressed back.") }
             }
             "pick" -> {

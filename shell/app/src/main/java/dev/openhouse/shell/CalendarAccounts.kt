@@ -132,7 +132,7 @@ object CalendarAccounts {
             return j.getString("access_token")
         }
         if (j.optString("error") == "invalid_grant") { tokens.remove(a.id); throw Said("signin") } // signed out at Google: sign in again
-        throw Said(if (j.optString("error") == "unlinked") "The tablet isn't linked to Opie cloud" else "Google isn't reachable right now")
+        throw Said(if (j.optString("error") == "unlinked") "The device isn't linked to Opie cloud" else "Google isn't reachable right now")
     }
 
     private fun bridge(): String = runCatching { dev.openhouse.ui.Openhouse.bridgeUrl }.getOrDefault("http://127.0.0.1:8787")
@@ -154,7 +154,7 @@ object CalendarAccounts {
             val cloud = cloudApi()
             main.post {
                 val rows = listOf(
-                    CalmDialog.Row("Google Calendar", if (cloud != null) "Two-way: what's added here shows up in Google too" else "Two-way. Needs the tablet linked to Opie cloud (Settings, Account)"),
+                    CalmDialog.Row("Google Calendar", if (cloud != null) "Two-way: what's added here shows up in Google too" else "Two-way. Needs the device linked to Opie cloud (Settings, Account)"),
                     CalmDialog.Row("iCloud", "Two-way, with an app-specific password"),
                     CalmDialog.Row("A calendar's link", "Read only: Outlook, a school or team calendar"))
                 CalmDialog(a).setTitle("Add a calendar").setWidth(860f).setRows(rows) { _, i ->
@@ -174,7 +174,7 @@ object CalendarAccounts {
         if (cloud != null) return addGoogle(a, cloud, immersive)
         thread {
             val c = cloudApi()
-            main.post { if (c != null) addGoogle(a, c, immersive) else CalmDialog(a).setTitle("Link the tablet first").setMessage("Google sign-in goes through Opie cloud: Settings, Account.").setPositiveButton("OK", null).show().also { immersive() } }
+            main.post { if (c != null) addGoogle(a, c, immersive) else CalmDialog(a).setTitle("Link the device first").setMessage("Google sign-in goes through Opie cloud: Settings, Account.").setPositiveButton("OK", null).show().also { immersive() } }
         }
     }
 
@@ -196,7 +196,7 @@ object CalendarAccounts {
                 val who = Calm.field(a, if (names.isEmpty()) "Whose is it? (optional)" else "Whose? " + names.take(4).joinToString(", "))
                 val col = Calm.column(a, 12).apply {
                     addView(user); addView(pass); addView(who)
-                    addView(Calm.more(a, "Make one at appleid.apple.com: Sign-In and Security, App-Specific Passwords. Your Apple ID needs two-factor authentication. The password stays sealed on this tablet and only reaches iCloud's calendars."))
+                    addView(Calm.more(a, "Make one at appleid.apple.com: Sign-In and Security, App-Specific Passwords. Your Apple ID needs two-factor authentication. The password stays sealed on this device and only reaches iCloud's calendars."))
                 }
                 CalmDialog(a).setTitle("iCloud calendars").setView(col).setWidth(760f)
                     .setPositiveButton("Sign in") { _, _ ->
@@ -264,7 +264,7 @@ object CalendarAccounts {
                 if (got == null) { got = t; state = JSONObject().put("state", "signedin").put("kind", "cal"); main.post { dialog?.dismiss() } }
             },
             onEnd = { if (got == null) main.post { dialog?.dismiss() } })
-        if (!h.start()) { remote?.invoke(null); CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
+        if (!h.start()) { remote?.invoke(null); CalmDialog(a).setTitle("Connect the device to Wi-Fi first.").setPositiveButton("Close", null).show().also { immersive() }; return }
         self = h.url!!.substringBefore('#')
         // From the setup's phone or computer (DeviceServer /setup/google): the sign-in opens there, with no code to scan.
         remote?.invoke(h.url!!)
@@ -325,7 +325,7 @@ object CalendarAccounts {
                 }
                 accounts.forEach { (name, kind, id) ->
                     header("${kind.substringBefore(",")} · $name", "Sign out") {
-                        CalmDialog(a).setTitle("Sign out of $name?").setMessage("Its calendars leave this tablet. Nothing changes in them.").setDanger()
+                        CalmDialog(a).setTitle("Sign out of $name?").setMessage("Its calendars leave this device. Nothing changes in them.").setDanger()
                             .setPositiveButton("Sign out") { _, _ -> shown?.dismiss(); signOut(id) { again() } }.setNegativeButton("Cancel", null).show().also { immersive() }
                     }
                     cals.filter { it.optString("account") == id }.forEach { c ->

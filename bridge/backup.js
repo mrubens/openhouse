@@ -168,7 +168,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
       // memory (the lists, the reminders, the calendars' outbox...): every write to these is refused (store.js), and
       // the restart below reads them all again.
       held = INCLUDE.map((e) => path.join(DISPLAY, e));
-      holdWrites(held, 'A backup is being restored. Try again in a moment, once the tablet has started again.');
+      holdWrites(held, 'A backup is being restored. Try again in a moment, once the device has started again.');
       const aside = f('before-restore');
       fs.rmSync(aside, { recursive: true, force: true }); fs.mkdirSync(aside, { recursive: true });
       for (const e of entries) {
@@ -273,7 +273,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
       case '/backup/escrow':
         await reply(res, async () => {
           if (b.on) {
-            if (!escrow?.available()) throw new Error('Link the tablet to a family account first.');
+            if (!escrow?.available()) throw new Error('Link the device to an Opie account first.');
             setState({ escrow: true });
             await escrowNow();
           } else {

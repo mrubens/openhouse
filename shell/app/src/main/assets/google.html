@@ -27,7 +27,7 @@ input[type=file]{padding:18px;border-style:dashed}
 <body><main>
 <h1 id="t">Photos from Google Photos</h1>
 <div id="start" hidden>
-  <p>Sign in to Google and pick the photos for the tablet. Opie sees only the ones you pick, once, and copies them to the tablet.</p>
+  <p>Sign in to Google and pick the photos for the device. Opie sees only the ones you pick, once, and copies them to the device.</p>
   <button id="go">Sign in to Google</button>
 </div>
 <div id="pick" hidden>
@@ -100,14 +100,14 @@ const te = new TextEncoder(), td = new TextDecoder();
   if (h.startsWith('g=') || h.startsWith('gc=') || h === 'g-no') { try { k64 = sessionStorage.getItem(KEEP) || ''; } catch { k64 = ''; } }
   history.replaceState(null, '', location.pathname); // neither the key nor a token stays in the address bar
   let key; try { key = b64.dec(k64); } catch {}
-  if (!key || key.length !== 32) return say('Scan the code on the tablet again.');
+  if (!key || key.length !== 32) return say('Scan the code on the device again.');
   const info = async () => { try { const r = await fetch('i', { cache: 'no-store' }); const box = CP.open(key, te.encode('info'), b64.dec(await r.text())); return box && JSON.parse(td.decode(box)); } catch { return null; } };
   let i = await info();
-  if (!i) return say('This link has ended. Start again on the tablet.');
+  if (!i) return say('This link has ended. Start again on the device.');
   const cal = i.kind === 'cal';
   if (cal) {
     document.title = 'Opie: Google Calendar'; $('t').textContent = 'Google Calendar';
-    $('start').querySelector('p').textContent = 'Sign in to Google so the tablet and Google Calendar show the same events, and what’s added on either shows up on both. The sign-in stays sealed on the tablet.';
+    $('start').querySelector('p').textContent = 'Sign in to Google so the device and Google Calendar show the same events, and what’s added on either shows up on both. The sign-in stays sealed on the device.';
   }
   if (!i.cloud) return say('Google isn’t available right now. Try again later.');
   $('go').onclick = async () => { // a fresh link each time: it works once, for a few minutes
@@ -128,9 +128,9 @@ const te = new TextEncoder(), td = new TextDecoder();
     try {
       const r = await fetch('s', { method: 'POST', body: CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), te.encode(JSON.stringify({ refresh: decodeURIComponent(h.slice(3)) }))), headers: { 'content-type': 'application/octet-stream' } });
       if (!r.ok) throw 0;
-    } catch { return say('The tablet didn’t take it. Start again on the tablet.'); }
+    } catch { return say('The device didn’t take it. Start again on the device.'); }
     $('start').hidden = true;
-    return say('Signed in. Choose which calendars to show on the tablet.');
+    return say('Signed in. Choose which calendars to show on the device.');
   }
   if (h.startsWith('g=')) {
     try { sessionStorage.removeItem(KEEP); } catch {}
@@ -139,20 +139,20 @@ const te = new TextEncoder(), td = new TextDecoder();
     try {
       const r = await fetch('s', { method: 'POST', body: CP.seal(key, crypto.getRandomValues(new Uint8Array(12)), te.encode('send'), te.encode(JSON.stringify({ token }))), headers: { 'content-type': 'application/octet-stream' } });
       if (!r.ok) throw 0;
-    } catch { return say('The tablet didn’t take it. Start again on the tablet.'); }
+    } catch { return say('The device didn’t take it. Start again on the device.'); }
   }
   // Follow the tablet: signing in, picking, copying, done.
   for (;;) {
-    if (i.state === 'signedin') { $('start').hidden = true; return say('Signed in. Choose which calendars to show on the tablet.'); }
+    if (i.state === 'signedin') { $('start').hidden = true; return say('Signed in. Choose which calendars to show on the device.'); }
     $('start').hidden = i.state !== 'start'; $('pick').hidden = i.state !== 'picking';
     if (i.pickerUri) $('open').href = i.pickerUri + (/autoclose$/.test(i.pickerUri) ? '' : '/autoclose');
     $('bar').hidden = i.state !== 'copying';
-    if (i.state === 'copying') { $('fill').style.width = `${Math.round(100 * (i.done || 0) / Math.max(1, i.total || 1))}%`; say(`Copying ${i.done || 0} of ${i.total || 0} to the tablet…`); }
+    if (i.state === 'copying') { $('fill').style.width = `${Math.round(100 * (i.done || 0) / Math.max(1, i.total || 1))}%`; say(`Copying ${i.done || 0} of ${i.total || 0} to the device…`); }
     else if (i.state === 'picking') say('');
-    else if (i.state === 'done') { say(i.total ? (i.done === 1 ? 'Done: 1 photo is in Photos on the tablet.' : `Done: ${i.done} photos are in Photos on the tablet.`) : 'Nothing was picked.'); $('start').hidden = false; $('go').textContent = 'Pick more'; }
+    else if (i.state === 'done') { say(i.total ? (i.done === 1 ? 'Done: 1 photo is in Photos on the device.' : `Done: ${i.done} photos are in Photos on the device.`) : 'Nothing was picked.'); $('start').hidden = false; $('go').textContent = 'Pick more'; }
     else if (i.state === 'error') { say(i.error || 'That didn’t work. Try again.'); $('start').hidden = false; }
     await new Promise((ok) => setTimeout(ok, i.state === 'start' ? 4000 : 2000));
-    const n = await info(); if (!n) return say('This link has ended. Start again on the tablet.');
+    const n = await info(); if (!n) return say('This link has ended. Start again on the device.');
     i = n;
   }
 })();

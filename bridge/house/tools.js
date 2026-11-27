@@ -49,7 +49,7 @@ export default function (house) {
         remove: { type: 'array', items: { type: 'object', required: ['task'], properties: { who: person, task: { type: 'string' } } } },
       } } },
     { name: 'change_rewards', description: 'Rewards the kids save their chore stars for (the Chores app), like "Movie night" for 20 stars. Add or change one (same title changes its stars), or remove one. ' +
-      'redeem spends a kid\'s stars on a reward ("Leo wants movie night"), as the Chores app\'s Get it! does: someone says yes on the tablet, with the PIN, and this waits for them (tell them to type the PIN on the tablet). You never say yes for them.',
+      'redeem spends a kid\'s stars on a reward ("Leo wants movie night"), as the Chores app\'s Get it! does: someone says yes on the device, with the PIN, and this waits for them (tell them to type the PIN on the device). You never say yes for them.',
       inputSchema: { type: 'object', properties: {
         add: { type: 'array', items: { type: 'object', required: ['title', 'stars'], properties: { title: { type: 'string' }, stars: { type: 'number' }, who: { type: 'string', description: 'Only for this person; leave out for anyone' } } } },
         remove: { type: 'array', items: { type: 'string', description: 'title or id' } },
@@ -152,7 +152,7 @@ export default function (house) {
       const ask = data.asks.find((x) => x.reward === r.id && same(x.who, who));
       if (ask && !ask.manual) { const t0 = Date.now(); while (data.asks.includes(ask) && Date.now() - t0 < 105e3) await new Promise((ok) => setTimeout(ok, 300)); }
       const given = house.stars(who) < before;
-      return { content: [{ type: 'text', text: [...did, given ? `Given: ${who} spent ${r.stars} stars on ${r.title}.` : ask?.manual ? 'Asked: someone says yes in the Chores app on the tablet.' : `Not given: nobody said yes on the tablet${ParentPinNote}.`].join('; ') }], isError: !given && !ask?.manual };
+      return { content: [{ type: 'text', text: [...did, given ? `Given: ${who} spent ${r.stars} stars on ${r.title}.` : ask?.manual ? 'Asked: someone says yes in the Chores app on the device.' : `Not given: nobody said yes on the device${ParentPinNote}.`].join('; ') }], isError: !given && !ask?.manual };
     }
     if (name === 'change_routines') return out(house.changeChecklists(a));
     if (name === 'save_recipe') { const r = a.link ? house.addRecipeLink({ link: a.link, meal: a.meal || '' }) : house.addRecipeText(a.text); return r.error ? out(r) : ok('Saved: it is being read and made into steps; it will be in Recipes in a moment.'); }

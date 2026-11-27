@@ -22,7 +22,7 @@ export function driveDestination({ DISPLAY, id = 'drive', label = 'A USB drive' 
   const conf = () => { try { return JSON.parse(fs.readFileSync(path.join(DISPLAY, '.backup', 'drive.json'), 'utf8')); } catch { return null; } };
   async function call(p, b = {}, timeout = 30e3) {
     const c = conf();
-    if (!c) throw Object.assign(new Error("The tablet's drive helper isn't running."), { code: 'noshell' });
+    if (!c) throw Object.assign(new Error("The device's drive helper isn't running."), { code: 'noshell' });
     const r = await request(`http://127.0.0.1:${c.port}${p}`, { method: 'POST', headers: { authorization: `Bearer ${c.token}` }, body: JSON.stringify(b), timeout });
     if (r.status !== 200) throw Object.assign(new Error(r.json?.error || `the drive helper answered ${r.status}`), { code: 'drive' });
     return r.json;

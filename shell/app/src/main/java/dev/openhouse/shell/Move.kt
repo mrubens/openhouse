@@ -174,7 +174,7 @@ internal object Move {
             val expected = c.contentResolver.openInputStream(Uri.parse("content://${authority(from)}/inventory"))!!.use { i ->
                 val j = JSONObject(i.readBytes().decodeToString()); j.keys().asSequence().associateWith { j.getLong(it) }
             }
-            say("Moving the family's things…")
+            say("Moving the household's things…")
             val stage = File(newData, "move-in").apply { deleteRecursively(); mkdirs() }
             val t0 = System.currentTimeMillis()
             val pipe = c.contentResolver.openFileDescriptor(Uri.parse("content://${authority(from)}/data"), "r") ?: error("no data")

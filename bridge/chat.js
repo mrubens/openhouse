@@ -34,7 +34,7 @@ import { RULES_TOOL, houseRulesCall, rulesBlock } from './house-rules.js';
 import { noteUse } from './usage.js';
 
 // The first conversation: the display introduces itself and learns about the family by talking.
-const ONBOARD = (wakeOn) => `(This tablet was just set up and Opie was just turned on. Nobody has said anything yet: you start. Be clear and brief, not gushing.
+const ONBOARD = (wakeOn) => `(This device was just set up and Opie was just turned on. Nobody has said anything yet: you start. Be clear and brief, not gushing.
 Go one step per turn: one or two short sentences, at most one question. Whenever they want to stop or skip ("not now", "skip", "can I just look?"), that's fine: say the home screen is theirs and you're here when they need you, then call end_conversation. Never push.
 1. Say who you are in one sentence: Opie, who answers questions and keeps the lists, calendar and chores. Say they talk to you by saying ${wakeOn ? '"Hey Opie"' : '"Hey Opie" once it\'s on in Settings'}, or by just typing.
 2. Ask who lives here: just names, and whether each is an adult, a kid or a pet (and, for kids, ages). Don't assume there are children. Save with update_household as you learn.
@@ -121,9 +121,9 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     // (a typed turn's: make_app's build then answers in writing, in this conversation, not aloud)
     return live.callTool(name, args, run && run.by === 'chat' && !run.spoken ? { typed: { conversation: run.conversation || null } } : {});
   }
-  const TEXT_PREAMBLE = (n, builds = false) => `You are ${n}, the assistant on a household's home-screen tablet. This turn was typed (or comes from the tablet itself), and your answer is shown on the screen: ` +
+  const TEXT_PREAMBLE = (n, builds = false) => `You are ${n}, the assistant on a household's home-screen device. This turn was typed (or comes from the device itself), and your answer is shown on the screen: ` +
     'short and plain, like the spoken answers described below. Use your tools for anything about the household and never guess it. ' +
-    (builds ? 'You don\'t write an app\'s or a game\'s code yourself: make_app has the tablet make or change one, which opens there to try and goes in when someone there keeps it. '
+    (builds ? 'You don\'t write an app\'s or a game\'s code yourself: make_app has the device make or change one, which opens there to try and goes in when someone there keeps it. '
       : 'You can\'t make or change an app\'s or a game\'s code: someone does that from their computer with their own Claude or ChatGPT (Settings, then Screens and computers). ') +
     'Tabs, their order and names, and the look of the home screen are set_home.\n\n---\n\n';
   const textInstructions = () => { const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };

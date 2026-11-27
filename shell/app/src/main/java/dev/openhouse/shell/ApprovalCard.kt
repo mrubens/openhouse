@@ -173,7 +173,7 @@ object ApprovalCard {
             val noPinYet = grownUp && !ParentPin.isSet(c)
             val needPin = (parent || grownUp) && ParentPin.isSet(c) && !ParentGrace.isOpen()
             if (noPinYet) { // a yes that needs the PIN, and there's none yet: choosing one is the first step
-                col.addView(K.text(c, "This needs the PIN, and the tablet has none yet. Choose one, then ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(c, 20), 0, 0) })
+                col.addView(K.text(c, "This needs the PIN, and the device has none yet. Choose one, then ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(c, 20), 0, 0) })
                 quiet()
                 var byHand: () -> Boolean = { false }
                 row.addView(K.primary(c, "Choose a PIN") {

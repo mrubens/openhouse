@@ -137,7 +137,7 @@ function Account({ c, onRemoved }) {
     <section>
       <h2>Opie account</h2>
       {!s ? <p className="soft">…</p> : s.linked ? (
-        <div className="card"><div className="t">Linked{s.family ? ` to ${s.family.name || 'your family'}` : ''}</div>
+        <div className="card"><div className="t">Linked{s.family ? ` to ${s.family.name || 'your household'}` : ''}</div>
           <p className="soft small">Live voice, typed questions, cloud backups and reaching the hub from away go through it.</p>
           <label className="check"><input type="checkbox" checked={!!v?.on} onChange={(e) => post('/cloud/voice', { on: e.target.checked }, reloadV)} /> Live voice: talk to Opie from phones and computers</label>
           <label className="check"><input type="checkbox" checked={!!relay?.on} onChange={(e) => post('/relay', { on: e.target.checked }, reloadR)} /> Reach the hub from away from home</label>

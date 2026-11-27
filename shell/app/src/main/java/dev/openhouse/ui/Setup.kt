@@ -104,8 +104,8 @@ private fun getJson(path: String, readMs: Int = 4000): JSONObject? = runCatching
 internal fun SetupSheet() {
     val step = Openhouse.setupStep ?: return
     val title = when (step) {
-        "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a family calendar?"
-        "photos" -> "Put your photos on the tablet?"; "pin" -> "Choose a PIN"; "android" -> "Two Android settings"
+        "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a shared calendar?"
+        "photos" -> "Put your photos on the device?"; "pin" -> "Choose a PIN"; "android" -> "Two Android settings"
         else -> "Set up on your phone or computer"
     }
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later

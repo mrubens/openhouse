@@ -20,13 +20,13 @@ export function calendarLinkTools({ timeoutMs = 100e3 } = {}) {
   async function call(name, a, ctx) {
     if (name === 'add_photo_album') {
       const r = await toShell('/album', { url: String(a?.link || '').trim(), from: ctx?.who || (ctx ? '' : 'a computer') });
-      const text = r.error ? r.error : r.added ? 'Added the album: its photos come into Photos over the next few minutes, and new ones within half an hour of being added.' : 'Not added: someone said no, or nobody answered on the tablet.';
+      const text = r.error ? r.error : r.added ? 'Added the album: its photos come into Photos over the next few minutes, and new ones within half an hour of being added.' : 'Not added: someone said no, or nobody answered on the device.';
       return { content: [{ type: 'text', text }], isError: !!r.error || !r.added };
     }
     const who = String(a?.who || '').trim().slice(0, 40);
     const title = String(a?.name || '').trim().slice(0, 60), only = String(a?.only || '').trim().slice(0, 200);
     const r = await toShell('/calendar', { url: String(a?.link || '').trim(), who, name: title, only, from: ctx?.who || (ctx ? '' : 'a computer') });
-    const text = r.error ? r.error : r.added ? `Added ${title || (who ? `${who}'s calendar` : 'the calendar')}${only ? ` (only ${only})` : ''}: its events show in the Calendar within a minute${only ? ' or two' : ''}.` : 'Not added: someone said no, or nobody answered on the tablet.';
+    const text = r.error ? r.error : r.added ? `Added ${title || (who ? `${who}'s calendar` : 'the calendar')}${only ? ` (only ${only})` : ''}: its events show in the Calendar within a minute${only ? ' or two' : ''}.` : 'Not added: someone said no, or nobody answered on the device.';
     return { content: [{ type: 'text', text }], isError: !!r.error || !r.added };
   }
   return { tools, call, toShell };

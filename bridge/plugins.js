@@ -708,7 +708,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     if (!approve) return { ok: false, error: 'Nobody here to ask.' };
     asking.add(app);
     let yes = false;
-    try { yes = await approve(`Let ${a.name || app} reach ${h}?`, '', true, { for: 'apps', rights: [{ kind: 'web', text: `${setup.why.replace(/\.$/, '')}.` }], more: `${a.name || app}${o.e.title && o.e.title !== a.name ? ` (the ${o.e.title} plugin)` : ''} reads from ${h} through the tablet. Settings, Plugins takes it away again.` }); }
+    try { yes = await approve(`Let ${a.name || app} reach ${h}?`, '', true, { for: 'apps', rights: [{ kind: 'web', text: `${setup.why.replace(/\.$/, '')}.` }], more: `${a.name || app}${o.e.title && o.e.title !== a.name ? ` (the ${o.e.title} plugin)` : ''} reads from ${h} through the device. Settings, Plugins takes it away again.` }); }
     finally { asking.delete(app); }
     if (yes !== true) return { ok: false, error: 'Not this time.' };
     const r = inChange(`Let ${a.name || app} reach ${h}`, null, null, () => {
@@ -782,7 +782,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     if (p.apps.length) lines.push(`${p.apps.length === 1 ? 'One app' : p.apps.length + ' apps'}${p.apps.length > 1 ? ` (${p.apps.map((a) => a.name).join(', ')})` : ''}. It:`, ...rightsMerged(p.apps).map((l) => '- ' + l));
     if (p.look) lines.push(`- Changes the look: ${lookWords(p.look)}.`);
     if (p.tabs.length) lines.push(`- Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}: ${p.tabs.map((t) => t.name || t.app).join(', ')}.`);
-    if (already && readAll()[p.name]?.kind === 'shared') lines.push('It is already on this tablet.');
+    if (already && readAll()[p.name]?.kind === 'shared') lines.push('It is already on this device.');
     lines.push(...p.notes);
     if (p.description) lines.push(`In its own words: "${p.description.replace(/\s+/g, ' ').trim()}"`);
     return lines.join('\n');
@@ -796,7 +796,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     if (p.apps.length) rights.push(...rightsList(p.apps));
     if (p.look) rights.push({ kind: 'look', text: `Changes the look: ${lookWords(p.look)}.` });
     if (p.tabs.length) rights.push({ kind: 'tabs', text: `Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}: ${p.tabs.map((t) => t.name || t.app).join(', ')}.` });
-    const more = [[p.version, p.commit?.slice(0, 7)].filter(Boolean).join(', '), already && readAll()[p.name]?.kind === 'shared' ? 'Already on this tablet.' : '', ...p.notes,
+    const more = [[p.version, p.commit?.slice(0, 7)].filter(Boolean).join(', '), already && readAll()[p.name]?.kind === 'shared' ? 'Already on this device.' : '', ...p.notes,
       p.description ? `In its own words: "${p.description.replace(/\s+/g, ' ').trim()}"` : ''].filter(Boolean).join('\n');
     return { rights, more };
   };
@@ -826,7 +826,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   /** Put it in: one change, undoable. by: a turn already holding the lock (its change then includes this). */
   function put(p, { tabs = true, who = null, by = null } = {}) {
     const all = readAll();
-    if (all[p.name]?.kind === 'shared') return { error: `The ${p.title} plugin is already on this tablet. update_plugin brings a newer version.` };
+    if (all[p.name]?.kind === 'shared') return { error: `The ${p.title} plugin is already on this device. update_plugin brings a newer version.` };
     return inChange(`Add the ${p.title} plugin (${p.src.label}${p.commit ? ' @ ' + p.commit.slice(0, 7) : ''})`, who, by, (owner) => {
       const name = all[p.name] ? freeName(p.name, all) : p.name;
       const entry = { kind: 'shared', source: p.src.key || p.src.label, commit: p.commit, ...(p.sha256 ? { sha256: p.sha256 } : {}), ...(p.src.catalog ? { reviewed: true } : {}),
@@ -877,7 +877,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   }
   function update(name, p, { who = null, by = null, keepTheirs = true, source = null } = {}) {
     const e = readAll()[name];
-    if (e?.kind !== 'shared') return { error: `No plugin from a link called ${name} is on this tablet.` };
+    if (e?.kind !== 'shared') return { error: `No plugin from a link called ${name} is on this device.` };
     const d = updateDiff(name, p);
     if (d.changedHere.length && keepTheirs) return { error: `${d.changedHere.join(', ')} changed here since it was added, so it's the household's version now. Taking the new one replaces their changes (one undo brings them back): ask, then update again with replace.`, changedHere: d.changedHere };
     return inChange(`Update the ${e.title || name} plugin to ${p.version || p.commit?.slice(0, 7)}`, who, by, () => {
@@ -932,7 +932,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   /** The household chose to keep their version: this update isn't offered again (a newer one is). Not a change of theirs. */
   function keepOurs(name, p) {
     const e = readAll()[name];
-    if (e?.kind !== 'shared') return { error: `No plugin from a link called ${name} is on this tablet.` };
+    if (e?.kind !== 'shared') return { error: `No plugin from a link called ${name} is on this device.` };
     const owner = { id: 'plugin', kind: 'plugin', who: null, text: `Keep the household's ${e.title || name} (not ${p.version || p.commit?.slice(0, 7)})` };
     if (!edits.tryAcquire(owner, { checkpoint: true })) return { error: edits.busyText() || 'Busy', busy: true };
     try { save(name, { ...e, skip: p.sha256 || p.commit }); cache.stamp = null; edits.finish(owner, true, { quiet: true }); return { ok: true, kept: true, title: e.title || name }; }
@@ -951,7 +951,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
    */
   async function merge(name, p, { who = null, by = null, model = ai } = {}) {
     const e = readAll()[name];
-    if (e?.kind !== 'shared') return { error: `No plugin from a link called ${name} is on this tablet.` };
+    if (e?.kind !== 'shared') return { error: `No plugin from a link called ${name} is on this device.` };
     const plan = [], ask = [], before = {};
     for (const [id, a] of Object.entries(e.apps || {})) {
       const n = p.apps.find((x) => x.id === a.from);
@@ -1020,7 +1020,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
   }
   function remove(name, { who = null, by = null } = {}) {
     const f = find(name);
-    if (!f || (f.e.kind === 'builtin' && f.e.removed)) return { error: `No plugin called ${name} is on this tablet.` };
+    if (!f || (f.e.kind === 'builtin' && f.e.removed)) return { error: `No plugin called ${name} is on this device.` };
     const { e } = f;
     const ids = Object.keys(e.apps || {}).filter((id) => owns(e, id) || e.kind !== 'builtin');
     return inChange(`Remove the ${e.title || f.name} plugin`, who, by, (owner) => {
@@ -1040,12 +1040,12 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
   /** Opie's version of a built-in back in place of the household's (theirs is one undo away), or after it was taken off. */
   function reset(name, { who = null, by = null } = {}) {
     const f = find(name);
-    if (!f) return { error: `No plugin called ${name} is on this tablet.` };
+    if (!f) return { error: `No plugin called ${name} is on this device.` };
     const bname = f.e.kind === 'builtin' ? f.name : f.e.overrides;
     const b = bname && f.all[bname];
     if (!b) return { error: `${f.e.title || f.name} isn't one of Opie's own, so there's no version of ours to go back to.` };
     const id = Object.keys(b.apps || {})[0], s = shipped().find((x) => x.id === id);
-    if (!s) return { error: `This tablet doesn't have Opie's ${b.title} to put back.` };
+    if (!s) return { error: `This device doesn't have Opie's ${b.title} to put back.` };
     if (!b.overriddenBy && !b.removed && same(filesOf(path.join(appsDir, id)), s.files)) return { ok: true, already: true, title: b.title };
     return inChange(`Put back Opie's ${b.title}`, who, by, () => {
       const theirs = b.overriddenBy;
@@ -1076,7 +1076,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
   }
   function undoPlugin(name, by = null) {
     const f = find(name);
-    if (!f) return { error: `No plugin called ${name} is on this tablet.` };
+    if (!f) return { error: `No plugin called ${name} is on this device.` };
     const e = f.e.kind === 'builtin' && f.e.overriddenBy ? f.all[f.e.overriddenBy] : f.e;
     const c = latestChange(e);
     if (!c) return { error: `Nothing to take back in ${e.title || f.name}.` };
@@ -1118,7 +1118,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
    *  whether the household changed it here (then they choose: keep yours, take theirs, or both). */
   async function check(name) {
     const f = find(name);
-    if (!f || f.e.kind !== 'shared') return { error: f ? `${f.e.title || f.name} doesn't come from a link: ${f.e.kind === 'builtin' ? 'Opie updates it' : "it's the household's own"}.` : `No plugin called ${name} is on this tablet.` };
+    if (!f || f.e.kind !== 'shared') return { error: f ? `${f.e.title || f.name} doesn't come from a link: ${f.e.kind === 'builtin' ? 'Opie updates it' : "it's the household's own"}.` : `No plugin called ${name} is on this device.` };
     if (String(f.e.source || '').startsWith('catalog:')) await catalog({ fresh: true }); // asked for now: the list as it is now
     const p = await inspect(sourceOf(f.e));
     if (p.name !== f.name.replace(/-\d+$/, '') && p.name !== f.name) return { error: `That link has the ${p.title} plugin now, not ${f.e.title}.` };
@@ -1252,7 +1252,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
     const oh = { apps: ids.map((id) => `apps/${id}`) };
     if (look) { const st = homeScreen.style(); out['looks/look.json'] = JSON.stringify(Object.fromEntries(LOOK_KEYS.filter((k) => st[k] !== undefined).map((k) => [k, st[k]])), null, 2) + '\n'; oh.looks = ['looks/look.json']; }
     out['package.json'] = JSON.stringify({ name: pname, version, description: String(description).slice(0, 300), keywords: ['openhouse-plugin', 'pi-package'], openhouse: oh }, null, 2) + '\n';
-    if (!out['README.md']) out['README.md'] = `# ${pname}\n\n${description || 'An Opie plugin.'}\n\nAdd it to an Opie tablet: ask the assistant to "add the plugin from <this repo's link>".\n`;
+    if (!out['README.md']) out['README.md'] = `# ${pname}\n\n${description || 'An Opie plugin.'}\n\nAdd it to an Opie device: ask the assistant to "add the plugin from <this repo's link>".\n`;
     return { files: out, warnings: warn.slice(0, 30) };
   }
 
@@ -1262,33 +1262,33 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
   const SRC = { type: 'string', description: "The name of a plugin on Opie's list (find_plugins), or where it comes from, as the family gave it: a git link (github.com/someone/thing, optionally @version) or an https link to a .tgz." };
   const NAME = { type: 'string', description: 'The plugin\'s name or title, or one of its app ids (list_plugins).' };
   const tools = [
-    { name: 'find_plugins', description: "The plugins on Opie's reviewed list (its gallery): each with its name, what it does, what it may use, and whether it's on this tablet. For \"what plugins are there?\" or finding one by what it does. Add one with add_plugin and its name.", inputSchema: { type: 'object', properties: {} } },
+    { name: 'find_plugins', description: "The plugins on Opie's reviewed list (its gallery): each with its name, what it does, what it may use, and whether it's on this device. For \"what plugins are there?\" or finding one by what it does. Add one with add_plugin and its name.", inputSchema: { type: 'object', properties: {} } },
     { name: 'look_at_plugin', description: "See what a plugin (something another family made: apps, a look) has in it before adding it: its apps, what each may use of the family's things and which sites it may reach. Say it back in a sentence or two, then add it with add_plugin if they want it.", inputSchema: { type: 'object', required: ['source'], properties: { source: SRC } } },
-    { name: 'add_plugin', description: 'Add a plugin to this tablet. Someone says yes on the tablet first (with the PIN); this waits for them, up to a minute and a half. Its apps go in Apps, and the tabs it suggests are added unless tabs is false.', inputSchema: { type: 'object', required: ['source'], properties: { source: SRC, tabs: { type: 'boolean', description: 'Add the tabs it suggests (default yes).' } } } },
-    { name: 'update_plugin', description: "Bring a plugin from a link or Opie's list up to its newest version (or source, a pinned version). Someone says yes on the tablet first (with the PIN when it asks for more). If the household changed its app here, it says so: then ask which they want and call again with choice: keep (theirs stays, this update is skipped), theirs (the new version replaces their changes), or both (the new version's changes put onto theirs; if that can't be done cleanly, theirs stays).", inputSchema: { type: 'object', required: ['name'], properties: { name: NAME, source: SRC, choice: { type: 'string', enum: ['keep', 'theirs', 'both'] }, replace: { type: 'boolean', description: 'The same as choice theirs.' } } } },
-    { name: 'list_plugins', description: "Everything that adds apps to this tablet, as plugins: Opie's own (Calendar, Chores…), the household's own (each app made here is one), and ones from a link. Each with its version, where it came from, and whether the household's version is used over ours.", inputSchema: { type: 'object', properties: {} } },
-    { name: 'remove_plugin', description: 'Take a plugin off this tablet: its apps and the tabs it added. Someone says yes on the tablet first.', inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
+    { name: 'add_plugin', description: 'Add a plugin to this device. Someone says yes on the device first (with the PIN); this waits for them, up to a minute and a half. Its apps go in Apps, and the tabs it suggests are added unless tabs is false.', inputSchema: { type: 'object', required: ['source'], properties: { source: SRC, tabs: { type: 'boolean', description: 'Add the tabs it suggests (default yes).' } } } },
+    { name: 'update_plugin', description: "Bring a plugin from a link or Opie's list up to its newest version (or source, a pinned version). Someone says yes on the device first (with the PIN when it asks for more). If the household changed its app here, it says so: then ask which they want and call again with choice: keep (theirs stays, this update is skipped), theirs (the new version replaces their changes), or both (the new version's changes put onto theirs; if that can't be done cleanly, theirs stays).", inputSchema: { type: 'object', required: ['name'], properties: { name: NAME, source: SRC, choice: { type: 'string', enum: ['keep', 'theirs', 'both'] }, replace: { type: 'boolean', description: 'The same as choice theirs.' } } } },
+    { name: 'list_plugins', description: "Everything that adds apps to this device, as plugins: Opie's own (Calendar, Chores…), the household's own (each app made here is one), and ones from a link. Each with its version, where it came from, and whether the household's version is used over ours.", inputSchema: { type: 'object', properties: {} } },
+    { name: 'remove_plugin', description: 'Take a plugin off this device: its apps and the tabs it added. Someone says yes on the device first.', inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
     { name: 'undo_plugin', description: 'Take back the latest change to one plugin (one app), keeping later changes to the others. Itself a change, so it can be undone too.', inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
     { name: 'reset_plugin', description: "Put Opie's own version of a built-in app (Calendar, Chores…) back in place of the household's changed one, or after it was taken off. Their version is one undo away.", inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
   ];
   const ok = (t) => ({ content: [{ type: 'text', text: t }] });
   const err = (t) => ({ content: [{ type: 'text', text: t }], isError: true });
-  const cantAsk = 'Someone has to say yes on the tablet, and this tablet can\'t ask right now.';
+  const cantAsk = 'Someone has to say yes on the device, and this device can\'t ask right now.';
   async function call(name, a = {}, ctx = null) {
     const who = ctx?.who || null, by = ctx?.turn || null;
     try {
       if (name === 'look_at_plugin') return ok(asData(summary(await inspect(a.source)), "what a plugin is and may do, made from its own files (its names, descriptions and voice actions are its author's words)")); // to a model: data
       if (name === 'find_plugins') {
         const g = await gallery();
-        return ok(g.length ? g.map((c) => `${c.name} ("${c.title}"${c.version ? ' ' + c.version : ''})${c.installed ? (c.installed.basedOn ? ': on this tablet, changed here' : ': on this tablet') + (c.update ? ', a newer version is out' : '') : ''}: ${c.description} ${c.rights.join(' ')}`).join('\n') : "Opie's list of plugins is empty right now.");
+        return ok(g.length ? g.map((c) => `${c.name} ("${c.title}"${c.version ? ' ' + c.version : ''})${c.installed ? (c.installed.basedOn ? ': on this device, changed here' : ': on this device') + (c.update ? ', a newer version is out' : '') : ''}: ${c.description} ${c.rights.join(' ')}`).join('\n') : "Opie's list of plugins is empty right now.");
       }
       if (name === 'list_plugins') {
         const all = installed().filter((p) => !p.removed);
-        return ok(all.length ? all.map((p) => `${p.name} ("${p.title}", ${p.kind}${p.version ? ' ' + p.version : ''}${p.latest ? ', ' + p.latest + ' available' : ''}) ${p.state}${p.kind === 'shared' ? ' from ' + p.source : ''}: ${p.apps.map((x) => `${x.id}${x.changed ? ' (changed here since)' : ''}`).join(', ') || 'a look'}`).join('\n') : 'No plugins on this tablet.');
+        return ok(all.length ? all.map((p) => `${p.name} ("${p.title}", ${p.kind}${p.version ? ' ' + p.version : ''}${p.latest ? ', ' + p.latest + ' available' : ''}) ${p.state}${p.kind === 'shared' ? ' from ' + p.source : ''}: ${p.apps.map((x) => `${x.id}${x.changed ? ' (changed here since)' : ''}`).join(', ') || 'a look'}`).join('\n') : 'No plugins on this device.');
       }
       if (name === 'add_plugin') {
         const p = await inspect(a.source);
-        if (readAll()[p.name]?.kind === 'shared') return err(`The ${p.title} plugin is already on this tablet: update_plugin brings a newer version.`);
+        if (readAll()[p.name]?.kind === 'shared') return err(`The ${p.title} plugin is already on this device: update_plugin brings a newer version.`);
         if (!approve) return err(cantAsk);
         const yes = await approve(`Add ${p.title}?`, '', true, { yes: 'Add', for: 'apps', ...card(p, { already: false }) });
         if (yes === null) return err(cantAsk);
@@ -1298,7 +1298,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       }
       if (name === 'update_plugin') {
         const f = find(a.name);
-        if (!f || f.e.kind !== 'shared') return err(f ? `${f.e.title || f.name} doesn't come from a link: ${f.e.kind === 'builtin' ? 'Opie updates it' : "it's the household's own"}.` : `No plugin called ${a.name} is on this tablet.`);
+        if (!f || f.e.kind !== 'shared') return err(f ? `${f.e.title || f.name} doesn't come from a link: ${f.e.kind === 'builtin' ? 'Opie updates it' : "it's the household's own"}.` : `No plugin called ${a.name} is on this device.`);
         const c = a.source ? null : await check(f.name);
         if (c?.error) return err(c.error);
         const p = c ? c.p : await inspect(a.source);
@@ -1318,7 +1318,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
       }
       if (name === 'remove_plugin') {
         const e = installed().find((p) => !p.removed && (p.name === a.name || p.title.toLowerCase() === String(a.name || '').toLowerCase() || p.apps.some((x) => x.id === a.name)));
-        if (!e) return err(`No plugin called ${a.name} is on this tablet.`);
+        if (!e) return err(`No plugin called ${a.name} is on this device.`);
         if (!approve) return err(cantAsk);
         const yes = await approve(`Remove ${e.title}?`, e.apps.length > 1 || e.apps[0]?.name !== e.title ? `With ${e.apps.map((x) => x.name).join(', ')}.` : '', false, { yes: 'Remove', danger: true });
         if (yes === null) return err(cantAsk);

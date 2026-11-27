@@ -59,7 +59,7 @@ export function decode(hex, spec) {
 export function btClient(call) {
   const bt = async (op, b = {}, ms = 30000) => {
     const r = await call('/bt', { op, ...b }, ms);
-    if (!r) throw new Error('Bluetooth needs the tablet (the shell isn\'t answering).');
+    if (!r) throw new Error('Bluetooth needs the device (the shell isn\'t answering).');
     if (r.error) throw new Error(r.error);
     return r;
   };
@@ -70,7 +70,7 @@ export function btClient(call) {
     unpair: (mac) => bt('unpair', { mac }),
     services: (mac) => bt('services', { mac }, 40000).then((r) => r.services || []),
     gatt: (mac, steps) => bt('gatt', { mac, steps }, 60000).then((r) => r.results || []),
-    audio: (mac, what = 'status') => call('/bt', { op: 'audio', mac, do: what }, 20000).then((r) => { if (!r) throw new Error('Bluetooth needs the tablet.'); return r; }),
+    audio: (mac, what = 'status') => call('/bt', { op: 'audio', mac, do: what }, 20000).then((r) => { if (!r) throw new Error('Bluetooth needs the device.'); return r; }),
     volume: (what, level) => bt('volume', { do: what, level }),
   };
 }
@@ -107,7 +107,7 @@ export function actionsFor(d) {
     status: { says: 'Paired or not, connected, battery and readings', async run(dev, _p, ctx) { return status(dev, ctx); } },
   };
   if (!bonded) out.pair = {
-    says: 'Pair it with the tablet', risky: true, boardOk: true,
+    says: 'Pair it with the device', risky: true, boardOk: true,
     async run(dev, _p, ctx) {
       const r = await ctx.bt.pair(dev.mac);
       if (!r.paired) throw new Error(r.why || 'It didn\'t pair.');
@@ -119,19 +119,19 @@ export function actionsFor(d) {
     },
   };
   else out.forget = {
-    says: 'Unpair it from the tablet', risky: true,
+    says: 'Unpair it from the device', risky: true,
     async run(dev, _p, ctx) { const r = await ctx.bt.unpair(dev.mac); if (!r.unpaired) throw new Error(r.why || 'It wasn\'t forgotten.'); dev.evidence.bt.bonded = false; ctx.save(); return `Unpaired ${dev.customName || dev.name}.`; },
   };
   if (audioOf(d) && bonded) Object.assign(out, {
-    play_here: { says: 'Send the tablet\'s sound (music, timers, Opie\'s answers) to it', async run(dev, _p, ctx) {
+    play_here: { says: 'Send the device\'s sound (music, timers, Opie\'s answers) to it', async run(dev, _p, ctx) {
       const r = await ctx.bt.audio(dev.mac, 'connect');
       if (r.error && !r.connected) throw new Error(r.error);
-      return `The tablet's sound goes to ${dev.customName || dev.name} now.`;
+      return `The device's sound goes to ${dev.customName || dev.name} now.`;
     } },
-    stop_here: { says: 'Send the sound back to the tablet\'s own speaker', async run(dev, _p, ctx) {
+    stop_here: { says: 'Send the sound back to the device\'s own speaker', async run(dev, _p, ctx) {
       const r = await ctx.bt.audio(dev.mac, 'disconnect');
       if (r.error && r.connected) throw new Error(r.error);
-      return 'The sound is back on the tablet.';
+      return 'The sound is back on the device.';
     } },
     set_volume: { says: 'Set its volume, 0 to 100', params: { level: { type: 'integer', min: 0, max: 100, required: true } }, async run(dev, p, ctx) { return volume(dev, ctx, 'set', p.level); } },
     volume_up: { says: 'A bit louder', async run(dev, _p, ctx) { return volume(dev, ctx, 'up'); } },
@@ -146,7 +146,7 @@ export function actionsFor(d) {
 
 async function volume(dev, ctx, what, level) {
   const st = await ctx.bt.audio(dev.mac, 'status');
-  if (!st.routed) throw new Error(`The tablet's sound isn't going to ${dev.customName || dev.name} right now${st.connected ? '' : ' (it isn\'t connected: play_here first, or turn it on)'}.`);
+  if (!st.routed) throw new Error(`The device's sound isn't going to ${dev.customName || dev.name} right now${st.connected ? '' : ' (it isn\'t connected: play_here first, or turn it on)'}.`);
   const r = await ctx.bt.volume(what, level);
   return `Volume ${r.volume}.`;
 }

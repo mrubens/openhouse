@@ -134,7 +134,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
     if (waiting.length >= MAX_WAITING) return { ok: false, busy: true };
     // What's being made now is likely what this one is about (it was asked while watching it being made)
     const now = events.state.request;
-    const note = now ? `This was asked while the tablet was making: "${String(now).slice(0, 300)}". If that made or changed an app, this is most likely a change to that same app, as it is now.` : '';
+    const note = now ? `This was asked while the device was making: "${String(now).slice(0, 300)}". If that made or changed an app, this is most likely a change to that same app, as it is now.` : '';
     waiting.push({ text, who, ctx: { ...ctx, context: [ctx.context, note].filter(Boolean).join('\n\n') || null } });
     queued();
     return { ok: true, queued: waiting.length };

@@ -100,7 +100,7 @@ internal object PinPrompt {
                 android.widget.LinearLayout.LayoutParams(-1, -2))
         }
         CalmDialog(act).asDialog().setTitle("PIN recovery code").setView(box).setWidth(760f).setCancelable(false).setForPerson()
-            .setMore("It's shown only now: the tablet keeps a scrambled copy that can check it but not show it. A new code can be made later in Settings, Advanced, after the PIN.")
+            .setMore("It's shown only now: the device keeps a scrambled copy that can check it but not show it. A new code can be made later in Settings, Advanced, after the PIN.")
             .setPositiveButton("I've kept it") { _, _ -> keep(code) }
             .setNegativeButton("Cancel") { _, _ -> back() }.show()
         (act as? MainActivity)?.immersive()
@@ -129,9 +129,9 @@ internal object PinPrompt {
         }
         d = CalmDialog(act).asDialog().setTitle(if (again) "That code doesn't fit" else "Forgot the PIN")
             .setMessage(if (ParentPin.hasRecovery(pins)) "Type the recovery code that was shown when the PIN was chosen. The backups' recovery code works too."
-                else "Type the backups' recovery code, or reset it with your Opie account if this tablet is linked to one.") // (a PIN chosen while linked has no code of its own)
+                else "Type the backups' recovery code, or reset it with your Opie account if this device is linked to one.") // (a PIN chosen while linked has no code of its own)
             .setView(view).setWidth(760f).setForPerson().setCancelable(false)
-            .setMore("A tablet set up before recovery codes has none: make one in Settings, Advanced, while the PIN is known.")
+            .setMore("A device set up before recovery codes has none: make one in Settings, Advanced, while the PIN is known.")
             .setPositiveButton("Next") { _, _ ->
                 val typed = box.text.toString()
                 kotlin.concurrent.thread {
@@ -165,19 +165,19 @@ internal object PinPrompt {
             val (code, r) = CloudSetup.post("$bridge/cloud/pin-reset/start", org.json.JSONObject(), 20_000)
             act.runOnUiThread {
                 if (code != 200 || r == null) return@runOnUiThread say("Couldn't start it",
-                    if (r?.optString("code") == "unlinked") "This tablet isn't linked to an account any more." else r?.optString("error")?.ifBlank { null } ?: "The tablet didn't answer. Try again in a minute.")
+                    if (r?.optString("code") == "unlinked") "This device isn't linked to an account any more." else r?.optString("error")?.ifBlank { null } ?: "The device didn't answer. Try again in a minute.")
                 val url = r.optString("url")
                 val where = runCatching { java.net.URL(url).let { it.host + (if (it.port > 0) ":${it.port}" else "") + it.path } }.getOrDefault(url)
                 val C = dev.openhouse.ui.Calm
                 val box = C.column(act).apply {
                     contentDescription = PinPad.MARK
-                    addView(C.text(act, "On a phone or computer, sign in at $where. Under Reset a tablet's PIN, type this code:", 19f, 400, C.SOFT))
+                    addView(C.text(act, "On a phone or computer, sign in at $where. Under Reset a device's PIN, type this code:", 19f, 400, C.SOFT))
                     addView(C.text(act, r.optString("display"), 48f, 600).apply { letterSpacing = .08f; gravity = android.view.Gravity.CENTER; setPadding(0, C.px(act, 28), 0, C.px(act, 8)) },
                         android.widget.LinearLayout.LayoutParams(-1, -2))
                 }
                 var waiting = true
                 val d = CalmDialog(act).asDialog().setTitle("Reset with your account").setView(box).setWidth(760f).setForPerson().setCancelable(false)
-                    .setMore("Only someone signed in to the account this tablet is linked to can do it. The code works once, for 15 minutes.")
+                    .setMore("Only someone signed in to the account this device is linked to can do it. The code works once, for 15 minutes.")
                     .setNegativeButton("Cancel") { _, _ -> waiting = false; cancelled() }
                     .setOnDismissListener { waiting = false }.show()
                 (act as? MainActivity)?.immersive()

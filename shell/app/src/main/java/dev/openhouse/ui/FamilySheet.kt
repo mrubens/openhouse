@@ -107,7 +107,7 @@ internal fun ColumnScope.FamilyContent(inSettings: Boolean = false, onBack: (() 
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.u)) {
         if (onBack != null) SettingsArrow(onBack) else if (!inSettings) SettingsBack()
         Column(Modifier.weight(1f)) {
-            Text(if (inSettings) "Household" else if (o.householdSetUp) "Your family" else "Welcome! Who lives here?", style = quietText(30, FontWeight.SemiBold))
+            Text(if (inSettings) "Household" else if (o.householdSetUp) "Your household" else "Welcome! Who lives here?", style = quietText(30, FontWeight.SemiBold))
             // Telling Opie instead is a quiet line, not a third button (docs/ux.md).
             Text("Or just tell Opie", style = quietText(17, FontWeight.Medium, PaperLook.inkSoft),
                 modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { o.startOnboarding() }.padding(vertical = 4.u))

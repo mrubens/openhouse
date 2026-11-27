@@ -26,7 +26,7 @@ internal class TailscaleMenu(private val act: MainActivity, private val back: ()
         JSONObject((if (c.responseCode < 400) c.inputStream else c.errorStream).use { it.readBytes().toString(Charsets.UTF_8) })
     }.getOrNull()
     private fun ui(f: () -> Unit) = act.runOnUiThread(f)
-    private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
+    private val noBridge = "The device's software isn't answering right now. Try again in a minute."
 
     fun show() = thread { val s = get(); ui { if (s == null) say(noBridge) else open(s) } }
 

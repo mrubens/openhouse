@@ -31,7 +31,7 @@ internal object MicCheck {
         "silent" -> "The microphone hears nothing. It may be turned off, or another app may be using it."
         "busy" -> "Another app is using the microphone. Close it and try again."
         "permission" -> "Opie isn't allowed to use the microphone."
-        "notReady" -> "“Hey Opie” is still getting ready on this tablet. Try again in a few minutes."
+        "notReady" -> "“Hey Opie” is still getting ready on this device. Try again in a few minutes."
         else -> "Opie couldn't reach the microphone just now. Try again in a moment."
     }
 

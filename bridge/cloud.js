@@ -55,13 +55,13 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
 
   async function call(method, p, b) {
     const d = device();
-    if (!d) throw Object.assign(new Error('This tablet is not linked to a family account.'), { code: 'unlinked' });
+    if (!d) throw Object.assign(new Error('This device is not linked to an Opie account.'), { code: 'unlinked' });
     const r = await request(d.api + p, { method, headers: { authorization: `Device ${d.credential}` }, body: b === undefined ? null : JSON.stringify(b) });
     if (r.status === 401) {
       // Unlinked from the web (or the service forgot this tablet): stop using the credential. The key stays.
       fs.rmSync(f('device.json'), { force: true });
       setState({ unlinkedAt: iso(), unlinkedWhy: r.json?.error || 'unknown' });
-      throw Object.assign(new Error('This tablet was unlinked from the family account.'), { code: 'unlinked' });
+      throw Object.assign(new Error('This device was unlinked from its Opie account.'), { code: 'unlinked' });
     }
     if (r.status >= 300) throw Object.assign(new Error(r.json?.error || `the service answered ${r.status}`), { code: `http${r.status}`, ...(r.json?.over ? { over: String(r.json.over) } : {}), ...(Number(r.json?.retryAfter) > 0 ? { retryAfter: Number(r.json.retryAfter) } : {}) });
     return r.json;
@@ -204,7 +204,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // --- the cloud as a backup destination ------------------------------------------------------------------------
   const destination = {
     id: 'cloud', label: 'The cloud',
-    async ready() { const d = device(); return d ? { ok: true, name: d.family } : { ok: false, why: 'Link the tablet to an account first (Settings → Account).' }; },
+    async ready() { const d = device(); return d ? { ok: true, name: d.family } : { ok: false, why: 'Link the device to an account first (Settings → Account).' }; },
     async put(file, meta) {
       const s = await call('POST', '/v1/backups/start', { size: meta.size, kind: meta.kind, keyId: meta.keyId });
       const up = await request(s.upload.url, { method: 'PUT', headers: s.upload.headers, file, timeout: 120e3 });
@@ -374,14 +374,14 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       case '/cloud/link/cancel': linking = null; json(res, 200, { ok: true }); return true;
       // The shell's own (its token, on this tablet): never a paired device's call, which a hub would pass on here.
       case '/cloud/pin-reset/start': case '/cloud/pin-reset/poll':
-        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the tablet only' }); return true; }
+        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the device only' }); return true; }
         await reply(res, p === '/cloud/pin-reset/start' ? pinResetStart : pinResetPoll); return true;
       case '/cloud/report': await reply(res, () => sendReport(b)); return true;
       case '/cloud/link/token': await reply(res, () => linkToken(String(b.token || ''), String(b.api || ''), String(b.name || 'Kitchen tablet').slice(0, 40))); return true;
       // The shell, when the household's own key goes in or comes out: only whether there is one. Never the key: a body
       // with anything else in it is refused, so a key sent here by mistake isn't kept.
       case '/cloud/own': {
-        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the tablet only' }); return true; }
+        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the device only' }); return true; }
         if (typeof b.on !== 'boolean' || Object.keys(b).length !== 1) { json(res, 400, { error: 'on only' }); return true; }
         json(res, 200, await setOwn(b.on)); return true;
       }

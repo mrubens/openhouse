@@ -7,7 +7,7 @@
 let deps = null; // { ai, decide?, tools(), callTool(name, args, homeToken), instructions(), rails?, build?(text) } (server.js, once the home screen and the cloud exist)
 // Which way a request goes, decided first (OpenAI Decisions: fast, and about a hundredth of a cent): the household's
 // quick things and everyday questions here; making or changing an app is for a computer, said plainly at once.
-const ROUTE = [{ type: 'choice', name: 'route', instructions: "A family member said this to their kitchen tablet's assistant. What does it need?",
+const ROUTE = [{ type: 'choice', name: 'route', instructions: "Someone in a household said this to their Opie, the assistant at home. What does it need?",
   choices: [{ value: 'household', description: 'The calendar, lists, chores, stars, rewards, routines, meals, notes, the weather, the family, or an everyday question or chat' },
     { value: 'tablet', description: 'Making a new app, game or tab, or changing how one of the apps looks or works (its text, colors, layout, what it shows or lets them do). Not the home screen\'s tabs, their order or its overall look, and not the family\'s things themselves (an event, a list item, a chore): those are household' },
     { value: 'not_for_it', description: 'Not meant for the assistant (people talking to each other, the TV, a fragment)' }] }];
@@ -18,7 +18,7 @@ export function routeFor(tools = []) {
   const [household, ...rest] = ROUTE[0].choices;
   return [{ ...ROUTE[0], choices: [{ ...household, description: `${household.description}, or something one of the household's apps does: ${acts.join('; ')}` }, ...rest] }];
 }
-export const NEEDS_COMPUTER = "Making and changing apps happens on a computer: someone connects their own Claude or ChatGPT to the tablet (Settings, then Screens and computers) and asks there. I can help with the calendar, lists, chores, meals, notes, the home screen's tabs and the weather.";
+export const NEEDS_COMPUTER = "Making and changing apps happens on a computer: someone connects their own Claude or ChatGPT to the device (Settings, then Screens and computers) and asks there. I can help with the calendar, lists, chores, meals, notes, the home screen's tabs and the weather.";
 export const BUILDING = "I'm making it; it'll show here when it's ready."; // (no promise: a build can still fail, and then it says so here)
 const BUSY = "I'm still making the last thing. Ask me again when it's done.";
 export function useCloud(d) { deps = d; }

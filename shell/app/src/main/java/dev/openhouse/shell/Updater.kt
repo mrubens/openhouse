@@ -94,7 +94,7 @@ internal object Updater {
         val url = url(c)
         val now = System.currentTimeMillis()
         prefs(c).edit().putLong("last_check", now).putLong("next_check", now + DAY).apply()
-        if (url.isEmpty()) { status = "Updates are off on this tablet"; proof(c, false, true, "no update URL"); return }
+        if (url.isEmpty()) { status = "Updates are off on this device"; proof(c, false, true, "no update URL"); return }
         val cred = cloudCredential(c, url)
         fun couldnt(e: Exception, counts: Boolean) {
             prefs(c).edit().putLong("next_check", now + DAY / 24).apply()
@@ -119,8 +119,8 @@ internal object Updater {
         val mine = installedCode(c)
         when (val d = Releases.decide(mine, r, Releases.bucket(deviceId(c), r.versionCode), failed(c))) {
             Decision.UpToDate -> { status = "Up to date"; clearDownloads(c) }
-            Decision.FailedHere -> status = "Version ${r.version} didn't start properly here, so this tablet stays on ${installedVersion(c)}"
-            Decision.NotYet -> status = "Version ${r.version} is coming to tablets a few at a time; not this one yet"
+            Decision.FailedHere -> status = "Version ${r.version} didn't start properly here, so this device stays on ${installedVersion(c)}"
+            Decision.NotYet -> status = "Version ${r.version} is coming to devices a few at a time; not this one yet"
             is Decision.Take -> {
                 download(c, d.release, d.urgent)
                 if (!File(dir(c), "ready.json").exists()) prefs(c).edit().putLong("next_check", now + DAY / 24).apply() // try again in an hour
@@ -377,7 +377,7 @@ internal object Updater {
                 pf.delete(); clearDownloads(c)
                 File(dir(c), "healthy").writeText(mine.toString())
                 history(c, "Version ${p.optString("version")} didn't start properly, so it went back to ${p.optString("rescueVersion")}")
-                status = "Version ${p.optString("version")} didn't start properly, so this tablet went back to ${p.optString("rescueVersion")}"
+                status = "Version ${p.optString("version")} didn't start properly, so this device went back to ${p.optString("rescueVersion")}"
                 Log.w(TAG, status)
             }
             mine == p.optLong("from") && System.currentTimeMillis() - p.optLong("at") > 10 * 60_000L -> { pf.delete() } // the install never happened

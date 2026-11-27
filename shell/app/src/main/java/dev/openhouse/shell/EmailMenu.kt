@@ -20,7 +20,7 @@ internal class EmailMenu(private val act: MainActivity) {
     private fun say(title: String, text: String, then: (() -> Unit)? = null) {
         CalmDialog(act).setTitle(title).setMessage(text).setPositiveButton("Close") { _, _ -> then?.invoke() }.show()
     }
-    private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
+    private val noBridge = "The device's software isn't answering right now. Try again in a minute."
     /** Saying yes to mail, or widening who's read, is a person's to tap, not Opie's (DeviceServer.personOnly). */
     private fun person(what: String, f: () -> Unit): () -> Unit = { if (!DeviceServer.personOnly(what)) f() }
 
@@ -72,7 +72,7 @@ internal class EmailMenu(private val act: MainActivity) {
         rows += CalmDialog.Row(if (own != null) own.user else "Use your own mailbox", if (own != null) MailAccount.lastError else null, value = if (own != null) "On" else "Off") to { if (own != null) ownSet(own) else person("Use your own mailbox") { addOwn() }() }
 
         val d = CalmDialog(act).setTitle("Email").setWidth(860f)
-        if (cloud == null && own == null) d.setMessage("Email photos and invitations to the tablet: link it to your account (Settings, Account), or use a mailbox of your own.")
+        if (cloud == null && own == null) d.setMessage("Email photos and invitations to the device: link it to your account (Settings, Account), or use a mailbox of your own.")
         else if (notes.isNotEmpty()) d.setMessage(notes.joinToString("\n"))
         d.setRows(rows.map { it.first }) { _, i -> rows[i].second?.invoke() }.setNegativeButton("Back", null).show()
     }
@@ -88,7 +88,7 @@ internal class EmailMenu(private val act: MainActivity) {
 
     private fun address(cloud: JSONObject) {
         val on = cloud.optBoolean("on")
-        CalmDialog(act).setTitle("The tablet's address").setMessage(cloud.optString("address").ifBlank { "No address yet." } + if (on) "" else "\nOff: mail to it isn't taken.")
+        CalmDialog(act).setTitle("The device's address").setMessage(cloud.optString("address").ifBlank { "No address yet." } + if (on) "" else "\nOff: mail to it isn't taken.")
             .setMore("Mail from the people on the list comes straight in. From anyone else it waits here 3 days for someone to allow it.")
             .setPositiveButton(if (on) "Turn off" else "Turn on") { _, _ -> if (on || !DeviceServer.personOnly("Turning on email")) change("/mail/set", JSONObject().put("on", !on)) }
             .setNeutralButton("New address") { _, _ -> newAddress() }
@@ -147,7 +147,7 @@ internal class EmailMenu(private val act: MainActivity) {
         val checked = MailAccount.lastChecked.takeIf { it > 0 }?.let { DateUtils.getRelativeTimeSpanString(it, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString() }
         val now = MailAccount.lastError ?: checked?.let { "Last looked $it." } ?: "Looks every 2 minutes."
         CalmDialog(act).setTitle(own.user).setMessage("${own.host}\n$now")
-            .setMore("The tablet looks in its inbox every 2 minutes, for mail that came after it was added, and marks what it takes as read. The password stays sealed on this tablet and only reaches that server.")
+            .setMore("The device looks in its inbox every 2 minutes, for mail that came after it was added, and marks what it takes as read. The password stays sealed on this device and only reaches that server.")
             .setDanger()
             .setPositiveButton("Remove") { _, _ -> thread { MailAccount.remove(); post("/mail/set", JSONObject().put("own", false)); ui { act.toast("Removed"); show() } } }
             .setNegativeButton("Back") { _, _ -> show() }.show()
@@ -160,7 +160,7 @@ internal class EmailMenu(private val act: MainActivity) {
         addr.setOnFocusChangeListener { _, has -> if (!has && server.text.isBlank()) guessServer(addr.text.toString())?.let { server.setText(it) } }
         val col = Calm.column(act, 12).apply {
             addView(addr); addView(pass); addView(server)
-            addView(Calm.more(act, "A mailbox just for the tablet, at any provider with IMAP. Make an app password in the account's security settings. The tablet looks in the inbox every 2 minutes, for mail that comes after now. The password stays sealed on this tablet and only reaches that server."))
+            addView(Calm.more(act, "A mailbox just for the device, at any provider with IMAP. Make an app password in the account's security settings. The device looks in the inbox every 2 minutes, for mail that comes after now. The password stays sealed on this device and only reaches that server."))
         }
         CalmDialog(act).setTitle("Use your own mailbox").setView(col).setWidth(760f)
             .setPositiveButton("Add") { _, _ ->

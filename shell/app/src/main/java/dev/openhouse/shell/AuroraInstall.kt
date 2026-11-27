@@ -48,7 +48,7 @@ internal object AuroraInstall {
         setUpAurora(acc)?.let { return DeviceServer.text(it, true) }
         if (!AppStore.auroraMayInstall() && !allowAuroraInstalls(acc))
             return DeviceServer.text("Aurora Store needs Android's \"Install unknown apps\" switch on, and it couldn't be turned on here. " +
-                "Someone at the tablet can turn it on: Settings > This tablet > Android settings > Apps > Aurora Store > Install unknown apps.", true)
+                "Someone at the device can turn it on: Settings > Advanced > Android settings > Apps > Aurora Store > Install unknown apps.", true)
         acc.status("Finding $name in Aurora Store")
         ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=$pkg")).setPackage(AppStore.AURORA)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP))

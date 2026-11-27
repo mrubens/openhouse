@@ -34,7 +34,7 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
 
     private fun ui(f: () -> Unit) = act.runOnUiThread(f)
     private fun say(text: String) { CalmDialog(act).setTitle("Live voice").setMessage(text).setPositiveButton("Close", null).show() }
-    private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
+    private val noBridge = "The device's software isn't answering right now. Try again in a minute."
     /** The household's account doesn't have Opie's voice yet (the cloud's voiceState.available, or its not_enabled). */
     private val notYet = "Opie's voice isn't on for your household yet. It turns on here by itself as soon as it is."
     private fun n(x: Int) = String.format(java.util.Locale.US, "%,d", x)

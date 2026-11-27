@@ -107,13 +107,13 @@ h1{font-size:22px;font-weight:600;margin:0 0 4px}p{margin:6px 0;color:var(--soft
 input{font:inherit;font-size:22px;letter-spacing:.15em;text-transform:uppercase;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
 button{font:inherit;margin-top:10px;padding:10px 16px;border-radius:8px;border:1px solid var(--ink);background:var(--ink);color:var(--bg)}.msg{min-height:1.5em;margin-top:8px}.bad{color:var(--bad)}.good{color:var(--ok)}
 </style></head><body><main><h1>Connect ${esc(name)} to your Opie</h1>
-<p>${esc(name)} will be able to use what your household keeps on the tablet (lists, the calendar, chores, notes, timers, the TV), and make and change its apps and home screen. Every change can be undone.</p>
-<div class="card" id="ask"><p><b>On the tablet:</b> the gear, then Screens and computers, then <b>A computer, to change the apps</b>. It shows a code.</p>
+<p>${esc(name)} will be able to use what your household keeps on the device (lists, the calendar, chores, notes, timers, the TV), and make and change its apps and home screen. Every change can be undone.</p>
+<div class="card" id="ask"><p><b>On the device:</b> the gear, then Screens and computers, then <b>A computer, to change the apps</b>. It shows a code.</p>
 <form id="f"><input id="code" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX" required><button>Connect</button><div class="msg" id="m"></div></form></div>
-<div class="card" id="allow" hidden><p><b>Now tap Allow on the tablet.</b></p><div class="msg" id="w"></div></div></main><script>
+<div class="card" id="allow" hidden><p><b>Now tap Allow on the device.</b></p><div class="msg" id="w"></div></div></main><script>
 const sid=${JSON.stringify(sid)},$=(s)=>document.querySelector(s);
 async function api(p,b){const r=await fetch(p,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});let j={};try{j=await r.json()}catch{}if(!r.ok)throw new Error(j.error||('Something went wrong ('+r.status+')'));return j}
-$('#f').onsubmit=async(e)=>{e.preventDefault();const m=$('#m');m.className='msg';m.textContent='Asking the tablet…';
+$('#f').onsubmit=async(e)=>{e.preventDefault();const m=$('#m');m.className='msg';m.textContent='Asking the device…';
 try{await api('/oauth/pair',{sid,code:$('#code').value});$('#ask').hidden=true;$('#allow').hidden=false;wait()}catch(x){m.className='msg bad';m.textContent=x.message}};
 async function wait(){for(;;){let j;try{j=await api('/oauth/wait',{sid})}catch(x){$('#w').className='msg bad';$('#w').textContent=x.message;return}
 if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Going back…';location.href=j.redirect;return}await new Promise(r=>setTimeout(r,1000))}}
@@ -169,24 +169,24 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
         if (!s || s.until < now()) return out(res, 404, { error: 'This page has run out. Start again from Claude or ChatGPT.' });
         if (p === '/oauth/pair') {
           if (tooMany(ip)) return out(res, 429, { error: 'Too many tries. Wait a minute.' });
-          if (working >= AT_ONCE) return out(res, 429, { error: 'The tablet is busy. Try again in a moment.' });
+          if (working >= AT_ONCE) return out(res, 429, { error: 'The device is busy. Try again in a moment.' });
           let pc; working++;
           try { pc = await pairingFromCodeAsync(b.code); } finally { working--; }
-          if (!pc) return out(res, 400, { error: "That isn't the tablet's code: 12 letters and numbers, like K7QM-2XD9-HPA4." });
+          if (!pc) return out(res, 400, { error: "That isn't the device's code: 12 letters and numbers, like K7QM-2XD9-HPA4." });
           const box = seal(pc.key, `hello:${pc.pair}`, Buffer.from(JSON.stringify({ name: s.name })));
           const r = screens.pairRelayed(pc.pair, 'hello', Buffer.from(JSON.stringify({ box: box.toString('base64url') })));
-          if (r.status !== 200) return out(res, 400, { error: 'The tablet isn\'t showing that code. Check it, or open "A computer, to change the apps" again (a code lasts 10 minutes).' });
+          if (r.status !== 200) return out(res, 400, { error: 'The device isn\'t showing that code. Check it, or open "A computer, to change the apps" again (a code lasts 10 minutes).' });
           s.pair = pc.pair; s.key = pc.key;
           return out(res, 200, { asked: true });
         }
         if (!s.pair) return out(res, 400, { error: 'Type the code first.' });
         const r = screens.pairRelayed(s.pair, 'wait');
-        if (r.status === 404) { sessions.delete(String(b.sid)); return out(res, 410, { error: 'The tablet ended the pairing. Start again there.' }); }
+        if (r.status === 404) { sessions.delete(String(b.sid)); return out(res, 410, { error: 'The device ended the pairing. Start again there.' }); }
         if (r.json.waiting) return out(res, 200, { waiting: true });
         sessions.delete(String(b.sid));
         const w = r.json.box && open(s.key, `welcome:${s.pair}`, Buffer.from(String(r.json.box), 'base64url'));
         const welcome = w ? JSON.parse(w.toString()) : null;
-        if (!welcome || welcome.refused) return out(res, 403, { error: 'The tablet said no.' });
+        if (!welcome || welcome.refused) return out(res, 403, { error: 'The device said no.' });
         const id = rnd(12), code = rnd(32);
         st.grants[id] = { deviceId: welcome.id, name: welcome.name, client: s.client, at: new Date(now()).toISOString(), access: [], refresh: [], code: { h: sha(code), redirect: s.redirect, challenge: s.challenge, until: secs() + 300 } };
         save();

@@ -74,7 +74,7 @@ export function daysText(days) {
 }
 
 export const ALARM_TOOL = { name: 'alarm',
-  description: 'Alarm clocks that ring on the tablet at a set time, with the alarm sound, until someone stops or snoozes them: for waking up or a set time of day ("wake me at 6:30 on weekdays", "an alarm for Maya at 7 tomorrow"). ' +
+  description: 'Alarm clocks that ring on the device at a set time, with the alarm sound, until someone stops or snoozes them: for waking up or a set time of day ("wake me at 6:30 on weekdays", "an alarm for Maya at 7 tomorrow"). ' +
     'Not for a countdown (timer) or words said later (later). Actions: set (time, and days for one that repeats; none rings once, at the next such time), list, change (by id: time, days, label, who, or on false/true to turn it off or back on), cancel (by id, or all), ' +
     'and for one ringing now: stop or snooze. To stop or snooze, no list first. To change or cancel with one alarm, no list first either.',
   inputSchema: { type: 'object', required: ['action'], properties: {

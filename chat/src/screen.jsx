@@ -130,7 +130,7 @@ function TvPairing({ onJoined, removed }) {
       <div className="brand">Opie</div>
       {step === 'joining' ? <h1>Joining</h1> : <>
         <h1>{removed ? 'This TV was removed. To add it again:' : 'To show the household here:'}</h1>
-        <p>On the tablet, open Settings, Screens, Add a screen, A TV, and type</p>
+        <p>On the device, open Settings, Screens, Add a screen, A TV, and type</p>
         <div className="tv-code">{code}</div>
       </>}
     </div>
@@ -930,7 +930,7 @@ function TvFrame({ c, onRemoved }) {
     <div className="tv-pair">
       <div className="brand">Opie</div>
       <h1>Nothing to show on the TV.</h1>
-      <p>Ask Opie on the tablet to make a layout for the TV, or to put ours back.</p>
+      <p>Ask Opie on the device to make a layout for the TV, or to put ours back.</p>
     </div>
   );
   return (

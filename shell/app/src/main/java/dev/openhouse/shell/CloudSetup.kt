@@ -47,7 +47,7 @@ internal object CloudSetup {
                     Log.i(TAG, "setup code: linked on try $tries")
                     tries = 0; nextLinkAt = 0
                     voiceSoon()
-                    MainActivity.live?.let { act -> act.runOnUiThread { act.toast("Linked to ${r?.optString("family")?.ifEmpty { null } ?: "your family"}") } }
+                    MainActivity.live?.let { act -> act.runOnUiThread { act.toast("Linked to ${r?.optString("family")?.ifEmpty { null } ?: "your household"}") } }
                 }
                 // The service itself said it's used, expired or not one: no use trying again.
                 Link.REFUSED -> { forget(p); Log.w(TAG, "setup code: refused by the service on try $tries (${r?.optString("error")?.take(120)}); dropped"); tries = 0 }

@@ -50,7 +50,7 @@ internal object Screens {
         thread {
             val app = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/cloud/status")).optString("iphoneApp") }.getOrNull()?.takeIf { it.startsWith("https://") }
             main.post {
-                val rows = listOfNotNull("Another Opie tablet", "A tablet, iPad or frame", "A TV", "Someone's phone", app?.let { "The iPhone app" }, "A computer, to change the apps")
+                val rows = listOfNotNull("Another Opie device", "A tablet, iPad or frame", "A TV", "Someone's phone", app?.let { "The iPhone app" }, "A computer, to change the apps")
                 CalmDialog(a).setTitle("Add a device").setItems(rows.toTypedArray()) { _, i ->
                     when (rows[i]) { rows[0] -> tablet(a); rows[1] -> add(a); rows[2] -> tv(a); rows[3] -> phone(a); "The iPhone app" -> iphoneApp(a, app!!); else -> computer(a) } }
                     .setNegativeButton("Cancel", null).show().also { a.immersive() }
@@ -85,18 +85,18 @@ internal object Screens {
         val ip = Handoff.lanAddress(a)
         val p = if (ip == null) null else runCatching { JSONObject(post("/screens/pair", JSONObject().put("kind", "tablet").put("address", ip.hostAddress)) ?: "") }.getOrNull()
         main.post {
-            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
+            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the device to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val code = p.optString("code"); val port = p.optInt("port")
             val url = "${base(p, ip.hostAddress)}/tablet#$code"
             val left = Calm.column(a, 18).apply {
-                addView(Calm.text(a, "On the new tablet, tap Add this tablet to your Opie (in its welcome, or Settings, Advanced). Then scan this code, or type it:", 20f, 400))
+                addView(Calm.text(a, "On the new device, tap Add this device to your Opie (in its welcome, or Settings, Advanced). Then scan this code, or type it:", 20f, 400))
                 addView(Calm.text(a, code, 40f, 600).apply { letterSpacing = .06f; maxLines = 1; setTextIsSelectable(true) })
-                addView(Calm.small(a, "The new tablet on the same Wi-Fi as this one. The code lasts 10 minutes, while this shows. It then shows this household, kept here: nothing to set up again."))
+                addView(Calm.small(a, "The new device on the same Wi-Fi as this one. The code lasts 10 minutes, while this shows. It then shows this household, kept here: nothing to set up again."))
             }
             val col = Calm.row(a, 40).apply {
                 gravity = Gravity.CENTER_VERTICAL
                 addView(left, LinearLayout.LayoutParams(0, -2, 1f))
-                addView(Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 420)) }, Calm.caption(a, "Scan with the new tablet"), 300) { Handoff.share(a, url) })
+                addView(Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 420)) }, Calm.caption(a, "Scan with the new device"), 300) { Handoff.share(a, url) })
             }
             val nsd = a.getSystemService(android.net.nsd.NsdManager::class.java)
             val advert = object : android.net.nsd.NsdManager.RegistrationListener {
@@ -109,7 +109,7 @@ internal object Screens {
             val multicast = runCatching { wifi.createMulticastLock("openhouse-tablet").apply { setReferenceCounted(false); acquire() } }.getOrNull()
             val advertised = runCatching { nsd.registerService(android.net.nsd.NsdServiceInfo().apply { serviceName = "Opie"; serviceType = "_openhouse._tcp"; setPort(port) }, android.net.nsd.NsdManager.PROTOCOL_DNS_SD, advert) }.isSuccess
             var open = true
-            val d = CalmDialog(a).setTitle("Add another Opie tablet").setWidth(940f).setView(col).setNegativeButton("Cancel", null)
+            val d = CalmDialog(a).setTitle("Add another Opie device").setWidth(940f).setView(col).setNegativeButton("Cancel", null)
                 .setOnDismissListener { open = false; if (advertised) runCatching { nsd.unregisterService(advert) }; runCatching { multicast?.release() } }
                 .show().also { a.immersive() }
             val since = System.currentTimeMillis()
@@ -129,7 +129,7 @@ internal object Screens {
         val ip = Handoff.lanAddress(a)
         val p = if (ip == null) null else runCatching { JSONObject(post("/screens/pair") ?: "") }.getOrNull()
         main.post {
-            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
+            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the device to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair")
             val url = "${base(p, ip.hostAddress)}/screen/#$pair.${p.optString("key")}"
             val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with the other screen, ${where(p)}."), 360) { Handoff.share(a, url) }
@@ -156,7 +156,7 @@ internal object Screens {
         val family = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/household")).optJSONArray("family") }.getOrNull()
         val names = (0 until (family?.length() ?: 0)).mapNotNull { family!!.optJSONObject(it)?.takeIf { p -> p.optString("kind") != "pet" }?.optString("name")?.takeIf { n -> n.isNotBlank() } } // (pets have no phones)
         main.post {
-            if (names.isEmpty()) { CalmDialog(a).setTitle("Add the family first").setMessage("In Settings, Family.").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
+            if (names.isEmpty()) { CalmDialog(a).setTitle("Add the household first").setMessage("In Settings, Household.").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             CalmDialog(a).setTitle("Whose phone?").setItems(names.toTypedArray()) { _, i ->
                 val who = names[i]
                 CalmDialog(a).setTitle("Let $who's phone ask Opie?")
@@ -171,7 +171,7 @@ internal object Screens {
         val ip = Handoff.lanAddress(a)
         val p = if (ip == null) null else runCatching { JSONObject(post("/screens/pair", JSONObject().put("kind", "phone").put("person", who).put("grownup", grownup)) ?: "") }.getOrNull()
         main.post {
-            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
+            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the device to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair")
             val url = "${base(p, ip.hostAddress)}/phone/?for=${android.net.Uri.encode(who)}#$pair.${p.optString("key")}"
             val col = Calm.qr(a, ImageView(a).apply { setImageBitmap(Handoff.qr(url, 520)) }, Calm.caption(a, "Scan with $who's phone, ${where(p)}."), 360) { Handoff.share(a, url) }
@@ -197,7 +197,7 @@ internal object Screens {
      */
     fun tv(a: MainActivity) {
         val ip = Handoff.lanAddress(a)
-        if (ip == null) { CalmDialog(a).setTitle("Connect the tablet to Wi-Fi first.").setPositiveButton("Close", null).show().also { a.immersive() }; return }
+        if (ip == null) { CalmDialog(a).setTitle("Connect the device to Wi-Fi first.").setPositiveButton("Close", null).show().also { a.immersive() }; return }
         thread { post("/screens/lan", JSONObject().put("on", true)) } // so the TV can open the page
         val code = Calm.field(a, "XXXX-XXXX-XXXX", 30f).apply { inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS }
         val name = Calm.field(a, "Which TV? (Living room)", 22f)
@@ -239,7 +239,7 @@ internal object Screens {
         val ownConnector = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText(a.bridge + "/webmcp")).optString("connector").takeIf { it.startsWith("http") } }.getOrNull()
         val connector = ownConnector ?: cloudConnector
         main.post {
-            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the tablet to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
+            if (ip == null || p == null) { CalmDialog(a).setTitle(if (ip == null) "Connect the device to Wi-Fi first." else "The assistant is starting").setPositiveButton("Close", null).show().also { a.immersive() }; return@post }
             val pair = p.optString("pair"); val code = p.optString("code"); val port = p.optInt("port")
             val address = "${ip.hostAddress}:$port"
             // The page to add Opie to Claude (bridge/connect-page.js), at the bridge's own name when it has one.
@@ -268,8 +268,8 @@ internal object Screens {
                     }
                 }))
                 addView(step(2, "Then give it this code", Calm.text(a, code, 52f, 600).apply { letterSpacing = .08f; setTextIsSelectable(true) }))
-                addView(Calm.small(a, if (connector != null) "The computer on the same Wi-Fi as this tablet; Claude or ChatGPT from anywhere. The code lasts 10 minutes, while this shows." else "On the same Wi-Fi as this tablet. The page and the code last 10 minutes, while this shows."))
-                if (turnedOn) addView(Calm.small(a, "Use it away from home is on now, so your assistant can reach this tablet from anywhere. You can turn it off in Settings, Account."))
+                addView(Calm.small(a, if (connector != null) "The computer on the same Wi-Fi as this device; Claude or ChatGPT from anywhere. The code lasts 10 minutes, while this shows." else "On the same Wi-Fi as this device. The page and the code last 10 minutes, while this shows."))
+                if (turnedOn) addView(Calm.small(a, "Use it away from home is on now, so your assistant can reach this device from anywhere. You can turn it off in Settings, Account."))
             }
             val col = Calm.row(a, 48).apply {
                 gravity = Gravity.TOP
@@ -319,12 +319,12 @@ internal object Screens {
             addView(field)
             // Turning it off is rare: a quiet link here, not a third button (docs/ux.md).
             if (now != null) addView(Calm.quiet(a, "Turn it off") { d?.dismiss(); thread { post("/webmcp", JSONObject().put("on", false)) } }.apply { setPadding(0, 0, 0, 0) }, android.widget.LinearLayout.LayoutParams(-2, -2))
-            addView(Calm.more(a, "If your network gives this tablet an https address of its own (Tailscale Funnel, a Cloudflare tunnel, your own proxy), pointing at port 8789, Claude or ChatGPT can reach it there, with no Opie cloud."))
+            addView(Calm.more(a, "If your network gives this device an https address of its own (Tailscale Funnel, a Cloudflare tunnel, your own proxy), pointing at port 8789, Claude or ChatGPT can reach it there, with no Opie cloud."))
         }
-        d = CalmDialog(a).setTitle("Your own address").setMessage("An https address that reaches this tablet's port 8789.").setView(col)
+        d = CalmDialog(a).setTitle("Your own address").setMessage("An https address that reaches this device's port 8789.").setView(col)
             .setPositiveButton("Turn on") { _, _ -> thread {
                 val r = runCatching { JSONObject(post("/webmcp", JSONObject().put("on", true).put("url", field.text.toString().trim())) ?: "") }.getOrNull()
-                main.post { CalmDialog(a).setTitle(if (r?.optString("connector")?.startsWith("http") == true) "On" else "That didn't work").setMessage(r?.optString("connector")?.takeIf { it.startsWith("http") }?.let { "In Claude or ChatGPT, add a connector at $it, then give it the code from \"A computer, to change the apps\"." } ?: (r?.optString("error") ?: "The tablet didn't answer.")).setPositiveButton("Close", null).show().also { a.immersive() } }
+                main.post { CalmDialog(a).setTitle(if (r?.optString("connector")?.startsWith("http") == true) "On" else "That didn't work").setMessage(r?.optString("connector")?.takeIf { it.startsWith("http") }?.let { "In Claude or ChatGPT, add a connector at $it, then give it the code from \"A computer, to change the apps\"." } ?: (r?.optString("error") ?: "The device didn't answer.")).setPositiveButton("Close", null).show().also { a.immersive() } }
             } }
             .setNegativeButton("Cancel", null).show().also { a.immersive() }
     }
@@ -341,7 +341,7 @@ internal object Screens {
         if (computer) {
             // The name is the computer's own choice; how it asked isn't, and it could ask only with the code from this screen.
             CalmDialog(a).setForPerson().setTitle("Let “$name” change this Opie?")
-                .setMessage(when (via) { "cloud" -> "It typed this tablet's code, through Opie's cloud."; "wifi" -> "It typed this tablet's code, on this Wi-Fi."; else -> null })
+                .setMessage(when (via) { "cloud" -> "It typed this device's code, through Opie's cloud."; "wifi" -> "It typed this device's code, on this Wi-Fi."; else -> null })
                 .setRights(listOf("data" to "The lists, calendar, chores, notes and timers", "devices" to "The speakers and TVs", "apps" to "Makes and changes apps and tabs"))
                 .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
                 .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }

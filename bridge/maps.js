@@ -172,7 +172,7 @@ export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = n
   const OFF = "The map isn't turned on yet: someone can turn it on in the Map app.";
   /** Show a place, and the drive to it from home, on the Map, and open it. */
   async function show({ place, label, note }) {
-    if (!hasApp()) throw new Error("There's no Map app on this tablet.");
+    if (!hasApp()) throw new Error("There's no Map app on this device.");
     if (!isOn()) throw new Error(OFF);
     const words = str(place, 200);
     if (!words) throw new Error('Which place?');
@@ -189,7 +189,7 @@ export function mapRoutes({ DIR, json, body, board, house = null, homeScreen = n
   }
 
   const TOOLS = [
-    { name: 'show_on_map', description: 'Show a place on the tablet\'s Map, with the drive to it from home, and open the Map. Use it whenever you give directions, a travel time or when to leave, ' +
+    { name: 'show_on_map', description: 'Show a place on the device\'s Map, with the drive to it from home, and open the Map. Use it whenever you give directions, a travel time or when to leave, ' +
       'and when someone asks to see where something is. place: a saved place\'s name ("School", "Grandma\'s"), a street address, or a business or landmark with its town ' +
       '("Multnomah County Library, Portland"). It answers with the drive (typical times, no live traffic); say that time rather than guessing one.',
       inputSchema: { type: 'object', required: ['place'], properties: { place: { type: 'string' }, label: { type: 'string', description: 'A short name to show, if place is an address' }, note: { type: 'string', description: 'One line to show with it, e.g. "Leave by 3:40 for soccer"' } } } },

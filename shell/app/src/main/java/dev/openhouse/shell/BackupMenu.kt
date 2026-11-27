@@ -32,7 +32,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
     private fun say(title: String, text: String, then: (() -> Unit)? = null) {
         CalmDialog(act).setTitle(title).setMessage(text).setPositiveButton("Close") { _, _ -> then?.invoke() }.open()
     }
-    private val noBridge = "The tablet's software isn't answering right now. Try again in a minute."
+    private val noBridge = "The device's software isn't answering right now. Try again in a minute."
     private fun pad(v: LinearLayout) = v.apply { orientation = LinearLayout.VERTICAL }
 
     private fun ago(iso: String?): String {
@@ -134,7 +134,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
             row.addView(Calm.text(act, code.split("-").chunked(4).joinToString("\n") { it.joinToString("-") }, 34f, 600).apply { letterSpacing = .06f; setPadding(Calm.px(act, 40), 0, 0, 0); setTextIsSelectable(true) })
             box.addView(row)
             CalmDialog(act).setTitle("Your recovery code").setView(box).setCancelable(!first)
-                .setMore("Backups are locked with it before they leave the tablet. Take a photo, print it, keep it in a password manager, or send it to your phone. A backup on another tablet needs it.")
+                .setMore("Backups are locked with it before they leave the device. Take a photo, print it, keep it in a password manager, or send it to your phone. A backup on another device needs it.")
                 .setPositiveButton(if (first) "I've saved it" else "Done") { _, _ -> if (first) thread { post("/backup/recovery-code/confirmed"); ui(then) } }
                 .setNeutralButton("Send to my phone") { _, _ -> sendToPhone(code) { showCode(first, code, then) } }
                 .open()
@@ -143,11 +143,11 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
 
     /** The code to a phone on the home Wi-Fi (Handoff: sealed with a key that's only in the QR code), for 5 minutes. */
     private fun sendToPhone(code: String, back: () -> Unit) {
-        val info = JSONObject().put("title", "Your family's recovery code").put("code", code)
-            .put("help", "Backups of the display are locked with this code. You need it to put a backup on another tablet.")
+        val info = JSONObject().put("title", "Your household's recovery code").put("code", code)
+            .put("help", "Backups of the display are locked with this code. You need it to put a backup on another device.")
         lateinit var d: android.app.Dialog
         val h = Handoff(act, info, minutes = 5, page = "recovery.html", onEnd = { if (d.isShowing) d.dismiss() })
-        if (!h.start()) return say("Send to my phone", "The tablet isn't on Wi-Fi, so it can't reach your phone.") { back() }
+        if (!h.start()) return say("Send to my phone", "The device isn't on Wi-Fi, so it can't reach your phone.") { back() }
         val box = pad(LinearLayout(act))
         box.addView(Calm.text(act, "Scan with a phone on this Wi-Fi.", 19f, 400, Calm.SOFT))
         runCatching { Handoff.qr(h.url!!, 360) }.getOrNull()?.let { bmp -> box.addView(ImageView(act).apply { setImageBitmap(bmp); setPadding(0, 24, 0, 0) }, LinearLayout.LayoutParams(-1, 384)) }
@@ -164,7 +164,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
         // At setup the private choice is the main button; asked from Backups, the one they tapped is.
         val d = CalmDialog(act).setTitle("Keep a copy of the code in Opie's cloud?")
             .setMessage("Then we could open your backups too.")
-            .setMore("If you lose the code and the tablet, we could still give your backups back: your apps, chats, household and photos. Most households keep the code themselves. This can change later in Backups.")
+            .setMore("If you lose the code and the device, we could still give your backups back: your apps, chats, household and photos. Most households keep the code themselves. This can change later in Backups.")
         if (setup) d.setPositiveButton("Just us") { _, _ -> show() }.setNegativeButton("Keep a copy") { _, _ -> escrowSet(true) }
         else d.setPositiveButton("Keep a copy") { _, _ -> escrowSet(true) }.setNegativeButton("Cancel", null)
         d.setCancelable(false).open()
@@ -213,7 +213,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
 
     private fun confirmRestore(b: JSONObject, date: String) {
         CalmDialog(act).setTitle("Restore the backup from $date?").setMessage("The apps, chats, household and photos here are replaced.").setDanger()
-            .setMore("What is here now is kept aside on the tablet until the next restore.")
+            .setMore("What is here now is kept aside on the device until the next restore.")
             .setPositiveButton("Restore") { _, _ -> restore(b, null) }
             .setNegativeButton("Cancel", null).open()
     }
@@ -226,7 +226,7 @@ internal class BackupMenu(private val act: MainActivity, private val onBack: (()
     }
 
     private fun restore(b: JSONObject, code: String?) {
-        val text = Calm.text(act, "Restoring. This can take a few minutes; leave the tablet on.", Calm.BODY, 400, Calm.SOFT)
+        val text = Calm.text(act, "Restoring. This can take a few minutes; leave the device on.", Calm.BODY, 400, Calm.SOFT)
         val d = CalmDialog(act).setTitle("Restoring").setView(text).setCancelable(false).open()
         thread {
             val body = JSONObject().put("dest", b.optString("dest")).put("id", b.optString("id")).apply {
