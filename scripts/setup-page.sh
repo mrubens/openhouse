@@ -51,7 +51,7 @@ cat <<'HTML'
   <li>Tap through Android's screens. "Belongs to your organization" means Opie looks after the device. It's still yours.</li>
   <li>Wait while it downloads and gets ready. It's done when it says Welcome to Opie.</li>
 </ol>
-<p class="note">To undo it: Settings, Advanced, Erase this tablet. <a href="https://github.com/mrubens/openhouse/blob/main/docs/setup.md">The full guide</a> has every step and what to do when one gets stuck. <a href="https://github.com/mrubens/openhouse/blob/main/docs/tablets.md">Devices that work best</a>.</p>
+<p class="note">To undo it: Settings, Advanced, Erase this tablet. <a href="https://github.com/mrubens/opie/blob/main/docs/setup.md">The full guide</a> has every step and what to do when one gets stuck. <a href="https://github.com/mrubens/opie/blob/main/docs/tablets.md">Devices that work best</a>.</p>
 </main>
 </body>
 </html>

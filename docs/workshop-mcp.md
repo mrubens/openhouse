@@ -178,13 +178,13 @@ ends with the version it was made from. The connector says its own in its instru
 that the plugin needs updating. (The tablet's guide is the one that's right for it, whichever is newer.)
 
 Installing (from the repo; nothing is published to a directory):
-- Claude Code: `/plugin install openhouse --marketplace mrubens/openhouse` (only for the connector: Claude Code
+- Claude Code: `/plugin install openhouse --marketplace mrubens/opie` (only for the connector: Claude Code
   gets the skills from the connector itself). Tried 2026-11-24 with 2.1.331: `claude plugin validate` passes for the
   plugin and the marketplace, and it installs with its five skills.
-- The Claude apps: Customize > Plugins > Add marketplace, `mrubens/openhouse`, with Sync automatically.
+- The Claude apps: Customize > Plugins > Add marketplace, `mrubens/opie`, with Sync automatically.
 - ChatGPT: a workspace admin imports the marketplace (Plugins > Add > Import marketplace, the repository, path
   empty, branch `main` to get updates; ChatGPT checks daily). Not tried yet.
-- Codex: `codex plugin marketplace add mrubens/openhouse`. Not tried yet.
+- Codex: `codex plugin marketplace add mrubens/opie`. Not tried yet.
 
 ### What the family sees
 

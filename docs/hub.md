@@ -161,7 +161,7 @@ code on the settings page), and more settings devices.
 ### Linux (a Pi, a NUC, any Debian or Ubuntu machine)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mrubens/openhouse/main/hub/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/mrubens/opie/main/hub/install.sh | sudo bash
 ```
 
 Or from a checkout: `sudo hub/install.sh`. It installs git and Node 22, clones Opie into `/opt/openhouse`, builds
@@ -173,7 +173,7 @@ or `sudo -u openhouse /opt/openhouse/hub/update.sh && sudo systemctl restart ope
 ### Docker on Linux
 
 ```bash
-git clone https://github.com/mrubens/openhouse.git && cd openhouse
+git clone https://github.com/mrubens/opie.git && cd opie
 docker compose -f hub/compose.yml up -d --build
 docker logs openhouse
 ```
@@ -187,7 +187,7 @@ newer checkout (images aren't published yet).
 ### A Mac
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mrubens/openhouse/main/hub/install-mac.sh | bash
+curl -fsSL https://raw.githubusercontent.com/mrubens/opie/main/hub/install-mac.sh | bash
 ```
 
 Natively, not in Docker, so it finds the devices on the Wi-Fi. It needs Apple's command line tools (for git; it opens

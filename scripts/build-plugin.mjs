@@ -24,7 +24,7 @@ const NAME = 'openhouse';
 const VERSION = `1.0.0+${g.version()}`;
 const CONNECTOR = 'https://cloud.opie.house/mcp';
 const DESCRIPTION = "Change your household's Opie from ChatGPT or Claude: how its apps, tabs and notes are made (skills) and the connector to your tablet.";
-const REPO = 'https://github.com/mrubens/openhouse';
+const REPO = 'https://github.com/mrubens/opie';
 const author = { name: 'Opie', url: 'https://openhouse.computer' };
 const json = (o) => JSON.stringify(o, null, 2) + '\n';
 
@@ -49,10 +49,10 @@ Guide version ${g.version()}. How it works: [docs/workshop-mcp.md](../../docs/wo
 
 Claude Code (which also gets these skills from the connector itself, so it needs this only for the connector):
 
-    /plugin install openhouse --marketplace mrubens/openhouse
+    /plugin install openhouse --marketplace mrubens/opie
 
-The Claude apps: Customize > Plugins > Add marketplace, \`mrubens/openhouse\`. ChatGPT: a workspace admin imports the
-marketplace from this repository (Plugins > Add > Import marketplace). Codex: \`codex plugin marketplace add mrubens/openhouse\`.
+The Claude apps: Customize > Plugins > Add marketplace, \`mrubens/opie\`. ChatGPT: a workspace admin imports the
+marketplace from this repository (Plugins > Add > Import marketplace). Codex: \`codex plugin marketplace add mrubens/opie\`.
 `);
 put('.claude-plugin/marketplace.json', json({ name: 'openhouse', description: 'Opie, the household tablet', owner: author, plugins: [{ name: NAME, source: './connect/plugin', description: DESCRIPTION }] }));
 put('.agents/plugins/marketplace.json', json({ name: 'openhouse', interface: { displayName: 'Opie' }, plugins: [{ name: NAME, source: { source: 'local', path: './connect/plugin' }, policy: { installation: 'AVAILABLE', authentication: 'ON_INSTALL' }, category: 'Productivity' }] }));

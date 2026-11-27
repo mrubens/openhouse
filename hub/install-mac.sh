@@ -1,14 +1,14 @@
 #!/bin/bash
 # Run Opie as a hub on a Mac, natively (docs/hub.md): it finds the TVs, speakers and printers on the Wi-Fi, which
 # Docker Desktop can't. A desktop Mac (a mini) that stays on is the right kind; a laptop sleeps with its lid shut.
-#   curl -fsSL https://raw.githubusercontent.com/mrubens/openhouse/main/hub/install-mac.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/mrubens/opie/main/hub/install-mac.sh | bash
 #   or from a checkout: hub/install-mac.sh
 # Puts Opie in ~/OpenHouse (a git checkout, so the settings page can update it), Node 22 inside it, the household's
 # things in ~/Library/Application Support/OpenHouse Hub, and starts it at login as a LaunchAgent that keeps the Mac from
 # sleeping while it runs (caffeinate). Run again to repair or update. To take it off:
 #   launchctl bootout gui/$(id -u)/computer.openhouse.hub; rm ~/Library/LaunchAgents/computer.openhouse.hub.plist
 set -euo pipefail
-REPO=${OPENHOUSE_REPO:-https://github.com/mrubens/openhouse.git}
+REPO=${OPENHOUSE_REPO:-https://github.com/mrubens/opie.git}
 BRANCH=${OPENHOUSE_BRANCH:-main}
 CODE=${OPENHOUSE_CODE:-$HOME/OpenHouse}
 DATA=${OPENHOUSE_DATA:-$HOME/Library/Application Support/OpenHouse Hub}

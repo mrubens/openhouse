@@ -70,7 +70,7 @@ see "Stuck in kiosk mode" below.
 ## 6. When it's stuck
 
 These are the ones we've seen on real tablets, with what fixed them. Something else? Tell us on
-[the "My tablet" form](https://github.com/mrubens/openhouse/issues/new?template=my-tablet.yml), and if Opie opens,
+[the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml), and if Opie opens,
 send its logs with **Settings → Advanced → Help → Send a report** (needs the tablet linked to an account).
 
 - **The code is refused, or the tablet says it can't set up a work device** (Xiaomi's HyperOS): that tablet can't run

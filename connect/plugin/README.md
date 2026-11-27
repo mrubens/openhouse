@@ -5,7 +5,7 @@ Guide version ba523ead5043. How it works: [docs/workshop-mcp.md](../../docs/work
 
 Claude Code (which also gets these skills from the connector itself, so it needs this only for the connector):
 
-    /plugin install openhouse --marketplace mrubens/openhouse
+    /plugin install openhouse --marketplace mrubens/opie
 
-The Claude apps: Customize > Plugins > Add marketplace, `mrubens/openhouse`. ChatGPT: a workspace admin imports the
-marketplace from this repository (Plugins > Add > Import marketplace). Codex: `codex plugin marketplace add mrubens/openhouse`.
+The Claude apps: Customize > Plugins > Add marketplace, `mrubens/opie`. ChatGPT: a workspace admin imports the
+marketplace from this repository (Plugins > Add > Import marketplace). Codex: `codex plugin marketplace add mrubens/opie`.

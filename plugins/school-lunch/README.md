@@ -27,7 +27,7 @@ about the household is sent: each address has only the district, the school and 
 
 ## Adding it
 
-Ask the assistant to "add the plugin from github.com/mrubens/openhouse/tree/main/plugins/school-lunch", or paste that
+Ask the assistant to "add the plugin from github.com/mrubens/opie/tree/main/plugins/school-lunch", or paste that
 link in Settings, Plugins, Add from a link.
 
 It runs quietly in the background ("background": true), so each school day's lunch is on the calendar and today's on

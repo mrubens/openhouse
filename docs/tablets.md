@@ -8,7 +8,7 @@ follow [the setup guide](setup.md).
 | **Samsung Galaxy Tab S10 FE**, Wi-Fi (SM-X520) | **Works** | Opie is built on it. Release and date of its full test run: to be recorded |
 | **Samsung Galaxy Tab A11+**, Wi-Fi (SM-X230) | **Being tested** | Voice fixes for it are in. It moves up once its results are in [hardware.md](hardware.md) |
 | **Xiaomi** tablets on HyperOS (Redmi Pad 2 Pro and others) | **Doesn't work** | HyperOS refuses the setup that makes Opie the tablet's owner, and lets Home leave kiosk mode |
-| Anything else | Not tried | Tell us what happened: [the "My tablet" form](https://github.com/mrubens/openhouse/issues/new?template=my-tablet.yml) |
+| Anything else | Not tried | Tell us what happened: [the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml) |
 
 What the states mean:
 
@@ -49,7 +49,7 @@ It has a fair chance of working if it has:
 - **6 GB of memory or more** (6–8 GB, [hardware.md](hardware.md)).
 - **A charge limit**, since it stays plugged in. Not needed, but the battery lasts longer.
 
-Then follow [the setup guide](setup.md) and fill in [the "My tablet" form](https://github.com/mrubens/openhouse/issues/new?template=my-tablet.yml)
+Then follow [the setup guide](setup.md) and fill in [the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml)
 either way. A tablet that works for several people is one we'll test.
 
 ## The charge limit on each

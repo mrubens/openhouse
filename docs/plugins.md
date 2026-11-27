@@ -584,7 +584,7 @@ Built for the School lunch plugin (`plugins/school-lunch/`), and usable by any a
   `github.com/<owner>/<repo>/tree/<ref>/<folder>` (GitLab's `/-/tree/`, Codeberg's `/src/branch/`). Only that
   folder's files are fetched (a sparse, blob-filtered fetch). This repo's own shared plugins live in `plugins/`.
 
-**School lunch:** `github.com/mrubens/openhouse/tree/main/plugins/school-lunch`. Each kid's name (from the family) and
+**School lunch:** `github.com/mrubens/opie/tree/main/plugins/school-lunch`. Each kid's name (from the family) and
 Nutrislice menu link; the week's lunches per school, today marked; "Lunch: Popcorn Chicken · Beef Taco Meat tomorrow"
 on Home on school days; voice actions `lunch {date?, who?}` and `week {who?, next?}`. Its page does all of it, so the
 line and the daily refresh happen while the page runs (as a tab once seen, or open).

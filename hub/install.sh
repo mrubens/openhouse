@@ -1,12 +1,12 @@
 #!/bin/bash
 # Install Opie as a hub on any Debian or Ubuntu machine, arm64 or x86_64: a Raspberry Pi, a NUC, an old laptop,
 # Ubuntu under WSL on Windows. docs/hub.md
-#   curl -fsSL https://raw.githubusercontent.com/mrubens/openhouse/main/hub/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/mrubens/opie/main/hub/install.sh | sudo bash
 #   or from a checkout: sudo hub/install.sh
 # Installs git and Node 22, puts Opie in /opt/openhouse (a git checkout, so the settings page can update it),
 # builds it, and runs it as the openhouse service with its data in /var/lib/openhouse. Run again to repair or update.
 set -euo pipefail
-REPO=${OPENHOUSE_REPO:-https://github.com/mrubens/openhouse.git}
+REPO=${OPENHOUSE_REPO:-https://github.com/mrubens/opie.git}
 BRANCH=${OPENHOUSE_BRANCH:-main}
 CODE=/opt/openhouse DATA=/var/lib/openhouse NODE_VERSION=22.23.4
 [ "$(id -u)" = 0 ] || { echo "Run it with sudo."; exit 1; }
