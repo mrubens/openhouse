@@ -15,6 +15,7 @@ import { Today as TabletToday, lookVars } from './home.jsx';
 import { paletteOf, worldOf } from './look.js';
 import { SetupFlow } from './setup-flow.jsx';
 import { Asks } from './asks.jsx';
+import { AlarmsSheet, nextAlarm, ringTime } from './alarms.jsx';
 
 // Served by Opie's cloud (https, installable, notes by push): everything goes through the relay, and the
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
@@ -149,12 +150,23 @@ function Today({ me, h, c, onOpen, tabs, apps, go, style }) {
       <div className="page">
         {(h.messages || []).filter((m) => now - m.at < 12 * 3600e3).slice(-2).reverse().map((m) => <div key={m.id} className="card note" {...(m.open && onOpen ? { role: 'button', onClick: () => onOpen(m.open.slice(5)) } : {})}><div className="t">{m.text}</div><div className="soft">{m.title}, {new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>)}
         <div className="later">
+          {homeScreen?.alarms && <AlarmsRow c={c} me={me} alarms={homeScreen.alarms.list} family={house.family || []} now={now} />}
           {(CLOUD_RELAY || !cloudLink(me)) && <PushRow c={c} me={me} />}
           <SendToOpie me={me} c={c} />
         </div>
       </div>
     </>
   );
+}
+/** The tablet's alarms (it rings them): the next one, and a tap to see, set or change them. */
+function AlarmsRow({ c, me, alarms, family, now }) {
+  const [open, setOpen] = useState(false);
+  const n = nextAlarm(alarms, now);
+  return <div className="pushrow">
+    <span>{n ? `Alarm ${new Date(n.at).toLocaleDateString([], { weekday: 'short' })} ${ringTime(n.at)}` : 'Alarms'}</span>
+    <button onClick={() => setOpen(true)}>{alarms?.length ? 'Change' : 'Add'}</button>
+    {open && <AlarmsSheet c={c} alarms={alarms} family={family} me={me} onClose={() => setOpen(false)} />}
+  </div>;
 }
 /** One of the family's photos, as a blob: URL (sealed, like everything else). */
 const photoCache = new Map();

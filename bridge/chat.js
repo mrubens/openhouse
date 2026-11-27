@@ -26,6 +26,7 @@ import { deviceTools } from './device-tools.js';
 import { snapshot } from './heartbeat-review.js';
 import { dayMemory } from './days.js';
 import { thingStore } from './things.js';
+import { alarmStore } from './alarms.js';
 import { dayNotes } from './day-notes.js';
 import { forModel, fromModel } from './tool-args.js';
 import { host } from './host.js';
@@ -71,6 +72,10 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   homeScreen.addTools([things.tools[1]], (name, a) => things.call(name, a, { by: 'assistant', house: house.view() }));
   board.localEvents = house.localEvents; board.houseContext = house.context;
   homeScreen.addTools(house.tools, house.call);
+  // Alarm clocks (alarms.js): kept here, rung by the device's shell (Alarms.kt), which gets them with the home view.
+  const alarms = alarmStore({ DIR, canRing: () => host.can('alarms'), shell: (p, b) => host.call(p, b), onChange: () => homeScreen.changed() });
+  homeScreen.setAlarms(alarms.view);
+  homeScreen.addTools(alarms.tools, alarms.call);
   // The Map: saved places, today's events with a place, what Opie showed (maps.js, docs/maps.md).
   const map = mapRoutes({ DIR, json, body, board, house, homeScreen, hasApp: () => !!APP_DIR && fs.existsSync(path.join(APP_DIR, 'apps/map/index.html')) });
   homeScreen.addTools(map.tools, map.call);
@@ -400,6 +405,12 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
     if ((p === '/map' || p.startsWith('/map/')) && await map(req, res, url)) return true;
     if ((p.startsWith('/live/') || p === '/setup/step' || p === '/setup/want' || p === '/setup/guess') && await live(req, res, url)) return true;
     if ((p === '/house' || p.startsWith('/house/')) && await house(req, res, url)) return true;
+    if (p === '/home/alarm' && req.method === 'POST') {
+      // (an app on the tablet doesn't set alarms; only the display's own shell says what it rang)
+      if (req.headers['x-openhouse-app'] || req.headers['x-openhouse-screen-app']) { json(res, 403, { error: 'not for apps' }); return true; }
+      const r = await alarms.handle(await body(req), { display: !req.headers['x-openhouse-screen'] });
+      json(res, r.error ? r.status || 400 : 200, r); return true;
+    }
     if (p.startsWith('/home') && await homeScreen(req, res, url)) return true;
     // pages: /chat/ (the conversation page, the start of a phone page) and /app/ (its bundle)
     if (req.method === 'GET' && (p === '/chat' || p === '/app' || p === '/screen')) { res.writeHead(301, { location: p + '/' }); res.end(); return true; }

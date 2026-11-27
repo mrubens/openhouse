@@ -22,7 +22,7 @@ import { asData, cutData } from './as-data.js';
 /** The home screen's tools a voice may use: what a person can tap on the tablet without the PIN, and asking for what
  *  needs it (docs/opie-parity.md). Never an app's code directly (make_app asks the builder; a computer: workshop.js). */
 export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'change_chores', 'change_rewards', 'change_routines', 'set_meals', 'save_recipe', 'keep_shared_photo',
-  'calendar_event', 'look_at_notes', 'put_note', 'update_note', 'take_down_note', 'take_down_thing', 'today_card', 'remember_preference', 'forget_preference', 'show_on_map', 'save_place', 'forget_place', 'heartbeat_settings', 'night_hours', 'later', 'later_list',
+  'calendar_event', 'look_at_notes', 'put_note', 'update_note', 'take_down_note', 'take_down_thing', 'today_card', 'remember_preference', 'forget_preference', 'show_on_map', 'save_place', 'forget_place', 'heartbeat_settings', 'night_hours', 'later', 'later_list', 'alarm',
   // a calendar or an iCloud album by its link (found with a web search, say: a team's schedule): the link goes straight to
   // the shell, and someone says yes on the tablet (calendar-links.js; an album with the PIN, a calendar without), so the voice can offer it, not force it
   'add_calendar', 'add_photo_album',

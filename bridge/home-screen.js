@@ -338,6 +338,8 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     return { style: homeStyle() };
   }
 
+  // The alarm clocks (alarms.js): their own store; here so every screen and the shell get them with the rest.
+  let alarmsOf = () => null;
   let boardOf = () => null, boardAt = 0;
   /** The drawing for Home's card: a picture of it (only an image's data address), its size, and whether it's blank. */
   function whiteboard() {
@@ -346,7 +348,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     return { at: Number(b.at) || 0, empty: !img || b.empty === true, ...(img && b.empty !== true ? { img } : {}), w: Number(b.w) || 0, h: Number(b.h) || 0 };
   }
   function view() {
-    return { v: version, whiteboard: boardAt, computer: live.computer, show: live.show, handsFree: handsFree() && { app: live.handsFree.app, until: live.handsFree.until }, sketch: homeScreen.sketch.v, notes: homeScreen.notes, places: homeScreen.places, timers: homeScreen.timers, trash: homeScreen.trash.map((n) => ({ id: n.id, title: n.title })),
+    return { v: version, whiteboard: boardAt, computer: live.computer, show: live.show, handsFree: handsFree() && { app: live.handsFree.app, until: live.handsFree.until }, sketch: homeScreen.sketch.v, notes: homeScreen.notes, places: homeScreen.places, timers: homeScreen.timers, alarms: alarmsOf(), trash: homeScreen.trash.map((n) => ({ id: n.id, title: n.title })),
       grid: { cols: G.COLS, rows: G.ROWS, reserved: G.RESERVED, shapes: G.SHAPES },
       // Apps with a widget (bigger than 1x1 they show it, at 1x1 their icon) and the shape each starts at; agent-made apps' widget layouts.
       style: homeStyle(), appsV, widgets: { builtin: BUILT_IN_WIDGETS, starts: Object.fromEntries(Object.keys(homeScreen.widgets).map((k) => [k, '2x2'])), content: homeScreen.widgets } };
@@ -710,6 +712,8 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   handle.showTab = (tab) => { if (TAB_ID.test(String(tab || ''))) { live.show = { tab: String(tab), at: Date.now() }; tell(); } };
   /** Open an app: its tab if it is one, else full screen over the home screen (the Map, when Opie shows a place). */
   handle.showApp = (app) => { if (TAB_ID.test(String(app || ''))) { live.show = { tab: String(app), at: Date.now(), ...(isTab(app) ? {} : { open: true }) }; tell(); } };
+  handle.setAlarms = (f) => { alarmsOf = () => { try { return f(); } catch { return null; } }; };
+  handle.changed = tell;
   handle.tools = () => [...TOOLS, ...extra];
   handle.call = (name, a, ctx) => call(name, a || {}, ctx || NOBODY);
   handle.addTools = (tools, fn) => { extra.push(...tools); for (const t of tools) extraCall.set(t.name, fn); };

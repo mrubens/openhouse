@@ -12,6 +12,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Widget } from './home-widgets.jsx';
 import { SpotifySlot, useSpotifyOn } from './spotify-player.jsx';
 import { useNow, smallHours } from './now.js';
+import { AlarmsSheet, nextAlarm, ringTime } from './alarms.jsx';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { PALETTES, WHITE, paletteOf, worldOf } from './look.js';
@@ -73,10 +74,10 @@ function BatteryLine({ shell }) {
 }
 
 /** The rail's time and date: drawn again each minute, by itself. */
-function RailClock({ shell }) {
+function RailClock({ shell, onAlarms }) {
   const d = new Date(useNow(60e3));
   return <>
-    <div className="h-time">{railTime(d, shell?.clock24?.())}</div>
+    <div className="h-time" role="button" onClick={onAlarms}>{railTime(d, shell?.clock24?.())}</div>
     <div className="h-day">{d.toLocaleDateString([], { weekday: 'long' })}</div>
     <div className="h-day h-date">{d.toLocaleDateString([], { day: 'numeric', month: 'long' })}</div>
   </>;
@@ -85,6 +86,11 @@ function RailClock({ shell }) {
 function TimeLeft({ t }) {
   const now = useNow(1000);
   return t.endAt <= now ? '0:00' : clock(Math.ceil((t.endAt - now) / 1000));
+}
+/** The next alarm when it rings within a day (a tap opens the alarms), else nothing. */
+function NextAlarm({ alarms, children }) {
+  const now = useNow(60e3), n = nextAlarm(alarms, now);
+  return n && n.at - now < 864e5 ? children(n) : null;
 }
 /** "−1 min", off once less than a minute is left. */
 function LessMinute({ t, onClick }) {
@@ -140,6 +146,8 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
   // Back to the first tab when the screen has rested, as a glance is what it's for.
   useEffect(() => { if (idle && tabs[0]) go(tabs[0].id); }, [idle]);
   const [timerOpen, setTimerOpen] = useState(null);
+  const [alarmsOpen, setAlarmsOpen] = useState(false);
+  const alarms = homeScreen?.alarms?.list || [];
   const { compact, upright } = useCompact(), bar = compact && upright;
   const [more, setMore] = useState(false);
   // On its side, the rail shows the tabs that fit whole; the rest are in More.
@@ -167,10 +175,11 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
     <div className={'home' + (st.density === 'snug' ? ' snug' : '') + (st.type === 'hand' ? ' hand-type' : '') + (st.backdrop === 'photos' ? ' over-photos' : '') + (st.palette === 'dusk' ? ' dark' : '') + (compact ? ' compact' : '') + (bar ? ' upright' : '')} data-tab={cur} style={lookVars(st, worldTab(tabs.find((t) => t.id === cur), appBy))}>
       {st.backdrop === 'photos' && <Backdrop c={c} names={house?.screensaver || house?.photos || []} usePhoto={usePhoto} />}
       {!bar && <aside className="h-rail">
-        <RailClock shell={shell} />
+        <RailClock shell={shell} onAlarms={() => setAlarmsOpen(true)} />
         {weather && !weather.error && <div className="h-wx"><span className="h-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(weather.code, weather.isDay !== false) }} />{weather.temp}° {String(weather.condition || '').toLowerCase()}</div>}
         {/* Tap a timer to change or clear it (a small sheet over the screen). */}
         {timers.map((t) => <button key={t.endAt} className="h-timer" onClick={() => setTimerOpen(t.endAt)}>{t.label} <b><TimeLeft t={t} /></b></button>)}
+        <NextAlarm alarms={alarms}>{(n) => <button className="h-timer" onClick={() => setAlarmsOpen(true)}>{n.a.label || 'Alarm'} <b>{ringTime(n.at)}</b></button>}</NextAlarm>
         <nav className="h-tabs" ref={railTabsRef}>
           {tabs.slice(0, railShown).map((t) => { const d = iconOf(t); return <button key={t.id} className={'h-tab' + (t.id === cur && !more ? ' on' : '') + (making(t.id) ? ' making' : '')} onClick={() => { setMore(false); go(t.id); }}><svg className="h-tab-i" viewBox="0 0 256 256" aria-hidden="true">{d && <path d={d} />}</svg>{nameOf(t)}</button>; })}
           {railShown < tabs.length && <button className={'h-tab' + (more || inMore.some((t) => t.id === cur) ? ' on' : '')} onClick={() => setMore(!more)}><svg className="h-tab-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg>More</button>}
@@ -189,7 +198,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
       <main className="h-sheet">
         {tabs.filter((t) => seen.has(t.id) || t.id === cur).map((t) => (
           <section key={t.id} className="h-page" hidden={t.id !== cur}>
-            {t.id === 'today' && compact ? <Glance c={c} house={house} weather={weather} timers={timers} tabs={tabs} appBy={appBy} go={go} openApp={openApp} shell={shell} handsFree={homeScreen?.handsFree} onTimer={setTimerOpen} onAsk={onAsk} />
+            {t.id === 'today' && compact ? <Glance c={c} house={house} weather={weather} timers={timers} tabs={tabs} appBy={appBy} go={go} openApp={openApp} shell={shell} handsFree={homeScreen?.handsFree} onTimer={setTimerOpen} onAsk={onAsk} alarms={alarms} onAlarms={() => setAlarmsOpen(true)} />
               : t.id === 'today' ? <Today c={c} house={house} notes={homeScreen?.notes || []} weather={weather} tabs={tabs} appBy={appBy} go={go} addTo={addTo} openApp={openApp} shell={shell} usePhoto={usePhoto} look={st} appsV={homeScreen?.appsV || {}} boardAt={homeScreen?.whiteboard || 0} />
               : t.id === 'apps' ? <Apps c={c} shell={shell} apps={apps} tabs={tabs} places={homeScreen?.places || {}} cards={st.cards || []} family={house?.family || []} />
               : shell && appBy.get(t.id)?.web !== false ? <AppFrame c={c} shell={shell} app={appBy.get(t.id)} look={st} v={homeScreen?.appsV?.[t.id] || 0} onOpen={openApp} add={addIn?.id === t.id ? addIn.at : 0} addExtra={addIn?.id === t.id ? addIn.extra : ''} />
@@ -219,6 +228,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           </div>}
         </div>
       </div>}
+      {alarmsOpen && <AlarmsSheet c={c} alarms={alarms} family={house?.family || []} onClose={() => setAlarmsOpen(false)} />}
       {(() => { const t = timers.find((x) => x.endAt === timerOpen); return t && (
         <div className="h-veil" onClick={() => setTimerOpen(null)}>
           <div className="h-timer-card" onClick={(e) => e.stopPropagation()}>
@@ -244,7 +254,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
  * Home on a phone: a glance, in big type. The time and the day, the weather, then only what's on now: cooking, timers,
  * the next thing on the calendar, the shopping list; and asking Opie. Each opens its tab.
  */
-function Glance({ c, house, weather, timers, tabs, appBy, go, openApp, shell, handsFree, onTimer, onAsk }) {
+function Glance({ c, house, weather, timers, tabs, appBy, go, openApp, shell, handsFree, onTimer, onAsk, alarms = [], onAlarms }) {
   const now = useNow(30e3), d = new Date(now), h = house || {};
   const kinds = new Map(); for (const t of tabs) { const k = kindOf(t, appBy.get(t.id)); if (k && !kinds.has(k)) kinds.set(k, t.id); }
   const open = (kind) => kinds.has(kind) ? () => go(kinds.get(kind)) : undefined;
@@ -263,7 +273,7 @@ function Glance({ c, house, weather, timers, tabs, appBy, go, openApp, shell, ha
   return (
     <div className="g">
       <div className="g-head">
-        <div className="g-time">{railTime(d, shell?.clock24?.())}</div>
+        <div className="g-time" role="button" onClick={onAlarms}>{railTime(d, shell?.clock24?.())}</div>
         <div className="g-day">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
         {w && <button className="g-wx" onClick={open('weather') || (() => shell?.weather?.())}><span className="g-wx-i" dangerouslySetInnerHTML={{ __html: weatherIcon(w.code, w.isDay !== false) }} />
           {[`${w.temp}° ${String(w.condition || '').toLowerCase()}`, Number.isFinite(wd?.high) && `high ${wd.high}°`].filter(Boolean).join(' · ')}</button>}
@@ -271,6 +281,7 @@ function Glance({ c, house, weather, timers, tabs, appBy, go, openApp, shell, ha
       <div className="g-rows">
         {cooking && <button className="g-row" onClick={() => openApp(cooking.id)}><span className="g-label">Cooking</span><span className="g-big">{cooking.meta?.name || cooking.id}</span></button>}
         {timers.map((t) => <button key={t.endAt} className="g-row g-timer" onClick={() => onTimer(t.endAt)}><span className="g-label">{t.label || 'Timer'}</span><span className="g-big"><TimeLeft t={t} /></span></button>)}
+        <NextAlarm alarms={alarms}>{(n) => <button className="g-row" onClick={onAlarms}><span className="g-label">{n.a.label || 'Alarm'}</span><span className="g-big">{ringTime(n.at)}</span></button>}</NextAlarm>
         {next && <button className="g-row" onClick={open('calendar')}><span className="g-label">{nextLabel}</span><span className="g-big">{next.title}</span>
           <span className="g-soft">{[timeOf(next) || 'All day', isPerson(next.who) && next.who].filter(Boolean).join(' · ')}</span></button>}
         {list && items.length > 0 && <button className="g-row" onClick={open('lists')}><span className="g-label">{list.name}</span>

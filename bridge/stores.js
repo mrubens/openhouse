@@ -41,6 +41,7 @@ export const STORES = [
   { name: 'later', path: 'later.json', backup: true, bak: true, why: 'reminders and follow-ups' },
   { name: 'calendar-sync', path: 'calendar-sync.json', backup: true, bak: true, why: 'the calendars chosen, changes not yet sent' },
   { name: 'things', path: 'things.json', backup: true, bak: true, why: 'the things on Home' },
+  { name: 'alarms', path: 'alarms.json', backup: true, bak: true, why: 'the alarm clocks' },
   { name: 'day-notes', path: 'day-notes.json', backup: true, bak: true, why: 'what apps put on the calendar' },
   // in chats/, backed up with it
   { name: 'board', path: 'chats/board.json', backup: true, bak: true },

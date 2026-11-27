@@ -307,7 +307,7 @@ const screens = screensRoutes({ noScreen: () => host.can('cards'), HERE, json, b
     // A phone may not make the tablet speak or run its timers for an app (it isn't in the room).
     const app = req.headers['x-openhouse-screen-app'];
     if (!app) return route(req, res, url);
-    if (!appAllowed(req.method, url.pathname, plugins.rightsOf(app)) || /^\/(voice\/say|home\/handsfree|home\/timer)$/.test(url.pathname)) return json(res, 403, { error: 'not for this app' });
+    if (!appAllowed(req.method, url.pathname, plugins.rightsOf(app)) || /^\/(voice\/say|home\/handsfree|home\/timer|home\/alarm)$/.test(url.pathname)) return json(res, 403, { error: 'not for this app' });
     return appCall(req, res, url, app);
   } });
 // Away from home (relay.js, docs/networking.md): the same sealed requests through the cloud's relay. Off until someone

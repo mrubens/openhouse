@@ -41,6 +41,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Home's own cards one at a time: the Whiteboard, a recipe to try, Dinner, Groceries… on or off | **new** | today_card with the card's name (whiteboard, recipes, meals, lists…), keeping the rest of the household's order |
 | Home's empty cards: "Add your family's calendar", "Add your photos", a recipe to try | yes | add_calendar, add_photo_album; recipes__cook opens a recipe |
 | Timers: start, +/− minutes, clear | yes | timer (a changed time is cancel and start) |
+| Alarms: add, change, turn on or off, delete, snooze, stop (Home's clock, the phone page, the ringing screen) | yes | alarm |
 | Today's lines (things): take one down | yes | take_down_thing |
 | Notes: open, take down | yes | look_at_notes, take_down_note; put_note and update_note too |
 | Put back a note taken down, or an app taken off Apps | **new** | put_back (was typed-only) |
