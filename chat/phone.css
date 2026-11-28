@@ -8,6 +8,7 @@
   --shadow: 0 20px 40px -26px rgba(40,30,10,.45), 0 0 0 1px color-mix(in srgb, var(--ink) 4.5%, transparent); }
 .app.dark { color-scheme: dark; --shadow: 0 20px 40px -24px rgba(0,0,0,.7), inset 0 0 0 1px color-mix(in srgb, var(--ink) 7%, transparent); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { touch-action: manipulation; } /* (no double-tap zoom) */
 html, body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 /* An iPhone zooms into a field whose text is under 16px when it's focused: never under 16px. */
