@@ -402,8 +402,11 @@ internal class SettingsLock(private val act: MainActivity) {
     fun googlePlay(back: () -> Unit = {}) {
         val name = PlayStore.accounts(act).firstOrNull()
         if (name != null) {
-            CalmDialog(act).setTitle("Google Play").setMessage(name)
+            // Gmail, Photos, Drive, Contacts and Calendar are hidden while an account is here (GooglePrivacy); showing them is a choice.
+            val shown = GooglePrivacy.shown(act)
+            CalmDialog(act).setTitle("Google Play").setMessage(name + if (shown) "" else "\nGmail, Photos, Drive, Contacts and Calendar are hidden on this device.")
                 .setPositiveButton("Done") { _, _ -> back() }
+                .setNeutralButton(if (shown) "Hide Google apps" else "Show Google apps") { _, _ -> thread { GooglePrivacy.setShown(act, !shown); act.runOnUiThread { googlePlay(back) } } }
                 .setNegativeButton("Sign out") { _, _ ->
                     thread { val ok = PlayStore.signOut(act, name); act.runOnUiThread {
                         changed()

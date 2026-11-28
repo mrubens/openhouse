@@ -147,6 +147,22 @@ way, used a shared anonymous account against Play's terms, and apps like YouTube
   device owner, silent; one someone installed themselves stays) and drops the shell's "install this APK" handler. The
   apps it added stay installed and in Apps; Play doesn't update them, since it didn't install them.
 
+### A Google account on the device
+
+Signing in to Google Play, or to YouTube TV with its own sign-in, adds a Google account to Android, and every Google app
+on the device could then reach that person's mail, photos and files. While one is signed in, the shell (device owner,
+`shell/GooglePrivacy.kt`, applied at start and whenever accounts change):
+- hides Gmail, Google Photos, Drive, Contacts and Calendar, so nobody can open them, Opie included. Settings →
+  Connections → Google Play → Show Google apps brings them back (a person's own, with the PIN);
+- turns off the account's mail, contacts and calendar sync, so the device's own Contacts and Calendar (a Samsung's too)
+  don't get them;
+- keeps Chrome, through its managed policies: no Google sign-in or sync, and no Gmail (`BrowserSignin` 0,
+  `SyncDisabled`, `URLBlocklist`), so Google's sites open signed out.
+
+YouTube TV, YouTube and Play keep the account. Opie's own calendars use their own sign-in (docs/calendar-sync.md),
+not the device's account, so they're untouched. Not yet tried on a real device: whether Chrome applies its policies on a
+device set up this way.
+
 ## Cost and latency
 
 Screen reading is text (the accessibility tree), which the model reads quickly and cheaply. A picture is taken only

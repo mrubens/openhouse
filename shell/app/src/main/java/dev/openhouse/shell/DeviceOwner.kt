@@ -25,6 +25,7 @@ internal object DeviceOwner {
         if (!isOwner(a)) return
         val dpm = dpm(a); val admin = admin(a)
         runCatching { AppStore.init(a); AppStore.retireAurora() } // (before home: it clears the shell's preferred activities)
+        runCatching { GooglePrivacy.start(a) } // a Google account here keeps its mail and photos out of reach
         // Home first, on its own: if anything below fails, Home must still be the display (not the update cover, nor
         // the tablet's own home screen), or the tablet comes back from an update on a blank cover.
         if (!a.getSharedPreferences("shell", Activity.MODE_PRIVATE).contains("outHome")) runCatching {

@@ -136,6 +136,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Signing in to Spotify for the tablet's own player (Settings → Connections → Spotify) | done | music `spotify_sign_in` puts Spotify's sign-in page on the screen; the person types there |
 | An Android app from Apps → Add apps (its Google Play results and "Music and books" suggestions): its Google Play page | done | install_app opens the same page, after a card on screen (the PIN when Add apps asks). Install, Buy and everything else on Google Play stay the person's taps: Opie never taps or types there (DeviceRules.handsOff), and open_app never opens a store (DeviceRules.neverOpen) |
 | Connections → Google Play: sign in, sign out | no, on purpose | personOnly: it puts a real Google account on a shared screen, and the password is the person's. install_app says where to sign in when nobody has |
+| Connections → Google Play: Show or Hide Google apps (Gmail, Photos, Drive, Contacts, Calendar, hidden while an account is signed in) | no, on purpose | personOnly, behind the PIN: showing them opens a person's mail and photos on a shared screen |
 
 ## The phone page
 

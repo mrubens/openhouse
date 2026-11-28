@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- GooglePrivacy: a Google account here doesn't sync its mail, contacts or calendar to the device -->
+    <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS" />
     <!-- Only to copy the old Drawing app's saved pictures into the family's photos, once (GalleryDrawings.kt). -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
