@@ -787,7 +787,8 @@ tablet says so and opens its own page (Remove). "From a link" stays at the botto
   `scripts/plugin-index.mjs` builds it from `plugins/*/package.json` and the tarballs `scripts/plugin-tarballs.sh`
   made, unpacking and checking each one as the tablet does (`checkPlugin`) and writing its rights with `rightsMerged`.
   A picture is `plugins/<name>/preview.png` (or `.jpg`, `.webp`), copied next to its tarball.
-- The tablet fetches the list only when someone opens it or asks Opie (kept 10 minutes). It takes only entries whose
+- The tablet fetches the list when someone opens it or asks Opie (kept 10 minutes), and at most once a day for the
+  heartbeat's one offer (docs/heartbeat.md §8), only when check-ins may judge (the cloud's judge is on). It takes only entries whose
   tarball and picture are https on the list's own host and that carry a sha256 (`cleanCatalog`), installs only from
   that tarball, and refuses it if its sha256 differs. The card is made from the tarball itself, never from the list's
   words, and says it was reviewed for the list. The manifest keeps `source: "catalog:<name>"`, `sha256` and `reviewed`.

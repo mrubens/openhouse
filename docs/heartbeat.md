@@ -230,6 +230,25 @@ The tablet's own agent (pi) was the fallback until 1.0.9; it's gone. With no jud
 service down) the checks still run, notes about what's sorted still come down, and Settings shows what they found.
 "Check now" says "It found things but has nothing to judge them with".
 
+## 8. One plugin offered, when the household's own things show the need (2026-11-28)
+
+At most once a day, after the judge and the review, `offerNow` (heartbeat.js) may put one quiet line on Home offering a
+plugin from Opie's list: "Try Game days, from Opie's plugins". Its tap asks Opie about it ("Tell us about the Game days
+plugin"), so adding it is still `look_at_plugin`, the device's card and a person's yes.
+
+- **Whether they need it is the decision model's call, never matching words.** One `POST /v1/decide`: the household as
+  conversations know it (`board.household()`), their calendars' names, the next four weeks' event titles, what's on the
+  device, and the plugins on the list that aren't (by plugin or app name), numbered, with a `need_<n>` predicate each.
+  The surest at 0.8 or more is offered (`offerInput`, `offerQuestions`, `offerPick` in heartbeat-judge.js). A team's
+  calendar and games on it with no Game days is the kind of thing it's for.
+- **Once.** Each plugin is offered once, ever (`heartbeat.json` `offers.offered`), whether or not it's added or the line
+  is taken down. One try a day (`offers.tried`).
+- **Inside the existing limits:** only at Tidy up or more, never at night, in Sleep now or while someone's using the
+  device; the try counts as one of the day's judgments and its cost, and the line as one of the day's 3 lines on Home
+  (it isn't tried once those are used up). Logged like the rest (`path: "offer"`).
+- **The list is fetched for it** at most once a day, only when this can run (the cloud's judge is on): the same
+  `index.json` on the plugin CDN that Settings and Opie read. Nothing about the household goes there.
+
 ## Levels: one setting, four (unchanged)
 
 Its level, how often the review runs (30, 60, 120 or 240 minutes) and its prompt: Settings, Advanced, Check-ins, or Opie's `heartbeat_settings` tool (`POST /heartbeat/settings`):
