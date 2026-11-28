@@ -166,8 +166,10 @@ save. `check_build` reports errors the page throws while it's open.
   needed except in a text field. Landscape. Keep the bottom-right 200x200 px clear (the assistant). The back gesture
   (swipe in from an edge) leaves the app, so there's no Home button.
 - No image or sound files: draw with SVG, canvas, shapes, generated textures, materials and lights; make sound with
-  Web Audio. Save the app's own things (high scores, settings) with the kit's `store` (kept by the bridge, on every
-  screen); `localStorage` under `app.<id>.` only for what belongs to one screen. The household's things go through the
+  Web Audio. Save the app's own things with the kit's `store` as they change, and put them back when it opens (kept by
+  the bridge, on every screen, through updates and backups): what someone typed, ticked or scored, its settings, and a
+  game in progress (the board, the level, the score, where things are). An update, a restart or a reload starts the
+  page again; nothing anyone did may be lost. `localStorage` under `app.<id>.` only for what belongs to one screen. The household's things go through the
   kit.
 - Make it look good: smooth 60 fps motion, easing; in games real lighting and materials in 3D and juice (particles,
   screen shake). Keep pixel ratio ≤ 2 and stop animation loops when `document.hidden`.
