@@ -38,7 +38,7 @@ const whoText = (e) => people(e).join(' & ');
 /** An event's color: its person's, or stripes of each one's when it's for several (null: nobody's). */
 const paint = (e) => { const cs = people(e).map((n) => house.color(n)); return cs.length > 1 ? `repeating-linear-gradient(135deg, ${cs.map((c, i) => `${c} calc(${i * 9} * var(--u)) calc(${(i + 1) * 9} * var(--u))`).join(', ')})` : cs[0] || null; };
 /** How an event is drawn anywhere (index.html .ev): on its person's color; nobody's is a soft card, or ink when all day. */
-// A person's color wins (whose it is); else the color chosen for its calendar (Settings, Calendars), else plain.
+// A person's color wins (whose it is); else the color chosen for its calendar (Settings, Connections), else plain.
 const calTone = (e) => (people(e).length ? null : e.color || null);
 const evLook = (e, cls, past = false, style = '') => ({ class: `${cls} ev${people(e).length || calTone(e) ? '' : e.allDay ? ' solid' : ' plain'}${past ? ' past' : ''}`, style: [style, people(e).length ? `background:${paint(e)}` : calTone(e) ? `background:${calTone(e)}` : ''].filter(Boolean).join(';') || null });
 /** A person's round mark: their initial, in their color. */

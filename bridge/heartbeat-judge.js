@@ -59,7 +59,7 @@ export const NOTE_RULES = `You look after a household's screen in the background
 
 - Read the things on Home first (below). Never put up a line that says what one already says: put up the same words changed instead (it replaces yours).
 - A line (show_thing): at most about eight plain words, a reminder or a suggestion ("Leave by 4:50 for Ducks at MSU"). People's names, not pronouns. No emoji. "until" is when its moment passes; it also comes down by itself once what it's about is sorted. Give it what a tap does: "open" its tab (meals, calendar, map...) or "ask" Opie something that settles it.
-- By kind: [sync] a calendar's link needs checking in Settings. [morning] only if there's something to get ready ("Pack Leo's swim bag"). [storage] storage is nearly full. [app] what the app's check says, plainly.`;
+- By kind: [sync] a calendar's link needs checking in Settings, Connections. [morning] only if there's something to get ready ("Pack Leo's swim bag"). [storage] storage is nearly full. [app] what the app's check says, plainly.`;
 
 const textOf = (out) => (out || []).filter((o) => o.type === 'message').flatMap((o) => o.content || []).filter((c) => c.type === 'output_text').map((c) => c.text).join('');
 

@@ -27,11 +27,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
-/** A tab: its [id], its [name] and, for one that is a page of the shell's (Calendars, Account, Advanced), the row that opens it. */
+/** A tab: its [id], its [name] and, for one that is a page of the shell's (Connections, Account, Advanced), the row that opens it. */
 private data class SettingsTab(val id: String, val name: String, val page: String? = null)
 
 private val TABS = listOf(
-    SettingsTab("household", "Household"), SettingsTab("opie", "Opie"), SettingsTab("calendars", "Calendars", "calendars"),
+    SettingsTab("household", "Household"), SettingsTab("opie", "Opie"), SettingsTab("connections", "Connections", "connections"),
     SettingsTab("screen", "Screen"), SettingsTab("devices", "Devices"), SettingsTab("account", "Account", "account"),
     SettingsTab("advanced", "Advanced", "tablet"),
 )
@@ -74,7 +74,7 @@ internal fun SettingsScreen() {
     val current = tabs.firstOrNull { it.id == SettingsNav.tab } ?: if (compact) null else tabs[0]
     val lockOn = vals["lock"] == "On"
     val asks = vals["settingsLock"] == "On"
-    fun tabLocked(t: SettingsTab) = when (t.id) { "account", "advanced" -> lockOn; "calendars" -> asks; else -> false }
+    fun tabLocked(t: SettingsTab) = when (t.id) { "account", "advanced" -> lockOn; else -> false } // (Connections: no PIN to look; its calendars ask)
 
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         Row(Modifier.fillMaxSize().background(Calm.sheet).clickable(enabled = false) {}) {
@@ -146,14 +146,13 @@ private fun Pane(t: SettingsTab, vals: Map<String, String>, compact: Boolean, lo
                     SettingsRow("Device control", vals["deviceControl"], lockOn, shell("deviceControl"))
                     SettingsRow("Opie uses apps", vals["appsOn"], lockOn, shell("appsOn"))
                     if (vals["nowPlaying"] == "Off") SettingsRow("Now playing", "Off", lockOn, shell("nowplaying")) // (shown only while it's off)
-                    SettingsRow("Spotify", vals["spotify"], lockOn, shell("spotify"))
                 }
                 "screen" -> {
                     SettingsRow("Brightness", vals["brightness"], onClick = shell("brightness")) // not behind the PIN: anyone can see the screen better
                     SettingsRow("Volume", vals["volume"], onClick = shell("volume")) // (nor this: anyone can hear it)
                     SettingsRow("Time", vals["time"], asks, shell("time"))
                 }
-                else -> Waiting(t, lockOn || asks)
+                else -> Waiting(t, lockOn && t.id != "connections")
             }
         }
     }

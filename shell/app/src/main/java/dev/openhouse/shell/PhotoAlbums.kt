@@ -34,7 +34,7 @@ import kotlin.concurrent.thread
  * new; it asks Apple for those photos' addresses (short-lived, without the link) and hands them over too
  * (/house/album/assets): the bridge fetches them itself and keeps the album (bridge/photo-albums.js).
  *
- * Added behind the PIN (Settings' Photo albums, or the Photos app's "Add an iCloud album"), from a
+ * Added behind the PIN (Settings → Connections, or the Photos app's "Add an iCloud album"), from a
  * phone ([Handoff]), or from the computer or the assistant ([offer], DeviceServer /album) with a yes on the tablet.
  */
 object PhotoAlbums {
@@ -252,8 +252,8 @@ object PhotoAlbums {
 
     private fun post(path: String, body: JSONObject): String? = dev.openhouse.ui.BridgeClient.post(bridge() + path, body.toString(), readMs = 60_000)
 
-    /** The albums as the bridge has them: link id -> (name, a line about it). */
-    private fun albums(): Map<String, Pair<String, String>> = runCatching {
+    /** The albums as the bridge has them: link id -> (name, a line about it). Off the main thread (Settings' Connections). */
+    internal fun albums(): Map<String, Pair<String, String>> = runCatching {
         val h = JSONObject(dev.openhouse.ui.BridgeClient.getText(bridge() + "/house"))
         val names = h.optJSONArray("albums") ?: JSONArray()
         val linked = h.optJSONArray("linked") ?: JSONArray()

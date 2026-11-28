@@ -49,7 +49,7 @@ to sign in on the tablet, or didn't find that.
 
 Spotify keeps its media service to its own list of apps, so through its app Opie can only hand it a search, which
 brings Spotify's screen up (and Spotify may play on whichever of the household's devices was last used). Once someone
-signs in to Spotify in Opie (Settings → Opie → Spotify, or the `music` tool's `spotify_sign_in`, which puts
+signs in to Spotify in Opie (Settings → Connections → Spotify, or the `music` tool's `spotify_sign_in`, which puts
 Spotify's own sign-in page on the screen), Spotify plays on the tablet without its app instead:
 
 - **Home** (`chat/src/spotify-player.jsx`): Spotify's player for websites (its Embed), worked through Spotify's

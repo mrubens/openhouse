@@ -12,7 +12,7 @@ import android.content.Context
  *   photos    photo albums: adding or removing one, phones sending photos, Google Photos
  *   calendar  changing the calendar (the bridge keeps this one: House.calendarLock, /house/lock)
  *   rewards   giving a reward, and changing the rewards
- *   settings  Settings' Voice, Calendars, Time and Email, the house rules (HouseRules, and Opie's house_rules), removing a
+ *   settings  Settings' Voice, the calendars in Connections, Time and Email, the house rules (HouseRules, and Opie's house_rules), removing a
  *             linked device, the household's OpenAI key
  *
  * Always the PIN, whatever the choices ([ALWAYS]; callers use SettingsLock.always / withPinSet, or name no choice):

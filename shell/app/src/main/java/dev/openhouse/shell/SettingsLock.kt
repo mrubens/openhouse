@@ -10,6 +10,7 @@ package dev.openhouse.shell
 import android.content.Intent
 import android.content.pm.PackageManager
 import dev.openhouse.ui.BridgeClient
+import dev.openhouse.ui.Calm
 import dev.openhouse.ui.CalmDialog
 import dev.openhouse.ui.House
 import dev.openhouse.ui.Openhouse
@@ -52,12 +53,6 @@ internal class SettingsLock(private val act: MainActivity) {
             } }()
             // Opie opening, installing and using other apps for someone (docs/device-control.md): off until someone turns it on.
             "appsOn" -> person("Opie uses apps") { if (deviceOn) always { DeviceServer.setAppsOn(act, !DeviceServer.appsOn(act)); changed() } }()
-            // The tablet's own Spotify player (SpotifyEmbed, docs/music.md): signed in on Spotify's own page; signing out is the person's too.
-            "spotify" -> person("Spotify") { always {
-                if (!SpotifyEmbed.signedIn()) SpotifyEmbed.signIn(act) { changed() }
-                else CalmDialog(act).setTitle("Sign out of Spotify?").setMessage("Opie then plays Spotify through its app again, until someone signs in here.")
-                    .setPositiveButton("Sign out") { _, _ -> SpotifyEmbed.signOut(); changed() }.setNegativeButton("Cancel", null).show()
-            } }()
             "checkins" -> always { thread { get("/heartbeat")?.let { hb -> act.runOnUiThread { checkins(hb) } } } }
         }
     }
@@ -78,6 +73,7 @@ internal class SettingsLock(private val act: MainActivity) {
         if (id.startsWith("unlink:")) return withPin { Screens.remove(act, id.removePrefix("unlink:")) }
         when (id) {
             "voice" -> withPin { CloudVoiceMenu(act).chooseVoice() }
+            "connections" -> connections() // (no PIN to look: each part asks as it did on its own)
             "calendars" -> withPin { CalendarLinks.manage(act, act::immersive) }
             "addLinked" -> always { Screens.addMenu(act) } // (adding any device changes who reaches the household: always)
             "addTablet" -> always { Screens.tablet(act) } // (Opie: show_settings, docs/opie-parity.md)
@@ -90,7 +86,8 @@ internal class SettingsLock(private val act: MainActivity) {
             "tablet" -> always { tablet() } // (Advanced: what Opie may do, the ways out, these choices: always)
             "updates" -> updates() // (no PIN: seeing the version and getting ours is everyone's)
             "nowplaying" -> if (!Media.listening(act)) person("Now playing") { withPinSet(back = {}) { nowPlaying() } }() // Settings → Opie, and Home's Now playing card
-            "deviceControl", "appsOn", "spotify", "checkins" -> opie(id) // Settings → Opie
+            "deviceControl", "appsOn", "checkins" -> opie(id) // Settings → Opie
+            "spotify" -> spotify { changed() } // Settings → Connections
             "micCheck" -> MicCheck.open(act)
             "houseRules" -> HouseRules.open(act) {}
             "memory" -> memory()
@@ -246,7 +243,7 @@ internal class SettingsLock(private val act: MainActivity) {
         syncCalendar()
         val m = mutableMapOf<String, String>()
         m["lock"] = if (on) "On" else "Off"
-        m["settingsLock"] = if (asks(PinChoices.SETTINGS)) "On" else "Off" // the small lock on Voice, Calendars, Time, Email
+        m["settingsLock"] = if (asks(PinChoices.SETTINGS)) "On" else "Off" // the small lock on Voice, Time, Email (and Connections' calendars)
         m["updates"] = Updater.installedVersion(act)
         val deviceOn = DeviceAccess.instance != null
         m["deviceControl"] = if (deviceOn) "On" else "Off" // Settings → Opie, and the setup's Android step (ui/Setup.kt)
@@ -388,7 +385,7 @@ internal class SettingsLock(private val act: MainActivity) {
     }
 
     /**
-     * Settings → Advanced → Google Play (and Add apps before anyone signed in): Android's own Google sign-in, then
+     * Settings → Connections → Google Play (and Add apps before anyone signed in): Android's own Google sign-in, then
      * Play's purchase setting, so nothing can be bought with a tap. Signed in: the account, and signing out.
      */
     fun googlePlay(back: () -> Unit = {}) {
@@ -413,6 +410,62 @@ internal class SettingsLock(private val act: MainActivity) {
             }.setNegativeButton("Cancel") { _, _ -> back() }.show()
     }
 
+    /** The device's own Spotify player (SpotifyEmbed, docs/music.md): signed in on Spotify's own page; signing out is the
+     *  person's too. Always the PIN, a person's own tap. [then]: signed in or out. */
+    private fun spotify(then: () -> Unit) = person("Spotify") { always {
+        if (!SpotifyEmbed.signedIn()) SpotifyEmbed.signIn(act) { changed(); then() }
+        else CalmDialog(act).setTitle("Sign out of Spotify?").setMessage("Opie then plays Spotify through its app again, until someone signs in here.")
+            .setPositiveButton("Sign out") { _, _ -> SpotifyEmbed.signOut(); changed(); then() }.setNegativeButton("Cancel", null).show()
+    } }()
+
+    // --- Connections ----------------------------------------------------------------------------------------------
+
+    /**
+     * Settings → Connections: every outside account or link the household hooks up, in sections (docs/settings.md).
+     * Looking needs no PIN; each part asks as it did on its own: the calendars show once Change settings' PIN is typed
+     * (as their tab did), an album goes in or out behind Add photo albums', Spotify and Google Play always and only by a
+     * person's tap.
+     */
+    private fun connections(): Thread = thread {
+        val cals = CalendarAccounts.shown()
+        val links = runCatching { PhotoAlbums.list() }.getOrDefault(emptyList())
+        val named = PhotoAlbums.albums()
+        val signedIn = SpotifyEmbed.signedIn()
+        val play = if (PlayStore.available(act)) PlayStore.accounts(act).firstOrNull() ?: "Sign in" else null
+        act.runOnUiThread { connectionsPage(cals, links.map { l -> Triple(l.id, named[l.id]?.first ?: "A shared album", named[l.id]?.second) }, signedIn, play) }
+    }
+
+    private fun connectionsPage(cals: CalendarAccounts.Shown, albums: List<Triple<String, String, String?>>, spotifyIn: Boolean, play: String?) {
+        var page: android.app.Dialog? = null
+        val again = { connections(); Unit }
+        val l = Lines(act)
+        // Calendars: what their tab showed. Behind Change settings' PIN, as it was: a row to unlock them, then the rows;
+        // Add asks for it too.
+        val open = !asks(PinChoices.SETTINGS) || ParentGrace.isOpen()
+        l.header("Calendars", "Add") { withPin { CalendarAccounts.choose(act, act::immersive) } }
+        when {
+            cals.none -> l.note("None yet")
+            !open -> l.line(if (cals.count == 1) "1 calendar" else "${cals.count} calendars", value = "Unlock") { withPin { connections() } }
+            else -> CalendarAccounts.fill(act, l, cals, act::immersive, again, close = { page?.dismiss() })
+        }
+        // The household's shared albums (PhotoAlbums): in or out behind Add photo albums' PIN, as in the Photos app.
+        l.header("Photo albums", "Add") { act.addAlbum() }
+        if (albums.isEmpty()) l.note("None yet")
+        albums.forEach { (id, name, line) ->
+            l.line(name, line?.let { l.soft(it) }, end = Calm.quiet(act, "Remove") {
+                CalmDialog(act).setTitle("Remove $name?").setMessage("Its photos leave this device. Nothing changes in iCloud.").setDanger()
+                    .setPositiveButton("Remove") { _, _ -> withPin(choice = PinChoices.PHOTOS) { thread { PhotoAlbums.remove(id); act.runOnUiThread { connections() } } } }
+                    .setNegativeButton("Cancel", null).show()
+            })
+        }
+        l.header("Music and apps")
+        l.line("Spotify", value = if (spotifyIn) "Signed in" else "Sign in") { spotify { connections() } }
+        // The household's Google account, for adding Android apps (PlayStore): a person's own, always the PIN (it was Advanced's).
+        if (play != null) l.line("Google Play", value = play) { person("Google Play") { always { googlePlay { connections() } } }() }
+        page = CalmDialog(act).setTitle("Connections").setWidth(860f).setView(l.col).show()
+        act.immersive()
+    }
+
     /** Settings → Advanced: the lock, plugins, this tablet's household, a report; then what's for developers. [lan]:
      *  other screens and phones on the Wi-Fi reach it (Devices). */
     private fun tabletList(lan: Boolean, plugins: Int, ts: JSONObject?) {
@@ -428,10 +481,7 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("Ask for the PIN", value = choicesLabel()) to { always { choices() } },
         ) else emptyList()) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Plugins", value = count(plugins)) to { PluginsMenu(act) { tablet() }.show() },
-        ) + (if (!PlayStore.available(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            // The household's Google account, for adding Android apps (PlayStore): a person's own, inside Advanced's PIN.
-            CalmDialog.Row("Google Play", value = PlayStore.accounts(act).firstOrNull() ?: "Sign in") to person("Google Play") { googlePlay { tablet() } },
-        )) + (if (Satellite.on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
+        ) + (if (Satellite.on) listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Part of another device's household") to { Satellite.menu(act, this) },
         ) else listOf<Pair<CalmDialog.Row, () -> Unit>>(
             // Another Opie tablet's household, for a second room (docs/multi-tablet.md): that tablet shows the code.

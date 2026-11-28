@@ -14,12 +14,22 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 | Tab | What's on it | Locked |
 | --- | --- | --- |
 | Household | who lives here (a name, Adult, Kid or Pet, their color, an age or note), where you live, chores; Save | |
-| Opie | Voice (Off or the voice's name; the household's own OpenAI key inside), Check the microphone, What Opie remembers, Check-ins, Device control, Opie uses apps, Now playing (while it's off), Spotify | Voice: Change settings; Check-ins and the rest from Device control down: always |
-| Calendars | Google and iCloud accounts and their calendars, calendars' links, Add a calendar | Change settings |
+| Opie | Voice (Off or the voice's name; the household's own OpenAI key inside), Check the microphone, What Opie remembers, Check-ins, Device control, Opie uses apps, Now playing (while it's off) | Voice: Change settings; Check-ins and the rest from Device control down: always |
+| Connections | every outside account or link the household hooks up, in sections: Calendars (Google and iCloud accounts and their calendars, calendars' links; Add), Photo albums (the iCloud shared albums, each with Remove; Add), Music and apps (Spotify, Google Play) | no PIN to look; each part as on its own (below) |
 | Screen | Brightness, Volume (with Adjust to the room), Time | Time: Change settings |
 | Devices | paired screens, TVs, phones and computers (Add, Remove), then the house's speakers, streamers and printers | Add always; Remove: Change settings |
 | Account | link or unlink, Backups, Email, Use it away from home | always |
-| Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Google Play (the household's Google account, for adding Android apps; a person's own), Add this tablet to another Opie, Send a report; For developers: Home network, Tailscale, Cloud address, Speech log, USB debugging, Android settings, Leave kiosk mode, Erase this tablet | always |
+| Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Add this tablet to another Opie, Send a report; For developers: Home network, Tailscale, Cloud address, Speech log, USB debugging, Android settings, Leave kiosk mode, Erase this tablet | always |
+
+**Connections** (shell/SettingsLock.kt `connections`, rows in shell/Lines.kt) keeps each part's own PIN:
+- Calendars: with Change settings asking (the default), the section is one row (how many, Unlock) until the PIN is
+  typed, as the Calendars tab asked before; then the accounts (Sign out), their calendars (a box to show each, a tap
+  for more) and the links (a tap: Color, Remove). Add (Google, iCloud or a link) asks for the PIN the same way.
+- Photo albums: each album with Remove; Add sends the link from a phone (or pastes it). Adding or removing asks when
+  Add photo albums does, as the Photos app does; the Photos tab keeps its own Add photos and Stop keeping it here.
+  Google Photos copies photos once and keeps no connection, so it isn't here (Photos' Add photos has it).
+- Spotify and Google Play: always the PIN when one is set, and a person's own tap (DeviceServer.personOnly). Google
+  Play shows only where the device has it.
 
 Under the tabs, quietly: the version (tap it to look for an update and install it).
 
@@ -51,6 +61,10 @@ through Opie instead of needing a clunky UI"): asking Opie does them (`set_home`
 
 ## What happened to each old setting
 
+Connections (2026-11-27, the user: a tab "holding every outside account or link the household hooks up"):
+- The Calendars tab is the Connections tab's first section; the shared albums are its second.
+- Spotify moved there from Opie, and Google Play from Advanced (still a person's own, still always the PIN).
+
 Side tabs (2026-11-27):
 - The six-row list and the sheets and dialogs stacked on it are one page with seven tabs (above).
 - Family's sheet is the Household tab itself; Linked devices' sheet is the Devices tab. Calendars and Advanced are
@@ -79,7 +93,8 @@ Later rounds:
   put back), and Opie's heartbeat_settings tool (bridge POST /heartbeat/settings).
 - One column, six rows: Backups went into Account; PIN Lock, Updates and Plugins into Advanced.
 - Photo albums belong in the Photos app, not Settings: adding an iCloud album is the Photos app's Add
-  photos; a linked album's card there has Stop keeping it here. No Settings row.
+  photos; a linked album's card there has Stop keeping it here. No Settings row. (Since 2026-11-27 they are in
+  Connections too, below.)
 
 Plain Settings (first round):
 - Ask Opie: **moved** to a keyboard button on the home screen.
@@ -179,7 +194,7 @@ value says which are on. Permissive by default:
 | Add photo albums | adding or taking off an iCloud album, phones sending photos, Google Photos | Off |
 | Change the calendar | any change to the calendar from the apps or Opie (the bridge's calendar lock, as before) | Off |
 | Give rewards | spending stars on a reward (Get it!), and changing the rewards | Off |
-| Change settings | Settings' Voice, Calendars, Time and Email (their small lock), removing a linked device, the household's own OpenAI key | On |
+| Change settings | Settings' Voice, Time and Email (their small lock), the calendars in Connections, removing a linked device, the household's own OpenAI key | On |
 
 Off means a person's plain yes: the card still shows, and only a real finger answers it (`PersonCards`); Opie never
 can. What's `DeviceServer.personOnly` stays a person's own tap, whatever the switches say.
@@ -227,7 +242,7 @@ the answer. The code's card is a person card with the PIN pad's mark, so Opie's 
 while it's up, and the new PIN is typed on the pad as any other.
 
 Locked rows: Account (with Backups and Email), Advanced (with Plugins), Opie's check-ins, device control, Opie uses
-apps, Now playing and Spotify, and adding a linked device always; Voice, Calendars,
+apps, Now playing, Connections' Spotify and Google Play, and adding a linked device always; Voice, Connections' calendars,
 Time, Email and removing a linked device while Change settings is on (the default). Not locked: what a household uses every day (Hey Opie, the voice, Family's names
 and chores, night hours, devices, looking after things, putting things back).
 

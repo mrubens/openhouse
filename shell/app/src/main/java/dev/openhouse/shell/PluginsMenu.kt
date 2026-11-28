@@ -323,7 +323,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
     }
 
     /** An Android app: its Google Play page, where the person taps Install (the PIN first when Add apps asks for it).
-     *  Not signed in yet: the sign-in itself, behind the PIN (Settings → Advanced → Google Play). */
+     *  Not signed in yet: the sign-in itself, behind the PIN (Settings → Connections → Google Play). */
     private fun addAndroid(pkg: String, name: String) {
         if (!PlayStore.available(act)) return say(name, "Adding Android apps needs Google Play, and this device doesn't have it.")
         if (!PlayStore.signedIn(act)) return act.lock.open("googlePlay") // (its first screen says what it's for)

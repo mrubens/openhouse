@@ -74,7 +74,7 @@ its own token).
 | Tool | What it does |
 |---|---|
 | `open_app {name}` | Opens an app by its name. A system app (Clock, a browser) asks once on screen, "Let Opie open Clock?" (the PIN when the lock is on); after that it's one of the tablet's added apps (Apps, and kiosk lets it open). Answers with the screen. |
-| `install_app {name, confirmed}` | Without `confirmed`, answers "ask them first". With it: an app already on the tablet goes into Apps; otherwise the tablet's own card (the PIN when locked and Ask for the PIN → Add apps is on), then the app's Google Play page (`DeviceServer.installFromPlay`, `PlayStore.openPage`). The person taps Install; when Play has installed it, it's in Apps (`AppStore`, from the package-added broadcast). No Google Play on the device, or no Google account signed in: it says so, and where to sign in (Settings → Advanced → Google Play). |
+| `install_app {name, confirmed}` | Without `confirmed`, answers "ask them first". With it: an app already on the tablet goes into Apps; otherwise the tablet's own card (the PIN when locked and Ask for the PIN → Add apps is on), then the app's Google Play page (`DeviceServer.installFromPlay`, `PlayStore.openPage`). The person taps Install; when Play has installed it, it's in Apps (`AppStore`, from the package-added broadcast). No Google Play on the device, or no Google account signed in: it says so, and where to sign in (Settings → Connections → Google Play). |
 | `look_at_screen {picture?, wait?}` | The screen as numbered elements (`[7] Button "Start" (tap) @1960,1408`). The on-screen keyboard is one line, not its keys. When the list says little (a game, a map) or `picture` is asked for, a quarter-size JPEG goes to the cloud's text model, which describes it in a few lines (the voice's tools take text only). |
 | `tap {id | x,y, long?}` | Taps an element or a point. |
 | `type {text, id?, submit?}` | Types into a field. `submit` presses enter only in a search box. |
@@ -130,7 +130,7 @@ task list lets it open). Back from an app's first screen and Home both land on O
 Android apps come from Google Play, with the household's own Google account on the tablet (Aurora Store, the earlier
 way, used a shared anonymous account against Play's terms, and apps like YouTube TV need a real account).
 
-- **Signing in**: Settings → Advanced → Google Play (always the PIN; a person's own tap, `personOnly`). It's Android's
+- **Signing in**: Settings → Connections → Google Play (always the PIN; a person's own tap, `personOnly`). It's Android's
   own add-account flow for Google, after one line: a Google account just for this tablet works best (docs/setup.md) (`AccountManager.addAccount`); Google's sign-in pages are let into lock task only
   until Opie is back in front. Nothing in Opie's device-owner policies stops adding an account (no
   `DISALLOW_MODIFY_ACCOUNTS`, no account-management restrictions). Play's own purchase password (Settings →

@@ -23,7 +23,7 @@ it.
 
 A brand-new tablet, still in its box, needs neither step.
 
-The household's Google account goes on after the setup, not before: Settings → Advanced → Google Play (with the PIN)
+The household's Google account goes on after the setup, not before: Settings → Connections → Google Play (with the PIN)
 signs it in for adding Android apps. Then, in Google Play: your picture → Settings → Authentication → Require
 authentication for purchases → For all purchases.
 

@@ -69,7 +69,7 @@ export function calendars({ DIR, onChange = () => {} }) {
             if (v === undefined) { const l = pending.get(only) || []; if (l.length < 400 && !l.some((x) => keyOf(x) === keyOf(e))) l.push(e); pending.set(only, l); }
             if (v !== true) continue;
           }
-          events.push({ who, ...(name ? { calendarName: name } : {}), ...(tone ? { color: tone } : {}), ...e }); // (its color: Settings, Calendars)
+          events.push({ who, ...(name ? { calendarName: name } : {}), ...(tone ? { color: tone } : {}), ...e }); // (its color: Settings, Connections)
         }
       } catch (e) { errors[label] = e.message; }
     }
