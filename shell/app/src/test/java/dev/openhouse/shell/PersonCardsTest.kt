@@ -32,7 +32,7 @@ class PersonCardsTest {
     @Test fun onlyARealTouchSaysYes() {
         assertTrue(PersonCards.realTouch(0, 4, virtual = false)) // the touchscreen
         assertFalse(PersonCards.realTouch(0, 0, virtual = false)) // dispatchGesture's device
-        assertFalse(PersonCards.realTouch(PersonCards.FLAG_IS_ACCESSIBILITY_EVENT, 4, virtual = false)) // marked as an accessibility service's
+        assertTrue(PersonCards.realTouch(PersonCards.FLAG_IS_ACCESSIBILITY_EVENT, 6, virtual = false)) // a finger while device control filters input
         assertFalse(PersonCards.realTouch(0, -1, virtual = true)) // the virtual device
         assertFalse(PersonCards.realTouch(0, 7, virtual = null)) // no such device
     }

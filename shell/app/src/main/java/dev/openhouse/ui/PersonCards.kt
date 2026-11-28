@@ -26,17 +26,18 @@ object PersonCards {
         up.values.lastOrNull()?.title
     }
 
-    /** MotionEvent.FLAG_IS_ACCESSIBILITY_EVENT (hidden in the SDK; Android 12 and later set it on what an accessibility
-     *  service's dispatchGesture sends). */
+    /** MotionEvent.FLAG_IS_ACCESSIBILITY_EVENT (hidden in the SDK). Not a sign of who touched: while an accessibility
+     *  service filters input (Opie's DeviceAccess does), Android 12 and later put it on every touch, a finger's too
+     *  (seen on a Lenovo Tab One: its touchscreen, device 6, flags 0x800). */
     internal const val FLAG_IS_ACCESSIBILITY_EVENT = 0x800
 
     /**
-     * A touch from a real input device: not marked as an accessibility service's, and from a device that exists and
-     * isn't virtual. dispatchGesture (how DeviceAccess taps) sends its events as device 0, which no touchscreen is,
-     * and from Android 12 also marks them. An accessibility ACTION_CLICK sends no touch at all.
+     * A touch from a real input device: one that exists and isn't virtual. dispatchGesture (how DeviceAccess taps)
+     * sends its events as device 0, which no touchscreen is; `adb shell input` is the virtual device; an accessibility
+     * ACTION_CLICK sends no touch at all. ([flags] is kept for the log; see FLAG_IS_ACCESSIBILITY_EVENT.)
      */
-    internal fun realTouch(flags: Int, deviceId: Int, virtual: Boolean?): Boolean =
-        flags and FLAG_IS_ACCESSIBILITY_EVENT == 0 && deviceId > 0 && virtual == false
+    @Suppress("UNUSED_PARAMETER")
+    internal fun realTouch(flags: Int, deviceId: Int, virtual: Boolean?): Boolean = deviceId > 0 && virtual == false
 
     fun realTouch(e: MotionEvent): Boolean = realTouch(e.flags, e.deviceId, InputDevice.getDevice(e.deviceId)?.isVirtual)
 
