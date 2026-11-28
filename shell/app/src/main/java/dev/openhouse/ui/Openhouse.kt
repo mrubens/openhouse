@@ -344,8 +344,8 @@ object Openhouse : AnswerActions {
     private fun loadApps() {
         val a = runCatching { JSONArray(get("/apps")) }.getOrNull() ?: return
         val all = a.map { AppInfo(it.optString("id"), it.optJSONObject("meta")?.s("name") ?: it.optString("id"), it.optJSONObject("meta")?.s("emoji") ?: "", it.s("icon"), it.optJSONObject("meta")?.optBoolean("screensaver") == true) }
-        // Plus Android apps added (Google Play) (newest first; the sticker shows its icon).
-        val added = dev.openhouse.shell.AppStore.homeApps().take(3).map { (pkg, label) -> AppInfo("android:$pkg", label, "") }
+        // Plus every Android app added (Google Play, or opened by Opie), newest first; the sticker shows its icon.
+        val added = dev.openhouse.shell.AppStore.homeApps().distinctBy { it.first }.map { (pkg, label) -> AppInfo("android:$pkg", label, "") }
         val web = a.map { it.optBoolean("web", true) }
         val list = all.filterIndexed { i, _ -> web[i] } // an app from before apps were web pages: not on the home screen, but its window stays (AppStubs)
         ui { apps = added + list.filter { it.id != "home" } }
