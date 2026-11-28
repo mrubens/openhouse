@@ -55,8 +55,9 @@ signing in inside the app itself. Apps with their own sign-in, like Netflix, don
    the tablet along as you go. Then, on the tablet: two of Android's settings. You need a phone or computer on the
    same Wi-Fi for this.
    - **Your calendars**: on a tablet linked to an Opie account, Sign in with Google opens Google's sign-in in a new
-     tab; then choose the calendars on the tablet. iCloud takes your Apple ID and an app-specific password, made at
-     account.apple.com (Sign-In and Security). Or paste a calendar's link.
+     tab; then choose the calendars on the tablet. Linking is free, and a tablet that isn't linked yet can link later
+     (Settings → Account, or Add a calendar → Google Calendar, which offers to). iCloud takes your Apple ID and an
+     app-specific password, made at account.apple.com (Sign-In and Security). Or paste a calendar's link.
    - **Two of Android's settings** opens Android's settings for each: letting Opie use other apps (switch on "Opie
      assistant" and tap Allow), and stopping charging at 80% ([where it is on each tablet](tablets.md#the-charge-limit-on-each)).
      Press Home to come back. Without the first, Opie can't open or press buttons in other apps; everything else works.

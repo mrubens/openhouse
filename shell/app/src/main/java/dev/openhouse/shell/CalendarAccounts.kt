@@ -112,7 +112,14 @@ object CalendarAccounts {
             if (r.code == 401 && a.provider == "google") r = send(a, method, u, hs, body, fresh = true) // expired early
             JSONObject().put("status", r.code).put("body", r.body)
                 .put("headers", JSONObject().apply { r.headers["etag"]?.let { put("etag", it) }; r.headers["location"]?.let { put("location", it) } })
-        } catch (e: Said) { if (e.message == "signin") JSONObject().put("status", 401).put("body", "") else JSONObject().put("error", e.message) }
+        } catch (e: Said) {
+            when (e.message) {
+                "signin" -> JSONObject().put("status", 401).put("body", "")
+                // (The bridge passes `unlinked` on, so a screen can offer to link: linkFirst.)
+                "unlinked" -> JSONObject().put("error", "The device isn't linked to Opie cloud").put("unlinked", true)
+                else -> JSONObject().put("error", e.message)
+            }
+        }
         catch (e: Exception) { Log.w(TAG, "request: ${e.javaClass.simpleName}"); JSONObject().put("error", "Couldn't reach it") }
     }
 
@@ -132,7 +139,7 @@ object CalendarAccounts {
             return j.getString("access_token")
         }
         if (j.optString("error") == "invalid_grant") { tokens.remove(a.id); throw Said("signin") } // signed out at Google: sign in again
-        throw Said(if (j.optString("error") == "unlinked") "The device isn't linked to Opie cloud" else "Google isn't reachable right now")
+        throw Said(if (j.optString("error") == "unlinked") "unlinked" else "Google isn't reachable right now")
     }
 
     private fun bridge(): String = runCatching { dev.openhouse.ui.Openhouse.bridgeUrl }.getOrDefault("http://127.0.0.1:8787")
@@ -154,7 +161,7 @@ object CalendarAccounts {
             val cloud = cloudApi()
             main.post {
                 val rows = listOf(
-                    CalmDialog.Row("Google Calendar", if (cloud != null) "Two-way: what's added here shows up in Google too" else "Two-way. Needs the device linked to Opie cloud (Settings, Account)"),
+                    CalmDialog.Row("Google Calendar", if (cloud != null) "Two-way: what's added here shows up in Google too" else "Two-way, through Opie cloud: free"),
                     CalmDialog.Row("iCloud", "Two-way, with an app-specific password"),
                     CalmDialog.Row("A calendar's link", "Read only: Outlook, a school or team calendar"))
                 CalmDialog(a).setTitle("Add a calendar").setWidth(860f).setRows(rows) { _, i ->
@@ -174,8 +181,17 @@ object CalendarAccounts {
         if (cloud != null) return addGoogle(a, cloud, immersive)
         thread {
             val c = cloudApi()
-            main.post { if (c != null) addGoogle(a, c, immersive) else CalmDialog(a).setTitle("Link the device first").setMessage("Google sign-in goes through Opie cloud: Settings, Account.").setPositiveButton("OK", null).show().also { immersive() } }
+            main.post { if (c != null) addGoogle(a, c, immersive) else linkFirst(a, immersive) }
         }
+    }
+
+    /** Not linked: Google's sign-in goes through Opie cloud, and linking is free, so offer it (with the PIN, as Settings,
+     *  Account asks), then go on to Google's sign-in. */
+    private fun linkFirst(a: Activity, immersive: () -> Unit) {
+        val act = a as? MainActivity
+        CalmDialog(a).setTitle("Link the device first").setMessage("Google Calendar signs in through Opie cloud. Linking is free.")
+            .apply { if (act != null) setPositiveButton("Link") { _, _ -> act.lock.always { CloudMenu(act).startLink { google(a, immersive) } } }.setNegativeButton("Cancel", null) else setPositiveButton("OK", null) }
+            .show().also { immersive() }
     }
 
     private fun cloudApi(): String? = bridgeGet("/cloud/status")?.takeIf { it.optBoolean("linked") }?.optString("api")?.trimEnd('/')
@@ -240,7 +256,8 @@ object CalendarAccounts {
             if (code != 200) remove(acct.id)
             main.post {
                 wait.dismiss()
-                if (code != 200) CalmDialog(a).setTitle(if (j.optBoolean("signin")) "That didn't sign in" else "Couldn't reach the calendars")
+                if (code != 200 && j.optBoolean("unlinked")) linkFirst(a, immersive)
+                else if (code != 200) CalmDialog(a).setTitle(if (j.optBoolean("signin")) "That didn't sign in" else "Couldn't reach the calendars")
                     .setMessage(if (j.optBoolean("signin")) (if (acct.provider == "caldav") "Check the Apple ID, and use an app-specific password (not the Apple ID's own)." else "Sign in again from the phone.") else j.optString("error", "Try again in a moment."))
                     .setPositiveButton("OK", null).show().also { immersive() }
                 else calendars(a, acct.id, immersive)
