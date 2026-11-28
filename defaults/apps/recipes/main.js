@@ -60,7 +60,7 @@ function openCard(render, { width = 820 } = {}) {
 }
 
 /** What the tablet said no to (the recipe box is full): its reason, and OK. */
-function told(r) { if (r?.error) openCard((close) => [h('h2', null, r.error), h('div', { class: 'actions' }, btn('OK', close))]); }
+function told(r) { if (r?.error) openCard((close) => [h('h2', null, r.error), h('div', { class: 'actions' }, btn('Close', close))]); }
 
 // ---- state ----
 let H = null;
@@ -341,7 +341,7 @@ $app.append($top, $body);
 
 /** Recipes found on the web for these words (the bridge searches through the household's text model: findRecipes). */
 function webFind(q) {
-  if (!H?.ai) { openCard((close) => [h('h2', null, 'Search the web'), h('p', { class: 'note' }, 'Finding recipes on the web needs an Opie account or your own OpenAI key (Settings → Opie → Voice).'), h('div', { class: 'actions' }, btn('OK', close))]); return; }
+  if (!H?.ai) { openCard((close) => [h('h2', null, 'Search the web'), h('p', { class: 'note' }, 'Finding recipes on the web needs an Opie account or your own OpenAI key (Settings → Opie → Voice).'), h('div', { class: 'actions' }, btn('Close', close))]); return; }
   H.recipeFind = { query: q, state: 'working', at: Date.now() }; draw();
   house.findRecipes(q);
 }

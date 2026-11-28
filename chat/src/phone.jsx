@@ -305,7 +305,7 @@ function EmailRow({ email }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="pushrow">
-      <span className="addr">Forward invitations and photos to {email}</span>
+      <span>Forward invitations and photos to <span className="addr">{email}</span></span>
       <button className="tinted" onClick={() => { navigator.clipboard?.writeText(email).then(() => setCopied(true), () => {}); }}>{copied ? 'Copied' : 'Copy'}</button>
     </div>
   );
