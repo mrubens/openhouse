@@ -389,7 +389,7 @@ const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });
 // adults' phones, its setup's steps and its settings behind the PIN there (headless.js), and the bridge's own
 // settings page and updates (hub.js). A tablet's shell does all of this on its screen.
 const headless = host.can('cards') ? settingsRoutes({ call: host.call, cloud, json, body }) : null;
-if (headless) headless.setup = setupSteps({ DISPLAY, household: () => chat.live.setupHousehold?.read?.() || {} });
+if (headless) headless.setup = setupSteps({ DISPLAY, household: () => chat.live.setupHousehold?.read?.() || {}, hasPin: async () => { await headless.refresh(); return headless.hasPin(); } });
 const hub = headless ? hubRoutes({ DISPLAY, screens, json, body }) : null;
 hub?.start();
 /** A settings device's change that waits for the hub's PIN (once one is set): what only 'admin' reaches, but the cards,
@@ -560,7 +560,7 @@ async function route(req, res, url) {
     // Which step the tablet's setup shows: the setup phone or computer follows it (chat/src/phone.jsx SetupFlow).
     if (hubLocked(req, url)) { json(res, 423, { error: 'Type the PIN first.', locked: true }); return true; }
     if (headless && url.pathname === '/setup/step' && req.method === 'GET') { json(res, 200, { step: headless.setup.step() }); return true; } // no screen there: the setup's steps are driven here
-    if (headless && url.pathname === '/setup/go' && req.method === 'POST') { headless.setup.go((await body(req)).step); json(res, 200, { ok: true, step: headless.setup.step() }); return true; }
+    if (headless && url.pathname === '/setup/go' && req.method === 'POST') { await headless.setup.go((await body(req)).step); json(res, 200, { ok: true, step: headless.setup.step() }); return true; }
     if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, chat.live.setupShown?.() || { step: null }); return true; }
     // The setup's phone or computer reaches the rest only while a setup step shows on the tablet (it loses the scope
     // when the setup ends too: screens.js setupOver). A hub's settings device is the hub's own (headless.js).

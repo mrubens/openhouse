@@ -1,5 +1,6 @@
-# Opie hub under Docker Desktop (a Mac, Windows): a forwarded port instead of the host's network, which on Docker
-# Desktop is a VM's. Phones, computers and the TV reach it; finding devices on the Wi-Fi doesn't work from here.
+# Opie hub on a forwarded port instead of the host's network: Docker Desktop on a Mac or Windows (whose host network
+# is a VM's), and trying it on any computer (README, "Try it on a computer first"). Phones, computers and the TV reach
+# it; finding devices on the Wi-Fi doesn't work from here (hub/compose.yml does, on Linux).
 #   docker compose -f hub/compose.desktop.yml up -d --build
 services:
   openhouse:
@@ -16,4 +17,5 @@ services:
       - ./backups:/backups
     environment:
       OPENHOUSE_KEEPER_DIR: /keeper
+      OPENHOUSE_UPDATE_COMMAND: git pull && docker compose -f hub/compose.desktop.yml up -d --build   # (the settings page shows it)
       TZ: ${TZ:-UTC}

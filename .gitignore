@@ -32,3 +32,7 @@ bridge/web-mcp.json
 .cloud/
 .node/
 runtime/hub-voice/
+# a hub run from the checkout (hub/compose.yml): the household's things, the keeper's, backups
+hub/data/
+hub/keeper/
+hub/backups/

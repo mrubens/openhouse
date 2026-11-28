@@ -65,8 +65,24 @@ It's free, and nothing in the software is locked behind a subscription. [Opie Cl
 optional hosted service, adds backups, use away from home, and Opie's voice without a key of your own. It's in
 private beta.
 
-**No spare Android device?** A Raspberry Pi, a Mac or any Docker host can run Opie, with phones, laptops and a TV as
-its screens. See [docs/hub.md](docs/hub.md).
+## Try it on a computer first
+
+Nothing to erase: Opie runs in Docker on your computer, and phones and laptops on the same Wi-Fi are its screens.
+
+1. `git clone https://github.com/mrubens/opie.git && cd opie`
+2. `docker compose -f hub/compose.desktop.yml up -d --build` (a few minutes the first time)
+3. `docker logs openhouse` shows a code. Open http://localhost:8788/hub/, type it and follow the steps.
+
+Then open `http://<this computer>:8788/screen/` on any screen, with a code from the settings page.
+
+What a trial lacks: "Hey Opie" and talking need https or localhost, so out of the box they work only at
+http://localhost:8788 on this computer ([https for the rest](docs/hub.md#live-voice-from-other-devices)). Opie can't
+control Android apps or use Bluetooth, and doesn't find TVs and speakers on the Wi-Fi (on Linux, `hub/compose.yml`
+does). Typed asking works on every screen once Opie has its AI: link an account or add your OpenAI key in the
+settings. Everything stays in `hub/data`; `docker compose -f hub/compose.desktop.yml down` stops it.
+
+**No spare Android device?** A Raspberry Pi, a Mac or any Docker host can run Opie for good, with phones, laptops and a
+TV as its screens. See [docs/hub.md](docs/hub.md).
 
 ## Documentation
 

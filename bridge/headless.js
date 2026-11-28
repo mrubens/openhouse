@@ -17,7 +17,7 @@ import path from 'node:path';
 
 /** The setup, driven here: the steps the settings device shows (chat/src/setup-flow.jsx), and where it is. */
 export const SETUP_STEPS = ['people', 'place', 'calendar', 'photos', 'pin'];
-export function setupSteps({ DISPLAY, household = () => ({}) }) {
+export function setupSteps({ DISPLAY, household = () => ({}), hasPin = async () => true }) {
   const FILE = path.join(DISPLAY, 'hub-setup.json');
   const read = () => { try { return JSON.parse(fs.readFileSync(FILE, 'utf8')); } catch { return null; } };
   const write = (v) => { try { fs.writeFileSync(FILE, JSON.stringify(v)); } catch {} };
@@ -27,8 +27,12 @@ export function setupSteps({ DISPLAY, household = () => ({}) }) {
     if (!s) { s = (household().family || []).length ? { done: true } : { step: 'people' }; write(s); }
     return s.done ? null : SETUP_STEPS.includes(s.step) ? s.step : 'people';
   }
-  /** Its Next: a step, or anything past the last ('android' on the tablet) ends it. */
-  function go(s) { if (SETUP_STEPS.includes(s)) write({ step: s }); else if (/^[a-z]{1,20}$/.test(String(s || ''))) write({ done: true }); }
+  /** Its Next: a step, or anything past the last ('android' on the tablet) ends it, once a PIN is set (as a tablet's
+   *  setup doesn't go past its PIN without one). */
+  async function go(s) {
+    if (SETUP_STEPS.includes(s)) write({ step: s });
+    else if (/^[a-z]{1,20}$/.test(String(s || '')) && await hasPin()) write({ done: true });
+  }
   return { step, go };
 }
 

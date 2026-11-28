@@ -255,6 +255,8 @@ function Updates({ c, onRemoved }) {
         : h.update?.how === 'image' ? <p className="soft small">It runs from a Docker image: update it where it runs, with <code>{h.update.command}</code>.</p> : null}
       {h.updating?.failed && <p className="soft">The last update didn't finish: see update.log in the hub's data folder.</p>}
       {msg && <p className="soft">{msg}</p>}
+      {/* Moving on to a device of its own: a backup made here restores there (backup.js; docs/hub.md). */}
+      <p className="soft small">Moving to a device of its own? Back up here, then Restore under Backups on the device. Calendars, albums and the PIN are added again there.</p>
     </section>
   );
 }

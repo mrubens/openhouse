@@ -100,7 +100,7 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .join input { width: 100%; font: inherit; padding: 13px 16px; border: 0; border-radius: 14px; background: var(--tint); color: inherit; margin: 0 0 14px; outline-color: var(--ink); box-sizing: border-box; }
 .join input.code { font-size: 22px; letter-spacing: .08em; text-transform: uppercase; text-align: center; }
 .join .go:disabled { opacity: .35; }
-.setup .step { margin: -28px 0 18px; }
+.setup .step { margin: -10px 0 18px; }
 .setup .setuprow { display: flex; align-items: center; gap: 12px; margin-top: 28px; }
 .setup .grow { flex: 1; }
 .setup .go.small { width: auto; padding: 12px 28px; }
