@@ -1,0 +1,32 @@
+Authentication-Results: mx.example.net; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=example.com; dmarc=pass header.from=example.com
+From: Sam <sam@example.com>
+To: maple-otter-42@email.openhouse.computer
+Subject: Fwd: Swim meet
+Date: Mon, 30 Nov 2026 08:12:00 -0600
+Message-ID: <8268933994447892977@mail.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="Apple-Mail=_A1"
+
+--Apple-Mail=_A1
+Content-Type: text/plain; charset=utf-8; format=flowed; delsp=yes
+Content-Transfer-Encoding: quoted-printable
+
+Leo=E2=80=99s meet
+
+Begin forwarded message:
+
+> From: Springfield Swim Club <coach@swim.example>
+> Subject: Swim meet
+> Date: November 26, 2026 at 7:40:11 PM CST
+>
+> Swim meet: Saturday, December 12, 9:00 am at the Springfield Aquatic 
+> Center. Warm-ups at 8:15.
+
+--Apple-Mail=_A1
+Content-Disposition: inline; filename=swimmers.png
+Content-Type: image/png; name="swimmers.png"
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGP4f4YBAASZAcwPiojE
+AAAAAElFTkSuQmCC
+--Apple-Mail=_A1--

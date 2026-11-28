@@ -1,6 +1,7 @@
 # The household's email address (plan)
 
-Agreed and built 2026-11-24; not yet deployed or tried with real mail (see "What's built").
+Agreed and built 2026-11-24. The cloud's part is deployed (`email.openhouse.computer`); not yet tried with real mail
+(see "Trying it with real mail").
 Each household linked to the cloud gets an address, like
 `maple-otter-42@email.openhouse.computer`. Someone forwards it a school email, an invitation or a flyer, and Opie reads
 it and offers to add the events. Someone emails it photos and they go into Photos, the way you can email a
@@ -21,14 +22,18 @@ and needs its own plan: what may be sent, who says yes, and replies.
 
 - **Bridge:** `bridge/mail.js` (senders, held mail, caps, the cloud's address and its sealed mail, `/mail` routes),
   `bridge/mime.js` (reading a message, the provider's verdict), `bridge/mail-seal.js`, `house.js` `readEmail` (photos
-  into the Email album, events offered on the Calendar), `mail.json` in backups. Tests: `bridge/test/mail.test.mjs`.
+  into the Email album, events offered on the Calendar), `mail.json` in backups. Each offered event keeps where it came
+  from (`src`), and the Calendar's offer opens that email or flyer photo (`GET /house/flyer/source`, the household's own
+  apps on the device only). An attached calendar invite (`.ics`) is read with the message. Tests:
+  `bridge/test/mail.test.mjs`, with made-up mail in every shape that arrives (`bridge/test/mail/*.eml`).
 - **Shell:** Settings → Account → Email (`EmailMenu.kt`), the own mailbox (`MailAccount.kt`), PDF and HEIC conversion
   (`MailConvert.kt`). Letting a sender in, turning email on and adding a mailbox take a person's tap, never Opie's.
 - **Cloud** (openhouse-cloud 132312e): SES receiving with the gate and seal, addresses at linking, the `/v1/mail`
   endpoints, deletion with the account, the privacy page's bullet.
 
-**Not yet:** deploying (with `mailDomain` set) and the DNS records, then a real message through SES; the own mailbox
-against a real IMAP server; PDF and HEIC conversion and the Email screens on a tablet. Opie doesn't yet mention a new
+**Not yet:** a real message through SES (below); the own mailbox against a real IMAP server; PDF and HEIC conversion
+and the Email screens on a tablet. An added event doesn't keep its source once it's on the calendar (only the offer
+does). Outlook's `winmail.dat` attachments aren't read (a forward from Outlook in rich text loses its attachments). Opie doesn't yet mention a new
 email's events on its own (they wait on the Calendar). A hub has no shell, so no own mailbox and no PDF pages there.
 
 **The own mailbox from a computer** (instead of the form in Settings → Account → Email), with adb:
@@ -60,6 +65,9 @@ throws the rest away.
 
 ## The address
 
+- **Where it shows:** Settings → Account → Email; the phone page, with Copy; one line on an empty Calendar (nothing
+  coming up) and an empty Photos; and Opie says it when asked (family_things). Only while email is on. Shared apps
+  never see it.
 - **Chosen for them, changeable.** When the household links its tablet, it gets two random words and a number
   (`maple-otter-42`), from a word list for addresses only, with nothing about the household in it. In Settings → Account → Email
   they can take another random one or type their own (letters, digits, dashes, 4 to 30 characters, not already taken,
@@ -116,7 +124,9 @@ in a subject line); the model makes the call, with what the message holds as con
   can rename it or turn it off for the sleep screen as with any album), captioned with the sender's first name and
   the message's subject. Duplicates are skipped as `addPhoto` already does.
 - **Events** go where flyer events go now: the Calendar app shows them, from "Sam's email", each one to say yes to.
-  Nothing is added until someone says yes on the tablet or on a phone. Opie mentions there's an email waiting the next
+  On the device, the offer's From opens the email itself (its text, pictures and PDF's first pages), so anyone can
+  check a date before ticking; a flyer photo's offer opens the photo. That lasts while the email is kept (a week) or
+  the photo is (the latest 5). Nothing is added until someone says yes on the tablet or on a phone. Opie mentions there's an email waiting the next
   time someone talks to it, once.
 - **Everything else** (a message with no events and no photos) is kept on the tablet for a week in Settings → Account → Email
   so someone can see what came in, then deleted. Nothing in it is acted on.
@@ -138,6 +148,28 @@ in a subject line); the model makes the call, with what the message holds as con
 - **The sealed copy:** the cloud seals each message for the tablet's mail key (X25519 sealed box) before it's stored,
   and the key's private half stays on the tablet. A tablet that's replaced or restored makes a new key; mail sealed
   for the old one can't be opened and is deleted.
+
+## Trying it with real mail
+
+The made-up mail in `bridge/test/mail/` also goes through the cloud's stand-in to a real bridge (the cloud repo's
+`docs/tablet-email.md`, "On this computer"). Real mail is the owner's check, on their own device, once its address
+shows in Settings → Account → Email. Forward each of these from an approved address and look at the device:
+
+1. A school newsletter forwarded from **Gmail** (web or app), one from **Outlook** and one from **Apple Mail**: each
+   shows in Settings → Account → Email from that person, and its events wait on the Calendar with the right dates and
+   times. From opens the email, and its text is the newsletter's, not only the forwarding note.
+2. A message with a **PDF** newsletter attached, and one with a **flyer that's only a picture**: the events come from
+   the PDF's pages or the picture; the picture of a flyer doesn't go into Photos.
+3. A message with a **calendar invite** attached (an invitation from Google Calendar or Outlook): its event, at its
+   time.
+4. A message with **photos** of people: they go into the Email album, captioned.
+5. A message with **no events**: it shows as come in, and nothing waits on the Calendar.
+6. A message from an address **not on the list**: it waits under Waiting, unread, with Allow; nothing of it shows
+   elsewhere.
+7. A message with a **forged sender** (sent through a server not allowed to send for the From's domain, or with the
+   From set to an approved address from another account): it never shows. The cloud's logs say `forged` for it.
+8. Anything that didn't arrive: the cloud's logs give a reason code (`virus`, `forged`, `address`, `cap`, `held`,
+   `size`) by household, never by sender or subject.
 
 ## Storage and privacy
 

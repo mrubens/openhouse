@@ -347,6 +347,7 @@ const screens = screensRoutes({ noScreen: () => host.can('cards'), HERE, json, b
 // Email to the tablet (mail.js, docs/tablet-email.md): the household's address through the cloud, on by default once
 //  linked, and/or its own mailbox (the shell's IMAP). Display only, like the cloud's settings.
 const mail = mailRoutes({ DISPLAY, json, body, house: chat.house, cloud, shell: !host.can('mail-convert') ? null : (p, b) => shellCall(p, b, { timeoutMs: 60e3 }).then((r) => (r.error ? null : r)), every: process.env.MAIL === 'off' ? 0 : 5 * 60e3 });
+chat.house.setMail(mail);
 relay = relayRoutes({ DISPLAY, json, body, screens, cloud, onMail: () => mail.nudge() });
 // Away from home with Tailscale (tailscale.js, docs/networking.md): the household's own tailnet, for one with no Opie
 // cloud. Off until someone turns it on (Settings → Advanced); one more carrier for the same sealed requests.

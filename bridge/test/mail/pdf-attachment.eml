@@ -1,0 +1,31 @@
+Authentication-Results: mx.example.net; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=example.com; dmarc=pass header.from=example.com
+From: Sam <sam@example.com>
+To: maple-otter-42@email.openhouse.computer
+Subject: Fwd: December newsletter
+Date: Mon, 30 Nov 2026 08:12:00 -0600
+Message-ID: <8816973440868867481@mail.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="pdf-b"
+
+--pdf-b
+Content-Type: text/plain; charset=UTF-8
+
+The newsletter's attached.
+
+--pdf-b
+Content-Type: application/pdf; name="December newsletter.pdf"
+Content-Disposition: attachment; filename="December newsletter.pdf"
+Content-Transfer-Encoding: base64
+
+JVBERi0xLjQKMSAwIG9iago8PCAvVHlwZSAvQ2F0YWxvZyAvUGFnZXMgMiAwIFIgPj4KZW5kb2Jq
+CjIgMCBvYmoKPDwgL1R5cGUgL1BhZ2VzIC9LaWRzIFszIDAgUl0gL0NvdW50IDEgPj4KZW5kb2Jq
+CjMgMCBvYmoKPDwgL1R5cGUgL1BhZ2UgL1BhcmVudCAyIDAgUiAvTWVkaWFCb3ggWzAgMCA2MTIg
+NzkyXSAvQ29udGVudHMgNCAwIFIgL1Jlc291cmNlcyA8PCAvRm9udCA8PCAvRjEgNSAwIFIgPj4g
+Pj4gPj4KZW5kb2JqCjQgMCBvYmoKPDwgL0xlbmd0aCA3OCA+PgpzdHJlYW0KQlQgL0YxIDE4IFRm
+IDcyIDcyMCBUZCAoUGljdHVyZSBkYXk6IFR1ZXNkYXksIERlY2VtYmVyIDgsIDIwMjYuIFNtaWxl
+cyEpIFRqIEVUCmVuZHN0cmVhbQplbmRvYmoKNSAwIG9iago8PCAvVHlwZSAvRm9udCAvU3VidHlw
+ZSAvVHlwZTEgL0Jhc2VGb250IC9IZWx2ZXRpY2EgPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAw
+MDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAw
+MDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI0MSAwMDAwMCBuIAowMDAwMDAwMzY5IDAwMDAwIG4gCnRy
+YWlsZXIKPDwgL1NpemUgNiAvUm9vdCAxIDAgUiA+PgpzdGFydHhyZWYKNDM5CiUlRU9GCg==
+--pdf-b--

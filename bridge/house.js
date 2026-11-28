@@ -25,9 +25,13 @@
 //                             (POST /house/meal {cook: meal, force?} makes the steps again; {find: words} finds recipes
 //                             on the web, shown as recipeFind; {findDone: true} puts them away; cooking.js)
 // POST /house/flyer/clear      {}  the flyer's events put away (added, or not wanted)
+// GET  /house/flyer/source?src= what a waiting event came from (its src: the flyer's photo, or the email: {email:
+//                              {from, subject, at, text, invites, pictures: n}}; &n=i its ith picture), the
+//                              household's own apps on the display only (apps.js own)
 // POST /house/lock             { calendar: bool }  the display only (not an app): a PIN for calendar changes in the apps
 // POST /house/unlock           {}  the display only, after the PIN: apps may change the calendar for 5 minutes
-//   view(): calendarLock, unlockedUntil (ms; 0 when locked or no lock)
+//   view(): calendarLock, unlockedUntil (ms; 0 when locked or no lock); email: the household's address while email
+//   is on (mail.js), for the Calendar, Photos and the phone page to say; never in a shared app's view (apps.js houseFor)
 // POST /house/remind           { done: key }  a reminder put away, on every screen (its key from view().reminders)
 // POST /house/thing            { take: id }  one of the things on Home taken down (view().things: things.js)
 // GET  /house/photo/<name>     one of the family's photos (files in display/photos/)
@@ -166,7 +170,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       calendarTargets: board.sync?.targets() || [], // two-way calendars new events can go into (calendar-sync.js)
       things: (() => { try { return things ? things.strip({ events, reminders }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Home)
       night: data.settings.night === false ? null : data.settings.night || NIGHT,
-      reminders, flyer: house.flyerNow(), calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
+      reminders, flyer: house.flyerNow(), email: house.mailAddress(), // the household's address, while email is on (mail.js) calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
       removed: house.removedPhotos(), albums: data.albums, linked: house.albums.view(), captions: data.captions, screensaver: house.screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
       ai: !['off', 'none'].includes(agentName()) && !!currentAgent,
       voice: (() => { try { return voiceNeed(); } catch { return null; } })(), // why Opie's voice can't answer (cloud.js voiceNeed): Today's card
@@ -218,6 +222,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         res.writeHead(200, { 'content-type': /png$/i.test(name) ? 'image/png' : /webp$/i.test(name) ? 'image/webp' : /gif$/i.test(name) ? 'image/gif' : 'image/jpeg', 'cache-control': 'max-age=86400' });
         res.end(buf);
       } catch { json(res, 404, { error: 'not found' }); }
+      return true;
+    }
+    if (req.method === 'GET' && p === '/house/flyer/source') {
+      const n = url.searchParams.get('n'), r = await house.flyerSource(String(url.searchParams.get('src') || ''), n == null ? null : Number(n));
+      const img = r?.photo || r?.picture;
+      if (img) { res.writeHead(200, { 'content-type': img.type, 'cache-control': 'no-store' }); res.end(img.bytes); }
+      else if (r?.email) json(res, 200, r.email);
+      else json(res, 404, { error: 'That isn’t kept any more.' });
       return true;
     }
     if (req.method !== 'POST') return false;
@@ -305,7 +317,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   // Asks left from before a restart: nobody is looking at a card for them any more (the kid asks again).
   data.asks = [];
   kept = structuredClone(data);
-  for (const k of ['context', 'settings', 'putAway', 'addFlyer', 'readEmail', 'addRecipePhoto', 'prepareCook', 'addRecipeLink', 'findRecipes',
+  for (const k of ['context', 'settings', 'putAway', 'addFlyer', 'readEmail', 'flyerSource', 'addRecipePhoto', 'prepareCook', 'addRecipeLink', 'findRecipes',
     'changeAlbums', 'caption', 'addPhoto', 'serveVideo', 'stills', 'removePhoto', 'restorePhoto', 'albums',
     'checklists', 'chores', 'changeChecklists', 'changeChores']) handle[k] = house[k]; // (the last four: a plugin's starter, plugins.js)
   // A tool whose change wasn't saved says so (isError, with why), as a tap is told: never "Done" for what a restart loses.
@@ -318,6 +330,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   handle.answer = (...a) => house.answer(...a); // one answer from the assistant (the music tool's Spotify search: devices/index.js)
   handle.changed = changed;
   handle.setVoice = (fn) => { voiceNeed = fn; };
+  handle.setMail = (m) => house.setMail(m); // mail.js: an offered event's email, to open (flyers.js)
   handle.tick = tick; // (tests: what the 30 s clock does)
   handle.events = () => house.events(); // the calendar as screens get it (tests)
   handle.reminders = (now) => house.reminders(now); // the reminders due now (phone-buzz.js: they buzz the phones of the people on them)

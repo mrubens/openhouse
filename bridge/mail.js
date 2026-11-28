@@ -20,13 +20,15 @@ import { newMailKey, open, senderHash } from './mail-seal.js';
 import { parseMail, authenticated } from './mime.js';
 
 const DAY = 86400e3;
-export const LIMITS = { size: 25e6, perDay: 50, heldPerDay: 10, images: 20, videos: 5, pdfs: 5, pages: 20, heldDays: 3, recentDays: 7 };
+export const LIMITS = { size: 25e6, perDay: 50, heldPerDay: 10, images: 20, videos: 5, pdfs: 5, pages: 20, invites: 3, heldDays: 3, recentDays: 7 };
 const IMAGE = { 'image/jpeg': '.jpg', 'image/jpg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
 const HEIC = /^image\/hei[cf]/;
 const VIDEO = { 'video/mp4': '.mp4', 'video/quicktime': '.mov', 'video/x-m4v': '.m4v' };
 /** A video attachment's file type (some mail apps send one as octet-stream, named .mov), or null. */
 const videoType = (a) => VIDEO[a.type] || (a.type === 'application/octet-stream' && /\.(mp4|mov|m4v)$/i.exec(a.name || '')?.[0].toLowerCase()) || null;
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/;
+/** A calendar invite (an .ics, attached or the invite's own part): its text goes to the model with the message's. */
+const invite = (a) => /^(text\/calendar|application\/ics)$/.test(a.type) || (a.type === 'application/octet-stream' && /\.ics$/i.test(a.name || ''));
 
 export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = null, now = Date.now, every = 5 * 60e3, log = (m) => console.log(m) }) {
   const FILE = registered('mail', path.join(DISPLAY, 'mail.json')), DIR = path.join(DISPLAY, 'mail'), KEY = registered('mail-key', path.join(DISPLAY, '.cloud', 'mail-key.json'));
@@ -87,10 +89,13 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
   /** An approved sender's message, read: photos and events (house.readEmail); a note of it in recent. */
   async function read(id, bytes, m = parseMail(bytes)) {
     const from = m.from.address, s = whoOf(from);
-    const images = [], pages = [], videos = [];
+    const images = [], pages = [], videos = [], invites = [];
     let pdfs = 0, skipped = 0;
     for (const a of m.attachments) {
-      if (IMAGE[a.type] && images.length < LIMITS.images) images.push({ bytes: a.bytes, type: a.type === 'image/jpg' ? 'image/jpeg' : a.type, name: (a.name || 'email').replace(/\.[^.]*$/, '').slice(0, 60) + IMAGE[a.type] });
+      if (invite(a)) { // (an invite often comes twice: the part mail apps show, and the same as an .ics file)
+        const t = a.bytes.toString('utf8').slice(0, 20000);
+        if (!invites.includes(t) && invites.length < LIMITS.invites) invites.push(t);
+      } else if (IMAGE[a.type] && images.length < LIMITS.images) images.push({ bytes: a.bytes, type: a.type === 'image/jpg' ? 'image/jpeg' : a.type, name: (a.name || 'email').replace(/\.[^.]*$/, '').slice(0, 60) + IMAGE[a.type] });
       else if (videoType(a) && videos.length < LIMITS.videos) videos.push({ bytes: a.bytes, name: (a.name || 'email').replace(/\.[^.]*$/, '').slice(0, 60) + videoType(a) });
       else if (HEIC.test(a.type) && images.length < LIMITS.images && shell) {
         const r = await shell('/mail/heic', { heic: a.bytes.toString('base64') }).catch(() => null);
@@ -103,15 +108,41 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     }
     const entry = { id, from, who: s?.who || '', subject: m.subject.slice(0, 200), at: now(), photos: 0, events: 0 };
     try {
-      const r = await house.readEmail({ from: s?.who || m.from.name || from, subject: m.subject, text: m.text, images, pages, videos });
+      const r = await house.readEmail({ id, from: s?.who || m.from.name || from, subject: m.subject, text: m.text, images, pages, videos, invites });
       entry.photos = r.photos.length; entry.events = r.events;
       if (r.unread) entry.unread = true; // no assistant yet: read again once there is one (tick)
     } catch (e) { entry.unread = true; entry.error = String(e.message || e).slice(0, 120); }
     if (skipped) entry.skipped = skipped;
     keep(id, bytes); // a week, to see in Settings and to read again
-    st.recent = [...st.recent.filter((x) => x.id !== id), entry].slice(-50);
+    st.recent = [...st.recent.filter((x) => x.id !== id), entry];
+    for (const x of st.recent.slice(0, -50)) drop(x.id); // (the oldest past 50: its copy goes with it)
+    st.recent = st.recent.slice(-50);
     kept(); // (read already: its photos and events are in)
     return entry;
+  }
+
+  // ---- the message an offered event came from (the Calendar's offer opens it), while it's kept (a week) ----
+  const has = (id) => st.recent.some((x) => x.id === id) && fs.existsSync(raw(id));
+  let shown = null; // the last one opened: {id, pictures} (a PDF's pages come from the shell, so not again for each)
+  /** {from, subject, at, text, invites, pictures: [{bytes, type}]} (its images, then its PDFs' first pages), or null. */
+  async function source(id) {
+    if (!has(id)) return null;
+    const r = st.recent.find((x) => x.id === id);
+    let m; try { m = parseMail(fs.readFileSync(raw(id))); } catch { return null; }
+    if (shown?.id !== id) {
+      const pictures = [];
+      for (const a of m.attachments) {
+        if (pictures.length >= 12) break;
+        if (IMAGE[a.type]) pictures.push({ bytes: a.bytes, type: a.type === 'image/jpg' ? 'image/jpeg' : a.type });
+        else if (a.type === 'application/pdf' && shell) {
+          const p = await shell('/mail/pdf', { pdf: a.bytes.toString('base64'), pages: 4 }).catch(() => null);
+          for (const x of Array.isArray(p?.pages) ? p.pages.slice(0, 4) : []) pictures.push({ bytes: Buffer.from(String(x), 'base64'), type: 'image/jpeg' });
+        }
+      }
+      shown = { id, pictures };
+    }
+    return { from: r.who || m.from?.name || r.from, subject: m.subject.slice(0, 200), at: r.at, text: m.text.slice(0, 20000),
+      invites: m.attachments.filter(invite).length, pictures: shown.pictures };
   }
 
   // ---- held ----
@@ -152,7 +183,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     const r = await cloud.mailApi('POST', '/v1/mail', { on: true, key: k.pub });
     st.cloud = { address: String(r.address || ''), hashKey: String(r.hashKey || ''), key: k.pub };
     for (const a of Array.isArray(r.accounts) ? r.accounts : []) { const x = String(a).trim().toLowerCase(); if (EMAIL.test(x) && !whoOf(x)) st.senders.push({ address: x, who: '', account: true }); }
-    save();
+    save(); house.changed?.(); // (the address shows in the house's view)
     await syncSenders();
   }
   async function syncSenders() {
@@ -160,10 +191,11 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     try { await cloud.mailApi('PUT', '/v1/mail/senders', { senders: st.senders.slice(0, 50).map((s) => senderHash(st.cloud.hashKey, s.address)) }); }
     catch (e) { log(`[mail] senders: ${e.message}`); }
   }
-  let polling = null;
-  /** What's waiting in the cloud: fetched, opened with the mail key, read; then removed there. */
+  let polling = null, again = false;
+  /** What's waiting in the cloud: fetched, opened with the mail key, read; then removed there. Asked again while it's
+   *  at it (the cloud's nudge for the next message), it looks once more when it's done. */
   function poll() {
-    if (polling) return polling;
+    if (polling) { again = true; return polling; }
     polling = (async () => {
       try {
         await ensure();
@@ -179,7 +211,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
           } catch (e) { log(`[mail] fetch: ${e.message}`); }
         }
       } catch (e) { if (e.code !== 'unlinked' && e.code !== 'http404') log(`[mail] ${e.message}`); }
-      finally { polling = null; }
+      finally { polling = null; if (again) { again = false; poll(); } }
     })();
     return polling;
   }
@@ -214,7 +246,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
       limits: LIMITS,
     };
   }
-  async function set(b) { return change(() => setting(b)); }
+  async function set(b) { const r = await change(() => setting(b)); house.changed?.(); return r; }
   async function setting(b) {
     if (Array.isArray(b.senders)) {
       const seen = new Set();
@@ -257,5 +289,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     json(res, 404, { error: 'not found' }); return true;
   }
 
-  return { handle, receive, held, poll, tidy, view, set, nudge: () => poll(), stop: () => timer && clearInterval(timer) };
+  /** The household's address while email is on through the cloud (Calendar, Photos, the phone page and Opie say it), else null. */
+  const address = () => (linked() && !st.off && st.cloud?.address) || null;
+  return { handle, receive, held, poll, tidy, view, set, has, source, address, nudge: () => poll(), stop: () => timer && clearInterval(timer) };
 }

@@ -1,0 +1,48 @@
+Authentication-Results: mx.example.net; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=example.com; dmarc=pass header.from=example.com
+From: Sam <sam@example.com>
+To: maple-otter-42@email.openhouse.computer
+Subject: Invitation: Maya - dentist @ Mon Dec 14, 2026 4pm
+Date: Mon, 30 Nov 2026 08:12:00 -0600
+Message-ID: <1876917312348409867@mail.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="inv-m"
+
+--inv-m
+Content-Type: multipart/alternative; boundary="inv-a"
+
+--inv-a
+Content-Type: text/plain; charset="UTF-8"
+
+You have been invited to the following event.
+
+--inv-a
+Content-Type: text/calendar; charset="UTF-8"; method=REQUEST
+Content-Transfer-Encoding: 7bit
+
+BEGIN:VCALENDAR
+PRODID:-//Example//Calendar//EN
+VERSION:2.0
+METHOD:REQUEST
+BEGIN:VEVENT
+DTSTART;TZID=America/Chicago:20261214T160000
+DTEND;TZID=America/Chicago:20261214T164500
+SUMMARY:Maya - dentist
+LOCATION:Springfield Family Dental
+UID:dentist-1214@example.com
+END:VEVENT
+END:VCALENDAR
+
+--inv-a--
+
+--inv-m
+Content-Type: application/ics; name="invite.ics"
+Content-Disposition: attachment; filename="invite.ics"
+Content-Transfer-Encoding: base64
+
+QkVHSU46VkNBTEVOREFSDQpQUk9ESUQ6LS8vRXhhbXBsZS8vQ2FsZW5kYXIvL0VODQpWRVJTSU9O
+OjIuMA0KTUVUSE9EOlJFUVVFU1QNCkJFR0lOOlZFVkVOVA0KRFRTVEFSVDtUWklEPUFtZXJpY2Ev
+Q2hpY2FnbzoyMDI2MTIxNFQxNjAwMDANCkRURU5EO1RaSUQ9QW1lcmljYS9DaGljYWdvOjIwMjYx
+MjE0VDE2NDUwMA0KU1VNTUFSWTpNYXlhIC0gZGVudGlzdA0KTE9DQVRJT046U3ByaW5nZmllbGQg
+RmFtaWx5IERlbnRhbA0KVUlEOmRlbnRpc3QtMTIxNEBleGFtcGxlLmNvbQ0KRU5EOlZFVkVOVA0K
+RU5EOlZDQUxFTkRBUg0K
+--inv-m--

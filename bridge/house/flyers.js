@@ -9,7 +9,9 @@ import { PHOTO, dayKey, str, same } from './util.js';
 export default function (house) {
   const { data, save, changed, FLYERS } = house;
   // The latest flyer or email read: { state, at, events?, text? }; its photo in FLYERS. Events waiting for a yes are
-  // kept (data.flyer) so a restart or an update doesn't lose them; reading one in progress isn't.
+  // kept (data.flyer) so a restart or an update doesn't lose them; reading one in progress isn't. Each event keeps where
+  // it came from (src: "photo:<file in FLYERS>" or "email:<mail.js id>"), so the offer can open it while it's kept:
+  // the latest 5 photos, and an email for its week in mail.js.
   let flyer = data.flyer?.state === 'done' && data.flyer.events?.length ? data.flyer : null;
   const keepFlyer = () => { if (flyer?.state === 'done' && flyer.events?.length) data.flyer = flyer; else delete data.flyer; save(); };
   /** The latest photo sent (a flyer or a recipe), for the model to look at. */
@@ -20,8 +22,8 @@ export default function (house) {
   function addFlyer(bytes, name) {
     { const no = house.noAssistant('Reading a flyer'); if (no) return { error: no }; }
     fs.mkdirSync(FLYERS, { recursive: true });
-    const ext = (String(name).match(/\.(jpe?g|png|webp)$/i)?.[0] || '.jpg').toLowerCase();
-    fs.writeFileSync(path.join(FLYERS, Date.now() + ext), bytes);
+    const ext = (String(name).match(/\.(jpe?g|png|webp)$/i)?.[0] || '.jpg').toLowerCase(), file = Date.now() + ext;
+    fs.writeFileSync(path.join(FLYERS, file), bytes);
     for (const f of fs.readdirSync(FLYERS).sort().slice(0, -5)) try { fs.unlinkSync(path.join(FLYERS, f)); } catch {}
     const mine = flyer = { state: 'working', at: Date.now() }; changed();
     (async () => {
@@ -32,7 +34,7 @@ export default function (house) {
           'start: a local date-time, or just a date (YYYY-MM-DD) for an all-day one; end only if it says. A short title a family would put on their calendar. notes: what to bring, cost, who to contact, sign-up by (short). ' +
           'When it gives no year, the next time that date comes. A repeating schedule (practices every Tuesday) as each date it lists, at most 12. If it shows no events, or you can\'t see it, reply [].';
         const said = await house.answer(prompt, 'You read flyers into calendar events for a family. Reply with only a JSON array, nothing else.', photoBytes());
-        const evs = flyerEvents(JSON.parse(said.match(/\[[\s\S]*\]/)?.[0] || '[]'));
+        const evs = flyerEvents(JSON.parse(said.match(/\[[\s\S]*\]/)?.[0] || '[]')).map((e) => ({ ...e, src: `photo:${file}` }));
         if (flyer === mine) { flyer = { state: 'done', at: mine.at, events: evs }; keepFlyer(); }
       } catch (e) { if (flyer === mine) flyer = { state: 'error', at: mine.at, text: String(e.message || e).slice(0, 120) }; }
       changed();
@@ -50,7 +52,7 @@ export default function (house) {
   /** {from: a first name or address, subject, text, images: [{bytes, type, name}], pages: [{bytes, type}] (a PDF's)} ->
    *  {photos: [file names], events: n}. One model call with no tools: what's in the message is only ever data. Without
    *  an assistant, the images go into Photos and the message isn't read (throws, so mail.js keeps it to read later). */
-  async function readEmail({ from, subject, text, images = [], pages = [], videos = [] }) {
+  async function readEmail({ id = null, from, subject, text, images = [], pages = [], videos = [], invites = [] }) {
     const keep = (idx) => idx.map((i) => images[i]).filter(Boolean).map((im) => house.addPhoto(im.bytes, im.name || 'email.jpg', str(subject, 120))).filter(Boolean).map((file) => { intoEmailAlbum(file); return file; });
     // Videos are kept as they come (a video sent to the household's photos is a moment, not a flyer): no model needed.
     const clips = videos.map((v) => house.addPhoto(v.bytes, v.name || 'email.mp4', str(subject, 120))).filter(Boolean).map((file) => { intoEmailAlbum(file); return file; });
@@ -59,7 +61,7 @@ export default function (house) {
     const d = new Date(), today = `${dayKey(d)} (${d.toLocaleDateString('en-US', { weekday: 'long' })})`;
     const prompt = `An email came to the household's display from ${str(from, 80) || 'someone in the household'} (approved by the household). Today is ${today}.\n` +
       `It has ${images.length} image${images.length === 1 ? '' : 's'} attached first (numbered from 0)${pages.length ? `, then ${pages.length} page${pages.length === 1 ? '' : 's'} of PDFs` : ''}. ` +
-      `${asData(`Subject: ${str(subject, 200)}\n\n${String(text || '').slice(0, 20000)}`, 'the email itself', { max: 20300 })}\n` +
+      `${asData(`Subject: ${str(subject, 200)}\n\n${String(text || '').slice(0, 20000)}${invites.map((t) => `\n\nA calendar invite attached to it:\n${String(t).slice(0, 20000)}`).join('')}`, 'the email itself', { max: 60500 })}\n` +
       'Reply with only JSON like {"photos": [0, 2], "events": [{"title": "Book fair", "start": "2026-12-03T15:00", "end": "2026-12-03T17:00", "place": "School library", "notes": "Bring $10"}]}. ' +
       'photos: the numbers of the attached images that are pictures to keep in the household\'s photos (people, pets, places, moments), not flyers, notices, screenshots, logos or documents. ' +
       'events: what the message, its images and its PDF pages say is happening (school events, invitations, schedules). start: a local date-time, or just a date (YYYY-MM-DD) for an all-day one; end only if it says. A short title a household would put on its calendar. notes: what to bring, cost, who to contact, sign-up by (short). ' +
@@ -72,7 +74,7 @@ export default function (house) {
     const evs = flyerEvents(j.events);
     if (evs.length) { // offered on the Calendar app, with any not yet put away
       const was = flyer?.state === 'done' ? flyer.events || [] : [];
-      flyer = { state: 'done', at: Date.now(), events: [...was, ...evs.map((e) => ({ ...e, from: str(from, 40) ? `${str(from, 40)}'s email` : 'email' }))].slice(-24) };
+      flyer = { state: 'done', at: Date.now(), events: [...was, ...evs.map((e) => ({ ...e, from: str(from, 40) ? `${str(from, 40)}'s email` : 'email', ...(id ? { src: `email:${id}` } : {}) }))].slice(-24) };
       keepFlyer();
     }
     if (photos.length) save();
@@ -93,7 +95,23 @@ export default function (house) {
       { type: 'image', data: fs.readFileSync(path.join(FLYERS, f)).toString('base64'), mimeType: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg' },
       { type: 'text', text: `The latest flyer photo sent to the display (${new Date(Number(f.split('.')[0])).toLocaleString('en-US')}).` }] };
   }
-  const flyerNow = () => flyer;
+  // Where an offered event came from, while it's still kept (else the offer has no src for it).
+  let mail = null; // mail.js {has, source} (server.js: setMail)
+  const kept = (src) => { const [kind, x] = String(src || '').split(/:(.*)/s);
+    return kind === 'photo' ? PHOTO.test(x) && !x.includes('/') && fs.existsSync(path.join(FLYERS, x)) : kind === 'email' ? !!mail?.has(x) : false; };
+  const flyerNow = () => (flyer?.events ? { ...flyer, events: flyer.events.map(({ src, ...e }) => (kept(src) ? { ...e, src } : e)) } : flyer);
+  /** GET /house/flyer/source: what an offered event came from, only while one waiting names it. n: an email's nth
+   *  picture. -> {photo: {bytes, type}} | {email: {from, subject, at, text, invites, pictures: n}} | {picture} | null */
+  async function flyerSource(src, n = null) {
+    if (!flyer?.events?.some((e) => e.src === src) || !kept(src)) return null;
+    const [kind, x] = String(src).split(/:(.*)/s);
+    if (kind === 'photo') { const ext = path.extname(x).slice(1).toLowerCase(); return { photo: { bytes: fs.readFileSync(path.join(FLYERS, x)), type: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg' } }; }
+    const m = await mail.source(x); if (!m) return null;
+    if (n != null) return m.pictures[n] ? { picture: m.pictures[n] } : null;
+    const { pictures, ...rest } = m;
+    return { email: { ...rest, pictures: pictures.length } };
+  }
   function clearFlyer() { flyer = null; keepFlyer(); }
-  return { photoBytes, latestFlyer, addFlyer, readEmail, flyerPhoto, keepFlyer, flyerNow, clearFlyer };
+  const mailAddress = () => { try { return mail?.address?.() || null; } catch { return null; } };
+  return { photoBytes, latestFlyer, addFlyer, readEmail, flyerPhoto, keepFlyer, flyerNow, clearFlyer, flyerSource, mailAddress, setMail: (m) => { mail = m; } };
 }

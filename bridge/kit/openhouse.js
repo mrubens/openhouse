@@ -293,6 +293,18 @@ export const house = {
   remind: ({ id = null, uid = null }, minutes) => send('/house/event', { remind: { id, uid, minutes } }),
   /** The flyer's events put away (added, or not wanted). */
   flyerDone: () => send('/house/flyer/clear', {}),
+  /** What a waiting event came from (data.flyer.events[i].src, there while it's kept): {photo: url} for the flyer's
+   *  photo, or the email {from, subject, at, text, invites, pictures: [urls]}; null once it's gone. The household's own
+   *  apps on the display only. */
+  async flyerSource(src) {
+    const q = '/house/flyer/source?src=' + encodeURIComponent(src), url = async (p) => URL.createObjectURL(await (await call(p, undefined, true)).blob());
+    try {
+      if (String(src).startsWith('photo:')) return { photo: await url(q) };
+      const m = await call(q), pictures = [];
+      for (let i = 0; i < (m.pictures || 0); i++) pictures.push(await url(q + '&n=' + i));
+      return { ...m, pictures };
+    } catch { return null; }
+  },
   /** Put a due reminder away on every screen (its key from data.reminders). */
   putAway: (key) => send('/house/remind', { done: key }),
   /** The reminder every timed event gets (minutes before, or null for none; data.remind), and whether the display

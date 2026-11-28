@@ -66,6 +66,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Calendar: which calendar a new event goes in | yes | calendar_event add.calendar |
 | Calendar: the usual reminder and saying it aloud (the bell) | **new** | calendar_event settings |
 | Calendar: an event from a flyer photo sent from a phone | **new** | flyer_photo (was typed-only), then calendar_event |
+| Calendar: open the photo or email a waiting event came from (From) | photo yes, email no, on purpose | flyer_photo shows the photo; family_things has the waiting events and whose email each came from, never the email itself (docs/tablet-email.md, Safety) |
+| The household's email address (Settings → Account → Email; the phone page's Copy; an empty Calendar or Photos) | **new** | family_things email |
 | Calendar: Add a calendar | yes | add_calendar; the tablet asks for the PIN |
 | Calendar, with Ask for the PIN → Change the calendar on: any change | **new** | calendar_event asks; the tablet's card takes the PIN, then the calendar is open for 5 minutes, as after the app's unlock. A computer's workshop isn't asked |
 | Chores: done / not done, who did an Anyone chore, add, change (who, days, every N days, stars, picture, stays until done), skip, remove | yes | change_chores |

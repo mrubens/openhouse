@@ -54,8 +54,9 @@ const APP_GROUPS = {
   // list, a device's state, an action. Never the devices' addresses, scanning, recipes or pairing.
   devices: [['POST', /^\/apps\/devices(\/(get|do))?$/]],
   'today-card': [], // its widget.html as a card of its own on Home, once the household turns it on (list: today)
-  // The family's own apps only: the house's settings, handing something to a phone, the scanned flyer.
-  own: [['POST', /^\/house\/(settings|share|flyer\/clear)$/], ['POST', /^\/household\/location$/],
+  // The family's own apps only: the house's settings, handing something to a phone, the scanned flyer (and what an
+  // offered event came from: the flyer's photo or the email).
+  own: [['POST', /^\/house\/(settings|share|flyer\/clear)$/], ['GET', /^\/house\/flyer\/source$/], ['POST', /^\/household\/location$/],
     ['GET', /^\/map(\/route)?$/], ['POST', /^\/map\/(on|place|place\/remove|clear)$/], // the Map (maps.js)
     ['POST', /^\/apps\/ask$/]], // apps/ask: another app's voice action (plugins.js)
 };
