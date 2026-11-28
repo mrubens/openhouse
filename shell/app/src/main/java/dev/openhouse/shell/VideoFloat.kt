@@ -120,7 +120,10 @@ object VideoFloat {
         if (pause) runCatching { Media.pause(pkg) }
         val relock = Runnable {
             val a = MainActivity.live ?: return@Runnable
-            if (a.inFront) a.relock() else KioskApps.goHome() // (its onResume locks)
+            // Android's own Home (Opie is Home) lands at once; starting Opie's activity from behind took seconds
+            // (its onResume locks)
+            if (a.inFront) a.relock()
+            else if (DeviceAccess.instance?.performGlobalAction(android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME) != true) KioskApps.goHome()
         }
         if (Looper.myLooper() == Looper.getMainLooper()) relock.run() else main.post(relock)
     }
