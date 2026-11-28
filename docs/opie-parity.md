@@ -70,6 +70,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Calendar: step to a month (a year back, 18 months ahead), or go to one by its name | yes | calendar_event list reads any stretch; show_on_screen opens the Calendar |
 | Calendar: hide or show a person's events (the people along the top; that screen's own) | screen | A view on one screen, like Day or Week. Opie reads anyone's events itself (family_things, calendar_event list) |
 | Calendar: the usual reminder and saying it aloud (the bell) | **new** | calendar_event settings |
+| Calendar: the view it opens on, how many days Hours shows, the day weeks start on (the gear; the same on every screen) | **new** | calendar_event settings opens_on, hours_days, week_start |
 | Calendar: an event from a flyer photo sent from a phone | **new** | flyer_photo (was typed-only), then calendar_event |
 | Calendar: open the photo or email a waiting event came from (From) | photo yes, email no, on purpose | flyer_photo shows the photo; family_things has the waiting events and whose email each came from, never the email itself (docs/tablet-email.md, Safety) |
 | The household's email address (Settings → Account → Email; the phone page's Copy; an empty Calendar or Photos) | **new** | family_things email |
@@ -171,6 +172,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Today and the apps (the same actions as the tablet) | yes | The same tools, from the phone's own Opie |
 | Ask Opie, share text or a link to Opie | yes | That is Opie |
 | Turn notifications on, add to home screen, the iPhone shortcut | no | The phone's own permissions, given by the person holding it |
+| Which buzzes this phone gets: new events, chores due, kids' chores done | no | Like turning notifications on: chosen on the phone that gets them, by the person holding it |
 | Setup: a calendar link and whose it is, an album, invite someone | yes / no | add_calendar takes who; inviting someone uses the phone's share sheet, so it stays there |
 
 ## A hub's settings page (docs/hub.md)

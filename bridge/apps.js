@@ -86,7 +86,7 @@ const HOUSE_KEYS = {
   chores: ['chores', 'streaks', 'stars', 'checklists', 'family'],
   rewards: ['stars', 'rewards', 'asks', 'got', 'family'],
   meals: ['meals', 'favorites', 'mealWork', 'recipes', 'recipeFind', 'mealSlots'],
-  events: ['events', 'eventsWindow', 'dayNotes', 'fromApps', 'calendars', 'calendarLock', 'unlockedUntil', 'reminders', 'family'],
+  events: ['events', 'eventsWindow', 'dayNotes', 'fromApps', 'calendars', 'calendarLock', 'unlockedUntil', 'reminders', 'family', 'weekStart', 'calendarView', 'hoursDays'],
   photos: ['photos', 'removed', 'albums', 'captions', 'screensaver'],
 };
 /** GET /house as a plugin's app sees it. */

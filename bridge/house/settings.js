@@ -1,5 +1,6 @@
 // The household's settings for the house: night hours, the resting screen, the usual reminder, how apps' notes show
-// on the calendar.
+// on the calendar, and the Calendar's look (the day its weeks start on, the view it opens on, how many days its hours
+// view shows), the same on every screen.
 import { SHOWS, NIGHT, hhmm, str } from './util.js';
 
 /** The resting screen (when nobody has touched the screen for a while), the same on every screen of the household:
@@ -10,6 +11,9 @@ export const RESTING = { after: 8, every: 15, order: 'order', fit: 'fit', show: 
 export const REST_AFTER = [1, 2, 5, 8, 10, 15, 30, 0];
 const SHOWN = Object.keys(RESTING.show);
 
+/** The Calendar's views (defaults/apps/calendar/main.js VIEWS). */
+export const CALENDAR_VIEWS = ['day', 'week', 'hours', 'month', 'list'];
+
 export default function (house) {
   const { data, save } = house;
   function settings(b) {
@@ -18,6 +22,10 @@ export default function (house) {
     if (b.resting && typeof b.resting === 'object') { const r = restingFrom(b.resting); if (r.error) return r; data.settings.resting = r; }
     if (b.remind !== undefined) { const m = house.remindMin(b.remind); if (m === undefined || m < 0) delete data.settings.remind; else data.settings.remind = m; }
     if (b.remindAloud !== undefined) data.settings.remindAloud = !!b.remindAloud;
+    // weekStart: 'sunday' or 'monday'; anything else (null, 'automatic') goes back to the display's language's own.
+    if (b.weekStart !== undefined) { if (['sunday', 'monday'].includes(b.weekStart)) data.settings.weekStart = b.weekStart; else delete data.settings.weekStart; }
+    if (b.opensOn !== undefined) { if (CALENDAR_VIEWS.includes(b.opensOn)) data.settings.calendarView = b.opensOn; else delete data.settings.calendarView; }
+    if (b.hoursDays !== undefined) { const n = Math.round(Number(b.hoursDays)); if (n >= 1 && n <= 7) data.settings.hoursDays = n; }
     // An app's things on the calendar: {app, show: 'week' | 'today' | 'off'}; fromAppsOrder: the apps' ids, first first.
     if (b.fromApp && typeof b.fromApp === 'object') {
       const app = str(b.fromApp.app, 80);
