@@ -75,7 +75,7 @@ reject.
 | `house.renameList(list, name)` | | change |
 | `house.editItem(list, id, to)` | `to`: `{text?, who?}` | change |
 | `house.choreDone(who, task, done = true, by?)` | `by`: who did a chore anyone can do | change |
-| `house.addChore(who, task, days = [], stars = 1)` | | change |
+| `house.addChore(who, task, days = [], stars = 1, when = {})` | `when`: `{date?, at?, remind?}`: one day (`YYYY-MM-DD`) instead of `days`, a time (`HH:MM`), a reminder then | change |
 | `house.updateChore(who, task, to)` | `to`: `{task?, who?, days?, stars?}` | change |
 | `house.skipChore(who, task, skip = true)` | | change |
 | `house.removeChore(who, task)` | | change |

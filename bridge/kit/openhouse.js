@@ -247,7 +247,7 @@ export const house = {
   // chores (a chore is {who, task})
   /** by: for a chore anyone can do (no who), who did it: the stars are theirs. */
   choreDone: (who, task, done = true, by = null) => send('/house/chore', { done: { who, task, ...(by ? { by } : {}) }, value: done }),
-  addChore: (who, task, days = [], stars = 1) => task?.trim() && send('/house/chore', { add: { who, task: task.trim(), days, stars } }),
+  addChore: (who, task, days = [], stars = 1, when = {}) => task?.trim() && send('/house/chore', { add: { who, task: task.trim(), days, stars, ...when } }), // when: {date?, at?, remind?}
   /** Change a chore: to = { task?, who?, days?, stars? } (today's tick goes with it). */
   updateChore: (who, task, to) => send('/house/chore', { update: { who, task, to } }),
   /** Skip a chore today (away, sick): not left to do, no stars. */

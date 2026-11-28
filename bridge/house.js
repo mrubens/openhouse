@@ -8,7 +8,7 @@
 // GET  /house/wait?v=N         the same, once it changes (or after 25 s)
 //      &same=1                 nothing changed in those 25 s: { v, same: true }, and the caller keeps what it has
 // POST /house/list             { list, add?: [text], check?: [id|text], uncheck?, remove?, clearChecked?, who? }
-// POST /house/chore            { done: {who, task}, value? } | { add: {who, task, days?} } | { remove: {who, task} }
+// POST /house/chore            { done: {who, task}, value? } | { add: {who, task, days?, date?, at?, remind?} } | { remove: {who, task} }
 // POST /house/reward           { add: {title, stars, who?} } | { remove: id } | { redeem: {who, id} } | { answer: {id, yes} }
 // POST /house/checklist        { add: {name, who?, from, to, days?, steps: [{text, pic}]} } | { update: {id, ...} } | { remove: id }
 //                              | { check: {id, step, who, done?} }
@@ -81,6 +81,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   data.done ||= {}; // "YYYY-MM-DD": ["who|task", ...]
   data.by ||= {}; // "YYYY-MM-DD|who|task" -> who did a chore anyone could (they got its stars)
   data.skipped ||= {}; // "YYYY-MM-DD": ["who|task", ...]  skipped for the day: no stars, not left to do
+  data.onceDone ||= {}; // a chore for one day (date), once it's done: "who|task|its date" -> the day it was done (kept past the two months)
   data.meals ||= {}; // "YYYY-MM-DD": { dinner: "Tacos" }
   data.recipes ||= {}; // the recipe box, by meal (lowercase): { text, link?, notes?, video?, image?, picsAt?, cook?: {name, serves, ingredients,
   // steps: [{text, uses?, timer?, image?}], for, at}, at } (image: the dish's photo on its page; a step's image: its page's photo of it)

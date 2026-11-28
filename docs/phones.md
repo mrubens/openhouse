@@ -83,6 +83,7 @@ A buzz is for something **you** need to do **soon**. Everything else waits on th
 | A reminder for your event, when it's due ("Dentist in 15 minutes"). Built in this slice. | Countdowns ("Trip in 4 days") |
 | "Leave by 4:50" for your event, from the heartbeat. Next. | A broken app (it's on the strip, and the workshop fixes it) |
 | A timer you started from this phone, when it ends. Next. | List changes, chores ticked, new photos |
+| Your chore with Remind me, at its time if it isn't done yet ("Feed the cat now"). Built. | A chore for anyone (it shows on the device) |
 |  | Anything during the household's night hours |
 
 - Each buzz has a tag, so the same thing never buzzes twice; a newer one replaces it.

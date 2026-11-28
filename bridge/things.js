@@ -128,7 +128,7 @@ export function thingStore({ DIR, now = () => Date.now(), onChange = () => {} })
     for (const r of house.reminders || []) {
       const m = Math.ceil((Date.parse(r.start) - t) / MIN);
       rem.add(r.key);
-      out.push({ id: `rem-${r.key}`, kind: 'reminder', text: `${plain(r.title)} ${m <= 0 ? 'now' : m === 1 ? 'in a minute' : m < 60 ? `in ${m} minutes` : 'at ' + hm(r.start)}`, when: Date.parse(r.start), who: r.who || null, key: r.key, open: 'calendar' });
+      out.push({ id: `rem-${r.key}`, kind: 'reminder', text: `${plain(r.title)} ${m <= 0 ? 'now' : m === 1 ? 'in a minute' : m < 60 ? `in ${m} minutes` : 'at ' + hm(r.start)}`, when: Date.parse(r.start), who: r.who || null, key: r.key, open: r.open || 'calendar' });
     }
     for (const x of live()) out.push({ id: x.id, kind: x.kind, text: x.kind === 'broken' ? brokenText(x.text) : x.text, when: x.kind === 'broken' ? t + DAY : x.until, until: x.until, ...(x.app ? { app: x.app } : {}), ...(x.open ? { open: x.open } : {}), ...(x.ask ? { ask: x.ask } : {}) });
     let fixes = []; try { fixes = fixesOf() || []; } catch {}

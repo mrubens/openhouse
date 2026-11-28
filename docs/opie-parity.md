@@ -70,7 +70,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | The household's email address (Settings → Account → Email; the phone page's Copy; an empty Calendar or Photos) | **new** | family_things email |
 | Calendar: Add a calendar | yes | add_calendar; the tablet asks for the PIN |
 | Calendar, with Ask for the PIN → Change the calendar on: any change | **new** | calendar_event asks; the tablet's card takes the PIN, then the calendar is open for 5 minutes, as after the app's unlock. A computer's workshop isn't asked |
-| Chores: done / not done, who did an Anyone chore, add, change (who, days, every N days, stars, picture, stays until done), skip, remove | yes | change_chores |
+| Chores: done / not done, who did an Anyone chore, add, change (who, days, every N days, once on a day, a time, Remind me, stars, picture, stays until done), skip, remove | yes | change_chores (date, at, remind; the reminder buzzes whose it is and shows on the device, as an event's does) |
 | Chores: rewards add, remove | yes | change_rewards |
 | Chores: spend stars on a reward (Get it!) | **new** | change_rewards redeem: the same card as Get it!, an adult's yes on the tablet (with the PIN when Give rewards asks) |
 | Chores: routines add, change, remove, tick a step | yes | change_routines |

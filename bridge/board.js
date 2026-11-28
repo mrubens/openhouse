@@ -111,9 +111,13 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       h.chores = b.chores.map((c) => { const who = str(c.who, 40), task = str(c.task, 100), was = had.get(`${who.toLowerCase()}|${task.toLowerCase()}`) || {};
         const n = Math.round(Number('stars' in c ? c.stars : was.stars)), pic = 'pic' in c ? c.pic : was.pic, keep = 'keep' in c ? c.keep : was.keep;
         const every = Math.round(Number('every' in c ? c.every : was.every)), since = 'since' in c ? c.since : was.since, after = 'after' in c ? c.after : was.after;
+        // (and its one day, its time and its reminder: house/chores.js)
+        const date = 'date' in c ? c.date : was.date, at = 'at' in c ? c.at : was.at, remind = 'remind' in c ? c.remind : was.remind;
+        const day = /^\d{4}-\d{2}-\d{2}$/.test(date || '') ? date : null, time = /^([01]\d|2[0-3]):[0-5]\d$/.test(at || '') ? at : null;
         return { who, task, ...(Array.isArray(c.days) && c.days.length ? { days: c.days.map((d) => str(d, 3).toLowerCase()) } : {}), ...(n >= 2 && n <= 10 ? { stars: n } : {}),
           ...(typeof pic === 'string' && /^[a-z]{2,12}$/.test(pic) ? { pic } : {}), ...(keep ? { keep: true } : {}),
-          ...(every >= 2 && every <= 90 ? { every, ...(after ? { after: true } : /^\d{4}-\d{2}-\d{2}$/.test(since || '') ? { since } : {}) } : {}) }; }).filter((c) => c.task);
+          ...(every >= 2 && every <= 90 && !day ? { every, ...(after ? { after: true } : /^\d{4}-\d{2}-\d{2}$/.test(since || '') ? { since } : {}) } : {}),
+          ...(day ? { date: day } : {}), ...(time ? { at: time, ...(remind ? { remind: true } : {}) } : {}) }; }).filter((c) => c.task);
       if (h.chores.length > ROOM.chores) throw full(`There's room for ${ROOM.chores} chores. Take one off first.`);
     }
     // The Map's saved places (maps.js): found once, kept with their name; home: Home's own street address.
@@ -159,7 +163,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       h.routines?.length ? `Routines:\n${h.routines.map((r) => '- ' + r).join('\n')}` : '',
       // (events come from subscribed calendars, invites and the household's apps too: their words are marked as data)
       `Calendar, next 3 days:\n${soon.length ? asData(soon.join('\n'), "the calendar's events, with titles in the words of whoever put them there (subscribed and synced calendars, invites, the household's apps)", { max: 8000 }) : '- nothing'}`,
-      h.chores?.length ? `Chores:\n${h.chores.map((c) => `- ${c.who}: ${c.task}${c.days ? ` (${c.days.join(', ')})` : ''}`).join('\n')}` : '',
+      h.chores?.length ? `Chores:\n${h.chores.map((c) => `- ${c.who}: ${c.task}${c.date ? ` (once, ${c.date})` : c.days ? ` (${c.days.join(', ')})` : ''}${c.at ? ` at ${c.at}${c.remind ? ', reminder' : ''}` : ''}`).join('\n')}` : '',
       handle.houseContext?.() || '', // lists, meals, chores done today (house.js)
     ].filter(Boolean).join('\n\n');
   }
