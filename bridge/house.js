@@ -169,8 +169,10 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       reminders, flyer: house.flyerNow(), calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
       removed: house.removedPhotos(), albums: data.albums, linked: house.albums.view(), captions: data.captions, screensaver: house.screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
       ai: !['off', 'none'].includes(agentName()) && !!currentAgent,
+      voice: (() => { try { return voiceNeed(); } catch { return null; } })(), // why Opie's voice can't answer (cloud.js voiceNeed): Today's card
     };
   }
+  let voiceNeed = () => null;
 
   // The parts (house/*.js), each over the same data; what one needs of another it finds on house when it's called.
   const house = { DIR, WORK, PHOTOS, FLYERS, data, board, homeScreen, currentAgent, agentName, things, notes, appName, mealWork,
@@ -314,6 +316,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   handle.view = view;
   handle.answer = (...a) => house.answer(...a); // one answer from the assistant (the music tool's Spotify search: devices/index.js)
   handle.changed = changed;
+  handle.setVoice = (fn) => { voiceNeed = fn; };
   handle.tick = tick; // (tests: what the 30 s clock does)
   handle.events = () => house.events(); // the calendar as screens get it (tests)
   handle.reminders = (now) => house.reminders(now); // the reminders due now (phone-buzz.js: they buzz the phones of the people on them)

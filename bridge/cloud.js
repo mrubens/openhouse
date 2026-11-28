@@ -33,12 +33,18 @@ import zlib from 'node:zlib';
 import { request } from './backup-format.js';
 import { host } from './host.js';
 import { ownOpenAI, tokensMc, COSTS } from './own-openai.js';
-import { usageCounter, monthWords, overWords } from './usage.js';
+import { usageCounter, monthWords, overWords, OWN_WORDS } from './usage.js';
 
 // The service a tablet links to unless someone sets another (Settings → Account → Address). Filled in after the
 // first deploy (openhouse-cloud/scripts/deploy.sh prints it); empty means Settings asks for an address.
 export const DEFAULT_API = 'https://cloud.openhouse.computer';
 const DAY = 86400e3;
+// On the household's own OpenAI key: the monthly stop until someone sets another ($20, in cents), the minutes a day in
+// conversations "Hey Opie" opened, and each app's small questions a day (the kit's decide).
+export const STOP_CENTS = 2000, WAKE_DAY_SECS = 60 * 60, APP_DECIDES = 100;
+/** The monthly stops Settings offers, in cents. */
+export const STOPS = [500, 1000, 2000, 5000, 10000, 20000];
+const LIVE_MAX_SECS = 5 * 60; // (a session's own length at most: LiveVoice MAX_MS)
 
 export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', backupBits = () => ({}), fixesFile = null, now = Date.now, tick = 15 * 60e3, defaultApi = process.env.OPENHOUSE_CLOUD_URL || DEFAULT_API,
   openai = (kind, body) => host.call('/openai', { kind, body }, { ms: 125e3 }).then((r) => r || { status: 0, body: null }) }) {
@@ -239,6 +245,47 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // This month's use as people count it (usage.js): what this tablet did, and on the own key what it cost.
   const use = usageCounter({ DIR, now });
   const own = ownOpenAI({ openai, spent: (mc) => use.add({ mc }) });
+  // What stops the spending on the household's own key (docs/assistant.md): OpenAI bills them, and nobody may be
+  // watching. A monthly stop (Settings → Opie → Voice → Your own OpenAI key; STOP_CENTS until someone changes it),
+  // checked before every live start, text model call and Decisions call against this month's estimate (usage.js); a
+  // day's cap on minutes in conversations "Hey Opie" opened (a wake misfire opens one; a tap or a phone's start isn't
+  // capped); and each app's small questions (the kit's decide) at most APP_DECIDES a day, on either bill.
+  const limits = () => ({ stopCents: STOP_CENTS, ...(read('own-limits.json') || {}) });
+  const spentCents = () => use.read().mc / 1000;
+  const today = () => { const d = new Date(now()); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
+  const wakeToday = () => { const w = read('wake-day.json'); return w?.day === today() ? Math.max(0, Number(w.secs) || 0) : 0; };
+  const wakeIds = new Set(); // (the conversations "Hey Opie" opened, until their minutes come in)
+  const said = (code) => Object.assign(new Error(OWN_WORDS[code]), { code, said: true });
+  /** What's left this month under the stop, in cents (refused at nothing left). */
+  function ownLeft() {
+    const left = limits().stopCents - spentCents();
+    if (left <= 0) throw said('own_stop');
+    return left;
+  }
+  // Why the own key last failed at OpenAI (refused, out of credit, no key on the device), for Today and Settings;
+  // cleared by the next call that goes through, or a key put in.
+  let onNeed = () => {}, lastNeed;
+  function needCheck() { const n = voiceNeed(); if (n !== lastNeed) { lastNeed = n; try { onNeed(n); } catch {} } }
+  async function ownCall(fn) {
+    try {
+      const r = await fn();
+      if (state().ownProblem) { setState({ ownProblem: null }); needCheck(); }
+      return r;
+    } catch (e) {
+      if (['own_key_refused', 'own_key_limit', 'no_key'].includes(e.code)) { setState({ ownProblem: e.code }); needCheck(); throw Object.assign(e, { message: OWN_WORDS[e.code], said: true }); }
+      if (e.code === 'own_stop') needCheck();
+      throw e;
+    }
+  }
+  /**
+   * Why Opie's voice can't answer here, for Today's card (house.js view().voice): 'no_key' (no account and no key), or,
+   * on the household's own key, 'own_key_refused', 'own_key_limit', 'no_key' (the device lost it) or 'own_stop'; null
+   * when it can (or it's Opie cloud's, which says its own).
+   */
+  function voiceNeed() {
+    if (!ownOn()) return device() ? null : 'no_key';
+    return state().ownProblem || (limits().stopCents - spentCents() <= 0 ? 'own_stop' : null);
+  }
   /** A typed question answered, or an app made or changed (chat.js, builder.js). */
   const counted = (p) => { use.add({ questions: p?.questions ? 1 : 0, apps: Math.max(0, Math.round(Number(p?.apps) || 0)) }); };
   /** Tells the service this tablet's questions and apps this month (and, on the own key, its minutes and cost), for
@@ -255,7 +302,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
    *  voice; this tablet's own, on the household's own key or before the service has answered. */
   function monthOf(svc) {
     const u = use.read();
-    if (ownOn() || !svc?.used) return monthWords({ liveSecs: u.liveSecs, questions: u.questions, apps: u.apps, cents: ownOn() ? u.mc / 1000 : 0 });
+    if (ownOn() || !svc?.used) return monthWords({ liveSecs: u.liveSecs, questions: u.questions, apps: u.apps, cents: ownOn() ? u.mc / 1000 : 0, stopCents: ownOn() ? limits().stopCents : 0 });
     const s = svc.used;
     return monthWords({ liveSecs: s.liveSecs, cents: s.cents, questions: s.questions ?? u.questions, apps: s.apps ?? u.apps });
   }
@@ -264,7 +311,8 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   async function voiceStatus(check) {
     const mine = read('voice.json') || {};
     let svc = lastVoiceStatus;
-    if (ownOn()) return { linked: !!device(), own: true, on: liveOn(), provider: 'openai-live', vendor: 'OpenAI', available: true, offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null, asked: null, over: null, used: null, limits: null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(null) };
+    if (ownOn()) return { linked: !!device(), own: true, on: liveOn(), provider: 'openai-live', vendor: 'OpenAI', available: true, offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null, asked: null, over: null, used: null, limits: null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(null),
+      stopCents: limits().stopCents, need: voiceNeed() }; // (the monthly stop, and why the key isn't working: Settings shows both)
     if (check && device()) { await reportUse().catch(() => {}); try { svc = lastVoiceStatus = await call('GET', '/v1/voice'); } catch {} }
     if (svc && svc.on === false && mine.on) { write('voice.json', { ...mine, on: false, offAt: iso(), offWhy: 'family' }); mine.on = false; } // turned off from the web
     // (credit: the household's Opie credit has run out or is on hold; month: the month's limit is reached)
@@ -300,6 +348,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   /** Whether the household's own key is in (the shell's /cloud/own; the keeper's, the same way): never the key. */
   async function setOwn(on) {
     if (on) write('own.json', { on: true, at: iso() }); else fs.rmSync(f('own.json'), { force: true });
+    setState({ ownProblem: null }); // (a new key is a fresh start)
     // A key put in (an adult, with the PIN) is the household's yes to OpenAI on their own account: the voice comes on
     // with it, and goes off with the key where there's no account to fall back on.
     const v = read('voice.json') || {};
@@ -325,12 +374,35 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   }
 
   const reply = async (res, fn) => {
-    try { json(res, 200, await fn()); } catch (e) { json(res, e.code === 'unlinked' ? 409 : 400, { error: e.over === 'credit' ? overWords(e) : e.message, code: e.over ? `over_${e.over}` : e.code || null }); }
+    // (said: the error is in the household's words, for the voice to say as it is: OWN_WORDS)
+    try { json(res, 200, await fn()); } catch (e) { json(res, e.code === 'unlinked' ? 409 : e.code === 'app_limit' ? 429 : 400, { error: e.over === 'credit' ? overWords(e) : e.message, code: e.over ? `over_${e.over}` : e.code || null, ...(e.said ? { said: true } : {}) }); }
   };
 
+  /** A live start on the household's own key: within the monthly stop and, for a conversation "Hey Opie" opened,
+   *  today's cap. With less left than a whole conversation it ends when that's used (creditSecs, as Opie cloud's
+   *  credit), saying why (creditWhy). */
+  async function ownLive(b, req) {
+    const left = ownLeft(), wake = b.how === 'wake', wakeLeft = wake ? WAKE_DAY_SECS - wakeToday() : Infinity;
+    if (wakeLeft <= 0) throw said('wake_cap');
+    const r = await ownCall(() => own.liveStart({ ...b, ...(req.liveSetup ? { instructions: req.liveSetup.instructions, tools: req.liveSetup.tools } : {}), voice: read('voice.json')?.voiceName }));
+    if (wake && r.sessionId) { wakeIds.add(r.sessionId); if (wakeIds.size > 20) wakeIds.delete(wakeIds.values().next().value); }
+    const bySpend = Math.floor(left * 1000 / COSTS.livePerSecond), secs = Math.min(bySpend, wakeLeft);
+    return secs < LIVE_MAX_SECS ? { ...r, creditSecs: Math.max(1, secs), creditWhy: OWN_WORDS[wakeLeft < bySpend ? 'wake_cap' : 'own_stop'] } : r;
+  }
+  /** One of an app's small questions (the kit's decide: brain.js appCall): APP_DECIDES a day at most for each app. */
+  function appDecided(app) {
+    const s = read('app-decides.json'), n = s?.day === today() ? { ...s.n } : {};
+    if ((n[app] || 0) >= APP_DECIDES) throw Object.assign(new Error(`This app has asked its ${APP_DECIDES} small questions for today.`), { code: 'app_limit' });
+    n[app] = (n[app] || 0) + 1;
+    write('app-decides.json', { day: today(), n });
+  }
+
   async function handle(req, res, url) {
+    if (!url.pathname.startsWith('/cloud/')) return false;
+    try { return await handleNow(req, res, url); } finally { needCheck(); } // (Today's card follows a key put in or a link made)
+  }
+  async function handleNow(req, res, url) {
     const p = url.pathname;
-    if (!p.startsWith('/cloud/')) return false;
     if (req.method === 'GET' && p === '/cloud/status') {
       // ?check=1 (Settings opening): ask the service first, so an unlink from the web or a new family name shows.
       if (url.searchParams.get('check') && device()) await refresh().catch(() => {});
@@ -385,6 +457,14 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         if (typeof b.on !== 'boolean' || Object.keys(b).length !== 1) { json(res, 400, { error: 'on only' }); return true; }
         json(res, 200, await setOwn(b.on)); return true;
       }
+      // The own key's monthly stop (Settings → Opie → Voice → Your own OpenAI key, behind the PIN): one of STOPS.
+      case '/cloud/own/stop': {
+        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the device only' }); return true; }
+        const c = Math.round(Number(b.cents));
+        if (!STOPS.includes(c)) { json(res, 400, { error: 'cents', stops: STOPS }); return true; }
+        write('own-limits.json', { ...(read('own-limits.json') || {}), stopCents: c, at: iso() });
+        json(res, 200, await voiceStatus(false)); return true;
+      }
       case '/cloud/voice': await reply(res, () => voiceSet(!!b.on)); return true;
       // A household that set up its own tablet asks for Opie's voice (the service keeps the ask; its owner turns it on).
       case '/cloud/voice/ask': await reply(res, async () => { lastVoiceStatus = await call('POST', '/v1/voice/ask'); return voiceStatus(false); }); return true;
@@ -392,10 +472,11 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       // OpenAI's live voice (the trial): the shell's WebRTC offer to the service, which starts the session with OpenAI
       // (the key stays there) and answers with OpenAI's SDP; and, when the session ends, what it cost (OpenAI's count).
       // (One line per start, its outcome only, for when a device says it couldn't connect: no words, no addresses.)
-      case '/cloud/live/start': await reply(res, () => { if (ownOn()) return liveOn() ? own.liveStart({ ...b, ...(req.liveSetup ? { instructions: req.liveSetup.instructions, tools: req.liveSetup.tools } : {}), voice: read('voice.json')?.voiceName }) : Promise.reject(Object.assign(new Error('off'), { code: 'off' })); if (!liveOn()) throw Object.assign(new Error('off'), { code: 'off' }); const s = req.liveSetup || b; return call('POST', '/v1/voice/live/start', { sdp: String(b.sdp || ''), name: String(b.name || ''), instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], idleTimeoutS: Number(b.idleTimeoutS) || undefined, voice: read('voice.json')?.voiceName || undefined }).then((r) => { console.log(`[cloud] live start ok${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); return r; }, (e) => { console.log(`[cloud] live start failed: ${e.code || ''} ${String(e.message || '').slice(0, 80)}${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); throw e; }); }); return true;
+      case '/cloud/live/start': await reply(res, () => { if (ownOn()) return liveOn() ? ownLive(b, req) : Promise.reject(Object.assign(new Error('off'), { code: 'off' })); if (!liveOn()) throw Object.assign(new Error('off'), { code: 'off' }); const s = req.liveSetup || b; return call('POST', '/v1/voice/live/start', { sdp: String(b.sdp || ''), name: String(b.name || ''), instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], idleTimeoutS: Number(b.idleTimeoutS) || undefined, voice: read('voice.json')?.voiceName || undefined }).then((r) => { console.log(`[cloud] live start ok${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); return r; }, (e) => { console.log(`[cloud] live start failed: ${e.code || ''} ${String(e.message || '').slice(0, 80)}${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); throw e; }); }); return true;
       // An app's small question (the kit's decide(); apps.js lets only the family's own apps and those that declare
-      // "decide" reach this): {input, questions} -> {answers}.
-      case '/cloud/decide': await reply(res, () => decide(b.input, Array.isArray(b.questions) ? b.questions : [])); return true;
+      // "decide" reach this): {input, questions} -> {answers}. From an app (req.fromApp: brain.js appCall), counted
+      // against its day's APP_DECIDES first.
+      case '/cloud/decide': await reply(res, () => { if (req.fromApp) appDecided(String(req.fromApp)); return decide(b.input, Array.isArray(b.questions) ? b.questions : []); }); return true;
       case '/cloud/live/usage': {
         // backend: what the session's text model used (live-session.cjs), as numbers and its model's name, nothing said.
         const k = b.backend && typeof b.backend === 'object' ? b.backend : {};
@@ -403,6 +484,8 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         const seconds = Math.max(0, Math.min(3600, Math.round(Number(b.seconds) || 0)));
         if (ownOn()) { // (OpenAI bills the household directly: counted here only for "This month")
           use.add({ liveSecs: seconds, mc: seconds * COSTS.livePerSecond + tokensMc(backend.model || 'gpt-6-luna', backend) + backend.searches * COSTS.searchPerCall });
+          const id = String(b.sessionId || '');
+          if (wakeIds.delete(id)) write('wake-day.json', { day: today(), secs: wakeToday() + seconds }); // ("Hey Opie" opened it: today's cap)
           json(res, 200, { ok: true, own: true }); return true;
         }
         use.add({ liveSecs: seconds }); // (the service counts them too, and its count is the one shown once it answers)
@@ -421,9 +504,9 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     json(res, 404, { error: 'not found' }); return true; // the body is read: nothing after this may read it again
   }
   /** The cloud assistant's next step (agents/cloud.js): the model's output for the conversation so far. */
-  const ai = (q) => (ownOn() ? own.respond(q) : call('POST', '/v1/ai/respond', q));
+  const ai = (q) => (ownOn() ? ownCall(() => { ownLeft(); return own.respond(q); }) : call('POST', '/v1/ai/respond', q));
   /** OpenAI Decisions through the service: {answers}. Only once the family chose OpenAI (the service checks). */
-  const decide = (input, questions) => (ownOn() ? own.decide(input, questions) : call('POST', '/v1/decide', { input: String(input || ''), questions }));
+  const decide = (input, questions) => (ownOn() ? ownCall(() => { ownLeft(); return own.decide(input, questions); }) : call('POST', '/v1/decide', { input: String(input || ''), questions }));
   /** The tablet's assistant (typed turns, flyers, the heartbeat's notes) is the cloud's text model: linked, OpenAI chosen (server.js agentName). */
   const brainOn = () => liveOn();
   /** The household's own key is in (agentName 'own'). */
@@ -485,7 +568,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const linkId = () => device()?.deviceId || null;
   return { counted, usageNow: async () => { const v = await voiceStatus(true), c = v.credit; // (and what's left of the Opie credit)
     const left = !c || v.own ? '' : c.frozen ? "\nOpie's credit is on hold while a payment is looked at." : !c.paid ? '' : c.cents > 0 ? `\n$${(c.cents / 100).toFixed(2)} of Opie credit left, about ${c.perMinuteCents}¢ a minute talking.` : "\nOpie's credit has run out. Someone can add more on the account page.";
-    return { ...v.month, text: v.month.text + left }; }, googleStart, setOwn, voiceOn, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+    return { ...v.month, text: v.month.text + left }; }, googleStart, setOwn, voiceOn, voiceNeed, onNeed: (fn) => { onNeed = fn; }, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

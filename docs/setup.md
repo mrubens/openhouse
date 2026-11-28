@@ -61,9 +61,9 @@ signing in inside the app itself. Apps with their own sign-in, like Netflix, don
      assistant" and tap Allow), and stopping charging at 80% ([where it is on each tablet](tablets.md#the-charge-limit-on-each)).
      Press Home to come back. Without the first, Opie can't open or press buttons in other apps; everything else works.
    - **Opie is ready**: once the setup ends, a tablet linked to an Opie account says so: say "Hey Opie" to use it
-     (Turn off there, or later in Settings → Opie → Voice). A tablet without an account works by touch; to talk to Opie, add
-     your own OpenAI key in Settings → Opie → Voice (a key from platform.openai.com: OpenAI bills your account, so set a
-     monthly budget there too).
+     (Turn off there, or later in Settings → Opie → Voice). A tablet without an account works by touch; to talk to Opie,
+     tap **Add a key** on Today (or Settings → Opie → Voice) and paste your own OpenAI key from a phone (a key from
+     platform.openai.com: OpenAI bills your account, and Opie stops for the month at the monthly stop, $20 to start).
 3. **The home screen**: Today, then your tabs (calendar, chores, lists, meals, photos). Pressing Home always comes back
    here. That's it: no cable or computer needed after the code.
 

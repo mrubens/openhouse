@@ -281,6 +281,7 @@ let backups = null;
 const cloud = cloudRoutes({ DISPLAY, json, body, agentName, backupBits: () => backups?.bits() || {}, fixesFile: path.join(HB_DIR, '../heartbeat-fixes.json') });
 cloudRef = cloud;
 onUse((p) => cloud.counted(p)); // a typed question answered, an app made or changed (usage.js)
+chat.house.setVoice?.(() => cloud.voiceNeed()); cloud.onNeed(() => chat.house.changed()); // Today's card while Opie's voice can't answer (no key, or the key's trouble)
 chat.live.useDecide((i, q) => cloud.decide(i, q));
 chat.live.setUsage(() => cloud.usageNow()); // Opie's how_much_used: Settings → Voice's "This month"
 import('./calendar.js').then((m) => m.useCalendarDecide((i, q) => cloud.decide(i, q)));
@@ -487,6 +488,8 @@ async function appCall(req, res, url, app) {
   if (url.pathname === '/apps/reach/forget') { const b = await body(req); return json(res, 200, plugins.forgetReach(app, b.host)); }
   // Its own page's errors only: the app is the caller, never one the body names (they reach the builder's checks).
   if (url.pathname === '/apperror') { const b = await body(req); return builder.appError(app, b.text) ? json(res, 200, { ok: true }) : json(res, 400, { error: 'text needed' }); }
+  // Its small questions (the kit's decide, granted "decide"): on to the cloud's route, which counts each app's day (cloud.js).
+  if (url.pathname === '/cloud/decide') { req.fromApp = app; return cloud.handle(req, res, url); }
   if (url.pathname === '/apps/fetch') { const b = await body(req); const r = await appFetch(app, b.url, plugins.reachesOf(app), { binary: b.binary === true }); return json(res, r.error ? r.status || 502 : 200, r); }
   // (a save that's refused or fails is said so: store.js unsaved)
   const notSaved = (e) => { if (!e?.unsaved) throw e; const u = unsaved(e); return json(res, u.status, { error: u.error }); };

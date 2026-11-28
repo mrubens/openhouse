@@ -57,7 +57,9 @@ Some devices [work best](docs/tablets.md).
 3. Scan the code on [opie.house/setup](https://opie.house/setup), and accept Android's screens about the device
    being managed.
 4. When Opie starts, scan the code it shows with your phone and follow the steps: who lives here, your calendars and
-   photos, and an OpenAI key for Opie's voice.
+   photos.
+5. To talk to Opie, tap **Add a key** on Today and paste an OpenAI key from your phone (OpenAI bills your account, and
+   Opie stops for the month at a spending stop you set, $20 to start).
 
 It's free, and nothing in the software is locked behind a subscription. [Opie Cloud](https://opie.house), the
 optional hosted service, adds backups, use away from home, and Opie's voice without a key of your own. It's in

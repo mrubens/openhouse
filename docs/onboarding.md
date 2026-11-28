@@ -92,7 +92,8 @@ On the tablet:
       household's own key in) it's turned on, with Hey Opie listening, and a small dialog says "Opie is ready": say
       “Hey Opie” to use it, and what follows goes to OpenAI. **OK**, or **Turn off** (Settings → Opie → Voice's Off, kept as an
       Off in `OpieChoice`, so it isn't turned on by itself later). Where it can't (no account and no key, or the
-      household doesn't have the voice yet), nothing shows; the voice is chosen in Settings → Opie → Voice.
+      household doesn't have the voice yet), no dialog shows; with no account and no key, Today's first card is
+      **Opie's voice** with **Add a key** (`home.jsx`, `OwnKey.fromToday`) until a key is in.
 
    **Opie's voice turning on by itself** (`CloudSetup.autoVoice`): once a minute the shell looks at `/cloud/voice`;
    while the tablet is linked and the voice is off, it asks the cloud (`?check=1`, the cloud's `voiceState`) right after

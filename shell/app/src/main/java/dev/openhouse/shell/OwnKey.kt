@@ -25,8 +25,9 @@ import kotlin.concurrent.thread
  * since the keystore's key doesn't travel). The bridge hears only whether one is in (POST /cloud/own {on}) and asks
  * OpenAI through [forward], which reaches only OpenAI's own address and only the calls in [CALLS]. Entering, changing
  * and removing it are an adult's, behind the PIN.
- * The key comes in typed or pasted here ([menu]: Settings → Opie → Voice, Your own OpenAI key) or sent from a settings page
- * ([offer]: bridge /setup/openai): sealed, straight here.
+ * The key comes in from a phone on the Wi-Fi by the QR code, or typed or pasted here ([menu]: Settings → Opie → Voice, Your
+ * own OpenAI key, or Today's card while there's no voice: [fromToday]), or sent from a hub's settings page ([offer]: bridge
+ * /setup/openai): sealed, straight here. The menu also sets the key's monthly stop (kept and checked by the bridge, cloud.js).
  * What each call carries is built by the bridge (bridge/own-openai.js, the cloud's requests).
  */
 object OwnKey {
@@ -71,10 +72,13 @@ object OwnKey {
     /** The answer to checking a key, as the household sees it. */
     sealed class Check { object Ok : Check(); class No(val say: String) : Check() }
 
+    private const val NO_CREDIT = "OpenAI says that account is out of credit or over its limit. Add credit on OpenAI's site, then try again."
+    private const val NO_ACCESS = "That key can't be used from here. On OpenAI's site, give it access to all models, or make a new one."
+
     /**
-     * One cheap call with the key: the list of models, which costs nothing. A wrong key and an unreachable OpenAI each get
-     * their own words. (Whether the account has money left and the live voice model is known only from a billed call or
-     * the live model's name, which come with the requests: see [CALLS].)
+     * Two calls with the key: the list of models (free: a wrong key and an unreachable OpenAI each get their own words),
+     * then the smallest answer from the assistant's model (a few tokens, a tiny fraction of a cent), the only call that
+     * sees an account with no credit left. (bridge/own-openai.js MODELS.text is the same model.)
      */
     fun check(key: String): Check = runCatching {
         val c = URL("$OPENAI/v1/models").openConnection() as HttpURLConnection
@@ -82,14 +86,25 @@ object OwnKey {
             c.connectTimeout = 10_000; c.readTimeout = 15_000
             c.setRequestProperty("authorization", "Bearer $key")
             when (c.responseCode) {
-                200 -> Check.Ok
+                200 -> credit(key)
                 401 -> Check.No("OpenAI didn't accept that key. Check you copied all of it, or make a new one.")
-                403 -> Check.No("That key can't be used from here. On OpenAI's site, give it access to all models, or make a new one.")
-                429 -> Check.No("OpenAI says that account is out of credit or over its limit. Add credit on OpenAI's site, then try again.")
+                403 -> Check.No(NO_ACCESS)
+                429 -> Check.No(NO_CREDIT)
                 else -> Check.No("OpenAI didn't answer properly (${c.responseCode}). Try again in a minute.")
             }
         } finally { c.disconnect() }
     }.getOrElse { Log.d(TAG, "check: ${it.javaClass.simpleName}"); Check.No("The tablet couldn't reach OpenAI. Check the Wi-Fi and try again.") }
+
+    /** The billed half of [check]: out of credit (429) or no access to the model (403) is said; anything else lets it in. */
+    private fun credit(key: String): Check = runCatching {
+        val c = URL("$OPENAI/v1/responses").openConnection() as HttpURLConnection
+        try {
+            c.requestMethod = "POST"; c.doOutput = true; c.connectTimeout = 10_000; c.readTimeout = 30_000; c.instanceFollowRedirects = false
+            c.setRequestProperty("authorization", "Bearer $key"); c.setRequestProperty("content-type", "application/json")
+            c.outputStream.use { it.write(JSONObject().put("model", "gpt-6-luna").put("input", "OK").put("max_output_tokens", 16).put("store", false).toString().toByteArray()) }
+            when (c.responseCode) { 429 -> Check.No(NO_CREDIT); 403 -> Check.No(NO_ACCESS); else -> Check.Ok }
+        } finally { c.disconnect() }
+    }.getOrDefault(Check.Ok)
 
     /** Where a call of [kind] may go: only a fixed path at OpenAI's own address, else null. */
     fun target(kind: String): String? = CALLS[kind]?.let { "$OPENAI$it" }
@@ -120,33 +135,103 @@ object OwnKey {
 
     // --- the adult's screens: put a key in, change it, take it out (behind the PIN) -------------------------
 
-    /** Settings → Opie → Voice → Your own OpenAI key, and turning the voice on where Opie cloud's voice isn't available. */
-    fun menu(act: MainActivity) = act.lock.withPin("Your own OpenAI key") {
-        if (!has()) return@withPin enter(act)
-        CalmDialog(act).setTitle("Your own OpenAI key")
-            .setMessage("Opie uses your OpenAI account for its voice and assistant, and OpenAI bills you. Set a monthly budget on the key at OpenAI too.")
-            .setPositiveButton("Change it") { _, _ -> enter(act) }
-            .setNeutralButton("Remove it") { _, _ -> remove(act) }
-            .setNegativeButton("Close", null).show()
+    /** Why the key isn't working, from the bridge (cloud.js voiceNeed), as Settings says it. */
+    private val NEED = mapOf(
+        "own_key_refused" to "OpenAI stopped accepting this key. Put in a new one.",
+        "own_key_limit" to "OpenAI says this account is out of credit or over its limit. Add credit on OpenAI's site.",
+        "no_key" to "The key isn't on this device any more. Put it in again.",
+        "own_stop" to "This month's stop is reached, so Opie's voice and assistant wait for next month or a higher stop.",
+    )
+    /** The monthly stops on offer, in cents (bridge cloud.js STOPS, which refuses any other). */
+    private val STOPS = listOf(500, 1000, 2000, 5000, 10000, 20000)
+    private fun dollars(cents: Int) = "$${cents / 100}"
+    private const val MORE = "Make a key at platform.openai.com, under API keys. What's said after “Hey Opie” then goes to OpenAI on your own account, not through Opie's cloud, and OpenAI bills you. Opie stops for the month at the monthly stop set here."
+
+    /** Today's card (the home page: HomeView ownKey) while the voice can't answer: [why] is the bridge's voiceNeed. */
+    fun fromToday(act: MainActivity, why: String) {
+        if (why == "own_stop" && has()) act.lock.withPin("Monthly stop") { stop(act) } else menu(act)
     }
 
+    /** Settings → Opie → Voice → Your own OpenAI key, and turning the voice on where Opie cloud's voice isn't available:
+     *  with a key in, its monthly stop, changing it and taking it out. */
+    fun menu(act: MainActivity) = act.lock.withPin("Your own OpenAI key") {
+        if (!has()) return@withPin enter(act)
+        thread {
+            val v = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText("${act.bridge}/cloud/voice", 3000, 8000)) }.getOrNull()
+            val stop = v?.optInt("stopCents", 0) ?: 0
+            val why = v?.takeIf { !it.isNull("need") }?.optString("need")
+            act.runOnUiThread {
+                val rows = listOfNotNull(if (stop > 0) "Monthly stop: ${dollars(stop)}" else null, "Change the key", "Remove the key")
+                CalmDialog(act).setTitle("Your own OpenAI key")
+                    .setMessage(NEED[why] ?: "Opie uses your OpenAI account for its voice and assistant, and OpenAI bills you.")
+                    .setItems(rows.toTypedArray()) { _, i -> when (i - (rows.size - 2)) { 0 -> enter(act); 1 -> remove(act); else -> stop(act) } }
+                    .setNegativeButton("Back", null).show()
+            }
+        }
+    }
+
+    /** The monthly stop: what this month may cost on the key at most, from the estimate (bridge usage.js); then the voice,
+     *  the assistant and Decisions wait until next month (cloud.js ownLeft). Behind the PIN, as the menu is. */
+    private fun stop(act: MainActivity) = thread {
+        val v = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText("${act.bridge}/cloud/voice", 3000, 8000)) }.getOrNull()
+        val now = v?.optInt("stopCents", 0) ?: 0
+        act.runOnUiThread {
+            CalmDialog(act).setTitle("Monthly stop").setMessage("Opie stops using your key for the rest of the month once it has cost about this much.")
+                .setSingleChoiceItems(STOPS.map { dollars(it) }.toTypedArray(), STOPS.indexOf(now)) { d, i ->
+                    d.dismiss()
+                    thread {
+                        val (_, r) = CloudSetup.post("${act.bridge}/cloud/own/stop", JSONObject().put("cents", STOPS[i]))
+                        act.runOnUiThread { if (r == null || r.has("error")) act.toast("That wasn't saved. Try again") else { act.toast("Stops at ${dollars(STOPS[i])} a month"); dev.openhouse.ui.Openhouse.settingsChanged() } }
+                    }
+                }.setNegativeButton("Back", null).show()
+        }
+    }
+
+    /**
+     * Put a key in: from a phone on this Wi-Fi (the QR code: [Handoff], sealed, straight to the shell, as their own
+     * storage's key comes: OwnStorage.setUp), or typed here with a keyboard. A person's own tap (Opie's does nothing:
+     * DeviceServer.personOnly), behind the PIN as the menu is; the key never reaches the bridge or Opie.
+     */
     private fun enter(act: MainActivity) {
+        if (DeviceServer.personOnly("Putting in an OpenAI key")) return
+        var dialog: android.app.Dialog? = null
+        var got: String? = null
+        val info = JSONObject().put("title", "Your OpenAI key").put("field", "OpenAI key").put("hint", "sk-…")
+            .put("link", "https://platform.openai.com/api-keys").put("linkText", "Make a key at OpenAI").put("done", "Sent. Check the device.")
+        val h = Handoff(act, info, minutes = 15, onSecret = { got = it.optString("value"); dialog?.dismiss() }, onEnd = { if (got == null) dialog?.dismiss() })
+        if (!h.start()) return type(act)
+        val qr = android.widget.ImageView(act).apply { setImageBitmap(Handoff.qr(h.url!!, 520)) }
+        val col = Calm.column(act, 12).apply {
+            gravity = android.view.Gravity.CENTER_HORIZONTAL
+            addView(Calm.qr(act, qr, Calm.caption(act, "Scan with a phone on this Wi-Fi, then paste the key there."), 360) { Handoff.share(act, h.url!!) })
+            addView(Calm.quiet(act, "Type it here instead") { dialog?.dismiss(); type(act) })
+            addView(Calm.more(act, MORE))
+        }
+        dialog = CalmDialog(act).setTitle("Add an OpenAI key").setView(col).setNegativeButton("Cancel", null)
+            .setOnDismissListener { h.stop(); got?.let { use(act, it) } }.show()
+    }
+
+    /** Typed or pasted on the device (a keyboard cover). */
+    private fun type(act: MainActivity) {
         val box = Calm.field(act, "sk-…").apply {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD or android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
         }
         val col = Calm.column(act, 12).apply { addView(box) }
-        CalmDialog(act).setTitle("Use your own OpenAI key")
-            .setMessage("Make a key at platform.openai.com, under API keys, then paste it here. What you say after “Hey Opie” then goes to OpenAI on your own account, not through Opie's cloud.")
-            .setView(col).setWidth(760f)
-            .setPositiveButton("Check and use it") { _, _ ->
-                val key = clean(box.text.toString()) ?: return@setPositiveButton say(act, "That isn't an OpenAI key", "A key starts with sk- and is one long line. Copy all of it.")
-                thread {
-                    when (val r = check(key)) {
-                        is Check.Ok -> { write(key); tellBridge(act.bridge, true); act.runOnUiThread { act.toast("Your key works. Opie uses it now") } }
-                        is Check.No -> act.runOnUiThread { say(act, "That key didn't work", r.say) }
-                    }
-                }
-            }.setNegativeButton("Cancel", null).show()
+        CalmDialog(act).setTitle("Add an OpenAI key").setView(col).setWidth(760f).setMore(MORE)
+            .setPositiveButton("Check and use it") { _, _ -> use(act, box.text.toString()) }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    /** Checked ([check]), then kept and the bridge told; else why not. */
+    private fun use(act: MainActivity, raw: String) {
+        val key = clean(raw) ?: return say(act, "That isn't an OpenAI key", "A key starts with sk- and is one long line. Copy all of it.")
+        act.toast("Checking it…")
+        thread {
+            when (val r = check(key)) {
+                is Check.Ok -> { write(key); tellBridge(act.bridge, true); act.runOnUiThread { act.toast("Your key works. Opie uses it now") } }
+                is Check.No -> act.runOnUiThread { say(act, "That key didn't work", r.say) }
+            }
+        }
     }
 
     /**

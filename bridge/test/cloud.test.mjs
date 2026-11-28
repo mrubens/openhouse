@@ -10,7 +10,7 @@ import path from 'node:path';
 import http from 'node:http';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { cloudRoutes } from '../cloud.js';
+import { cloudRoutes, APP_DECIDES } from '../cloud.js';
 import { backupRoutes, KEEP } from '../backup.js';
 import { driveDestination } from '../drive.js';
 import { newRecoveryCode, parseRecoveryCode, keyFromCode, encryptFile, decryptFile } from '../backup-format.js';
@@ -359,4 +359,59 @@ test("the household's own OpenAI key: the bridge only hears whether there is one
   assert.equal((await t.call('POST', '/cloud/own', { on: false })).code, 200);
   assert.equal(t.cloud.own(), false);
   assert.equal(t.cloud.liveOn(), false); // and goes with it, with no account to fall back on
+});
+
+test("the own key's spending stops: the monthly stop holds live starts, the text model and Decisions; a day's Hey Opie cap; each app's questions; a refused key is said", async () => {
+  const sent = [];
+  let refuse = false;
+  const D = display(), t = tablet(D, { openai: async (kind, body) => {
+    sent.push(kind);
+    if (refuse) return { status: 401, body: { error: { code: 'invalid_api_key' } } };
+    if (kind === 'live') return { status: 200, body: { session: { id: `s${sent.length}` }, transport: { sdp: 'v=0\r\nanswer' } } };
+    if (kind === 'decisions') return { status: 200, body: { answers: [{ name: 'q0', value: true }], usage: { input_tokens: 10 } } };
+    return { status: 200, body: { output: [{ type: 'message', role: 'assistant', content: [] }], usage: {} } };
+  } });
+  const handle = async (p, b, extra = {}) => { const res = {}; await t.cloud.handle({ method: 'POST', b, headers: {}, ...extra }, res, new URL('http://x' + p)); return res; };
+  const offer = { sdp: 'v=0\r\noffer' }, Q = [{ type: 'predicate', instructions: 'Is it?' }];
+  assert.equal((await t.call('POST', '/cloud/own', { on: true })).code, 200);
+  assert.equal(t.cloud.voiceNeed(), null);
+  assert.ok((await t.call('GET', '/cloud/voice')).obj.stopCents > 0); // a stop from the start
+
+  // "Hey Opie" opened a conversation that ran an hour: the next one it opens is refused today, in words; a tap still starts.
+  const woke = await handle('/cloud/live/start', { ...offer, how: 'wake' });
+  assert.equal(woke.code, 200);
+  assert.equal((await handle('/cloud/live/usage', { sessionId: woke.obj.sessionId, seconds: 3600 })).code, 200);
+  const capped = await handle('/cloud/live/start', { ...offer, how: 'wake' });
+  assert.equal(capped.code, 400); assert.equal(capped.obj.code, 'wake_cap'); assert.equal(capped.obj.said, true);
+  assert.equal((await handle('/cloud/live/start', { ...offer, how: 'tap' })).code, 200);
+
+  // A whole day talking (reported by the hour) passes the monthly stop: nothing more goes to OpenAI, each saying why.
+  for (let i = 0; i < 23; i++) await handle('/cloud/live/usage', { sessionId: 'x', seconds: 3600 });
+  const before = sent.length;
+  const live = await handle('/cloud/live/start', { ...offer, how: 'tap' });
+  assert.equal(live.obj.code, 'own_stop'); assert.equal(live.obj.said, true);
+  await assert.rejects(t.cloud.ai({ input: [{ role: 'user', content: 'hi' }] }), (e) => e.code === 'own_stop');
+  assert.equal((await handle('/cloud/decide', { input: 'x', questions: Q })).obj.code, 'own_stop');
+  assert.equal(sent.length, before, 'nothing reached OpenAI past the stop');
+  assert.equal(t.cloud.voiceNeed(), 'own_stop'); // (Today's card)
+
+  // Only one of the stops on offer, and only from the device; a higher one lets it through again.
+  assert.equal((await handle('/cloud/own/stop', { cents: 123456 })).code, 400);
+  assert.equal((await handle('/cloud/own/stop', { cents: 50000 }, { headers: { 'x-openhouse-screen': 'abc' } })).code, 403);
+  assert.equal((await handle('/cloud/own/stop', { cents: 20000 })).code, 200);
+  assert.equal((await handle('/cloud/live/start', { ...offer, how: 'tap' })).code, 200);
+  assert.equal(t.cloud.voiceNeed(), null);
+
+  // An app's small questions: a day's worth, then refused, while the household's own still go.
+  for (let i = 0; i < APP_DECIDES; i++) assert.equal((await handle('/cloud/decide', { input: 'x', questions: Q }, { fromApp: 'trivia' })).code, 200);
+  assert.equal((await handle('/cloud/decide', { input: 'x', questions: Q }, { fromApp: 'trivia' })).code, 429);
+  assert.equal((await handle('/cloud/decide', { input: 'x', questions: Q })).code, 200);
+
+  // A key OpenAI stopped accepting: said in words, shown on Today, and cleared by the next call that goes through.
+  refuse = true;
+  await assert.rejects(t.cloud.ai({ input: [] }), (e) => e.code === 'own_key_refused' && e.said);
+  assert.equal(t.cloud.voiceNeed(), 'own_key_refused');
+  refuse = false;
+  await t.cloud.ai({ input: [] });
+  assert.equal(t.cloud.voiceNeed(), null);
 });

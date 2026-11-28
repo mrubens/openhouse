@@ -62,6 +62,8 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         @JavascriptInterface fun type(g: String?) { if (ok(g)) main.post { o.openTyping() } } // the sidebar's keyboard button
         @JavascriptInterface fun sleep(g: String?) { if (ok(g)) main.post { o.sleepNow(); dev.openhouse.ui.Heartbeat.sleep() } } // the sidebar's moon
         @JavascriptInterface fun weather(g: String?) { if (ok(g)) main.post { o.showWeather = true } }
+        /** Today's card while Opie's voice can't answer ([why]: the bridge's voiceNeed): the key's own screen, behind the PIN. */
+        @JavascriptInterface fun ownKey(g: String?, why: String) { if (ok(g)) main.post { (act as? MainActivity)?.let { OwnKey.fromToday(it, why.take(40)) } } }
         @JavascriptInterface fun touch(g: String?) { if (ok(g)) main.post { o.touch() } }
         @JavascriptInterface fun idle(g: String?): Boolean = ok(g) && o.idle
         /** Settings → Screen → Time: whether the clock is 24-hour (shell/Clock.kt). */
