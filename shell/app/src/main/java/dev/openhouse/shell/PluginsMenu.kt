@@ -225,13 +225,10 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             thread {
                 Thread.sleep(500) // typing: only the last search
                 if (asked != query) return@thread
-                // On the device already (installed outside Opie, or before it): first, whatever Google Play's search returns.
-                val local = AppStore.onDevice(query).take(4)
-                val hits = runCatching { AppStore.search(query) }.getOrDefault(emptyList()).filter { it.first != "(name not shown)" && local.none { l -> l.second == it.second } }.take(4)
+                val hits = runCatching { AppStore.search(query) }.getOrDefault(emptyList()).filter { it.first != "(name not shown)" && !AppStore.installed(it.second) }.take(4)
                 ui {
                     if (asked != query) return@ui
                     play.removeAllViews()
-                    for ((name, pkg) in local) play.addView(line(name, "On this device", null) { addInstalled(pkg, name) })
                     if (hits.isEmpty()) return@ui
                     play.addView(Calm.eyebrow(c, "Google Play").apply { setPadding(Calm.px(c, 16), Calm.px(c, 22), 0, Calm.px(c, 6)) })
                     for ((name, pkg) in hits) {
@@ -246,15 +243,18 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         fun fill(q: String) {
             rows.removeAllViews()
             val words = q.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            // Apps already on the device (installed outside Opie, or before it), the best match first: a tap adds one to Apps.
+            val local = AppStore.onDevice(q).take(6)
+            for ((name, pkg) in local) rows.addView(line(name, "On this device", null) { addInstalled(pkg, name) })
             val shown = list.filter { e -> val hay = (e.optString("title") + " " + e.optString("description")).lowercase(); words.all { hay.contains(it) } }
             for (e in shown) {
                 val here = e.optJSONObject("installed")
                 val detail = when { here == null -> e.optString("description"); e.optBoolean("update") -> "On this device · a newer version is out"; else -> "On this device" }
                 rows.addView(line(e.optString("title"), detail, pics[e.optString("name")]) { if (here != null) installedOne(here.optString("name")) else look(e.optString("name")) })
             }
-            if (shown.isEmpty()) rows.addView(Calm.text(c, error ?: if (list.isEmpty()) "Opie's list is empty right now." else "Nothing called that.", 19f, 400, Calm.SOFT).apply { setPadding(Calm.px(c, 16), Calm.px(c, 16), 0, Calm.px(c, 16)) })
+            if (shown.isEmpty() && local.isEmpty()) rows.addView(Calm.text(c, error ?: if (list.isEmpty()) "Opie's list is empty right now." else "Nothing called that.", 19f, 400, Calm.SOFT).apply { setPadding(Calm.px(c, 16), Calm.px(c, 16), 0, Calm.px(c, 16)) })
             // A few known-good Android apps for music and books (docs/music.md): suggestions only, any media app works.
-            val media = SUGGESTED_MEDIA.filter { m -> words.all { "${m.first} ${m.third}".lowercase().contains(it) } }
+            val media = SUGGESTED_MEDIA.filter { m -> words.all { "${m.first} ${m.third}".lowercase().contains(it) } && local.none { it.second == m.second } }
             if (media.isNotEmpty()) {
                 rows.addView(Calm.eyebrow(c, "Music and books").apply { setPadding(Calm.px(c, 16), Calm.px(c, 22), 0, Calm.px(c, 6)) })
                 for ((name, pkg, about) in media) {

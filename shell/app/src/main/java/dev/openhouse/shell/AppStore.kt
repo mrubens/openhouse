@@ -95,7 +95,7 @@ object AppStore {
             .filter { it != ctx.packageName && it != MainActivity.HOST_PKG && it !in inApps }
             .map { label(it) to it }
             .filter { (name, _) -> words.all { w -> name.lowercase().contains(w) } }
-            .sortedBy { it.first }
+            .sortedWith(compareBy({ val n = it.first.lowercase(); val t = q.trim().lowercase(); if (n == t) 0 else if (n.startsWith(t)) 1 else 2 }, { it.first.length }, { it.first }))
     }.getOrDefault(emptyList())
 
     fun search(q: String): List<Pair<String, String>> {
