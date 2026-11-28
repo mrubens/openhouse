@@ -60,6 +60,7 @@ import { Readable, Writable } from 'node:stream';
 import { newCode, pairingFromCode } from './pair-code.js';
 import { responder, page as connectPage, downloads, extensionCopy, HOSTNAME } from './connect-page.js';
 import * as push from './web-push.js';
+import { BUZZ_KINDS } from './chosen-buzz.js';
 import { homePath } from './home-screen.js';
 import { kitFile } from './kit-version.js';
 import { tailnetIp } from './tailscale.js';
@@ -753,8 +754,14 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     const s = state.screens.find((x) => x.id === req.headers['x-openhouse-screen']);
     if (!s || !(s.scopes || []).includes('notify')) { json(res, 403, { error: 'only a paired phone' }); return true; }
     if (url.pathname === '/phone/messages') { json(res, 200, { messages: messagesFor(s.person) }); return true; }
-    if (req.method === 'GET') { json(res, 200, { key: vapidKeys().publicKey, on: !!(s.push || s.apns) }); return true; }
+    if (req.method === 'GET') { json(res, 200, { key: vapidKeys().publicKey, on: !!(s.push || s.apns), buzz: buzzOf(s) }); return true; }
     const b = await body(req);
+    // Which of the buzzes a phone chooses it gets (chosen-buzz.js): {events?, chores?, kidsDone?} true or false.
+    if (b.buzz && typeof b.buzz === 'object') {
+      const mine = buzzOf(s);
+      for (const [k, v] of Object.entries(b.buzz)) if (k in mine && typeof v === 'boolean') (s.buzz ||= {})[k] = v;
+      write(); json(res, 200, { ok: true, buzz: buzzOf(s) }); return true;
+    }
     if (b.apns === null) { delete s.apns; write(); json(res, 200, { ok: true, on: !!s.push }); return true; }
     if (b.apns !== undefined) {
       const t = String(b.apns?.token || ''), env = b.apns?.env === 'sandbox' ? 'sandbox' : b.apns?.env === 'production' ? 'production' : null;
@@ -769,10 +776,13 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     json(res, 200, { ok: true, on: true });
     return true;
   };
-  /** A note for someone reaches their phones (each that allowed notifications). Quiet when nobody has one. */
-  handle.notify = async (person, msg, { send = push.send } = {}) => {
+  /** The buzzes a phone may choose and whether it has each: kidsDone only on an adult's phone (one that may ask Opie). */
+  const buzzOf = (s) => Object.fromEntries(Object.entries(BUZZ_KINDS).filter(([, d]) => !d.adults || (s.scopes || []).includes('ask')).map(([k, d]) => [k, s.buzz?.[k] ?? d.on]));
+  /** A note for someone reaches their phones (each that allowed notifications). Quiet when nobody has one. kind: one of
+   *  the buzzes a phone chooses (chosen-buzz.js): only that person's phones that have it on. */
+  handle.notify = async (person, msg, { send = push.send, kind = null } = {}) => {
     const who = String(person || '').toLowerCase();
-    const to = state.screens.filter((s) => (s.push || s.apns) && String(s.person || '').toLowerCase() === who);
+    const to = state.screens.filter((s) => (s.push || s.apns) && String(s.person || '').toLowerCase() === who && (!kind || buzzOf(s)[kind] === true));
     const note = { title: String(msg.title || '').slice(0, 80), body: String(msg.body || '').slice(0, 240), tag: msg.tag || undefined, ...(msg.open ? { open: msg.open } : {}) };
     let sent = 0;
     for (const s of to) {

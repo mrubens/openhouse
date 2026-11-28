@@ -157,7 +157,7 @@ export default function (house) {
     }
     if (name === 'flyer_photo') return house.flyerPhoto();
     if (name === 'change_list') return out(house.changeList(a));
-    if (name === 'change_chores') return out(house.changeChores(a));
+    if (name === 'change_chores') return out(house.changeChores(a, { by: ctx?.who || null }));
     if (name === 'change_rewards') {
       if (!a?.redeem) return out(house.changeRewards(a));
       // Spending stars, as the Chores app's Get it!: the same ask and the same "Is this OK?" card, with the PIN, that only
@@ -218,7 +218,7 @@ export default function (house) {
           ...(e.editable ? { editable: true, calendar: e.calendarName } : {}), ...(e.date ? { date: e.date } : {}), ...(e.repeat ? { repeat: e.repeat, ...(e.rule ? { rule: e.rule } : {}) } : {}), ...(e.fromApp ? { from: e.appName } : {}) }));
         return { content: [{ type: 'text', text: `${r.from} to ${r.to}: ${list.length} events.` }, { type: 'text', text: asData(JSON.stringify(list, null, 1), "the calendar's events: their titles, places and notes are those calendars' own words", { max: 60000 }) }] };
       }
-      const r = house.changeEvents(a); return out(r.event ? { ...r, event: inLocal(r.event) } : r);
+      const r = house.changeEvents(a, { by: ctx?.who || null }); return out(r.event ? { ...r, event: inLocal(r.event) } : r);
     }
     if (name === 'photos') return house.photosTool(a || {});
     return { content: [{ type: 'text', text: `unknown tool ${name}` }], isError: true };

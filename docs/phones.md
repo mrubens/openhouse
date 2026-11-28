@@ -75,17 +75,29 @@ Someone opens their invite link (or scans the tablet's code), taps Join, and som
 
 ## 3. Notifications: few, and only yours
 
-A buzz is for something **you** need to do **soon**. Everything else waits on the page.
+A buzz is for something **you** need to know **soon**. Everything else waits on the page.
 
-| Buzz | Not a buzz |
+| Buzz, on every phone that turned notes on | Not a buzz |
 |---|---|
 | A note put up for you ("for Sam"). Built. | Anything for nobody in particular |
-| A reminder for your event, when it's due ("Dentist in 15 minutes"). Built in this slice. | Countdowns ("Trip in 4 days") |
+| A reminder for your event, when it's due ("Dentist in 15 minutes"). Built. | Countdowns ("Trip in 4 days") |
 | "Leave by 4:50" for your event, from the heartbeat. Next. | A broken app (it's on the strip, and the workshop fixes it) |
-| A timer you started from this phone, when it ends. Next. | List changes, chores ticked, new photos |
+| A timer you started from this phone, when it ends. Next. | List changes, new photos |
 | Your chore with Remind me, at its time if it isn't done yet ("Feed the cat now"). Built. | A chore for anyone (it shows on the device) |
 |  | Anything during the household's night hours |
 
+**Chosen on each phone** (under "Notes and reminders come to this phone", a tap each; `bridge/chosen-buzz.js`):
+
+| Buzz | Starts | Why |
+|---|---|---|
+| **New events**: an event someone else added for you, on the device, a phone or through Opie ("New: Dentist", its day and time; not what arrives from a synced calendar) | on | It's news you didn't make, and it's rare: a few a week. Your own adds (from your phone, or Opie when it knows it's you) never buzz you |
+| **Chores due**: your chore at its time, and the ones without a time at 5 PM if they're still not done | off | Chores come every day; a daily buzz is a nag unless someone wants it. One with Remind me already buzzes |
+| **Kids' chores done**: an adult hears when a kid ticks one ("Maya did Feed the cat") | off | A busy afternoon is a dozen ticks; it's for the adult who wants to follow along. Not offered on a kid's phone, and not to the adult who ticked it |
+
+- None at night: a new event waits for the morning; a chore due or done at night is let go (old news by then).
+- Never a stream: one buzz per person and kind at most every 15 minutes; what comes in between is gathered into the
+  next one ("3 new events": Piano, Swim meet, Dentist).
+- Each is that phone's own: two phones of Sam's can choose differently.
 - Each buzz has a tag, so the same thing never buzzes twice; a newer one replaces it.
 - An event buzzes the people on it. An event with nobody on it buzzes nobody (the tablet says it out loud).
 - **Groceries at the shop**: the list is one tap away and works with no signal; a buzz needs to know where you are,

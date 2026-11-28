@@ -168,6 +168,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Today and the apps (the same actions as the tablet) | yes | The same tools, from the phone's own Opie |
 | Ask Opie, share text or a link to Opie | yes | That is Opie |
 | Turn notifications on, add to home screen, the iPhone shortcut | no | The phone's own permissions, given by the person holding it |
+| Which buzzes this phone gets: new events, chores due, kids' chores done | no | Like turning notifications on: chosen on the phone that gets them, by the person holding it |
 | Setup: a calendar link and whose it is, an album, invite someone | yes / no | add_calendar takes who; inviting someone uses the phone's share sheet, so it stays there |
 
 ## A hub's settings page (docs/hub.md)

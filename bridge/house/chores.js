@@ -86,6 +86,19 @@ export default function (house) {
     }
     return out;
   }
+  /** Chores due now for whose they are, for the phones that asked to hear of them (chosen-buzz.js): one with a time,
+   *  from its time for an hour; one without, from [untimed] for an hour. Not one with Remind me (that one already
+   *  buzzes, above), nor done, skipped or nobody's. */
+  function choresDue(now = Date.now(), untimed = '17:00') {
+    const d = new Date(now), day = dayKey(d), out = [];
+    for (const c of household().chores || []) {
+      if (!c.who || c.remind || !todayIs(c, d)) continue;
+      const k = choreKey(c), at = new Date(`${day}T${TIME.test(c.at || '') ? c.at : untimed}:00`).getTime();
+      if (now < at || now >= at + 60 * 60e3 || (data.done[day] || []).includes(k) || (data.skipped[day] || []).includes(k)) continue;
+      out.push({ key: `due|${k}|${day}`, who: c.who, task: c.task, ...(TIME.test(c.at || '') ? { at: c.at } : {}) });
+    }
+    return out;
+  }
   /** Saved with one-day chores done over two months ago left out (their checkmarks are gone by then too). */
   function saveChores(list) {
     const cut = dayKey(daysFrom(-60)), keep = list.filter((c) => !(c.date && doneOnce(c) && doneOnce(c) < cut));
@@ -93,7 +106,8 @@ export default function (house) {
     // (each field it doesn't have said so: the household keeps one left out as it was, which would put a cleared one back)
     board.saveHousehold({ chores: keep.map((c) => ({ keep: false, every: 0, after: false, since: null, date: null, at: null, remind: false, ...c })) }, { quiet: true });
   }
-  function changeChores(a) {
+  /** by: who did it, when known (a phone's person, the one Opie was talking to): chosen-buzz.js doesn't tell them. */
+  function changeChores(a, { by = null } = {}) {
     const did = [];
     let list = [...(household().chores || [])];
     const match = (c, x) => same(c.task, x.task) && (!x.who || same(c.who, x.who));
@@ -183,9 +197,10 @@ export default function (house) {
       // one for a day: done (on whatever day it was) puts it away after that day; not done brings it back
       if (c.date) { if (value) data.onceDone[onceKey(c)] = day; else if (data.onceDone[onceKey(c)] === day) delete data.onceDone[onceKey(c)]; }
       did.push(`${value ? 'done' : 'not done'}: ${who ? who + ' ' : ''}${c.task}`);
+      if (value && !had && who) house.noticed?.('choreDone', { who, task: c.task, by });
     }
     prune(); save();
     return { ok: true, did };
   }
-  return { choreKey, chores, choreReminders, streaks, stars, starsView, changeChores };
+  return { choreKey, chores, choreReminders, choresDue, streaks, stars, starsView, changeChores };
 }

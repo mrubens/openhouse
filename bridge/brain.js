@@ -49,6 +49,7 @@ import { relayRoutes } from './relay.js';
 import { tailscaleRoutes } from './tailscale.js';
 import { mailRoutes } from './mail.js';
 import { phoneBuzz } from './phone-buzz.js';
+import { chosenBuzz, CHORES_AT } from './chosen-buzz.js';
 import { phoneShareRoutes } from './phone-share.js';
 import { homeNoteRoutes } from './home-note.js';
 import { Readable, Writable } from 'node:stream';
@@ -395,6 +396,10 @@ chat.homeScreen.addTools(phoneShare.tools, phoneShare.call); // keep_shared_phot
 // A reminder for someone's event buzzes their phones once when it comes due, never at night (phone-buzz.js).
 const buzz = phoneBuzz({ reminders: (t) => chat.house.reminders(t), night: () => chat.house.night(), notify: (p, m) => screens.notify(p, m) });
 setInterval(() => { buzz.tick().catch(() => {}); }, 30e3).unref();
+// The buzzes a phone chooses on itself: a new event for its person, their chore due, a kid's chore done (chosen-buzz.js).
+const chosen = chosenBuzz({ notify: (p, m, kind) => screens.notify(p, m, { kind }), family: () => chat.house.family(), night: () => chat.house.night(), choresDue: (t) => chat.house.choresDue(t, CHORES_AT) });
+chat.house.setBuzz({ noticed: chosen.noticed, personOf: (req) => { const w = screens.who(String(req.headers['x-openhouse-screen'] || '')); return w?.kind === 'phone' ? w.person || null : null; } });
+setInterval(() => { chosen.tick().catch(() => {}); }, 30e3).unref();
 
 // Someone's own AI app on a computer (Claude, ChatGPT), paired like a screen, changes the apps with the assistant's
 // tools (workshop.js, docs/workshop-mcp.md).

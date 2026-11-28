@@ -286,9 +286,24 @@ function Ask({ me, c, onClose, convoId = null, onCalendar = null }) {
 
 // ---- notes by push -------------------------------------------------------------------------------------
 const pushable = () => 'serviceWorker' in navigator && 'PushManager' in window && window.isSecureContext;
+/** The buzzes this phone chooses, beside notes and reminders (the bridge's chosen-buzz.js). */
+const BUZZ = [['events', 'New events'], ['chores', 'Chores due'], ['kidsDone', 'Kids’ chores done']];
+function BuzzChoices({ c, buzz, setBuzz }) {
+  const flip = async (k) => {
+    setBuzz({ ...buzz, [k]: !buzz[k] });
+    try { const r = await c.json('POST', '/phone/push', { buzz: { [k]: !buzz[k] } }); if (r.json?.buzz) setBuzz(r.json.buzz); } catch { setBuzz(buzz); }
+  };
+  return <div className="buzz">{BUZZ.filter(([k]) => k in buzz).map(([k, label]) => <button key={k} className={buzz[k] ? 'on' : ''} aria-pressed={!!buzz[k]} onClick={() => flip(k)}>{label}</button>)}</div>;
+}
 function PushRow({ c, me }) {
-  const [state, setState] = useState(() => (!me.scopes?.includes('notify') ? 'no' : !pushable() ? 'cant' : Notification.permission === 'denied' ? 'denied' : 'ask'));
-  useEffect(() => { if (state === 'ask') c.json('GET', '/phone/push').then((r) => { if (r.json?.on && Notification.permission === 'granted') setState('on'); }).catch(() => {}); }, []);
+  const [state, setState] = useState(() => (!me.scopes?.includes('notify') ? 'no' : IN_APP ? 'app' : !pushable() ? 'cant' : Notification.permission === 'denied' ? 'denied' : 'ask'));
+  const [buzz, setBuzz] = useState(null);
+  const look = () => c.json('GET', '/phone/push').then((r) => {
+    if (!r.json?.on || (!IN_APP && Notification.permission !== 'granted')) return;
+    if (!IN_APP) setState('on');
+    setBuzz(r.json.buzz || null);
+  }).catch(() => {});
+  useEffect(() => { if (state === 'ask' || state === 'app') look(); }, []);
   async function on() {
     try {
       if (await Notification.requestPermission() !== 'granted') return setState('denied');
@@ -298,14 +313,18 @@ function PushRow({ c, me }) {
       const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
       const r = await c.json('POST', '/phone/push', { subscription: sub.toJSON() });
       setState(r.json?.on ? 'on' : 'failed');
+      if (r.json?.on) look();
     } catch { setState('failed'); }
   }
-  if (state === 'no' || IN_APP) return null;
+  if (state === 'no') return null;
+  // (in the iPhone app the app itself turns notes on: here only which buzzes, once they are)
+  if (state === 'app') return buzz ? <div className="pushrow"><span className="soft">Also buzz this phone for</span><BuzzChoices c={c} buzz={buzz} setBuzz={setBuzz} /></div> : null;
   const who = me.person || 'you';
   return (
     <div className="pushrow">
       {state === 'ask' && <><span>Get a buzz here when there's a note or a reminder for {who}.</span><button onClick={on}>Turn on</button></>}
-      {state === 'on' && <span className="soft">Notes and reminders for {who} come to this phone.</span>}
+      {state === 'on' && <span className="soft">Notes and reminders for {who} come to this phone. Also buzz for</span>}
+      {state === 'on' && buzz && <BuzzChoices c={c} buzz={buzz} setBuzz={setBuzz} />}
       {state === 'denied' && <span className="soft">Notifications are off for this page in the phone's settings.</span>}
       {state === 'failed' && <><span className="soft">That didn't work.</span><button onClick={on}>Try again</button></>}
       {state === 'cant' && <span className="soft">{CLOUD_RELAY ? 'To get notes here, add this page to the home screen (Share, Add to Home Screen) and open it from there.' : 'Notes on this phone come with the app version, once the device is reachable from away (Settings, Account).'}</span>}

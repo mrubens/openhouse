@@ -192,6 +192,16 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     save, changed, view, prune, household, calendarEvents, appEvents, rev: () => rev };
   for (const part of [assistantPart, listsPart, choresPart, rewardsPart, routinesPart, mealsPart, recipesPart, flyersPart, eventsPart, settingsPart, mediaPart, toolsPart])
     Object.assign(house, part(house));
+  // What a phone may have asked to hear of (chosen-buzz.js; brain.js sets noticed): an event added for someone, a chore
+  // done. by: who did it, when known (the phone's person; the one Opie was talking to), so it doesn't buzz them.
+  house.noticed = () => {};
+  let personOf = () => null; // a request's phone's person (brain.js: screens)
+  const changeEventsHere = house.changeEvents;
+  house.changeEvents = (a, { by = null } = {}) => {
+    const r = changeEventsHere(a);
+    if (a?.add && r?.ok && !r.already && r.event) { try { house.noticed('added', { event: r.event, by }); } catch (e) { console.error('[house] noticed:', e.message); } }
+    return r;
+  };
 
   async function handle(req, res, url) {
     try { return await handleNow(req, res, url); }
@@ -272,8 +282,9 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     const send = (r) => json(res, r.error ? 400 : 200, r.error ? r : { ...r, house: view() });
     if (p === '/house/list') { send(house.changeList(b)); return true; }
     if (p === '/house/chore') {
-      if (b.done) send(house.changeChores(b.value === false ? { undone: [b.done] } : { done: [b.done] }));
-      else send(house.changeChores(b));
+      const by = { by: personOf(req) };
+      if (b.done) send(house.changeChores(b.value === false ? { undone: [b.done] } : { done: [b.done] }, by));
+      else send(house.changeChores(b, by));
       return true;
     }
     if (p === '/house/reward') { send(house.changeRewards(b, { fromApp: true })); return true; }
@@ -287,7 +298,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     if (p === '/house/event') {
       // With the calendar locked, an app changes it only for a little while after the PIN on the display.
       if (fromApp && data.settings.calendarLock && house.unlocked() < Date.now()) { json(res, 403, { error: 'The calendar is locked: someone unlocks it with the PIN.', locked: true }); return true; }
-      send(house.changeEvents(b)); return true;
+      send(house.changeEvents(b, { by: personOf(req) })); return true;
     }
     if ((p === '/house/lock' || p === '/house/unlock') && fromApp) { json(res, 403, { error: 'Only the display can do that.' }); return true; }
     if (p === '/house/lock') { if (b.calendar !== undefined) { if (b.calendar) data.settings.calendarLock = true; else delete data.settings.calendarLock; } house.setUnlocked(0); save(); send({ ok: true }); return true; }
@@ -343,6 +354,9 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   handle.answer = (...a) => house.answer(...a); // one answer from the assistant (the music tool's Spotify search: devices/index.js)
   handle.changed = changed;
   handle.setVoice = (fn) => { voiceNeed = fn; };
+  handle.setBuzz = ({ noticed, personOf: p }) => { house.noticed = noticed; personOf = p; }; // (brain.js: chosen-buzz.js, and a request's phone's person)
+  handle.choresDue = (now, at) => house.choresDue(now, at);
+  handle.family = () => (household().family || []).map((f) => ({ name: f.name, kind: f.kind || 'adult' }));
   handle.setMail = (m) => house.setMail(m);
   handle.canRead = () => !house.noAssistant(''); // whether an email's events can be read now (mail.js: Settings → Account → Email says when not) // mail.js: an offered event's email, to open (flyers.js)
   handle.tick = tick; // (tests: what the 30 s clock does)
