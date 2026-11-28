@@ -1,6 +1,8 @@
 // The calendar: events added on the display (they can repeat), the synced ones with what this display keeps about them
 // (whose, a countdown, a reminder), the reminders due now, and the PIN lock on changes from apps and from Opie.
 import crypto from 'node:crypto';
+import { cleanRule, ruleStarts } from '../calendar.js';
+import { repeatOf } from '../calendar-sync.js';
 import { DAY, REPEATS, REACH, dayKey, midnightAfter, wholeDays, validDay, str, same, arr } from './util.js';
 
 export default function (house) {
@@ -12,6 +14,16 @@ export default function (house) {
     const s = new Date(e.start), dur = new Date(e.end || e.start) - s, out = [];
     const endOf = (d) => (e.allDay ? midnightAfter(d, wholeDays(dur)) : new Date(d.getTime() + dur));
     const until = e.until ? new Date(e.until + 'T23:59:59') : null, skip = new Set(e.skip || []);
+    if (e.repeat === 'custom') {
+      if (!e.rule) return [e];
+      for (const t of ruleStarts(e.start, e.allDay, e.rule, from - dur, to)) {
+        const d = new Date(t);
+        if (d >= to || (until && d > until)) break;
+        if (endOf(d) < from || skip.has(dayKey(d))) continue;
+        out.push({ ...e, start: d.toISOString(), end: endOf(d).toISOString(), date: dayKey(d) });
+      }
+      return out;
+    }
     // Start near `from`, not at the first time it came up (a weekly event from years ago).
     const step = { daily: 1, weekdays: 1, weekly: 7, biweekly: 14 }[e.repeat];
     const i0 = step ? Math.max(0, Math.floor((from - s - dur) / (step * DAY)) - 1) : e.repeat === 'monthly' ? Math.max(0, Math.floor((from - s - dur) / (31 * DAY)) - 1) : e.repeat === 'yearly' ? Math.max(0, Math.floor((from - s - dur) / (366 * DAY)) - 1) : 0;
@@ -93,8 +105,17 @@ export default function (house) {
     const dur = was.start && was.end ? new Date(was.end) - new Date(was.start) : null;
     let end = e.end && !isNaN(new Date(e.end)) ? new Date(e.end) : dur && allDay === !!was.allDay ? (allDay ? midnightAfter(s, wholeDays(dur)) : new Date(s.getTime() + dur)) : allDay ? midnightAfter(s) : new Date(s.getTime() + 3600e3);
     if (end <= s) end = allDay ? midnightAfter(s) : new Date(s.getTime() + 3600e3);
-    const repeat = e.repeat !== undefined ? (REPEATS.includes(e.repeat) ? e.repeat : null) : was.repeat || null;
-    const until = e.until !== undefined ? (validDay(e.until) ? e.until : null) : was.until || null;
+    // How it repeats: by name (REPEATS), or a rule ("FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE;COUNT=10": chosen weekdays,
+    // every N weeks or months, a count), kept as its name when it is one.
+    let repeat = e.repeat !== undefined ? (REPEATS.includes(e.repeat) ? e.repeat : e.repeat === 'custom' && was.rule ? 'custom' : null) : was.repeat || null;
+    let rule = repeat === 'custom' ? was.rule || null : null, ruleUntil;
+    const asked = e.rule !== undefined && e.rule !== null && e.rule !== '' ? cleanRule(e.rule) : null;
+    if (asked && e.repeat !== null && e.repeat !== 'none') {
+      const named = repeatOf(asked.rule);
+      if (REPEATS.includes(named.repeat)) { repeat = named.repeat; rule = null; } else { repeat = 'custom'; rule = asked.rule; }
+      ruleUntil = asked.until;
+    } else if (e.rule !== undefined && !asked && e.repeat === undefined) return { error: 'That repeat rule isn\'t one: FREQ=DAILY, WEEKLY, MONTHLY or YEARLY, then INTERVAL, BYDAY, COUNT…' };
+    const until = e.until !== undefined ? (validDay(e.until) ? e.until : null) : ruleUntil !== undefined ? ruleUntil : was.until || null;
     const pick = (k, n) => (e[k] !== undefined ? str(e[k], n) : was[k] || '');
     const who = e.who !== undefined ? str(e.who, 40) || null : was.who || null;
     const also = (e.also !== undefined ? arr(e.also) : was.also || []).map((n) => str(n, 40)).filter((n) => n && !same(n, who)).slice(0, 6); // whoever else it's for
@@ -105,7 +126,7 @@ export default function (house) {
     const srcFrom = src ? (e.src !== undefined ? str(e.from, 40) : was.srcFrom || '') : '';
     return { title, start: s.toISOString(), end: end.toISOString(), allDay, who, ...(who && also.length ? { also } : {}),
       ...(pick('place', 80) ? { place: pick('place', 80) } : {}), ...(pick('notes', 400) ? { notes: pick('notes', 400) } : {}),
-      ...(repeat ? { repeat } : {}), ...(repeat && until ? { until } : {}), ...(countdown ? { countdown: true } : {}), ...(remind != null ? { remind } : {}), ...(repeat && was.skip ? { skip: was.skip } : {}),
+      ...(repeat ? { repeat } : {}), ...(rule ? { rule } : {}), ...(repeat && until ? { until } : {}), ...(countdown ? { countdown: true } : {}), ...(remind != null ? { remind } : {}), ...(repeat && was.skip ? { skip: was.skip } : {}),
       ...(src ? { src, ...(srcFrom ? { srcFrom } : {}) } : {}) };
   }
   /** What this display keeps about a two-way synced event that its calendar doesn't: whose (when not the calendar's
@@ -128,6 +149,8 @@ export default function (house) {
     const n = Math.round(Number(v));
     return Number.isFinite(n) ? Math.min(n, 1440) : undefined;
   }
+  /** Which times of a repeating event a change is for: 'one' (that date), 'following' (it and after) or 'all'. */
+  const scopeAsked = (u) => (['one', 'following'].includes(u?.scope) && validDay(u.date) ? u.scope : 'all');
   function changeEvents(a) {
     // One thing per call, and only one that was really asked for: the voice's backend sends every part of this tool at
     // once (an add with defaults and no title beside the remove it meant), so an add needs a title and a start, an
@@ -167,9 +190,8 @@ export default function (house) {
         const f = eventFields(a.update, was);
         if (f.error) return f;
         const { countdown, remind, also, who, src, srcFrom, ...send } = f;
-        if (a.update.repeat === undefined && was.repeat === 'custom') send.repeat = 'custom'; // a rule this can't say: left as it is
-        if (a.update.repeat === 'custom') send.repeat = 'custom';
-        const r = sync.update(a.update.id, { ...send, date: was.date });
+        if (a.update.repeat === undefined && was.repeat === 'custom' && !send.rule) send.repeat = 'custom'; // a rule this can't say: left as it is
+        const r = sync.update(a.update.id, { ...send, date: was.date }, scopeAsked(a.update));
         if (r.error) return r;
         const k = /^c-([A-Za-z0-9]{8})-(.+)$/.exec(a.update.id), uid = `${k[1]}:${k[2]}`;
         keepOnSynced(uid, f, sync.calendars().find((c) => c.key === k[1]), a.update);
@@ -195,7 +217,37 @@ export default function (house) {
     if (a.update) { // one added on the display: anything about it (what isn't given stays)
       const ev = data.events.find((e) => e.id === a.update.id);
       if (!ev) return { error: `No event ${a.update.id} added on the display (synced calendars are changed where they come from; a countdown on one is { countdown: { uid, on } }).` };
-      const f = eventFields(a.update, ev);
+      const scope = scopeAsked(a.update), date = validDay(a.update.date) ? a.update.date : null;
+      // The time of a repeating one it was changed from (its date), as it was in the series.
+      const at = ev.repeat && date ? occurrences(ev, new Date(date + 'T00:00:00').getTime() - DAY, new Date(date + 'T00:00:00').getTime() + 2 * DAY).find((o) => o.date === date) : null;
+      if (at && scope === 'one') { // that time alone: off the series, and an event of its own with the change
+        const { repeat, rule, until, skip, date: _d, ...one } = at;
+        const f = eventFields({ ...a.update, repeat: null, rule: undefined, until: undefined }, { ...one, repeat: null });
+        if (f.error) return f;
+        const own = { id: 'e-' + crypto.randomUUID().slice(0, 6), ...f };
+        ev.skip = [...new Set([...(ev.skip || []), date])];
+        data.events.push(own); save();
+        return { ok: true, event: own, scope: 'one' };
+      }
+      if (at && scope === 'following' && Date.parse(at.start) > Date.parse(ev.start)) { // a new series from that time; the old one ends the day before
+        const { date: _d, skip, ...from } = at;
+        const f = eventFields(a.update, { ...from, ...(ev.rule && /COUNT=/.test(ev.rule) ? { rule: ev.rule.replace(/COUNT=(\d+)/, (_, n) => `COUNT=${Math.max(1, n - occurrences({ ...ev, until: null, skip: [] }, Date.parse(ev.start), Date.parse(at.start)).length)}`) } : {}) });
+        if (f.error) return f;
+        const next = { id: 'e-' + crypto.randomUUID().slice(0, 6), ...f, ...(f.repeat && (ev.skip || []).some((d) => d >= date) ? { skip: ev.skip.filter((d) => d >= date) } : {}) };
+        const before = new Date(date + 'T12:00:00'); before.setDate(before.getDate() - 1);
+        ev.until = dayKey(before); if (ev.rule) ev.rule = ev.rule.replace(/;?COUNT=\d+/, '').replace(/^;/, '');
+        if (ev.skip) ev.skip = ev.skip.filter((d) => d < date);
+        data.events.push(next); save();
+        return { ok: true, event: next, scope: 'following' };
+      }
+      let asked = a.update;
+      if (at && a.update.start !== undefined) { // the whole series, moved by as much as that time was (not to that day)
+        const g = eventFields(a.update, { ...at });
+        if (g.error) return g;
+        const moved = Date.parse(g.start) - Date.parse(at.start), s0 = Date.parse(ev.start) + moved;
+        asked = { ...a.update, start: new Date(s0).toISOString(), end: new Date(s0 + Date.parse(g.end) - Date.parse(g.start)).toISOString(), allDay: g.allDay };
+      }
+      const f = eventFields(asked, ev);
       if (f.error) return f;
       for (const k of Object.keys(ev)) if (k !== 'id') delete ev[k];
       Object.assign(ev, f); save();

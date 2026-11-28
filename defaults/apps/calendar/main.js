@@ -287,7 +287,27 @@ function fromAppsCard() {
   }, { width: 1100 });
 }
 const barKids = (e, cutL) => [!e.allDay && !cutL ? h('span', { class: 'bt' }, shortTime(e.t0)) : null, h('span', { class: 'bw' }, e.title)];
-const repeatLabel = (r) => (r === 'custom' ? 'Repeats' : REPEATS.find(([k]) => k === r)?.[1]); // custom: a rule from Google or iCloud
+const repeatLabel = (r, rule = null) => (r === 'custom' ? ruleWords(rule) : REPEATS.find(([k]) => k === r)?.[1]);
+// ---- repeats of their own: chosen weekdays, every N days, weeks, months or years, a number of times ----------
+const WD = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const wdName = (code, style = 'short') => fmt(new Date(2026, 10, 1 + WD.indexOf(code)).getTime(), { weekday: style }); // (Nov 1, 2026: a Sunday)
+const UNITS = [['DAILY', 'day', 'days'], ['WEEKLY', 'week', 'weeks'], ['MONTHLY', 'month', 'months'], ['YEARLY', 'year', 'years']];
+/** A rule ("FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH;COUNT=10") as the form's choices; odd: parts it can't show (left as they are). */
+function ruleParts(rule) {
+  const r = Object.fromEntries(String(rule || '').split(';').filter(Boolean).map((x) => x.split('=')));
+  const days = String(r.BYDAY || '').split(',').filter(Boolean);
+  return { unit: UNITS.some(([u]) => u === r.FREQ) ? r.FREQ : 'WEEKLY', every: Math.max(1, Number(r.INTERVAL || 1)), days: new Set(days.filter((d) => WD.includes(d))), count: r.COUNT ? Number(r.COUNT) : null,
+    odd: Object.keys(r).some((k) => !['FREQ', 'INTERVAL', 'BYDAY', 'COUNT', 'WKST'].includes(k)) || days.some((d) => !WD.includes(d)) };
+}
+const ruleOfParts = (c) => [`FREQ=${c.unit}`, c.every > 1 ? `INTERVAL=${c.every}` : null, c.unit === 'WEEKLY' && c.days.size ? `BYDAY=${WD.filter((d) => c.days.has(d)).join(',')}` : null, c.count ? `COUNT=${c.count}` : null].filter(Boolean).join(';');
+/** "Every 2 weeks on Tue, Thu", "Every month on the 2nd Sat, 10 times". */
+function ruleWords(rule) {
+  if (!rule) return 'Repeats';
+  const c = ruleParts(rule), u = UNITS.find(([k]) => k === c.unit), r = Object.fromEntries(String(rule).split(';').map((x) => x.split('=')));
+  const nth = String(r.BYDAY || '').split(',').filter((d) => /^[+-]?\d/.test(d)).map((d) => { const n = parseInt(d, 10), w = d.slice(-2); return `the ${n === -1 ? 'last' : ['', '1st', '2nd', '3rd', '4th', '5th'][n] || n} ${wdName(w)}`; });
+  const on = c.days.size ? ` on ${WD.filter((d) => c.days.has(d)).map((d) => wdName(d)).join(', ')}` : nth.length ? ` on ${nth.join(', ')}` : '';
+  return `Every ${c.every > 1 ? `${c.every} ${u[2]}` : u[1]}${on}${c.count ? `, ${c.count} times` : ''}`;
+}
 const dayName = (d, today) => d === today ? 'Today' : d === dayStart(today, 1) ? 'Tomorrow' : null;
 
 const VIEWS = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List']];
@@ -604,7 +624,7 @@ function openEvent(e) {
   openCard((close) => [
     h('div', { class: 'ev-title' }, marks(e, 'lg'), h('h2', { class: 'big' }, e.title)),
     h('p', { class: 'line' }, fmt(e.t0, { weekday: 'long', month: 'long', day: 'numeric' }) + (e.allDay ? '' : ' · ' + timeOf(e.t0) + (e.t1 ? ' – ' + timeOf(e.t1) : ''))),
-    e.repeat ? h('p', { class: 'line' }, repeatLabel(e.repeat) + (e.until ? `, until ${fmt(Date.parse(e.until + 'T12:00'), { month: 'long', day: 'numeric' })}` : '')) : null,
+    e.repeat ? h('p', { class: 'line' }, repeatLabel(e.repeat, e.rule) + (e.until ? `, until ${fmt(Date.parse(e.until + 'T12:00'), { month: 'long', day: 'numeric' })}` : '')) : null,
     e.place ? h('p', { class: 'line light' }, e.place) : null,
     whoText(e) ? h('p', { class: 'line ink' }, whoText(e)) : null,
     e.notes ? h('p', { class: 'line notes' }, e.notes) : null,
@@ -725,6 +745,8 @@ function openSource(src, label) {
   house.flyerSource(src).then((r) => { got = r; s.redraw(); });
 }
 
+/** Which times of a repeating event a change is for (the bridge's scope). */
+const SCOPES = [['one', 'This one'], ['following', 'This and following'], ['all', 'All']];
 /** "Until" for a repeating event, from its start: [days, label]; null: always. */
 const UNTILS = [[null, 'Always'], [28, '4 weeks'], [91, '3 months'], [182, '6 months'], ['june', 'End of the school year'], ['dec', 'End of the year']];
 
@@ -737,7 +759,10 @@ function eventForm(e = null, startDay = null, startMin = null) {
   const was = e ? { day: dayStart(e.t0), min: e.allDay ? -1 : new Date(e.t0).getHours() * 60 + new Date(e.t0).getMinutes(), len: e.allDay ? 0 : Math.round(((e.t1 ?? e.t0 + 3600e3) - e.t0) / 60000) } : null;
   const f = {
     title: e?.title || '', day: was?.day ?? startDay ?? today, min: was ? was.min : startMin ?? -1, len: was ? was.len : startMin != null ? 60 : 0,
-    people: e ? people(e) : [], calendar: null, repeat: e?.repeat ?? null, until: e?.until ?? null, place: e?.place || '', notes: e?.notes || '', countdown: !!e?.countdown, remind: e?.remind ?? null,
+    people: e ? people(e) : [], calendar: null, repeat: e?.repeat ?? null, until: e?.until ?? null,
+    // A time of a repeating one: the change is for that time, it and the ones after, or all of them (asked on the form).
+    scope: e?.repeat && e.date ? 'one' : null,
+    custom: e?.repeat === 'custom' && e.rule ? ruleParts(e.rule) : null, ruleTouched: false, place: e?.place || '', notes: e?.notes || '', countdown: !!e?.countdown, remind: e?.remind ?? null,
   };
   if (f.min < 0) f.len = 0;
   // Where a new event can go: the two-way calendars, or only this display. With none, there's nothing to choose; with
@@ -770,9 +795,13 @@ function eventForm(e = null, startDay = null, startMin = null) {
     const d = new Date(f.day); const allDay = f.len === 0 || f.min < 0;
     if (!allDay) d.setHours(Math.floor(f.min / 60), f.min % 60, 0, 0);
     const start = d.getTime(), end = allDay ? null : start + f.len * 60000;
-    const fields = { title: f.title.trim(), start, end, allDay, who: f.people[0] || null, also: f.people.slice(1), repeat: f.repeat, until: f.repeat ? f.until : null, place: f.place.trim(), notes: f.notes.trim(), countdown: f.countdown, remind: allDay ? null : f.remind };
+    const rule = f.repeat === 'custom' && f.custom && (f.ruleTouched || !e) ? ruleOfParts(f.custom) : undefined; // (one from its calendar, untouched: left as it is)
+    const fields = { title: f.title.trim(), start, end, allDay, who: f.people[0] || null, also: f.people.slice(1), repeat: f.repeat, ...(rule ? { rule } : {}), until: f.repeat ? f.until : null, place: f.place.trim(), notes: f.notes.trim(), countdown: f.countdown, remind: allDay ? null : f.remind };
     s.close();
-    if (e) { Object.assign(e, { ...fields, t0: start, t1: allDay ? dayStart(start, 1) : end }); draw(); house.updateEvent(e.id, { ...fields, repeat: f.repeat || 'none', ...(e.date ? { date: e.date } : {}) }); }
+    if (e) {
+      Object.assign(e, { ...fields, ...(f.scope === 'one' ? { repeat: e.repeat } : {}), t0: start, t1: allDay ? dayStart(start, 1) : end }); draw();
+      house.updateEvent(e.id, { ...fields, repeat: f.repeat || 'none', ...(e.date ? { date: e.date } : {}), ...(f.scope ? { scope: f.scope } : {}) });
+    }
     else { allEvents.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent({ ...fields, calendar: f.calendar || 'here' }); }
   };
   press(save, () => { if (!save.disabled) finish(); });
@@ -807,10 +836,14 @@ function eventForm(e = null, startDay = null, startMin = null) {
     const timed = f.min >= 0;
     const endAt = timed ? new Date(f.day).setHours(0, f.min + f.len, 0, 0) : null; // (may be another day)
     const tgt = targets.find((t) => t.key === f.calendar);
-    const rep = REPEATS.find(([r]) => r === f.repeat);
+    const rep = f.repeat === 'custom' ? [null, f.custom ? ruleWords(ruleOfParts(f.custom)) : repeatLabel('custom', e?.rule)] : REPEATS.find(([r]) => r === f.repeat);
+    const c = f.custom, setC = (fn) => pick(() => { fn(c); f.ruleTouched = true; if (c.count) f.until = null; });
+    const step = (val, set, lo, hi) => [chip('−', false, val > lo ? set(val - 1) : () => {}), h('span', { class: 'num' }, String(val)), chip('+', false, val < hi ? set(val + 1) : () => {})];
     const untilText = f.until ? ` until ${fmt(Date.parse(f.until + 'T12:00'), { month: 'short', day: 'numeric' })}` : '';
     const remindText = f.remind == null ? (H?.remind == null ? 'None' : `Usual (${remindLabel(H.remind)})`) : f.remind < 0 ? 'None' : remindLabel(f.remind).replace(/^./, (c) => c.toUpperCase());
     list.replaceChildren(...[
+      // (first: which times the change is for, a time of a repeating one)
+      f.scope ? row('scope', 'Change', SCOPES.find(([k]) => k === f.scope)[1], h('div', { class: 'chips' }, SCOPES.map(([k, l]) => chip(l, f.scope === k, pick(() => { f.scope = k; open = null; }))))) : null,
       // As Google Calendar's app does it: All day, then when it starts and ends. A new start keeps the length (the end
       // moves with it); an end before the start is left as it was.
       row('allday', 'All day', timed ? 'Off' : 'On', null, { tap: pick(() => { if (timed) { lastMin = f.min; f.min = -1; f.len = 0; } else { f.min = lastMin; f.len = 60; } }) }),
@@ -823,9 +856,21 @@ function eventForm(e = null, startDay = null, startMin = null) {
         chip('This display only', f.calendar === 'here', pick(() => { f.calendar = 'here'; open = null; }))), { ask: !f.calendar }) : null,
       H.family?.length ? row('whose', 'Whose', f.people.length ? f.people.join(' & ') : 'Everyone', h('div', { class: 'chips' }, chip('Everyone', !f.people.length, pick(() => { f.people = []; })),
         H.family.map((p) => who(p.name, f.people.some((n) => same(n, p.name)), pick(() => { f.people = f.people.some((n) => same(n, p.name)) ? f.people.filter((n) => !same(n, p.name)) : [...f.people, p.name]; }))))) : null,
-      row('repeat', 'Repeats', f.repeat ? (rep?.[1] || f.repeat) + untilText : 'Never', [
-        h('div', { class: 'chips' }, REPEATS.map(([r, l]) => chip(r ? l : 'Never', f.repeat === r, pick(() => { f.repeat = r; if (!r) f.until = null; })))),
-        f.repeat ? h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'until'), h('div', { class: 'chips' }, UNTILS.map(([u, l]) => chip(l, f.until === untilDay(u), pick(() => { f.until = untilDay(u); }))))) : null,
+      f.scope === 'one' ? null : row('repeat', 'Repeats', f.repeat ? (rep?.[1] || f.repeat) + untilText : 'Never', [
+        h('div', { class: 'chips' }, REPEATS.map(([r, l]) => chip(r ? l : 'Never', f.repeat === r, pick(() => { f.repeat = r; if (!r) f.until = null; }))),
+          chip('Custom', f.repeat === 'custom', pick(() => { f.repeat = 'custom'; f.custom ||= { unit: 'WEEKLY', every: 1, days: new Set([WD[new Date(f.day).getDay()]]), count: null }; f.ruleTouched = true; }))),
+        f.repeat === 'custom' && c ? [
+          h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'every'), h('div', { class: 'chips' }, step(c.every, (n) => setC((x) => { x.every = n; }), 1, 30),
+            UNITS.map(([u, one, many]) => chip(c.every > 1 ? many : one, c.unit === u, setC((x) => { x.unit = u; }))))),
+          c.unit === 'WEEKLY' ? h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'on'), h('div', { class: 'chips' },
+            [...Array(7)].map((_, i) => WD[(FIRST_DAY + i) % 7]).map((d) => chip(wdName(d), c.days.has(d), setC((x) => { x.days.has(d) ? x.days.delete(d) : x.days.add(d); if (!x.days.size) x.days.add(WD[new Date(f.day).getDay()]); }))))) : null,
+          h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'ends'), h('div', { class: 'chips' },
+            chip('Never', !c.count && !f.until, setC((x) => { x.count = null; f.until = null; })),
+            h('span', { class: 'chip' + (f.until && !c.count ? ' on' : '') }, picker('date', f.until || house.dayKey(new Date(dayStart(f.day, 91))), f.until && !c.count ? `On ${fmt(Date.parse(f.until + 'T12:00'), { month: 'short', day: 'numeric' })}` : 'On a day', (v) => { c.count = null; f.until = v; f.ruleTouched = true; })),
+            chip(c.count ? `After ${c.count} times` : 'After a number of times', !!c.count, setC((x) => { x.count ||= 10; })),
+            c.count ? step(c.count, (n) => setC((x) => { x.count = n; }), 1, 999) : null)),
+        ] : null,
+        f.repeat && f.repeat !== 'custom' ? h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'until'), h('div', { class: 'chips' }, UNTILS.map(([u, l]) => chip(l, f.until === untilDay(u), pick(() => { f.until = untilDay(u); }))))) : null,
       ]),
       timed ? row('remind', 'Reminder', remindText, remindChips(f.remind, (m) => { f.remind = m; s.redraw(); })) : null,
       row('countdown', 'Countdown', f.countdown ? 'On the home screen' : 'Off', null, { tap: pick(() => { f.countdown = !f.countdown; }) }),

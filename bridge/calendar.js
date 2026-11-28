@@ -160,10 +160,45 @@ export function parse(text, from, to) {
         ...(v.DESCRIPTION?.value ? { notes: unescape(v.DESCRIPTION.value).slice(0, 400) } : {}),
         // Which event this is, the same at every sync (a countdown on it, say): its UID and, for a repeat, the day.
         ...(v.UID?.value ? { uid: `${String(v.UID.value).slice(0, 120)}${v.RRULE || v['RECURRENCE-ID'] ? '|' + new Date(t).toISOString().slice(0, 10) : ''}` } : {}),
+        // A time of a series moved or changed on its own: which time it was (what a change to it names again).
+        ...(v['RECURRENCE-ID'] ? { rid: new Date(when(v['RECURRENCE-ID']).t).toISOString() } : {}),
       });
     }
   }
   return out;
+}
+
+// --- repeat rules (RRULE) for events made or changed here: chosen weekdays, every N weeks or months, a count ------
+const RULE_DAY = /^([+-]?[1-5])?(MO|TU|WE|TH|FR|SA|SU)$/;
+/** A repeat rule as it may be kept and sent: only the parts this reads (FREQ, INTERVAL, BYDAY, BYMONTHDAY, BYMONTH,
+ *  BYSETPOS, COUNT, WKST), checked; UNTIL comes out as its day (until). Null when it isn't one. */
+export function cleanRule(text) {
+  const r = Object.fromEntries(String(text || '').replace(/^RRULE:/i, '').split(';').filter(Boolean).map((p) => p.split('=')).map(([k, v]) => [String(k).toUpperCase().trim(), String(v || '').toUpperCase().trim()]));
+  if (!['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(r.FREQ)) return null;
+  const nums = (v, lo, hi) => String(v || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n && n >= lo && n <= hi);
+  const out = [`FREQ=${r.FREQ}`];
+  const n = Math.round(Number(r.INTERVAL || 1)); if (n > 1 && n <= 99) out.push(`INTERVAL=${n}`);
+  const days = String(r.BYDAY || '').split(',').filter((d) => RULE_DAY.test(d)); if (days.length) out.push(`BYDAY=${[...new Set(days)].join(',')}`);
+  const md = nums(r.BYMONTHDAY, -31, 31); if (md.length) out.push(`BYMONTHDAY=${md.join(',')}`);
+  const mo = nums(r.BYMONTH, 1, 12); if (mo.length) out.push(`BYMONTH=${mo.join(',')}`);
+  const sp = nums(r.BYSETPOS, -366, 366); if (sp.length) out.push(`BYSETPOS=${sp.join(',')}`);
+  const c = Math.round(Number(r.COUNT)); if (c >= 1 && c <= 999) out.push(`COUNT=${c}`);
+  if (RULE_DAY.test(r.WKST || '') && r.WKST.length === 2) out.push(`WKST=${r.WKST}`);
+  const u = /^(\d{4})(\d{2})(\d{2})/.exec(r.UNTIL || '');
+  return { rule: out.join(';'), until: u ? `${u[1]}-${u[2]}-${u[3]}` : null };
+}
+/** The starts (ms) of an event made here that repeats by [rule], from [start] (ISO, this device's wall clock), that
+ *  fall between [from] and [to]. */
+export function ruleStarts(start, allDay, rule, from, to) {
+  const d = new Date(start);
+  const wall = [d.getFullYear(), d.getMonth(), d.getDate(), allDay ? 0 : d.getHours(), allDay ? 0 : d.getMinutes(), allDay ? 0 : d.getSeconds()];
+  return expand({ t: toTime(wall, null), allDay, wall, tz: null }, rule, from, to);
+}
+/** The time (ms) a line like "RECURRENCE-ID;TZID=…:20261208T170000" names. */
+export function lineTime(line) {
+  const i = String(line).indexOf(':'); if (i < 0) return NaN;
+  const [, ...params] = String(line).slice(0, i).split(';');
+  return when({ value: String(line).slice(i + 1), p: Object.fromEntries(params.map((x) => x.split('=')).map(([k, v]) => [k.toUpperCase(), v])) }).t;
 }
 
 /** A DTSTART-like value → { t (ms), allDay, wall: [y, m, d, h, mi, s], tz } */

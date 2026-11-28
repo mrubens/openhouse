@@ -16,7 +16,7 @@
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
 import crypto from 'node:crypto';
-import { parse } from './calendar.js';
+import { parse, cleanRule, ruleStarts, lineTime } from './calendar.js';
 import { pad, dayKey } from './dates.js';
 
 const DAY = 86400e3;
@@ -44,9 +44,27 @@ export function repeatOf(rule) {
     else if (r.FREQ === 'MONTHLY' && n === 1 && !r.BYDAY) repeat = 'monthly';
     else if (r.FREQ === 'YEARLY' && n === 1 && !r.BYDAY) repeat = 'yearly';
   }
-  return { repeat, ...(until && repeat !== 'custom' ? { until } : {}) };
+  const custom = repeat === 'custom' ? cleanRule(rule) : null;
+  return { repeat, ...(custom ? { rule: custom.rule } : {}), ...(until ? { until } : {}) };
 }
-const ruleOf = (repeat, until) => `RRULE:${RRULES[repeat]}${until ? `;UNTIL=${until.replace(/-/g, '')}T235959Z` : ''}`;
+/** The RRULE line for a repeat: one of RRULES by name, or 'custom' with its rule (cleanRule's, no UNTIL); until: its last day. */
+const ruleOf = (repeat, until, rule = null) => `RRULE:${repeat === 'custom' ? rule : RRULES[repeat]}${until ? `;UNTIL=${until.replace(/-/g, '')}T235959Z` : ''}`;
+const repeats = (f) => !!(f.repeat && (RRULES[f.repeat] || (f.repeat === 'custom' && f.rule)));
+/** Whether a change leaves how it repeats as it was (then the calendar's own rule, with whatever else it holds, stays). */
+const sameRule = (was, f) => (was.repeat || null) === (f.repeat || null) && (was.rule || null) === (f.rule || null) && (was.until || null) === (f.until || null);
+/** A series' rule ended just before [at] (ISO): its COUNT and UNTIL off, an UNTIL the moment before on (a day, for all day). */
+function endedRule(line, at, allDay) {
+  const parts = String(line).replace(/^RRULE:/i, '').split(';').filter((x) => x && !/^(COUNT|UNTIL)=/i.test(x));
+  const t = new Date(Date.parse(at) - (allDay ? DAY : 1000));
+  const until = allDay ? dayKey(t).replace(/-/g, '') : t.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
+  return `RRULE:${[...parts, `UNTIL=${until}`].join(';')}`;
+}
+/** The times of a series still to come from [at] when its rule has a COUNT: that count less those before (else the rule). */
+function restOfCount(rule, firstStart, allDay, at) {
+  const m = /(?:^|;)COUNT=(\d+)/i.exec(rule || ''); if (!m) return rule;
+  const before = ruleStarts(firstStart, allDay, String(rule).replace(/^RRULE:/i, ''), Date.parse(firstStart), Date.parse(at) - 1).length;
+  return String(rule).replace(/COUNT=\d+/i, `COUNT=${Math.max(1, Number(m[1]) - before)}`);
+}
 
 export function calendarSync({ FILE, shell, family = () => [], now = Date.now, every = 2 * MIN, log = console.log }) {
   const blank = { calendars: {}, outbox: [], cache: {}, notes: {}, errors: {}, at: 0 };
@@ -89,7 +107,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   const gBody = (f, id) => ({
     ...(id ? { id } : {}), summary: f.title, location: f.place || '', description: f.notes || '',
     start: gWhen(f.start, f.allDay), end: gWhen(f.end || f.start, f.allDay),
-    ...(f.repeat && RRULES[f.repeat] ? { recurrence: [ruleOf(f.repeat, f.until)] } : f.repeat === null ? { recurrence: [] } : {}),
+    ...(f.keepRule ? {} : repeats(f) ? { recurrence: [ruleOf(f.repeat, f.until, f.rule)] } : f.repeat === null ? { recurrence: [] } : {}),
   });
   const gDate = (w, end) => (w?.date ? { t: new Date(w.date + 'T00:00:00').getTime(), allDay: true } : { t: Date.parse(w?.dateTime), allDay: false });
   const google = {
@@ -115,7 +133,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
         const rule = master ? repeatOf((master.recurrence || []).find((x) => /^RRULE:/i.test(x))) : { repeat: null };
         const key = e.recurringEventId ? `${sid}|${dayKey(new Date(s.t))}` : sid;
         events[key] = {
-          remote: sid, instance: e.id, etag: master?.etag || e.etag, ...(master ? { masterStart: master.start, masterEnd: master.end } : {}),
+          remote: sid, instance: e.id, etag: master?.etag || e.etag, ...(master ? { masterStart: master.start, masterEnd: master.end, recurrence: master.recurrence, ietag: e.etag } : {}),
           ev: { title: str(e.summary, 80) || 'Busy', start: new Date(s.t).toISOString(), end: new Date(isNaN(en.t) ? s.t : en.t).toISOString(), allDay: s.allDay,
             ...(e.location ? { place: str(e.location, 80) } : {}), ...(e.description ? { notes: str(e.description.replace(/<[^>]+>/g, ' '), 400) } : {}),
             ...(rule.repeat ? rule : {}), ...(e.recurringEventId ? { date: dayKey(new Date(s.t)) } : {}) },
@@ -129,12 +147,24 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
       if (r.status >= 300) throw httpError(r);
       return { ok: true, etag: r.json().etag };
     },
-    async update(a, c, item, f) {
-      const r = await req(a.id, 'PATCH', `${G}/calendars/${encodeURIComponent(c.remote)}/events/${encodeURIComponent(item.remote)}`, { body: gBody(seriesFields(item, f)), headers: { 'content-type': 'application/json', ...(item.etag ? { 'if-match': item.etag } : {}) } });
-      if (r.status === 412) return { conflict: true };
-      if (r.status === 404 || r.status === 410) return { gone: true };
-      if (r.status >= 300) throw httpError(r);
-      return { ok: true, etag: r.json().etag };
+    async update(a, c, item, f, o = {}) {
+      const ev = `${G}/calendars/${encodeURIComponent(c.remote)}/events`, json = { 'content-type': 'application/json' };
+      const answer = (r) => (r.status === 412 ? { conflict: true } : r.status === 404 || r.status === 410 ? { gone: true } : r.status >= 300 ? (() => { throw httpError(r); })() : { ok: true, etag: r.json().etag });
+      const scope = scopeOf(item, o);
+      if (scope === 'one') // that time alone: Google keeps it as an exception of the series
+        return answer(await req(a.id, 'PATCH', `${ev}/${encodeURIComponent(item.instance)}`, { body: gBody({ ...f, keepRule: true }), headers: { ...json, ...(item.ietag ? { 'if-match': item.ietag } : {}) } }));
+      if (scope === 'following') { // a new series from this time (its id made before: a retry finds it), then the old one ends before it
+        if (!o.made) {
+          const rule = f.repeat === 'custom' && sameRule(item.ev, f) ? restOfCount(f.rule, item.masterStart ? new Date(gDate(item.masterStart).t).toISOString() : item.ev.start, f.allDay, item.ev.start) : f.rule;
+          const r = await req(a.id, 'POST', ev, { body: gBody({ ...f, rule, keepRule: false }, o.newRemote), headers: json });
+          if (r.status >= 300 && r.status !== 409) throw httpError(r);
+          o.made = true;
+        }
+        const line = (item.recurrence || []).find((x) => /^RRULE:/i.test(x)) || ruleOf(item.ev.repeat, null, item.ev.rule);
+        const recurrence = [...(item.recurrence || []).filter((x) => !/^RRULE:/i.test(x)), endedRule(line, item.ev.start, item.ev.allDay)];
+        return answer(await req(a.id, 'PATCH', `${ev}/${encodeURIComponent(item.remote)}`, { body: { recurrence }, headers: { ...json, ...(item.etag ? { 'if-match': item.etag } : {}) } }));
+      }
+      return answer(await req(a.id, 'PATCH', `${ev}/${encodeURIComponent(item.remote)}`, { body: gBody({ ...seriesFields(item, f), keepRule: sameRule(item.ev, f) }), headers: { ...json, ...(item.etag ? { 'if-match': item.etag } : {}) } }));
     },
     async remove(a, c, item, date) {
       const one = date && item.instance && item.instance !== item.remote;
@@ -169,12 +199,12 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   const fold = (l) => { const out = []; let s = l; while (s.length > 74) { out.push(s.slice(0, 74)); s = ' ' + s.slice(74); } out.push(s); return out.join('\r\n'); };
   /** The lines of one VEVENT's properties that this changes, for [f]. */
   function veventLines(f, uid, keepTz = null) {
-    const tz = f.allDay ? null : keepTz || (f.repeat && RRULES[f.repeat] ? zone() : null); // an event's own zone stays its own
+    const tz = f.allDay ? null : keepTz || (repeats(f) ? zone() : null); // an event's own zone stays its own
     const s = icsTime(f.start, f.allDay, tz), e = icsTime(f.end || f.start, f.allDay, tz);
     return [
       `UID:${uid}`, `DTSTAMP:${new Date(now()).toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '')}`, `DTSTART${s.p}:${s.v}`, `DTEND${e.p}:${e.v}`, `SUMMARY:${esc(f.title)}`,
       ...(f.place ? [`LOCATION:${esc(f.place)}`] : []), ...(f.notes ? [`DESCRIPTION:${esc(f.notes)}`] : []),
-      ...(f.repeat && RRULES[f.repeat] ? [ruleOf(f.repeat, f.until)] : []),
+      ...(!f.keepRule && repeats(f) ? [ruleOf(f.repeat, f.until, f.rule)] : []),
     ];
   }
   const vcal = (lines) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//OpenHouse//Calendar//EN', 'BEGIN:VEVENT', ...lines, 'END:VEVENT', 'END:VCALENDAR', ''].map(fold).join('\r\n');
@@ -215,14 +245,61 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
               const x = typeof exdate === 'string' ? { date: exdate } : exdate;
               buf.push(exdateLine(buf.find((l) => /^DTSTART/i.test(l)) || '', x.at, x.date));
             } else {
-              const mine = new Set(['UID', 'DTSTAMP', 'DTSTART', 'DTEND', 'DURATION', 'SUMMARY', 'LOCATION', 'DESCRIPTION', ...(f.repeat === 'custom' ? [] : ['RRULE'])]);
+              const keep = f.keepRule || (f.repeat === 'custom' && !f.rule); // (a rule this can't say, or the same one: left as it is)
+              const mine = new Set(['UID', 'DTSTAMP', 'DTSTART', 'DTEND', 'DURATION', 'SUMMARY', 'LOCATION', 'DESCRIPTION', ...(keep ? [] : ['RRULE'])]);
               const tzid = (buf.find((x) => /^DTSTART;/i.test(x)) || '').match(/;TZID=([^;:]+)/i)?.[1] || null;
-              buf = [buf[0], ...buf.slice(1).filter((x, i) => { const k = x.split(/[;:]/)[0].toUpperCase(); return !(mine.has(k) && depthAt(buf, i + 1) === 0); }), ...veventLines(f.repeat === 'custom' ? { ...f, repeat: null } : f, uid, tzid)];
+              buf = [buf[0], ...buf.slice(1).filter((x, i) => { const k = x.split(/[;:]/)[0].toUpperCase(); return !(mine.has(k) && depthAt(buf, i + 1) === 0); }), ...veventLines({ ...f, keepRule: keep }, uid, tzid)];
             }
           }
           out.push(...buf, l); inEv = false; continue;
         }
         buf.push(l); continue;
+      }
+      out.push(l);
+    }
+    return out.filter((l, i, a) => l !== '' || i === a.length - 1).map(fold).join('\r\n');
+  }
+  /** A series' file with one time changed on its own: a VEVENT with that time's RECURRENCE-ID ([rid]: the time it was
+   *  in the series, ISO), written the way DTSTART is; one already there for that time is replaced. */
+  function overrideIcs(raw, f, rid) {
+    const text = String(raw).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+    const lines = text.split(/\r?\n/);
+    const out = []; let buf = null, master = null;
+    for (const l of lines) {
+      if (l === 'BEGIN:VEVENT') { buf = [l]; continue; }
+      if (buf) {
+        buf.push(l);
+        if (l !== 'END:VEVENT') continue;
+        const ridLine = buf.find((x) => /^RECURRENCE-ID/i.test(x));
+        if (!ridLine) master = buf;
+        if (!(ridLine && lineTime(ridLine) === Date.parse(rid))) out.push(...buf); // (that time's old one: replaced)
+        buf = null; continue;
+      }
+      out.push(l);
+    }
+    if (!master) return null;
+    const uid = (master.find((x) => /^UID:/i.test(x)) || '').slice(4);
+    const dtstart = master.find((x) => /^DTSTART/i.test(x)) || '';
+    const tzid = dtstart.match(/;TZID=([^;:]+)/i)?.[1] || null;
+    const ridLine = exdateLine(dtstart, rid, dayKey(new Date(rid))).replace(/^EXDATE/, 'RECURRENCE-ID');
+    const ev = ['BEGIN:VEVENT', ...veventLines({ ...f, repeat: null, keepRule: true }, uid, tzid), ridLine, 'END:VEVENT'];
+    const end = out.lastIndexOf('END:VCALENDAR');
+    out.splice(end < 0 ? out.length : end, 0, ...ev);
+    return out.filter((l, i, a) => l !== '' || i === a.length - 1).map(fold).join('\r\n');
+  }
+  /** A series' file ended before [at] (ISO): its RRULE with an UNTIL, and its own changed times from then on gone. */
+  function endIcs(raw, at, allDay) {
+    const text = String(raw).replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '');
+    const out = []; let buf = null;
+    for (const l of text.split(/\r?\n/)) {
+      if (l === 'BEGIN:VEVENT') { buf = [l]; continue; }
+      if (buf) {
+        buf.push(l);
+        if (l !== 'END:VEVENT') continue;
+        const ridLine = buf.find((x) => /^RECURRENCE-ID/i.test(x));
+        if (ridLine) { if (lineTime(ridLine) < Date.parse(at)) out.push(...buf); }
+        else out.push(...buf.map((x) => (/^RRULE:/i.test(x) && depthAt(buf, buf.indexOf(x)) === 0 ? endedRule(x, at, allDay) : x)));
+        buf = null; continue;
       }
       out.push(l);
     }
@@ -268,7 +345,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           let key = utc ? `${id}|${utc}` : id;
           if (utc && events[key] && events[key].ev.start !== e.start) key += `T${new Date(e.start).toISOString().slice(11, 16).replace(':', '')}`;
           const rep = rule ? repeatOf(rule) : { repeat: null };
-          events[key] = { remote: id, url, etag, raw, ev: { title: e.title, start: e.start, end: e.end || e.start, allDay: e.allDay, ...(e.place ? { place: e.place } : {}), ...(e.notes ? { notes: e.notes } : {}), ...(rep.repeat ? rep : {}), ...(utc ? { date: dayKey(new Date(e.start)) } : {}) } };
+          events[key] = { remote: id, url, etag, raw, ev: { title: e.title, start: e.start, end: e.end || e.start, allDay: e.allDay, ...(e.place ? { place: e.place } : {}), ...(e.notes ? { notes: e.notes } : {}), ...(rep.repeat ? rep : {}), ...(utc ? { date: dayKey(new Date(e.start)) } : {}), ...(e.rid ? { rid: e.rid } : {}) } };
         }
       }
       return events;
@@ -287,12 +364,26 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
       if (r.status >= 300) throw httpError(r);
       return { ok: true, etag: r.etag };
     },
-    async update(a, c, item, f) {
-      const r = await req(a.id, 'PUT', item.url, { body: patchIcs(item.raw, seriesFields(item, f)), headers: { 'content-type': 'text/calendar; charset=utf-8', ...(item.etag ? { 'if-match': item.etag } : {}) } });
-      if (r.status === 412) return { conflict: true };
-      if (r.status === 404) return { gone: true };
-      if (r.status >= 300) throw httpError(r);
-      return { ok: true, etag: r.etag };
+    async update(a, c, item, f, o = {}) {
+      const put = async (body) => {
+        const r = await req(a.id, 'PUT', item.url, { body, headers: { 'content-type': 'text/calendar; charset=utf-8', ...(item.etag ? { 'if-match': item.etag } : {}) } });
+        if (r.status === 412) return { conflict: true };
+        if (r.status === 404) return { gone: true };
+        if (r.status >= 300) throw httpError(r);
+        return { ok: true, etag: r.etag };
+      };
+      const scope = scopeOf(item, o);
+      if (scope === 'one') { const body = overrideIcs(item.raw, f, item.ev.rid || item.ev.start); return body ? put(body) : { gone: true }; }
+      if (scope === 'following') { // a new event file from this time (its UID made before: a retry finds it), then the old series ends before it
+        if (!o.made) {
+          const first = firstStart(item.raw);
+          const rule = f.repeat === 'custom' && sameRule(item.ev, f) ? restOfCount(f.rule, first ? new Date(first).toISOString() : item.ev.start, f.allDay, item.ev.start) : f.rule;
+          await caldav.add(a, c, o.newRemote, { ...f, rule, keepRule: false });
+          o.made = true;
+        }
+        return put(endIcs(item.raw, item.ev.rid || item.ev.start, item.ev.allDay));
+      }
+      return put(patchIcs(item.raw, { ...seriesFields(item, f), keepRule: sameRule(item.ev, f) }));
     },
     async remove(a, c, item, date, at) {
       const r = date && item.ev?.repeat
@@ -309,6 +400,16 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     if (r.status === 401 || r.status === 403) e.signin = true;
     if (r.status === 429 || r.status >= 500) e.offline = true; // try again later
     return e;
+  }
+  /** Which times a change to [item] (one time of an event) is for: 'one', 'following' or 'all' (a one-off: 'all').
+   *  "This and following" from the series' first time is all of it. */
+  function scopeOf(item, o) {
+    if (!item.ev?.date || !item.ev.repeat || !['one', 'following'].includes(o.scope)) return 'all';
+    if (o.scope === 'following') {
+      const first = item.masterStart ? gDate(item.masterStart).t : item.raw ? firstStart(item.raw) : null;
+      if (first != null && Date.parse(item.ev.rid || item.ev.start) <= first) return 'all';
+    }
+    return o.scope;
   }
   /** A whole series changed from one of its times: the series moves by as much as that time moved (not to its day). */
   function seriesFields(item, f) {
@@ -331,15 +432,20 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   /** One kept time of an event as the screens show it, with a change to it still waiting (null: removed, waiting). */
   function shownItem(k, c, key, item, pending) {
     const id = `c-${k}-${item.remote}`;
-    const p = pending.get(`${k}|${item.remote}`);
-    if (p?.op === 'remove' && (!p.date || p.date === item.ev.date)) return null;
-    const ev = p?.op === 'update' ? { ...item.ev, ...p.fields, ...(item.ev.date ? { start: shiftTo(item.ev, p).start, end: shiftTo(item.ev, p).end } : {}) } : item.ev;
+    const waiting = pending.get(`${k}|${item.remote}`) || [];
+    if (waiting.some((p) => p.op === 'remove' && (!p.date || p.date === item.ev.date))) return null;
+    const t = Date.parse(item.ev.start);
+    const p = waiting.findLast((x) => x.op === 'update' && (x.scope === 'one' ? x.date === item.ev.date : x.scope === 'following' && x.from ? t >= Date.parse(x.from) : true));
+    const ev = !p ? item.ev : p.scope === 'one' ? { ...item.ev, ...p.fields, date: item.ev.date }
+      : { ...item.ev, ...p.fields, ...(item.ev.date ? { start: shiftTo(item.ev, p).start, end: shiftTo(item.ev, p).end, date: item.ev.date } : {}) };
     return { ...ev, id, who: c.who || null, calendar: k, calendarName: calName(c), color: c.tone || null, uid: `${k}:${key}`, ...(twoWay(c) ? { editable: true } : {}),
       ...(st.notes[id] && st.notes[id].until > now() ? { note: st.notes[id].text } : {}) };
   }
+  /** The changes not sent yet, by event ("<calendar>|<remote>"), oldest first. */
+  const waitingByKey = () => { const m = new Map(); for (const o of st.outbox) m.set(o.key, [...(m.get(o.key) || []), o]); return m; };
   function events() {
     const out = [];
-    const pending = new Map(st.outbox.map((o) => [o.key, o]));
+    const pending = waitingByKey();
     for (const [k, c] of Object.entries(st.calendars)) {
       if (!isOn(c)) continue;
       for (const [key, item] of Object.entries(st.cache[k] || {})) { const e = shownItem(k, c, key, item, pending); if (e) out.push(e); }
@@ -487,7 +593,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     }
     const w = window(), out = events().filter((e) => Date.parse(e.end || e.start) > from && Date.parse(e.start) < to);
     const seen = new Set(out.map((e) => `${e.id}|${e.start}`));
-    const pending = new Map(st.outbox.map((o) => [o.key, o]));
+    const pending = waitingByKey();
     for (const [k, c] of Object.entries(st.calendars)) {
       if (!isOn(c)) continue;
       for (const m of months) {
@@ -533,14 +639,18 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     const c = st.calendars[k];
     return { ok: true, event: { ...fields, id: `c-${k}-${remote}`, calendar: k, calendarName: calName(c) }, calendarName: calName(c) };
   }
-  function update(id, fields) {
+  function update(id, fields, scope = 'all') {
     const f = find(id, fields.date); if (!f) return { error: `No event ${id}.` };
     if (!twoWay(f.c)) return { error: 'That calendar is shown here but changed where it comes from.' };
     const before = structuredClone(st);
     if (f.queued) { f.queued.fields = { ...f.queued.fields, ...fields }; commit(before); changed(); flush().catch(() => {}); return { ok: true, event: { ...f.queued.fields, id } }; }
     if (!f.item) return { error: `No event ${id}.` };
-    st.outbox = st.outbox.filter((o) => !(o.op === 'update' && o.key === `${f.key}|${f.remote}`)); // the latest change is the one that goes
-    queue({ op: 'update', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, fields, from: f.item.ev.date ? f.item.ev.start : null, date: f.item.ev.date || null, ...farItem(f) }, before);
+    const sc = f.item.ev.date && f.item.ev.repeat && ['one', 'following'].includes(scope) ? scope : 'all';
+    const date = f.item.ev.date || null;
+    // the latest change to the same times is the one that goes (an earlier one to other times of it waits its turn)
+    st.outbox = st.outbox.filter((o) => !(o.op === 'update' && !o.sent && o.key === `${f.key}|${f.remote}` && (o.scope || 'all') === sc && (sc === 'all' || o.date === date)));
+    queue({ op: 'update', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, fields, from: f.item.ev.date ? f.item.ev.start : null, date, ...(sc !== 'all' ? { scope: sc } : {}),
+      ...(sc === 'following' ? { newRemote: newId() } : {}), ...farItem(f) }, before);
     return { ok: true, event: { ...f.item.ev, ...fields, id } };
   }
   function remove(id, date) {
@@ -574,7 +684,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           try {
             r = o.op === 'add' ? await prov(a).add(a, c, o.remote, o.fields)
               : !item ? { gone: true }
-              : o.op === 'update' ? await prov(a).update(a, c, item, { ...item.ev, ...o.fields })
+              : o.op === 'update' ? await prov(a).update(a, c, item, { ...item.ev, ...o.fields }, o)
               : await prov(a).remove(a, c, item, o.date, o.start || (o.date && item.ev.date === o.date ? item.ev.start : null));
           } catch (e) {
             st.sent = [{ op: o.op, at: now(), trail: [...trail], error: str(e.message, 60) }, ...(st.sent || [])].slice(0, 8);
