@@ -75,7 +75,7 @@ export function reachMatches(host, reaches) {
 }
 
 /**
- * A recipe's link from a shared app: POST /house/recipe-link {link}, /house/meal {recipe: {link}} or {addText} that is
+ * A recipe's link from a shared app: POST /house/recipe-link {link}, /house/meal {recipe: {link}}, {typed: {link}} or {addText} that is
  * a link (house/recipes.js addRecipeText). The bridge reads that page, and what it read lands in the recipes the app
  * sees, so it is the web through the bridge like /apps/fetch: only a host the app's card said it reaches. null when it
  * may (no link in it is the house's to answer), else {error}. Each link in b is cut here as the house reads it (its
@@ -91,6 +91,7 @@ export function recipeLinkRefused(pathname, b, reaches) {
   if (pathname === '/house/recipe-link') { if (b.link != null) links.push(b.link = asHouseReads(b.link)); }
   else {
     if (b.recipe && typeof b.recipe === 'object' && b.recipe.link != null) links.push(b.recipe.link = asHouseReads(b.recipe.link));
+    if (b.typed && typeof b.typed === 'object' && b.typed.link) links.push(b.typed.link = asHouseReads(b.typed.link)); // (its page is read for its pictures)
     const t = String(b.addText ?? '').trim();
     if (/^\S+\.\S+$/.test(t)) links.push(b.addText = asHouseReads(t)); // (one word with a dot: read as a link, house/recipes.js)
   }

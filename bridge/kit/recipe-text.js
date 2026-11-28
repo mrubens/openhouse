@@ -1,6 +1,7 @@
 // A recipe as people write it, read with no model: its ingredients and steps, a line each, and what goes on Groceries
-// for it. The bridge (house/meals.js) and the Meals app (/kit/recipe-text.js) share it, so the sheet and asking Opie
-// add the same things.
+// for it, and cooking steps made from them. The bridge (house/recipes.js, house/meals.js) and the Meals app
+// (/kit/recipe-text.js) share it, so a recipe typed in, pasted or read from a page's own recipe data cooks and shops
+// the same everywhere.
 //
 // The shape is the one Opie writes itself (cooking.js cookAsNotes): a line "Ingredients", one per line, a line "Steps",
 // numbered steps. Pasted recipes often name those parts "Directions", "Instructions" or "Method". Without the
@@ -8,7 +9,7 @@
 
 const HEAD = /^\s*#*\s*(ingredients|steps|directions|instructions|method)\s*:?\s*$/i;
 const BULLET = /^\s*(?:[-•*·▢□]|\[\s?\])\s*/;
-const NUMBERED = /^\s*(?:step\s*)?\d{1,2}\s*[.):]\s*/i;
+const NUMBERED = /^\s*(?:step\s*)?\d{1,2}\s*[.):](?:\s+|$)/i; // (not 1.5 cups)
 const tidy = (s, n) => String(s ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 
 /** Some text in the recipe shape: {name, ingredients: [line], steps: [line]} (name: the first line before them). */
@@ -42,6 +43,35 @@ export function splitAmount(line) {
   const rest = m[2].match(/^(\S+)\s+(.+)$/);
   return rest && !/[,(]/.test(rest[1]) ? { amount: `${m[1]} ${rest[1]}`, item: rest[2] } : { amount: m[1], item: m[2] };
 }
+
+/** A step's timer when it says how long ("simmer 20 minutes", "bake for 1 hour"): the shortest time it gives, or null. */
+export function stepTimer(text) {
+  const m = String(text || '').match(/(\d+(?:[.,]\d+)?)(?:\s*(?:-|–|to)\s*\d+(?:[.,]\d+)?)?\s*(minutes?|mins?|hours?|hrs?)\b/i);
+  if (!m) return null;
+  const n = Number(m[1].replace(',', '.')) * (/^h/i.test(m[2]) ? 60 : 1);
+  if (!(n > 0 && n <= 24 * 60)) return null;
+  const first = tidy(String(text).split(/[,.;:]/)[0], 200);
+  return { minutes: Math.round(n * 10) / 10, label: first.length <= 40 ? first : first.slice(0, 41).replace(/\s+\S*$/, '') };
+}
+
+/** Cooking steps (the Recipes app's {cook}, version 2) from lines as written: no model. A line "(Sauce)" in the steps
+ *  starts a part (a page's own sections). by: how they were made, "hand" (the household's words) or "page" (its recipe data). */
+export function cookFrom({ name = '', ingredients = [], steps = [], serves = '', minutes = null } = {}, by = 'hand') {
+  const out = [];
+  let part = null;
+  for (const s of steps.map((x) => tidy(x, 900)).filter(Boolean)) {
+    const sec = s.match(/^\((.{1,80})\)$/);
+    if (sec) { part = sec[1]; continue; }
+    const timer = stepTimer(s);
+    out.push({ text: s, ...(part ? { part } : {}), ...(timer ? { timer } : {}) });
+  }
+  const m = Math.round(Number(minutes));
+  return { name: tidy(name, 80), serves: tidy(serves, 40), ...(m > 0 && m < 10000 ? { minutes: m } : {}),
+    ingredients: ingredients.map(splitAmount).filter((x) => x.item).slice(0, 60), steps: out.slice(0, 80), by, v: 2 };
+}
+
+/** The recipe shape, written out (what a typed recipe keeps as its notes, so Meals shows it and it reads back the same). */
+export const recipeText = (ingredients, steps) => ['Ingredients', ...ingredients.map((i) => `- ${i}`), 'Steps', ...steps.map((s, i) => `${i + 1}. ${s}`)].join('\n');
 
 /** A thing to buy, from an ingredient: "onion, diced" -> "Onion" (what's after a comma and in brackets left out). */
 export function groceryName(item) {

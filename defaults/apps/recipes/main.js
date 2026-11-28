@@ -1,6 +1,7 @@
 // Recipes: the household's recipe box (the Meals app's recipe per meal, the same data), and cooking from it hands-free.
 // A recipe comes in by a link (shared from a phone or typed here), a photo of a cookbook page, typed in, or written by
-// the assistant; it's made into steps once (bridge/cooking.js) and kept, so cooking needs no internet.
+// the assistant; it's made into steps once (bridge/cooking.js) and kept, so cooking needs no internet. With no
+// assistant, a recipe typed in, pasted as Ingredients / Steps, or a link whose page carries its recipe cooks as written.
 //
 // The box: every recipe a tile on its own picture (kept from its page; with none, a drawn mark of its kind of dish on a
 // warm tint: /kit/dish-look.js).
@@ -140,12 +141,17 @@ function saved() {
 const LISTEN_S = 30;
 
 /** Cook a recipe by name (none: the meal planned for now). What the voice says. */
-function cook(name) {
+async function cook(name) {
   const f = findRecipe(H?.recipes, name, planned());
   if (!f) return name ? `There's no recipe for ${name} in the box yet. Add one in Recipes or Meals.` : "Nothing with a recipe is planned for now. Which recipe?";
   if (cookOf(f.key)?.v === 2) { begin(f.key); return sayAt(cookOf(f.key), 0); } // (older steps, or a changed recipe's, are made again by the bridge)
   waiting = { key: f.key, at: Date.now() };
-  if (workOf(f.key)?.state !== 'working') house.prepareCook(f.recipe.text);
+  const r = workOf(f.key)?.state === 'working' ? null : await house.prepareCook(f.recipe.text);
+  if (r?.error) { waiting = null; draw(); return r.error; }
+  if (r?.ready) { // made here as written: on the screen in a moment
+    for (let t = 0; t < 30 && cookOf(f.key)?.v !== 2; t++) await new Promise((ok) => setTimeout(ok, 100));
+    if (cookOf(f.key)?.v === 2) { begin(f.key); return sayAt(cookOf(f.key), 0); }
+  }
   draw();
   return `Getting ${f.recipe.text} ready to cook. It takes about half a minute; it'll be on the screen.`;
 }
@@ -453,7 +459,7 @@ function serves(c) {
 }
 
 /** One recipe: what it needs and its steps, Cook, and the rest. */
-function recipeCard(key) {
+function recipeCard(key, said = '') {
   openCard((close) => {
     const r = recipeOf(key); if (!r) { close(); return []; }
     const c = r.cook, w = workOf(key);
@@ -462,14 +468,22 @@ function recipeCard(key) {
       r.link ? h('div', { class: 'link' }, r.link) : null,
       c ? h('div', { class: 'recipe vscroll' }, ['You need', ...c.ingredients.map((i) => `· ${[i.amount, i.item].filter(Boolean).join(' ')}`), '', ...c.steps.map((s, i) => `${i + 1}. ${s.text}`)].join('\n'))
         : r.notes ? h('div', { class: 'recipe vscroll' }, r.notes) : null,
-      w ? h('p', { class: 'note' }, w.state === 'working' ? 'Making the steps…' : w.state === 'error' ? w.text : '') : null,
+      w ? h('p', { class: 'note' }, w.state === 'working' ? 'Making the steps…' : w.state === 'error' ? w.text : '') : said ? h('p', { class: 'note' }, said) : null,
       h('div', { class: 'actions' },
         btn('Take it out', () => { close(); takeOut(key); }, { soft: true, cls: 'left' }),
-        H.ai && w?.state !== 'working' ? btn(c ? 'Make the steps again' : 'Make the steps', () => house.prepareCook(r.text, true), { soft: true }) : null,
+        H.ai && w?.state !== 'working' ? btn(c ? 'Make the steps again' : 'Make the steps', () => (c?.by === 'hand' ? replaceSteps(key) : house.prepareCook(r.text, true)), { soft: true }) : null,
         btn('Close', close, { soft: true }),
         c ? btn('Cook', () => { close(); begin(key); }) : null),
     ];
   }, { width: 1000 });
+}
+/** Steps they wrote, made again by the assistant only after a yes. */
+function replaceSteps(key) {
+  const r = recipeOf(key); if (!r) return;
+  openCard((close) => [
+    h('h2', null, 'Replace your steps with Opie’s?'),
+    h('div', { class: 'actions' }, btn('Keep mine', close, { soft: true }), btn('Replace', () => { close(); house.prepareCook(r.text, true); })),
+  ], { width: 760 });
 }
 /** A tap on a recipe: straight to cooking it (its steps made first when they aren't yet). The whole recipe only when no
  *  steps can be made. Take it out and Make the steps again are on its first page, before Start. */
@@ -478,9 +492,8 @@ function askHowLong() { if (timed || !H?.recipes) return; timed = true; for (con
 function openRecipe(key) {
   const r = recipeOf(key); if (!r) return;
   if (cookOf(key)?.v === 2) return begin(key);
-  if (!H.ai) return recipeCard(key);
   waiting = { key, at: Date.now() };
-  if (workOf(key)?.state !== 'working') house.prepareCook(r.text);
+  if (workOf(key)?.state !== 'working') house.prepareCook(r.text).then((res) => { if (res?.error && waiting?.key === key) { waiting = null; watch(); draw(); recipeCard(key, res.error); } });
   watch(); draw();
 }
 /** Take a recipe out of the box (the Meals app's recipe for that meal too: it's the same one), after a yes. */
@@ -498,23 +511,51 @@ function takeOut(key) {
   ], { width: 760 });
 }
 
-/** Add one: one box for a link, a recipe pasted in, or an idea the assistant writes a recipe for (house.addRecipe). */
+/** Add one: one box for a link, a recipe pasted in, or an idea the assistant writes a recipe for (house.addRecipe); or
+ *  typed in, a part at a time. */
 function addCard() {
-  const text = h('textarea', { class: 'field notes add', placeholder: 'Paste a recipe or a link, or say what you’d like to make', autocapitalize: 'sentences', spellcheck: 'false' });
+  const text = h('textarea', { class: 'field notes add', placeholder: H?.ai ? 'Paste a recipe or a link, or say what you’d like to make' : 'Paste a recipe or a link', autocapitalize: 'sentences', spellcheck: 'false' });
   const card = openCard((close) => [
     h('h2', null, 'Add a recipe'),
     text,
-    !H?.ai ? h('p', { class: 'note' }, 'Adding recipes needs an Opie account or your own OpenAI key (Settings → Opie → Voice).') : null,
+    !H?.ai ? h('p', { class: 'note' }, 'Ideas, cookbook photos, some pages and web search need an Opie account or your own OpenAI key.') : null,
     h('div', { class: 'actions' },
+      btn('Type it in', () => { document.activeElement?.blur(); close(); typedCard(); }, { soft: true, cls: 'left' }),
       btn('Cancel', () => { document.activeElement?.blur(); close(); }, { soft: true }),
       btn('Add', () => {
         const t = text.value.trim();
         if (!t) { text.focus(); return; }
         document.activeElement?.blur(); close();
-        house.addRecipe(t).then(told);
-      }, { disabled: !H?.ai })),
+        house.addRecipe(t).then((r) => { told(r); if (r?.meal) openWhenThere(r.meal.toLowerCase()); });
+      })),
   ], { width: 900 });
   requestAnimationFrame(() => text.focus());
+  return card;
+}
+/** A recipe typed in: its name, what it needs and its steps, a line each; the rest if they like. Cooks as written. */
+function typedCard() {
+  const field = (placeholder, cls = '', more = {}) => h(more.rows ? 'textarea' : 'input', { class: `field ${cls}`, placeholder, autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false', ...more });
+  const name = field('Name'), ing = field('Ingredients, one a line', 'notes typed', { rows: 6 }), steps = field('Steps, one a line', 'notes typed', { rows: 6 });
+  const serves = field('Serves', 'small', { inputmode: 'numeric' }), minutes = field('Minutes', 'small', { inputmode: 'numeric' });
+  const link = field('Link', 'small', { inputmode: 'url', autocapitalize: 'off' }), picture = field('Picture link', 'small', { inputmode: 'url', autocapitalize: 'off' });
+  let said = '';
+  const card = openCard((close) => [
+    h('h2', null, 'Type in a recipe'),
+    name, ing, steps,
+    h('div', { class: 't-more' }, serves, minutes, link, picture),
+    said ? h('p', { class: 'note' }, said) : null,
+    h('div', { class: 'actions' },
+      btn('Cancel', () => { document.activeElement?.blur(); close(); }, { soft: true }),
+      btn('Save', async () => {
+        if (!name.value.trim()) { name.focus(); return; }
+        if (!steps.value.trim()) { steps.focus(); return; }
+        const r = await house.addTypedRecipe({ name: name.value.trim(), ingredients: ing.value, steps: steps.value, serves: serves.value.trim(), minutes: Number(minutes.value) || 0, link: link.value.trim(), picture: picture.value.trim() });
+        if (r?.error) { said = r.error; card.redraw(); return; }
+        document.activeElement?.blur(); close();
+        openWhenThere(name.value.trim().toLowerCase());
+      })),
+  ], { width: 980 });
+  requestAnimationFrame(() => name.focus());
   return card;
 }
 

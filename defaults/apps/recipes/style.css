@@ -80,4 +80,8 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 .option.empty .bar.short { width: 45%; height: calc(14 * var(--u)); }
 
 .actions .btn.left { margin-right: auto; }
+.field.small { font-size: calc(22 * var(--u)); font-weight: 500; padding: calc(14 * var(--u)) calc(20 * var(--u)); }
+.field.notes.typed { height: calc(190 * var(--u)); }
+.t-more { display: grid; grid-template-columns: 1fr 1fr 2fr 2fr; gap: calc(12 * var(--u)); }
+@media (max-width: 700px) { .t-more { grid-template-columns: 1fr 1fr; } }
 .btn.red { background: var(--red); color: #fff; }

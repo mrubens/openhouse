@@ -67,8 +67,11 @@ export default function (house) {
         check: { type: 'array', items: { type: 'object', required: ['name', 'step', 'who'], properties: { name: { type: 'string' }, step: { type: 'string' }, who: person, done: { type: 'boolean' } } } },
         times: { type: 'array', description: 'Give one step a time, or 0 to take it off', items: { type: 'object', required: ['name', 'step', 'minutes'], properties: { name: { type: 'string', description: 'The routine' }, step: { type: 'string' }, minutes: { type: 'number' } } } },
       } } },
-    { name: 'save_recipe', description: "Save a recipe into the recipe box, where it is made into cooking steps and shows in Recipes. Every recipe goes here, never in a note: a link to its page (one someone gives or shares, or one you found), or else the recipe itself as text, its ingredients and steps (one you know or read out). meal: the meal it's for, only if they said.",
-      inputSchema: { type: 'object', properties: { link: { type: 'string', description: 'Its web page' }, text: { type: 'string', description: 'Without a page: the whole recipe, its name, ingredients and steps' }, meal: { type: 'string' } } } },
+    { name: 'save_recipe', description: "Save a recipe into the recipe box, where it is made into cooking steps and shows in Recipes. Every recipe goes here, never in a note: a link to its page (one someone gives or shares, or one you found), or a recipe someone tells you or types (name, ingredients and steps: kept as they said it, ready to cook at once, as Recipes' Type it in does), or else the recipe itself as text. meal: the meal it's for, only if they said.",
+      inputSchema: { type: 'object', properties: { link: { type: 'string', description: 'Its web page (with steps: just where it came from)' }, name: { type: 'string', description: 'With steps: its name' },
+        ingredients: { type: 'array', items: { type: 'string' }, description: 'With steps: one each, with its amount ("2 tsp ground cumin")' }, steps: { type: 'array', items: { type: 'string' }, description: 'One each, in order, in their words' },
+        serves: { type: 'string' }, minutes: { type: 'number', description: 'How long it takes in all' }, picture: { type: 'string', description: 'An https link to a photo of the dish' },
+        text: { type: 'string', description: 'Without a page or steps: the whole recipe, its name, ingredients and steps' }, meal: { type: 'string' } } } },
     { name: 'set_meals', description: 'Plan meals (the Meals app): set or change what\'s for a meal on a day; empty text clears it. Also the recipe box (a recipe per meal) and which meals the app plans. Meals they have often come back as one-tap choices; favorite pins one there.',
       inputSchema: { type: 'object', properties: { meals: { type: 'array', items: { type: 'object', required: ['date', 'text'], properties: {
         date: { type: 'string', description: 'YYYY-MM-DD' }, meal: { type: 'string', description: 'dinner (default), lunch, breakfast' }, text: { type: 'string' } } } },
@@ -162,7 +165,11 @@ export default function (house) {
       return { content: [{ type: 'text', text: [...did, given ? `Given: ${who} spent ${r.stars} stars on ${r.title}.` : ask?.manual ? 'Asked: someone says yes in the Chores app on the device.' : `Not given: nobody said yes on the device${ParentPinNote}.`].join('; ') }], isError: !given && !ask?.manual };
     }
     if (name === 'change_routines') return out(house.changeChecklists(a));
-    if (name === 'save_recipe') { const r = a.link ? house.addRecipeLink({ link: a.link, meal: a.meal || '' }) : house.addRecipeText(a.text); return r.error ? out(r) : ok('Saved: it is being read and made into steps; it will be in Recipes in a moment.'); }
+    if (name === 'save_recipe') {
+      if (a.steps != null) { const r = house.addTyped({ name: a.name || a.meal, ingredients: a.ingredients, steps: a.steps, serves: a.serves, minutes: a.minutes, link: a.link, picture: a.picture }); return r.error ? out(r) : ok(`Saved ${r.meal}: it is in Recipes, ready to cook.`); }
+      const r = a.link ? house.addRecipeLink({ link: a.link, meal: a.meal || '' }) : house.addRecipeText(a.text);
+      return r.error ? out(r) : ok(r.meal ? `Saved ${r.meal}: it is in Recipes, ready to cook.` : 'Saved: it is being read and made into steps; it will be in Recipes in a moment.');
+    }
     if (name === 'set_meals') {
       for (const f of arr(a.favorite)) house.favorite(f, true);
       for (const f of arr(a.unfavorite)) house.favorite(f, false);
