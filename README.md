@@ -29,9 +29,9 @@
 - **Phones and TVs:** everyone's phone gets Today, lists, the calendar and chores, and can send links and photos to
   Opie from the share sheet. A TV can show the day too.
 - **Plugins:** add apps others have made, like school lunch menus, trash day or bus times. Each shows what it can
-  use, and a grown-up approves it with a PIN.
-- **Safe with kids around:** a PIN guards settings, installing apps and leaving the home screen. Opie can't change
-  the home screen itself or the parent settings.
+  use, and someone at the device approves it.
+- **Safe with kids around:** a PIN guards settings and leaving the home screen, and you choose what else asks for it.
+  Opie never sees or skips the PIN.
 - **Sleep screen:** the clock, the weather and the rest of the day, dimmed at night.
 - **Backups and away from home:** back up to a USB drive or your own storage bucket, and reach home from away with
   your own Tailscale. Or use Opie Cloud for both.

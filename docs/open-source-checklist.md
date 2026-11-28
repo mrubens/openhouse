@@ -69,8 +69,8 @@ tablet (store `setup`), never in the plugin's defaults; only the examples named 
 ### Decisions (all settled 2026-11-23)
 
 1. **License holder: decided.** `LICENSE` stays "Copyright (c) 2026 Roo Code, Inc." (the user, 2026-11-23).
-2. **Phone screenshots: decided, kept.** `docs/phone-home.jpg`, `phone-talk.jpg`, `phone-ask.jpg` show a sample note
-   naming a real local shop: a faint hint at the town, nothing more. The user is fine keeping them (2026-11-23).
+2. **Phone screenshots: decided, kept.** `docs/phone-home.jpg`, `phone-talk.jpg`, `phone-ask.jpg` were looked at and
+   kept (2026-11-23).
 3. **GPL/LGPL binaries: decided, done.** `shell/app/src/main/assets/licenses/` (in the APK too) has the GPL-2.0 text for
    PRoot, the LGPL-3.0 and GPL-3.0 texts for talloc and the BSD notice for libandroid-shmem, with each one's exact
    Termux version (PRoot 5.1.107.102, read from the binary; talloc 2.5.0; libandroid-shmem 0.7), its source
@@ -97,7 +97,7 @@ tablet (store `setup`), never in the plugin's defaults; only the examples named 
 
 Do this when no other session is working, from the main checkout, after a last look over the tree
 (`git grep -nEf ~/.openhouse/private-words.txt`, the household's names and places, kept outside the repo, should
-print nothing; the phone screenshots' shop name is in images only).
+print nothing).
 
 1. **Land and freeze.** Merge every session's work to `main`, push, and note the commit: `CUT=$(git rev-parse main)`.
    The plugin-isolation security fixes must be in.
