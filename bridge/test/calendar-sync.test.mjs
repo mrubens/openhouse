@@ -79,6 +79,29 @@ test('a change made while Google can\'t be reached waits, through a restart, and
   after.stop();
 });
 
+test('a month nine months out is read from Google when asked, and stepping back to it again doesn\'t ask Google again', async () => {
+  const g = fakeGoogle(), FILE = tmp();
+  const s = calendarSync({ FILE, shell: g.shell, log: () => {} });
+  await s.discover('a1'); await s.pull();
+  const far = new Date(); far.setMonth(far.getMonth() + 9, 12); far.setHours(10, 0, 0, 0);
+  g.events.set('fair1', { id: 'fair1', summary: 'Science fair', start: { dateTime: far.toISOString() }, end: { dateTime: new Date(far.getTime() + 3600e3).toISOString() }, etag: '"1"', status: 'confirmed' });
+  const from = new Date(far.getFullYear(), far.getMonth(), 1).getTime(), to = new Date(far.getFullYear(), far.getMonth() + 1, 1).getTime();
+  const before = g.calls;
+  const first = await s.range(from, to);
+  assert.ok(first.some((e) => e.title === 'Science fair' && e.editable), 'there, and changeable like the near ones');
+  assert.ok(g.calls > before, 'read from Google');
+  const asked = g.calls;
+  const next = new Date(far.getFullYear(), far.getMonth() + 1, 1).getTime(), after = new Date(far.getFullYear(), far.getMonth() + 2, 1).getTime();
+  await s.range(next, after); // a step on
+  const stepped = g.calls;
+  await s.range(from, to); await s.range(next, after); await s.range(from, to); // back, on, back
+  assert.equal(g.calls, stepped, 'months already read are kept a while');
+  assert.ok(stepped > asked);
+  assert.ok(!s.events().some((e) => e.title === 'Science fair'), 'not in the near weeks kept on disk');
+  assert.ok(!fs.readFileSync(FILE, 'utf8').includes('Science fair'), 'nor written down');
+  s.stop();
+});
+
 /** A pretend iCloud calendar (CalDAV) holding one event file, behind a pretend shell; the file's text is `ics`. */
 function fakeCalDav(ics) {
   const d = { ics, puts: [] };

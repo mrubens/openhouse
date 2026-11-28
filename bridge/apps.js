@@ -39,7 +39,7 @@ const APP_GROUPS = {
   chores: [['POST', /^\/house\/(chore|checklist)$/]],
   rewards: [['POST', /^\/house\/reward$/]],
   meals: [['POST', /^\/house\/(meal|meal\/ingredients|recipe-link)$/]],
-  events: [['POST', /^\/house\/(event|remind)$/]],
+  events: [['POST', /^\/house\/(event|remind)$/], ['GET', /^\/house\/events$/]], // (GET: a month further back or ahead)
   photos: [['GET', /^\/house\/photo\/[^/]{1,120}$/], ['POST', /^\/house\/(photo|photo\/remove|photo\/album|photo\/caption|photo\/restore)$/], ['POST', /^\/phone\/album$/]],
   family: [],
   weather: [['GET', /^\/weather$/]],
@@ -86,7 +86,7 @@ const HOUSE_KEYS = {
   chores: ['chores', 'streaks', 'stars', 'checklists', 'family'],
   rewards: ['stars', 'rewards', 'asks', 'got', 'family'],
   meals: ['meals', 'favorites', 'mealWork', 'recipes', 'recipeFind', 'mealSlots'],
-  events: ['events', 'dayNotes', 'fromApps', 'calendars', 'calendarLock', 'unlockedUntil', 'reminders', 'family'],
+  events: ['events', 'eventsWindow', 'dayNotes', 'fromApps', 'calendars', 'calendarLock', 'unlockedUntil', 'reminders', 'family'],
   photos: ['photos', 'removed', 'albums', 'captions', 'screensaver'],
 };
 /** GET /house as a plugin's app sees it. */

@@ -105,14 +105,85 @@ const AGENDA_DAYS = 21;
 const START_VIEW = 'week';
 /** A phone (docs/phones.md, "Narrow screens"): the week is a list under its days, and the top row is shorter. */
 const narrow = () => matchMedia('(max-width: 700px)').matches;
+/** How far it reaches, in months (the bridge's REACH): a year back, 18 months ahead. */
+const BACK_MONTHS = 12, AHEAD_MONTHS = 18;
 const REPEATS = [[null, 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month'], ['yearly', 'Every year']];
 
-let H = null, events = [], view = START_VIEW, weeks = 0, months = 0, days = 0;
+let H = null, events = [], allEvents = [], view = START_VIEW, weeks = 0, months = 0, days = 0;
+/** Whose events this screen leaves out (a tap on a person at the top): kept on this screen only, not for the household. */
+let hidden = new Set(); try { hidden = new Set(JSON.parse(localStorage.getItem('calendar-hidden') || '[]')); } catch {}
+const shownOn = (e) => { const ps = people(e); return !ps.length || ps.some((n) => !hidden.has(n.toLowerCase())); }; // nobody's: always shown
+function toggleHidden(name) {
+  const k = name.toLowerCase(); hidden.has(k) ? hidden.delete(k) : hidden.add(k);
+  try { localStorage.setItem('calendar-hidden', JSON.stringify([...hidden])); } catch {}
+  draw();
+}
+/** The family along the top, each in their color: a tap hides or shows their events. */
+const peopleRow = () => ((H?.family || []).length > 1 ? h('div', { class: 'people chips hscroll' },
+  H.family.map((p) => h('button', { class: 'q-who' + (hidden.has(p.name.toLowerCase()) ? ' off' : ''), 'aria-pressed': String(!hidden.has(p.name.toLowerCase())), tap: () => toggleHidden(p.name) },
+    h('span', { class: 'q-av sm', style: `background:${house.color(p.name)}` }, String(p.name).trim().charAt(0).toUpperCase()), p.name))) : null);
 /** The day view's hours (it scrolls to now; earlier and later are a scroll away). */
 const FIRST_HOUR = 0, HOURS = 24, HOUR_U = 60;
 let scrolledTo = null; // the day the day view last scrolled itself to (after that it stays where they put it)
 
+// ---- further back and ahead --------------------------------------------------------------------------------
+// The house's view holds the near weeks (H.eventsWindow). A month outside them is read when the calendar steps there
+// (house.eventsIn), once, and kept here: stepping back and forth doesn't read it again each tap. Anything changing in
+// the house marks them stale, and the ones on screen are read again (once).
+const far = new Map(); // first of the month (ms) -> { at, list, loading?, stale? }
+const nearWindow = () => (H?.eventsWindow ? [Date.parse(H.eventsWindow.from), Date.parse(H.eventsWindow.to)] : [dayStart(Date.now(), -35), dayStart(Date.now(), 70)]);
+const evKey = (e) => `${e.id || e.uid || e.title}|${e.start}`;
+/** The days [a, b) on screen: read the months among them outside the near weeks that aren't here yet (or are stale). */
+function wantFar(a, b) {
+  const [n0, n1] = nearWindow();
+  if (a >= n0 && b <= n1) return;
+  const need = [];
+  for (let m = monthStart(a); m < b; m = monthStart(m, 1)) {
+    if (m >= n0 && monthStart(m, 1) <= n1) continue;
+    const f = far.get(m);
+    if (!f || (!f.loading && (f.stale || Date.now() - f.at > 10 * 60e3))) need.push(m);
+  }
+  if (!need.length) return;
+  for (const m of need) far.set(m, { ...(far.get(m) || { list: [], at: 0 }), loading: true });
+  const end = monthStart(need.at(-1), 1);
+  house.eventsIn(need[0], end).then((list) => {
+    for (const m of need) { const m1 = monthStart(m, 1); far.set(m, { at: Date.now(), list: list.filter((e) => Date.parse(e.end || e.start) > m && Date.parse(e.start) < m1) }); }
+    rebuild(); draw();
+  });
+}
+/** Every event this screen has: the near weeks from the house, and the months read further out. */
+function rebuild() {
+  const [n0, n1] = nearWindow(), base = H?.events || [], seen = new Set(base.map(evKey)), extra = [];
+  for (const f of far.values()) for (const e of f.list) {
+    const t = Date.parse(e.start);
+    if ((t >= n0 && t < n1) || seen.has(evKey(e))) continue; // (the near weeks are the house's own, newer)
+    seen.add(evKey(e)); extra.push(e);
+  }
+  allEvents = [...base, ...extra].map((e) => ({ ...e, t0: Date.parse(e.start), t1: e.end ? Date.parse(e.end) : null })).filter((e) => !isNaN(e.t0));
+}
+
+/** Go to a month: the years it reaches, a row of months each (the calendar's title opens it). */
+function monthsCard() {
+  const today = dayStart(Date.now()), first = monthStart(today, -BACK_MONTHS), cur = monthStart(view === 'month' ? monthStart(today, months) : view === 'day' ? dayStart(today, days) : dayStart(today, weeks * DAYS));
+  const years = [...new Set([...Array(BACK_MONTHS + AHEAD_MONTHS + 1)].map((_, i) => new Date(monthStart(first, i)).getFullYear()))];
+  const go = (m) => {
+    const n = (new Date(m).getFullYear() - new Date(today).getFullYear()) * 12 + new Date(m).getMonth() - new Date(today).getMonth();
+    if (view === 'list') view = 'month';
+    if (view === 'month') months = n;
+    else if (view === 'day') days = Math.round((m - today) / 864e5);
+    else weeks = Math.floor(Math.round((weekStart(m) - weekStart(today)) / 864e5) / 7);
+  };
+  openCard((close) => [
+    ...years.map((y) => h('div', { class: 'year' }, h('h2', null, String(y)), h('div', { class: 'mgrid' }, [...Array(12)].map((_, i) => {
+      const m = new Date(y, i, 1).getTime(), out = m < first || m > monthStart(today, AHEAD_MONTHS);
+      return h('button', { class: 'mchip' + (m === cur ? ' on' : '') + (m === monthStart(today) ? ' this' : ''), disabled: out, tap: out ? null : () => { close(); go(m); draw(); } }, fmt(m, { month: 'short' }));
+    })))),
+    h('div', { class: 'actions' }, btn('Close', close, { soft: true })),
+  ], { width: 1100 });
+}
+
 function draw() {
+  events = allEvents.filter(shownOn);
   keepScroll($app, () => $app.replaceChildren(screen()));
   for (const s of sheets) s.redraw?.();
 }
@@ -159,7 +230,7 @@ function bars(first, n, keep = () => true) {
 /** A bar's words: its title, after its start time when it isn't all day (a sleepover from 5 PM to 10 AM). Whose it is is its color. */
 /** What the household's apps put on a day (a school lunch, trash day): notes, not events (bridge day-notes.js), in the
  *  household's order. week: only the apps chosen for the week (Week and Home); else every one not turned off. */
-const notesOn = (day, week = false) => (H?.dayNotes?.[house.dayKey(new Date(day))] || []).filter((x) => (week ? x.show === 'week' : x.show !== 'off'));
+const notesOn = (day, week = false) => (H?.dayNotes?.[house.dayKey(new Date(day))] || []).filter((x) => (week ? x.show === 'week' : x.show !== 'off') && !(x.who && hidden.has(String(x.who).toLowerCase())));
 /** A note's label: "Lunch", and whose with their color ("Lunch · ● June") when it's one person's. */
 const noteLabel = (x, sep = ' ') => [x.label, x.who ? [sep, isPerson(x.who) ? h('span', { class: 'nkid', style: `background:${house.color(x.who)}` }) : null, x.who] : null];
 /** The whole text, each choice on its own line ("Popcorn Chicken / or Vegan Chic'n Nuggets", the "or" soft). */
@@ -216,7 +287,27 @@ function fromAppsCard() {
   }, { width: 1100 });
 }
 const barKids = (e, cutL) => [!e.allDay && !cutL ? h('span', { class: 'bt' }, shortTime(e.t0)) : null, h('span', { class: 'bw' }, e.title)];
-const repeatLabel = (r) => (r === 'custom' ? 'Repeats' : REPEATS.find(([k]) => k === r)?.[1]); // custom: a rule from Google or iCloud
+const repeatLabel = (r, rule = null) => (r === 'custom' ? ruleWords(rule) : REPEATS.find(([k]) => k === r)?.[1]);
+// ---- repeats of their own: chosen weekdays, every N days, weeks, months or years, a number of times ----------
+const WD = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+const wdName = (code, style = 'short') => fmt(new Date(2026, 10, 1 + WD.indexOf(code)).getTime(), { weekday: style }); // (Nov 1, 2026: a Sunday)
+const UNITS = [['DAILY', 'day', 'days'], ['WEEKLY', 'week', 'weeks'], ['MONTHLY', 'month', 'months'], ['YEARLY', 'year', 'years']];
+/** A rule ("FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH;COUNT=10") as the form's choices; odd: parts it can't show (left as they are). */
+function ruleParts(rule) {
+  const r = Object.fromEntries(String(rule || '').split(';').filter(Boolean).map((x) => x.split('=')));
+  const days = String(r.BYDAY || '').split(',').filter(Boolean);
+  return { unit: UNITS.some(([u]) => u === r.FREQ) ? r.FREQ : 'WEEKLY', every: Math.max(1, Number(r.INTERVAL || 1)), days: new Set(days.filter((d) => WD.includes(d))), count: r.COUNT ? Number(r.COUNT) : null,
+    odd: Object.keys(r).some((k) => !['FREQ', 'INTERVAL', 'BYDAY', 'COUNT', 'WKST'].includes(k)) || days.some((d) => !WD.includes(d)) };
+}
+const ruleOfParts = (c) => [`FREQ=${c.unit}`, c.every > 1 ? `INTERVAL=${c.every}` : null, c.unit === 'WEEKLY' && c.days.size ? `BYDAY=${WD.filter((d) => c.days.has(d)).join(',')}` : null, c.count ? `COUNT=${c.count}` : null].filter(Boolean).join(';');
+/** "Every 2 weeks on Tue, Thu", "Every month on the 2nd Sat, 10 times". */
+function ruleWords(rule) {
+  if (!rule) return 'Repeats';
+  const c = ruleParts(rule), u = UNITS.find(([k]) => k === c.unit), r = Object.fromEntries(String(rule).split(';').map((x) => x.split('=')));
+  const nth = String(r.BYDAY || '').split(',').filter((d) => /^[+-]?\d/.test(d)).map((d) => { const n = parseInt(d, 10), w = d.slice(-2); return `the ${n === -1 ? 'last' : ['', '1st', '2nd', '3rd', '4th', '5th'][n] || n} ${wdName(w)}`; });
+  const on = c.days.size ? ` on ${WD.filter((d) => c.days.has(d)).map((d) => wdName(d)).join(', ')}` : nth.length ? ` on ${nth.join(', ')}` : '';
+  return `Every ${c.every > 1 ? `${c.every} ${u[2]}` : u[1]}${on}${c.count ? `, ${c.count} times` : ''}`;
+}
 const dayName = (d, today) => d === today ? 'Today' : d === dayStart(today, 1) ? 'Tomorrow' : null;
 
 const VIEWS = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List']];
@@ -240,22 +331,27 @@ function screen() {
   if (!H) return h('div');
   const today = dayStart(Date.now()), from = dayStart(today, weeks * DAYS), oneDay = dayStart(today, days), small = narrow();
   const at = view === 'month' ? monthStart(today, months) : view === 'list' ? today : from;
-  const [name, rest] = view === 'day' ? [fmt(oneDay, { weekday: small ? 'short' : 'long' }), fmt(oneDay, { month: small ? 'short' : 'long', day: 'numeric' })] : [fmt(at, { month: 'long' }), small ? null : fmt(at, { year: 'numeric' })];
+  const [name, rest] = view === 'day' ? [fmt(oneDay, { weekday: small ? 'short' : 'long' }), fmt(oneDay, { month: small ? 'short' : 'long', day: 'numeric' })] : [fmt(at, { month: 'long' }), small && new Date(at).getFullYear() === new Date(today).getFullYear() ? null : fmt(at, { year: 'numeric' })];
   const set = (f) => () => { f(); draw(); };
   // Stepping: earlier, later and back to today (how far each view goes is the same as ever).
-  const step = view === 'day' ? { back: () => days--, noBack: days <= -30, on: () => days++, noOn: days >= 60, home: () => { days = 0; }, away: days !== 0 }
-    : view === 'week' ? { back: () => weeks--, noBack: weeks <= -4, on: () => weeks++, noOn: weeks >= 9, home: () => { weeks = 0; }, away: weeks !== 0 }
-    : view === 'month' ? { back: () => months--, noBack: months <= -1, on: () => months++, noOn: months >= 2, home: () => { months = 0; }, away: months !== 0 } : null;
+  // As far as it reaches (BACK_MONTHS, AHEAD_MONTHS): from the first of the month a year ago to the end of the last one ahead.
+  const earliest = monthStart(today, -BACK_MONTHS), latest = monthStart(today, AHEAD_MONTHS + 1);
+  const step = view === 'day' ? { back: () => days--, noBack: dayStart(today, days - 1) < earliest, on: () => days++, noOn: dayStart(today, days + 1) >= latest, home: () => { days = 0; }, away: days !== 0 }
+    : view === 'week' ? { back: () => weeks--, noBack: dayStart(from, -1) < earliest, on: () => weeks++, noOn: dayStart(from, DAYS) >= latest, home: () => { weeks = 0; }, away: weeks !== 0 }
+    : view === 'month' ? { back: () => months--, noBack: months <= -BACK_MONTHS, on: () => months++, noOn: months >= AHEAD_MONTHS, home: () => { months = 0; }, away: months !== 0 } : null;
+  { const a = view === 'month' ? weekStart(monthStart(today, months)) : view === 'day' ? oneDay : view === 'week' ? from : today;
+    wantFar(a, dayStart(a, view === 'month' ? 42 : view === 'day' ? 1 : view === 'week' ? DAYS : AGENDA_DAYS)); }
   swipeStep = step && !sheets.length ? { back: step.noBack ? null : set(step.back), on: step.noOn ? null : set(step.on) } : null;
   const tools = [round('photo', fromPhoto, { label: 'From a photo of a flyer' }), round('bell', remindersCard, { label: 'Reminders' })];
   const link = (label, tap) => h('button', { class: 'quiet', tap }, label);
   return h('div', { class: 'screen' },
     h('div', { class: 'top' },
-      h('h1', { class: 'title' }, name, rest ? [' ', h('span', null, rest)] : null),
+      h('h1', { class: 'title' }, h('button', { class: 'go', tap: monthsCard }, name, rest ? [' ', h('span', null, rest)] : null, icon('down', 'thin'))),
       h('div', { class: 'q-seg' }, VIEWS.map(([k, l]) => h('button', { class: view === k ? 'on' : null, 'aria-pressed': String(view === k), tap: set(() => { view = k; }) }, l))),
       step ? [round('left', set(step.back), { disabled: step.noBack, label: 'Earlier' }), small ? null : chip('Today', false, set(step.home)), round('right', set(step.on), { disabled: step.noOn, label: 'Later' })] : null,
       small ? null : tools,
       round('plus', () => guard(() => { const d = view === 'day' ? oneDay : today; eventForm(null, d, startFor(d)); }), { dark: true, label: 'Add' })),
+    peopleRow(),
     view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? schedule(today, AGENDA_DAYS, today)
       : view === 'day' ? dayView(oneDay, today) : small ? [strip(from, today, today, openDay), dayList(from, DAYS, today, true)] : weekView(from, today),
     // (a phone has less of a top row: its tools are down here, and Home only once they've stepped away)
@@ -520,7 +616,7 @@ function openDay(day, min = null) {
 
 function openEvent(e) {
   const remove = (date = null) => {
-    events = events.filter((x) => x.id !== e.id || (date && x.date !== date)); draw(); house.removeEvent(e.id, date);
+    allEvents = allEvents.filter((x) => x.id !== e.id || (date && x.date !== date)); draw(); house.removeEvent(e.id, date);
   };
   const mine = (e.local || e.editable) && e.id; // added here, or in a two-way calendar: it can be changed; other synced ones change where they come from
   let counting = !!e.countdown;
@@ -528,7 +624,7 @@ function openEvent(e) {
   openCard((close) => [
     h('div', { class: 'ev-title' }, marks(e, 'lg'), h('h2', { class: 'big' }, e.title)),
     h('p', { class: 'line' }, fmt(e.t0, { weekday: 'long', month: 'long', day: 'numeric' }) + (e.allDay ? '' : ' · ' + timeOf(e.t0) + (e.t1 ? ' – ' + timeOf(e.t1) : ''))),
-    e.repeat ? h('p', { class: 'line' }, repeatLabel(e.repeat) + (e.until ? `, until ${fmt(Date.parse(e.until + 'T12:00'), { month: 'long', day: 'numeric' })}` : '')) : null,
+    e.repeat ? h('p', { class: 'line' }, repeatLabel(e.repeat, e.rule) + (e.until ? `, until ${fmt(Date.parse(e.until + 'T12:00'), { month: 'long', day: 'numeric' })}` : '')) : null,
     e.place ? h('p', { class: 'line light' }, e.place) : null,
     whoText(e) ? h('p', { class: 'line ink' }, whoText(e)) : null,
     e.notes ? h('p', { class: 'line notes' }, e.notes) : null,
@@ -649,6 +745,8 @@ function openSource(src, label) {
   house.flyerSource(src).then((r) => { got = r; s.redraw(); });
 }
 
+/** Which times of a repeating event a change is for (the bridge's scope). */
+const SCOPES = [['one', 'This one'], ['following', 'This and following'], ['all', 'All']];
 /** "Until" for a repeating event, from its start: [days, label]; null: always. */
 const UNTILS = [[null, 'Always'], [28, '4 weeks'], [91, '3 months'], [182, '6 months'], ['june', 'End of the school year'], ['dec', 'End of the year']];
 
@@ -661,7 +759,10 @@ function eventForm(e = null, startDay = null, startMin = null) {
   const was = e ? { day: dayStart(e.t0), min: e.allDay ? -1 : new Date(e.t0).getHours() * 60 + new Date(e.t0).getMinutes(), len: e.allDay ? 0 : Math.round(((e.t1 ?? e.t0 + 3600e3) - e.t0) / 60000) } : null;
   const f = {
     title: e?.title || '', day: was?.day ?? startDay ?? today, min: was ? was.min : startMin ?? -1, len: was ? was.len : startMin != null ? 60 : 0,
-    people: e ? people(e) : [], calendar: null, repeat: e?.repeat ?? null, until: e?.until ?? null, place: e?.place || '', notes: e?.notes || '', countdown: !!e?.countdown, remind: e?.remind ?? null,
+    people: e ? people(e) : [], calendar: null, repeat: e?.repeat ?? null, until: e?.until ?? null,
+    // A time of a repeating one: the change is for that time, it and the ones after, or all of them (asked on the form).
+    scope: e?.repeat && e.date ? 'one' : null,
+    custom: e?.repeat === 'custom' && e.rule ? ruleParts(e.rule) : null, ruleTouched: false, place: e?.place || '', notes: e?.notes || '', countdown: !!e?.countdown, remind: e?.remind ?? null,
   };
   if (f.min < 0) f.len = 0;
   // Where a new event can go: the two-way calendars, or only this display. With none, there's nothing to choose; with
@@ -694,10 +795,14 @@ function eventForm(e = null, startDay = null, startMin = null) {
     const d = new Date(f.day); const allDay = f.len === 0 || f.min < 0;
     if (!allDay) d.setHours(Math.floor(f.min / 60), f.min % 60, 0, 0);
     const start = d.getTime(), end = allDay ? null : start + f.len * 60000;
-    const fields = { title: f.title.trim(), start, end, allDay, who: f.people[0] || null, also: f.people.slice(1), repeat: f.repeat, until: f.repeat ? f.until : null, place: f.place.trim(), notes: f.notes.trim(), countdown: f.countdown, remind: allDay ? null : f.remind };
+    const rule = f.repeat === 'custom' && f.custom && (f.ruleTouched || !e) ? ruleOfParts(f.custom) : undefined; // (one from its calendar, untouched: left as it is)
+    const fields = { title: f.title.trim(), start, end, allDay, who: f.people[0] || null, also: f.people.slice(1), repeat: f.repeat, ...(rule ? { rule } : {}), until: f.repeat ? f.until : null, place: f.place.trim(), notes: f.notes.trim(), countdown: f.countdown, remind: allDay ? null : f.remind };
     s.close();
-    if (e) { Object.assign(e, { ...fields, t0: start, t1: allDay ? dayStart(start, 1) : end }); draw(); house.updateEvent(e.id, { ...fields, repeat: f.repeat || 'none', ...(e.date ? { date: e.date } : {}) }); }
-    else { events.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent({ ...fields, calendar: f.calendar || 'here' }); }
+    if (e) {
+      Object.assign(e, { ...fields, ...(f.scope === 'one' ? { repeat: e.repeat } : {}), t0: start, t1: allDay ? dayStart(start, 1) : end }); draw();
+      house.updateEvent(e.id, { ...fields, repeat: f.repeat || 'none', ...(e.date ? { date: e.date } : {}), ...(f.scope ? { scope: f.scope } : {}) });
+    }
+    else { allEvents.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent({ ...fields, calendar: f.calendar || 'here' }); }
   };
   press(save, () => { if (!save.disabled) finish(); });
   const cancel = btn('Cancel', () => s.close(), { soft: true });
@@ -731,10 +836,14 @@ function eventForm(e = null, startDay = null, startMin = null) {
     const timed = f.min >= 0;
     const endAt = timed ? new Date(f.day).setHours(0, f.min + f.len, 0, 0) : null; // (may be another day)
     const tgt = targets.find((t) => t.key === f.calendar);
-    const rep = REPEATS.find(([r]) => r === f.repeat);
+    const rep = f.repeat === 'custom' ? [null, f.custom ? ruleWords(ruleOfParts(f.custom)) : repeatLabel('custom', e?.rule)] : REPEATS.find(([r]) => r === f.repeat);
+    const c = f.custom, setC = (fn) => pick(() => { fn(c); f.ruleTouched = true; if (c.count) f.until = null; });
+    const step = (val, set, lo, hi) => [chip('−', false, val > lo ? set(val - 1) : () => {}), h('span', { class: 'num' }, String(val)), chip('+', false, val < hi ? set(val + 1) : () => {})];
     const untilText = f.until ? ` until ${fmt(Date.parse(f.until + 'T12:00'), { month: 'short', day: 'numeric' })}` : '';
     const remindText = f.remind == null ? (H?.remind == null ? 'None' : `Usual (${remindLabel(H.remind)})`) : f.remind < 0 ? 'None' : remindLabel(f.remind).replace(/^./, (c) => c.toUpperCase());
     list.replaceChildren(...[
+      // (first: which times the change is for, a time of a repeating one)
+      f.scope ? row('scope', 'Change', SCOPES.find(([k]) => k === f.scope)[1], h('div', { class: 'chips' }, SCOPES.map(([k, l]) => chip(l, f.scope === k, pick(() => { f.scope = k; open = null; }))))) : null,
       // As Google Calendar's app does it: All day, then when it starts and ends. A new start keeps the length (the end
       // moves with it); an end before the start is left as it was.
       row('allday', 'All day', timed ? 'Off' : 'On', null, { tap: pick(() => { if (timed) { lastMin = f.min; f.min = -1; f.len = 0; } else { f.min = lastMin; f.len = 60; } }) }),
@@ -747,9 +856,21 @@ function eventForm(e = null, startDay = null, startMin = null) {
         chip('This display only', f.calendar === 'here', pick(() => { f.calendar = 'here'; open = null; }))), { ask: !f.calendar }) : null,
       H.family?.length ? row('whose', 'Whose', f.people.length ? f.people.join(' & ') : 'Everyone', h('div', { class: 'chips' }, chip('Everyone', !f.people.length, pick(() => { f.people = []; })),
         H.family.map((p) => who(p.name, f.people.some((n) => same(n, p.name)), pick(() => { f.people = f.people.some((n) => same(n, p.name)) ? f.people.filter((n) => !same(n, p.name)) : [...f.people, p.name]; }))))) : null,
-      row('repeat', 'Repeats', f.repeat ? (rep?.[1] || f.repeat) + untilText : 'Never', [
-        h('div', { class: 'chips' }, REPEATS.map(([r, l]) => chip(r ? l : 'Never', f.repeat === r, pick(() => { f.repeat = r; if (!r) f.until = null; })))),
-        f.repeat ? h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'until'), h('div', { class: 'chips' }, UNTILS.map(([u, l]) => chip(l, f.until === untilDay(u), pick(() => { f.until = untilDay(u); }))))) : null,
+      f.scope === 'one' ? null : row('repeat', 'Repeats', f.repeat ? (rep?.[1] || f.repeat) + untilText : 'Never', [
+        h('div', { class: 'chips' }, REPEATS.map(([r, l]) => chip(r ? l : 'Never', f.repeat === r, pick(() => { f.repeat = r; if (!r) f.until = null; }))),
+          chip('Custom', f.repeat === 'custom', pick(() => { f.repeat = 'custom'; f.custom ||= { unit: 'WEEKLY', every: 1, days: new Set([WD[new Date(f.day).getDay()]]), count: null }; f.ruleTouched = true; }))),
+        f.repeat === 'custom' && c ? [
+          h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'every'), h('div', { class: 'chips' }, step(c.every, (n) => setC((x) => { x.every = n; }), 1, 30),
+            UNITS.map(([u, one, many]) => chip(c.every > 1 ? many : one, c.unit === u, setC((x) => { x.unit = u; }))))),
+          c.unit === 'WEEKLY' ? h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'on'), h('div', { class: 'chips' },
+            [...Array(7)].map((_, i) => WD[(FIRST_DAY + i) % 7]).map((d) => chip(wdName(d), c.days.has(d), setC((x) => { x.days.has(d) ? x.days.delete(d) : x.days.add(d); if (!x.days.size) x.days.add(WD[new Date(f.day).getDay()]); }))))) : null,
+          h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'ends'), h('div', { class: 'chips' },
+            chip('Never', !c.count && !f.until, setC((x) => { x.count = null; f.until = null; })),
+            h('span', { class: 'chip' + (f.until && !c.count ? ' on' : '') }, picker('date', f.until || house.dayKey(new Date(dayStart(f.day, 91))), f.until && !c.count ? `On ${fmt(Date.parse(f.until + 'T12:00'), { month: 'short', day: 'numeric' })}` : 'On a day', (v) => { c.count = null; f.until = v; f.ruleTouched = true; })),
+            chip(c.count ? `After ${c.count} times` : 'After a number of times', !!c.count, setC((x) => { x.count ||= 10; })),
+            c.count ? step(c.count, (n) => setC((x) => { x.count = n; }), 1, 999) : null)),
+        ] : null,
+        f.repeat && f.repeat !== 'custom' ? h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'until'), h('div', { class: 'chips' }, UNTILS.map(([u, l]) => chip(l, f.until === untilDay(u), pick(() => { f.until = untilDay(u); }))))) : null,
       ]),
       timed ? row('remind', 'Reminder', remindText, remindChips(f.remind, (m) => { f.remind = m; s.redraw(); })) : null,
       row('countdown', 'Countdown', f.countdown ? 'On the home screen' : 'Off', null, { tap: pick(() => { f.countdown = !f.countdown; }) }),
@@ -766,7 +887,8 @@ const linkAsked = new URLSearchParams(location.hash.slice(1)).get('do') === 'lin
 house.subscribe((d) => {
   H = d;
   if (addAsked) { const fresh = Date.now() - addAsked < 15e3; addAsked = 0; if (fresh) setTimeout(() => { if (linkAsked) { addCalendar(); return; } const d = dayStart(Date.now()); eventForm(null, d, startFor(d)); }, 0); }
-  events = (d.events || []).map((e) => ({ ...e, t0: Date.parse(e.start), t1: e.end ? Date.parse(e.end) : null })).filter((e) => !isNaN(e.t0));
+  for (const f of far.values()) f.stale = true; // (something changed: the months on screen are read again)
+  rebuild();
   draw(); showFlyer();
   if (afterPin && H.unlockedUntil > Date.now()) { const fn = afterPin; afterPin = null; if (Date.now() - afterPinAt < 120e3) fn(); } // the PIN was just given (not long after asking)
 });

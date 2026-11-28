@@ -197,6 +197,8 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   handle.saveRules = saveRules;
   /** Synced calendars plus events in household.json (house.js adds the display's own). */
   handle.calendarEvents = () => [...(read(HOUSE, {}).events || []), ...cal.events(), ...sync.events()];
+  /** The same between [from] and [to] (ms), however far: link calendars from their files, two-way ones read for it. */
+  handle.calendarRange = async (from, to) => [...(read(HOUSE, {}).events || []), ...cal.range(from, to), ...await sync.range(from, to)];
   /** Both from one read of household.json (house.js: once for a whole /house view). */
   handle.snapshot = () => { const h = read(HOUSE, null); return { view: viewOf(h), events: [...(h?.events || []), ...cal.events(), ...sync.events()] }; };
   handle.sync = sync;

@@ -65,7 +65,10 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | App: tapping | Opie | Notes |
 | --- | --- | --- |
 | Calendar: add, change, remove (a day or all), countdown, reminder on any event | yes | calendar_event |
+| Calendar: change a repeating event's one time, it and the ones after, or all; repeats of their own (chosen weekdays, every N weeks or months, a count) | **new** | calendar_event update scope (one, following, all) and rule, on Opie's own events, Google and iCloud alike |
 | Calendar: which calendar a new event goes in | yes | calendar_event add.calendar |
+| Calendar: step to a month (a year back, 18 months ahead), or go to one by its name | yes | calendar_event list reads any stretch; show_on_screen opens the Calendar |
+| Calendar: hide or show a person's events (the people along the top; that screen's own) | screen | A view on one screen, like Day or Week. Opie reads anyone's events itself (family_things, calendar_event list) |
 | Calendar: the usual reminder and saying it aloud (the bell) | **new** | calendar_event settings |
 | Calendar: an event from a flyer photo sent from a phone | **new** | flyer_photo (was typed-only), then calendar_event |
 | Calendar: open the photo or email a waiting event came from (From) | photo yes, email no, on purpose | flyer_photo shows the photo; family_things has the waiting events and whose email each came from, never the email itself (docs/tablet-email.md, Safety) |

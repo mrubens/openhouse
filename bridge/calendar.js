@@ -3,7 +3,7 @@
 // bridge never has it: the shell keeps the links (CalendarLinks.kt, out of the agent's reach), reads them
 // every 15 minutes and posts what they say here. This keeps the next two weeks of events and whose they are.
 //
-//   calendars({ DIR, onChange }) -> { events(), labels(), status(), setFeeds(feeds) }
+//   calendars({ DIR, onChange }) -> { events(), labels(), status(), setFeeds(feeds), range(from, to) }
 //     feeds: [{ id, who, name?, only?, ics?, error? }]   (from the shell: POST /calendar/feeds)
 //     only: which of a calendar's events to keep, in the words they used ("home games"): each event is judged once by
 //     the cloud's decision model (useCalendarDecide), never by matching words; until judged an event isn't shown.
@@ -50,10 +50,10 @@ export function calendars({ DIR, onChange = () => {} }) {
     if (lastFeeds) setFeeds(lastFeeds);
   }
 
-  function setFeeds(feeds) {
-    const from = Date.now() - 35 * DAY, to = Date.now() + 70 * DAY; // the Calendar app shows a month either way
+  /** What the links' files say between [from] and [to]: their events, errors and labels, and the events of calendars
+   *  kept in part still waiting to be judged (pending). */
+  function readFeeds(feeds, from, to) {
     const events = [], errors = {}, labels = [];
-    lastFeeds = feeds;
     const pending = new Map(); // only -> [events not judged yet]
     for (const f of Array.isArray(feeds) ? feeds.slice(0, 12) : []) {
       const who = str(f.who, 40) || null, name = str(f.name, 60) || null, only = str(f.only, 200);
@@ -73,8 +73,14 @@ export function calendars({ DIR, onChange = () => {} }) {
         }
       } catch (e) { errors[label] = e.message; }
     }
-    if (pending.size) judge(pending);
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
+    return { events, errors, labels, pending };
+  }
+  function setFeeds(feeds) {
+    const from = Date.now() - 35 * DAY, to = Date.now() + 70 * DAY; // the near weeks, kept; further is read when asked (range)
+    lastFeeds = feeds; ranges.clear();
+    const { events, errors, labels, pending } = readFeeds(feeds, from, to);
+    if (pending.size) judge(pending);
     const was = JSON.stringify([cache.events, cache.labels, cache.errors]);
     cache = { events, at: Date.now(), errors, labels };
     try { writeJson(CACHE, cache, { bak: false }); } catch {}
@@ -84,6 +90,20 @@ export function calendars({ DIR, onChange = () => {} }) {
     return status();
   }
   const status = () => ({ at: cache.at, count: cache.events.length, errors: cache.errors });
+  // Further back or ahead (the Calendar app stepping to another month, Opie asked about one): read from the files the
+  // shell last sent, which hold every event, and kept in memory for a while (never on disk). Before the shell's first
+  // send after a start, only the near weeks (on disk) are there.
+  const ranges = new Map(); // "from|to" -> { at, events }
+  function range(from, to) {
+    if (!lastFeeds) return cache.events.filter((e) => new Date(e.end || e.start) > from && new Date(e.start) < to);
+    const k = `${from}|${to}`, kept = ranges.get(k);
+    if (kept && Date.now() - kept.at < 10 * 60e3) return kept.events.slice();
+    const { events, pending } = readFeeds(lastFeeds, from, to);
+    if (pending.size) judge(pending);
+    ranges.set(k, { at: Date.now(), events });
+    if (ranges.size > 24) ranges.delete(ranges.keys().next().value);
+    return events.slice();
+  }
 
   return {
     // Everything read at the last sync (35 days back to 70 ahead): past days in the Calendar app show what happened.
@@ -91,6 +111,7 @@ export function calendars({ DIR, onChange = () => {} }) {
     labels: () => cache.labels.map((l) => ({ ...l })),
     status,
     setFeeds,
+    range,
   };
 }
 
@@ -139,10 +160,45 @@ export function parse(text, from, to) {
         ...(v.DESCRIPTION?.value ? { notes: unescape(v.DESCRIPTION.value).slice(0, 400) } : {}),
         // Which event this is, the same at every sync (a countdown on it, say): its UID and, for a repeat, the day.
         ...(v.UID?.value ? { uid: `${String(v.UID.value).slice(0, 120)}${v.RRULE || v['RECURRENCE-ID'] ? '|' + new Date(t).toISOString().slice(0, 10) : ''}` } : {}),
+        // A time of a series moved or changed on its own: which time it was (what a change to it names again).
+        ...(v['RECURRENCE-ID'] ? { rid: new Date(when(v['RECURRENCE-ID']).t).toISOString() } : {}),
       });
     }
   }
   return out;
+}
+
+// --- repeat rules (RRULE) for events made or changed here: chosen weekdays, every N weeks or months, a count ------
+const RULE_DAY = /^([+-]?[1-5])?(MO|TU|WE|TH|FR|SA|SU)$/;
+/** A repeat rule as it may be kept and sent: only the parts this reads (FREQ, INTERVAL, BYDAY, BYMONTHDAY, BYMONTH,
+ *  BYSETPOS, COUNT, WKST), checked; UNTIL comes out as its day (until). Null when it isn't one. */
+export function cleanRule(text) {
+  const r = Object.fromEntries(String(text || '').replace(/^RRULE:/i, '').split(';').filter(Boolean).map((p) => p.split('=')).map(([k, v]) => [String(k).toUpperCase().trim(), String(v || '').toUpperCase().trim()]));
+  if (!['DAILY', 'WEEKLY', 'MONTHLY', 'YEARLY'].includes(r.FREQ)) return null;
+  const nums = (v, lo, hi) => String(v || '').split(',').map(Number).filter((n) => Number.isInteger(n) && n && n >= lo && n <= hi);
+  const out = [`FREQ=${r.FREQ}`];
+  const n = Math.round(Number(r.INTERVAL || 1)); if (n > 1 && n <= 99) out.push(`INTERVAL=${n}`);
+  const days = String(r.BYDAY || '').split(',').filter((d) => RULE_DAY.test(d)); if (days.length) out.push(`BYDAY=${[...new Set(days)].join(',')}`);
+  const md = nums(r.BYMONTHDAY, -31, 31); if (md.length) out.push(`BYMONTHDAY=${md.join(',')}`);
+  const mo = nums(r.BYMONTH, 1, 12); if (mo.length) out.push(`BYMONTH=${mo.join(',')}`);
+  const sp = nums(r.BYSETPOS, -366, 366); if (sp.length) out.push(`BYSETPOS=${sp.join(',')}`);
+  const c = Math.round(Number(r.COUNT)); if (c >= 1 && c <= 999) out.push(`COUNT=${c}`);
+  if (RULE_DAY.test(r.WKST || '') && r.WKST.length === 2) out.push(`WKST=${r.WKST}`);
+  const u = /^(\d{4})(\d{2})(\d{2})/.exec(r.UNTIL || '');
+  return { rule: out.join(';'), until: u ? `${u[1]}-${u[2]}-${u[3]}` : null };
+}
+/** The starts (ms) of an event made here that repeats by [rule], from [start] (ISO, this device's wall clock), that
+ *  fall between [from] and [to]. */
+export function ruleStarts(start, allDay, rule, from, to) {
+  const d = new Date(start);
+  const wall = [d.getFullYear(), d.getMonth(), d.getDate(), allDay ? 0 : d.getHours(), allDay ? 0 : d.getMinutes(), allDay ? 0 : d.getSeconds()];
+  return expand({ t: toTime(wall, null), allDay, wall, tz: null }, rule, from, to);
+}
+/** The time (ms) a line like "RECURRENCE-ID;TZID=…:20261208T170000" names. */
+export function lineTime(line) {
+  const i = String(line).indexOf(':'); if (i < 0) return NaN;
+  const [, ...params] = String(line).slice(0, i).split(';');
+  return when({ value: String(line).slice(i + 1), p: Object.fromEntries(params.map((x) => x.split('=')).map(([k, v]) => [k.toUpperCase(), v])) }).t;
 }
 
 /** A DTSTART-like value → { t (ms), allDay, wall: [y, m, d, h, mi, s], tz } */

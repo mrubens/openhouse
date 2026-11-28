@@ -72,6 +72,12 @@ Google's events list (once for the repeating series, once for each time), CalDAV
 than change feeds (`syncToken`, `sync-collection`), which can come later if the requests ever matter. A side gain:
 Google's secret iCal links can lag hours behind; the API doesn't.
 
+**Further out.** The Calendar reaches a year back and 18 months ahead. A month outside the near weeks is read when
+someone steps to it (or Opie asks, `calendar_event` list): Google by `timeMin`/`timeMax`, CalDAV by a time-range
+REPORT, a link calendar from the file the shell last sent. What that read brings is kept in memory for ten minutes and
+never written down, so stepping back and forth doesn't ask again; a change sent to a calendar forgets its months. The
+household's own events are kept 13 months back.
+
 **Writing.** Every change made on the tablet (from the Calendar tab, the assistant, a flyer, an app) goes into an
 outbox saved in `house.json` first, then out to the provider. Offline, it waits and retries; the event shows on the
 tablet meanwhile.
@@ -84,9 +90,18 @@ tablet meanwhile.
 - **Deletes** go both ways: deleted here is deleted there (Google: `DELETE`, CalDAV: `DELETE` with the ETag, Graph:
   `DELETE`); deleted there disappears here at the next read. The tablet's undo puts it back by adding it again with
   the same fields.
-- **Repeating events.** Changing or deleting one time of a repeating event changes that instance (Google
-  `recurringEventId` instances, CalDAV `RECURRENCE-ID`, Graph occurrences); "this and later" splits the series. The
-  local events already support repeat/until/skip, so these map over.
+- **Repeating events.** A change to one time asks which times it's for: **This one**, **This and following**, **All**
+  (the Calendar app's Change row; `calendar_event` update `scope`). This one: Google's instance is patched (an
+  exception of the series), CalDAV gets a `RECURRENCE-ID` VEVENT in the series' file (one already there for that time
+  is replaced), Opie's own event skips that day and a one-off takes its place. This and following: a new series from
+  that time (its id made first, so a retry finds it), then the old one ends before it (`UNTIL`, its `COUNT` dropped;
+  a new series' `COUNT` is what was left); from the first time it is All. All: the series moves by as much as that
+  time did, and its rule is left as the calendar has it unless it was changed. A calendar read from a link changes
+  nowhere. Removing one day (an `EXDATE`, a skip) is as before.
+- **Repeats of their own.** Besides the named ones (every day, weekdays, every week…), a rule: chosen weekdays, every
+  N days, weeks, months or years, ending on a day or after a number of times (`rule`, an RRULE without `UNTIL`, which
+  is `until`). Only the parts it reads are kept (`calendar.js cleanRule`); a rule from Google or iCloud with more
+  (the 2nd Saturday) shows in words and stays as it is unless someone changes it.
 - **What the tablet adds on top** (countdowns, reminders, who it's for) stays in `house.json` by event id, as it does
   for synced events now, and isn't written into the provider's event.
 

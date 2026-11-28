@@ -20,6 +20,8 @@ export const MAX_PICTURE = 25e6;
 /** A video's file type from its first bytes (an ISO media file has "ftyp" at byte 4: 'qt' is QuickTime), or null. */
 export const videoKind = (bytes) => (bytes?.length > 12 && bytes.toString('latin1', 4, 8) === 'ftyp' ? (bytes.toString('latin1', 8, 10) === 'qt' ? '.mov' : '.mp4') : null);
 export const REPEATS = ['daily', 'weekdays', 'weekly', 'biweekly', 'monthly', 'yearly'];
+/** How far the calendar reaches, in days: a year back and 18 months ahead (the Calendar app's steps, a range read). */
+export const REACH = { back: 366, ahead: 549 };
 /** The pictures a checklist step can have (drawn by the display: dev.openhouse.ui StepPicture). */
 export const PICS = ['sun', 'moon', 'shirt', 'teeth', 'shoes', 'backpack', 'bed', 'bath', 'book', 'plate', 'hands', 'hair', 'toys', 'cup', 'coat', 'pet', 'star', 'plant', 'trash', 'laundry', 'broom'];
 

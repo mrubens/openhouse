@@ -91,9 +91,10 @@ reject.
 | `house.addTypedRecipe({name, ingredients, steps, link?, picture?, serves?, minutes?})` | a line each, or lists; cooked from as written | change |
 | `house.mealSlots(slots)` | some of `'breakfast'`, `'lunch'`, `'dinner'` | change |
 | `house.addIngredients(date, meal = 'dinner', items?)` | items; else what its recipe lists; else the assistant's guess | change; watch `data.mealWork["date|meal"]` |
-| `house.addEvent({title, start, end?, allDay?, who?, also?, repeat?, until?, place?, notes?, countdown?, remind?, calendar?, src?, from?})` | `start`/`end`: anything `new Date()` takes; `calendar`: a key from `data.calendarTargets` or `'here'`; `src`, `from`: a waiting event's (`data.flyer`), so the event keeps where it came from (`house.flyerSource`) | change |
-| `house.updateEvent(id, fields)` | only what changes; `repeat: 'none'` stops it; `date`: which time of a repeating one | change |
+| `house.addEvent({title, start, end?, allDay?, who?, also?, repeat?, rule?, until?, place?, notes?, countdown?, remind?, calendar?, src?, from?})` | `start`/`end`: anything `new Date()` takes; `calendar`: a key from `data.calendarTargets` or `'here'`; `src`, `from`: a waiting event's (`data.flyer`), so the event keeps where it came from (`house.flyerSource`) | change |
+| `house.updateEvent(id, fields)` | only what changes; `repeat: 'none'` stops it; `rule`: a repeat of its own (`"FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH;COUNT=10"`); `date`: which time of a repeating one, with `scope` `'one'`, `'following'` or `'all'` (the default) | change |
 | `house.removeEvent(id, date?)` | `date`: one time of a repeating one | change |
+| `house.eventsIn(from, to)` | days (Dates or `"YYYY-MM-DD"`, `to` not included), up to a year back and 18 months ahead; `data.events` holds only the near weeks (`data.eventsWindow`) | the events between them, as `data.events` has them; `[]` when it can't |
 | `house.countdown({id?, uid?}, on = true)` | an event added here (`id`) or a synced one (`uid`) | change |
 | `house.remind({id?, uid?}, minutes)` | minutes before; 0 at the start, -1 none, null the usual | change |
 | `house.flyerDone()` | | change |
