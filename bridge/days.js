@@ -2,7 +2,7 @@
 // What was said (by voice or typed: live-tools.js recentTalk) is written to chats/talk/<day>.jsonl as it happens; about
 // once an hour, when there's something new, the text model on OpenAI's Flex tier (half price; a busy Flex skips the
 // hour) rewrites that day's few lines in chats/days.json. A day's talk is deleted once it's two days old and summed up.
-// Both are on the tablet only (and in its backups, with the rest of chats/); they go to OpenAI only as context.
+// Both are on the tablet only (days.json is in its backups; talk/ never is: stores.js); they go to OpenAI only as context.
 import fs from 'node:fs';
 import { readJson, writeJson } from './store.js';
 import { registered } from './stores.js';

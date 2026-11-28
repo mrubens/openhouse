@@ -40,11 +40,12 @@ function hasOdd(dir) {
   }
   return false;
 }
-/** Every repo inside this one (a .git below its top, folder or file) taken out: its files stay, as plain files. */
+/** Every repo inside this one (a .git below its top, folder or file, in any case: a disk may not tell .GIT from .git)
+ *  taken out: its files stay, as plain files. A folder it can't read throws: it could hold one. */
 function dropNested(dir, top = true) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.name === '.git') { if (!top) fs.rmSync(p, { recursive: true, force: true }); continue; }
+    if (e.name.toLowerCase() === '.git') { if (!top) fs.rmSync(p, { recursive: true, force: true }); continue; }
     if (e.isDirectory()) dropNested(p, false);
   }
 }
@@ -57,9 +58,10 @@ function dropNested(dir, top = true) {
  * of the files as they are (the history of the changes doesn't come back). Returns false when there's no .git at all.
  */
 export function quietRepo(repo) {
-  try { dropNested(repo); } catch {}
+  if (!fs.lstatSync(repo).isDirectory()) return false; // (a file restored: no repo in it)
+  dropNested(repo); // (throws when part of it can't be read: the restore stops there)
   const dotGit = path.join(repo, '.git');
-  let st; try { st = fs.lstatSync(dotGit); } catch { return false; }
+  let st; try { st = fs.lstatSync(dotGit); } catch (e) { if (e.code === 'ENOENT') return false; throw e; }
   const g = (...a) => execFileSync('git', [...GIT_SAFE, '-c', 'user.name=display', '-c', 'user.email=display@local', ...a], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   let fresh = !st.isDirectory() || hasOdd(dotGit) || POINTERS.some((p) => fs.existsSync(path.join(dotGit, p)));
   const keep = {};

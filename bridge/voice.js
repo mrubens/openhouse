@@ -91,7 +91,7 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
   const WAKES = path.join(DIR, 'voice-wakes.jsonl');
   const wakeLog = (o) => { try { if (fs.existsSync(WAKES) && fs.statSync(WAKES).size > 1e6) fs.renameSync(WAKES, WAKES + '.1'); fs.appendFileSync(WAKES, JSON.stringify({ t: new Date().toISOString(), ...o }) + '\n'); } catch {} };
   // Clips (a household's choice, off by default): the microphone's last seconds around each wake, kept only on this
-  // tablet (voice-clips/, not in backups: backup-format.js INCLUDE), so its own false wakes can be learned from.
+  // tablet (voice-clips/, never in backups: stores.js), so its own false wakes can be learned from.
   // 2 s before the wake reached here to 1 s after, as streamed (16 kHz mono wav), with when and how sure in
   // clips.jsonl. At most 300, none older than 30 days.
   const CLIPS = path.join(DIR, 'voice-clips'), CLIPS_ON = path.join(DIR, 'voice-clips.on'), CLIP_FILE = /^[\w-]+\.wav$/;

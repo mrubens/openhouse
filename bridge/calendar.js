@@ -133,7 +133,7 @@ export function parse(text, from, to) {
       const end = endOf(t);
       if (end < from || t > to) continue;
       out.push({
-        title: unescape(v.SUMMARY?.value) || 'Busy', start: new Date(t).toISOString(),
+        title: unescape(v.SUMMARY?.value).slice(0, 200) || 'Busy', start: new Date(t).toISOString(),
         ...(end > t ? { end: new Date(end).toISOString() } : {}), allDay: s.allDay,
         ...(v.LOCATION?.value ? { place: unescape(v.LOCATION.value).slice(0, 80) } : {}),
         ...(v.DESCRIPTION?.value ? { notes: unescape(v.DESCRIPTION.value).slice(0, 400) } : {}),

@@ -92,7 +92,7 @@ removes pi, SearXNG and Claude Code's leftovers from a runtime unpacked from an 
     answers"), saved when they say "remember..." or it's clearly lasting, dropped on "forget that"
     (`remember_preference` / `forget_preference`, preferences.md). In every conversation's instructions.
   - Each day in a few lines, for a week (bridge/days.js, chats/days.json): what was said is written to
-    chats/talk/<day>.jsonl as it happens, and about once an hour, when there's more, the text model on the Flex tier
+    chats/talk/<day>.jsonl as it happens (on the device only, never in a backup), and about once an hour, when there's more, the text model on the Flex tier
     rewrites that day's lines (its cost is in chats.jsonl, `background: "days"`). A day's talk is deleted once it's two
     days old and summed up. Conversations get today's lines and one line for each day before.
   - Settings: `GET /memory` gives `{remembered: [sentences], days: [{day, text}]}`; `POST /memory/forget` with

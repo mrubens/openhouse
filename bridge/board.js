@@ -25,6 +25,7 @@ import { calendars } from './calendar.js';
 import { calendarSync } from './calendar-sync.js';
 import { shellCall } from './calendar-links.js';
 import { DEFAULT_RULES, cleanRules, rulesNow } from './house-rules.js';
+import { asData } from './as-data.js';
 
 // How much the household holds. Past one, a save is refused with the reason (a 400 for a tap, an error a tool says),
 // never cut short: nobody's chore or person is dropped to make room.
@@ -144,17 +145,20 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   const viewOf = (h) => ({ setup: !!h, family: (h?.family || []).map(personView), location: h?.location || '', address: h?.address || '', calendars: cal.labels(), chores: h?.chores || [], routines: h?.routines || [], rules: rulesNow(h?.rules), calendar: cal.status() });
   const householdView = () => viewOf(read(HOUSE, null));
 
+  const cut = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
   function context() {
     const h = household(), now = new Date();
     const soon = (h.events || []).filter((e) => new Date(e.start) > new Date(now - 3600e3) && new Date(e.start) - now < 3 * 86400e3)
       .sort((a, c) => new Date(a.start) - new Date(c.start))
-      .map((e) => `- ${new Date(e.start).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}: ${e.who} — ${e.title}${e.bring ? ` (bring: ${e.bring})` : ''}`);
+      .slice(0, 40)
+      .map((e) => `- ${new Date(e.start).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}: ${cut(e.who, 40)} — ${cut(e.title, 120)}${e.bring ? ` (bring: ${cut(e.bring, 80)})` : ''}`);
     return [
       `Now: ${now.toString()}`,
       h.family?.length ? `Family: ${h.family.map(personLine).join(', ')}` : 'Family: not set up yet (ask who lives here, or someone can fill it in under Settings)',
       h.location ? `Location: ${h.location}` : 'Location: unknown (no weather)',
       h.routines?.length ? `Routines:\n${h.routines.map((r) => '- ' + r).join('\n')}` : '',
-      `Calendar, next 3 days:\n${soon.join('\n') || '- nothing'}`,
+      // (events come from subscribed calendars, invites and the household's apps too: their words are marked as data)
+      `Calendar, next 3 days:\n${soon.length ? asData(soon.join('\n'), "the calendar's events, with titles in the words of whoever put them there (subscribed and synced calendars, invites, the household's apps)", { max: 8000 }) : '- nothing'}`,
       h.chores?.length ? `Chores:\n${h.chores.map((c) => `- ${c.who}: ${c.task}${c.days ? ` (${c.days.join(', ')})` : ''}`).join('\n')}` : '',
       handle.houseContext?.() || '', // lists, meals, chores done today (house.js)
     ].filter(Boolean).join('\n\n');

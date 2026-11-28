@@ -8,9 +8,10 @@ import path from 'node:path';
 import http from 'node:http';
 import { execFileSync } from 'node:child_process';
 import { backupRoutes } from '../backup.js';
-import { pack } from '../backup-format.js';
+import { pack, INCLUDE } from '../backup-format.js';
 import { folderDestination } from '../folder-backup.js';
-import { writeJson } from '../store.js';
+import { writeJson, releaseWrites } from '../store.js';
+import { guard } from '../restore-guard.js';
 
 test('backup export: the family folder as a .tar.gz, without the runtime pieces, voice models or builds', async () => {
   const D = fs.mkdtempSync(path.join(os.tmpdir(), 'export-'));
@@ -77,4 +78,59 @@ test('backup and restore: every store comes back, and no save right after writes
     await new Promise((ok) => setTimeout(ok, 1700));
     assert.equal(exits, 1, 'the bridge starts again on what came back');
   } finally { s.close(); }
+});
+
+// Household data safety: what a restore puts back can't leave the device unable to start (the starts after it go back
+// to what was there before), this device's own things inside what came back stay, and a backup bigger than the room
+// left is never unpacked.
+test('a restore that does not start goes back; the device keeps its own clips and node_modules; unpacking is capped', async () => {
+  const D = fs.mkdtempSync(path.join(os.tmpdir(), 'restore-back-'));
+  const file = (f) => path.join(D, f), read = (f) => fs.readFileSync(file(f), 'utf8');
+  const put = (f, t) => { fs.mkdirSync(path.dirname(file(f)), { recursive: true }); fs.writeFileSync(file(f), t); };
+  put('house.json', 'before'); put('chats/door.json', '{}'); put('webapp/index.html', 'apps');
+  const dest = folderDestination({ dir: fs.mkdtempSync(path.join(os.tmpdir(), 'dest-')) });
+  const json = () => {};
+  const make = (o = {}) => backupRoutes({ DISPLAY: D, tick: 0, json, body: async () => ({}), exit: () => {}, destinations: [dest], ...o });
+  let b = make();
+  fs.mkdirSync(path.join(D, '.backup'));
+  writeJson(path.join(D, '.backup/key.json'), { code: '0000-0000-0000-0000-0000-0000-00', confirmed: true }, { bak: false });
+  writeJson(path.join(D, '.backup/state.json'), { dests: { folder: { on: true } } }, { bak: false });
+  assert.equal((await b.backup('manual')).ok, true);
+  const [item] = await dest.list();
+
+  // Unpacking stops once it is past the room there is (a backup's tar can be far bigger than its file).
+  await assert.rejects(make({ maxUnpack: 10 }).restore({ dest: 'folder', id: item.id }), (e) => e.code === 'toobig');
+  releaseWrites(INCLUDE.map((e) => path.join(D, e)));
+  assert.equal(read('house.json'), 'before', 'nothing put back');
+
+  // Since: the house changed, the microphone kept clips, the apps' dev server has its node_modules here.
+  put('house.json', 'since'); put('chats/voice-clips/a.wav', 'wav'); put('webapp/node_modules/vite/v.js', 'vite');
+  b = make();
+  assert.equal((await b.restore({ dest: 'folder', id: item.id })).ok, true);
+  releaseWrites(INCLUDE.map((e) => path.join(D, e)));
+  assert.equal(read('house.json'), 'before');
+  assert.equal(read('chats/voice-clips/a.wav'), 'wav', "this device's clips stay");
+  assert.equal(read('webapp/node_modules/vite/v.js'), 'vite', "this device's node_modules stay");
+
+  // The bridge doesn't stay up on what came back: the third start goes back to what was there before.
+  const timers = [];
+  assert.equal(guard(D, { setTimer: (f) => timers.push(f) }), 'watching');
+  assert.equal(guard(D, { setTimer: (f) => timers.push(f) }), 'watching');
+  assert.equal(guard(D, { setTimer: (f) => timers.push(f) }), 'back');
+  assert.equal(read('house.json'), 'since', 'what was there before is back');
+  assert.equal(read('chats/voice-clips/a.wav'), 'wav');
+  assert.equal(read('webapp/node_modules/vite/v.js'), 'vite');
+  assert.equal(fs.readFileSync(path.join(D, '.backup/failed-restore/house.json'), 'utf8'), 'before', 'what came back is kept aside');
+  assert.equal(guard(D), null, 'and only once');
+
+  // A restore whose start stays up holds: once a start has run a while, nothing goes back.
+  b = make();
+  assert.equal((await b.restore({ dest: 'folder', id: item.id })).ok, true);
+  releaseWrites(INCLUDE.map((e) => path.join(D, e)));
+  timers.length = 0;
+  assert.equal(guard(D, { setTimer: (f) => timers.push(f) }), 'watching');
+  timers.forEach((f) => f());
+  assert.equal(guard(D), null);
+  assert.equal(read('house.json'), 'before');
+  fs.rmSync(D, { recursive: true, force: true });
 });

@@ -170,8 +170,9 @@ export function cookPrompt(meal, source, links = [], also = '') {
     '- If there is no recipe in it, reply {"none": true}.';
 }
 
-/** The assistant's answer, checked: {name, serves, ingredients, steps}; throws with words. */
-export function parseCook(said) {
+/** The assistant's answer, checked: {name, serves, ingredients, steps}; throws with words. links: the page's links
+ *  (cookPrompt's): a recipe it needs is kept only at one of them, never at an address that was on no page. */
+export function parseCook(said, links = []) {
   let v;
   try { v = JSON.parse(String(said).match(/\{[\s\S]*\}/)?.[0] || ''); } catch { throw new Error('Couldn’t make steps from that recipe.'); }
   if (v?.none) throw new Error('There’s no recipe in that.');
@@ -188,7 +189,8 @@ export function parseCook(said) {
       ...(uses.length ? { uses } : {}), ...(timer ? { timer } : {}) };
   }).filter(Boolean).slice(0, 80);
   if (!steps.length) throw new Error('Couldn’t make steps from that recipe.');
-  const needs = (Array.isArray(v?.needs) ? v.needs : []).map((x) => { try { const u = new URL(String(x?.url || '')); return u.protocol === 'https:' ? { name: clean(x?.name, 80) || u.hostname, url: u.href } : null; } catch { return null; } }).filter(Boolean).slice(0, 3);
+  const onPage = new Set((links || []).map((l) => { try { return new URL(String(l?.url || '')).href; } catch { return null; } }).filter(Boolean));
+  const needs = (Array.isArray(v?.needs) ? v.needs : []).map((x) => { try { const u = new URL(String(x?.url || '')); return u.protocol === 'https:' && onPage.has(u.href) ? { name: clean(x?.name, 80) || u.hostname, url: u.href } : null; } catch { return null; } }).filter(Boolean).slice(0, 3);
   const minutes = Math.round(Number(v?.minutes));
   const dish = Object.hasOwn(DISHES, v?.dish) ? v.dish : null;
   return { name: clean(v.name, 80), ...(dish ? { dish } : {}), serves: clean(v.serves, 40), ...(minutes > 0 && minutes < 10000 ? { minutes } : {}), ingredients, steps, ...(needs.length ? { needs } : {}) };
