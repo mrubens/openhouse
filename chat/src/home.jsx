@@ -500,9 +500,9 @@ function useFit() {
 /** Home's own cards (bridge/home-screen.js TODAY_CARDS): every one there is, the order Opie offers them in. */
 export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'meals', 'lists', 'chores', 'notes', 'photos'];
 /** The ones a household that never arranged its Home sees, in order (home-screen.js TODAY_DEFAULT, version 2): Dinner
- *  is off (it can be added), the Whiteboard and a recipe to try are on, the list comes after them, smaller. Arranging
+ *  and a recipe to try are off (they can be added), the Whiteboard is on, the list comes after them, smaller. Arranging
  *  saves the whole list in style.json, so a new default never moves a household's own. An app's card goes before the photos. */
-export const TODAY_DEFAULT = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'chores', 'photos', 'lists', 'notes'];
+export const TODAY_DEFAULT = ['calendar', 'weather', 'lunch', 'whiteboard', 'chores', 'photos', 'lists', 'notes'];
 export const TODAY_NAMES = { calendar: 'Calendar', weather: 'Weather', lunch: 'App notes with a photo', whiteboard: 'Whiteboard', recipes: 'A recipe to try', meals: 'Dinner', lists: 'Groceries', chores: 'Chores', notes: 'Notes', photos: 'Photos' };
 /** The cards Today shows, in order: the look's choice (look.today), with the apps' cards that are on (look.cards). */
 export function todayOrder(look) {

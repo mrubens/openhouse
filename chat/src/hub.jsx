@@ -293,6 +293,21 @@ function Screen({ c, onRemoved }) {
   );
 }
 
+/** The tabs and Home's own cards, each on or off (bridge home-screen.js switchOne), as the device's Settings → Screen → Tabs. */
+function Tabs({ c, onRemoved }) {
+  const [s, reload] = useGet(c, '/home/switches', 0, onRemoved);
+  if (!s || s.error) return null;
+  const flip = async (sw) => { await c.json('POST', '/home/look', { switch: sw }).catch(() => null); reload(); };
+  return (
+    <section>
+      <h2>Tabs</h2>
+      {s.tabs.filter((t) => !t.fixed).map((t) => <label key={t.id} className="check"><input type="checkbox" checked={t.on} onChange={() => flip({ tab: t.id, on: !t.on })} /> {t.name}</label>)}
+      <h3>Cards on Home</h3>
+      {s.cards.map((x) => <label key={x.id} className="check"><input type="checkbox" checked={x.on} onChange={() => flip({ card: x.id, on: !x.on })} /> {x.name}</label>)}
+    </section>
+  );
+}
+
 /** The calendars and iCloud albums the keeper holds (without their links), and adding one by its link. */
 function Calendars({ c, k, onRemoved }) {
   const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [sync, reloadSync] = useGet(c, '/calendar/sync', 0, onRemoved), [adding, setAdding] = useState(null);
@@ -491,6 +506,7 @@ function Hub({ me, c, onRemoved }) {
             <Calendars c={c} k={k} onRemoved={onRemoved} />
             <HomeAssistant c={c} onRemoved={onRemoved} />
             <Screen c={c} onRemoved={onRemoved} />
+            <Tabs c={c} onRemoved={onRemoved} />
             <Account c={c} onRemoved={onRemoved} />
             <Keeper c={c} k={k} reload={reloadK} />
             <Backups c={c} onRemoved={onRemoved} />

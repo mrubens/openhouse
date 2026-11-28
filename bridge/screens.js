@@ -121,6 +121,7 @@ const RULES = [
     ['admin', 'GET', /^\/hub\/(asks|keeper|calendars|google-photos)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove|google|calendar\/account\/remove)$/],
   ['admin', 'GET', /^\/hub\/homeassistant(\/things)?$/], ['admin', 'POST', /^\/hub\/homeassistant\/(connect|use|remove)$/], // the household's Home Assistant (its token: the keeper's)
   ['admin', 'POST', /^\/house\/settings$/], // the screens' night hours (and how they rest), as the device's Settings → Screen
+  ['admin', 'GET', /^\/home\/switches$/], ['admin', 'POST', /^\/home\/look$/], // the tabs and Home's cards on and off, as Settings → Screen → Tabs
   ['admin', 'GET', /^\/calendar\/sync$/], ['admin', 'POST', /^\/calendar\/sync\/(set|now)$/], // which of a signed-in account's calendars show (calendar-sync.js)
 ];
 // door: see the home screen and the house (read only). The name is from before and stays: paired screens hold it.
