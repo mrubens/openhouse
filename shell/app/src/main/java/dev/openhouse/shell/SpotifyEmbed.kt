@@ -79,7 +79,7 @@ object SpotifyEmbed {
                 if (!s.optBoolean("paused", true) && !s.optBoolean("buffering") && pos >= 0) {
                     if (start < 0) start = pos else if (pos > start) { // moving: it's playing
                         val len = s.optDouble("len", -1.0)
-                        if (len in 1.0..31.0) return done("Spotify is playing only a 30-second preview: the device's Spotify sign-in may have ended (Settings → Opie → Spotify), or the account isn't Premium.")
+                        if (len in 1.0..31.0) return done("Spotify is playing only a 30-second preview: the device's Spotify sign-in may have ended (Settings → Connections → Spotify), or the account isn't Premium.")
                         return done("Spotify is playing on the device.")
                     }
                 }

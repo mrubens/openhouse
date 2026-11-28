@@ -89,7 +89,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | TV app | yes | tv (the app itself only shows the week) |
 | A media app from Apps (music, audiobooks, podcasts): play something, pause, skip, back 30 seconds, what's playing | **new** | music (docs/music.md): plays from a search in the app, or opens one that can't take a search; the system's own media apps open only for someone, as from Apps |
 
-## Settings (the gear): the tabs Household, Opie, Calendars, Screen, Devices, Account, Advanced
+## Settings (the gear): the tabs Household, Opie, Connections, Screen, Devices, Account, Advanced
 
 | Row | Opie | Notes |
 | --- | --- | --- |
@@ -100,14 +100,15 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Opie → Voice → Opie credit left (and the account page's balance) | **new** | how_much_used says what's left and the price a minute. Adding credit and auto top-up are on the account page, a person paying with their own card: not Opie's |
 | "Turn on Opie?", asked once when a linked household's voice becomes available and nobody here had said yes | no, on purpose | personOnly: it's the yes to what goes to OpenAI (and the voice is off then, so there's no Opie to ask) |
 | The first setup's Choose a PIN | no, on purpose | As PIN Lock: Opie can't choose or see a PIN, and the setup is quiet throughout, so there's no Opie to ask |
-| The first setup's calendar and photos steps | yes, by link / no for sign-ins | add_calendar and add_photo_album take a link, as anywhere (the tablet asks a person's yes); signing in to Google or iCloud stays on the screen, as in Settings → Calendars. Typing to Opie waits until the setup is done |
+| The first setup's calendar and photos steps | yes, by link / no for sign-ins | add_calendar and add_photo_album take a link, as anywhere (the tablet asks a person's yes); signing in to Google or iCloud stays on the screen, as in Settings → Connections. Typing to Opie waits until the setup is done |
 | The first setup's Two of Android's settings: Let Opie use other apps, Stop charging at 80% | no, on purpose | Both are Android's own pages, outside Opie (kiosk mode left, behind the PIN if one was chosen), and device control is personOnly; the setup is quiet throughout, so there's no Opie to ask |
 | The end of the first setup's Opie is ready: OK, Turn off | yes, by the Voice row | OK only closes it. Turn off is Settings → Opie → Voice's Off: Opie opens the row and the tablet asks for the PIN (as Voice above). The voice coming on there follows the person's Done, the setup's last tap |
 | Ask for Opie's voice (Settings → Opie → Voice, while the household doesn't have it) | no, on purpose | Until the household has the voice there's no Opie to ask; once it does, the ask is done |
 | Your own OpenAI key: put in, change, remove (Settings → Opie → Voice; a hub's settings page) | no, on purpose | A secret Opie must never see or hear; pasted by an adult on the tablet, or on a hub's settings page, behind the PIN |
 | Backups → Your own storage: set up, change, remove (a bucket's address and key) | no, on purpose | Its secret is one Opie must never see or hear, as the OpenAI key: an adult enters it on a phone or computer on the Wi-Fi (the QR code), on the tablet, or on a hub's settings page. Opie can open Backups (screen, with the PIN, as for the rest of Account); turning it on or off once it's set up is that screen's |
 | Household: who, adult, kid or pet, ages or notes, colours, where, chores | **new** | update_household (was typed-only; kind since 2026-11-27). Leaving someone out of the list is refused unless they're named in taking_off |
-| Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the row, the tablet asks for the PIN, Opie carries on there; adding one by link is add_calendar |
+| Connections → Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the tab, the tablet asks for the PIN (while Change settings asks), Opie carries on there; adding one by link is add_calendar |
+| Connections → Photo albums: add, remove | yes / screen | add_photo_album asks a person's yes (with the PIN when Add photo albums asks); Remove is on the screen, as Stop keeping it here in Photos |
 | Opie → What Opie remembers | yes | remember_preference, forget_preference |
 | Devices: pair or remove a screen, phone, computer, TV | screen, with the PIN | Add and Remove ask for the PIN; the pairing code itself is shown for the person's own device |
 | Devices → Add → Another Opie tablet: the code another tablet scans to join this household (docs/multi-tablet.md) | screen, with the PIN | Opie opens it (Settings → Devices → Add); the tablet asks for the PIN; the code is for the person standing at the new tablet |
@@ -132,9 +133,9 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Volume (no row: the tablet's buttons) | yes | volume |
 | Opie → Now playing (shown while Opie can't see what the media apps play) | no, on purpose | personOnly: it widens what Opie may see; Android's own page, with the PIN |
 | Plugins: find, look at, add, update, remove | **new** | find_plugins, look_at_plugin, add_plugin, update_plugin, remove_plugin: each change asks on the tablet (with the PIN when Add apps asks; an update from somewhere new always) |
-| Signing in to Spotify for the tablet's own player (Settings → Opie → Spotify) | done | music `spotify_sign_in` puts Spotify's sign-in page on the screen; the person types there |
+| Signing in to Spotify for the tablet's own player (Settings → Connections → Spotify) | done | music `spotify_sign_in` puts Spotify's sign-in page on the screen; the person types there |
 | An Android app from Apps → Add apps (its Google Play results and "Music and books" suggestions): its Google Play page | done | install_app opens the same page, after a card on screen (the PIN when Add apps asks). Install, Buy and everything else on Google Play stay the person's taps: Opie never taps or types there (DeviceRules.handsOff), and open_app never opens a store (DeviceRules.neverOpen) |
-| Advanced → Google Play: sign in, sign out | no, on purpose | personOnly: it puts a real Google account on a shared screen, and the password is the person's. install_app says where to sign in when nobody has |
+| Connections → Google Play: sign in, sign out | no, on purpose | personOnly: it puts a real Google account on a shared screen, and the password is the person's. install_app says where to sign in when nobody has |
 
 ## The phone page
 

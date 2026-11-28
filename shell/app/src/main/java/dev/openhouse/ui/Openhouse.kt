@@ -41,7 +41,7 @@ interface Host {
     /** Up one level (MainActivity.back): a sheet, then Settings, then an app. */
     fun back() {}
     /** A row of Settings that the shell opens (its dialogs over the list): "voice", "screens",
-     *  "account", "backups", "plugins", "updates", "lock", "tablet", "calendars" (docs/settings.md). */
+     *  "account", "backups", "plugins", "updates", "lock", "tablet", "connections" (docs/settings.md). */
     fun setting(id: String) {}
     /** What the rows the shell keeps show ("live" to "On", "updates" to the version...), read off the main thread. */
     fun settingValues(): Map<String, String> = emptyMap()

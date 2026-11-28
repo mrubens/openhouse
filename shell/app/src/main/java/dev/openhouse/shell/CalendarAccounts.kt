@@ -286,82 +286,71 @@ object CalendarAccounts {
             }.show().also { immersive() }
     }
 
-    /** Every calendar on one screen: a section for each signed-in account (Sign out beside its name) with a box to show
-     *  each of its calendars, then the calendars' links (read only). [account]: kept for callers; all are shown. */
+    /** What the calendars list shows, read off the main thread: the synced calendars, the signed-in accounts, the links. */
+    internal class Shown(val cals: List<JSONObject>, val accounts: List<Triple<String, String, String>>, val links: List<CalendarLinks.Link>) {
+        /** How many are shown (an account's ones that aren't hidden, and links). */
+        val count: Int get() = cals.count { it.optString("mode") != "off" } + links.size
+        val none: Boolean get() = accounts.isEmpty() && links.isEmpty()
+    }
+
+    internal fun shown(): Shown {
+        val all = bridgeGet("/calendar/sync")?.optJSONArray("calendars") ?: JSONArray()
+        return Shown((0 until all.length()).map { all.getJSONObject(it) }, rows(), CalendarLinks.list())
+    }
+
+    /** Every calendar on one screen (the same rows as Settings' Connections): each signed-in account (Sign out beside
+     *  it) with a box to show each of its calendars, then the calendars' links (read only). [account]: kept for callers. */
     fun calendars(a: Activity, account: String?, immersive: () -> Unit) {
         thread {
-            val j = bridgeGet("/calendar/sync") ?: JSONObject()
-            val all = j.optJSONArray("calendars") ?: JSONArray()
-            val cals = (0 until all.length()).map { all.getJSONObject(it) }
-            val accounts = rows(); val links = CalendarLinks.list()
+            val s = shown()
             main.post {
-                val again = { calendars(a, null, immersive) }
-                val modeWord = mapOf("two-way" to "Two-way", "read" to "Shown, changed only there", "off" to "Hidden")
-                val detail = { c: JSONObject -> listOfNotNull(modeWord[c.optString("mode")],
-                    c.optString("who").takeIf { it.isNotBlank() && it != "null" }?.let { "$it's" }, if (c.optBoolean("default") && c.optString("mode") == "two-way") "New events go here" else null).joinToString(" · ") }
                 var shown: android.app.Dialog? = null
-                val col = Calm.column(a)
-                fun header(label: String, action: String?, onAction: (() -> Unit)?) {
-                    col.addView(Calm.row(a).apply {
-                        gravity = android.view.Gravity.CENTER_VERTICAL; setPadding(Calm.px(a, 16), Calm.px(a, if (col.childCount == 0) 4 else 28), Calm.px(a, 4), Calm.px(a, 4))
-                        addView(Calm.eyebrow(a, label), android.widget.LinearLayout.LayoutParams(0, -2, 1f))
-                        if (action != null && onAction != null) addView(Calm.quiet(a, action) { onAction() })
-                    }, android.widget.LinearLayout.LayoutParams(-1, -2))
-                }
-                fun line(title: String, sub: android.widget.TextView, tone: String?, lead: android.view.View?, tap: () -> Unit) {
-                    val row = Calm.row(a).apply { minimumHeight = Calm.px(a, 72); gravity = android.view.Gravity.CENTER_VERTICAL }
-                    if (lead != null) row.addView(lead, android.widget.LinearLayout.LayoutParams(Calm.px(a, 72), Calm.px(a, 72)))
-                    row.addView(Calm.column(a, 4).apply {
-                        val r = 16 * Calm.u(a)
-                        background = Calm.pressable(a, Calm.rounded(0x00FFFFFF, r), r); isClickable = true
-                        setPadding(Calm.px(a, if (lead != null) 8 else 16), Calm.px(a, 14), Calm.px(a, 16), Calm.px(a, 14))
-                        addView(Calm.row(a, 10).apply { gravity = android.view.Gravity.CENTER_VERTICAL
-                            tone?.takeIf { it.startsWith("#") }?.let { t -> addView(android.view.View(a).apply { background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(android.graphics.Color.parseColor(t)) } }, android.widget.LinearLayout.LayoutParams(Calm.px(a, 14), Calm.px(a, 14))) }
-                            addView(Calm.text(a, title, 22f, 500)) })
-                        addView(sub)
-                        setOnClickListener { tap() }
-                    }, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
-                    col.addView(row, android.widget.LinearLayout.LayoutParams(-1, -2))
-                }
-                accounts.forEach { (name, kind, id) ->
-                    header("${kind.substringBefore(",")} · $name", "Sign out") {
-                        CalmDialog(a).setTitle("Sign out of $name?").setMessage("Its calendars leave this device. Nothing changes in them.").setDanger()
-                            .setPositiveButton("Sign out") { _, _ -> shown?.dismiss(); signOut(id) { again() } }.setNegativeButton("Cancel", null).show().also { immersive() }
-                    }
-                    cals.filter { it.optString("account") == id }.forEach { c ->
-                        val sub = Calm.text(a, detail(c), 17f, 400, Calm.SOFT)
-                        val box = Check(a, c.optString("mode") != "off")
-                        box.setOnClickListener {
-                            box.on = !box.on
-                            c.put("mode", if (!box.on) "off" else if (c.optBoolean("canWrite")) "two-way" else "read"); sub.text = detail(c)
-                            thread { bridgePost("/calendar/sync/set", JSONObject().put("key", c.optString("key")).put("mode", c.optString("mode"))) }
-                        }
-                        line(c.optString("name"), sub, c.optString("tone"), box) { shown?.dismiss(); one(a, c, immersive) { again() } }
-                    }
-                }
-                if (links.isNotEmpty()) {
-                    header("Links · read only", null, null)
-                    links.forEach { l ->
-                        val title = l.name.ifBlank { CalendarLinks.label(l.who) }
-                        // One that couldn't be read at the last look says so, and why (a tap: Remove).
-                        val why = CalendarLinks.problem(l.id)
-                        val sub = why?.let { "Can't read it: $it" } ?: l.only.takeIf { it.isNotBlank() }?.let { "Only $it" } ?: "Read only"
-                        line(title, Calm.text(a, sub, 17f, 400, if (why != null) Calm.INK else Calm.SOFT),l.tone.takeIf { it.startsWith("#") }, null) {
-                            shown?.dismiss()
-                            CalmDialog(a).setTitle(title).setItems(arrayOf("Color", "Remove")) { _, i ->
-                                if (i == 0) palette(a, title, l.tone.takeIf { it.startsWith("#") }, immersive, { again() }) { t -> thread { CalendarLinks.setTone(l.id, t ?: ""); CalendarLinks.sync(fresh = false); main.post { again() } } }
-                                else CalmDialog(a).setTitle("Remove $title?").setDanger()
-                                    .setPositiveButton("Remove") { _, _ -> thread { CalendarLinks.remove(l.id); CalendarLinks.sync(); main.post { again() } } }
-                                    .setNegativeButton("Cancel") { _, _ -> again() }.show().also { immersive() }
-                            }.setNegativeButton("Back") { _, _ -> again() }.show().also { immersive() }
-                        }
-                    }
-                }
+                val l = Lines(a)
+                fill(a, l, s, immersive, again = { calendars(a, null, immersive) }, close = { shown?.dismiss() })
                 val h = a.resources.displayMetrics.let { minOf(it.widthPixels, it.heightPixels) }
-                val list = Calm.Capped(a, (h * .62f).toInt()).apply { addView(col); isVerticalScrollBarEnabled = false }
-                shown = CalmDialog(a).setTitle("Calendars").setWidth(860f).apply { if (col.childCount == 0) setMessage("None yet.") else setView(list) }
+                val list = Calm.Capped(a, (h * .62f).toInt()).apply { addView(l.col); isVerticalScrollBarEnabled = false }
+                shown = CalmDialog(a).setTitle("Calendars").setWidth(860f).apply { if (s.none) setMessage("None yet.") else setView(list) }
                     .setNeutralButton("Add a calendar") { _, _ -> choose(a, immersive) }
                     .setPositiveButton("Done", null).show().also { immersive() }
+            }
+        }
+    }
+
+    /** The calendars' rows into [l]: each account, its calendars (a box to show each), then the links. [again] shows
+     *  them again after a change; [close] takes away the page they're on before a step opens. */
+    internal fun fill(a: Activity, l: Lines, s: Shown, immersive: () -> Unit, again: () -> Unit, close: () -> Unit) {
+        val modeWord = mapOf("two-way" to "Two-way", "read" to "Shown, changed only there", "off" to "Hidden")
+        val detail = { c: JSONObject -> listOfNotNull(modeWord[c.optString("mode")],
+            c.optString("who").takeIf { it.isNotBlank() && it != "null" }?.let { "$it's" }, if (c.optBoolean("default") && c.optString("mode") == "two-way") "New events go here" else null).joinToString(" · ") }
+        s.accounts.forEach { (name, kind, id) ->
+            l.line(name, l.soft(kind), end = Calm.quiet(a, "Sign out") {
+                CalmDialog(a).setTitle("Sign out of $name?").setMessage("Its calendars leave this device. Nothing changes in them.").setDanger()
+                    .setPositiveButton("Sign out") { _, _ -> close(); signOut(id) { again() } }.setNegativeButton("Cancel", null).show().also { immersive() }
+            })
+            s.cals.filter { it.optString("account") == id }.forEach { c ->
+                val sub = l.soft(detail(c))
+                val box = Check(a, c.optString("mode") != "off")
+                box.setOnClickListener {
+                    box.on = !box.on
+                    c.put("mode", if (!box.on) "off" else if (c.optBoolean("canWrite")) "two-way" else "read"); sub.text = detail(c)
+                    thread { bridgePost("/calendar/sync/set", JSONObject().put("key", c.optString("key")).put("mode", c.optString("mode"))) }
+                }
+                l.line(c.optString("name"), sub, c.optString("tone"), box) { close(); one(a, c, immersive) { again() } }
+            }
+        }
+        s.links.forEach { lk ->
+            val title = lk.name.ifBlank { CalendarLinks.label(lk.who) }
+            // One that couldn't be read at the last look says so, and why (a tap: Remove).
+            val why = CalendarLinks.problem(lk.id)
+            val sub = why?.let { "Can't read it: $it" } ?: lk.only.takeIf { it.isNotBlank() }?.let { "Only $it, read only" } ?: "Read only"
+            l.line(title, l.soft(sub).apply { if (why != null) setTextColor(Calm.INK) }, lk.tone.takeIf { it.startsWith("#") }) {
+                close()
+                CalmDialog(a).setTitle(title).setItems(arrayOf("Color", "Remove")) { _, i ->
+                    if (i == 0) palette(a, title, lk.tone.takeIf { it.startsWith("#") }, immersive, { again() }) { t -> thread { CalendarLinks.setTone(lk.id, t ?: ""); CalendarLinks.sync(fresh = false); main.post { again() } } }
+                    else CalmDialog(a).setTitle("Remove $title?").setDanger()
+                        .setPositiveButton("Remove") { _, _ -> thread { CalendarLinks.remove(lk.id); CalendarLinks.sync(); main.post { again() } } }
+                        .setNegativeButton("Cancel") { _, _ -> again() }.show().also { immersive() }
+                }.setNegativeButton("Back") { _, _ -> again() }.show().also { immersive() }
             }
         }
     }
@@ -412,7 +401,7 @@ object CalendarAccounts {
             .setNegativeButton("Back") { _, _ -> back() }.show().also { immersive() }
     }
 
-    /** Signed-in accounts, for Settings' Calendars list: (label, detail, remove). */
+    /** Signed-in accounts, for the calendars' rows: (label, detail, remove). */
     fun rows(): List<Triple<String, String, String>> = list().map { Triple(it.name.ifBlank { if (it.provider == "google") "Google" else "iCloud" }, if (it.provider == "google") "Google, two-way" else "iCloud, two-way", it.id) }
 
     fun signOut(id: String, then: () -> Unit = {}) { thread { remove(id); bridgePost("/calendar/sync/forget", JSONObject().put("account", id)); main.post(then) } }

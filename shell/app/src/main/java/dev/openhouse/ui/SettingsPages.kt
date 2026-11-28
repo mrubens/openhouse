@@ -24,7 +24,7 @@ object SettingsPages {
     internal var lingering by mutableStateOf<PageDialog?>(null)
     val top: PageDialog? get() = stack.lastOrNull() ?: lingering
 
-    /** The chosen tab is itself a page of the shell's (Calendars, Account, Advanced): [reopen] opens it again. */
+    /** The chosen tab is itself a page of the shell's (Connections, Account, Advanced): [reopen] opens it again. */
     internal var rootIsPage = false
     internal var reopen: (() -> Unit)? = null
     private var expectRoot = false

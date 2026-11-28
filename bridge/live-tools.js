@@ -118,7 +118,7 @@ export const MUSIC_TOOL = { name: 'music', description: "Music, audiobooks and p
     'search plays something (what, and which app by its name when they said or it matters; otherwise the app they last played from), ' +
     'play resumes, pause, next, previous, seek some seconds back (negative) or forward ("back 30 seconds"), stop, or status: what is playing and which media apps the device has. ' +
     'A book goes to an audiobook app, music to a music app; if the app they need isn\'t there, say so and offer to add it (install_app). ' +
-    'Spotify plays on the device without its app coming up once someone signs in to Spotify in Opie: spotify_sign_in puts its sign-in page on the screen for them (Settings → Opie → Spotify does too).',
+    'Spotify plays on the device without its app coming up once someone signs in to Spotify in Opie: spotify_sign_in puts its sign-in page on the screen for them (Settings → Connections → Spotify does too).',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['status', 'search', 'play', 'pause', 'next', 'previous', 'seek', 'stop', 'spotify_sign_in'] },
     query: { type: 'string', description: 'For search: what to play, as they said it ("Abbey Road", "some jazz for dinner", "the second Harry Potter book")' },
     focus: { type: 'string', enum: ['artist', 'album', 'song', 'playlist', 'genre'], description: 'For search, only when it is clearly one of these' },
@@ -143,7 +143,7 @@ export const PIN_TOOL = { name: 'pin_choices', description: 'Which everyday thin
     'get says each choice and what always needs the PIN. set turns one on or off only when they ask: the device then asks for the PIN on its screen, so tell them to type it on the device (never ask them to say it). ' +
     'What always needs the PIN can\'t be turned off.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'set'] },
-    choice: { type: 'string', enum: ['apps', 'photos', 'calendar', 'rewards', 'settings'], description: 'For set: apps (adding apps and plugins, and the apps you make), photos (photo albums), calendar (changing the calendar), rewards (giving and changing rewards), settings (Voice, Calendars, Time and Email in Settings)' },
+    choice: { type: 'string', enum: ['apps', 'photos', 'calendar', 'rewards', 'settings'], description: 'For set: apps (adding apps and plugins, and the apps you make), photos (photo albums), calendar (changing the calendar), rewards (giving and changing rewards), settings (Voice, the calendars in Connections, Time and Email in Settings)' },
     ask: { type: 'boolean', description: 'For set: true to ask for the PIN, false to stop asking' } } } };
 /** Ending the conversation when asked: the session ends as soon as its last words have played (live-session.cjs). */
 export const GO_AWAY_TOOL = { name: 'go_away', description: 'End this conversation now, when they want you gone: "go away", "stop", "that\'s all", "never mind", "be quiet", "bye". Just call it: you stop listening at once, and the conversation ends once you have finished speaking.',

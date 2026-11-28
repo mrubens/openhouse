@@ -1,7 +1,7 @@
 package dev.openhouse.shell
 
 // Adding Android apps: Google Play, with the household's own Google account signed in on the tablet (Settings →
-// Advanced → Google Play, always behind the PIN). Apps and Opie open one app's Play page; a person taps Install there,
+// Connections → Google Play, always behind the PIN). Apps and Opie open one app's Play page; a person taps Install there,
 // Play installs it, and it goes into Apps (AppStore.addToHome, from the package-added broadcast). docs/device-control.md.
 
 import android.accounts.AccountManager
@@ -28,7 +28,7 @@ object PlayStore {
     /** Why Android apps can't be added now, as Opie and Add apps say it; null when they can. */
     fun notReady(c: Context): String? = when {
         !available(c) -> "Adding Android apps needs Google Play, and this device doesn't have it."
-        !signedIn(c) -> "Google Play isn't signed in on this device yet. Someone signs in at Settings, Advanced, Google Play."
+        !signedIn(c) -> "Google Play isn't signed in on this device yet. Someone signs in at Settings, Connections, Google Play."
         else -> null
     }
 

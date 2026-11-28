@@ -111,7 +111,7 @@ object CalendarLinks {
     }
 
     @Synchronized fun remove(id: String) { save(list().filter { it.id != id }); problems.remove(id); lastIcs.remove(id) }
-    /** Its events' color (Settings, Calendars): one of the household's palette, or "" for none. */
+    /** Its events' color (Settings, Connections): one of the household's palette, or "" for none. */
     @Synchronized fun setTone(id: String, tone: String) = save(list().map { if (it.id == id) Link(it.id, it.who, it.url, it.name, it.only, tone) else it })
 
     fun label(who: String) = if (who.isBlank()) "A calendar" else "$who's calendar"
