@@ -7,7 +7,7 @@ import android.content.Context
  * matter only while PIN Lock is on; with no PIN nothing asks (the ways out wait for one to be set: withPinSet).
  *
  * The choices, permissive by default (the user, 2026-11-27: the PIN to install apps was annoying), except Settings:
- *   apps      adding apps: an Android app (install_app, Aurora Store and what it hands over), a plugin (add, an update,
+ *   apps      adding apps: an Android app (install_app and Add apps opening its Google Play page), a plugin (add, an update,
  *             an app reaching a website), an app Opie made going in, Apps' plugin gallery
  *   photos    photo albums: adding or removing one, phones sending photos, Google Photos
  *   calendar  changing the calendar (the bridge keeps this one: House.calendarLock, /house/lock)

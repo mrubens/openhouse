@@ -19,7 +19,7 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 | Screen | Brightness, Volume (with Adjust to the room), Time | Time: Change settings |
 | Devices | paired screens, TVs, phones and computers (Add, Remove), then the house's speakers, streamers and printers | Add always; Remove: Change settings |
 | Account | link or unlink, Backups, Email, Use it away from home | always |
-| Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Add this tablet to another Opie, Send a report; For developers: Home network, Tailscale, Cloud address, Speech log, USB debugging, Android settings, Leave kiosk mode, Erase this tablet | always |
+| Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Google Play (the household's Google account, for adding Android apps; a person's own), Add this tablet to another Opie, Send a report; For developers: Home network, Tailscale, Cloud address, Speech log, USB debugging, Android settings, Leave kiosk mode, Erase this tablet | always |
 
 Under the tabs, quietly: the version (tap it to look for an update and install it), and "We haven't tested this
 tablet" on a model that isn't on the list.
@@ -178,7 +178,7 @@ value says which are on. Permissive by default:
 
 | Switch | What it covers | Default |
 | --- | --- | --- |
-| Add apps | an Android app (Add apps, install_app, Aurora Store and what it hands over), a plugin (add, an update, an app reaching a website), keeping an app Opie made (its Keep it), Apps' plugin gallery | Off |
+| Add apps | an Android app (Add apps or install_app opening its Google Play page; signing in to Google Play always asks), a plugin (add, an update, an app reaching a website), keeping an app Opie made (its Keep it), Apps' plugin gallery | Off |
 | Add photo albums | adding or taking off an iCloud album, phones sending photos, Google Photos | Off |
 | Change the calendar | any change to the calendar from the apps or Opie (the bridge's calendar lock, as before) | Off |
 | Give rewards | spending stars on a reward (Get it!), and changing the rewards | Off |

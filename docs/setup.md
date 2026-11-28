@@ -23,6 +23,14 @@ it.
 
 A brand-new tablet, still in its box, needs neither step.
 
+The household's Google account goes on after the setup, not before: Settings → Advanced → Google Play (with the PIN)
+signs it in for adding Android apps. Then, in Google Play: your picture → Settings → Authentication → Require
+authentication for purchases → For all purchases.
+
+A Google account made just for the tablet works best: it keeps personal mail and cards off the shared screen.
+Google subscriptions like YouTube TV are shared by adding that account to the household's Google family group, or by
+signing in inside the app itself. Apps with their own sign-in, like Netflix, don't depend on it.
+
 ## 3. The six taps and the code
 
 1. On the very first welcome screen (the one with "Start" or the language), **tap the same spot six times**, anywhere

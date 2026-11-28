@@ -35,4 +35,14 @@ class DeviceRulesTest {
         assertEquals(true, DeviceRules.neverOpen("com.android.vending", emptyList()))
         assertEquals(false, DeviceRules.neverOpen("com.google.android.deskclock", emptyList()))
     }
+
+    // Google Play is in front only for one app's page, and Opie never taps or types there (Install, Buy, the account).
+    @Test fun playStoreIsHandsOff() {
+        assertTrue(DeviceRules.handsOff("com.android.vending"))
+        assertTrue(DeviceRules.handsOff("com.google.android.gms"))
+        assertFalse(DeviceRules.handsOff("com.google.android.deskclock"))
+        assertEquals("market://details?id=com.example.app", DeviceRules.playPage("com.example.app"))
+        for (bad in listOf("", "store", "com.example.app&referrer=x", "com.example.app/../search?q=x", "market://details?id=x.y"))
+            assertEquals(null, DeviceRules.playPage(bad))
+    }
 }

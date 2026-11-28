@@ -26,7 +26,7 @@
     <!-- Granted once over adb (pm grant): lets the shell switch its own device-control service on. -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
-    <!-- Installing apps from Aurora Store (silently: the shell is device owner). -->
+    <!-- The shell's own installs: its updates, the update cover, the family's app windows (silent: device owner). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Self-update's guard (UpdateGuard) still watches a new display after a restart mid-update. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -85,21 +85,6 @@
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="The household display runs its local server (the home screen, voice and sync) in this app; it must stay reachable on the network while another app is in front." />
         </service>
-        <!-- Takes "install this APK" from Aurora Store (preferred handler, set as device owner); see AppStore. -->
-        <activity
-            android:name=".InstallActivity"
-            android:exported="true"
-            android:excludeFromRecents="true"
-            android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar">
-            <intent-filter>
-                <action android:name="android.intent.action.INSTALL_PACKAGE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:scheme="content" />
-                <data android:scheme="file" />
-                <data android:mimeType="application/vnd.android.package-archive" />
-            </intent-filter>
-        </activity>
         <!-- Reopens the board after an update (otherwise the device sits on its stock launcher). -->
         <!-- Before an update: cover the screen and point home at the cover (scripts/install-display.sh). -->
         <!-- Only adb (the shell user holds DUMP) may send these; other apps can't. -->

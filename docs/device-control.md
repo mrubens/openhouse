@@ -74,7 +74,7 @@ its own token).
 | Tool | What it does |
 |---|---|
 | `open_app {name}` | Opens an app by its name. A system app (Clock, a browser) asks once on screen, "Let Opie open Clock?" (the PIN when the lock is on); after that it's one of the tablet's added apps (Apps, and kiosk lets it open). Answers with the screen. |
-| `install_app {name, confirmed}` | Without `confirmed`, answers "ask them first". With it, the existing Aurora flow (AuroraInstall.kt): the tablet's own card (the PIN when locked and Ask for the PIN → Add apps is on), Aurora fetched from F-Droid and checked if missing, the app from Google Play, installed silently by the shell, put in Apps. |
+| `install_app {name, confirmed}` | Without `confirmed`, answers "ask them first". With it: an app already on the tablet goes into Apps; otherwise the tablet's own card (the PIN when locked and Ask for the PIN → Add apps is on), then the app's Google Play page (`DeviceServer.installFromPlay`, `PlayStore.openPage`). The person taps Install; when Play has installed it, it's in Apps (`AppStore`, from the package-added broadcast). No Google Play on the device, or no Google account signed in: it says so, and where to sign in (Settings → Advanced → Google Play). |
 | `look_at_screen {picture?, wait?}` | The screen as numbered elements (`[7] Button "Start" (tap) @1960,1408`). The on-screen keyboard is one line, not its keys. When the list says little (a game, a map) or `picture` is asked for, a quarter-size JPEG goes to the cloud's text model, which describes it in a few lines (the voice's tools take text only). |
 | `tap {id | x,y, long?}` | Taps an element or a point. |
 | `type {text, id?, submit?}` | Types into a field. `submit` presses enter only in a search box. |
@@ -101,7 +101,10 @@ Enforced in the shell (where the bridge can't change them), and again where the 
   in the shell and in the bridge.
 - **Never sends what it typed.** `type` with `submit` outside a search box writes the text and stops: "written, not sent".
 - **Never Settings or a store.** `open_app` refuses the tablet's Settings, its launcher and the app stores (ways out of
-  kiosk); installing goes through `install_app` only.
+  kiosk); `install_app` opens only one app's Google Play page (`DeviceRules.playPage`), after a yes on screen.
+- **Hands off Google Play.** While Google Play or Google's sign-in is in front, Opie may read the screen, scroll and
+  press Back or Home, but every tap and every typed word is refused (`DeviceRules.handsOff`, tested): Install, Buy,
+  Update and the account are the person's own taps.
 - **Other risky taps ask.** Delete, remove, share, call, allow, accept and the like still show the "Is this OK?" card
   (as before), and wait for a person.
 - **Stop.** The face's Stop button halts at once and goes back to Opie's home screen. Asking Opie to stop has it call
@@ -121,6 +124,28 @@ picture can't be recognised. Keep to well-made apps; Opie is told to stop at any
 
 An app Opie opens or installs is added to the tablet's apps (AppStore's list: it shows in Apps, and the kiosk's lock
 task list lets it open). Back from an app's first screen and Home both land on Opie; the kiosk stays locked.
+
+## Google Play
+
+Android apps come from Google Play, with the household's own Google account on the tablet (Aurora Store, the earlier
+way, used a shared anonymous account against Play's terms, and apps like YouTube TV need a real account).
+
+- **Signing in**: Settings → Advanced → Google Play (always the PIN; a person's own tap, `personOnly`). It's Android's
+  own add-account flow for Google, after one line: a Google account just for this tablet works best (docs/setup.md) (`AccountManager.addAccount`); Google's sign-in pages are let into lock task only
+  until Opie is back in front. Nothing in Opie's device-owner policies stops adding an account (no
+  `DISALLOW_MODIFY_ACCOUNTS`, no account-management restrictions). Then it points to Play's own setting, Settings →
+  Authentication → Require authentication for purchases → For all purchases, which can't be set from outside Play.
+  Signed in, the row shows the account, and Sign out takes it off.
+- **Adding an app**: Apps → Add apps (its search shows Google Play's results under Opie's list, and the Music and books
+  suggestions) or `install_app` open that app's Play page, after the PIN when Add apps asks for it. Play is let into
+  lock task for that moment only (`KioskApps.allowInKiosk(temporary)`), so Home or Back returns to Opie and it can't
+  be reached again without a new tap there. `open_app` never opens it.
+- **After installing**: a package installed by Play (with a launcher icon) goes into Apps and the lock task list.
+- **No Google Play** (some photo frames, Amazon tablets): Add apps says adding Android apps needs Google Play. There is
+  no other way in.
+- **Aurora Store** is gone: the update that removes it uninstalls the Aurora that Opie installed (`AppStore.retireAurora`,
+  device owner, silent; one someone installed themselves stays) and drops the shell's "install this APK" handler. The
+  apps it added stay installed and in Apps; Play doesn't update them, since it didn't install them.
 
 ## Cost and latency
 
@@ -142,7 +167,7 @@ emulator wasn't linked to a cloud account):
 - Messages: started a chat to 555-0100 (the "Send to 555-0100" row was allowed after narrowing the rule), typed
   "Running late, home by 6" with submit: written, not sent; tapping "Send SMS" by number, by its parent and by
   coordinates: all refused.
-- Installed Fossify Calculator through `install_app` (Aurora fetched and set up, the app installed by the shell),
+- Installed Fossify Calculator through `install_app` (then through Aurora Store, since replaced by Google Play),
   opened it, 7 × 6 = 42, Home and Back both landed on Opie with lock task mode still LOCKED.
 - The speech log had each tool call, its result and the shell's action line.
 

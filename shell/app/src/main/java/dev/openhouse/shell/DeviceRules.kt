@@ -42,10 +42,19 @@ internal object DeviceRules {
         return sum % 10 == 0
     }
 
-    /** Settings and the stores: ways out of kiosk mode, never opened by Opie (install_app has its own way in). */
+    /** Settings and the stores: ways out of kiosk mode, never opened by Opie (install_app opens one app's Play page). */
     fun neverOpen(pkg: String, settingsPkgs: Collection<String>): Boolean = pkg in settingsPkgs || pkg == "com.android.settings" ||
-        pkg in setOf("com.android.vending", "com.sec.android.app.samsungapps", "com.amazon.venezia", "org.fdroid.fdroid",
-            "com.huawei.appmarket", "com.google.android.packageinstaller", "com.android.packageinstaller", AppStore.AURORA)
+        pkg in setOf(PLAY, "com.sec.android.app.samsungapps", "com.amazon.venezia", "org.fdroid.fdroid",
+            "com.huawei.appmarket", "com.google.android.packageinstaller", "com.android.packageinstaller", "com.aurora.store")
+
+    private const val PLAY = "com.android.vending"
+    /** Google Play and Google's sign-in pages: Opie reads them but never taps or types there. Install, Buy, the
+     *  account and its password are the person's own taps. */
+    fun handsOff(pkg: String?): Boolean = pkg == PLAY || pkg == "com.google.android.gms" || pkg == "com.google.android.gsf.login"
+
+    /** The one way Opie and Apps open Google Play: a single app's page, for a real package name. Null for anything else. */
+    fun playPage(pkg: String): String? =
+        if (Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+").matches(pkg)) "market://details?id=$pkg" else null
 
     /** A card waiting for a person's own answer is up ([card], its title; dev.openhouse.ui.PersonCards): every device
      *  tool is refused until it's gone, so nothing Opie does on screen can answer it. Null when none is up. */

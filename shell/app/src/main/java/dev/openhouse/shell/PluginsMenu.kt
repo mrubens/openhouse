@@ -220,6 +220,34 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             }, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
             setOnClickListener { go(onTap) }
         }
+        val play = Calm.column(c)
+        var asked = ""
+        fun playRows(q: String) {
+            rows.addView(play)
+            val query = q.trim()
+            if (query == asked) return
+            asked = query
+            play.removeAllViews()
+            val why = if (PlayStore.available(c)) null else "Adding Android apps needs Google Play, and this device doesn't have it."
+            if (why != null || query.length < 2) { why?.let { play.addView(Calm.text(c, it, 17f, 400, Calm.SOFT).apply { setPadding(Calm.px(c, 16), Calm.px(c, 18), Calm.px(c, 16), Calm.px(c, 8)) }) }; return }
+            thread {
+                Thread.sleep(500) // typing: only the last search
+                if (asked != query) return@thread
+                val hits = runCatching { AppStore.search(query) }.getOrDefault(emptyList()).filter { it.first != "(name not shown)" }.take(4)
+                ui {
+                    if (asked != query) return@ui
+                    play.removeAllViews()
+                    if (hits.isEmpty()) return@ui
+                    play.addView(Calm.eyebrow(c, "Google Play").apply { setPadding(Calm.px(c, 16), Calm.px(c, 22), 0, Calm.px(c, 6)) })
+                    for ((name, pkg) in hits) {
+                        val here = AppStore.installed(pkg)
+                        play.addView(line(name, if (here) "On this device" else null, null) {
+                            if (!here) addAndroid(pkg, name) else { AppStore.addToHome(pkg); if (!KioskApps.openApp(pkg)) say(name, "It didn't open. Try it from Apps.") }
+                        })
+                    }
+                }
+            }
+        }
         fun fill(q: String) {
             rows.removeAllViews()
             val words = q.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
@@ -241,6 +269,8 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
                     })
                 }
             }
+            // Android apps: Google Play's own search (its public web search), each a way to the app's Play page.
+            playRows(q)
             rows.addView(line("From a link", "A git or .tgz link someone shared", null) { askLink() })
         }
         val search = Calm.field(c, "Search", 22f).apply {
@@ -292,20 +322,12 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         search.clearFocus(); dialog?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
     }
 
-    /** An Android app from Google Play, through Aurora Store: the same steps (and the same card, with the PIN when
-     *  it's on) as Opie's install_app. */
+    /** An Android app: its Google Play page, where the person taps Install (the PIN first when Add apps asks for it).
+     *  Not signed in yet: the sign-in itself, behind the PIN (Settings → Advanced → Google Play). */
     private fun addAndroid(pkg: String, name: String) {
-        val acc = DeviceAccess.instance ?: return say(name, "Adding apps needs Opie's screen access, and it's off on this device. Turn it on in Settings, Opie, Device control.")
-        act.toast("Adding $name…")
-        thread {
-            val r = runCatching { AuroraInstall.installApp(acc, pkg, name) }.getOrNull()
-            val t = r?.optJSONArray("content")?.optJSONObject(0)?.optString("text").orEmpty()
-            ui {
-                if (r?.optBoolean("declined") == true) Unit // Not now on the card: nothing more to say
-                else if (r == null || r.optBoolean("isError")) say("$name wasn't added", "It couldn't be added just now. Try again in a minute, or ask Opie to add it.")
-                else say("$name is on the device", "It's in Apps. Open it once to sign in; then Opie can play from it.")
-            }
-        }
+        if (!PlayStore.available(act)) return say(name, "Adding Android apps needs Google Play, and this device doesn't have it.")
+        if (!PlayStore.signedIn(act)) return act.lock.open("googlePlay") // (its first screen says what it's for)
+        guard { if (!PlayStore.openPage(act, pkg)) say(name, "Google Play didn't open. Try again in a minute.") }
     }
 
     private fun installedOne(name: String) = thread {
