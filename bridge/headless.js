@@ -12,9 +12,13 @@
 //   GET  /hub/calendars                 the calendars and albums kept, without their links, and the signed-in accounts
 //   POST /hub/google {refresh} | {token}   what Google's sign-in sent back: a calendar account, or photos to pick
 //   GET  /hub/google-photos             how picking from Google Photos is going   POST /hub/calendar/account/remove {id}
-//   POST /hub/homeassistant {url, token}  connect Home Assistant: the keeper checks the token, then waits for a yes on a
-//                                       card with the PIN; it answers once that's answered (what Opie may use is picked
-//                                       with /devices/homeassistant, devices/index.js)
+//   GET  /hub/homeassistant             {connected, url, found, asked, addon?}: the household's Home Assistant (the keeper keeps
+//                                       its token; found: the address a scan saw; asked: when Opie last opened Connect here;
+//                                       addon: the hub is its Home Assistant add-on, connected through the Supervisor)
+//   GET  /hub/homeassistant/things      {things: [{entity, name, kind, picked}]}: what Opie could be given, or {error}
+//   POST /hub/homeassistant/connect {url, token}   on to the keeper, which checks it and keeps it after a yes with the
+//                                       PIN on its card: passed through, never kept, logged or answered back here
+//   POST /hub/homeassistant/use {entity, use}   a person's tick   POST /hub/homeassistant/remove   Disconnect
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -40,7 +44,7 @@ export function setupSteps({ DISPLAY, household = () => ({}), hasPin = async () 
 }
 
 /** The routes for its settings devices (screens.js 'admin'). call: host.call. unlocked: device id -> until. */
-export function settingsRoutes({ call, cloud, json, body, now = Date.now }) {
+export function settingsRoutes({ call, cloud, json, body, now = Date.now, ha = null, haChanged = async () => {} }) {
   const keeper = (p, b = {}, ms) => call(p, b, ms ? { ms } : {}).then((r) => r || { ok: false, status: 0, body: {} });
   const unlocked = new Map();
   let pinSet = false;
@@ -86,13 +90,33 @@ export function settingsRoutes({ call, cloud, json, body, now = Date.now }) {
     }
     if (req.method === 'GET' && p === '/hub/google-photos') { const r = await keeper('/photos/google/status'); json(res, 200, r.body || {}); return true; }
     if (req.method === 'POST' && p === '/hub/calendar/account/remove') { const r = await keeper('/calendar/account/remove', { id: String((await body(req)).id || '') }); json(res, r.ok ? 200 : 400, r.body || {}); return true; }
-    if (req.method === 'POST' && p === '/hub/homeassistant') {
-      const b = await body(req);
-      const r = await keeper('/homeassistant/set', { url: String(b.url || '').slice(0, 300), token: String(b.token || '').slice(0, 2000), from: 'the settings page' }, 100e3);
-      json(res, r.ok ? 200 : r.status || 503, r.body || {}); return true;
-    }
+    if (p === '/hub/homeassistant' || p.startsWith('/hub/homeassistant/')) return homeAssistant(req, res, p);
     if (req.method === 'POST' && p === '/hub/openai/remove') { const r = await keeper('/ownkey/remove'); json(res, r.ok ? 200 : 503, r.ok ? { ok: true } : r.body || {}); return true; }
     if (req.method === 'POST' && /^\/hub\/(calendar|album)\/remove$/.test(p)) { const r = await keeper(p.slice(4), { id: String((await body(req)).id || '') }); json(res, r.ok ? 200 : 400, r.body || {}); return true; }
+    return false;
+  }
+  /** The household's Home Assistant, as the tablet's Devices sheet has it (the shell's HomeAssistant.kt). */
+  async function homeAssistant(req, res, p) {
+    if (!ha) { json(res, 404, { error: 'not here' }); return true; }
+    if (req.method === 'GET' && p === '/hub/homeassistant') {
+      const r = await keeper('/homeassistant/status');
+      json(res, r.ok ? 200 : 503, r.ok ? { connected: !!r.body?.set, url: r.body?.url || null, found: ha.found() || null, asked: ha.asked() || 0, ...(r.body?.addon ? { addon: true } : {}) } : { error: "The hub's keeper isn't running." }); return true;
+    }
+    if (req.method === 'GET' && p === '/hub/homeassistant/things') {
+      try { json(res, 200, { things: (await ha.list()).map(({ entity, name, kind, picked }) => ({ entity, name, kind, picked })) }); }
+      catch (e) { json(res, 200, { things: [], error: e.message }); }
+      return true;
+    }
+    if (req.method !== 'POST') return false;
+    const b = await body(req);
+    if (p === '/hub/homeassistant/connect') {
+      const url = String(b.url || '').trim() || ha.found();
+      const r = await keeper('/homeassistant/set', { url: url.slice(0, 300), token: String(b.token || '').trim().slice(0, 2000) }, 110e3);
+      if (r.body?.ok) await haChanged();
+      json(res, r.status === 400 ? 400 : 200, { ok: r.body?.ok === true, ...(r.body?.ok ? {} : { error: String(r.body?.error || "The hub's keeper didn't answer.") }) }); return true;
+    }
+    if (p === '/hub/homeassistant/use') { json(res, 200, await ha.use(String(b.entity || ''), b.use !== false)); return true; }
+    if (p === '/hub/homeassistant/remove') { const r = await keeper('/homeassistant/remove'); await haChanged(); json(res, r.ok ? 200 : 503, { ok: r.ok }); return true; }
     return false;
   }
   return { handle, open, pinOk, hasPin: () => pinSet, refresh, keeper, lock: (id) => unlocked.delete(id) };

@@ -3,7 +3,8 @@
 // (no /hub/asks) it asks once and stops.
 import { useEffect, useState } from 'react';
 
-export function Asks({ c }) {
+/** which: the cards to show here (a settings section shows its own, hub.jsx); all of them without it. */
+export function Asks({ c, which = null }) {
   const [asks, setAsks] = useState([]), [pin, setPin] = useState({}), [err, setErr] = useState({}), [n, setN] = useState(0);
   useEffect(() => {
     let stop = false, t = null;
@@ -11,7 +12,7 @@ export function Asks({ c }) {
       try {
         const r = await c.json('GET', '/hub/asks');
         if (r.status === 403 || r.status === 404) return; // not a hub, or not this device's
-        if (!stop && r.status === 200) setAsks(r.json?.asks || []);
+        if (!stop && r.status === 200) setAsks((r.json?.asks || []).filter((x) => !which || which(x)));
       } catch {}
       if (!stop) t = setTimeout(look, 3000);
     };

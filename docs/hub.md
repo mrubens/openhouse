@@ -127,6 +127,13 @@ running starts one of its own (a laptop trying it).
   `hub/owner-code.sh --forget-pin` in Docker or on a Mac. The keeper forgets it only after that file is in its folder,
   never on the bridge's secret alone.
 
+- **Home Assistant.** The settings page's Home Assistant section does what the tablet's Devices sheet does: Connect
+  (its address and a long-lived token, typed there; the keeper checks it with Home Assistant, then keeps it once
+  someone says yes on its card, with the PIN, shown in that section), then a tick for each light, switch, scene, media
+  player and thermostat Opie may use, and Disconnect. The token goes through the bridge on its way to the keeper and
+  is never kept, logged or answered back there. Opie's `home_assistant` connect opens that section on the settings
+  devices that have the page open. There's no QR code for sending it from a phone, as the tablet has: the settings
+  page is already in a phone's or computer's browser, where the token is copied from Home Assistant.
 - **Signing in to calendars and Google Photos.** iCloud: the Apple ID and an app-specific password, typed on the
   settings device, kept by the keeper, which signs every CalDAV request the bridge's `calendar-sync.js` makes. Google
   (calendars and photos, on a hub linked to an Opie account): the sign-in opens on the settings device and comes back

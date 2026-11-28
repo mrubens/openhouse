@@ -9,7 +9,7 @@
 //   GET  /devices/homeassistant    {connected, url, things: [{entity, name, kind, picked}]}: what Opie could be given
 //   POST /devices/homeassistant/use {entity, use}   a person's tap: Opie may use it, or no longer
 //   POST /devices/homeassistant/connect             puts Connect Home Assistant on the device's screen
-// All of these answer only to this device itself (loopback); on a hub its settings devices pick in Home Assistant too.
+// All of these answer only to this device itself (loopback).
 //
 // Saved in display/devices.json: the devices, the recipes the agent wrote, pairings (TV tokens), and which of Home
 // Assistant's things the household picked (never its token: the host keeps that, drivers/homeassistant.js).
@@ -198,9 +198,13 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     return { ok: true, text: `Opie can use it now: ${asData(t.name, HA_WORDS, { max: 100 })}` };
   }
   const haHub = () => db.devices.find((d) => d.driver === 'homeassistant' && d.present) || db.devices.find((d) => d.driver === 'homeassistant');
-  /** Connect Home Assistant on the device's own screen (the token is typed or sent there, never here). */
+  const haFound = () => { const h = haHub(); return h ? `http://${h.address}:8123` : ''; };
+  let haAsked = 0; // a hub's: when Opie last opened Connect on its settings page
+  /** Connect Home Assistant on the device's own screen (the token is typed or sent there, never here). A hub has no
+   *  screen: Connect opens on its settings page instead (headless.js /hub/homeassistant, chat/src/hub.jsx). */
   async function haConnect() {
     if (!host.can('homeassistant')) return { ok: false, text: 'This device can\'t keep a Home Assistant token.' };
+    if (host.can('cards')) { haAsked = Date.now(); return { ok: true, text: 'Connecting Home Assistant is open on the hub\'s settings page: someone there types its address and token. Say so in a sentence.' }; }
     const hub = haHub();
     const r = await host.call('/homeassistant/connect', { url: hub ? `http://${hub.address}:8123` : '' }, { ms: 8000 });
     return r?.ok ? { ok: true, text: 'Connecting Home Assistant is on the device\'s screen: someone there scans its code with a phone or types the token. Say so in a sentence.' }
@@ -627,9 +631,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     return { jsonrpc: '2.0', id, error: { code: -32601, message: 'unknown method' } };
   }
 
-  // (or a paired device's sealed request, which screens.js let through only by its scopes: a hub's settings devices
-  // reach /devices/homeassistant and its /use, screens.js RULES 'admin')
-  const local = (req) => (req.socket ? /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress || '') : !!req.headers?.['x-openhouse-screen']);
+  const local = (req) => /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress || '');
 
   /** Returns true if it handled the request. */
   handle.allow = (id, yes = true) => { const before = yes ? structuredClone(db) : null, pr = (db.pairing[id] ||= {}); if (yes) pr.allowed = true; else { delete pr.allowed; delete pr.apps; } save(before); }; // (throws when it isn't saved: a yes taken back, a no kept in memory) // the tablet's yes (or someone taking it back: the apps' yeses too)
@@ -847,9 +849,12 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   handle.devices = devicesDo;
   handle.bluetooth = bluetoothDo; handle.bluetoothOn = () => !!btState?.supported; // the voice's tool, offered on a tablet with Bluetooth
   handle.homeAssistant = haDo; // the voice's tool, offered once there's a Home Assistant to use or connect
-  handle.homeAssistantOn = () => !!haOn?.can && (!!haOn.set || db.devices.some((d) => d.driver === 'homeassistant'));
+  // (on a hub always: its settings page always has Home Assistant, as a scan from Docker may not see it)
+  handle.homeAssistantOn = () => !!haOn?.can && (!!haOn.set || host.can('cards') || db.devices.some((d) => d.driver === 'homeassistant'));
   handle.homeAssistantNames = () => db.devices.filter((d) => d.transport === 'homeassistant').map((d) => d.customName || d.name);
   handle.homeAssistantCheck = haCheck; // (tests, and after the shell says it changed)
+  // A hub's settings page (headless.js): what could be picked, a person's tick, and whether Opie asked to connect.
+  handle.homeAssistantSettings = { list: haList, use: (e, on) => haUse(e, on, { who: 'board' }), found: haFound, asked: () => haAsked };
   handle.mcp = mcp; // the same tools for the agent in its own app, behind its run's key (box.js)
   return handle;
   async function handle(req, res, url) {

@@ -5,7 +5,7 @@
 // devices, calendars and albums, the Opie account and live voice, their own OpenAI key, the PIN, backups, reaching it
 // from away, and updates. With a PIN set, changing settings asks for it first (for 10 minutes).
 import { createRoot } from 'react-dom/client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { pair, client, Removed } from './screen-client.js';
 import { pairingFromCode } from './scrypt.js';
 import { Asks } from './asks.jsx';
@@ -261,39 +261,6 @@ function Updates({ c, onRemoved }) {
   );
 }
 
-/** The household's Home Assistant (devices/index.js, kept by the keeper): connecting it with a token (a hub that isn't
- *  its add-on), and picking what Opie may use. Locks, doors, alarms and cameras are never listed (devices/ha-rules.js). */
-const HA_KIND = { light: 'Light', switch: 'Switch', scene: 'Scene', tv: 'TV', speaker: 'Speaker', thermostat: 'Thermostat (read only)' };
-function HomeAssistant({ c, onRemoved }) {
-  const [h, reload] = useGet(c, '/devices/homeassistant', 0, onRemoved), [open, setOpen] = useState(false);
-  const [url, setUrl] = useState(''), [token, setToken] = useState(''), [st, setSt] = useState(null);
-  if (!h || h.error === 403 || h.error === 404 || (!h.connected && !h.can)) return null;
-  const use = async (entity, on) => { await c.json('POST', '/devices/homeassistant/use', { entity, use: on }); reload(); };
-  async function connect() {
-    setSt('…');
-    const r = await c.json('POST', '/hub/homeassistant', { url: url.trim(), token: token.trim() }).catch(() => null);
-    if (r?.status === 200 && r.json?.ok) { setToken(''); setSt(null); return reload(); }
-    setSt(r?.json?.error || 'That didn’t work.');
-  }
-  const things = h.things || [], shown = open ? things : things.filter((t) => t.picked);
-  return (
-    <section className="setup">
-      <h2>Home Assistant</h2>
-      {!h.connected ? <>
-        <input className="field" value={url} onChange={(e) => { setUrl(e.target.value); setSt(null); }} placeholder="Its address, like 192.168.1.20:8123" autoCapitalize="off" autoCorrect="off" spellCheck={false} />
-        <input className="field" type="password" value={token} onChange={(e) => { setToken(e.target.value); setSt(null); }} placeholder="A long-lived token (your profile, Security)" autoComplete="off" />
-        <button className="pill" disabled={st === '…' || !url.trim() || !token.trim()} onClick={connect}>{st === '…' ? 'Waiting for a yes…' : 'Connect'}</button>
-        {st && st !== '…' && <p className="soft">{st}</p>}
-      </> : <>
-        {h.error && <p className="soft">{h.error}</p>}
-        {shown.map((t) => <label className="check" key={t.entity}><input type="checkbox" checked={t.picked} onChange={(e) => use(t.entity, e.target.checked)} /> {t.name}<span className="soft small"> · {HA_KIND[t.kind] || t.kind}</span></label>)}
-        {!open && things.length > shown.length && <button className="pill" onClick={() => setOpen(true)}>Choose what Opie may use</button>}
-        {open && <button className="plain" onClick={() => setOpen(false)}>Done</button>}
-      </>}
-    </section>
-  );
-}
-
 /** The calendars and iCloud albums the keeper holds (without their links), and adding one by its link. */
 function Calendars({ c, k, onRemoved }) {
   const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [sync, reloadSync] = useGet(c, '/calendar/sync', 0, onRemoved), [adding, setAdding] = useState(null);
@@ -367,6 +334,59 @@ function GoogleBack({ c, hash, onDone }) {
   );
 }
 
+/** The household's Home Assistant, as the tablet's Devices sheet has it (the shell's HomeAssistant.kt): Connect (its
+ *  address and a long-lived token, typed here and kept by the keeper after a yes on its card, with the PIN), then what
+ *  Opie may use, and Disconnect. Opie's home_assistant connect opens it here (asked). As the Home Assistant add-on, only
+ *  what Opie may use. */
+const HA_CARD = (x) => x.for === 'homeassistant';
+function HomeAssistant({ c, onRemoved }) {
+  const [s, reload] = useGet(c, '/hub/homeassistant', 5000, onRemoved), [open, setOpen] = useState(false), [seen, setSeen] = useState(0);
+  const [url, setUrl] = useState(''), [token, setToken] = useState(''), [st, setSt] = useState(null), [n, setN] = useState(0), here = useRef(null);
+  useEffect(() => { // Opie opened it (in the last 10 minutes): Connect, in view
+    if (!s?.asked || s.asked === seen || Date.now() - s.asked > 10 * 60e3) return;
+    setSeen(s.asked); setOpen(true); here.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [s?.asked]);
+  if (!s || s.error) return null;
+  async function connect(e) {
+    e.preventDefault(); setSt('checking');
+    const r = await c.json('POST', '/hub/homeassistant/connect', { url: url.trim(), token: token.trim() }).catch(() => null);
+    if (r?.json?.ok) { setToken(''); setUrl(''); setSt(null); setOpen(false); setN(n + 1); reload(); } else setSt(r?.json?.error || 'That didn’t work.');
+  }
+  const off = async () => { if (!confirm('Disconnect Home Assistant? Opie stops using it at once.')) return; await c.json('POST', '/hub/homeassistant/remove', {}); setOpen(false); reload(); };
+  const host = (() => { try { return new URL(s.url).host; } catch { return ''; } })();
+  // The hub as Home Assistant's add-on (ha-addon/): connected through the Supervisor, nothing to type or disconnect.
+  if (s.addon) return <section className="setup" ref={here}><h2>Home Assistant</h2><HaThings c={c} host="" n={n} /></section>;
+  return (
+    <section className="setup" ref={here}>
+      <h2>Home Assistant</h2>
+      {open ? (st === 'checking' ? <p className="soft">Checking…</p> : <form onSubmit={connect}>
+        <p className="soft small">Make a long-lived access token on your Home Assistant profile, under Security.</p>
+        <input className="field" value={url} onChange={(e) => { setUrl(e.target.value); setSt(null); }} placeholder={s.found || s.url || 'Address, like http://192.168.1.20:8123'} autoCapitalize="off" autoComplete="off" autoCorrect="off" spellCheck={false} inputMode="url" />
+        <input className="field" type="password" value={token} onChange={(e) => { setToken(e.target.value); setSt(null); }} placeholder="Long-lived access token" autoCapitalize="off" autoComplete="off" autoCorrect="off" spellCheck={false} />
+        <div className="btns"><button className="pill" disabled={token.trim().length < 30 || !(url.trim() || s.found || s.url)}>Connect</button><button type="button" className="plain" onClick={() => { setOpen(false); setSt(null); }}>Cancel</button></div>
+        {st && <p className="soft">{st}</p>}
+      </form>) : s.connected ? <HaThings c={c} host={host} n={n} />
+        : <button className="pill" onClick={() => setOpen(true)}>Connect</button>}
+      <Asks c={c} which={HA_CARD} />
+      {s.connected && !open && <div className="btns"><button className="plain" onClick={() => { setUrl(''); setOpen(true); }}>Connect again</button><button className="plain" onClick={off}>Disconnect</button></div>}
+    </section>
+  );
+}
+/** What Opie may use: everything Home Assistant has that could be, each a tick that takes effect at once. */
+function HaThings({ c, host, n }) {
+  const [l, setL] = useState(null), [busy, setBusy] = useState('');
+  const load = () => c.json('GET', '/hub/homeassistant/things').then((r) => setL(r.json || { things: [] })).catch(() => setL({ things: [], error: 'The hub isn’t answering.' }));
+  useEffect(() => { load(); }, [c, n]);
+  async function tick(t, use) { setBusy(t.entity); await c.json('POST', '/hub/homeassistant/use', { entity: t.entity, use }).catch(() => null); await load(); setBusy(''); }
+  return <>
+    {host && <p className="soft small">{host}</p>}
+    {!l ? <p className="soft">…</p> : l.error ? <p className="soft">{l.error}</p> : !l.things.length ? <p className="soft">It has no lights, switches, scenes, media players or thermostats Opie could use.</p> : <>
+      <p>What Opie may use</p>
+      {l.things.map((t) => <label className="check" key={t.entity}><input type="checkbox" checked={!!t.picked} disabled={busy === t.entity} onChange={(e) => tick(t, e.target.checked)} /> {t.name}</label>)}
+    </>}
+  </>;
+}
+
 /** Their own OpenAI key (kept by the keeper, never here or on this page once sent) and the PIN. */
 function Keeper({ c, k, reload }) {
   const [a, setA] = useState(''), [b, setB] = useState(''), [old, setOld] = useState(''), [st, setSt] = useState(null), [pinOpen, setPinOpen] = useState(false);
@@ -433,7 +453,7 @@ function Hub({ me, c, onRemoved }) {
       <header><span className="brand">Opie hub</span><a className="soft" href="/screen/">Home screen</a></header>
       <div className="page">
         {!admin ? <p>This device isn't one of the hub's settings devices.</p> : <>
-          <Asks c={c} />
+          <Asks c={c} which={(x) => !HA_CARD(x)} />
           {k?.locked ? <Locked c={c} onOpen={reloadK} /> : <>
             <Devices c={c} onRemoved={onRemoved} />
             <Calendars c={c} k={k} onRemoved={onRemoved} />

@@ -450,7 +450,7 @@ function ask(b = {}) {
   const t = (v, n) => String(v ?? '').slice(0, n);
   const card = { id: cid, title: t(b.title, 200), detail: t(b.detail, 800), more: b.more ? t(b.more, 2000) : null, yes: t(b.yes, 20).trim() || 'Allow', no: t(b.no, 24).trim() || null,
     rights: Array.isArray(b.rights) ? b.rights.slice(0, 12).map((r) => ({ kind: t(r?.kind, 20), text: t(r?.text, 300) })) : [], danger: !!b.danger, later: !!b.later,
-    pin: !!b.grownup || !!b.pin };
+    pin: !!b.grownup || !!b.pin, ...(/^[a-z]{1,20}$/.test(String(b.for || '')) ? { for: b.for } : {}) }; // for: the settings page's section that shows it
   return new Promise((resolve) => {
     const done = (a) => { const w = waiting.get(cid); if (!w) return; clearTimeout(w.timer); waiting.delete(cid); resolve(a); };
     waiting.set(cid, { card, done, until: Date.now() + waitMs, timer: setTimeout(() => done({ yes: false, answered: false }), waitMs) });
@@ -510,7 +510,7 @@ async function route(p, b) {
       if (!token) return [400, { error: 'That isn\'t a Home Assistant token. Make a long-lived one on your Home Assistant profile, under Security, and copy all of it.' }];
       const why = await ha.check({ url, token });
       if (why) return [400, { error: why }];
-      const a = await ask({ title: 'Connect Home Assistant?', detail: [new URL(url).host, b.from ? `Sent by ${String(b.from).slice(0, 40)}.` : ''].filter(Boolean).join('\n'), yes: 'Connect', pin: true, waitMs: 95e3 });
+      const a = await ask({ title: 'Connect Home Assistant?', detail: [new URL(url).host, b.from ? `Sent by ${String(b.from).slice(0, 40)}.` : ''].filter(Boolean).join('\n'), yes: 'Connect', pin: true, for: 'homeassistant', waitMs: 95e3 });
       if (!a.yes) return [200, { ok: false, error: 'Nobody said yes on a settings device, so it wasn\'t kept.' }];
       kept.homeassistant = { url, token }; save();
       return [200, { ok: true }];

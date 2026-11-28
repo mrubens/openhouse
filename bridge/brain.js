@@ -397,7 +397,7 @@ const webMcp = webMcpRoutes({ HERE, screens, workshop, json, body });
 // A host with no screen of its own ('cards': the keeper, docs/hub.md): its cards on the settings devices and
 // adults' phones, its setup's steps and its settings behind the PIN there (headless.js), and the bridge's own
 // settings page and updates (hub.js). A tablet's shell does all of this on its screen.
-const headless = host.can('cards') ? settingsRoutes({ call: host.call, cloud, json, body }) : null;
+const headless = host.can('cards') ? settingsRoutes({ call: host.call, cloud, json, body, ha: devices.homeAssistantSettings, haChanged: devices.homeAssistantCheck }) : null;
 if (headless) headless.setup = setupSteps({ DISPLAY, household: () => chat.live.setupHousehold?.read?.() || {}, hasPin: async () => { await headless.refresh(); return headless.hasPin(); } });
 const hub = headless ? hubRoutes({ DISPLAY, screens, json, body }) : null;
 hub?.start();
