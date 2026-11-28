@@ -60,7 +60,9 @@ signing in inside the app itself. Apps with their own sign-in, like Netflix, don
    - **Two of Android's settings** opens Android's settings for each: letting Opie use other apps (switch on "Opie
      assistant" and tap Allow), and stopping charging at 80% ([where it is on each tablet](tablets.md#the-charge-limit-on-each)).
      Press Home to come back. Without the first, Opie can't open or press buttons in other apps; everything else works.
-   - **Opie is ready**: once the setup ends, a tablet linked to an Opie account says so: say "Hey Opie" to use it
+   - **Talk to Opie**, one line on that last step: **Hey Opie**, or **Tap to talk** (nothing listens until you tap the
+     device). Settings → Opie → Talk to Opie changes it later.
+   - **Opie is ready**: once the setup ends, a tablet linked to an Opie account says so: say "Hey Opie" (or tap) to use it
      (Turn off there, or later in Settings → Opie → Voice). A tablet without an account works by touch; to talk to Opie,
      tap **Add a key** on Today (or Settings → Opie → Voice) and paste your own OpenAI key from a phone (a key from
      platform.openai.com: OpenAI bills your account, and Opie stops for the month at the monthly stop, $20 to start).

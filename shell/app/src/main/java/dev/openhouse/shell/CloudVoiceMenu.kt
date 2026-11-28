@@ -63,7 +63,8 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
         ui {
             if (now == null) return@ui say(noBridge)
             val checked = if (!LiveVoice.chosen) 0 else 1 + VOICES.indexOfFirst { it.first == now }
-            val d = CalmDialog(act).setTitle("Voice").setMessage((if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.") + (credit?.let { "\n\n$it" } ?: "") + (month?.let { "\n\n$it" } ?: ""))
+            val said = if (MainActivity.heyOpie(act)) "What's said after “Hey Opie”" else "What's said to Opie"
+            val d = CalmDialog(act).setTitle("Voice").setMessage((if (OwnKey.has()) "$said goes to OpenAI, on your own account." else "$said goes to OpenAI.") + (credit?.let { "\n\n$it" } ?: "") + (month?.let { "\n\n$it" } ?: ""))
             // (Check the microphone and House rules are their own rows in Settings → Opie.)
             d.setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }
                 .setSingleChoiceItems((listOf("Off") + VOICES.map { it.second }).toTypedArray(), checked) { d, i ->
@@ -155,8 +156,8 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
         ui {
             LiveVoice.chosen = true
             dev.openhouse.ui.Openhouse.settingsChanged()
-            act.setListening(true); dev.openhouse.ui.Openhouse.setWakeWord(true)
-            CalmDialog(act).setTitle("Opie is ready").setMessage("Say “Hey Opie” to use it. What follows goes to OpenAI.")
+            act.setListening(true); dev.openhouse.ui.Openhouse.setWakeWord(MainActivity.heyOpie(act))
+            CalmDialog(act).setTitle("Opie is ready").setMessage(if (MainActivity.heyOpie(act)) "Say “Hey Opie” to use it. What follows goes to OpenAI." else "Tap Opie to talk. What you say goes to OpenAI.")
                 .setPositiveButton("OK", null)
                 .setNegativeButton("Turn off") { _, _ -> OpieChoice.set(act, false); off() }.show()
         }
@@ -173,9 +174,9 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
             }
             LiveVoice.chosen = r.optBoolean("on")
             dev.openhouse.ui.Openhouse.settingsChanged()
-            act.toast(if (!r.optBoolean("on")) "Live voice off" else if (auto) "Opie is on. Say “Hey Opie”" else "Live voice on")
-            if (r.optBoolean("on")) { // Hey Opie listening (there's no button to tap), and new here: it says hello
-                act.setListening(true); dev.openhouse.ui.Openhouse.setWakeWord(true)
+            act.toast(if (!r.optBoolean("on")) "Live voice off" else if (auto) (if (MainActivity.heyOpie(act)) "Opie is on. Say “Hey Opie”" else "Opie is on. Tap to talk") else "Live voice on")
+            if (r.optBoolean("on")) { // Hey Opie listening (or, with Tap to talk, the pill to tap), and new here: it says hello
+                act.setListening(true); dev.openhouse.ui.Openhouse.setWakeWord(MainActivity.heyOpie(act))
                 dev.openhouse.ui.Openhouse.assistantReady()
             }
         }

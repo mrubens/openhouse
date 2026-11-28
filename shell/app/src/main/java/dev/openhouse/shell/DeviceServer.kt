@@ -206,10 +206,10 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms", "/mic-check", "/pin-choices")
+    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms", "/mic-check", "/talk", "/pin-choices")
     /** What the shell can do, for /host (bridge/host.js CAPS; its TABLET_CAPS is the same list, for a shell older than /host). */
     private val HOST_CAN = listOf("screen", "approve", "calendar", "calendar-accounts", "openai", "pin", "google-signin", "drive", "updates",
-        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage", "alarms", "mic-check", "pin-choices")
+        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage", "alarms", "mic-check", "talk", "pin-choices")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -322,6 +322,12 @@ object DeviceServer {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
                 if (b.optString("do") == "start") handler.post { MicCheck.open(a) }
                 200 to JSONObject().put("running", MicCheck.running || b.optString("do") == "start").put("last", MicCheck.last ?: JSONObject.NULL).toString()
+            }
+            // "Hey Opie" or Tap to talk (Opie's hey_opie; Settings → Opie → Talk to Opie, no PIN): {heyOpie} sets it.
+            "/talk" -> {
+                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                if (b.has("heyOpie")) { val on = b.optBoolean("heyOpie"); handler.post { a.setHeyOpie(on); dev.openhouse.ui.Openhouse.settingsChanged() } }
+                200 to JSONObject().put("heyOpie", if (b.has("heyOpie")) b.optBoolean("heyOpie") else MainActivity.heyOpie(a)).toString()
             }
             "/screen" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""

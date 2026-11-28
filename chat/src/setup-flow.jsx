@@ -61,7 +61,7 @@ export function SetupFlow({ me, c, h, onDone }) {
           : <p className="soft">First tap Let phones send photos on the device.</p>}</>}
       </>}
       {step === 'pin' && <PinHere c={c} />}
-      {step === 'android' && <><h1>Last, at the device</h1><p>Two Android settings only the device can change. Tap Done there when you’re finished.</p>
+      {step === 'android' && <><h1>Last, at the device</h1><p>How to talk to Opie, and two Android settings only the device can change. Tap Done there when you’re finished.</p>
         <Invite c={c} family={family} sub /></>}
       {step === 'people' && <SetupPeople c={c} />}
       {step === 'place' && <SetupPlace c={c} />}

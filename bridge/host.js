@@ -34,6 +34,7 @@ export const CAPS = {
   brightness: 'POST /screen: brightness and sleep',
   alarms: 'POST /alarms: it rings the alarm clocks (from the home view) and stops or snoozes the one ringing',
   'mic-check': 'POST /mic-check: the microphone check on its screen (Settings → Opie → Voice), and how the last one went',
+  talk: 'POST /talk: "Hey Opie" or Tap to talk (Settings → Opie → Talk to Opie)',
   'pin-choices': 'POST /pin-choices: what asks for the PIN there, and changing one (always after the PIN, typed there); /approve takes `for` for which choice a card is',
 };
 // What a tablet's shell can do when it doesn't answer /host (one older than the host interface).

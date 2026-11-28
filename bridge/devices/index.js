@@ -652,6 +652,14 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     return { ok: true, text: 'The microphone check is on the device\'s screen: someone there says "Hey Opie" to it, and it shows what it heard. Ask again (mic_check last) to hear how it went.' };
   }
   handle.micCheck = micCheckDo; handle.micCheckOn = () => host.can('mic-check');
+  /** "Hey Opie" or Tap to talk (the voice's "hey_opie" tool): the shell's /talk, as Settings → Opie → Talk to Opie sets it. */
+  async function talkDo({ do: what = 'get' } = {}) {
+    const r = await shell('/talk', what === 'on' || what === 'off' ? { heyOpie: what === 'on' } : {}, 5000);
+    if (!r) return { ok: false, text: 'That needs the device (the shell isn\'t answering).' };
+    if (r.error) return { ok: false, text: r.error };
+    return { ok: true, text: r.heyOpie ? 'Saying "Hey Opie" starts a conversation.' : 'Tap to talk: nothing listens until someone taps the device.' };
+  }
+  handle.talk = talkDo; handle.talkOn = () => host.can('talk');
   /** What asks for the PIN (the voice's "pin_choices" tool): the shell's /pin-choices (PinChoices.kt). Changing one waits
    *  for the PIN on the tablet's own card, which only a person answers. */
   async function pinChoicesDo({ do: what = 'get', choice, ask } = {}) {

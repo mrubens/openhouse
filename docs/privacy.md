@@ -35,6 +35,11 @@ Opie's cloud assistant, which uses OpenAI through our service. Talking out loud 
 the audio to OpenAI for the conversation. Those services handle it under their own terms; our service passes it on and
 doesn't keep what's said or asked.
 
+The device's microphone opens only while Opie's voice is on, and the household chooses how (Settings, Opie, Talk to
+Opie). With "Hey Opie", a small model on the device listens for those two words, and nothing it hears leaves the device
+until they're said. With Tap to talk, the microphone is closed until someone taps, and closes again
+when that conversation ends.
+
 ## The hosted service
 
 Every device checks with us for updates, linked or not. The check carries the device's version and a random install

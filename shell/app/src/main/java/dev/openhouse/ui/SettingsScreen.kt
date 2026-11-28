@@ -139,6 +139,7 @@ private fun Pane(t: SettingsTab, vals: Map<String, String>, compact: Boolean, lo
                 "household" -> SettingsRow("Household", "On the main device", onClick = shell("satellite")) // (a satellite: docs/multi-tablet.md)
                 "opie" -> {
                     SettingsRow("Voice", vals["voice"], asks, shell("voice"))
+                    if (vals["voice"].let { it != null && it != "Off" }) SettingsRow("Talk to Opie", vals["talk"], onClick = shell("talk")) // "Hey Opie" or Tap to talk (no PIN: everyday)
                     SettingsRow("House rules", vals["houseRules"], lockOn, shell("houseRules")) // always the PIN when one is set (HouseRules.kt)
                     SettingsRow("Check the microphone", onClick = shell("micCheck"))
                     SettingsRow("What Opie remembers", vals["memory"], onClick = shell("memory"))

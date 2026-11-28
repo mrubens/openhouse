@@ -146,8 +146,9 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         home = HomeView(this, { uiUrl }) { bridge }
         Runtime.setSafeMode(safeMode)
         root.addView(home.layer, FrameLayout.LayoutParams(-1, -1))
+        dev.openhouse.ui.Openhouse.heyOpie = heyOpie(this)
         dev.openhouse.ui.Openhouse.start(OpenhouseHost())
-        apps = AppHost(this, { bridge }, { uiUrl })
+        apps =AppHost(this, { bridge }, { uiUrl })
         root.addView(apps.layer, FrameLayout.LayoutParams(-1, -1))
         // Over the board and apps: the overlay (the assistant's note, what it hears, typing, the agent at work,
         // conversations, settings).
@@ -227,7 +228,16 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         voice.enabled = micWanted() || MicCheck.running
         if (!micWanted()) LiveVoice.stopNow() else { startVoice(); VoiceModels.ensure(this, bridge, now = true) }
     }
-    /** The microphone (Settings, Hey Opie, with the wake word). */
+    /** How people start talking (Settings → Opie → Talk to Opie, the setup's last step, Opie's hey_opie): "Hey Opie", or
+     *  Tap to talk, where nothing listens until a tap (the microphone stays closed; a tap opens the session's own). */
+    internal fun setHeyOpie(on: Boolean) {
+        getSharedPreferences("shell", MODE_PRIVATE).edit().putBoolean("heyOpie", on).apply()
+        dev.openhouse.ui.Openhouse.heyOpie = on
+        if (LiveVoice.chosen) dev.openhouse.ui.Openhouse.setWakeWord(on)
+        voice.enabled = micWanted() || MicCheck.running
+        if (micWanted()) { startVoice(); VoiceModels.ensure(this, bridge, now = true) }
+    }
+    /** The microphone (Settings, Voice: on and off with the voice). */
     internal fun setListening(on: Boolean) {
         getSharedPreferences("shell", MODE_PRIVATE).edit().putBoolean("listen", on).apply()
         voice.enabled = micWanted() || MicCheck.running
@@ -461,6 +471,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         // The assistant is OpenAI's, through the family's account (Settings → Opie → Voice): no sign-in on the tablet.
         override fun setupDone() { CloudVoiceMenu(this@MainActivity).ready() }
         override fun micFollow() { micFollows() }
+        override fun setHeyOpie(on: Boolean) { main.post { this@MainActivity.setHeyOpie(on) } }
         override fun hasAssistant() = LiveVoice.chosen
         override fun chooseVoice() { main.post { CloudVoiceMenu(this@MainActivity).chooseVoice() } }
         override fun withPin(title: String, ok: () -> Unit) { main.post { askPin(this@MainActivity, this@MainActivity, title, ok) } }
@@ -597,8 +608,11 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         /** The bridge runs on this tablet (so the shell runs and watches it). */
         fun onDevice(bridge: String) = Regex("^https?://(127\\.0\\.0\\.1|localhost)[:/]").containsMatchIn(bridge)
         fun listenOn(c: android.content.Context) = c.getSharedPreferences("shell", android.content.Context.MODE_PRIVATE).getBoolean("listen", android.os.Build.HARDWARE != "ranchu")
-        /** Switched on, the live voice on, and not during the welcome or the setup (Setup.hushed). */
-        fun micWanted(c: android.content.Context) = listenOn(c) && LiveVoice.chosen && !dev.openhouse.ui.Setup.hushed
+        /** "Hey Opie" wakes it (the default), or only a tap does (setHeyOpie). */
+        fun heyOpie(c: android.content.Context) = c.getSharedPreferences("shell", android.content.Context.MODE_PRIVATE).getBoolean("heyOpie", true)
+        /** Listening for "Hey Opie": switched on, waking to it, the live voice on, and not during the welcome or the setup
+         *  (Setup.hushed). With Tap to talk the microphone stays closed until a tap opens a session (its own, LiveVoice). */
+        fun micWanted(c: android.content.Context) = listenOn(c) && heyOpie(c) && LiveVoice.chosen && !dev.openhouse.ui.Setup.hushed
         const val HOST_PKG = BuildConfig.HOST_PKG
         /** The display, while it's running (ConfigReceiver tells it about new settings). */
         @Volatile var live: MainActivity? = null

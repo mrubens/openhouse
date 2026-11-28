@@ -386,9 +386,9 @@ private fun moodAt(now: Long): Mood {
  * Tap to talk; long-press does [onLongPress] (over apps: go home; on the display: type instead).
  */
 @Composable
-fun AssistantFace(onLongPress: () -> Unit, onTap: (() -> Unit)? = null, onSwipe: ((Float) -> Unit)? = null, wide: Boolean = false) {
+fun AssistantFace(onLongPress: () -> Unit, onTap: (() -> Unit)? = null, onSwipe: ((Float) -> Unit)? = null, wide: Boolean = false, label: String? = null) {
     val now by produceState(System.currentTimeMillis()) { while (true) { value = System.currentTimeMillis(); kotlinx.coroutines.delay(200) } }
-    Face(moodAt(now), now, onLongPress, onTap, onSwipe, wide)
+    Face(moodAt(now), now, onLongPress, onTap, onSwipe, wide, label)
 }
 
 private fun tail(t: String, max: Int = 110): String {
@@ -433,7 +433,7 @@ private fun Bubble(label: String?, text: String, foot: String?, left: Float, lis
  *  - talking: the accent color, its bars moving with its own voice ("my turn").
  *  At rest it isn't shown. Typing has its own box, and a finished answer its card. */
 @Composable
-private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> Unit)? = null, onSwipe: ((Float) -> Unit)? = null, wide: Boolean = false) {
+private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> Unit)? = null, onSwipe: ((Float) -> Unit)? = null, wide: Boolean = false, label: String? = null) {
     @Suppress("NAME_SHADOWING") val mood = when (mood) { Mood.Typing, Mood.Replied -> Mood.Asleep; Mood.Hearing -> Mood.Listening; Mood.Working -> Mood.Thinking; else -> mood }
     val awake = mood != Mood.Asleep
     // Only awake does anything animate every frame; asleep follows `now` (five ticks a second) and stays still.
@@ -478,7 +478,9 @@ private fun Face(mood: Mood, now: Long, onLongPress: () -> Unit, onTap: (() -> U
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(if (wide) Modifier.size(92.u, 26.u) else Modifier.size(30.u, 28.u)) {
+            // At rest with Tap to talk: the words, not the bars (nothing is listening, so nothing should look like it).
+            if (wide && label != null && mood == Mood.Asleep) Text(label, style = dev.openhouse.ui.quietText(18, androidx.compose.ui.text.font.FontWeight.Medium, ink), maxLines = 1)
+            else Canvas(if (wide) Modifier.size(92.u, 26.u) else Modifier.size(30.u, 28.u)) {
                 val n = if (mood == Mood.Asleep) 4 else if (wide) 9 else 5
                 val bw = if (wide) size.width * 0.06f else size.width * 0.13f; val gap = (size.width - n * bw) / (n - 1)
                 val arc = { i: Int -> if (n == 5) floatArrayOf(0.6f, 0.85f, 1f, 0.85f, 0.6f)[i] else 0.5f + 0.5f * sin(PI * (i + 0.5) / n).toFloat() } // taller in the middle
