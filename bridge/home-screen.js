@@ -34,6 +34,7 @@ import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { shareGate } from './share-guard.js';
 import * as G from './grid.js';
 
 /** /door, /door/x (the first names, which older phones, shells and the cloud's phone page still call) as /home, /home/x. */
@@ -189,6 +190,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   for (const n of homeScreen.notes) { n.content = fenced(n.content); delete n.refitting; } // notes saved in an older shape read right again; no refit outlives a restart
   homeScreen.places ||= {}; // where the other things on the home screen are (the clock, the weather, apps, the home app's own things)
   homeScreen.trash ||= []; // notes the family dragged to the trash, newest first, so they can be put back
+  homeScreen.pending ||= []; // notes someone typed for a later time (home-note.js), {id, text, for, from, aloud, at}: up on Home then
   // Once, when the board became the Apps tab and notes moved to Home: the notes the assistant kept current for the
   // board on its own (by: 'assistant', from its hourly look) are put aside, kept in door.json, so Today shows the notes
   // someone asked for.
@@ -365,6 +367,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
         `${x.by === 'family' ? 'kept by the family' : x.keep ? 'kept' : x.until ? `comes down by itself in ${Math.max(1, Math.round((x.until - Date.now()) / 60e3))} min` : 'stays until taken down'}` +
         `${x.for ? `; for ${x.for}` : ''}; put up ${ago(x.at)} by ${x.by === 'chat' ? `you, answering ${x.askedBy || 'someone'}` : 'the family'}` +
         `${x.touched ? `; last opened ${ago(x.touched)}` : ''}`);
+    for (const x of homeScreen.pending) lines.push(`- ${x.id} "${x.text.slice(0, 60)}"; goes up ${new Date(x.at).toLocaleString('en-US', { weekday: 'short', hour: 'numeric', minute: '2-digit' })}${x.aloud ? ', said aloud' : ''}${x.for ? `; for ${x.for}` : ''}${x.from ? `; from ${x.from}` : ''}`);
     if (homeScreen.trash.length) lines.push(`Taken down by the family (put_back brings one back): ${homeScreen.trash.map((x) => `${x.id} "${x.title}"`).join(', ')}.`);
     return lines.join('\n');
   }
@@ -525,6 +528,8 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
         for: { type: 'string', description: "A family member's name, if it's for them." },
         minutes: { type: 'number', description: 'Take it down by itself after this many minutes (quick things: 10-30). Leave out to keep it until it is taken down.' },
         keep: { type: 'boolean', description: 'Only if someone asked to keep it.' },
+        at: { type: 'string', description: 'Only when they asked for it to go up later: a local time ("16:00", "2026-11-28T16:00"). It goes up then, as the family\'s note.' },
+        aloud: { type: 'boolean', description: 'Only when they asked: the device also reads it aloud in its own voice when it goes up (never in the night hours).' },
       } } },
     { name: 'update_note', description: 'Change a note in place: its title or content as things move on (a follow-up, the next part of a plan), or when it comes down. Prefer this to putting up a second note about the same thing.',
       inputSchema: { type: 'object', required: ['id'], properties: {
@@ -548,11 +553,18 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   async function call(name, a, context) {
     // A background run (the heartbeat, heartbeat.js) gets only the tools its level allows, and a few notes a day.
     if (context?.allow && !context.allow.has(name)) return { content: [{ type: 'text', text: `Not in the background: ${name} isn't allowed at this level.` }], isError: true };
+    // A turn from a share from someone's phone: offers and adding only, whatever the shared thing says (share-guard.js).
+    if (context?.share) { const g = shareGate(name, a, context.share, { offer: (evs, s) => handle.offerShared?.(evs, s) || { error: 'The calendar can\'t take offers right now.' } }); if (g?.result) return g.result; if (g?.args) a = g.args;
+      if (g?.did) { const r = await call(name, a, { ...context, share: null }); if (!r?.isError) context.share.did?.push(g.did); return r; } }
     if (extraCall.has(name)) return extraCall.get(name)(name, a, context === NOBODY ? null : context);
     const ok = (t) => ({ content: [{ type: 'text', text: t }] });
     const err = (t) => ({ content: [{ type: 'text', text: t }], isError: true });
     if (name === 'look_at_notes') return ok(describe());
     if (name === 'put_note' && context?.notesLeft != null && context.notesLeft <= 0) return err('No more notes today from the background.');
+    if (name === 'put_note' && (a.at || a.aloud) && handle.typed) { // as someone's typed note (home-note.js): at its time, said by the device
+      const r = handle.typed.add({ text: [a.title, a.content].filter((x) => String(x || '').trim()).join(': '), for: a.for, at: a.at, aloud: a.aloud }, context?.who || null);
+      return r.error ? err(r.error) : ok(r.at ? `It goes up on Home ${new Date(r.at).toLocaleString('en-US', { weekday: 'long', hour: 'numeric', minute: '2-digit' })}${a.aloud ? ', said aloud' : ''}.` : `Put up ${r.note?.id} on Home${a.aloud ? ' and said it' : ''}.`);
+    }
     if (name === 'put_note') { const r = put(a, {}, context); if (!r.error && context?.notesLeft != null) context.notesLeft--; return r.error ? err(r.error) : ok(`Put up ${r.note.id} "${r.note.title}" on Home.`); }
     if (name === 'update_note') { const r = update(a, context); return r.error ? err(r.error) : ok(`Updated ${r.note.id}.`); }
     if (name === 'set_widget') { const r = setWidget(a); return r.error ? err(r.error) : ok(String(a.content || '').trim() ? `Set ${String(a.app).replace(/^app:/, '')}'s widget.` : 'Took the widget away.'); }
@@ -589,6 +601,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
       return r.error ? err(r.error) : ok(`Done, it's on the screen now. ${line(r.style.cards)}`);
     }
     if (name === 'take_down_note') {
+      if (!context.quiet && handle.pending.remove(String(a.id || ''))) return ok(`${a.id} won't go up.`); // (one waiting for its time)
       const n = homeScreen.notes.find((x) => x.id === a.id);
       if (n && (n.by === 'family' || n.keep) && context.by === 'assistant') return err('The family kept that one. Leave it.');
       if (n && context.quiet && n.by !== 'assistant') return err('Only your own notes, in the background.');
@@ -732,6 +745,12 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   handle.arrange = arrange;
   handle.setWidget = setWidget;
   handle.put = (a, opts, ctx) => put(a, opts, ctx || NOBODY);
+  /** Notes waiting for their time (home-note.js): kept in door.json, so a restart keeps them. */
+  handle.pending = {
+    list: () => homeScreen.pending.slice(),
+    add: (x) => { const n = { id: 'p-' + crypto.randomUUID().slice(0, 6), ...x }; homeScreen.pending = [...homeScreen.pending, n].slice(-100); save(); return n; },
+    remove: (id) => { const before = homeScreen.pending.length; homeScreen.pending = homeScreen.pending.filter((x) => x.id !== id); if (homeScreen.pending.length !== before) save(); return homeScreen.pending.length !== before; },
+  };
   /** A token for an agent started ahead of its run (a warm one); the run attaches it. */
   handle.mint = mint;
   /** The run this token belongs to while it is running (its context), else null. Never the shared token. (chat.js callText) */

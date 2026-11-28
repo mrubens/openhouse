@@ -280,10 +280,11 @@ internal object Speech {
             o.scope.launch { o.post("/voice/quiet"); cbs.forEach { it() } }
         }
     }
-    fun say(text: String, about: String?) {
+    /** own: only ever this engine, never the live voice (a note someone typed, read aloud: bridge/home-note.js). */
+    fun say(text: String, about: String?, own: Boolean = false) {
         if (Setup.hushed) return // the welcome and the setup say nothing aloud (nothing until it is over)
         val t = Answers.speakable(text); if (t.isEmpty()) return
-        if (sink?.invoke(t) == true) return
+        if (!own && sink?.invoke(t) == true) return
         val e = tts ?: return
         if (!ttsReady) return
         val age = Regex("age\\s*(\\d+)", RegexOption.IGNORE_CASE).find(about ?: "")?.groupValues?.get(1)?.toIntOrNull()

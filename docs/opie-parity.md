@@ -48,6 +48,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Alarms: add, change, turn on or off, delete, snooze, stop (Home's clock, the phone page, the ringing screen) | yes | alarm |
 | Today's lines (things): take one down | yes | take_down_thing |
 | Notes: open, take down | yes | look_at_notes, take_down_note; put_note and update_note too |
+| Notes: write one (Home's plus, the phone's box): for someone, later, read aloud | **new** | put_note's at and aloud; read aloud in the device's own voice, never at night (home-note.js); take_down_note stops one that's waiting |
 | Put back a note taken down, or an app taken off Apps | **new** | put_back (was typed-only) |
 | Take an app off the Apps tab | screen | Rare; hold the tile, Take it off Apps |
 | An Android app in Apps: float its video over Home, or not (hold the tile) | **new** | video_app; the device asks for the PIN itself when Add apps asks for it, as the hold menu does |

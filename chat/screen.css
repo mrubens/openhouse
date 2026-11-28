@@ -432,6 +432,11 @@ body { background: var(--surface); color: var(--ink); font-family: var(--round);
 .t-nsheet .h-chip { font-size: calc(var(--u) * 15); padding: calc(var(--u) * 10) calc(var(--u) * 15); }
 .t-nsheet .t-nacts .h-chip { font-size: calc(var(--u) * 16); padding: calc(var(--u) * 13) calc(var(--u) * 22); }
 .h-chips { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 8); margin-top: calc(var(--u) * 18); }
+/* a note typed for Home (note-form.jsx) */
+.t-write-box { display: block; width: 100%; box-sizing: border-box; font: inherit; font-size: calc(var(--u) * 21); line-height: 1.35; padding: calc(var(--u) * 14) calc(var(--u) * 16); border: 0; border-radius: calc(var(--u) * 16); background: var(--h-tint); color: var(--h-ink); resize: none; outline: none; }
+input.t-write-box { margin-top: calc(var(--u) * 14); font-size: calc(var(--u) * 18); }
+.t-write .h-chip:disabled { opacity: .35; }
+.t-write .h-chip.picked { box-shadow: inset 0 0 0 2px var(--h-ink); }
 /* a pill: soft (secondary); .on is the ink one (primary, or the chosen one) */
 .h-chip { padding: calc(var(--u) * 11) calc(var(--u) * 18); border-radius: 999px; background: var(--h-tint); color: var(--h-ink); font-size: calc(var(--u) * 17); font-weight: 600; white-space: nowrap; }
 .h-chip.on { background: var(--h-ink); color: var(--h-sheet); box-shadow: 0 8px 18px -8px color-mix(in srgb, var(--h-ink) 50%, transparent); }

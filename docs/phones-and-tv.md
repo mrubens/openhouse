@@ -52,6 +52,12 @@ Web Push, sent by the tablet itself (`bridge/web-push.js`: RFC 8291 encryption, 
 example, and VAPID; only Apple's, Google's, Mozilla's and Microsoft's push hosts are accepted as addresses). A phone
 that unsubscribed is forgotten.
 
+Today on a phone has a box for a note on Home (`chat/src/note-form.jsx`, `POST /home/note`, `bridge/home-note.js`),
+as Home's own Notes plus does on the device: up to 280 characters, for someone or everyone, now or at a time, and read
+aloud if they ask. Read aloud is the device's own speech engine (`Speech.kt`), never a model or the cloud's voice, and
+never in the night hours or after Sleep now. One for later waits in `door.json`, so a restart keeps it. A phone may
+send 20 an hour; a kid's phone may too (`arrange`), a TV can't.
+
 Opie can message someone's phones, or everyone's ("tell Alex dinner's ready", "let everyone know we're leaving in
 10 minutes"): `message_family` in `bridge/live-tools.js`, to a name from the household's family list or everyone. It
 goes by the same Web Push ("From the tablet", or "From Sam" when Sam asked from her phone, then the words as said),

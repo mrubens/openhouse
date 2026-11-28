@@ -84,7 +84,7 @@ internal object Listening {
             // the microphone is off and nothing listens.)
             // (at: when the bridge heard it, on this tablet's clock: what's said from then on is kept for the session.)
             "wake" -> { o.touch(); Speech.stop(); liveHook?.invoke("", "wake", ev.optLong("at").takeIf { it > 0 } ?: System.currentTimeMillis()) }
-            "say" -> ev.s("text")?.let { Speech.say(it, ev.s("who")) } // an app's words (kit say)
+            "say" -> ev.s("text")?.let { Speech.say(it, ev.s("who"), own = ev.optBoolean("own")) } // an app's words (kit say); own: a typed note, in this device's own voice
             // What it was hearing turned out not to be for it (its own voice, the room): the words it showed go, and a
             // tap is no longer "done talking".
             "dropped" -> { o.partial = null; o.hearingAt = 0 }
