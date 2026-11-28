@@ -225,10 +225,13 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             thread {
                 Thread.sleep(500) // typing: only the last search
                 if (asked != query) return@thread
-                val hits = runCatching { AppStore.search(query) }.getOrDefault(emptyList()).filter { it.first != "(name not shown)" }.take(4)
+                // On the device already (installed outside Opie, or before it): first, whatever Google Play's search returns.
+                val local = AppStore.onDevice(query).take(4)
+                val hits = runCatching { AppStore.search(query) }.getOrDefault(emptyList()).filter { it.first != "(name not shown)" && local.none { l -> l.second == it.second } }.take(4)
                 ui {
                     if (asked != query) return@ui
                     play.removeAllViews()
+                    for ((name, pkg) in local) play.addView(line(name, "On this device", null) { addInstalled(pkg, name) })
                     if (hits.isEmpty()) return@ui
                     play.addView(Calm.eyebrow(c, "Google Play").apply { setPadding(Calm.px(c, 16), Calm.px(c, 22), 0, Calm.px(c, 6)) })
                     for ((name, pkg) in hits) {
