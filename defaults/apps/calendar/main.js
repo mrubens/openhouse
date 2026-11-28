@@ -105,6 +105,8 @@ const AGENDA_DAYS = 21;
 const START_VIEW = 'week';
 /** A phone (docs/phones.md, "Narrow screens"): the week is a list under its days, and the top row is shorter. */
 const narrow = () => matchMedia('(max-width: 700px)').matches;
+/** How far it reaches, in months (the bridge's REACH): a year back, 18 months ahead. */
+const BACK_MONTHS = 12, AHEAD_MONTHS = 18;
 const REPEATS = [[null, 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month'], ['yearly', 'Every year']];
 
 let H = null, events = [], allEvents = [], view = START_VIEW, weeks = 0, months = 0, days = 0;
@@ -123,6 +125,62 @@ const peopleRow = () => ((H?.family || []).length > 1 ? h('div', { class: 'peopl
 /** The day view's hours (it scrolls to now; earlier and later are a scroll away). */
 const FIRST_HOUR = 0, HOURS = 24, HOUR_U = 60;
 let scrolledTo = null; // the day the day view last scrolled itself to (after that it stays where they put it)
+
+// ---- further back and ahead --------------------------------------------------------------------------------
+// The house's view holds the near weeks (H.eventsWindow). A month outside them is read when the calendar steps there
+// (house.eventsIn), once, and kept here: stepping back and forth doesn't read it again each tap. Anything changing in
+// the house marks them stale, and the ones on screen are read again (once).
+const far = new Map(); // first of the month (ms) -> { at, list, loading?, stale? }
+const nearWindow = () => (H?.eventsWindow ? [Date.parse(H.eventsWindow.from), Date.parse(H.eventsWindow.to)] : [dayStart(Date.now(), -35), dayStart(Date.now(), 70)]);
+const evKey = (e) => `${e.id || e.uid || e.title}|${e.start}`;
+/** The days [a, b) on screen: read the months among them outside the near weeks that aren't here yet (or are stale). */
+function wantFar(a, b) {
+  const [n0, n1] = nearWindow();
+  if (a >= n0 && b <= n1) return;
+  const need = [];
+  for (let m = monthStart(a); m < b; m = monthStart(m, 1)) {
+    if (m >= n0 && monthStart(m, 1) <= n1) continue;
+    const f = far.get(m);
+    if (!f || (!f.loading && (f.stale || Date.now() - f.at > 10 * 60e3))) need.push(m);
+  }
+  if (!need.length) return;
+  for (const m of need) far.set(m, { ...(far.get(m) || { list: [], at: 0 }), loading: true });
+  const end = monthStart(need.at(-1), 1);
+  house.eventsIn(need[0], end).then((list) => {
+    for (const m of need) { const m1 = monthStart(m, 1); far.set(m, { at: Date.now(), list: list.filter((e) => Date.parse(e.end || e.start) > m && Date.parse(e.start) < m1) }); }
+    rebuild(); draw();
+  });
+}
+/** Every event this screen has: the near weeks from the house, and the months read further out. */
+function rebuild() {
+  const [n0, n1] = nearWindow(), base = H?.events || [], seen = new Set(base.map(evKey)), extra = [];
+  for (const f of far.values()) for (const e of f.list) {
+    const t = Date.parse(e.start);
+    if ((t >= n0 && t < n1) || seen.has(evKey(e))) continue; // (the near weeks are the house's own, newer)
+    seen.add(evKey(e)); extra.push(e);
+  }
+  allEvents = [...base, ...extra].map((e) => ({ ...e, t0: Date.parse(e.start), t1: e.end ? Date.parse(e.end) : null })).filter((e) => !isNaN(e.t0));
+}
+
+/** Go to a month: the years it reaches, a row of months each (the calendar's title opens it). */
+function monthsCard() {
+  const today = dayStart(Date.now()), first = monthStart(today, -BACK_MONTHS), cur = monthStart(view === 'month' ? monthStart(today, months) : view === 'day' ? dayStart(today, days) : dayStart(today, weeks * DAYS));
+  const years = [...new Set([...Array(BACK_MONTHS + AHEAD_MONTHS + 1)].map((_, i) => new Date(monthStart(first, i)).getFullYear()))];
+  const go = (m) => {
+    const n = (new Date(m).getFullYear() - new Date(today).getFullYear()) * 12 + new Date(m).getMonth() - new Date(today).getMonth();
+    if (view === 'list') view = 'month';
+    if (view === 'month') months = n;
+    else if (view === 'day') days = Math.round((m - today) / 864e5);
+    else weeks = Math.floor(Math.round((weekStart(m) - weekStart(today)) / 864e5) / 7);
+  };
+  openCard((close) => [
+    ...years.map((y) => h('div', { class: 'year' }, h('h2', null, String(y)), h('div', { class: 'mgrid' }, [...Array(12)].map((_, i) => {
+      const m = new Date(y, i, 1).getTime(), out = m < first || m > monthStart(today, AHEAD_MONTHS);
+      return h('button', { class: 'mchip' + (m === cur ? ' on' : '') + (m === monthStart(today) ? ' this' : ''), disabled: out, tap: out ? null : () => { close(); go(m); draw(); } }, fmt(m, { month: 'short' }));
+    })))),
+    h('div', { class: 'actions' }, btn('Close', close, { soft: true })),
+  ], { width: 1100 });
+}
 
 function draw() {
   events = allEvents.filter(shownOn);
@@ -253,18 +311,22 @@ function screen() {
   if (!H) return h('div');
   const today = dayStart(Date.now()), from = dayStart(today, weeks * DAYS), oneDay = dayStart(today, days), small = narrow();
   const at = view === 'month' ? monthStart(today, months) : view === 'list' ? today : from;
-  const [name, rest] = view === 'day' ? [fmt(oneDay, { weekday: small ? 'short' : 'long' }), fmt(oneDay, { month: small ? 'short' : 'long', day: 'numeric' })] : [fmt(at, { month: 'long' }), small ? null : fmt(at, { year: 'numeric' })];
+  const [name, rest] = view === 'day' ? [fmt(oneDay, { weekday: small ? 'short' : 'long' }), fmt(oneDay, { month: small ? 'short' : 'long', day: 'numeric' })] : [fmt(at, { month: 'long' }), small && new Date(at).getFullYear() === new Date(today).getFullYear() ? null : fmt(at, { year: 'numeric' })];
   const set = (f) => () => { f(); draw(); };
   // Stepping: earlier, later and back to today (how far each view goes is the same as ever).
-  const step = view === 'day' ? { back: () => days--, noBack: days <= -30, on: () => days++, noOn: days >= 60, home: () => { days = 0; }, away: days !== 0 }
-    : view === 'week' ? { back: () => weeks--, noBack: weeks <= -4, on: () => weeks++, noOn: weeks >= 9, home: () => { weeks = 0; }, away: weeks !== 0 }
-    : view === 'month' ? { back: () => months--, noBack: months <= -1, on: () => months++, noOn: months >= 2, home: () => { months = 0; }, away: months !== 0 } : null;
+  // As far as it reaches (BACK_MONTHS, AHEAD_MONTHS): from the first of the month a year ago to the end of the last one ahead.
+  const earliest = monthStart(today, -BACK_MONTHS), latest = monthStart(today, AHEAD_MONTHS + 1);
+  const step = view === 'day' ? { back: () => days--, noBack: dayStart(today, days - 1) < earliest, on: () => days++, noOn: dayStart(today, days + 1) >= latest, home: () => { days = 0; }, away: days !== 0 }
+    : view === 'week' ? { back: () => weeks--, noBack: dayStart(from, -1) < earliest, on: () => weeks++, noOn: dayStart(from, DAYS) >= latest, home: () => { weeks = 0; }, away: weeks !== 0 }
+    : view === 'month' ? { back: () => months--, noBack: months <= -BACK_MONTHS, on: () => months++, noOn: months >= AHEAD_MONTHS, home: () => { months = 0; }, away: months !== 0 } : null;
+  { const a = view === 'month' ? weekStart(monthStart(today, months)) : view === 'day' ? oneDay : view === 'week' ? from : today;
+    wantFar(a, dayStart(a, view === 'month' ? 42 : view === 'day' ? 1 : view === 'week' ? DAYS : AGENDA_DAYS)); }
   swipeStep = step && !sheets.length ? { back: step.noBack ? null : set(step.back), on: step.noOn ? null : set(step.on) } : null;
   const tools = [round('photo', fromPhoto, { label: 'From a photo of a flyer' }), round('bell', remindersCard, { label: 'Reminders' })];
   const link = (label, tap) => h('button', { class: 'quiet', tap }, label);
   return h('div', { class: 'screen' },
     h('div', { class: 'top' },
-      h('h1', { class: 'title' }, name, rest ? [' ', h('span', null, rest)] : null),
+      h('h1', { class: 'title' }, h('button', { class: 'go', tap: monthsCard }, name, rest ? [' ', h('span', null, rest)] : null, icon('down', 'thin'))),
       h('div', { class: 'q-seg' }, VIEWS.map(([k, l]) => h('button', { class: view === k ? 'on' : null, 'aria-pressed': String(view === k), tap: set(() => { view = k; }) }, l))),
       step ? [round('left', set(step.back), { disabled: step.noBack, label: 'Earlier' }), small ? null : chip('Today', false, set(step.home)), round('right', set(step.on), { disabled: step.noOn, label: 'Later' })] : null,
       small ? null : tools,
@@ -780,7 +842,8 @@ const linkAsked = new URLSearchParams(location.hash.slice(1)).get('do') === 'lin
 house.subscribe((d) => {
   H = d;
   if (addAsked) { const fresh = Date.now() - addAsked < 15e3; addAsked = 0; if (fresh) setTimeout(() => { if (linkAsked) { addCalendar(); return; } const d = dayStart(Date.now()); eventForm(null, d, startFor(d)); }, 0); }
-  allEvents = (d.events || []).map((e) => ({ ...e, t0: Date.parse(e.start), t1: e.end ? Date.parse(e.end) : null })).filter((e) => !isNaN(e.t0));
+  for (const f of far.values()) f.stale = true; // (something changed: the months on screen are read again)
+  rebuild();
   draw(); showFlyer();
   if (afterPin && H.unlockedUntil > Date.now()) { const fn = afterPin; afterPin = null; if (Date.now() - afterPinAt < 120e3) fn(); } // the PIN was just given (not long after asking)
 });

@@ -1,7 +1,7 @@
 // The calendar: events added on the display (they can repeat), the synced ones with what this display keeps about them
 // (whose, a countdown, a reminder), the reminders due now, and the PIN lock on changes from apps and from Opie.
 import crypto from 'node:crypto';
-import { DAY, REPEATS, dayKey, midnightAfter, wholeDays, validDay, str, same, arr } from './util.js';
+import { DAY, REPEATS, REACH, dayKey, midnightAfter, wholeDays, validDay, str, same, arr } from './util.js';
 
 export default function (house) {
   const { data, save, changed, prune, board, appEvents, calendarEvents } = house;
@@ -30,10 +30,30 @@ export default function (house) {
     return out;
   }
   let localCache = null; // events added here, expanded: kept while the data and the minute are the same
+  /** The near weeks every screen gets in the view (35 days back, 70 ahead: a month either way); further is eventsIn. */
+  const nearWindow = () => { const minute = Math.floor(Date.now() / 60e3); return { from: (minute * 60e3) - 35 * DAY, to: (minute * 60e3) + 70 * DAY }; };
   function events() {
-    const minute = Math.floor(Date.now() / 60e3), from = (minute * 60e3) - 35 * DAY, to = (minute * 60e3) + 70 * DAY; // enough for a month view either way
+    const minute = Math.floor(Date.now() / 60e3), { from, to } = nearWindow();
     if (localCache?.rev !== house.rev() || localCache.minute !== minute) localCache = { rev: house.rev(), minute, list: data.events.flatMap((e) => occurrences(e, from, to)).map((e) => ({ ...e, local: true })) };
-    const local = localCache.list;
+    return shown([...calendarEvents(), ...localCache.list, ...appEvents()], from, to);
+  }
+  /** Events between [from] and [to] (ms), however far back or ahead (REACH): the Calendar app stepping to another month,
+   *  Opie asked about one. Synced calendars are read for it when it's outside the near weeks (board.calendarRange). */
+  async function eventsIn(from, to) {
+    const local = data.events.flatMap((e) => occurrences(e, from, to)).map((e) => ({ ...e, local: true }));
+    const synced = board.calendarRange ? await board.calendarRange(from, to) : calendarEvents();
+    return shown([...synced, ...local, ...appEvents()], from, to);
+  }
+  /** eventsIn by days ("YYYY-MM-DD", the second not included), held to REACH and to a few months at a time. */
+  async function eventsInDays(a, b) {
+    if (!validDay(a) || !validDay(b)) return { error: 'from and to: YYYY-MM-DD' };
+    const lo = Date.now() - (REACH.back + 7) * DAY, hi = Date.now() + (REACH.ahead + 7) * DAY;
+    const from = Math.max(new Date(a + 'T00:00:00').getTime(), lo), to = Math.min(new Date(b + 'T00:00:00').getTime(), hi, from + 190 * DAY);
+    if (!(to > from)) return { events: [], from: a, to: b };
+    return { events: await eventsIn(from, to), from: dayKey(new Date(from)), to: dayKey(new Date(to)) };
+  }
+  /** Events as screens show them: whose, a countdown, a reminder and where they came from, between [from] and [to]. */
+  function shown(list, from, to) {
     // A countdown is on that one event; once it's over it's gone (a weekly class counting down again every week isn't
     // worth the space: the user, "who cares?").
     const cd = new Set(data.countdowns);
@@ -44,7 +64,7 @@ export default function (house) {
     const kept = (e) => { const k = e.calendar && e.uid && data.srcs[e.uid.replace(/\|.*$/, '')]; return k ? { ...e, src: k.src, ...(k.from ? { srcFrom: k.from } : {}) } : e; };
     // An added event's email or flyer photo, while it's kept (the latest 5 photos; an email's week): else not shown.
     const source = (e) => (e.src && !house.sourceKept?.(e.src) ? (({ src, srcFrom, ...r }) => r)(e) : e);
-    return [...calendarEvents().map(whose).map(kept).map((e) => (e.uid && counted(e.uid) ? { ...e, countdown: true } : e)), ...local, ...appEvents()]
+    return list.map((e) => (e.local || e.fromApp ? e : (({ ...x }) => (x.uid && counted(x.uid) ? { ...x, countdown: true } : x))(kept(whose(e)))))
       .filter((e) => new Date(e.end || e.start) > from && new Date(e.start) < to)
       .map(source)
       .map((e) => { // remind: its own minutes (the household's when absent); remindAt: when it's due
@@ -230,5 +250,5 @@ export default function (house) {
   }
   const unlocked = () => unlockedUntil;
   function setUnlocked(ms) { unlockedUntil = ms; }
-  return { occurrences, events, reminders, changeEvents, remindMin, calendarPin, unlocked, setUnlocked };
+  return { occurrences, events, eventsIn, eventsInDays, nearWindow, reminders, changeEvents, remindMin, calendarPin, unlocked, setUnlocked };
 }

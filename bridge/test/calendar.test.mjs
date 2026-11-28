@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parse } from '../calendar.js';
+import { parse, calendars } from '../calendar.js';
 import { houseRoutes } from '../house.js';
 
 const ics = (...events) => ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Sample//EN', ...events.flat(), 'END:VCALENDAR', ''].join('\r\n');
@@ -109,5 +109,32 @@ test('events added on the tablet, repeating across the spring change: same time 
       [['2027-03-07', '00:00', '2027-03-08', '00:00'], ['2027-03-14', '00:00', '2027-03-15', '00:00'], ['2027-03-21', '00:00', '2027-03-22', '00:00']]);
     const piano = h.localEvents().filter((e) => e.title === 'Piano').slice(0, 3);
     assert.deepEqual(piano.map((e) => [day(e.start), clock(e.start), clock(e.end)]), [['2027-03-04', '16:00', '17:00'], ['2027-03-11', '16:00', '17:00'], ['2027-03-18', '16:00', '17:00']]);
+  } finally { mock.timers.reset(); }
+});
+
+// Reach: the Calendar app's month view nine months out, and ten back. Events kept here aren't thrown away for a year
+// (prune runs on every add), and a link calendar's file has the far months too.
+test('nine months ahead and ten back: the household\'s own events and a link calendar\'s are there when that month is read', async () => {
+  mock.timers.enable({ apis: ['Date'], now: local('2026-11-28T10:00') });
+  try {
+    const DIR = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), 'x'); fs.mkdirSync(DIR);
+    const cal = calendars({ DIR });
+    cal.setFeeds([{ id: 'f1', who: 'Sam', ics: ics(ev('UID:reunion@sample', 'DTSTART;TZID=America/Chicago:20270820T180000', 'DTEND;TZID=America/Chicago:20270820T210000', 'SUMMARY:Reunion')) }]);
+    const board = { householdView: () => ({ family: [{ name: 'Maya' }], chores: [], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => cal.events(),
+      calendarRange: async (from, to) => cal.range(from, to) };
+    let out = null;
+    const h = houseRoutes({ DIR, json: (res, code, obj) => { out = { code, obj }; }, body: async () => ({}), board });
+    const add = async (a) => { const r = await h.call('calendar_event', { add: a }); assert.ok(!r.isError, r.content[0].text); };
+    await add({ title: 'Science fair', start: '2027-08-25T10:00', who: 'Maya' });
+    await add({ title: 'School play', start: '2026-01-15T18:00', who: 'Maya' }); // ten months back
+    await add({ title: 'Long ago', start: '2025-08-01T18:00' }); // past what's kept
+    await add({ title: 'Piano', start: '2026-12-03T16:00', repeat: 'weekly' }); // (another add: prune runs again)
+    assert.ok(!h.events().some((e) => ['Science fair', 'Reunion'].includes(e.title)), 'not in the near weeks every screen gets');
+    const month = async (from, to) => { out = null; await h({ method: 'GET', headers: { 'x-openhouse-app': 'calendar' } }, {}, new URL(`http://x/house/events?from=${from}&to=${to}`)); assert.equal(out.code, 200); return out.obj.events.map((e) => e.title); };
+    const aug = await month('2027-08-01', '2027-09-01');
+    assert.ok(aug.includes('Science fair') && aug.includes('Reunion'));
+    assert.equal(aug.filter((t) => t === 'Piano').length, 4, 'a repeating one, each week of that month');
+    assert.deepEqual(await month('2026-01-01', '2026-02-01'), ['School play'], 'kept a year back');
+    assert.deepEqual(await month('2025-07-01', '2025-09-01'), [], 'past the reach');
   } finally { mock.timers.reset(); }
 });

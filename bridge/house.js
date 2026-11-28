@@ -15,6 +15,9 @@
 // POST /house/meal             { date: "YYYY-MM-DD", meal?: "dinner", text } (empty text clears it) | { favorite: text, value? }
 // POST /house/meal/ingredients { date, meal? }  the assistant puts what that meal needs on Groceries
 // POST /house/event            { add: {title, start, end?, allDay?, who?, repeat?, until?} } | { remove: id, date? }
+// GET  /house/events?from=YYYY-MM-DD&to=YYYY-MM-DD  { events } between those days, as view().events has them: up to
+//                              a year back and 18 months ahead (REACH), synced calendars read for it (house/events.js eventsIn)
+//   view(): eventsWindow {from, to}: the near weeks view().events covers (ISO); further is GET /house/events
 // POST /house/settings         { night: {from: "21:30", to: "06:30"} | false, remind?: minutes | false, remindAloud?: bool }
 //                              (no photos on the idle screen at night; remind: the reminder every timed event gets)
 // POST /house/flyer?name=x.jpg a photo of a flyer or school notice (the body): the assistant reads its events
@@ -56,7 +59,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
-import { AISLES, PEOPLE, aisleOf, dayKey, daysFrom, MEDIA, VIDEO, MAX_VIDEO, DAY, NIGHT, SHOWS, str } from './house/util.js';
+import { AISLES, PEOPLE, aisleOf, dayKey, daysFrom, MEDIA, VIDEO, MAX_VIDEO, DAY, NIGHT, SHOWS, REACH, str } from './house/util.js';
 import assistantPart from './house/assistant.js';
 import listsPart from './house/lists.js';
 import choresPart from './house/chores.js';
@@ -140,14 +143,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     waiters.clear();
   }
 
-  function prune() { // keep two months of checkmarks and meals
-    const cut = dayKey(daysFrom(-60));
+  function prune() { // keep two months of checkmarks and meals, and 13 months of the household's own events (REACH)
+    const cut = dayKey(daysFrom(-60)), back = dayKey(daysFrom(-REACH.back - 31));
     for (const k of Object.keys(data.done)) if (k < cut) delete data.done[k];
     for (const k of Object.keys(data.skipped)) if (k < cut) delete data.skipped[k];
     for (const k of Object.keys(data.by)) if (k < cut) delete data.by[k];
     for (const k of Object.keys(data.checked)) if (k < cut) delete data.checked[k];
     for (const k of Object.keys(data.meals)) if (k < cut) delete data.meals[k];
-    data.events = data.events.filter((e) => e.repeat ? !e.until || e.until >= cut : new Date(e.end || e.start) > Date.now() - 60 * DAY);
+    data.events = data.events.filter((e) => e.repeat ? !e.until || e.until >= back : new Date(e.end || e.start) > Date.now() - (REACH.back + 31) * DAY);
   }
 
   // household.json, read once for a whole view (the family, the chores, the events kept there) and not again for each
@@ -171,6 +174,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       calendarTargets: board.sync?.targets() || [], // two-way calendars new events can go into (calendar-sync.js)
       things: (() => { try { return things ? things.strip({ events, reminders }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Home)
       night: data.settings.night === false ? null : data.settings.night || NIGHT,
+      eventsWindow: (({ from, to }) => ({ from: new Date(from).toISOString(), to: new Date(to).toISOString() }))(house.nearWindow()),
       reminders, flyer: house.flyerNow(), email: house.mailAddress(), // (email: the household's address, while email is on: mail.js)
       calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
       removed: house.removedPhotos(), albums: data.albums, linked: house.albums.view(), captions: data.captions, screensaver: house.screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
@@ -225,6 +229,10 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
         res.end(buf);
       } catch { json(res, 404, { error: 'not found' }); }
       return true;
+    }
+    if (req.method === 'GET' && p === '/house/events') { // a month further back or ahead (the Calendar app stepping there)
+      const r = await house.eventsInDays(url.searchParams.get('from'), url.searchParams.get('to'));
+      json(res, r.error ? 400 : 200, r); return true;
     }
     if (req.method === 'GET' && p === '/house/flyer/source') {
       const n = url.searchParams.get('n'), r = await house.flyerSource(String(url.searchParams.get('src') || ''), n == null ? null : Number(n));

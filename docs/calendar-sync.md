@@ -72,6 +72,12 @@ Google's events list (once for the repeating series, once for each time), CalDAV
 than change feeds (`syncToken`, `sync-collection`), which can come later if the requests ever matter. A side gain:
 Google's secret iCal links can lag hours behind; the API doesn't.
 
+**Further out.** The Calendar reaches a year back and 18 months ahead. A month outside the near weeks is read when
+someone steps to it (or Opie asks, `calendar_event` list): Google by `timeMin`/`timeMax`, CalDAV by a time-range
+REPORT, a link calendar from the file the shell last sent. What that read brings is kept in memory for ten minutes and
+never written down, so stepping back and forth doesn't ask again; a change sent to a calendar forgets its months. The
+household's own events are kept 13 months back.
+
 **Writing.** Every change made on the tablet (from the Calendar tab, the assistant, a flyer, an app) goes into an
 outbox saved in `house.json` first, then out to the provider. Offline, it waits and retries; the event shows on the
 tablet meanwhile.

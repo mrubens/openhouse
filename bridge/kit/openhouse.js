@@ -286,6 +286,10 @@ export const house = {
   updateEvent: (id, f) => send('/house/event', { update: { id, ...f,
     ...(f.start != null ? { start: iso(new Date(f.start), !!f.allDay) } : {}), ...(f.end != null && !f.allDay ? { end: iso(new Date(f.end), false) } : {}) } }),
   removeEvent: (id, date = null) => send('/house/event', { remove: id, date }),
+  /** Events from one day up to another (Dates or "YYYY-MM-DD"), however far: data.events holds the near weeks
+   *  (data.eventsWindow {from, to}); this reads a month further back or ahead (a year back, 18 months ahead at most),
+   *  the same kind of events. [] when it can't. */
+  eventsIn: (from, to) => call(`/house/events?from=${typeof from === 'string' ? from : iso(new Date(from), true)}&to=${typeof to === 'string' ? to : iso(new Date(to), true)}`).then((r) => r.events || []).catch(() => []),
   /** Count down to an event on the home screen: one added here (id) or a synced one (uid). */
   countdown: ({ id = null, uid = null }, on = true) => send('/house/event', { countdown: { id, uid, on } }),
   /** A reminder before an event (one added here by id, or a synced one by uid): minutes before (0 at the start, -1 none,

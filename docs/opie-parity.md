@@ -64,6 +64,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | --- | --- | --- |
 | Calendar: add, change, remove (a day or all), countdown, reminder on any event | yes | calendar_event |
 | Calendar: which calendar a new event goes in | yes | calendar_event add.calendar |
+| Calendar: step to a month (a year back, 18 months ahead), or go to one by its name | yes | calendar_event list reads any stretch; show_on_screen opens the Calendar |
 | Calendar: hide or show a person's events (the people along the top; that screen's own) | screen | A view on one screen, like Day or Week. Opie reads anyone's events itself (family_things, calendar_event list) |
 | Calendar: the usual reminder and saying it aloud (the bell) | **new** | calendar_event settings |
 | Calendar: an event from a flyer photo sent from a phone | **new** | flyer_photo (was typed-only), then calendar_event |

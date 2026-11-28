@@ -3,7 +3,7 @@
 // bridge never has it: the shell keeps the links (CalendarLinks.kt, out of the agent's reach), reads them
 // every 15 minutes and posts what they say here. This keeps the next two weeks of events and whose they are.
 //
-//   calendars({ DIR, onChange }) -> { events(), labels(), status(), setFeeds(feeds) }
+//   calendars({ DIR, onChange }) -> { events(), labels(), status(), setFeeds(feeds), range(from, to) }
 //     feeds: [{ id, who, name?, only?, ics?, error? }]   (from the shell: POST /calendar/feeds)
 //     only: which of a calendar's events to keep, in the words they used ("home games"): each event is judged once by
 //     the cloud's decision model (useCalendarDecide), never by matching words; until judged an event isn't shown.
@@ -50,10 +50,10 @@ export function calendars({ DIR, onChange = () => {} }) {
     if (lastFeeds) setFeeds(lastFeeds);
   }
 
-  function setFeeds(feeds) {
-    const from = Date.now() - 35 * DAY, to = Date.now() + 70 * DAY; // the Calendar app shows a month either way
+  /** What the links' files say between [from] and [to]: their events, errors and labels, and the events of calendars
+   *  kept in part still waiting to be judged (pending). */
+  function readFeeds(feeds, from, to) {
     const events = [], errors = {}, labels = [];
-    lastFeeds = feeds;
     const pending = new Map(); // only -> [events not judged yet]
     for (const f of Array.isArray(feeds) ? feeds.slice(0, 12) : []) {
       const who = str(f.who, 40) || null, name = str(f.name, 60) || null, only = str(f.only, 200);
@@ -73,8 +73,14 @@ export function calendars({ DIR, onChange = () => {} }) {
         }
       } catch (e) { errors[label] = e.message; }
     }
-    if (pending.size) judge(pending);
     events.sort((a, b) => new Date(a.start) - new Date(b.start));
+    return { events, errors, labels, pending };
+  }
+  function setFeeds(feeds) {
+    const from = Date.now() - 35 * DAY, to = Date.now() + 70 * DAY; // the near weeks, kept; further is read when asked (range)
+    lastFeeds = feeds; ranges.clear();
+    const { events, errors, labels, pending } = readFeeds(feeds, from, to);
+    if (pending.size) judge(pending);
     const was = JSON.stringify([cache.events, cache.labels, cache.errors]);
     cache = { events, at: Date.now(), errors, labels };
     try { writeJson(CACHE, cache, { bak: false }); } catch {}
@@ -84,6 +90,20 @@ export function calendars({ DIR, onChange = () => {} }) {
     return status();
   }
   const status = () => ({ at: cache.at, count: cache.events.length, errors: cache.errors });
+  // Further back or ahead (the Calendar app stepping to another month, Opie asked about one): read from the files the
+  // shell last sent, which hold every event, and kept in memory for a while (never on disk). Before the shell's first
+  // send after a start, only the near weeks (on disk) are there.
+  const ranges = new Map(); // "from|to" -> { at, events }
+  function range(from, to) {
+    if (!lastFeeds) return cache.events.filter((e) => new Date(e.end || e.start) > from && new Date(e.start) < to);
+    const k = `${from}|${to}`, kept = ranges.get(k);
+    if (kept && Date.now() - kept.at < 10 * 60e3) return kept.events.slice();
+    const { events, pending } = readFeeds(lastFeeds, from, to);
+    if (pending.size) judge(pending);
+    ranges.set(k, { at: Date.now(), events });
+    if (ranges.size > 24) ranges.delete(ranges.keys().next().value);
+    return events.slice();
+  }
 
   return {
     // Everything read at the last sync (35 days back to 70 ahead): past days in the Calendar app show what happened.
@@ -91,6 +111,7 @@ export function calendars({ DIR, onChange = () => {} }) {
     labels: () => cache.labels.map((l) => ({ ...l })),
     status,
     setFeeds,
+    range,
   };
 }
 

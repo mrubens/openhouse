@@ -2,9 +2,9 @@
 // The sign-ins are the shell's (CalendarAccounts.kt, sealed, never here): every request to Google or iCloud goes
 // through it (DeviceServer /calendar/request), which adds the authorization and only reaches that provider. What's
 // here: which calendars are shown and written to, what they say (35 days back, 70 ahead, read every two minutes and
-// after a change), and an outbox of changes made on the tablet, saved before anything is sent.
+// after a change; further months read when asked, kept in memory a while: range), and an outbox of changes made on the tablet, saved before anything is sent.
 //
-//   calendarSync({ FILE, shell, family?, now? }) -> { events(), calendars(), targets(), status(),
+//   calendarSync({ FILE, shell, family?, now? }) -> { events(), range(from, to), calendars(), targets(), status(),
 //     accounts(), discover(account), setCalendar(key, {mode?, who?, default?}), forget(account),
 //     add(fields, calendar?), update(id, fields), remove(id, date?), pull(), flush() }
 //   shell(path, body) -> the shell's answer ({ error } when it couldn't)
@@ -328,19 +328,21 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
   const isOn = (c) => c && c.mode && c.mode !== 'off' && acc(c.account);
   const twoWay = (c) => isOn(c) && c.mode === 'two-way' && c.canWrite;
   const calName = (c) => (c.who && !c.name.toLowerCase().includes(c.who.toLowerCase()) && !/\S+@\S+/.test(c.name) ? `${c.name} (${c.who})` : c.name);
+  /** One kept time of an event as the screens show it, with a change to it still waiting (null: removed, waiting). */
+  function shownItem(k, c, key, item, pending) {
+    const id = `c-${k}-${item.remote}`;
+    const p = pending.get(`${k}|${item.remote}`);
+    if (p?.op === 'remove' && (!p.date || p.date === item.ev.date)) return null;
+    const ev = p?.op === 'update' ? { ...item.ev, ...p.fields, ...(item.ev.date ? { start: shiftTo(item.ev, p).start, end: shiftTo(item.ev, p).end } : {}) } : item.ev;
+    return { ...ev, id, who: c.who || null, calendar: k, calendarName: calName(c), color: c.tone || null, uid: `${k}:${key}`, ...(twoWay(c) ? { editable: true } : {}),
+      ...(st.notes[id] && st.notes[id].until > now() ? { note: st.notes[id].text } : {}) };
+  }
   function events() {
     const out = [];
     const pending = new Map(st.outbox.map((o) => [o.key, o]));
     for (const [k, c] of Object.entries(st.calendars)) {
       if (!isOn(c)) continue;
-      for (const [key, item] of Object.entries(st.cache[k] || {})) {
-        const id = `c-${k}-${item.remote}`;
-        const p = pending.get(`${k}|${item.remote}`);
-        if (p?.op === 'remove' && (!p.date || p.date === item.ev.date)) continue;
-        const ev = p?.op === 'update' ? { ...item.ev, ...p.fields, ...(item.ev.date ? { start: shiftTo(item.ev, p).start, end: shiftTo(item.ev, p).end } : {}) } : item.ev;
-        out.push({ ...ev, id, who: c.who || null, calendar: k, calendarName: calName(c), color: c.tone || null, uid: `${k}:${key}`, ...(twoWay(c) ? { editable: true } : {}),
-          ...(st.notes[id] && st.notes[id].until > now() ? { note: st.notes[id].text } : {}) });
-      }
+      for (const [key, item] of Object.entries(st.cache[k] || {})) { const e = shownItem(k, c, key, item, pending); if (e) out.push(e); }
     }
     for (const o of st.outbox) if (o.op === 'add' && isOn(st.calendars[o.calendar])) { // not sent yet: shown here meanwhile
       const c = st.calendars[o.calendar];
@@ -443,22 +445,86 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     return pulling;
   }
 
+  // ---- further back and ahead, when asked --------------------------------------------------------------------
+  // The two-minute read keeps the near weeks (window()). A month outside them is read when a screen or Opie asks for
+  // it (Google by time range, CalDAV by a time-range report), and kept in memory for a while, never on disk: stepping
+  // back and forth through the months doesn't ask Google or iCloud each time.
+  const KEEP_RANGE = 10 * MIN;
+  const ranges = new Map(); // "<calendar key>|YYYY-MM" -> { at, items: {key: item} } (what that month's read said)
+  const monthOf = (t) => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; };
+  const monthStart = (m, plus = 0) => { const [y, mo] = m.split('-').map(Number); return new Date(y, mo - 1 + plus, 1).getTime(); };
+  /** The months from [from] up to [to] that reach outside the near weeks. */
+  function farMonths(from, to) {
+    const w = window(), out = [];
+    for (let m = monthOf(from); monthStart(m) < to; m = monthOf(monthStart(m, 1))) if (monthStart(m) < w.from || monthStart(m, 1) > w.to) out.push(m);
+    return out;
+  }
+  const reading = new Map(); // "<key>|<first month>|<last month>" -> the read under way (two screens asking at once: one read)
+  /** Events between [from] and [to] (ms): the near weeks as kept, and further months read now or kept from a while ago. */
+  async function range(from, to) {
+    const months = farMonths(from, to);
+    if (months.length) {
+      await Promise.all(Object.entries(st.calendars).map(async ([k, c]) => {
+        const a = acc(c.account);
+        if (!a || !isOn(c)) return;
+        const want = months.filter((m) => !(ranges.get(`${k}|${m}`)?.at > now() - KEEP_RANGE));
+        if (!want.length) return;
+        const job = `${k}|${want[0]}|${want.at(-1)}`;
+        if (!reading.has(job)) reading.set(job, (async () => {
+          try {
+            const items = await prov(a).list(a, c, { from: monthStart(want[0]), to: monthStart(want.at(-1), 1) });
+            const at = now();
+            for (const m of want) {
+              const a0 = monthStart(m), a1 = monthStart(m, 1);
+              ranges.set(`${k}|${m}`, { at, items: Object.fromEntries(Object.entries(items).filter(([, i]) => Date.parse(i.ev.end || i.ev.start) > a0 && Date.parse(i.ev.start) < a1)) });
+            }
+            while (ranges.size > 240) ranges.delete(ranges.keys().next().value);
+          } catch (e) { if (!e.offline && !e.signin) log(`[calendar-sync] ${a.provider} (range): ${str(e.message, 80)}`); }
+          finally { reading.delete(job); }
+        })());
+        await reading.get(job);
+      }));
+    }
+    const w = window(), out = events().filter((e) => Date.parse(e.end || e.start) > from && Date.parse(e.start) < to);
+    const seen = new Set(out.map((e) => `${e.id}|${e.start}`));
+    const pending = new Map(st.outbox.map((o) => [o.key, o]));
+    for (const [k, c] of Object.entries(st.calendars)) {
+      if (!isOn(c)) continue;
+      for (const m of months) {
+        for (const [key, item] of Object.entries(ranges.get(`${k}|${m}`)?.items || {})) {
+          const t = Date.parse(item.ev.start);
+          if (t >= w.from && t < w.to) continue; // (the near weeks' own read has it, newer)
+          const e = shownItem(k, c, key, item, pending);
+          if (!e || seen.has(`${e.id}|${e.start}`) || Date.parse(e.end || e.start) <= from || t >= to) continue;
+          seen.add(`${e.id}|${e.start}`); out.push(e);
+        }
+      }
+    }
+    return out;
+  }
+  /** A calendar's months read on request, forgotten (a change was sent there: the next ask reads them again). */
+  const forgetRanges = (k) => { for (const r of [...ranges.keys()]) if (r.startsWith(`${k}|`)) ranges.delete(r); };
+
   // ---- writing ----------------------------------------------------------------------------------------------
   /** Find a synced event by its id here ("c-<key>-<remote>"), and the time of it asked for. */
   function find(id, date) {
     const m = /^c-([A-Za-z0-9]{8})-(.+)$/.exec(String(id || '')); if (!m) return null;
     const [, k, remote] = m, c = st.calendars[k]; if (!c) return null;
-    const items = Object.values(st.cache[k] || {}).filter((i) => i.remote === remote);
+    const items = [...Object.values(st.cache[k] || {}), ...rangedItems(k)].filter((i) => i.remote === remote);
     const item = (date && items.find((i) => i.ev.date === date)) || items.sort((x, y) => Date.parse(x.ev.start) - Date.parse(y.ev.start))[0] || null;
     const queued = st.outbox.find((o) => o.op === 'add' && !o.sent && o.calendar === k && o.remote === remote);
     return { key: k, remote, c, item, queued };
   }
+  /** The items a calendar's months read on request hold (none once forgotten). */
+  const rangedItems = (k) => [...ranges.entries()].filter(([r]) => r.startsWith(`${k}|`)).flatMap(([, v]) => Object.values(v.items));
   const isMine = (id) => /^c-[A-Za-z0-9]{8}-/.test(String(id || ''));
   function queue(o, before = structuredClone(st)) {
     st.outbox.push({ ...o, at: now(), tries: 0 });
     commit(before); changed();
     flush().catch(() => {});
   }
+  /** A time only a month's read on request holds (further out than the near weeks): kept with its change until sent. */
+  const farItem = (f) => (Object.values(st.cache[f.key] || {}).includes(f.item) ? {} : { item: f.item });
   function add(fields, calendar) {
     const k = calendar && twoWay(st.calendars[calendar]) ? calendar : targetFor(fields.who);
     if (!k) return null; // stays on the tablet
@@ -474,7 +540,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     if (f.queued) { f.queued.fields = { ...f.queued.fields, ...fields }; commit(before); changed(); flush().catch(() => {}); return { ok: true, event: { ...f.queued.fields, id } }; }
     if (!f.item) return { error: `No event ${id}.` };
     st.outbox = st.outbox.filter((o) => !(o.op === 'update' && o.key === `${f.key}|${f.remote}`)); // the latest change is the one that goes
-    queue({ op: 'update', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, fields, from: f.item.ev.date ? f.item.ev.start : null, date: f.item.ev.date || null }, before);
+    queue({ op: 'update', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, fields, from: f.item.ev.date ? f.item.ev.start : null, date: f.item.ev.date || null, ...farItem(f) }, before);
     return { ok: true, event: { ...f.item.ev, ...fields, id } };
   }
   function remove(id, date) {
@@ -484,7 +550,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     if (!f.item) return { error: `No event ${id}.` };
     const one = date && f.item.ev.repeat ? date : null;
     // [start]: that time's own start, so iCloud's EXDATE names it exactly ([date] is its local day).
-    queue({ op: 'remove', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, date: one, ...(one && f.item.ev.date === one ? { start: f.item.ev.start } : {}) });
+    queue({ op: 'remove', calendar: f.key, remote: f.remote, key: `${f.key}|${f.remote}`, date: one, ...(one && f.item.ev.date === one ? { start: f.item.ev.start } : {}), ...farItem(f) });
     return one ? { ok: true, removed: [], skipped: one } : { ok: true, removed: [id] };
   }
 
@@ -500,7 +566,9 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
           if (o.next && o.next > now()) continue;
           const c = st.calendars[o.calendar], a = c && acc(c.account);
           if (!a) { if (!c) { st.outbox = st.outbox.filter((x) => x !== o); did = true; } continue; } // its account isn't here now: wait
-          const item = o.op === 'add' ? null : (o.date && Object.values(st.cache[o.calendar] || {}).find((i) => i.remote === o.remote && i.ev.date === o.date)) || Object.values(st.cache[o.calendar] || {}).find((i) => i.remote === o.remote && (!o.from || i.ev.start === o.from)) || Object.values(st.cache[o.calendar] || {}).find((i) => i.remote === o.remote);
+          // (a time further out than the near weeks: from its month's read, or as it was when the change was made)
+          const pool = o.op === 'add' ? [] : [...Object.values(st.cache[o.calendar] || {}), ...rangedItems(o.calendar), ...(o.item ? [o.item] : [])];
+          const item = o.op === 'add' ? null : (o.date && pool.find((i) => i.remote === o.remote && i.ev.date === o.date)) || pool.find((i) => i.remote === o.remote && (!o.from || i.ev.start === o.from)) || pool.find((i) => i.remote === o.remote);
           let r;
           trail = [];
           try {
@@ -516,7 +584,8 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
             continue;
           }
           // Gone in: still shown as changed until the next read brings it back changed (else it flickers back meanwhile).
-          if (r.conflict || r.gone) st.outbox = st.outbox.filter((x) => x !== o); else { o.sent = now(); delete o.next; }
+          if (r.conflict || r.gone) st.outbox = st.outbox.filter((x) => x !== o); else { o.sent = now(); delete o.next; delete o.item; }
+          forgetRanges(o.calendar);
           did = true;
           st.sent = [{ op: o.op, at: now(), trail: [...trail], ...(r.already ? { already: true } : {}) }, ...(st.sent || [])].slice(0, 8);
           if (r.conflict || r.gone) { // changed (or deleted) elsewhere first: theirs stays
@@ -543,5 +612,5 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     setTimeout(() => { flush().catch(() => {}); pull().catch(() => {}); }, 15e3).unref?.();
   }
   for (const n of Object.keys(st.notes)) if (st.notes[n].until < now()) delete st.notes[n];
-  return { events, calendars, targets, targetFor, status, accounts: () => accounts.slice(), loadAccounts, discover, setCalendar, forget, add, update, remove, isMine, pull, flush, start, stop: () => clearInterval(timer), _patchIcs: patchIcs };
+  return { events, range, calendars, targets, targetFor, status, accounts: () => accounts.slice(), loadAccounts, discover, setCalendar, forget, add, update, remove, isMine, pull, flush, start, stop: () => clearInterval(timer), _patchIcs: patchIcs };
 }
