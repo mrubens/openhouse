@@ -50,9 +50,11 @@ test('a locked calendar: apps change it only for a little while after the PIN on
   assert.equal((await post('/house/event', add, true)).code, 200, 'no lock: fine');
   assert.equal((await post('/house/lock', { calendar: true }, true)).code, 403, 'an app can\'t lock or unlock');
   assert.equal((await post('/house/lock', { calendar: true })).code, 200);
+  assert.equal(h.view().calendarLock, true, 'the Calendar app reads the lock from the view');
   const r = await post('/house/event', add, true);
   assert.equal(r.code, 403); assert.equal(r.obj.locked, true);
   await post('/house/unlock', {});
+  assert.ok(h.view().unlockedUntil > Date.now(), 'and when it opens again');
   assert.equal((await post('/house/event', add, true)).code, 200, 'unlocked for a while');
   assert.equal((await post('/house/event', add)).code, 200, 'the display itself is never locked out');
   // An app in its frame on a phone (a sealed call through screens.js) is held to the same lock.
@@ -253,4 +255,17 @@ test("a routine step's time isn't lost when its steps are sent again without it,
   assert.equal(steps()[1].secs, undefined);
   await call('change_routines', { times: [{ name: 'Morning', step: 'Brush teeth', minutes: 0 }] });
   assert.equal(steps()[0].secs, undefined);
+});
+
+// What the header of house.js says view() carries is in it (a key once went missing behind a // comment, twice).
+test('view() has every key the header of house.js names', () => {
+  const src = fs.readFileSync(new URL('../house.js', import.meta.url), 'utf8');
+  const head = src.slice(0, src.indexOf('\nimport '));
+  const keys = new Set([...head.matchAll(/view\(\)\.(\w+)/g)].map((m) => m[1]));
+  for (const m of head.matchAll(/view\(\):((?:\s*\w+(?:\s*\([^)]*\))?\s*[,;])+)/g)) for (const k of m[1].matchAll(/(\w+)(?:\s*\([^)]*\))?\s*[,;]/g)) keys.add(k[1]);
+  assert.ok(keys.size >= 3, 'the header still names view()\'s keys: ' + [...keys]);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x'); fs.mkdirSync(DIR);
+  const board = { householdView: () => ({ family: [], chores: [], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => [] };
+  const v = houseRoutes({ DIR, json: () => {}, body: async () => ({}), board }).view();
+  for (const k of keys) assert.ok(k in v, `view() has ${k}`);
 });
