@@ -96,7 +96,7 @@ see "Stuck in kiosk mode" below.
 ## 6. When it's stuck
 
 These are the ones we've seen on real tablets, with what fixed them. Something else? Tell us on
-[the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml). A tablet linked to an
+[the "Setup got stuck" form](https://github.com/mrubens/opie/issues/new?template=setup-stuck.yml). A tablet linked to an
 Opie account can also send its logs, if Opie opens: **Settings → Advanced → Send a report**. Without an account
 there's nowhere for a report to go, so the form is the way.
 

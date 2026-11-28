@@ -1,0 +1,56 @@
+name: Setup got stuck
+description: Setting up Opie stopped somewhere. Tell us the model, the release and the step. No Opie account needed.
+title: "Setup got stuck: "
+labels: ["setup"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is public. Please don't include anything about your household: no names, addresses, Wi-Fi names,
+        calendars, photos, or screenshots that show any of those. To start again, the setup guide's "When it's stuck"
+        has what to try first: https://github.com/mrubens/opie/blob/main/docs/setup.md#6-when-its-stuck
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: Its maker and model, as in Android's Settings, About (for example Lenovo Tab One).
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      description: Settings, About, Software information. "Don't know" is fine.
+  - type: input
+    id: release
+    attributes:
+      label: Opie's release
+      description: On the setup page next to the code, or on the device's screen while it gets ready. "Don't know" is fine.
+    validations:
+      required: true
+  - type: dropdown
+    id: step
+    attributes:
+      label: The step it stopped at
+      options:
+        - The six taps didn't open a code scanner
+        - The code was refused, or nothing happened after scanning
+        - Downloading or getting ready
+        - Welcome, or joining Wi-Fi
+        - Connecting a phone or computer
+        - Who lives here?
+        - Where do you live?
+        - The shared calendar
+        - Photos
+        - Choosing a PIN
+        - Two Android settings
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What the screen showed
+      description: The words on the screen when it stopped, what you tried, and whether starting again helped.
+    validations:
+      required: true

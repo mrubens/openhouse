@@ -1,0 +1,56 @@
+name: My model
+description: Tell us how Opie went on your tablet, photo frame or phone, whether it worked or not. No Opie account needed.
+title: "My model: "
+labels: ["model"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This is public. Please don't include anything about your household: no names, addresses, Wi-Fi names,
+        calendars, photos, or screenshots that show any of those. We only need the device and how it went.
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: Its maker and model, as in Android's Settings, About (for example Samsung Galaxy Tab S10 FE, SM-X520).
+    validations:
+      required: true
+  - type: input
+    id: android
+    attributes:
+      label: Android version
+      description: Settings, About, Software information (for example Android 16, One UI 8).
+    validations:
+      required: true
+  - type: input
+    id: release
+    attributes:
+      label: Opie's release
+      description: On the setup page next to the code, or under the tabs in Opie's Settings. "Don't know" is fine.
+  - type: dropdown
+    id: step
+    attributes:
+      label: How far it got
+      options:
+        - It all worked
+        - The six taps didn't open a code scanner
+        - The code was refused, or setup stopped after scanning
+        - It stopped while downloading or getting ready
+        - Connecting a phone or computer
+        - One of the setup steps (people, place, calendar, photos, PIN)
+        - Two Android settings
+        - Opie's voice
+        - After setup, using it day to day
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: charge
+    attributes:
+      label: Charge limit
+      description: Where its charge limit is in Android's Settings, if it has one (for example Battery, Battery protection, Maximum).
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, in a few lines, and what you tried. If Opie opens, Settings, Advanced, Send a report sends us its logs privately (on a device linked to an account).

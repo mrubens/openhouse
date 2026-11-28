@@ -186,6 +186,10 @@ async function toolLines() {
   try { const r = await toTablet({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, { timeoutMs: 8e3 }); return (r.result?.tools || []).map((t) => `- ${t.name}: ${String(t.description || '').split(/(?<=\.)\s/)[0]} Arguments: ${JSON.stringify(t.inputSchema?.properties || {})}`).join('\n'); } catch { return ''; }
 }
 const FORGET_TOOL = { name: 'forget_tablet', description: 'Unpair this computer from the Opie (only when asked). The tablet can remove it too (Screens, in its Tablet settings).', inputSchema: { type: 'object', properties: {} } };
+// This computer's own three tools carry the same hints as the device's (bridge/workshop.js): a title, and what they change.
+Object.assign(PAIR_TOOL, { title: 'Pair with device', annotations: { title: 'Pair with device', readOnlyHint: false, destructiveHint: false, openWorldHint: false } });
+Object.assign(USE_TOOL, { title: 'Use a device tool', annotations: { title: 'Use a device tool', readOnlyHint: false, destructiveHint: true, openWorldHint: true } });
+Object.assign(FORGET_TOOL, { title: 'Unpair from device', annotations: { title: 'Unpair from device', readOnlyHint: false, destructiveHint: true, openWorldHint: false } });
 const LOCAL_INSTRUCTIONS = `Opie is a family's kitchen tablet whose apps and home screen these tools change. This computer isn't paired with it yet (or can't reach it). To pair, ask the person for the code the tablet shows (${WHERE.replace('On the tablet: ', 'on the tablet: ')}) and call pair_with_tablet with it. Once paired, call get_guide before changing anything.`;
 
 const out = (m) => process.stdout.write(JSON.stringify(m) + '\n');

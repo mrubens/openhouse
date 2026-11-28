@@ -36,6 +36,8 @@ const rnd = (n) => crypto.randomBytes(n).toString('base64url');
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const okUrl = (u) => /^https:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(String(u || ''));
 
+// The privacy policy, terms and how-to, in the sign-in metadata, as Opie Cloud's connector has them.
+const SITE = 'https://opie.house', DOCS = 'https://github.com/mrubens/opie/blob/main/docs/web-chat-building.md';
 export function webMcpRoutes({ HERE, screens, workshop, json, body, PORT = Number(process.env.WEB_MCP_PORT || 8789), HOST = process.env.WEB_MCP_HOST || '0.0.0.0', FILE = path.join(HERE, 'web-mcp.json'), now = Date.now, fetchFn = fetch }) {
   const st = readJson(registered('web-mcp', FILE), null, { bak: false }) || {}; // (no .bak: a grant taken back must not come back)
   st.clients ||= {}; st.grants ||= {};
@@ -134,12 +136,13 @@ if(j.redirect){$('#w').className='msg good';$('#w').textContent='Connected. Goin
       const B = base(), resource = `${B}/mcp`;
       if (req.method === 'OPTIONS') return out(res, 204, null, { 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'authorization, content-type, mcp-protocol-version, mcp-session-id' });
       if (req.method === 'GET' && (p === '/.well-known/oauth-protected-resource' || p === '/.well-known/oauth-protected-resource/mcp'))
-        return out(res, 200, { resource, authorization_servers: [B], bearer_methods_supported: ['header'], scopes_supported: ['workshop'], resource_name: 'Opie' });
+        return out(res, 200, { resource, authorization_servers: [B], bearer_methods_supported: ['header'], scopes_supported: ['workshop'], resource_name: 'Opie', resource_policy_uri: `${SITE}/privacy`, resource_tos_uri: `${SITE}/terms`, resource_documentation: DOCS });
       if (req.method === 'GET' && (p === '/.well-known/oauth-authorization-server' || p === '/.well-known/openid-configuration'))
         return out(res, 200, { issuer: B, authorization_endpoint: `${B}/oauth/authorize`, token_endpoint: `${B}/oauth/token`, registration_endpoint: `${B}/oauth/register`,
           response_types_supported: ['code'], grant_types_supported: ['authorization_code', 'refresh_token'], code_challenge_methods_supported: ['S256'],
           token_endpoint_auth_methods_supported: ['none', 'client_secret_post', 'client_secret_basic'], scopes_supported: ['workshop'],
-          client_id_metadata_document_supported: true, authorization_response_iss_parameter_supported: true });
+          client_id_metadata_document_supported: true, authorization_response_iss_parameter_supported: true,
+          op_policy_uri: `${SITE}/privacy`, op_tos_uri: `${SITE}/terms`, service_documentation: DOCS });
       const text = req.method === 'POST' ? await raw(req, 3e6) : '';
       if (text === null) return out(res, 413, { error: 'too big' });
       const jsonBody = () => { try { return JSON.parse(text || '{}'); } catch { return {}; } };

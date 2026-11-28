@@ -23,6 +23,10 @@ const ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 // The assistant's tools a computer doesn't get: the voice's own, and the ones replaced below.
 const SKIP = new Set(['end_conversation', 'progress', 'start_editing', 'check_build', 'list_changes', 'undo_change']);
 const MAX_READ = 400e3;
+// Who this server is, with the icon and the site (MCP's serverInfo: title, websiteUrl, icons). The privacy policy is
+// at https://opie.house/privacy (docs/workshop-mcp.md, "In Claude's connector directory").
+const SERVER_INFO = { name: 'openhouse', title: 'Opie', version: '0.1', websiteUrl: 'https://opie.house',
+  icons: [{ src: 'https://opie.house/icon-512.png', mimeType: 'image/png', sizes: ['512x512'] }, { src: 'https://opie.house/logo.svg', mimeType: 'image/svg+xml', sizes: ['any'] }] };
 
 const INSTRUCTIONS = `Opie is a household's home screen, on a tablet, photo frame or phone: tabs (Home, Calendar, Chores, Lists, Meals, Photos, Apps), each tab past Home one of the household's small web apps, and Apps the rest of their apps and games. These tools change it, from the person's computer, while the household may be watching.
 Before changing anything, call get_guide: the home screen as it is now, how to work and how notes should read. Before making or changing an app, also get_guide with topic "apps": how apps are made here (calm, quiet ones that fit a tab), the kit and its CSS.
@@ -120,12 +124,28 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
     { name: 'export_plugin', description: 'Share one of the household\'s plugins (plugin: its name from list_plugins), or make one plugin of several of their apps (and their look, if they want), to share with other households: the files of a plugin folder (package.json, README.md, apps/<id>/...), returned here for you to write into a folder on this computer. Read the warnings: lines with this family\'s names or town in them, to make general first (ask the person). Put it in a git repo of the person\'s own only if they ask; nothing is published from the device. Another device adds it with add_plugin and the repo\'s link.',
       inputSchema: { type: 'object', properties: { plugin: { type: 'string', description: 'One plugin on the device to share as it is (its name from list_plugins)' }, name: { type: 'string', description: 'The plugin\'s name: lowercase, dashes ("twins-chores")' }, apps: { type: 'array', items: { type: 'string' }, description: 'App ids' }, description: { type: 'string', description: 'One sentence another family reads before taking it' }, look: { type: 'boolean', description: 'Include the home screen\'s look' } } } },
   ];
-  // Hints for the chat apps: ChatGPT asks the person before each tool that isn't marked read only, so the ones that
-  // only look say so (docs/web-chat-building.md).
-  const READ_ONLY = new Set(['get_guide', 'list_files', 'read_file', 'check_build', 'look_at_tablet', 'list_changes', 'look_at_notes', 'about_household', 'family_things', 'pending_fixes', 'list_plugins', 'look_at_plugin', 'weather', 'list_devices', 'device_info', 'scan']);
-  const DESTRUCTIVE = new Set(['delete_file', 'remove_plugin', 'reset_plugin', 'take_down_note', 'forget_preference', 'remove_recipe']);
-  // openWorldHint: the TV and devices reach things outside the tablet.
-  const hint = (t) => ({ ...t, annotations: { readOnlyHint: READ_ONLY.has(t.name), destructiveHint: DESTRUCTIVE.has(t.name), openWorldHint: t.name === 'tv' || t.name === 'device_action' } });
+  // Hints for the chat apps (MCP tool annotations): ChatGPT asks the person before each tool that isn't marked read
+  // only, and Claude's connector directory wants a title and readOnlyHint or destructiveHint on every tool. Read only:
+  // it only looks. Destructive: what it's for is taking something away (a file, a plugin, a note, a saved place, a
+  // reminder). Everything else changes things without removing them. Open world: it reaches past the device (the TV
+  // and other devices, a web page, the family's phones). An app's own voice actions (plugins.js) are the app's to
+  // answer, so they count as changing things. This one list serves a paired computer, the device's own connector
+  // (web-mcp.js) and Opie Cloud's (which passes tools/list through unchanged). docs/workshop-mcp.md.
+  const READ_ONLY = new Set(['get_guide', 'list_files', 'read_file', 'check_build', 'look_at_tablet', 'list_changes', 'look_at_notes', 'about_household', 'family_things', 'pending_fixes', 'list_plugins', 'look_at_plugin', 'weather', 'list_devices', 'device_info', 'scan', 'read_page']);
+  const DESTRUCTIVE = new Set(['delete_file', 'remove_plugin', 'reset_plugin', 'take_down_note', 'take_down_thing', 'forget_preference', 'forget_place', 'remove_recipe', 'later_list']);
+  const OPEN_WORLD = new Set(['tv', 'device_action', 'bluetooth', 'read_page', 'message_family']);
+  // A title people read in the chat app's list: its own, else the name in words ("look_at_tablet": "Look at device";
+  // an app's action "recipes__find": "Recipes: find").
+  const titleOf = (t) => {
+    if (t.title) return t.title;
+    const [a, b] = t.name.includes('__') ? t.name.split('__') : [null, t.name];
+    const words = b.replace(/_/g, ' ').replace(/\btablet\b/g, 'device');
+    return a ? `${a.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())}: ${words}` : words.replace(/^./, (c) => c.toUpperCase());
+  };
+  const hint = (t) => {
+    const title = titleOf(t), readOnly = READ_ONLY.has(t.name);
+    return { ...t, title, annotations: { title, readOnlyHint: readOnly, ...(readOnly ? {} : { destructiveHint: DESTRUCTIVE.has(t.name) }), openWorldHint: OPEN_WORLD.has(t.name) } };
+  };
   // The household's own tools, as its voice has them (live-tools.js): the weather, the TV, the apps' voice actions;
   // and kitchen timers and the devices in the house, so an agent can do anything one could say to the tablet.
   // And teaching a device it doesn't know (Wi-Fi or Bluetooth): a recipe is data the tablet checks, and its first use asks there.
@@ -384,10 +404,10 @@ export function workshopRoutes({ HERE, APP_DIR, homeScreen, edits, reopened = nu
     const cache = (ttlMs, cacheScope = 'private') => (modern ? { ttlMs, cacheScope } : {});
     const reply = (result, hints = {}) => ({ jsonrpc: '2.0', id: msg.id, result: modern ? { resultType: 'complete', ...result, ...hints } : result });
     switch (msg.method) {
-      case 'initialize': return reply({ protocolVersion: LEGACY.includes(p.protocolVersion) ? p.protocolVersion : '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: { name: 'openhouse', version: '0.1' }, instructions: `${INSTRUCTIONS}\n${versionLine()}` });
+      case 'initialize': return reply({ protocolVersion: LEGACY.includes(p.protocolVersion) ? p.protocolVersion : '2025-06-18', capabilities: { tools: {}, resources: {} }, serverInfo: SERVER_INFO, instructions: `${INSTRUCTIONS}\n${versionLine()}` });
       case 'server/discover':
         if (!modern) return fail(-32602, 'server/discover needs params._meta (MCP 2026-07-28)');
-        return reply({ supportedVersions: MODERN, capabilities: { tools: {}, resources: {}, extensions: { [SKILLS_EXT]: {} } }, _meta: { 'io.modelcontextprotocol/serverInfo': { name: 'openhouse', version: '0.1' } }, instructions: `${SKILL_INSTRUCTIONS}\n${versionLine()}` }, cache(0));
+        return reply({ supportedVersions: MODERN, capabilities: { tools: {}, resources: {}, extensions: { [SKILLS_EXT]: {} } }, _meta: { 'io.modelcontextprotocol/serverInfo': SERVER_INFO }, instructions: `${SKILL_INSTRUCTIONS}\n${versionLine()}` }, cache(0));
       case 'ping': return reply({});
       case 'tools/list': return reply({ tools: tools() }, cache(0));
       case 'resources/templates/list': return reply({ resourceTemplates: [] }, cache(0));
