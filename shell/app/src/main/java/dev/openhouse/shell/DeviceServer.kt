@@ -206,10 +206,11 @@ object DeviceServer {
     // --- for the bridge's home devices (bridge/devices) -----------------------
     // Same token as the MCP server. /approve: the "Is this OK?" card for a risky device action
     // (turn on, open, launch…); /say: the status pill; /multicast: hold Wi-Fi multicast for a scan.
-    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms", "/mic-check", "/pin-choices")
+    private val HOME_PATHS = setOf("/host", "/openai", "/ownkey", "/setup/google", "/setup/icloud", "/setup/pin", "/approve", "/say", "/multicast", "/share", "/calendar", "/calendar/accounts", "/calendar/request", "/album", "/halt", "/bt", "/front", "/camera", "/screen", "/media/still", "/media", "/storage/status", "/storage/set", "/storage/sign", "/storage/remove", "/alarms", "/mic-check", "/pin-choices",
+        "/homeassistant", "/homeassistant/status", "/homeassistant/remove", "/homeassistant/connect")
     /** What the shell can do, for /host (bridge/host.js CAPS; its TABLET_CAPS is the same list, for a shell older than /host). */
     private val HOST_CAN = listOf("screen", "approve", "calendar", "calendar-accounts", "openai", "pin", "google-signin", "drive", "updates",
-        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage", "alarms", "mic-check", "pin-choices")
+        "mail-convert", "stills", "speaker", "apps", "bluetooth", "camera", "media", "multicast", "share", "brightness", "storage", "alarms", "mic-check", "pin-choices", "homeassistant")
     private var multicast: android.net.wifi.WifiManager.MulticastLock? = null
     private val releaseMulticast = Runnable { runCatching { multicast?.takeIf { it.isHeld }?.release() } }
     private val handler by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -391,6 +392,14 @@ object DeviceServer {
             // The household's own storage bucket for backups (OwnStorage): what it is (never its key), one presigned
             // request at a time for the bridge, forgotten; and set from a settings page (the PIN first, with the lock on).
             "/storage/status", "/storage/sign", "/storage/remove" -> { OwnStorage.init(ctx); OwnStorage.handle(path, b) }
+            // The household's Home Assistant (HomeAssistant): one call at a time, checked, with the token added here;
+            // never logged, and the token never comes back. /connect puts its screen up (behind the PIN; the token is a person's).
+            "/homeassistant", "/homeassistant/status", "/homeassistant/remove" -> { HomeAssistant.init(ctx); HomeAssistant.handle(path, b) }
+            "/homeassistant/connect" -> {
+                val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                handler.post { HomeAssistant.menu(a, HomeAssistant.cleanUrl(b.optString("url")) ?: "") }
+                200 to """{"ok":true}"""
+            }
             "/storage/set" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
                 val got = java.util.concurrent.LinkedBlockingQueue<String>()

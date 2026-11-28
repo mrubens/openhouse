@@ -6,9 +6,13 @@
 //   POST /devices/action           {device, action, params}   risky actions ask the room first
 //   POST /devices/recipe           {recipe, device?} saves one; {remove: id} forgets one
 //   POST /mcp/home                 the same, as MCP tools for the agent (bearer token)
+//   GET  /devices/homeassistant    {connected, url, things: [{entity, name, kind, picked}]}: what Opie could be given
+//   POST /devices/homeassistant/use {entity, use}   a person's tap: Opie may use it, or no longer
+//   POST /devices/homeassistant/connect             puts Connect Home Assistant on the device's screen
 // All of these answer only to this device itself (loopback).
 //
-// Saved in display/devices.json: the devices, the recipes the agent wrote, and pairings (TV tokens).
+// Saved in display/devices.json: the devices, the recipes the agent wrote, pairings (TV tokens), and which of Home
+// Assistant's things the household picked (never its token: the host keeps that, drivers/homeassistant.js).
 import fs from 'node:fs';
 import { readJson, writeJson, unsaved } from '../store.js';
 import { registered } from '../stores.js';
@@ -27,10 +31,12 @@ import sonos from './drivers/sonos.js';
 import ipp from './drivers/ipp.js';
 import xbox from './drivers/xbox.js';
 import lg from './drivers/lg.js';
+import homeassistant, { entities as haEntities, things as haThings, connection as haConnection } from './drivers/homeassistant.js';
+import { domainOf as haDomain } from './ha-rules.js';
 import bluetooth, { btClient, toDevice, lookInside, uuid as bleUuid } from './bluetooth.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const DRIVERS = [roku, samsung, lg, sonos, ipp, xbox, bluetooth];
+const DRIVERS = [roku, samsung, lg, sonos, ipp, xbox, homeassistant, haEntities, bluetooth];
 const log = (...a) => console.log('[devices]', ...a);
 
 // --- MAC makers ---------------------------------------------------------------------------------
@@ -130,7 +136,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     ...(d.transport === 'bluetooth' ? { bonded: !!d.evidence?.bt?.bonded } : {}),
     allowed: !!db.pairing[d.id]?.allowed,
     simple: actionsOf(d).filter((a) => !Object.values(a.params).some((p) => p.required)).map((a) => a.name), present: d.present, self: !!d.self,
-    paired: d.driver === 'samsung-tv' ? !!db.pairing[d.id]?.token : d.driver === 'lg-webos' ? !!db.pairing[d.id]?.clientKey : undefined, notes: d.notes, lastSeen: d.lastSeen });
+    paired: d.driver === 'samsung-tv' ? !!db.pairing[d.id]?.token : d.driver === 'lg-webos' ? !!db.pairing[d.id]?.clientKey : d.driver === 'homeassistant' ? !!haOn?.set : undefined, notes: d.notes, lastSeen: d.lastSeen });
 
   function actionsOf(d) {
     const drv = DRIVERS.find((x) => x.id === d.driver);
@@ -141,7 +147,89 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       .map(([name, a]) => ({ name, says: a.says, params: a.params || {}, risky: R.isRisky(name, a), recipe: true, run: (dev, p) => R.run(rec, name, dev.address, p, { bt }) })) : [];
     return [...own, ...taught];
   }
-  const ctxFor = (d) => ({ pairing: (db.pairing[d.id] ||= {}), save, say, bt });
+  const ctxFor = (d) => ({ pairing: (db.pairing[d.id] ||= {}), save, say, bt, haPicked: () => Object.keys(db.ha.picked).length });
+
+  // --- Home Assistant: the things the household picked for Opie (drivers/homeassistant.js) ---
+  // Each picked thing is a device of its own (transport 'homeassistant', id ha-<entity id>), made from db.ha.picked and
+  // kept through scans. Picking one is the household's yes for Opie to use it (as the room's yes is for a TV); an app
+  // still asks for itself. What isn't picked isn't a device, so nothing reaches it; the host's rules (ha-rules.js)
+  // keep locks, doors, alarms and cameras out whatever is picked.
+  db.ha ||= { picked: {} };
+  let haOn = null; // the host's answer: {can, set, url}
+  const haCheck = async () => { haOn = await haConnection().catch(() => null); return haOn; };
+  haCheck(); setTimeout(haCheck, 30_000).unref?.(); // the shell may come up after the bridge
+  const haId = (e) => 'ha-' + e;
+  const HA_MODEL = { light: 'Light', switch: 'Switch', scene: 'Scene', media_player: 'Media player', climate: 'Thermostat' };
+  function haSync() { // the devices follow the picks
+    const was = new Map(db.devices.filter((d) => d.transport === 'homeassistant').map((d) => [d.id, d]));
+    db.devices = [...db.devices.filter((d) => d.transport !== 'homeassistant'), ...Object.entries(db.ha.picked).map(([e, p]) => ({
+      id: haId(e), entity: e, name: p.name, customName: was.get(haId(e))?.customName, kind: p.kind, maker: 'Home Assistant', model: HA_MODEL[haDomain(e)] || null,
+      address: 'Home Assistant', driver: 'homeassistant-entity', transport: 'homeassistant', present: true, notes: [], firstSeen: p.at, lastSeen: p.at }))];
+    for (const d of db.devices) if (d.transport === 'homeassistant') d.actions = actionsOf(d).map((a) => a.name);
+  }
+  haSync();
+  const HA_WORDS = "the names and states of things in the household's Home Assistant, as it gives them";
+  /** Everything Opie could be given, and whether it is. Throws what to say. */
+  const haList = async () => (await haThings()).map((t) => ({ ...t, picked: !!db.ha.picked[t.entity] }));
+  /** Opie may use it (use) or no longer. A person's tap ('board') is their yes; Opie's asks the room, with the PIN when
+   *  the lock is on, on a card only a person answers. */
+  async function haUse(thing, use, { who = 'board' } = {}) {
+    const q = String(thing || '').trim(), low = q.toLowerCase();
+    if (!use) {
+      const e = Object.keys(db.ha.picked).find((k) => k === q || haId(k) === q || db.ha.picked[k].name.toLowerCase() === low);
+      if (!e) return { ok: true, text: 'Opie wasn\'t using that.' };
+      const before = structuredClone(db);
+      delete db.ha.picked[e]; delete db.pairing[haId(e)]; haSync();
+      try { save(before); } catch (err) { return { ok: false, text: unsaved(err).error }; }
+      return { ok: true, text: 'Opie no longer uses it.' };
+    }
+    let list; try { list = await haList(); } catch (err) { return { ok: false, text: err.message }; }
+    const t = list.find((x) => x.entity === q) || list.find((x) => x.name.toLowerCase() === low);
+    if (!t) return { ok: false, text: 'Home Assistant has nothing by that name that Opie could use (lights, switches, scenes, media players, and thermostats to read). Use things for the list.' };
+    if (t.picked) return { ok: true, text: 'Opie already uses it.' };
+    if (who !== 'board') {
+      say(`Waiting for a yes: ${t.name}`);
+      if (!(await approve(`Let Opie use ${t.name}?`, 'From Home Assistant.', { pin: true, for: 'settings' }))) return { ok: false, text: 'The people here didn\'t say yes (or didn\'t answer). Don\'t try again; tell them it wasn\'t done.' };
+    }
+    const before = structuredClone(db);
+    db.ha.picked[t.entity] = { name: t.name, kind: t.kind, at: new Date().toISOString() };
+    (db.pairing[haId(t.entity)] ||= {}).allowed = true; haSync();
+    try { save(before); } catch (err) { return { ok: false, text: unsaved(err).error }; }
+    return { ok: true, text: `Opie can use it now: ${asData(t.name, HA_WORDS, { max: 100 })}` };
+  }
+  const haHub = () => db.devices.find((d) => d.driver === 'homeassistant' && d.present) || db.devices.find((d) => d.driver === 'homeassistant');
+  /** Connect Home Assistant on the device's own screen (the token is typed or sent there, never here). */
+  async function haConnect() {
+    if (!host.can('homeassistant')) return { ok: false, text: 'This device can\'t keep a Home Assistant token.' };
+    const hub = haHub();
+    const r = await host.call('/homeassistant/connect', { url: hub ? `http://${hub.address}:8123` : '' }, { ms: 8000 });
+    return r?.ok ? { ok: true, text: 'Connecting Home Assistant is on the device\'s screen: someone there scans its code with a phone or types the token. Say so in a sentence.' }
+      : { ok: false, text: r?.body?.error || 'The device couldn\'t show that just now.' };
+  }
+  /** A picked thing by its entity id or its whole name: never a near one (the porch light isn't the kitchen light). */
+  function haLookup(q) {
+    const s = String(q || '').toLowerCase().replace(/^the /, '').trim(), mine = db.devices.filter((d) => d.transport === 'homeassistant');
+    return mine.find((d) => d.entity === s || d.id === s) || mine.find((d) => [d.customName, d.name].some((n) => n && n.toLowerCase() === s)) || null;
+  }
+  const HA_DO = { on: 'power_on', off: 'power_off', brightness: 'set_brightness', play: 'play', pause: 'pause', next: 'next', previous: 'previous',
+    volume: 'set_volume', louder: 'volume_up', quieter: 'volume_down', mute: 'mute', status: 'status' };
+  /** The voice's "home_assistant" tool. */
+  async function haDo({ do: what = 'list', thing, level } = {}, opts = {}) {
+    if (what === 'connect') return haConnect();
+    if (what === 'use' || what === 'stop_using') return haUse(thing, what === 'use', { who: opts.who || 'voice' });
+    if (what === 'things') {
+      try { const l = await haList(); return { ok: true, text: l.length ? `What Opie could use (* = it does):\n${asData(l.map((t) => `${t.picked ? '* ' : ''}${t.name} [${t.entity}] ${t.kind}, ${t.state}`).join('\n'), HA_WORDS, { max: 12000 })}` : 'Home Assistant has nothing Opie could use.' }; }
+      catch (err) { return { ok: false, text: err.message }; }
+    }
+    const mine = db.devices.filter((d) => d.transport === 'homeassistant');
+    if (what === 'list') return { ok: true, text: mine.length ? `What Opie may use in Home Assistant:\n${asData(mine.map((d) => `${d.customName || d.name} [${d.entity}] ${d.kind}: ${actionsOf(d).map((a) => a.name).join(', ')}`).join('\n'), HA_WORDS, { max: 8000 })}` : (haOn?.set ? 'The household hasn\'t picked anything in Home Assistant for Opie yet (things lists what could be).' : 'Home Assistant isn\'t connected (connect puts that on the device\'s screen).') };
+    const d = haLookup(thing);
+    if (!d) return { ok: false, text: 'Opie may use nothing by that name in Home Assistant. list says what it may use; the household picks more on the device.' };
+    const action = d.kind === 'scene' && what === 'on' ? 'activate' : HA_DO[what];
+    if (!action || !actionsOf(d).some((a) => a.name === action)) return { ok: false, text: `${d.customName || d.name} can: ${actionsOf(d).map((a) => a.name).join(', ')}.` };
+    return act(d.id, action, action === 'set_brightness' || action === 'set_volume' ? { level } : {}, { who: opts.who || 'voice' });
+  }
+
   const asDriverInput = (d) => ({ ...d, ...d.evidence, mdnsTxt: Object.assign({}, ...(d.evidence?.mdns || []).filter((s) => /^_ipps?\._tcp$/.test(s.type)).map((s) => s.txt)) });
 
   // --- scanning ---
@@ -207,7 +295,8 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       });
       const seen = new Set(next.map((d) => d.id));
       // Gone ones stay listed as not seen, except Bluetooth ones that were never paired (a passer-by's headphones).
-      for (const d of db.devices) if (!seen.has(d.id) && !(d.id.startsWith('ip-') && next.some((n) => n.address === d.address)) && !(d.transport === 'bluetooth' && !d.evidence?.bt?.bonded)) next.push({ ...d, present: false });
+      for (const d of db.devices) if (d.transport === 'homeassistant') next.push(d); // (the household's picks: not found by a scan)
+      else if (!seen.has(d.id) && !(d.id.startsWith('ip-') && next.some((n) => n.address === d.address)) && !(d.transport === 'bluetooth' && !d.evidence?.bt?.bonded)) next.push({ ...d, present: false });
       next.sort((a, b) => (b.present - a.present) || rank(a) - rank(b) || a.address.localeCompare(b.address, undefined, { numeric: true }));
       db.devices = next; db.scannedAt = now;
       db.lastScan = lastScan;
@@ -267,7 +356,10 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       const hay = [d.customName, d.name, d.model, d.maker, d.room, d.kind, d.kind === 'tv' ? 'television' : '', d.kind === 'speaker' ? 'music' : ''].join(' ').toLowerCase();
       return words.filter((w) => hay.includes(w)).length + (d.present ? 0.5 : 0) + (actionsOf(d).length ? 0.25 : 0);
     };
-    const best = list.map((d) => [score(d), d]).filter(([n]) => n >= 1).sort((a, b) => b[0] - a[0]);
+    const ha = list.find((d) => d.transport === 'homeassistant' && d.entity === s);
+    if (ha) return ha;
+    // (Home Assistant's things only by their whole name or id: a house has many lights, and a near one is the wrong one)
+    const best = list.filter((d) => d.transport !== 'homeassistant').map((d) => [score(d), d]).filter(([n]) => n >= 1).sort((a, b) => b[0] - a[0]);
     return best[0]?.[1] || null;
   }
 
@@ -331,7 +423,8 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       const result = await job;
       log(`${who}: ${label} ${action} ok in ${Date.now() - t0} ms`);
       if (!reads) speechLog({ who, device: label, action, params: p.values, ok: true, text: (typeof result === 'string' ? result : JSON.stringify(result)).slice(0, 240) });
-      return { ok: true, device: label, result, text: typeof result === 'string' ? result : JSON.stringify(result) };
+      const said = typeof result === 'string' ? result : JSON.stringify(result);
+      return { ok: true, device: label, result, text: d.transport === 'homeassistant' && typeof result !== 'string' ? asData(said, HA_WORDS, { max: 4000 }) : said };
     } catch (e) {
       log(`${who}: ${label} ${action} failed in ${Date.now() - t0} ms: ${e.message}`);
       speechLog({ who, device: label, action, params: p.values, ok: false, text: e.message.slice(0, 240) });
@@ -548,7 +641,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   const APP_NEVER = /^(pair|unpair|forget|play_here|stop_here|install|uninstall|reset|factory_reset|settings?|set_setting|update|firmware)$/;
   const appMay = (d, a) => !APP_NEVER.test(a.name) && !(a.boardOk && a.risky);
   const NOT_CONTROLLED = new Set(['phone', 'computer', 'tablet', 'display', 'router']);
-  const forApps = () => db.devices.filter((d) => !d.self && !NOT_CONTROLLED.has(d.kind) && actionsOf(d).some((a) => appMay(d, a)));
+  const forApps = () => db.devices.filter((d) => !d.self && !NOT_CONTROLLED.has(d.kind) && d.driver !== 'homeassistant' && actionsOf(d).some((a) => appMay(d, a)));
   const asking = new Set(); // apps with a card on the tablet now
   const counts = new Map(); // app -> {at, changes, reads}
   function spend(app, kind) {
@@ -743,6 +836,10 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   }
   handle.devices = devicesDo;
   handle.bluetooth = bluetoothDo; handle.bluetoothOn = () => !!btState?.supported; // the voice's tool, offered on a tablet with Bluetooth
+  handle.homeAssistant = haDo; // the voice's tool, offered once there's a Home Assistant to use or connect
+  handle.homeAssistantOn = () => !!haOn?.can && (!!haOn.set || db.devices.some((d) => d.driver === 'homeassistant'));
+  handle.homeAssistantNames = () => db.devices.filter((d) => d.transport === 'homeassistant').map((d) => d.customName || d.name);
+  handle.homeAssistantCheck = haCheck; // (tests, and after the shell says it changed)
   handle.mcp = mcp; // the same tools for the agent in its own app, behind its run's key (box.js)
   return handle;
   async function handle(req, res, url) {
@@ -755,6 +852,17 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       const out = await mcp(await body(req));
       if (!out) { res.writeHead(202); res.end(); return true; }
       json(res, 200, out); return true;
+    }
+    if (p.startsWith('/devices/homeassistant')) {
+      if (req.method === 'GET' && p === '/devices/homeassistant') {
+        const c = await haCheck();
+        if (!c?.set) { json(res, 200, { connected: false, can: !!c?.can, url: null, things: [] }); return true; }
+        try { json(res, 200, { connected: true, can: true, url: c.url, things: await haList() }); } catch (e) { json(res, 200, { connected: true, can: true, url: c.url, things: [], error: e.message }); }
+        return true;
+      }
+      if (req.method === 'POST' && p === '/devices/homeassistant/use') { const b = await body(req); json(res, 200, await haUse(b.entity, b.use !== false, { who: 'board' })); return true; }
+      if (req.method === 'POST' && p === '/devices/homeassistant/connect') { json(res, 200, await haConnect()); return true; }
+      if (req.method === 'POST' && p === '/devices/homeassistant/changed') { await haCheck(); json(res, 200, { ok: true }); return true; } // (the shell: connected or removed)
     }
     if (req.method === 'GET' && p === '/devices') { json(res, 200, { scannedAt: db.scannedAt, scanning: !!scanning, lastScan: db.lastScan || null, devices: db.devices.map(pub) }); return true; }
     if (req.method === 'POST' && p === '/devices/scan') {

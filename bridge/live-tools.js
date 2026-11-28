@@ -136,6 +136,14 @@ export const DEVICES_TOOL = { name: 'home_devices', description: "The house's de
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['list', 'act', 'name'] },
     device: { type: 'string', description: 'Which one, by its name or id from list' }, action: { type: 'string', description: 'For act: one of its actions from list' },
     params: { type: 'object', description: 'For act: the action\'s parameters, if any' }, name: { type: 'string', description: 'For name: what the family calls it (empty: its own name)' } } } };
+/** The household's Home Assistant: devices/index.js haDo (drivers/homeassistant.js). Offered once there's one to use or connect. */
+export const HA_TOOL = { name: 'home_assistant', description: "The household's Home Assistant: the lights, switches, scenes and media players it picked for you to use, and thermostats to read. " +
+    'on, off, brightness (level 0-100), play, pause, next, previous, volume (level 0-100), louder, quieter, mute, or status of one thing (on for a scene sets it); list says what you may use. ' +
+    'Locks, garage doors, alarms and cameras are never reachable, and thermostats can\'t be changed: say so plainly. ' +
+    'things lists everything that could be picked; use asks the people here to let you use one more (a card on the device), stop_using drops one. ' +
+    'connect puts Connect Home Assistant on the device\'s screen: the token is only ever typed or sent there by a person, never said to you.',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['list', 'on', 'off', 'brightness', 'play', 'pause', 'next', 'previous', 'volume', 'louder', 'quieter', 'mute', 'status', 'things', 'use', 'stop_using', 'connect'] },
+    thing: { type: 'string', description: 'Which one, by its name or its id from list or things' }, level: { type: 'integer', description: 'For brightness and volume: 0-100' } } } };
 /** Does the tablet hear them? Settings → Opie → Voice's microphone check, on the screen: devices/index.js micCheckDo (the shell's /mic-check). */
 export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether the device hears people: when "Hey Opie" isn\'t working, it keeps missing them, or they ask for a microphone check. ' +
     'start puts the check on the device\'s screen: someone says "Hey Opie" to it, and it says plainly whether it heard them, or the microphone is too quiet, too noisy or blocked. ' +
@@ -236,6 +244,13 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const tvTools = () => { try { const names = tvDevices?.tvs() || []; return names.length ? [{ ...TV_TOOL, description: TV_TOOL.description + `\n${asData(names.map((n) => String(n).replace(/\s+/g, ' ').slice(0, 60)).join(', '), "the TVs' names, as the TVs give them unless the family named them", { max: 600 })}` }] : []; } catch { return []; } }; // (a TV names itself on the network: data)
   const extraTools = () => { try { return extra?.tools() || []; } catch { return []; } };
   const btTools = () => { try { return tvDevices?.bluetoothOn?.() ? [BT_TOOL] : []; } catch { return []; } };
+  const haTools = () => { // (the names are Home Assistant's: data)
+    try {
+      if (!tvDevices?.homeAssistantOn?.()) return [];
+      const names = tvDevices.homeAssistantNames?.() || [];
+      return [{ ...HA_TOOL, description: HA_TOOL.description + (names.length ? `\n${asData(names.map((n) => String(n).replace(/\s+/g, ' ').slice(0, 60)).join(', '), "the names of what you may use in Home Assistant, as it gives them unless the family renamed them", { max: 1500 })}` : '') }];
+    } catch { return []; }
+  };
   const volumeTools = () => (tvDevices?.volume ? [VOLUME_TOOL] : []);
   const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.micCheckOn?.() ? [MIC_CHECK_TOOL] : []), ...(tvDevices.devices ? [DEVICES_TOOL] : []), ...(tvDevices.media ? [MUSIC_TOOL] : [])] : []);
   const pinTools = () => { try { return tvDevices?.pinChoicesOn?.() ? [PIN_TOOL] : []; } catch { return []; } };
@@ -244,7 +259,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const read = (f) => { try { return fs.readFileSync(path.join(HERE, f), 'utf8'); } catch { return ''; } };
   const rawTools = () => {
     const all = homeScreen.tools().filter((t) => LIVE_TOOLS.includes(t.name));
-    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...pinTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...(usageNow ? [USAGE_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds ? [MAKE_APP_TOOL, ...waitTools()] : [])];
+    return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...pinTools(), ...tvTools(), ...btTools(), ...haTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...(usageNow ? [USAGE_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds ? [MAKE_APP_TOOL, ...waitTools()] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
   const unattendedOk = (name, { message = false } = {}) => UNATTENDED_TOOLS.has(name) || (message && name === MESSAGE_NAME) || extraTools().some((t) => t.name === name);
@@ -286,6 +301,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === PIN_TOOL.name && tvDevices?.pinChoices) { const r = await tvDevices.pinChoices(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === SCREEN_TOOL.name && tvDevices?.screen) { const r = await tvDevices.screen(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === 'bluetooth' && tvDevices?.bluetooth) { const r = await tvDevices.bluetooth(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
+    if (name === HA_TOOL.name && tvDevices?.homeAssistant) { const r = await tvDevices.homeAssistant(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (name === 'tv' && tvDevices) { const r = await tvDevices.tv(args || {}, { who: 'voice' }); return { text: r.text, isError: !r.ok }; }
     if (extra && extraTools().some((t) => t.name === name)) { // an app's voice action: what the app says back is its words, marked as data
       const r = await extra.call(name, args || {});

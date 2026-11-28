@@ -32,6 +32,7 @@ by these, never by the host's kind (`host.js CAPS`):
 | `google-signin` | starts Google's sign-in from the setup (`/setup/google`); else the bridge does, back to its own address | ✓ | |
 | `drive` | owns a USB drive for backups; else they go to a folder | ✓ | |
 | `storage` | keeps the household's own storage bucket's key (S3 and the like) and signs one request at a time for backups (`/storage/*`) | ✓ | ✓ |
+| `homeassistant` | keeps the household's Home Assistant address and token, and makes the bridge's calls to it, checked against `devices/ha-rules.js` (`/homeassistant*`) | ✓ | ✓ |
 | `updates` | updates the bridge; else the bridge updates itself (`hub/update.sh`) | ✓ | |
 | `mail-convert` | makes mail attachments readable (`/mail/pdf`, `/mail/heic`) | ✓ | |
 | `stills` | makes a video's still (`/media/still`) | ✓ | |
@@ -64,6 +65,15 @@ The same requests and answers on every host that has them (DeviceServer.kt `home
   name}` or `{method: 'GET', list: true, token?}` → `{url}`: one presigned URL (SigV4, 15 minutes) for one object
   under the prefix or its listing, 409 with none set; `/storage/remove`. The bridge sends the URL itself
   (`bucket-backup.js`); the secret never leaves the host (docs/backups.md, "Your own storage").
+- `/homeassistant/status` → `{set, url}` (never the token); `/homeassistant {method, path, body}` → `{answer}`: one call
+  to the kept address with the token added, only if `bridge/devices/ha-rules.js` allows it (the shell's
+  `HomeAssistant.kt` has the same rules): lights, switches, scenes and media players to use, thermostats to read;
+  locks, covers, alarms, cameras and anything else never, nor a scene that sets one. The answer has their states taken
+  out, and the token too if Home Assistant put it there. 403 refused, 409 none kept, 401 the token stopped working.
+  `/homeassistant/remove`. Putting it in: on the tablet its own screen (`/homeassistant/connect {url}` puts it up,
+  behind the PIN; the token typed there or sent from a phone by the QR code, a person's own tap); on the keeper
+  `/homeassistant/set {url, token, from?}` → `{ok}` once Home Assistant takes the token and a person says yes on a
+  card with the PIN.
 
 ## What stays a person's
 
