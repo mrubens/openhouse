@@ -89,7 +89,7 @@ internal object MicCheck {
             running = false
             // The microphone never opened (another app has it), or the bridge's verdict.
             val v = verdict ?: if (!opened && act.micFailed() != null) "busy" else end?.optString("verdict")?.ifEmpty { null } ?: "none"
-            val off = !MainActivity.micWanted(act)
+            val off = !MainActivity.listenOn(act) || !LiveVoice.chosen // (Tap to talk isn't off: a tap answers)
             done(v, off); result(v, off)
         }
     }

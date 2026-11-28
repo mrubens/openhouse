@@ -57,6 +57,8 @@ interface Host {
     fun setupDone() {}
     /** The welcome or the setup came or went: the microphone follows (none until the setup is over: Setup.hushed). */
     fun micFollow() {}
+    /** "Hey Opie" or Tap to talk (Settings → Opie → Talk to Opie, the setup's last step): MainActivity.setHeyOpie. */
+    fun setHeyOpie(on: Boolean) {}
     /** The assistant is on (OpenAI's live voice and text model, through the family's account). */
     fun hasAssistant(): Boolean = true
     /** Settings → Opie → Voice (no PIN): which of OpenAI's voices it speaks with; it says hello in the new one. */
@@ -113,7 +115,10 @@ object Openhouse : AnswerActions {
     val assistantName: String get() = "Opie"
     /** How to wake it, for hints. */
     val wakeHint: String get() = "Hey Opie"
-    /** Wake to "Hey Opie", or only to a tap (the default). */
+    /** "Hey Opie" wakes it; false: Tap to talk, where nothing listens until a tap and the pill says so. The shell keeps
+     *  the choice (MainActivity.setHeyOpie). */
+    var heyOpie by mutableStateOf(true)
+    /** The bridge's listener answers to "Hey Opie", or not (the shell's choice, while the voice is on). */
     fun setWakeWord(on: Boolean) = scope.launch { ui { voice = voice.copy(wakeOn = on) }; post("/voice/wake", JSONObject().put("on", on)); loadVoiceStatus() }
     /** Whether the household is set up yet (no: setup opens by itself, once). */
     var householdSetUp by mutableStateOf(true); private set

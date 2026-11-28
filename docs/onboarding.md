@@ -83,14 +83,16 @@ On the tablet:
       until a PIN is set (`Setup.allowed`), and Later on an earlier step comes here first. With no phone or computer
       in, it's chosen on the tablet. On a linked tablet there's no recovery code to keep, since the account page
       resets the PIN; unlinking shows one first.
-   7. **Two of Android's settings** (`AndroidStep`, since 2026-11-26): Let Opie use other apps (Android's
+   7. **Almost done** (`AndroidStep`, since 2026-11-26): first one line, Talk to Opie, with two chips: **Hey Opie**
+      (the default) or **Tap to talk**, which adds "Nothing listens until you tap." (since 2026-11-28; Settings → Opie
+      → Talk to Opie after, `docs/wake-word.md`). Then two of Android's settings: Let Opie use other apps (Android's
       accessibility page for the Opie assistant; "On" once it is) and Stop charging at 80% (Android's settings, with
       the path for a Samsung, else a pointer to [tablets.md](tablets.md)). Each leaves kiosk mode, behind the PIN if
       one was chosen; Home comes back. Both can be skipped.
    **Opie is ready** (`CloudVoiceMenu.ready`, since 2026-11-27, in place of the Talk to Opie step): once the setup
       ends (Done, or Later), where the voice can work (the tablet linked and its household has the voice, or the
-      household's own key in) it's turned on, with Hey Opie listening, and a small dialog says "Opie is ready": say
-      “Hey Opie” to use it, and what follows goes to OpenAI. **OK**, or **Turn off** (Settings → Opie → Voice's Off, kept as an
+      household's own key in) it's turned on, with Hey Opie listening (or, with Tap to talk, the pill showing it), and a small dialog says
+      "Opie is ready": say “Hey Opie” to use it (or tap Opie to talk), and what follows goes to OpenAI. **OK**, or **Turn off** (Settings → Opie → Voice's Off, kept as an
       Off in `OpieChoice`, so it isn't turned on by itself later). Where it can't (no account and no key, or the
       household doesn't have the voice yet), no dialog shows; with no account and no key, Today's first card is
       **Opie's voice** with **Add a key** (`home.jsx`, `OwnKey.fromToday`) until a key is in.

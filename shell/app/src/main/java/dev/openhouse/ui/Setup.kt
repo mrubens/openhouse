@@ -5,8 +5,8 @@ package dev.openhouse.ui
 // who lives here, where (a street address guessed from where the tablet is), the household's calendar (Google, iCloud,
 // Outlook or a link, or none), photos (an iCloud shared album, Google Photos, or from that phone) and a PIN for settings
 // and approvals (PIN Lock: the one step that can't be skipped). Then what only the tablet can do: two of Android's own settings a
-// tablet set up by its household would otherwise never find (letting Opie use other apps, and the charge limit). One
-// step on screen at a time.
+// tablet set up by its household would otherwise never find (letting Opie use other apps, and the charge limit), with
+// one line above them for how to start talking ("Hey Opie", or Tap to talk: nothing listens until a tap). One step on screen at a time.
 //
 // Opie's AI and voice aren't steps (the owner, after a real tablet: "no need to show the ai page", "testing opie voices
 // doesn't work, skip it"): a tablet linked to an Opie account has them, and one without adds its own key later in
@@ -112,7 +112,7 @@ internal fun SetupSheet() {
     val step = Openhouse.setupStep ?: return
     val title = when (step) {
         "people" -> "Who lives here?"; "place" -> "Where do you live?"; "calendar" -> "Do you have a shared calendar?"
-        "photos" -> "Put your photos on the device?"; "pin" -> "Choose a PIN"; "android" -> "Two Android settings"
+        "photos" -> "Put your photos on the device?"; "pin" -> "Choose a PIN"; "android" -> "Almost done"
         else -> "Set up on your phone or computer"
     }
     val save = remember(step) { arrayOf<() -> Unit>({}) } // the step's own: what was typed, saved on Next, Back or Later
@@ -296,6 +296,15 @@ private fun AndroidStep() {
     }
     val samsung = android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)
     Column(verticalArrangement = Arrangement.spacedBy(28.u)) {
+        // How to start talking, one line (Settings → Opie → Talk to Opie has it after): "Hey Opie", or a tap only.
+        Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.u)) {
+                Text("Talk to Opie", style = calmText(21, FontWeight.Medium), modifier = Modifier.padding(end = 8.u))
+                Chip("Hey Opie", selected = Openhouse.heyOpie) { Openhouse.host.setHeyOpie(true); Openhouse.heyOpie = true }
+                Chip("Tap to talk", selected = !Openhouse.heyOpie) { Openhouse.host.setHeyOpie(false); Openhouse.heyOpie = false }
+            }
+            if (!Openhouse.heyOpie) Soft("Nothing listens until you tap.")
+        }
         Column(verticalArrangement = Arrangement.spacedBy(10.u)) {
             Text("Let Opie use other apps", style = calmText(21, FontWeight.Medium))
             Soft("So it can open apps and press their buttons when you ask.")

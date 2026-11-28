@@ -5,6 +5,15 @@ Every household wakes the assistant the same way: **"Hey Opie"**. Since voice se
 than saying "hey". (Before, any of them woke it.) It isn't a setting. The household record can still give the
 assistant another display name, but the words it answers to can't change.
 
+**"Hey Opie" or Tap to talk (2026-11-28).** Whether the wake word is used at all is the household's choice, one line on
+the setup's last step and **Talk to Opie** in Settings → Opie (shown while the voice is on), or ask Opie (`hey_opie`).
+The two are offered side by side, neither as the fallback. With **Tap to talk** the microphone is closed: the shell doesn't stream it to
+the bridge, the wake model doesn't run, and the pill on the home screen stays at rest saying "Tap to talk". A tap opens
+a live session with its own microphone at once (no kept audio to catch up on), and when the session ends its page
+goes, and the microphone with it. `MainActivity.micWanted()` is false while `heyOpie` is off; the bridge's
+`/voice/wake` follows the choice too. Adjust to the room hears the room through the same stream, so with Tap to talk
+it keeps the volume as set.
+
 **Now (2026-11-20):** a small wake model listens all the time (`bridge/wake.js`, `models/wake/opie.onnx`), alone: a
 score of at least 0.9 is its name (round 3's model, voice set 4), and the display hands the microphone to OpenAI's live voice, which hears the
 request. It's the only speech model on the tablet: the speech model (Parakeet), the speaker model (TitaNet), the
@@ -232,9 +241,11 @@ check: 7.5 / 5.7 / 4.9 / 1.9 out of 10 and no false requests, but alone it would
 - **Counting false wakes:** each time it fires, the bridge keeps when and how sure (`voice-wakes.jsonl`, nothing heard
   or said). `GET /voice/wakes` gives them with the counts for the last hour and day; `POST /voice/wakes/clear`
   empties it. Compare the times with the live voice's conversations to tell real wakes from false ones.
-- **Only with the live voice:** `MainActivity.micWanted()` is the microphone switch and `LiveVoice.chosen`; the
-  microphone stream stops and starts as the live voice goes off and on, and the wake model is fetched only then.
-- **A tap** on the assistant opens a live voice session too; without the live voice it opens typing. The typing box
+- **Only with the live voice, and "Hey Opie":** `MainActivity.micWanted()` is the microphone switch, `heyOpie` and
+  `LiveVoice.chosen`; the microphone stream stops and starts as the live voice or "Hey Opie" goes off and on, and the
+  wake model is fetched only then.
+- **A tap** on the assistant opens a live voice session too; without the live voice it opens typing. With Tap to talk
+  the pill shows at rest, so there is something to tap. The typing box
   has no microphone now (dictating needed the speech model).
 - **Shipping:** voice set 3 (`docs/voice-models.md`): the three files under `models/wake/`, with `onnxruntime-node`
   (linux-arm64 only). `scripts/voice-models.sh` fetches openWakeWord's two files and copies `opie.onnx` from this

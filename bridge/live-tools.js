@@ -150,6 +150,10 @@ export const MIC_CHECK_TOOL = { name: 'mic_check', description: 'Check whether t
     'start puts the check on the device\'s screen: someone says "Hey Opie" to it, and it says plainly whether it heard them, or the microphone is too quiet, too noisy or blocked. ' +
     'Nothing is recorded or sent while it checks. last says how the last check went.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['start', 'last'] } } } };
+/** How people start talking (Settings → Opie → Talk to Opie): devices/index.js talkDo (the shell's /talk). No PIN, as the row. */
+export const TALK_TOOL = { name: 'hey_opie', description: 'Whether saying "Hey Opie" starts a conversation, or only a tap on the device does (Tap to talk: nothing listens until someone taps). ' +
+    'on or off only when they ask for it; get says which it is now.',
+  inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'on', 'off'] } } } };
 /** What asks for the tablet's PIN (Settings → Advanced → Ask for the PIN): devices/index.js pinChoicesDo (the shell's
  *  /pin-choices, PinChoices.kt). Changing one always takes the PIN, typed by a person on the tablet's own card. */
 export const USAGE_TOOL = { name: 'how_much_used', description: "How much of Opie the household used this month, as Settings → Voice shows it: minutes talking to Opie, typed questions answered, apps made or changed, and about what it cost so far, and what's left of Opie's credit. For \"how much have we used?\", \"what does this cost us?\", \"how much credit is left?\".",
@@ -253,7 +257,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     } catch { return []; }
   };
   const volumeTools = () => (tvDevices?.volume ? [VOLUME_TOOL] : []);
-  const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.micCheckOn?.() ? [MIC_CHECK_TOOL] : []), ...(tvDevices.devices ? [DEVICES_TOOL] : []), ...(tvDevices.media ? [MUSIC_TOOL] : [])] : []);
+  const tabletScreenTools = () => (tvDevices?.screen ? [SCREEN_TOOL, ...(tvDevices.micCheckOn?.() ? [MIC_CHECK_TOOL] : []), ...(tvDevices.talkOn?.() ? [TALK_TOOL] : []),...(tvDevices.devices ? [DEVICES_TOOL] : []), ...(tvDevices.media ? [MUSIC_TOOL] : [])] : []);
   const pinTools = () => { try { return tvDevices?.pinChoicesOn?.() ? [PIN_TOOL] : []; } catch { return []; } };
   const family = () => { try { return (household?.read?.()?.family || []).filter((f) => f?.name); } catch { return []; } };
   const messageTools = () => { const n = [...new Set(family().map((f) => String(f.name)))]; return phones && n.length ? [messageTool(n)] : []; };
@@ -298,6 +302,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     if (name === 'volume' && tvDevices?.volume) { const r = await tvDevices.volume(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === DEVICES_TOOL.name && tvDevices?.devices) { const r = await tvDevices.devices(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === MUSIC_TOOL.name && tvDevices?.media) { const r = await tvDevices.media(args || {}); return { text: r.text, isError: !r.ok }; }
+    if (name === TALK_TOOL.name && tvDevices?.talk) { const r = await tvDevices.talk(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === MIC_CHECK_TOOL.name && tvDevices?.micCheck) { const r = await tvDevices.micCheck(args || {}, { wait: !!(ctx.typed || ctx.phone) }); return { text: r.text, isError: !r.ok }; }
     if (name === PIN_TOOL.name && tvDevices?.pinChoices) { const r = await tvDevices.pinChoices(args || {}); return { text: r.text, isError: !r.ok }; }
     if (name === SCREEN_TOOL.name && tvDevices?.screen) { const r = await tvDevices.screen(args || {}); return { text: r.text, isError: !r.ok }; }

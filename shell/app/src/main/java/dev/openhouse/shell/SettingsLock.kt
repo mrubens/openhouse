@@ -91,6 +91,7 @@ internal class SettingsLock(private val act: MainActivity) {
             "deviceControl", "appsOn", "checkins" -> opie(id) // Settings → Opie
             "spotify" -> spotify { changed() } // Settings → Connections
             "micCheck" -> MicCheck.open(act)
+            "talk" -> talk()
             "houseRules" -> HouseRules.open(act) {}
             "memory" -> memory()
             "brightness" -> Brightness.choose(act, act::immersive) { Openhouse.settingsChanged() }
@@ -308,6 +309,7 @@ internal class SettingsLock(private val act: MainActivity) {
         val name = get("/cloud/voice")?.optString("voiceName")?.takeIf { it.isNotEmpty() }?.replaceFirstChar { c -> c.uppercase() } ?: "On"
         m["voice"] = if (!LiveVoice.chosen) "Off" else when (VoiceModels.describe()?.substringBefore(" ")) {
             "Getting", "Putting" -> "Getting ready"; "The" -> "Waits for Wi-Fi"; "Couldn't" -> "Not ready yet"; else -> name }
+        m["talk"] = if (MainActivity.heyOpie(act)) "Hey Opie" else "Tap to talk"
         get("/screens")?.optJSONArray("screens")?.let { m["screens"] = count(it.length()) }
         get("/cloud/status")?.let { m["account"] = if (it.optBoolean("linked")) it.optString("family").ifEmpty { "Linked" } else "Off" }
         get("/mail")?.let { e -> // Email: how many wait for an Allow, else whether mail comes in at all
@@ -340,6 +342,14 @@ internal class SettingsLock(private val act: MainActivity) {
     private fun saveCheckins(b: JSONObject) = thread {
         val (_, r) = CloudSetup.post("${act.bridge}/heartbeat/settings", b)
         act.runOnUiThread { if (r != null && !r.has("error")) checkins(r) }
+    }
+
+    /** Settings → Opie → Talk to Opie: "Hey Opie", or Tap to talk (nothing listens until a tap). No PIN: it's everyday. */
+    private fun talk() {
+        val choices = arrayOf("Hey Opie", "Tap to talk · nothing listens until you tap")
+        CalmDialog(act).setTitle("Talk to Opie").setSingleChoiceItems(choices, if (MainActivity.heyOpie(act)) 0 else 1) { d, i ->
+            d.dismiss(); act.setHeyOpie(i == 0); changed()
+        }.setNegativeButton("Back", null).show()
     }
 
     private fun howOften(hb: JSONObject) {
