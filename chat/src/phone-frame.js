@@ -7,7 +7,7 @@
 // phone's page for everything (/kit/openhouse.js, SCREEN), and the phone's page marks each call with this frame's app.
 //
 // Messages: to the page {oh: 'ready'} once loaded, {oh: 'ls', data} (its localStorage, kept per app by the page),
-// {oh: 'failed', text}; from the page {oh: 'bundle', files: {rel: {t, s} | {t, b}}, ls}.
+// {oh: 'failed', text}, {oh: 'tap'} on each tap; from the page {oh: 'bundle', files: {rel: {t, s} | {t, b}}, ls}.
 const BASE = 'https://app.invalid/'; // where the app's own files seem to be (nothing is ever fetched from it)
 const real = (p) => new URL(p, location.href).href; // the page this came from (the tablet's, or the cloud's)
 
@@ -119,7 +119,9 @@ function page() {
   for (const el of doc.querySelectorAll('[src],[href],[poster]')) for (const k of ['src', 'href', 'poster']) {
     if (!el.hasAttribute(k) || el.tagName === 'A' || el.tagName === 'BASE') continue;
     const v = el.getAttribute(k); const r = relOf(new URL(v, BASE).href); const u = r != null && urlOf(r);
-    if (u) el.setAttribute(k, u);
+    // (the kit's own stylesheets keep their name after # (a blob: URL ignores it): the kit tells its sheets from the
+    // app's by it, and gives the household's colors, dark too, only where the app has none of its own)
+    if (u) el.setAttribute(k, el.tagName === 'LINK' && r.startsWith('kit/') ? `${u}#/${r}` : u);
   }
   // Inline scripts and styles: their imports and url()s too (scripts as files of their own, so nothing runs inline).
   let n = 0;
@@ -157,6 +159,18 @@ function tellBackground() {
   setInterval(look, 10e3); // (an app that changes its look: a dark sky at night)
 }
 
+/** As the phone's own apps feel (the phone page's phone.css does the same for it): no tap flash, no text selection or
+ *  long-press callout on what's tapped (still in fields and an app's own text: it sets user-select itself), no rubber
+ *  band round the whole page; and the page told of each tap ({oh: 'tap'}), so a change a tap makes gives the phone's tap
+ *  back (its haptic). After the app's page is written: writing it drops what was set up before. */
+function feelNative() {
+  const st = document.createElement('style');
+  st.textContent = 'html{-webkit-tap-highlight-color:transparent;overscroll-behavior:none}body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}input,textarea,select,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}';
+  (document.head || document.documentElement).prepend(st);
+  addEventListener('touchstart', () => {}, { passive: true }); // (what lets an iPhone show an app's :active looks)
+  addEventListener('pointerup', () => parent.postMessage({ oh: 'tap' }, '*'), { capture: true, passive: true });
+}
+
 function failed(text) { parent.postMessage({ oh: 'failed', text: String(text || '').slice(0, 300) }, '*'); }
 addEventListener('message', function first(e) {
   if (e.source !== parent || e.data?.oh !== 'bundle') return;
@@ -170,6 +184,7 @@ addEventListener('message', function first(e) {
   addEventListener('error', (ev) => failed(ev.message || 'error')); // (the page notes it; the app may well go on)
   document.write(html);
   document.close();
+  feelNative();
   tellBackground();
 });
 parent.postMessage({ oh: 'ready' }, '*');

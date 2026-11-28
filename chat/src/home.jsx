@@ -14,6 +14,8 @@ import { SpotifySlot, useSpotifyOn } from './spotify-player.jsx';
 import { useNow, smallHours } from './now.js';
 import { AlarmsSheet, nextAlarm, ringTime } from './alarms.jsx';
 import { AnswerBody } from './answer.jsx';
+import { Veil } from './sheet.jsx';
+import { haptic } from './native.js';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { PALETTES, WHITE, paletteOf, worldOf } from './look.js';
 import { card as weatherCard, icon as weatherIcon } from '../../bridge/kit/weather-look.js';
@@ -430,17 +432,17 @@ function DayNote({ c, house, n, day, openApp, style }) {
       <div className="h-label">{label(' · ')}</div>
       <div className="t-line">{plain(n.text)}</div>
     </div>}
-    {open && <div className="h-veil" onClick={() => setOpen(false)}>
-      <div className="h-note-full t-nsheet" onClick={(e) => e.stopPropagation()}>
+    {open && <Veil className="h-veil" onClose={() => setOpen(false)}>{(close) =>
+      <div className="h-note-full t-nsheet">
         <div className="t-nk">{label(' · ')} · {day.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
         <h2>{plain(n.text)}</h2>
         <div className="t-nfrom">From {n.name || n.app}</div>
         <div className="t-nshow"><span>Show</span>{[['week', 'Week and Home'], ['today', 'Home only'], ['off', 'Nowhere']].map(([k, l]) => (
           <button key={k} className={'h-chip' + (showNow === k ? ' on' : '')} onClick={() => setShow(k)}>{l}</button>))}</div>
         <div className="t-nacts"><button className="h-chip" onClick={() => { setOpen(false); openApp(n.app); }}>Open {n.name || n.app}</button>
-          <button className="h-chip on" onClick={() => setOpen(false)}>Done</button></div>
-      </div>
-    </div>}
+          <button className="h-chip on" onClick={close}>Done</button></div>
+      </div>}
+    </Veil>}
   </>;
 }
 
@@ -614,11 +616,11 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   const [adding, setAdding] = useState(null); // the words being added to the list, or null
   const typingIn = adding !== null; useEffect(() => { if (!typingIn) return; shell?.editing?.(true); return () => shell?.editing?.(false); }, [typingIn]); // (the shell's keyboard goes to the box)
   const [refused, setRefused] = useState(null); // why the tablet didn't add it (the list is full), for a moment
-  const add = () => { const t = String(adding || '').trim(); setAdding(null); if (t) c.json('POST', '/house/list', { list: list.name, add: [t] }).then((r) => { if (r?.json?.error) setRefused(r.json.error); }).catch(() => {}); };
+  const add = () => { const t = String(adding || '').trim(); if (t) haptic(); if (t) c.json('POST', '/house/list', { list: list.name, add: [t] }).then((r) => { if (r?.json?.error) setRefused(r.json.error); }).catch(() => {}); };
   useEffect(() => { if (!refused) return; const x = setTimeout(() => setRefused(null), 8000); return () => clearTimeout(x); }, [refused]);
   useEffect(() => { if (!ticked) return; const x = setTimeout(() => setTicked(null), 6000); return () => clearTimeout(x); }, [ticked]);
   const items = (list?.items || []).filter((i) => !i.done && !gone.has(i.id));
-  const tick = (e, i) => { e.stopPropagation(); setGone(new Set([...gone, i.id])); setTicked({ id: i.id, text: i.text }); c.json('POST', '/house/list', { list: list.name, check: [i.id] }).catch(() => {}); };
+  const tick = (e, i) => { e.stopPropagation(); haptic(); setGone(new Set([...gone, i.id])); setTicked({ id: i.id, text: i.text }); c.json('POST', '/house/list', { list: list.name, check: [i.id] }).catch(() => {}); };
   const untick = (e) => { e.stopPropagation(); const i = ticked; setTicked(null); setGone(new Set([...gone].filter((x) => x !== i.id))); c.json('POST', '/house/list', { list: list.name, uncheck: [i.id] }).catch(() => {}); };
   // Meals: tonight's dinner and the next days' planned; unplanned, a few of their favorites and saved recipes to tap
   // for tonight (only ones they have: nothing made up).
@@ -631,7 +633,7 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   for (const x of [...(h.favorites || []).map((f) => f?.text ?? f), ...Object.values(h.recipes || {}).map((r) => r?.text)]) {
     const v = String(x || '').trim(); if (v && !picks.some((p) => p.toLowerCase() === v.toLowerCase())) picks.push(v);
   }
-  const plan = (e, text) => { e.stopPropagation(); setPicked({ day: dayKey(t), text }); c.json('POST', '/house/meal', { date: dayKey(t), meal: 'dinner', text }).catch(() => {}); };
+  const plan = (e, text) => { e.stopPropagation(); haptic(); setPicked({ day: dayKey(t), text }); c.json('POST', '/house/meal', { date: dayKey(t), meal: 'dinner', text }).catch(() => {}); };
   const calFit = useFit(), mealFit = useFit();
   const photos = h.screensaver || h.photos || []; // the sleep screen's photos (its albums' choice), none when they're all off
 
@@ -665,16 +667,14 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
       : <div className="t-invite"><div className="t-line">Nothing to get</div><div className="t-soft">Add things as you run out</div></div>}
     {ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Put it back</span>}
     {refused && !ticked && <span className="t-undo">{refused}</span>}
-    {/* On an iPhone a tap on a button first closes the keyboard, the sheet moves, and the tap lands on the veil (closing
-        it, nothing added): the buttons keep the field's focus (no keyboard closing under the finger), and the veil
-        closes only for a tap that started on it. */}
-    {adding !== null && <div className="h-veil" onPointerDown={(e) => { e.currentTarget.dataset.down = e.target === e.currentTarget ? '1' : ''; }} onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget && e.currentTarget.dataset.down === '1') setAdding(null); }}>
-      <form className="h-note-full t-addsheet" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); add(); }}>
+    {/* (the buttons keep the field's focus: no keyboard closing under the finger, so the sheet doesn't move under it) */}
+    {adding !== null && <Veil className="h-veil" onClose={() => setAdding(null)}>{(close) =>
+      <form className="h-note-full t-addsheet" onSubmit={(e) => { e.preventDefault(); add(); close(); }}>
         <h2>Add to {list.name}</h2>
         <input autoFocus value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="Milk" aria-label={'Add to ' + list.name} />
-        <div className="t-nacts"><button type="button" className="h-chip" onPointerDown={(e) => e.preventDefault()} onClick={() => setAdding(null)}>Cancel</button><button type="submit" className="h-chip on" onPointerDown={(e) => e.preventDefault()}>Add</button></div>
-      </form>
-    </div>}
+        <div className="t-nacts"><button type="button" className="h-chip" onPointerDown={(e) => e.preventDefault()} onClick={close}>Cancel</button><button type="submit" className="h-chip on" onPointerDown={(e) => e.preventDefault()}>Add</button></div>
+      </form>}
+    </Veil>}
   </div>);
   // Chores: a ring each, filling as theirs get done.
   if (kinds.has('chores') && (mine.size || routine)) cards.push(<div key="chores" {...card('chores')}>
@@ -1004,14 +1004,14 @@ function NotesCard({ c, notes, reminders, style }) {
       ))}
       {shown.length > room && room > 0 && <div className="t-soft">{shown.length - room} more</div>}
     </div>
-    {note && <div className="h-veil" onClick={() => setOpen(null)}>
-      <div className="h-note-full" onClick={(e) => e.stopPropagation()}>
+    {note && <Veil className="h-veil" onClose={() => setOpen(null)}>{(close) =>
+      <div className="h-note-full">
         <div className="h-note-head"><h2>{note.title}</h2>
-          <button className="h-chip" onClick={() => down(note)}>Take it down</button>
-          <button className="h-mini" onClick={() => setOpen(null)} aria-label="Close"><Cross /></button></div>
+          <button className="h-chip" onClick={() => { haptic(); down(note); }}>Take it down</button>
+          <button className="h-mini" onClick={close} aria-label="Close"><Cross /></button></div>
         <div className="h-note-body"><AnswerBody text={note.content} /></div>
-      </div>
-    </div>}
+      </div>}
+    </Veil>}
   </div>;
 }
 

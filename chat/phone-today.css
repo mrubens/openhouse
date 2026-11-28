@@ -210,7 +210,17 @@
 .ptoday .t-items { flex: none; grid-template-rows: none; grid-auto-rows: 46px; grid-auto-flow: row; grid-template-columns: minmax(0, 1fr); } /* one column on a phone */
 .ptoday .t-rings { margin-bottom: 4px; }
 .ptoday .h-veil { z-index: 40; }
-.ptoday .h-note-full, .ptoday .t-nsheet.h-note-full { width: calc(100% - 32px); border-radius: 28px; }
+/* Today's sheets as the phone's own (phone.css, sheet.jsx): from the foot, above the keyboard, a swipe down closes */
+.ptoday .h-veil { top: var(--vvt, 0px); bottom: auto; height: var(--vvh, 100%); align-items: flex-end; animation: veil-in .25s ease-out; }
+.ptoday .h-note-full, .ptoday .t-nsheet.h-note-full { --sheet: up; position: relative; width: 100%; max-width: 560px; border-radius: 28px 28px 0 0; max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top) - 10px);
+  padding: 26px 22px max(16px, calc(18px + env(safe-area-inset-bottom) - var(--kb, 0px))); animation: sheet-up .34s cubic-bezier(.2, .85, .25, 1); }
+.ptoday .h-note-full::before { content: ""; position: absolute; top: 6px; left: 50%; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: var(--h-line); }
+.ptoday .t-addsheet { display: flex; flex-direction: column; gap: 14px; }
+.ptoday .t-addsheet h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.02em; text-transform: none; color: var(--h-ink); }
+.ptoday .t-addsheet input { font: inherit; padding: 13px 16px; border: 0; border-radius: 14px; background: var(--h-tint); color: inherit; outline: none; }
+.ptoday .t-addsheet .t-nacts { margin-top: 4px; }
+/* (a card being pressed doesn't shrink while its sheet is open: the sheet is inside it, and would move with it) */
+.ptoday .t-card[role=button]:has(.h-veil):active { transform: none; }
 /* Today's calendar as a schedule (home.jsx; the tablet's in screen.css): the date in a column, the day's things beside it */
 .ptoday .t-agenda > .t-sday:first-child { margin-top: calc(var(--u) * 4); }
 .ptoday .t-sday { display: grid; grid-template-columns: calc(var(--u) * 56 * var(--s)) minmax(0, 1fr); column-gap: calc(var(--u) * 14); align-items: start; margin-top: calc(var(--u) * 18); }

@@ -9,7 +9,7 @@
 .app.dark { color-scheme: dark; --shadow: 0 20px 40px -24px rgba(0,0,0,.7), inset 0 0 0 1px color-mix(in srgb, var(--ink) 7%, transparent); }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html { touch-action: manipulation; } /* (no double-tap zoom) */
-html, body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.45 -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, Inter, sans-serif; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 /* An iPhone zooms into a field whose text is under 16px when it's focused: never under 16px. */
 input, textarea, select { font-size: max(16px, 1em) !important; }
@@ -135,6 +135,7 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .opie .bars i:nth-child(1) { height: 6px; } .opie .bars i:nth-child(2) { height: 14px; } .opie .bars i:nth-child(3) { height: 10px; } .opie .bars i:nth-child(4) { height: 5px; }
 .scrim { position: fixed; inset: 0; background: rgba(42,40,38,.28); z-index: 38; display: flex; align-items: flex-end; justify-content: center; }
 .sheet { width: 100%; max-width: 560px; max-height: 86vh; display: flex; flex-direction: column; background: var(--bg); border-radius: 22px 22px 0 0; padding: 14px 20px calc(14px + env(safe-area-inset-bottom)); }
+.sheet .turns { -webkit-user-select: text; user-select: text; } /* (what was asked and said can be copied) */
 .sheet-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 6px; }
 .sheet-head .t { font-weight: 600; }
 .sheet button.quiet { color: var(--soft); padding: 8px 4px; }
@@ -152,10 +153,10 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 /* Opie: tap to talk (talk.jsx), the same on the phone page and the screen page */
 .opie-talk{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:10px;z-index:40;max-width:calc(100vw - 32px);pointer-events:none}
 .opie-row{display:flex;align-items:center;gap:8px;pointer-events:auto}
-.opie-words{pointer-events:auto;max-width:min(520px,calc(100vw - 32px));padding:10px 14px;border-radius:14px;background:rgba(42,40,38,.88);color:#fbf9f5;font:15px/1.4 Inter,system-ui,-apple-system,sans-serif;text-align:center}
-.opie-pill{display:flex;align-items:center;gap:10px;height:46px;padding:0 22px 0 18px;border-radius:999px;border:0;background:var(--ink,#2a2826);color:var(--bg,#fbf9f5);font:600 16px Inter,system-ui,-apple-system,sans-serif;white-space:nowrap;flex:none;cursor:pointer;box-shadow:0 6px 20px rgba(42,40,38,.18)}
+.opie-words{pointer-events:auto;max-width:min(520px,calc(100vw - 32px));padding:10px 14px;border-radius:14px;background:rgba(42,40,38,.88);color:#fbf9f5;font:15px/1.4 -apple-system,system-ui,sans-serif;text-align:center}
+.opie-pill{display:flex;align-items:center;gap:10px;height:46px;padding:0 22px 0 18px;border-radius:999px;border:0;background:var(--ink,#2a2826);color:var(--bg,#fbf9f5);font:600 16px -apple-system,system-ui,sans-serif;white-space:nowrap;flex:none;cursor:pointer;box-shadow:0 6px 20px rgba(42,40,38,.18)}
 .opie-pill.thinking{animation:opie-breathe 1.6s ease-in-out infinite}
-.opie-type{width:46px;height:46px;border-radius:999px;border:0;display:grid;place-items:center;background:#fff;color:var(--ink,#2a2826);flex:none;cursor:pointer;box-shadow:0 6px 20px rgba(42,40,38,.12)}
+.opie-type{width:46px;height:46px;border-radius:999px;border:0;display:grid;place-items:center;background:var(--card,#fff);color:var(--ink,#2a2826);flex:none;cursor:pointer;box-shadow:0 6px 20px rgba(42,40,38,.12)}
 .opie-bars{--lvl:0;display:flex;align-items:center;gap:3px;height:18px}
 .opie-bars i{display:block;width:3px;border-radius:2px;background:currentColor;height:calc(14px + var(--lvl) * 4px);transition:height .08s linear;opacity:.85}
 .opie-bars i:nth-child(2),.opie-bars i:nth-child(4){height:calc(9px + var(--lvl) * 8px)}
@@ -231,3 +232,38 @@ nav button.here { color: var(--ink); background: color-mix(in srgb, var(--ink) 9
 .asks-cards .btns { display: flex; gap: 14px; align-items: center; margin-top: 8px; }
 .asks-cards .go.small { width: auto; padding: 10px 20px; }
 .asks-cards .plain { color: var(--soft); padding: 8px 0; }
+
+/* ---- As a phone's own app feels (src/native.js, src/sheet.jsx) ---- */
+/* The phone's own dark, before the household's look is known (the joining pages; phone.jsx follows it after). */
+@media (prefers-color-scheme: dark) { :root { --bg: #1b1a20; --card: #2a2830; --ink: #f0ece6; color-scheme: dark; } }
+/* No rubber band round the whole page (a list in it still scrolls with its own); nothing selected or called out with a
+   long press on what's tapped, only in fields and what's meant to be copied. */
+html, body { overscroll-behavior: none; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable], .addr, .h-note-body, .card.note .t { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+img { -webkit-user-drag: none; }
+/* A tap shows at once: what's pressed dims (a filled button, a chip, a tile also gives a little), a row tints. */
+:where(button, a[href], [role=button]:not(.t-card, .card)):active:not(:disabled) { opacity: .6; }
+:where(.go, .chips button, .h-chip, .opie, .opie-pill, .opie-type, .pushrow button, .app-tile, .t-pick, .t-n, .t-undo):active:not(:disabled) { opacity: .75; scale: .96; }
+:where(.more-row, nav button, .card.note[role=button], .thing):active { opacity: 1; background: color-mix(in srgb, var(--ink) 12%, transparent); }
+.card.note[role=button]:active { background: color-mix(in srgb, var(--ink) 5%, var(--card)); }
+/* A sheet keeps to the part of the screen that shows (above the keyboard: --vvt, --vvh from native.js), slides up from
+   the foot, and follows a finger down (sheet.jsx: --sheet: up); the page under it stays still. A small bar on top says so. */
+html.sheet-open, html.sheet-open body { overflow: hidden; }
+html.sheet-open .opie-talk, html.sheet-open .opie { display: none; } /* (Opie's buttons aren't over a sheet) */
+.al-card h2 { text-transform: none !important; letter-spacing: -.02em !important; color: inherit !important; }
+.scrim, .al-veil { top: var(--vvt, 0px) !important; bottom: auto !important; height: var(--vvh, 100%) !important; animation: veil-in .25s ease-out; }
+.sheet { --sheet: up; position: relative; max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top) - 10px); padding-bottom: max(12px, calc(14px + env(safe-area-inset-bottom) - var(--kb, 0px))); animation: sheet-up .34s cubic-bezier(.2, .85, .25, 1); touch-action: pan-y; }
+.sheet::before, .al-card::before { content: ""; position: absolute; top: 6px; left: 50%; width: 36px; height: 5px; margin-left: -18px; border-radius: 3px; background: color-mix(in srgb, var(--ink) 18%, transparent); }
+/* The alarms' sheet (alarms.jsx: its own look, shared with the tablet) as the phone's other sheets. */
+.al-veil { align-items: flex-end !important; }
+.al-card { --sheet: up; position: relative; width: 100% !important; max-width: 560px; max-height: calc(var(--vvh, 100vh) - env(safe-area-inset-top) - 10px) !important; border-radius: 26px 26px 0 0 !important;
+  padding-bottom: max(16px, calc(18px + env(safe-area-inset-bottom) - var(--kb, 0px))) !important; animation: sheet-up .34s cubic-bezier(.2, .85, .25, 1); }
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes veil-in { from { background-color: transparent; } }
+/* A tab switch: the new one fades in, quickly (an app's tab sitting where it was kept shows the same way). */
+.tabview, .appframe:not([hidden]) { animation: tab-in .18s ease-out; }
+@keyframes tab-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

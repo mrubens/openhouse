@@ -16,6 +16,8 @@ import { paletteOf, worldOf } from './look.js';
 import { SetupFlow } from './setup-flow.jsx';
 import { Asks } from './asks.jsx';
 import { AlarmsSheet, nextAlarm, ringTime } from './alarms.jsx';
+import { Veil } from './sheet.jsx';
+import { feelNative } from './native.js';
 
 // Served by Opie's cloud (https, installable, notes by push): everything goes through the relay, and the
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
@@ -25,6 +27,7 @@ const CLOUD_RELAY = document.querySelector('meta[name="openhouse-relay"]')?.cont
 const IN_APP = !!window.openhouseApp;
 // In the iPhone app the page is the app: it doesn't zoom (pinch or a double tap), as an app's own screens don't.
 if (IN_APP) document.querySelector('meta[name="viewport"]')?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
+feelNative();
 const STORE = 'openhouse.phone', CACHE = 'openhouse.phone.house', CACHE_AT = 'openhouse.phone.house-at', QUEUE = 'openhouse.phone.queue';
 const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const put = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -245,9 +248,9 @@ function Ask({ me, c, onClose, convoId = null }) {
   }
   function stop() { ctl.current?.abort(); c.json('POST', '/chat/stop', { id: convo.current }).catch(() => {}); }
   return (
-    <div className="scrim" onClick={onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
-        <div className="sheet-head"><span className="t">Opie</span><button className="quiet" onClick={onClose}>Done</button></div>
+    <Veil className="scrim" onClose={onClose}>{(close) =>
+      <div className="sheet">
+        <div className="sheet-head"><span className="t">Opie</span><button className="quiet" onClick={close}>Done</button></div>
         <div className="turns">
           {!turns.length && <p className="soft">Ask about the day, add to a list or the calendar, or paste a link.</p>}
           {turns.map((t, i) => (
@@ -261,11 +264,12 @@ function Ask({ me, c, onClose, convoId = null }) {
         {/* Talk (the live voice, chat/src/live-voice.js from the hub's work) goes beside Ask once that module is here. */}
         <form className="askrow" onSubmit={ask}>
           <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask Opie" enterKeyHint="send" autoComplete="off" />
-          {live ? <button type="button" className="go small" onClick={stop}>Stop</button>
-            : <button className="go small" disabled={!text.trim()}>Ask</button>}
+          {/* (they keep the field's focus: the keyboard stays up for what's asked next, and doesn't close under the finger) */}
+          {live ? <button type="button" className="go small" onPointerDown={(e) => e.preventDefault()} onClick={stop}>Stop</button>
+            : <button className="go small" onPointerDown={(e) => e.preventDefault()} disabled={!text.trim()}>Ask</button>}
         </form>
-      </div>
-    </div>
+      </div>}
+    </Veil>
   );
 }
 
@@ -374,6 +378,15 @@ function AddToHome({ me, onLater }) {
 }
 
 /** The page's own colors from the household's look (look.js): the world behind this tab, the panels' white, the ink. */
+/** The phone's own light or dark (its setting, or night): a household's light look shows as the dark one while the
+ *  phone is dark, as its own apps do. The iPhone app is told which, for its status bar and what shows behind the page. */
+const DARK = (() => { try { return matchMedia('(prefers-color-scheme: dark)'); } catch { return null; } })();
+function usePhoneDark() {
+  const [dark, setDark] = useState(() => !!DARK?.matches);
+  useEffect(() => { const f = () => setDark(!!DARK?.matches); DARK?.addEventListener?.('change', f); return () => DARK?.removeEventListener?.('change', f); }, []);
+  return dark;
+}
+const tellAppLook = (dark) => { try { window.webkit?.messageHandlers?.look?.postMessage(dark ? 'dark' : 'light'); } catch {} };
 const phoneVars = (style, tab) => { const p = paletteOf(style); return { '--bg': worldOf(style, tab), '--card': p.sheet, '--ink': p.ink }; };
 
 // ---- the page ------------------------------------------------------------------------------------------
@@ -386,7 +399,11 @@ const TabIcon = ({ t }) => {
 const MoreIcon = () => <svg className="tab-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg>;
 function Phone({ me, c, onRemoved }) {
   const h = useHouse(c, onRemoved);
-  const { apps, style } = usePhoneApps(c, h.homeScreen);
+  const { apps, style: chosen } = usePhoneApps(c, h.homeScreen);
+  const phoneDark = usePhoneDark();
+  const style = useMemo(() => (phoneDark && chosen?.palette !== 'dusk' ? { ...chosen, palette: 'dusk', colors: undefined } : chosen), [phoneDark, chosen]);
+  const dark = style?.palette === 'dusk';
+  useEffect(() => tellAppLook(dark), [dark]);
   const tabs = phoneTabs(style, apps);
   const [setup, setSetup] = useState(() => (me.scopes || []).includes('setup') && !get(DONE));
   const [want, setTab] = useState(() => (shared ? 'today' : get('openhouse.phone.tab') || 'today'));
@@ -429,17 +446,18 @@ function Phone({ me, c, onRemoved }) {
   const open = (id) => { if (tabs.some((t) => t.id === id)) return go(id); const a = (apps || []).find((x) => x.id === id); if (a) { setMore(false); setOpened(a); } };
   const bar = tabs.length > 5 ? tabs.slice(0, 4) : tabs;
   const cur = opened ? null : tabs.find((t) => t.id === tab);
-  const frames = alive.map((a) => <AppFrame key={a.id} c={c} app={(apps || []).find((x) => x.id === a.id) || a} style={style} hidden={showing?.id !== a.id} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} onBg={onBg} />);
+  // (an app takes its look when it starts: one started before the phone went dark, or light, starts again in the new one)
+  const frames = alive.map((a) => <AppFrame key={a.id + (dark ? ':dark' : '')} c={c} app={(apps || []).find((x) => x.id === a.id) || a} style={style} hidden={showing?.id !== a.id} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} onBg={onBg} />);
   return (
-    <div className={'app' + (canAsk(me) ? ' asks' : '') + (showing ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={{ ...phoneVars(style, opened ? opened.id : tab), ...(showing && bgs[showing.id] ? { '--fbg': bgs[showing.id] } : {}) }}>
+    <div className={'app' + (canAsk(me) ? ' asks' : '') + (showing ? ' framed' : '') + (dark ? ' dark' : '')} style={{ ...phoneVars(style, opened ? opened.id : tab), ...(showing && bgs[showing.id] ? { '--fbg': bgs[showing.id] } : {}) }}>
       {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
       {canAsk(me) && <Asks c={c} />}{/* a hub's "Is this OK?" cards, for an adult's phone */}
       {opened && <div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>}
       {frames}
       {showing ? (alive.some((a) => a.id === showing.id) ? null : <div className="page"><p className="soft">Loading…</p></div>)
         : !h.house && tab === 'today' ? <div className="page"><p className="soft">Loading…</p></div>
-        : tab === 'today' ? <><Today me={me} h={h} c={c} tabs={tabs} apps={apps} go={open} style={style} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} /></>
-        : tab === 'apps' ? <AppsList apps={apps} tabs={tabs} onOpen={open} />
+        : tab === 'today' ? <div className="tabview" key="today"><Today me={me} h={h} c={c} tabs={tabs} apps={apps} go={open} style={style} onOpen={canAsk(me) ? (id) => setAsking({ convo: id }) : null} /></div>
+        : tab === 'apps' ? <div className="tabview" key="apps"><AppsList apps={apps} tabs={tabs} onOpen={open} /></div>
         : <div className="page"><p className="soft">Loading…</p></div>}
       {canAsk(me) && !asking && !more && (canTalk(talkScopes(me))
         ? <Talk c={c} scopes={talkScopes(me)} onType={() => setAsking(true)} />

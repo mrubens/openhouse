@@ -16,6 +16,8 @@ struct WebPage: UIViewRepresentable {
     cfg.setURLSchemeHandler(PhonePageHandler(), forURLScheme: PhonePage.scheme)
     cfg.allowsInlineMediaPlayback = true
     cfg.mediaTypesRequiringUserActionForPlayback = []
+    // An app's own screen: no phone numbers, addresses or dates turned into links by the system.
+    cfg.dataDetectorTypes = []
     let early = """
     window.openhouseApp = { platform: 'ios', version: 1 };
     try { localStorage.setItem('openhouse.phone.homeLater', 'true'); localStorage.setItem('openhouse.phone.shortcut', 'true'); } catch (e) {}
@@ -35,19 +37,26 @@ struct WebPage: UIViewRepresentable {
     cfg.userContentController.add(context.coordinator, name: "log")
     #endif
     cfg.userContentController.add(context.coordinator, name: "joined")
+    cfg.userContentController.add(context.coordinator, name: "haptic")
+    cfg.userContentController.add(context.coordinator, name: "look")
     let v = WKWebView(frame: .zero, configuration: cfg)
     WebPage.noFormBar(v)
     v.navigationDelegate = context.coordinator
     v.uiDelegate = context.coordinator
     v.allowsBackForwardNavigationGestures = false
+    // As an app's own screen: a press on a link doesn't open a preview of the page; the page itself doesn't stretch
+    // past its ends (its lists still do: they scroll on their own); dragging it puts the keyboard away.
+    v.allowsLinkPreview = false
+    v.scrollView.bounces = false
+    v.scrollView.keyboardDismissMode = .onDrag
     v.scrollView.contentInsetAdjustmentBehavior = .never
     v.isOpaque = false
-    // The page's own off-white (phone.css --bg) behind it, not the system's white or black: what shows for a moment as
-    // the phone turns, or past the top of the page when it's pulled down.
-    let paper = UIColor(red: 0xf1 / 255, green: 0xee / 255, blue: 0xe8 / 255, alpha: 1)
-    v.backgroundColor = paper
-    v.scrollView.backgroundColor = paper
-    v.underPageBackgroundColor = paper
+    // The page's own world (phone.css --bg) behind it, light or dark as the phone is until the page says (its "look"),
+    // not the system's white or black: what shows for a moment as the phone turns, or as the page opens.
+    let back = WebPage.world(nil)
+    v.backgroundColor = back
+    v.scrollView.backgroundColor = back
+    v.underPageBackgroundColor = back
     #if DEBUG
     v.isInspectable = true
     #endif
@@ -67,6 +76,13 @@ struct WebPage: UIViewRepresentable {
     }
   }
 
+  /// The page's off-white, or its dark (look.js paper's bg, dusk's): dark nil follows the phone.
+  static func world(_ dark: Bool?) -> UIColor {
+    let paper = UIColor(red: 0xf1 / 255, green: 0xee / 255, blue: 0xe8 / 255, alpha: 1), dusk = UIColor(red: 0x1b / 255, green: 0x1a / 255, blue: 0x20 / 255, alpha: 1)
+    guard let dark else { return UIColor { $0.userInterfaceStyle == .dark ? dusk : paper } }
+    return dark ? dusk : paper
+  }
+
   /// No Safari form bar (up, down, Done) above the keyboard: an app's own text box has none. WebKit gives the content
   /// view its accessory, so the content view gets a subclass that has none.
   static func noFormBar(_ v: WKWebView) {
@@ -84,15 +100,28 @@ struct WebPage: UIViewRepresentable {
   }
 
   final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+    private let tap = UIImpactFeedbackGenerator(style: .light)
+
     func userContentController(_ c: WKUserContentController, didReceive m: WKScriptMessage) {
       // Only the app's own page, in its main frame (not an app's frame, nor the tablet's joining page).
-      if m.name == "joined" {
-        guard m.frameInfo.isMainFrame, m.frameInfo.securityOrigin.protocol == PhonePage.scheme, m.frameInfo.securityOrigin.host == "phone",
-              let f = m.body as? String else { return }
+      let ours = m.frameInfo.isMainFrame && m.frameInfo.securityOrigin.protocol == PhonePage.scheme && m.frameInfo.securityOrigin.host == "phone"
+      switch m.name {
+      case "joined":
+        guard ours, let f = m.body as? String else { return }
         Task { await Home.shared.joined(f) }
-        return
+      case "haptic":
+        // Something ticked, added or done (src/native.js haptic): the phone's own light tap.
+        guard ours else { return }
+        tap.impactOccurred()
+        tap.prepare()
+      case "look":
+        // The page's light or dark (the household's look, or the phone's own): the same behind it.
+        guard ours, let v = m.webView, let s = m.body as? String, s == "dark" || s == "light" else { return }
+        let back = WebPage.world(s == "dark")
+        v.backgroundColor = back; v.scrollView.backgroundColor = back; v.underPageBackgroundColor = back
+      default:
+        print("[page]", m.body)
       }
-      print("[page]", m.body)
     }
     var loaded: URL?
 
