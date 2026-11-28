@@ -367,7 +367,7 @@ function Apps({ computer, family }) {
   return <>
     <h1>Make your own apps</h1>
     <p>Ask Opie for one {HUB ? 'on a phone or screen' : 'at the device'}, out loud or typed. Opie makes it there, and you try it before it goes in Apps.</p>
-    <p className="soft">For bigger work, connect Claude or ChatGPT{computer ? ' on this computer' : ' on a computer'}: add the connector cloud.opie.house/mcp, then ask it for a game, a tracker or a new tab.</p>
+    <p className="soft">For bigger work, connect Claude, ChatGPT, or another AI app: add the connector cloud.opie.house/mcp, then ask it for a game, a tracker or a new tab.</p>
   </>;
 }
 
