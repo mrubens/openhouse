@@ -72,6 +72,7 @@ it is free and on the tablet.
 | Stars per chore | Any number | 1, 2, 3 or 5 (the assistant can set up to 10) | Done |
 | Rewards | Redeem when enough stars | Same, with the PIN yes | – |
 | Kids approving their own reward | – | Needs the PIN, and so does adding rewards (was a hole) | Done |
+| A routine a step at a time | – | Start on a routine: each step fills the screen with its picture in the person's color, Done ticks it and moves on, the end says all done (the same ticks as tapping the steps; no stars, nothing kept of how long it took). A step can have a time (tap a step in Routines): a bar runs down, a soft chime near the end, and running out never fails it. On the display each step is said aloud (the speaker button turns it off); a phone's or computer's screen only shows it | Done |
 | Weekly totals | Habit tracking | "N done this week" and "N days in a row" on each column | Done |
 
 ### Lists

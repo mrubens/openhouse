@@ -1,1 +1,23 @@
-{"name":"Chores"}
+{
+ "name": "Chores",
+ "actions": [
+  {
+   "name": "play",
+   "description": "Play one of the routines (change_routines) on the screen a step at a time for someone (\"start Maya's morning routine\"): each step fills the screen with its picture and they tap Done. Leave routine out for the one on now. Ticking a step with change_routines moves it on too. Say what it answers.",
+   "parameters": {
+    "properties": {
+     "routine": { "type": "string", "description": "The routine by name" },
+     "who": { "type": "string", "description": "Whose turn: a family name" }
+    }
+   },
+   "open": true,
+   "answer": true,
+   "reply": "Opening the routine."
+  },
+  {
+   "name": "stop",
+   "description": "Close the routine playing on the screen (chores__play).",
+   "answer": true
+  }
+ ]
+}

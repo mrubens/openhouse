@@ -14,9 +14,16 @@ export default function (house) {
     return data.checklists.map((c) => ({ ...c, now: activeNow(c), done: today.filter((k) => k.startsWith(c.id + '|')).map((k) => k.slice(c.id.length + 1)) }));
   }
   // ---- checklists (morning, bedtime): a few steps with pictures, shown during their hours ----
-  function steps(list) {
+  // A step may have a time (secs, optional: routines saved before it have none), shown as a bar that runs down; running
+  // out never fails the step. Given as secs or minutes; 0 takes it off. A step sent again without either keeps the time
+  // the step of that name had (the same step, its picture changed, or the list reordered).
+  const secsOf = (s) => { const n = s.secs != null ? Number(s.secs) : s.minutes != null ? Number(s.minutes) * 60 : NaN; return Number.isFinite(n) ? Math.max(0, Math.min(3600, Math.round(n))) : null; };
+  function steps(list, before = []) {
     return [].concat(list || []).map((s) => (typeof s === 'string' ? { text: s } : s)).filter((s) => str(s?.text))
-      .map((s) => ({ text: str(s.text, 40), pic: PICS.includes(s.pic) ? s.pic : guessPic(s.text) })).slice(0, 10);
+      .map((s) => {
+        const text = str(s.text, 40), t = secsOf(s) ?? before.find((b) => same(b.text, text))?.secs ?? 0;
+        return { text, pic: PICS.includes(s.pic) ? s.pic : guessPic(s.text), ...(t >= 5 ? { secs: t } : {}) };
+      }).slice(0, 10);
   }
   const findChecklist = (ref) => data.checklists.find((c) => c.id === ref || same(c.name, ref));
   function checklistFields(x, into = {}) {
@@ -25,7 +32,7 @@ export default function (house) {
     if (x.from != null) into.from = hhmm(x.from, into.from || '06:30');
     if (x.to != null) into.to = hhmm(x.to, into.to || '09:00');
     if (x.days != null) { const d = arr(x.days).map((y) => y.slice(0, 3).toLowerCase()).filter((y) => WEEKDAYS.includes(y)); if (d.length && d.length < 7) into.days = d; else delete into.days; }
-    if (x.steps != null) into.steps = steps(x.steps);
+    if (x.steps != null) into.steps = steps(x.steps, into.steps);
     return into;
   }
   function changeChecklists(a) {
@@ -46,6 +53,13 @@ export default function (house) {
       const day = dayKey(), k = `${c.id}|${step.text}|${low(x.who)}`, set = new Set(data.checked[day] || []);
       x.done === false ? set.delete(k) : set.add(k); data.checked[day] = [...set];
       did.push(`${x.done === false ? 'unchecked' : 'checked'} ${step.text}${x.who ? ` for ${x.who}` : ''}`);
+    }
+    // one step's time ("give teeth two minutes"), without sending every step
+    for (const x of (a.times ? [].concat(a.times) : [])) {
+      const c = findChecklist(x?.id || x?.name), i = c ? c.steps.findIndex((s) => same(s.text, x.step)) : -1, t = x ? secsOf(x) : null;
+      if (i < 0 || t == null) { did.push(`no step "${x?.step}"${c ? ` in ${c.name}` : ''}`); continue; }
+      const { secs, ...rest } = c.steps[i]; c.steps[i] = t >= 5 ? { ...rest, secs: t } : rest;
+      did.push(t >= 5 ? `${rest.text} gets ${t % 60 ? `${t} seconds` : `${t / 60} min`}` : `${rest.text} has no time now`);
     }
     prune(); save();
     return { ok: true, did };

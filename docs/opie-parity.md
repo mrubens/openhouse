@@ -72,6 +72,8 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Chores: rewards add, remove | yes | change_rewards |
 | Chores: spend stars on a reward (Get it!) | **new** | change_rewards redeem: the same card as Get it!, an adult's yes on the tablet (with the PIN when Give rewards asks) |
 | Chores: routines add, change, remove, tick a step | yes | change_routines |
+| Chores: a step's time (tap a step in Routines) | **new** | change_routines times (or minutes on a step) |
+| Chores: Start a routine (the player, a step at a time), Done, close it | **new** | chores__play (the Chores app's voice action: opens its tab, the routine and whose turn), change_routines check (the player moves on as Done would), chores__stop |
 | Lists: tick, add, edit, whose, remove, clear checked, new list, rename, delete list | yes | change_list |
 | Lists: by store section or in the order added | **new** | change_list byAisle |
 | Lists: send to a phone (QR) | screen | The QR card is for the phone in someone's hand; message_family sends text |

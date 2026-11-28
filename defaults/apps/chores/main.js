@@ -3,14 +3,20 @@
 // (morning, bedtime) show at the top of each person's card during their hours, as pictures kids can follow before they can read. Hold a
 // chore (or its … button) to change it, skip it today or take it off; a chore anyone can do asks who did it, and the stars are theirs.
 // Hold a reward or step to take it off. Everything lives in the bridge, so the assistant changes it too.
-import { house, timer, say, phone, shell, h, press } from '/kit/openhouse.js';
+// A routine's Start plays it a step at a time (the player, below): one step fills the screen with its picture, Done ticks
+// it and moves on, and a step with a time shows it as a bar that runs down (a soft chime near the end; running out
+// never fails it). On the display the step is said aloud; a second screen can't speak, so there it's only shown.
+import { house, timer, say, phone, shell, h, press, screen as onScreen, onAction } from '/kit/openhouse.js';
 import { glyph } from './glyphs.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
 const $over = document.body.appendChild(document.createElement('div'));
 
-const ICONS = { plus: '<path d="M12 4.5v15M4.5 12h15"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>', dots: '<circle cx="5.5" cy="12" r=".6"/><circle cx="12" cy="12" r=".6"/><circle cx="18.5" cy="12" r=".6"/>' };
+const ICONS = { plus: '<path d="M12 4.5v15M4.5 12h15"/>', check: '<path d="M5 12.5l4.5 4.5L19 7.5"/>', left: '<path d="M14.5 5.5L8 12l6.5 6.5"/>', right: '<path d="M9.5 5.5L16 12l-6.5 6.5"/>', dots: '<circle cx="5.5" cy="12" r=".6"/><circle cx="12" cy="12" r=".6"/><circle cx="18.5" cy="12" r=".6"/>',
+  play: '<path d="M8.5 5.8v12.4L18.5 12z" fill="currentColor"/>', x: '<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>',
+  sound: '<path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18.2 6.4a8 8 0 0 1 0 11.2"/>',
+  mute: '<path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/>' };
 const icon = (name, cls = '') => h('span', { class: 'icon ' + cls, 'aria-hidden': 'true',
   html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>` });
 const STAR = [...Array(10)].map((_, i) => { const a = Math.PI / 5 * i - Math.PI / 2, r = i % 2 ? 22.5 : 50; return `${(50 + r * Math.cos(a)).toFixed(1)},${(50 + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
@@ -113,6 +119,7 @@ function draw() {
   keepScroll($app, () => $app.replaceChildren(screen()));
   for (const s of sheets) s.redraw?.();
   manualAsk();
+  drawPlayer();
 }
 
 const starsOf = (name) => Object.entries(H.stars || {}).find(([k]) => same(k, name))?.[1] ?? 0;
@@ -283,7 +290,8 @@ function person(name, chores, routines) {
 /** A routine's steps as big pictures, two to a row; tap one when it's done. */
 function routineSteps(r, who) {
   return h('div', { class: 'routine' },
-    h('div', { class: 'rt-name' }, r.name),
+    h('div', { class: 'rt-head' }, h('span', { class: 'rt-name' }, r.name),
+      h('button', { class: 'rt-go', tap: () => startPlayer(r, who) }, icon('play'), 'Start')),
     h('div', { class: 'steps' }, r.steps.map((s) => {
       const done = isDone(r, s, who);
       return h('div', { class: 'stp' + (done ? ' done' : ''), tap: () => checkStep(r, s, who, !done) },
@@ -387,12 +395,26 @@ function routines() {
         return chip(p.name, on, () => updateRoutine(r, { who: on ? r.who.filter((w) => !same(w, p.name)) : [...r.who, p.name] }), house.color(p.name));
       })),
     h('div', { class: 'stp-row hscroll', 'data-keep': 'steps-' + r.id },
-      r.steps.map((s) => h('div', { class: 'stp-tile', hold: () => confirmCard(`Take off “${s.text}”?`, 'Take it off', () => updateRoutine(r, { steps: r.steps.filter((x) => x !== s) })) },
-        pic(s.pic, 'pic'), h('div', { class: 'stp-text' }, s.text))),
+      r.steps.map((s) => h('div', { class: 'stp-tile', tap: () => stepTime(r, s), hold: () => confirmCard(`Take off “${s.text}”?`, 'Take it off', () => updateRoutine(r, { steps: r.steps.filter((x) => x !== s) })) },
+        pic(s.pic, 'pic'), h('div', { class: 'stp-text' }, s.text), s.secs ? h('div', { class: 'stp-time' }, howLong(s.secs)) : null)),
       h('button', { class: 'round dark add-step', 'aria-label': 'Add a step', tap: () => addStep(r) }, icon('plus'))))),
     !list.length ? h('p', { class: 'hint' }, 'Routines show at the top of each person’s chores during their hours, in pictures.') : null,
     missing.length ? h('div', { class: 'actions start' }, missing.map(([name, [from, to], steps]) =>
       btn(`Add ${name}`, () => house.addChecklist({ name, from, to, steps: steps.map(([text, p]) => ({ text, pic: p })) }), { soft: true }))) : null);
+}
+
+/** How long a step gets: tap one (No time takes it off). */
+const STEP_TIMES = [0, 30, 60, 120, 180, 300, 600];
+const howLong = (secs) => (secs < 60 || secs % 60 ? `${secs} sec` : `${secs / 60} min`);
+function stepTime(r, s) {
+  openCard((close) => [
+    h('h2', null, s.text),
+    h('div', { class: 'chips wrap' }, [...new Set([...STEP_TIMES, s.secs || 0])].sort((a, b) => a - b).map((t) =>
+      chip(t ? howLong(t) : 'No time', (s.secs || 0) === t, () => {
+        close();
+        updateRoutine(r, { steps: r.steps.map((x) => (x === s ? { ...x, secs: t } : x)) });
+      }))),
+  ], { width: 860 });
 }
 
 function addStep(r) {
@@ -451,4 +473,128 @@ const DRAW = {
 };
 const pic = (name, cls = '') => h('span', { class: 'pic-svg ' + cls, 'aria-hidden': 'true', html: `<svg viewBox="0 0 100 100">${(DRAW[name] || DRAW.star)()}</svg>` });
 
-house.subscribe((d) => { H = d; draw(); });
+// ---- the player: a routine a step at a time --------------------------------------------------------------
+// play: {id, who, i (the step showing), at (when it showed, for its bar), end (all done), spoke (the step said aloud)}.
+// Nothing about how long a step took is kept: the bar lives only on this screen.
+let play = null, $play = null, playKey = '', chimeT = 0, idleT = 0, audio = null;
+const canSpeak = !onScreen; // the display speaks (the kit's say); a second screen has no voice of its own
+let speakOn = true; try { speakOn = localStorage.getItem('chores-say') !== 'off'; } catch {}
+const playing = () => play && (H?.checklists || []).find((r) => r.id === play.id);
+function startPlayer(r, who, { quiet = false } = {}) {
+  const first = r.steps.findIndex((s) => !isDone(r, s, who)), i = first < 0 ? 0 : first;
+  play = { id: r.id, who, i, at: Date.now(), end: false, spoke: quiet ? i : -1 };
+  wake(); draw();
+}
+function closePlayer() { play = null; clearTimeout(chimeT); clearTimeout(idleT); draw(); }
+/** On to the next step not yet done after this one, or the first one left, or the end. */
+function onward(r) {
+  const left = (k0) => r.steps.findIndex((s, k) => k > k0 && !isDone(r, s, play.who));
+  const next = left(play.i) >= 0 ? left(play.i) : left(-1);
+  if (next < 0) play.end = true; else play.i = next;
+  play.at = Date.now(); wake();
+}
+function stepDone(r) {
+  const s = r.steps[play.i];
+  play.seen = s.text + '|1'; // (this tick is ours: drawPlayer mustn't move on for it as well)
+  if (!isDone(r, s, play.who)) checkStep(r, s, play.who, true); // the same tick as a tap on the step: nothing more
+  onward(r); draw();
+}
+// a player left alone closes by itself, after the longest a step could take
+function wake() { clearTimeout(idleT); idleT = setTimeout(closePlayer, 75 * 60e3); }
+/** A soft two-note chime, made here (no sound file): near the end of a step's time. */
+function chime() {
+  try {
+    audio ||= new (window.AudioContext || window.webkitAudioContext)();
+    audio.resume?.();
+    [[659.3, 0], [987.8, .2]].forEach(([f, d]) => {
+      const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + d;
+      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audio.destination);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(.12, t + .02); g.gain.exponentialRampToValueAtTime(.0001, t + 1.4);
+      o.start(t); o.stop(t + 1.5);
+    });
+  } catch {}
+}
+function speak(text) { if (canSpeak && speakOn && text) say(text, play?.who || null); }
+
+function drawPlayer() {
+  const r = playing();
+  if (play && (!r || !r.steps.length)) { play = null; clearTimeout(chimeT); clearTimeout(idleT); }
+  if (!play) { $play?.remove(); $play = null; playKey = ''; return; }
+  play.i = Math.max(0, Math.min(play.i, r.steps.length - 1));
+  // a step ticked somewhere else (Opie, another screen) moves the player on, as Done would
+  const s = r.steps[play.i], done = isDone(r, s, play.who);
+  if (!play.end && done && play.seen === s.text + '|0') { onward(r); return drawPlayer(); }
+  play.seen = s.text + '|' + (done ? 1 : 0);
+  // drawn again only when what it shows changes, so a running bar isn't restarted by the house's updates
+  const key = JSON.stringify([play.id, play.who, play.i, play.end, play.at, s, r.name, r.steps.map((x) => [x.text, isDone(r, x, play.who)]), speakOn, house.color(play.who)]);
+  if (key === playKey && $play) return;
+  playKey = key;
+  $play ||= document.body.appendChild(h('div', { class: 'player', role: 'dialog', 'aria-modal': 'true' }));
+  $play.setAttribute('style', inFamily(play.who) ? paint(house.color(play.who)) : '');
+  $play.classList.toggle('plain', !inFamily(play.who));
+  $play.replaceChildren(...playerParts(r));
+  clearTimeout(chimeT);
+  if (play.end) { if (play.spoke !== 'end') { play.spoke = 'end'; speak(`${r.name}, all done!`); } return; }
+  if (play.spoke !== play.i) { play.spoke = play.i; speak(s.text); }
+  const bar = s.secs && $play.querySelector('.pl-bar > i');
+  if (bar) {
+    const total = s.secs * 1000, left = total - (Date.now() - play.at), soon = Math.min(10, Math.max(3, s.secs / 6)) * 1000;
+    bar.style.transform = `scaleX(${Math.max(0, left / total)})`;
+    requestAnimationFrame(() => requestAnimationFrame(() => { bar.style.transition = `transform ${Math.max(0, left) / 1000}s linear`; bar.style.transform = 'scaleX(0)'; }));
+    if (left > soon) chimeT = setTimeout(chime, left - soon);
+  }
+}
+
+function playerParts(r) {
+  const who = play.who;
+  const top = h('div', { class: 'pl-top' },
+    h('button', { class: 'pl-round', 'aria-label': 'Close', tap: closePlayer }, icon('x')),
+    h('div', { class: 'pl-title' }, h('b', null, r.name), ` · ${who}`),
+    canSpeak ? h('button', { class: 'pl-round', 'aria-label': speakOn ? 'Quiet' : 'Say the steps', tap: () => {
+      speakOn = !speakOn; try { localStorage.setItem('chores-say', speakOn ? 'on' : 'off'); } catch {}
+      if (speakOn && !play.end) speak(r.steps[play.i]?.text);
+      drawPlayer();
+    } }, icon(speakOn ? 'sound' : 'mute')) : h('span', { class: 'pl-round ghost' }));
+  // how far: a segment a step, filled as each is done
+  const track = h('div', { class: 'pl-track' }, r.steps.map((x, k) => h('span', { class: (isDone(r, x, who) ? 'on' : '') + (!play.end && k === play.i ? ' now' : '') })));
+  if (play.end) {
+    return [top, track,
+      h('div', { class: 'pl-stage' },
+        h('div', { class: 'pl-disc end' }, gl('trophy', 'pl-pic')),
+        h('div', { class: 'pl-step' }, 'All done!')),
+      h('div', { class: 'pl-foot' }, h('span', { class: 'pl-round ghost' }), h('button', { class: 'pl-done', tap: closePlayer }, 'Close'), h('span', { class: 'pl-round ghost' }))];
+  }
+  const s = r.steps[play.i];
+  return [top, track,
+    h('div', { class: 'pl-stage' },
+      // the picture says the step again when tapped
+      h('button', { class: 'pl-disc', 'aria-label': s.text, tap: () => speak(s.text) }, pic(s.pic, 'pl-pic')),
+      h('div', { class: 'pl-step' }, s.text),
+      s.secs ? h('div', { class: 'pl-bar', role: 'timer', 'aria-label': howLong(s.secs) }, h('i')) : null),
+    h('div', { class: 'pl-foot' },
+      h('button', { class: 'pl-round back', 'aria-label': 'Back', disabled: play.i === 0, tap: play.i === 0 ? null : () => { play.i -= 1; play.at = Date.now(); wake(); drawPlayer(); } }, icon('left')),
+      h('button', { class: 'pl-done', tap: () => stepDone(r) }, icon('check'), 'Done'),
+      h('span', { class: 'pl-round ghost' }))];
+}
+
+// Opie's: play a routine for someone, or close it (app.json actions). It answers with what's on the screen.
+let ready; const houseIn = new Promise((done) => { ready = done; });
+if (!onScreen) onAction(async (name, a) => {
+  await houseIn;
+  if (name === 'stop') { const was = playing(); closePlayer(); return was ? `Closed ${was.name}.` : 'No routine was playing.'; }
+  if (name !== 'play') return null;
+  const all = H?.checklists || [];
+  if (!all.length) return 'There are no routines yet.';
+  const r = a.routine ? all.find((x) => same(x.name, a.routine)) : all.find((x) => x.now) || (all.length === 1 ? all[0] : null);
+  if (!r) return `Which routine? ${all.map((x) => x.name).join(', ')}.`;
+  const can = r.who.length ? r.who : (H.family || []).map((p) => p.name);
+  const who = a.who ? (H.family || []).find((p) => same(p.name, a.who))?.name || a.who : can.length === 1 ? can[0] : null;
+  if (!who) return `Whose turn for ${r.name}? ${can.join(', ')}.`;
+  if (!r.steps.length) return `${r.name} has no steps yet.`;
+  startPlayer(r, who, { quiet: true });
+  const left = r.steps.filter((x) => !isDone(r, x, who)).length;
+  return left ? `${who}'s ${r.name} is on the screen, ${left} of ${r.steps.length} steps to go, starting with ${r.steps[play.i].text}.`
+    : `${who}'s ${r.name} is all done today; it's on the screen from the first step.`;
+});
+
+house.subscribe((d) => { H = d; draw(); ready(); });

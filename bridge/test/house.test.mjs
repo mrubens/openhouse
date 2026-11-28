@@ -242,3 +242,15 @@ test("a person's age is kept as a birth year, so it never goes stale, and a save
   assert.equal(personView({ name: 'Maya', born: y - 9 }).note, '9');
   assert.equal(personView({ name: 'Sam', note: 'Parent', born: 1985 }).note, 'Parent');
 });
+
+test("a routine step's time isn't lost when its steps are sent again without it, and steps saved before times have none", async () => {
+  const { h, call } = house();
+  await call('change_routines', { add: [{ name: 'Morning', steps: [{ text: 'Get dressed' }, { text: 'Brush teeth', minutes: 2 }] }] });
+  const steps = () => h.view().checklists.find((c) => c.name === 'Morning').steps;
+  assert.equal(steps()[1].secs, 120);
+  await call('change_routines', { update: [{ name: 'Morning', steps: [{ text: 'Brush teeth', pic: 'teeth' }, { text: 'Get dressed' }] }] }); // reordered, no times sent
+  assert.equal(steps()[0].secs, 120);
+  assert.equal(steps()[1].secs, undefined);
+  await call('change_routines', { times: [{ name: 'Morning', step: 'Brush teeth', minutes: 0 }] });
+  assert.equal(steps()[0].secs, undefined);
+});

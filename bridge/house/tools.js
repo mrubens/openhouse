@@ -18,7 +18,7 @@ export default function (house) {
       Object.keys(data.recipes).length ? `Recipes saved (set_meals recipes): ${Object.values(data.recipes).map((r) => r.text).join(', ')}` : '',
       ch.length ? `Chores done today (${today}): ${done.map((c) => `${c.who ? c.who + ': ' : ''}${c.task}`).join(', ') || 'none yet'}` : '',
       st.length || data.rewards.length ? `Stars to spend: ${st.map(([n, s]) => `${n} ${s}`).join(', ') || 'none'}. Rewards: ${data.rewards.map((r) => `${r.title} (${r.stars}${r.who ? `, ${r.who}` : ''})`).join(', ') || 'none yet'}` : '',
-      data.checklists.length ? `Routines (picture checklists in Chores): ${data.checklists.map((c) => `${c.name} ${c.from}–${c.to}${c.who.length ? ` (${c.who.join(', ')})` : ''}: ${c.steps.map((s) => s.text).join(', ')}`).join('; ')}` : '',
+      data.checklists.length ? `Routines (picture checklists in Chores): ${data.checklists.map((c) => `${c.name} ${c.from}–${c.to}${c.who.length ? ` (${c.who.join(', ')})` : ''}: ${c.steps.map((s) => s.text + (s.secs ? ` (${s.secs % 60 ? s.secs + ' s' : s.secs / 60 + ' min'})` : '')).join(', ')}`).join('; ')}` : '',
     ].filter(Boolean).join('\n');
   }
   // ---- tools (on the home screen's MCP server) ----
@@ -55,15 +55,16 @@ export default function (house) {
         remove: { type: 'array', items: { type: 'string', description: 'title or id' } },
         redeem: { type: 'object', required: ['who', 'reward'], properties: { who: person, reward: { type: 'string', description: 'The reward\'s title or id' } } },
       } } },
-    { name: 'change_routines', description: 'Routines: short picture checklists (morning, bedtime, after school) that the Chores app shows at the top during their hours, one row per person. Add, change (by name or id), remove, or check a step off. Each step has a picture.',
+    { name: 'change_routines', description: 'Routines: short picture checklists (morning, bedtime, after school) that the Chores app shows at the top during their hours, one row per person. Add, change (by name or id), remove, or check a step off. Each step has a picture, and may have a time (shown as a bar that runs down; running out never fails the step). To play one a step at a time on the screen, use chores__play.',
       inputSchema: { type: 'object', properties: {
         add: { type: 'array', items: { type: 'object', required: ['name', 'steps'], properties: {
           name: { type: 'string', description: 'e.g. "Morning"' }, who: { type: 'array', items: person, description: 'Whose; leave out for every kid' },
           from: { type: 'string', description: 'HH:MM, when it shows' }, to: { type: 'string', description: 'HH:MM' }, days: { type: 'array', items: { type: 'string', enum: WEEKDAYS } },
-          steps: { type: 'array', items: { type: 'object', required: ['text'], properties: { text: { type: 'string', description: 'Two or three words' }, pic: { type: 'string', enum: PICS } } } } } } },
-        update: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, rename: { type: 'string' }, who: { type: 'array', items: person }, from: { type: 'string' }, to: { type: 'string' }, days: { type: 'array', items: { type: 'string' } }, steps: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, pic: { type: 'string', enum: PICS } } } } } } },
+          steps: { type: 'array', items: { type: 'object', required: ['text'], properties: { text: { type: 'string', description: 'Two or three words' }, pic: { type: 'string', enum: PICS }, minutes: { type: 'number', description: 'Optional: how long the step gets' } } } } } } },
+        update: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, name: { type: 'string' }, rename: { type: 'string' }, who: { type: 'array', items: person }, from: { type: 'string' }, to: { type: 'string' }, days: { type: 'array', items: { type: 'string' } }, steps: { type: 'array', items: { type: 'object', properties: { text: { type: 'string' }, pic: { type: 'string', enum: PICS }, minutes: { type: 'number', description: 'Left out: the step keeps its time' } } } } } } },
         remove: { type: 'array', items: { type: 'string', description: 'name or id' } },
         check: { type: 'array', items: { type: 'object', required: ['name', 'step', 'who'], properties: { name: { type: 'string' }, step: { type: 'string' }, who: person, done: { type: 'boolean' } } } },
+        times: { type: 'array', description: 'Give one step a time, or 0 to take it off', items: { type: 'object', required: ['name', 'step', 'minutes'], properties: { name: { type: 'string', description: 'The routine' }, step: { type: 'string' }, minutes: { type: 'number' } } } },
       } } },
     { name: 'save_recipe', description: "Save a recipe into the recipe box, where it is made into cooking steps and shows in Recipes. Every recipe goes here, never in a note: a link to its page (one someone gives or shares, or one you found), or else the recipe itself as text, its ingredients and steps (one you know or read out). meal: the meal it's for, only if they said.",
       inputSchema: { type: 'object', properties: { link: { type: 'string', description: 'Its web page' }, text: { type: 'string', description: 'Without a page: the whole recipe, its name, ingredients and steps' }, meal: { type: 'string' } } } },

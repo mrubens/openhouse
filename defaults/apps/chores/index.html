@@ -100,7 +100,12 @@
     /* a routine in its hours: its steps as pictures, two to a row, for kids who can't read yet */
     .routine { flex: none; border-radius: calc(22 * var(--u)); background: rgba(255, 255, 255, .22); padding: calc(12 * var(--u)); display: flex; flex-direction: column; gap: calc(10 * var(--u)); }
     .pc.plain .routine { background: transparent; padding: 0; }
-    .rt-name { padding-left: calc(6 * var(--u)); font-size: calc(15 * var(--u)); font-weight: 700; letter-spacing: 0; opacity: .75; }
+    .rt-head { display: flex; align-items: center; gap: calc(10 * var(--u)); }
+    .rt-name { flex: 1; min-width: 0; padding-left: calc(6 * var(--u)); font-size: calc(15 * var(--u)); font-weight: 700; letter-spacing: 0; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rt-go { flex: none; height: calc(46 * var(--u)); border-radius: calc(23 * var(--u)); padding: 0 calc(18 * var(--u)) 0 calc(13 * var(--u)); background: rgba(255, 255, 255, .6); color: var(--pi);
+      font-size: calc(17 * var(--u)); font-weight: 750; display: inline-flex; align-items: center; gap: calc(7 * var(--u)); }
+    .rt-go .icon { width: calc(20 * var(--u)); height: calc(20 * var(--u)); }
+    .pc.plain .rt-go { background: var(--tint-2); }
     .steps { display: grid; grid-template-columns: 1fr 1fr; gap: calc(8 * var(--u)); }
     .stp { border-radius: calc(16 * var(--u)); background: rgba(255, 255, 255, .5); padding: calc(8 * var(--u)); display: flex; flex-direction: column; align-items: center; text-align: center; }
     .pc.plain .stp { background: var(--tint); }
@@ -150,8 +155,53 @@
     .rt-card { flex: none; padding: calc(22 * var(--u)) calc(24 * var(--u)); display: flex; flex-direction: column; gap: calc(14 * var(--u)); }
     .rt-card h2 { margin: 0; font-size: calc(26 * var(--u)); font-weight: 700; letter-spacing: -.02em; }
     .stp-row { display: flex; align-items: center; gap: calc(10 * var(--u)); }
-    .stp-tile { flex: none; width: calc(124 * var(--u)); border-radius: calc(16 * var(--u)); background: var(--tint); padding: calc(10 * var(--u)) calc(8 * var(--u)); display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .stp-tile { flex: none; align-self: stretch; width: calc(124 * var(--u)); border-radius: calc(16 * var(--u)); background: var(--tint); padding: calc(10 * var(--u)) calc(8 * var(--u)); display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .stp-time { margin-top: calc(4 * var(--u)); font-size: calc(15 * var(--u)); font-weight: 700; color: var(--fg2); }
     .add-step { margin-left: calc(6 * var(--u)); }
+
+    /* The player: a routine a step at a time, over everything, in the person's own color (their card, grown to the
+       screen): the step's picture large on a disc of light, its words, its time as a bar that runs down, and Done. */
+    .player { --pi: #15132b; --on-pi: #fff; position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; overflow: hidden; color: var(--pi); background: var(--c);
+      padding: calc(28 * var(--u)) calc(40 * var(--u)) calc(40 * var(--u)); }
+    .player.plain { --pi: var(--ink); --on-pi: var(--on-ink); background: var(--surface); }
+    /* light from behind the picture */
+    .player::before { content: ''; position: absolute; left: 50%; top: 44%; width: calc(1500 * var(--u)); height: calc(1500 * var(--u)); transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none;
+      background: radial-gradient(circle, rgba(255, 255, 255, .45) 0, rgba(255, 255, 255, .16) 30%, rgba(255, 255, 255, 0) 56%); }
+    .player > * { position: relative; z-index: 1; }
+    .pl-top { flex: none; display: flex; align-items: center; gap: calc(20 * var(--u)); }
+    .pl-title { flex: 1; min-width: 0; text-align: center; font-size: calc(28 * var(--u)); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pl-title b { font-weight: 800; }
+    .pl-round { flex: none; width: calc(80 * var(--u)); height: calc(80 * var(--u)); border-radius: 50%; background: rgba(255, 255, 255, .42); color: var(--pi); display: grid; place-items: center; }
+    .player.plain .pl-round { background: var(--tint-2); }
+    .pl-round .icon { width: calc(38 * var(--u)); height: calc(38 * var(--u)); }
+    .pl-round:disabled { opacity: .3; }
+    .pl-round.ghost { visibility: hidden; }
+    .pl-track { flex: none; display: flex; gap: calc(10 * var(--u)); width: min(calc(900 * var(--u)), 100%); margin: calc(18 * var(--u)) auto 0; }
+    .pl-track span { flex: 1; height: calc(12 * var(--u)); border-radius: calc(6 * var(--u)); background: rgba(255, 255, 255, .34); }
+    .player.plain .pl-track span { background: var(--tint-2); }
+    .pl-track span.on { background: color-mix(in srgb, var(--pi) 72%, transparent); }
+    .pl-track span.now { background: rgba(255, 255, 255, .92); }
+    .player.plain .pl-track span.now { background: color-mix(in srgb, var(--pi) 30%, transparent); }
+    .pl-stage { flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(30 * var(--u)); padding-bottom: calc(34 * var(--u)); }
+    .pl-stage > * { animation: pl-in .4s cubic-bezier(.2, 1.4, .4, 1) both; }
+    .pl-stage > :nth-child(2) { animation-delay: .05s; }
+    @keyframes pl-in { from { opacity: 0; transform: translateY(calc(26 * var(--u))) scale(.94); } to { opacity: 1; transform: none; } }
+    .pl-disc { flex: none; width: min(calc(450 * var(--u)), 44vh); height: min(calc(450 * var(--u)), 44vh); border-radius: 50%; display: grid; place-items: center; padding: 0;
+      background: radial-gradient(circle at 50% 32%, rgba(255, 255, 255, .96), rgba(255, 255, 255, .7) 72%, rgba(255, 255, 255, .55));
+      box-shadow: inset 0 calc(3 * var(--u)) 0 #fff, 0 calc(50 * var(--u)) calc(80 * var(--u)) calc(-46 * var(--u)) rgba(21, 19, 43, .5); }
+    .player.plain .pl-disc { background: var(--card); box-shadow: var(--shadow); }
+    .pl-pic { width: 62%; height: 62%; }
+    .pl-disc.end { color: var(--pi); }
+    .pl-disc.end .pl-pic { width: 46%; height: 46%; }
+    .pl-step { max-width: 100%; text-align: center; font-size: calc(76 * var(--u)); font-weight: 800; letter-spacing: -.035em; line-height: 1.05; overflow-wrap: anywhere; }
+    .pl-bar { flex: none; width: min(calc(640 * var(--u)), 86%); height: calc(22 * var(--u)); border-radius: calc(11 * var(--u)); background: rgba(255, 255, 255, .34); overflow: hidden; }
+    .player.plain .pl-bar { background: var(--tint-2); }
+    .pl-bar > i { display: block; height: 100%; border-radius: inherit; background: color-mix(in srgb, var(--pi) 78%, transparent); transform-origin: left center; will-change: transform; }
+    .pl-foot { flex: none; display: flex; align-items: center; justify-content: space-between; gap: calc(24 * var(--u)); width: min(calc(900 * var(--u)), 100%); margin: 0 auto; }
+    .pl-done { flex: 0 1 calc(540 * var(--u)); height: calc(120 * var(--u)); border-radius: calc(60 * var(--u)); background: var(--pi); color: var(--on-pi); font-size: calc(40 * var(--u)); font-weight: 800; letter-spacing: -.02em;
+      display: inline-flex; align-items: center; justify-content: center; gap: calc(14 * var(--u)); box-shadow: 0 calc(24 * var(--u)) calc(40 * var(--u)) calc(-24 * var(--u)) rgba(21, 19, 43, .6); }
+    .pl-done .icon { width: calc(46 * var(--u)); height: calc(46 * var(--u)); }
+    .pl-done:active { transform: scale(.97); }
     .hint { margin: 0; padding: 0 calc(10 * var(--u)); color: var(--fg2); }
     .actions.start { justify-content: flex-start; padding: 0 calc(4 * var(--u)); }
 
@@ -210,6 +260,19 @@
       .rt-card h2 { font-size: calc(32 * var(--u)); }
       .stp-tile { width: calc(150 * var(--u)); }
       .chip-label { font-size: calc(20 * var(--u)); }
+      .rt-go { height: calc(56 * var(--u)); border-radius: calc(28 * var(--u)); font-size: calc(21 * var(--u)); padding: 0 calc(22 * var(--u)) 0 calc(16 * var(--u)); }
+      .rt-go .icon { width: calc(24 * var(--u)); height: calc(24 * var(--u)); }
+      .stp-time { font-size: calc(19 * var(--u)); }
+      .player { padding: calc(24 * var(--u)) calc(22 * var(--u)) calc(34 * var(--u)); }
+      .player::before { top: 42%; width: calc(1100 * var(--u)); height: calc(1100 * var(--u)); }
+      .pl-title { font-size: calc(24 * var(--u)); }
+      .pl-round { width: calc(72 * var(--u)); height: calc(72 * var(--u)); }
+      .pl-round .icon { width: calc(34 * var(--u)); height: calc(34 * var(--u)); }
+      .pl-track { gap: calc(8 * var(--u)); margin-top: calc(22 * var(--u)); }
+      .pl-disc { width: min(calc(420 * var(--u)), 42vh); height: min(calc(420 * var(--u)), 42vh); }
+      .pl-step { font-size: calc(58 * var(--u)); }
+      .pl-bar { width: 88%; height: calc(24 * var(--u)); }
+      .pl-done { flex: 1 1 auto; height: calc(112 * var(--u)); font-size: calc(36 * var(--u)); }
     }
   </style>
   <link rel="stylesheet" href="/kit/quiet.css">
