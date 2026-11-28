@@ -10,6 +10,8 @@
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+/* An iPhone zooms into a field whose text is under 16px when it's focused: never under 16px. */
+input, textarea, select { font-size: max(16px, 1em) !important; }
 .soft { color: var(--soft); }
 .brand { font-weight: 700; letter-spacing: -.02em; }
 /* The logo before the name, wherever the name stands alone (brand/logo.svg). */

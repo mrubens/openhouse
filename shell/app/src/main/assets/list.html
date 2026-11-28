@@ -13,7 +13,7 @@ ol{margin:0 0 8px;padding:0;list-style:none;counter-reset:s}
 ol li{counter-increment:s;position:relative;padding:0 0 14px 40px;color:var(--ink)}
 ol li::before{content:counter(s);position:absolute;left:0;top:-1px;width:26px;height:26px;border-radius:50%;background:var(--tint);font-size:15px;font-weight:600;display:grid;place-items:center}
 label{display:block;color:var(--soft);font-size:15px;margin:18px 0 6px}
-input,select{width:100%;font:inherit;padding:13px 16px;border:0;border-radius:14px;background:var(--tint);color:inherit;outline-color:var(--ink)}
+input,select{width:100%;font:inherit;font-size:max(16px,1em);padding:13px 16px;border:0;border-radius:14px;background:var(--tint);color:inherit;outline-color:var(--ink)}
 button,a.b{display:block;width:100%;margin-top:22px;padding:15px;border:0;border-radius:999px;background:var(--go);color:var(--bg);font:inherit;font-weight:600;text-align:center;text-decoration:none;cursor:pointer}
 a.b{background:var(--tint);color:var(--ink)}
 button:disabled{opacity:.5}
