@@ -134,11 +134,6 @@ internal fun WelcomeSheet() {
                     Spacer(Modifier.height(28.u))
                     Text("Already have Opie in another room? Add this device to it", style = calmText(19, FontWeight.Medium, Calm.soft), modifier = Modifier.clickable { o.host.setting("joinOther") })
                 }
-                // One quiet line on a model we haven't tested (dev.openhouse.shell.Tablets, docs/tablets.md). Never blocks.
-                if (!dev.openhouse.shell.Tablets.tested) {
-                    Spacer(Modifier.height(28.u))
-                    Text("We haven't tested this device.", style = calmText(19, color = Calm.soft))
-                }
             }
         }
     }

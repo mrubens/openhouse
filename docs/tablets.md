@@ -14,8 +14,7 @@ follow [the setup guide](setup.md).
 What the states mean:
 
 - **Works**: all eight tests in [hardware.md](hardware.md) ("What to test on each") passed on a named release, which is
-  written here with the date. Opie's releases carry this list, so a tablet that isn't on it says "We haven't tested
-  this tablet" at Welcome and in Settings → Advanced. It never stops you setting it up.
+  written here with the date. The device itself says nothing about the list: any device can be set up.
 - **Being tested**: we have one and are running those tests. It may work fine; we just can't say yet.
 - **Doesn't work**: it failed a test that can't be worked around, so don't buy one for Opie.
 
@@ -69,6 +68,4 @@ The setup's "Two of Android's settings" step opens Android's settings; this is w
 
 - A model moves to **Works** only with the eight tests' results in [hardware.md](hardware.md), and the release they ran
   on and the date written in the table above.
-- Add its model number to `shell/app/src/main/java/dev/openhouse/shell/Tablets.kt` at the same time, so the next
-  release stops calling it untested.
 - Keep the list to two or three models. No household details here (the repo's `CLAUDE.md`).

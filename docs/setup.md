@@ -49,8 +49,7 @@ signing in inside the app itself. Apps with their own sign-in, like Netflix, don
 
 ## 4. What finished looks like
 
-1. **Welcome to Opie**, with Get started. If the tablet says "We haven't tested this tablet" under it, it isn't on
-   [the list](tablets.md) yet; carry on.
+1. **Welcome to Opie**, with Get started.
 2. The setup, done from a phone or computer: the tablet shows a code to scan with a phone (or an address and code
    for a computer). On it you type who lives here and where, add your calendar and photos, and choose a PIN; it moves
    the tablet along as you go. Then, on the tablet: two of Android's settings. You need a phone or computer on the

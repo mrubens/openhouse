@@ -21,8 +21,7 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 | Account | link or unlink, Backups, Email, Use it away from home | always |
 | Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Google Play (the household's Google account, for adding Android apps; a person's own), Add this tablet to another Opie, Send a report; For developers: Home network, Tailscale, Cloud address, Speech log, USB debugging, Android settings, Leave kiosk mode, Erase this tablet | always |
 
-Under the tabs, quietly: the version (tap it to look for an update and install it), and "We haven't tested this
-tablet" on a model that isn't on the list.
+Under the tabs, quietly: the version (tap it to look for an update and install it).
 
 House rules is in the Opie tab under Voice. It always asks for the PIN when one is set, whatever Ask for the PIN says
 (Opie can't tell who is asking).

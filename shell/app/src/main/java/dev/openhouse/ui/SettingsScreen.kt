@@ -100,7 +100,6 @@ internal fun SettingsScreen() {
                 // The version is the way to updates (no PIN: seeing it and getting ours is everyone's).
                 Text("Version ${vals["updates"] ?: ""}", style = quietText(18, color = PaperLook.inkSoft),
                     modifier = Modifier.clip(RoundedCornerShape(8.u)).clickable { o.host.setting("updates") }.padding(horizontal = 16.u, vertical = 8.u))
-                if (!dev.openhouse.shell.Tablets.tested) Text("We haven't tested this device", style = quietText(18, color = PaperLook.inkSoft), modifier = Modifier.padding(horizontal = 16.u))
             }
             if (current != null) Box(Modifier.weight(1f).fillMaxHeight().imePadding()) {
                 Pane(current, vals, compact, lockOn, asks, sat)
