@@ -1,0 +1,19 @@
+configuration:
+  ssl:
+    name: https
+    description: Serve the hub on https with this Home Assistant's certificate, so phone browsers may use the microphone.
+  certfile:
+    name: Certificate
+    description: In /ssl.
+  keyfile:
+    name: Private key
+    description: In /ssl.
+  settings_code:
+    name: New settings code
+    description: Print a new code for a settings device in the Log when the add-on starts. Turn it off again after.
+  forget_pin:
+    name: Forget the PIN
+    description: Forget the settings page's PIN when the add-on starts. Turn it off again after.
+network:
+  8788/tcp: Phones, computers and TVs (fixed, on the host's network)
+  8789/tcp: Claude and ChatGPT's connector at your own address (fixed, on the host's network; only when turned on)

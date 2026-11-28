@@ -9,7 +9,7 @@
 //   GET  /devices/homeassistant    {connected, url, things: [{entity, name, kind, picked}]}: what Opie could be given
 //   POST /devices/homeassistant/use {entity, use}   a person's tap: Opie may use it, or no longer
 //   POST /devices/homeassistant/connect             puts Connect Home Assistant on the device's screen
-// All of these answer only to this device itself (loopback).
+// All of these answer only to this device itself (loopback); on a hub its settings devices pick in Home Assistant too.
 //
 // Saved in display/devices.json: the devices, the recipes the agent wrote, pairings (TV tokens), and which of Home
 // Assistant's things the household picked (never its token: the host keeps that, drivers/homeassistant.js).
@@ -627,7 +627,9 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     return { jsonrpc: '2.0', id, error: { code: -32601, message: 'unknown method' } };
   }
 
-  const local = (req) => /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress || '');
+  // (or a paired device's sealed request, which screens.js let through only by its scopes: a hub's settings devices
+  // reach /devices/homeassistant and its /use, screens.js RULES 'admin')
+  const local = (req) => (req.socket ? /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress || '') : !!req.headers?.['x-openhouse-screen']);
 
   /** Returns true if it handled the request. */
   handle.allow = (id, yes = true) => { const before = yes ? structuredClone(db) : null, pr = (db.pairing[id] ||= {}); if (yes) pr.allowed = true; else { delete pr.allowed; delete pr.apps; } save(before); }; // (throws when it isn't saved: a yes taken back, a no kept in memory) // the tablet's yes (or someone taking it back: the apps' yeses too)

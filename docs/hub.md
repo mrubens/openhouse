@@ -179,6 +179,7 @@ Any always-on computer on the home network will do. Which way to run it:
 | A Raspberry Pi, a NUC, an old laptop, any Debian or Ubuntu box (arm64 or x86_64) | `hub/install.sh` | Yes |
 | A Linux machine or NAS that already runs Docker | `hub/compose.yml` (host networking) | Yes |
 | A Mac that stays on (a mini) | `hub/install-mac.sh` (native) | Yes (tried: 6 of 6 found) |
+| A Home Assistant OS or Supervised machine | the add-on (`ha-addon/`, below) | Yes (host network, untried) |
 | Docker Desktop on a Mac or Windows | `hub/compose.desktop.yml` | No: its containers live in a VM (tried on a Mac: 2 of 6, the VM's own) |
 | Trying it on any computer (README) | `hub/compose.desktop.yml` | No |
 | Windows | Ubuntu under WSL 2 with mirrored networking, then `hub/install.sh` | Should, untried |
@@ -233,6 +234,68 @@ phones reaching it. Update from the settings page (launchd starts it on the new 
 
 Docker Desktop on a Mac works too (`docker compose -f hub/compose.desktop.yml up -d --build`, a forwarded port) for
 phones, screens and the TV's layout, but not for finding or controlling devices on the Wi-Fi.
+
+### In Home Assistant (an add-on)
+
+`ha-addon/` is a Home Assistant add-on repository, ready to be the root of a public repo of its own
+(`repository.yaml`, and the add-on in `opie/`). Someone with Home Assistant OS or Supervised adds the repo's address
+under Settings → Add-ons → Add-on store → Repositories, installs Opie, and opens the Log for the code. It runs the
+hub's own image (`ghcr.io/mrubens/openhouse/hub`, the tag in `opie/config.yaml`'s `version`), so there's nothing
+separate to build. Tried on 2026-11-28 in Docker on a Mac with a stand-in Supervisor (below); not yet in a real
+Home Assistant.
+
+- **Starting.** `hub/start.sh` sees the Supervisor (`SUPERVISOR_TOKEN` and `/data/options.json`) and hands over to
+  `hub/addon.sh`: the data folder is `/data/hub`, the keeper's `/data/keeper` (root's, 0700), backups to a folder go
+  to `/share/opie`. It starts the hub again when it stops (a restore, a crash), since Home Assistant restarts an
+  add-on only with its watchdog on.
+- **Home Assistant, with nothing typed.** `homeassistant_api: true` gives the add-on a token for
+  `http://supervisor/core/api`. Only the keeper gets it (`OPENHOUSE_ADDON=1`): it is the keeper's Home Assistant
+  connection, through the same rules as a typed token (`bridge/devices/ha-rules.js`), and `/homeassistant/set` and
+  `/remove` say it's the add-on's. The bridge and the apps' server run as the image's `node` user
+  (`OPENHOUSE_RUN_AS`), so they can read neither the keeper's folder nor its environment, nor that of the processes
+  that started them. Installing the add-on is the household's yes for the connection; they still pick what Opie may
+  use, under Home Assistant on the settings page (that section also connects a hub that isn't the add-on, by address
+  and long-lived token, with a card and the PIN).
+- **Its own port, not ingress.** The add-on is on the host's network (`host_network`), as `compose.yml` is: phones,
+  TVs and screens reach `http://<Home Assistant's address>:8788/` without a Home Assistant account, pair with keys of
+  their own, and it finds devices on the Wi-Fi. Ingress would put every page behind a Home Assistant sign-in, under
+  a path that changes per install (the pages use absolute paths), and in an iframe of Home Assistant's own page;
+  and a phone's or TV's page has to reach the hub with no Home Assistant account at all. Open Web UI goes to `/hub/`.
+- **The microphone.** A browser lets a page use it only on https or localhost. On the hub's plain address the pill
+  isn't shown; with the `ssl` option the hub serves https with the certificate in `/ssl` (Home Assistant's own: phones trust it
+  only at the name it was made for, so that name has to reach Home Assistant on the home network), and a hub linked to an Opie account gets its own
+  https name on the home network anyway (`bridge/lan-tls.js`). Under ingress it would depend on Home Assistant's own
+  https and its iframe allowing the microphone, untried.
+- **Backups.** Home Assistant's backups include `/data` but leave out the keeper (`backup_exclude`), as every Opie
+  backup does: after restoring one, the calendar links, own OpenAI key and PIN are added again.
+- **Updates.** Home Assistant pulls the image tagged with the add-on's `version`. `hub-image.yml` tags each release's
+  image `1.0.NN` too (and `v1.0.NN`), and `ha-addon/.github/workflows/follow-releases.yml`, in the add-on's repo,
+  moves `version` forward once that image is public. The settings page shows no Update button there.
+- **A lost settings device or PIN.** The add-on's options `settings_code` and `forget_pin` (whoever may change them in
+  Home Assistant is the hub's console).
+
+Tried for real (Docker Desktop on a Mac, arm64, the image built from this checkout, a container named `supervisor`
+answering `/core/api/` like the Supervisor's proxy, with a stand-in token): it started as an add-on, printed the code;
+the keeper ran as root with the token and the bridge and Vite as `node` without it (`/proc/*/environ`, the keeper's
+folder: denied to `node` on a Docker volume); the bridge listed the stand-in's lights, switch, speaker, thermostat and
+scene, never its lock or garage door; a settings device in the browser paired with the code and picked two lights
+under Home Assistant, and a picked light was turned off through `supervisor/core/api` with the token; the home screen
+showed at `/screen/`; a killed bridge came back on its own; `docker stop` stopped it at once; `settings_code` and
+`forget_pin` printed a code and forgot the PIN; `ssl` served the certificate from `/ssl`. Needs a real Home Assistant:
+the Supervisor pulling the image and the repo's store listing, the real token and proxy, `host_network` (and finding
+devices), the watchdog, Open Web UI, `backup_exclude`, the microphone on https.
+
+Publishing it (the owner, once):
+1. A release after this change (a `v1.0.NN` tag), so its image has the add-on's start and is tagged `1.0.NN`; on
+   GitHub make the package `ghcr.io/mrubens/openhouse/hub` public (Packages → hub → Package settings → Change
+   visibility), once.
+2. Create the public repo (`ha-addon/repository.yaml`, `README.md` and `opie/config.yaml` name it
+   `mrubens/opie-home-assistant`; change those if it's called something else), and copy `ha-addon/`'s contents to
+   its root as they are, `.github/` included: `cp -R ha-addon/. <the new repo>/`.
+3. Set `version` in `opie/config.yaml` to that release without the v (and the CHANGELOG's top), commit and push.
+   From then on the workflow moves it forward each release (it runs hourly; Actions must be on, with write
+   permission for the workflow's token under Settings → Actions → General).
+4. In Home Assistant: add the repo's address under Repositories, install Opie, start it, open its Log.
 
 ### Windows
 
@@ -301,6 +364,7 @@ On the hub itself: `docker exec openhouse /opt/openhouse/hub/owner-code.sh`; on 
   (Node 22 on Debian, git, the built pages and apps' packages).
 - `hub/start.sh`: the hub's start, shared by Docker, Linux and the Mac. `hub/build.sh`: building from a checkout.
 - `hub/install.sh` (Linux), `hub/install-mac.sh`, `hub/update.sh`, `hub/owner-code.sh`.
+- `hub/addon.sh` and `ha-addon/` (the Home Assistant add-on and its repository).
 - `hub/demo.mjs`: the demo household for the iPhone app's review ([iphone-app.md](iphone-app.md)).
 - `hub/keeper.mjs` (the keeper: the host, [host.md](host.md)), `bridge/host.js` (picking the host, what it can do),
   `bridge/headless.js` (for a host with no screen: its cards on devices, the setup's steps, the PIN lock).

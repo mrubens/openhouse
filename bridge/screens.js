@@ -119,6 +119,7 @@ const RULES = [
   ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|google|icloud|pin)$/],
   ['ask', 'GET', /^\/hub\/asks$/], ['ask', 'POST', /^\/hub\/asks\/answer$/], // a hub's cards on adults' phones too (not kids' or TVs)
     ['admin', 'GET', /^\/hub\/(asks|keeper|calendars|google-photos)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove|google|calendar\/account\/remove)$/],
+  ['admin', 'GET', /^\/devices\/homeassistant$/], ['admin', 'POST', /^\/(devices\/homeassistant\/use|hub\/homeassistant)$/], // what Opie may use in Home Assistant, and connecting it
   ['admin', 'GET', /^\/calendar\/sync$/], ['admin', 'POST', /^\/calendar\/sync\/(set|now)$/], // which of a signed-in account's calendars show (calendar-sync.js)
 ];
 // door: see the home screen and the house (read only). The name is from before and stays: paired screens hold it.

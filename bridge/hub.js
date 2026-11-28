@@ -16,7 +16,8 @@ import { spawn } from 'node:child_process';
 
 
 export function hubRoutes({ DISPLAY, screens, json, body = async () => ({}), CODE = process.env.OPENHOUSE_CODE_DIR || path.resolve(DISPLAY, '..'), log = console.log, exit = () => process.exit(0) }) {
-  const install = fs.existsSync('/.dockerenv') || process.env.OPENHOUSE_INSTALL === 'docker' ? 'docker' : fs.existsSync(path.join(CODE, '.git')) ? 'git' : 'files';
+  // (a Home Assistant add-on, ha-addon/: Home Assistant updates it, as it does its other add-ons)
+  const install = process.env.OPENHOUSE_INSTALL === 'addon' ? 'addon' : fs.existsSync('/.dockerenv') || process.env.OPENHOUSE_INSTALL === 'docker' ? 'docker' : fs.existsSync(path.join(CODE, '.git')) ? 'git' : 'files';
   // A Docker hub updates where it runs: a published image is pulled; one built from a checkout (hub/compose*.yml say
   // which) is built again from a newer one.
   const imageUpdate = process.env.OPENHOUSE_UPDATE_COMMAND || 'docker compose pull && docker compose up -d';
@@ -42,7 +43,7 @@ export function hubRoutes({ DISPLAY, screens, json, body = async () => ({}), COD
     if (p !== '/hub' && !p.startsWith('/hub/')) return false;
     if (req.method === 'GET' && p === '/hub') {
       json(res, 200, { hub: true, version, install, updating, https: !!process.env.HUB_TLS_CERT, back: install === 'git' && previous(),
-        update: install === 'git' ? { how: 'git' } : install === 'docker' ? { how: 'image', command: imageUpdate } : { how: 'files' } });
+        update: install === 'git' ? { how: 'git' } : install === 'addon' ? { how: 'addon' } : install === 'docker' ? { how: 'image', command: imageUpdate } : { how: 'files' } });
       return true;
     }
     if (req.method === 'POST' && p === '/hub/owner-code') { // (not among a settings device's routes: screens.js RULES)
@@ -50,7 +51,7 @@ export function hubRoutes({ DISPLAY, screens, json, body = async () => ({}), COD
     }
     if (req.method === 'POST' && p === '/hub/update') {
       const back = (await body(req).catch(() => ({})))?.back === true; // Go back: the version before the last update
-      if (install !== 'git') { json(res, 200, { ok: false, how: install === 'docker' ? 'image' : 'files', command: install === 'docker' ? imageUpdate : null }); return true; }
+      if (install !== 'git') { json(res, 200, { ok: false, how: install === 'docker' ? 'image' : install === 'addon' ? 'addon' : 'files', command: install === 'docker' ? imageUpdate : null }); return true; }
       if (updating) { json(res, 409, { error: 'already updating' }); return true; }
       updating = { at: new Date().toISOString() };
       const out = fs.openSync(path.join(DISPLAY, 'update.log'), 'a');

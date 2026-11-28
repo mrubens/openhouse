@@ -1,0 +1,32 @@
+# Each Opie release (a v1.0.NN tag in mrubens/openhouse) becomes the add-on's version once its hub image is public (Home Assistant pulls the image tagged
+# with the version, so the version moves only after the image is there).
+name: follow Opie releases
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  follow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: The newest release, if its image is out
+        run: |
+          set -euo pipefail
+          V=$(git ls-remote --tags --refs https://github.com/mrubens/openhouse.git 'v*' | sed -n 's#.*refs/tags/v\([0-9]*\.[0-9]*\.[0-9]*\)$#\1#p' | sort -V | tail -1)
+          NOW=$(sed -n 's/^version: "\(.*\)"$/\1/p' opie/config.yaml)
+          echo "newest $V, the add-on's $NOW"
+          [ -n "$V" ] && [ "$V" != "$NOW" ] && [ "$(printf '%s\n%s\n' "$NOW" "$V" | sort -V | tail -1)" = "$V" ] || exit 0 # (only ever forward)
+          docker manifest inspect "ghcr.io/mrubens/openhouse/hub:$V" >/dev/null || { echo "its image isn't out yet"; exit 0; }
+          sed -i "s/^version: \".*\"$/version: \"$V\"/" opie/config.yaml
+          { sed -n '1,2p' opie/CHANGELOG.md; printf '## %s\n\nOpie %s: https://github.com/mrubens/openhouse/tree/v%s\n\n' "$V" "$V" "$V"; sed -n '3,$p' opie/CHANGELOG.md; } > /tmp/c && mv /tmp/c opie/CHANGELOG.md
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -am "Opie $V"
+          git push

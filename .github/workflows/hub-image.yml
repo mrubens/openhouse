@@ -68,8 +68,10 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository }}/hub
+          # (1.0.NN without the v too: the tag the Home Assistant add-on's version pulls, ha-addon/)
           tags: |
             type=ref,event=tag
+            type=semver,pattern={{version}}
             type=raw,value=latest
       - uses: docker/build-push-action@v6
         with:

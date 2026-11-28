@@ -77,7 +77,9 @@ The same requests and answers on every host that has them (DeviceServer.kt `home
   `/homeassistant/remove`. Putting it in: on the tablet its own screen (`/homeassistant/connect {url}` puts it up,
   behind the PIN; the token typed there or sent from a phone by the QR code, a person's own tap); on the keeper
   `/homeassistant/set {url, token, from?}` → `{ok}` once Home Assistant takes the token and a person says yes on a
-  card with the PIN.
+  card with the PIN. As a Home Assistant add-on (`OPENHOUSE_ADDON=1`, docs/hub.md) the keeper's connection is
+  that Home Assistant, through the Supervisor's proxy with the add-on's token: `/homeassistant/status` →
+  `{set: true, url: null, addon: true}`, and `/set` and `/remove` answer 409.
 
 ## What stays a person's
 

@@ -14,3 +14,4 @@ bridge/public
 hub/data
 hub/backups
 hub/keeper
+ha-addon

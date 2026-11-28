@@ -147,3 +147,26 @@ test('only what the household picked can be used; Opie asks before picking more'
   assert.equal((await devices.homeAssistant({ do: 'stop_using', thing: 'Kitchen light' })).ok, true);
   assert.equal((await devices.homeAssistant({ do: 'on', thing: 'Kitchen light' })).ok, false);
 });
+
+test('as a Home Assistant add-on: the Supervisor\'s token, kept by the keeper alone, through the same rules; only a settings device picks', async () => {
+  const { allowed, DEFAULT_SCOPES, ADMIN_SCOPES, PHONE_SCOPES } = await import('../screens.js');
+  for (const s of [DEFAULT_SCOPES, PHONE_SCOPES.grownup]) assert.ok(!allowed(s, 'GET', '/devices/homeassistant') && !allowed(s, 'POST', '/devices/homeassistant/use') && !allowed(s, 'POST', '/hub/homeassistant'));
+  assert.ok(allowed(ADMIN_SCOPES, 'GET', '/devices/homeassistant') && allowed(ADMIN_SCOPES, 'POST', '/devices/homeassistant/use') && !allowed(ADMIN_SCOPES, 'POST', '/devices/homeassistant/connect'));
+  const t = crypto.randomBytes(32).toString('base64url'), p = 20000 + crypto.randomInt(20000), dir = path.join(root, 'addon');
+  const k = spawn(process.execPath, [path.join(HERE, '..', '..', 'hub', 'keeper.mjs')], { stdio: 'ignore',
+    env: { ...process.env, OPENHOUSE_KEEPER_TOKEN: t, KEEPER_PORT: String(p), OPENHOUSE_DATA: path.join(dir, 'hub'), OPENHOUSE_KEEPER_DIR: path.join(dir, 'keeper'), OPENHOUSE_KEEPER_STORE: 'file', BRIDGE_URL: 'http://127.0.0.1:9',
+      OPENHOUSE_ADDON: '1', SUPERVISOR_TOKEN: TOKEN, OPENHOUSE_SUPERVISOR_URL: haUrl } });
+  try {
+    const h = await keeperHost({ url: `http://127.0.0.1:${p}`, token: t }).ready();
+    assert.deepEqual((await h.call('/homeassistant/status')).body, { set: true, url: null, addon: true }, 'connected with nothing typed');
+    seen = [];
+    const states = await h.call('/homeassistant', { method: 'GET', path: '/api/states' });
+    assert.equal(states.ok, true);
+    assert.ok(!JSON.stringify(states.body).includes(TOKEN) && !states.body.answer.some((s) => SHUT.test(s.entity_id)));
+    assert.equal((await h.call('/homeassistant', { method: 'POST', path: '/api/services/lock/unlock', body: { entity_id: 'lock.front_door' } })).status, 403);
+    assert.ok(seen.length && seen.every((s) => s.auth === `Bearer ${TOKEN}` && !/lock/.test(s.path)));
+    assert.equal((await h.call('/homeassistant/set', { url: haUrl, token: TOKEN })).status, 409);
+    assert.equal((await h.call('/homeassistant/remove')).status, 409);
+    assert.ok(!fs.readdirSync(path.join(dir, 'keeper')).some((f) => fs.readFileSync(path.join(dir, 'keeper', f)).includes(TOKEN)), 'never written down');
+  } finally { const gone = new Promise((ok) => k.once('exit', ok)); k.kill(); await gone; }
+});

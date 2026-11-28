@@ -36,7 +36,7 @@ function Join({ onJoined }) {
     <main className="join">
       <div className="brand">Opie hub</div>
       <h1>Type the hub's code</h1>
-      <p>It's in the hub's log when it starts (<code>docker logs openhouse</code>, or <code>journalctl -u openhouse</code> on a Pi), and in <code>hub-setup.txt</code> in its data folder.</p>
+      <p>It's in the hub's log when it starts (<code>docker logs openhouse</code>, or <code>journalctl -u openhouse</code> on a Pi, the Log tab in Home Assistant), and in <code>hub-setup.txt</code> in its data folder.</p>
       <form onSubmit={go}>
         <input className="code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" spellCheck="false" />
         <button className="go" disabled={step === 'joining' || code.replace(/[^0-9a-z]/gi, '').length !== 12}>{step === 'joining' ? 'Joining…' : 'Join'}</button>
@@ -261,6 +261,39 @@ function Updates({ c, onRemoved }) {
   );
 }
 
+/** The household's Home Assistant (devices/index.js, kept by the keeper): connecting it with a token (a hub that isn't
+ *  its add-on), and picking what Opie may use. Locks, doors, alarms and cameras are never listed (devices/ha-rules.js). */
+const HA_KIND = { light: 'Light', switch: 'Switch', scene: 'Scene', tv: 'TV', speaker: 'Speaker', thermostat: 'Thermostat (read only)' };
+function HomeAssistant({ c, onRemoved }) {
+  const [h, reload] = useGet(c, '/devices/homeassistant', 0, onRemoved), [open, setOpen] = useState(false);
+  const [url, setUrl] = useState(''), [token, setToken] = useState(''), [st, setSt] = useState(null);
+  if (!h || h.error === 403 || h.error === 404 || (!h.connected && !h.can)) return null;
+  const use = async (entity, on) => { await c.json('POST', '/devices/homeassistant/use', { entity, use: on }); reload(); };
+  async function connect() {
+    setSt('…');
+    const r = await c.json('POST', '/hub/homeassistant', { url: url.trim(), token: token.trim() }).catch(() => null);
+    if (r?.status === 200 && r.json?.ok) { setToken(''); setSt(null); return reload(); }
+    setSt(r?.json?.error || 'That didn’t work.');
+  }
+  const things = h.things || [], shown = open ? things : things.filter((t) => t.picked);
+  return (
+    <section className="setup">
+      <h2>Home Assistant</h2>
+      {!h.connected ? <>
+        <input className="field" value={url} onChange={(e) => { setUrl(e.target.value); setSt(null); }} placeholder="Its address, like 192.168.1.20:8123" autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+        <input className="field" type="password" value={token} onChange={(e) => { setToken(e.target.value); setSt(null); }} placeholder="A long-lived token (your profile, Security)" autoComplete="off" />
+        <button className="pill" disabled={st === '…' || !url.trim() || !token.trim()} onClick={connect}>{st === '…' ? 'Waiting for a yes…' : 'Connect'}</button>
+        {st && st !== '…' && <p className="soft">{st}</p>}
+      </> : <>
+        {h.error && <p className="soft">{h.error}</p>}
+        {shown.map((t) => <label className="check" key={t.entity}><input type="checkbox" checked={t.picked} onChange={(e) => use(t.entity, e.target.checked)} /> {t.name}<span className="soft small"> · {HA_KIND[t.kind] || t.kind}</span></label>)}
+        {!open && things.length > shown.length && <button className="pill" onClick={() => setOpen(true)}>Choose what Opie may use</button>}
+        {open && <button className="plain" onClick={() => setOpen(false)}>Done</button>}
+      </>}
+    </section>
+  );
+}
+
 /** The calendars and iCloud albums the keeper holds (without their links), and adding one by its link. */
 function Calendars({ c, k, onRemoved }) {
   const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [sync, reloadSync] = useGet(c, '/calendar/sync', 0, onRemoved), [adding, setAdding] = useState(null);
@@ -404,6 +437,7 @@ function Hub({ me, c, onRemoved }) {
           {k?.locked ? <Locked c={c} onOpen={reloadK} /> : <>
             <Devices c={c} onRemoved={onRemoved} />
             <Calendars c={c} k={k} onRemoved={onRemoved} />
+            <HomeAssistant c={c} onRemoved={onRemoved} />
             <Account c={c} onRemoved={onRemoved} />
             <Keeper c={c} k={k} reload={reloadK} />
             <Backups c={c} onRemoved={onRemoved} />

@@ -43,6 +43,9 @@
 //   long-lived token kept here; the bridge's calls go through those rules, with the token added here
 //   /homeassistant/status -> {set, url}   /homeassistant {method, path, body} -> {answer} or {error}
 //   /homeassistant/set {url, token, from?} -> {ok} once it answers and a person said yes (with the PIN)   /homeassistant/remove
+//   As a Home Assistant add-on (ha-addon/, OPENHOUSE_ADDON=1): that Home Assistant is the connection, through the
+//   Supervisor's proxy with the add-on's own SUPERVISOR_TOKEN (given to the keeper alone, hub/start.sh), the same
+//   rules applied; installing the add-on was the household's yes, and they still pick what Opie may use.
 //   Google Photos (the shell's GooglePhotos.kt): /photos/google {token} picks with Google's Picker and copies what was
 //   picked into the household's photos; /photos/google/status -> {state, pickerUri?, done?, total?, error?}
 import http from 'node:http';
@@ -62,6 +65,10 @@ const TOKEN = process.env.OPENHOUSE_KEEPER_TOKEN || (() => { try { return fs.rea
 const BRIDGE = process.env.BRIDGE_URL || `http://127.0.0.1:${process.env.PORT || 8787}`;
 const STORE = process.env.OPENHOUSE_KEEPER_STORE || (process.platform === 'darwin' ? 'keychain' : 'file');
 const log = (...a) => console.log('[keeper]', ...a); // never a link, a host, a key or a PIN
+// The Home Assistant the hub runs in, as an add-on (homeassistant_api: http://supervisor/core/api, the add-on's token).
+const SUPERVISED = process.env.OPENHOUSE_ADDON === '1' && process.env.SUPERVISOR_TOKEN
+  ? { url: process.env.OPENHOUSE_SUPERVISOR_URL || 'http://supervisor/core', token: process.env.SUPERVISOR_TOKEN } : null;
+delete process.env.SUPERVISOR_TOKEN; delete process.env.HASSIO_TOKEN; // (nothing this starts inherits it)
 
 if (!TOKEN || TOKEN.length < 32) { log('no OPENHOUSE_KEEPER_TOKEN: not starting'); process.exit(1); }
 if (DIR === DATA || DIR.startsWith(DATA + path.sep)) { log('its folder must not be inside the data folder'); process.exit(1); }
@@ -108,6 +115,8 @@ function save() {
   fs.renameSync(FILE + '.new', FILE);
 }
 const id = (n) => crypto.randomBytes(n).toString('hex');
+/** The Home Assistant the bridge's calls go to: the add-on's own, else the one a person connected. */
+const haKept = () => SUPERVISED || kept.homeassistant || null;
 
 // --- calendar links (the shell's CalendarLinks.kt) -----------------------------------------------------------
 const cleanCal = (raw) => {
@@ -476,7 +485,7 @@ async function route(p, b) {
     case '/approve': return [200, await ask(b)];
     case '/cards': return [200, { cards: cards() }];
     case '/cards/answer': return answerCard(b);
-    case '/status': return [200, { openai: !!kept.openai, pin: !!kept.pin, calendars: kept.calendars.length, albums: kept.albums.length, storage: !!kept.storage, homeassistant: !!kept.homeassistant }];
+    case '/status': return [200, { openai: !!kept.openai, pin: !!kept.pin, calendars: kept.calendars.length, albums: kept.albums.length, storage: !!kept.storage, homeassistant: !!haKept() }];
     case '/storage/status': return [200, s3.shown(kept.storage)];
     case '/storage/set': {
       const c = s3.cleanStorage(b);
@@ -492,9 +501,10 @@ async function route(p, b) {
       return r.error ? [400, r] : [200, r];
     }
     case '/storage/remove': delete kept.storage; save(); return [200, { ok: true }];
-    case '/homeassistant/status': return [200, { set: !!kept.homeassistant, url: kept.homeassistant?.url || null }];
-    case '/homeassistant': return ha.forward(kept.homeassistant, b);
+    case '/homeassistant/status': return [200, { set: !!haKept(), url: SUPERVISED ? null : kept.homeassistant?.url || null, ...(SUPERVISED ? { addon: true } : {}) }];
+    case '/homeassistant': return ha.forward(haKept(), b);
     case '/homeassistant/set': {
+      if (SUPERVISED) return [409, { error: 'The hub runs in Home Assistant, and uses that one.' }];
       const url = ha.cleanUrl(b.url), token = ha.cleanToken(b.token);
       if (!url) return [400, { error: "That isn't Home Assistant's address (like http://192.168.1.20:8123)." }];
       if (!token) return [400, { error: 'That isn\'t a Home Assistant token. Make a long-lived one on your Home Assistant profile, under Security, and copy all of it.' }];
@@ -505,7 +515,7 @@ async function route(p, b) {
       kept.homeassistant = { url, token }; save();
       return [200, { ok: true }];
     }
-    case '/homeassistant/remove': delete kept.homeassistant; save(); return [200, { ok: true }];
+    case '/homeassistant/remove': if (SUPERVISED) return [409, { error: 'The hub runs in Home Assistant, and uses that one.' }]; delete kept.homeassistant; save(); return [200, { ok: true }];
     case '/calendar': {
       const url = cleanCal(b.url);
       if (!url) return [400, { error: "That isn't a calendar link (an https:// or webcal:// address ending in .ics, usually)." }];
@@ -607,7 +617,7 @@ const server = http.createServer((req, res) => {
 const PARENT = Number(process.env.OPENHOUSE_KEEPER_PARENT || 0);
 if (PARENT) setInterval(() => { try { process.kill(PARENT, 0); } catch { process.exit(0); } }, 1000).unref();
 server.listen(PORT, '127.0.0.1', () => {
-  log(`keeping ${kept.calendars.length} calendar(s), ${kept.albums.length} album(s)${kept.openai ? ', an OpenAI key' : ''}${kept.pin ? ', a PIN' : ''}${kept.storage ? ', a storage key' : ''} (${STORE})`);
+  log(`keeping ${kept.calendars.length} calendar(s), ${kept.albums.length} album(s)${kept.openai ? ', an OpenAI key' : ''}${kept.pin ? ', a PIN' : ''}${kept.storage ? ', a storage key' : ''}${SUPERVISED ? ', the Home Assistant it runs in' : ''} (${STORE})`);
   setTimeout(syncCalendars, 20e3).unref(); setInterval(syncCalendars, 15 * 60e3).unref();
   albumTimer = setTimeout(syncAlbums, 40e3); albumTimer.unref?.();
 });
