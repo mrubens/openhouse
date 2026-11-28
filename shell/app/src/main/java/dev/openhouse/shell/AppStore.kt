@@ -84,15 +84,15 @@ object AppStore {
     // --- finding apps -----------------------------------------------------------------------
 
     /** Search Google Play's public web search (no account): name and package of the top hits. */
-    /** Apps already on the device whose name matches [q] (launchable, not Opie's own, not already in Apps): name and package. */
+    /** Apps on the device whose name matches [q] (launchable, not Opie's own), the best match first: name and package.
+     *  Ones already in Apps too: one taken off the Apps tab is found here to put back. */
     fun onDevice(q: String): List<Pair<String, String>> = runCatching {
         val words = q.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }
         if (words.isEmpty()) return emptyList()
         val pm = ctx.packageManager
-        val inApps = list().toSet()
         pm.queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
             .map { it.activityInfo.packageName }.distinct()
-            .filter { it != ctx.packageName && it != MainActivity.HOST_PKG && it !in inApps }
+            .filter { it != ctx.packageName && it != MainActivity.HOST_PKG }
             .map { label(it) to it }
             .filter { (name, _) -> words.all { w -> name.lowercase().contains(w) } }
             .sortedWith(compareBy({ val n = it.first.lowercase(); val t = q.trim().lowercase(); if (n == t) 0 else if (n.startsWith(t)) 1 else 2 }, { it.first.length }, { it.first }))

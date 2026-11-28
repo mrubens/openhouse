@@ -348,7 +348,8 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
      * the PIN when one is set, as opening it from Apps does, since once it's in Apps it opens like any other.
      */
     private fun addInstalled(pkg: String, name: String) = guard {
-        val add = { AppStore.addToHome(pkg); if (!KioskApps.openApp(pkg)) say(name, "It didn't open. Try it from Apps.") }
+        // (In Apps and on the Apps tab again, if it had been taken off there.)
+        val add = { AppStore.addToHome(pkg); thread { post("/home/place", JSONObject().put("key", "app:android:$pkg").put("hidden", false)) }; if (!KioskApps.openApp(pkg)) say(name, "It didn't open. Try it from Apps.") }
         if (!KioskApps.needsParent(pkg)) return@guard add()
         thread { if (ApprovalCard.ask("Add $name to Apps?", "", parent = ParentPin.isSet(act), yes = "Add")) ui { add() } }
     }
