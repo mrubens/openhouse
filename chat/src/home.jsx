@@ -68,7 +68,7 @@ function BatteryLine({ shell }) {
   const fill = Math.max(1, Math.round(b.level / 100 * 14));
   return <div className={'h-wx h-batt' + (b.level < 15 && !b.charging ? ' low' : '')}>
     <svg className="h-wx-i" viewBox="0 0 24 24" aria-hidden="true"><rect x="2.5" y="7" width="17" height="10" rx="2.5" fill="none" stroke="currentColor" strokeWidth="1.6" /><rect x="20.5" y="10" width="1.8" height="4" rx=".9" fill="currentColor" />{b.charging ? <path d="M12.4 8.4 8.6 12.6h3l-1 3 3.8-4.2h-3z" fill="currentColor" /> : <rect x="4.5" y="9" width={fill} height="6" rx="1" fill="currentColor" />}</svg>
-    {stuck ? `${b.level}% · not charging` : `${b.level}%`}
+    {stuck ? <span className="h-batt-t">{b.level}%<br />Not charging</span> : `${b.level}%`}
   </div>;
 }
 
