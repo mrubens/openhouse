@@ -1,6 +1,7 @@
 // The meal plan (the Meals app): what's for each meal, favorites, which meals are planned, and a meal's groceries.
 import { validDay, str, same, arr, must } from './util.js';
 import { asData } from '../as-data.js';
+import { groceriesOf, sameGrocery } from '../kit/recipe-text.js';
 
 export default function (house) {
   const { data, save, prune, changed, mealWork } = house;
@@ -41,10 +42,23 @@ export default function (house) {
     const s = SLOTS.filter((x) => arr(list).some((y) => same(y, x)));
     data.mealSlots = s.length ? s : ['dinner']; save(); return { ok: true, slots: data.mealSlots };
   }
-  async function ingredients(date, meal = 'dinner') {
+  /** A meal's groceries onto Groceries (watch mealWork["date|meal"]). items: just these (the Meals app's sheet, ticked).
+   *  Else what its recipe lists (its cooking steps' ingredients, or the lines under "Ingredients" in its notes), with no
+   *  model; only a meal with no recipe that lists them asks the assistant. */
+  async function ingredients(date, meal = 'dinner', { items = null } = {}) {
     const text = data.meals[date]?.[meal], key = `${date}|${meal}`;
     if (!text) return { error: 'Nothing planned for that meal.' };
-    { const no = house.noAssistant('That'); if (no) return { error: no }; }
+    const listed = items != null ? arr(items).map((x) => str(x, 40)).filter(Boolean) : groceriesOf(data.recipes[text.toLowerCase()]);
+    if (items != null || listed.length) {
+      const groceries = house.findList('Groceries', true);
+      const want = listed.filter((t, i) => !listed.slice(0, i).some((o) => sameGrocery(o, t)));
+      const fresh = want.filter((t) => !groceries.items.some((i) => !i.done && sameGrocery(i.text, t)));
+      if (fresh.length) { const r = house.changeList({ list: 'Groceries', add: fresh }); if (r.error) return r; }
+      mealWork[key] = { state: 'done', added: fresh }; changed();
+      setTimeout(() => { if (mealWork[key]?.state === 'done') { delete mealWork[key]; changed(); } }, 60e3).unref?.();
+      return { ok: true, added: fresh, had: want.filter((t) => !fresh.includes(t)) };
+    }
+    { const no = house.noAssistant(''); if (no) return { error: `Add a recipe for ${text} first.`, code: 'recipe' }; }
     if (mealWork[key]?.state === 'working') return { ok: true };
     mealWork[key] = { state: 'working' }; changed();
     (async () => {

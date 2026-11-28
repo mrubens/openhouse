@@ -81,8 +81,10 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Lists: by store section or in the order added | **new** | change_list byAisle |
 | Lists: send to a phone (QR) | screen | The QR card is for the phone in someone's hand; message_family sends text |
 | Map: save a place, Home, remove one, show one | yes | save_place, forget_place, show_on_map |
-| Meals: plan, clear, favourites, which meals to plan, recipe per meal, ingredients to groceries | yes | set_meals; recipes__ingredients then change_list |
-| Meals / Recipes: "Write it for me", add a recipe from a paste or idea | screen | Typing a recipe in is easier there; save_recipe takes a link, set_meals notes takes text |
+| Meals: plan, clear, favourites, which meals to plan, recipe per meal | yes | set_meals |
+| Meals: Add to Groceries, the recipe's own ingredients ticked (no model) | yes | set_meals groceries (all it lists, or items); family_things recipes' needs |
+| Meals / Recipes: "Write it for me", add a recipe from a paste or idea | yes | save_recipe text (a paste cooks as written with no key; an idea needs the assistant); set_meals notes |
+| Recipes: Type it in (name, ingredients and steps a line each; link, picture, serves, minutes) | yes | save_recipe with name, ingredients and steps: cooks as written, no key needed |
 | Recipes: search the web, choose, cook, steps, timers, take a recipe out | yes | the Recipes app's voice actions (recipes__*), save_recipe, set_meals |
 | Photos: take off, put back, caption | **new** | photos |
 | Photos: albums: new, rename, put photos in or out, sleep screen and All, remove | **new** | photos album |

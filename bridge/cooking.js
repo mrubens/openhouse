@@ -4,7 +4,8 @@
 // recipe ({cook}), so cooking needs no internet.
 //
 // A link is read here on the tablet (the page the household shared: its schema.org Recipe when it has one, else its
-// text). The steps are written by the household's own assistant (the cloud's text model, house.js answer), the
+// text). Without an assistant, a page's own Recipe is cooked from as it is (kit/recipe-text.js cookFrom), as a recipe
+// typed or pasted in the Ingredients / Steps shape is. With one, the steps are written by the household's own assistant (the cloud's text model, house.js answer), the
 // service they already use; nothing else is sent anywhere. Only public https pages are read, never the home network
 // (app-web.js publicGet: every redirect checked again, and the address checked is the one reached).
 import { asData } from './as-data.js';
@@ -31,7 +32,8 @@ const imageOf = (v) => { for (const x of [].concat(v || [])) { const u = typeof 
 /** A page's og:image, when its Recipe has no picture. */
 const ogImage = (html) => imageOf(String(html).match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1] || String(html).match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1]);
 
-/** The schema.org Recipe in a page's JSON-LD, as plain text (name, ingredients, steps) and its video; or null. */
+/** The schema.org Recipe in a page's JSON-LD: its name, ingredients and steps (a line each; "(Sauce)" starts a section),
+ *  the same as plain text, and its video; or null. */
 export function recipeFromHtml(html) {
   const blocks = [...String(html).matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]);
   const found = [];
@@ -60,7 +62,7 @@ export function recipeFromHtml(html) {
   const videoOf = (v) => [].concat(v || []).map((x) => youtube(typeof x === 'string' ? x : `${x?.embedUrl || ''} ${x?.contentUrl || ''} ${x?.url || ''}`)).find(Boolean) || null;
   const name = clean(r.name, 80), serves = clean([].concat(r.recipeYield || [])[0], 40);
   return {
-    name, serves, video: videoOf(r.video), image: imageOf(r.image), stepPics, minutes: isoMinutes(r.totalTime) || (isoMinutes(r.prepTime) + isoMinutes(r.cookTime)) || null,
+    name, serves, ingredients, steps, video: videoOf(r.video), image: imageOf(r.image), stepPics, minutes: isoMinutes(r.totalTime) || (isoMinutes(r.prepTime) + isoMinutes(r.cookTime)) || null,
     text: [name, serves ? `Serves ${serves}` : '', 'Ingredients', ...ingredients.map((i) => `- ${i}`), 'Steps', ...steps.map((s, i) => `${i + 1}. ${s}`)].filter(Boolean).join('\n'),
   };
 }

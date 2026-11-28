@@ -2,11 +2,13 @@
 // then a card per day (dinner, and breakfast and lunch if they want). A dish's picture is its recipe's own, from its
 // page; with none, its initial on a warm tile. Tap a meal to plan it:
 // write it, or tap one the family has often (favorites first, with a dot). Each meal can keep a recipe (a link, notes, or one the
-// assistant writes), shown on every day it's planned. With the assistant set up, "Add to Groceries" puts what it needs on the list.
+// assistant writes), shown on every day it's planned. "Add to Groceries" offers what its recipe lists, each ticked (with no
+// recipe, the assistant's guess, when there is one).
 // Cook opens the Recipes app on that meal's recipe (kit askApp: its "cook" voice action), one step at a time.
 // The plan lives in the bridge, so the assistant plans too ("tacos on Tuesday") and changing this app never loses it.
 import { house, timer, say, phone, shell, askApp, h, press } from '/kit/openhouse.js';
 import { dishMark, dishOf, dishTint } from '/kit/dish-look.js';
+import { groceriesOf, sameGrocery } from '/kit/recipe-text.js';
 
 // ---- drawing: small helpers (no framework) ----------------------------------------------------------------
 const $app = document.getElementById('app');
@@ -246,6 +248,28 @@ function recipeEditor(text) {
   return s;
 }
 
+/** Add to Groceries: what the meal's recipe lists, a line each, ticked (what's already on Groceries unticked, and
+ *  marked); Add puts the ticked ones on. No recipe that lists them: the assistant's guess, or (none) a recipe first. */
+function groceriesFor(k, m) {
+  const text = planned(k, m), items = groceriesOf(recipeOf(text)), key = `${k}|${m}`;
+  const adding = (pick) => { H.mealWork = { ...H.mealWork, [key]: { state: 'working', added: [] } }; draw(); house.addIngredients(k, m, pick).then(told); };
+  if (!items.length) {
+    if (H.ai) return adding(null);
+    return openCard((close) => [h('h2', null, `Add a recipe for ${text} first`),
+      h('div', { class: 'actions' }, btn('Cancel', close, { soft: true }), btn('Add a recipe', () => { close(); recipeEditor(text); }))], { width: 760 });
+  }
+  const list = (H.lists || []).find((l) => l.id === 'groceries') || (H.lists || []).find((l) => same(l.name, 'Groceries'));
+  const have = (t) => (list?.items || []).some((i) => !i.done && sameGrocery(i.text, t));
+  const on = new Set(items.filter((t) => !have(t)));
+  const s = openCard((close) => [
+    h('h2', null, 'Add to Groceries'),
+    h('div', { class: 'g-rows vscroll', 'data-keep': 'groceries' }, items.map((t) => h('button', { class: 'g-row' + (on.has(t) ? ' on' : ''), 'aria-pressed': String(on.has(t)),
+      tap: () => { if (on.has(t)) on.delete(t); else on.add(t); s.redraw(); } }, h('span', { class: 'tick' }, icon('check')), h('span', { class: 't' }, t), have(t) ? h('span', { class: 'have' }, 'On the list') : null))),
+    h('div', { class: 'actions' }, btn('Cancel', close, { soft: true }), btn(on.size ? `Add ${on.size}` : 'Add', () => { close(); adding(items.filter((t) => on.has(t))); }, { disabled: !on.size })),
+  ], { width: 760 });
+  return s;
+}
+
 function work(w) {
   if (w.state === 'working') return 'Adding groceries…';
   if (w.state === 'done') return w.added?.length ? `Added ${w.added.length} to Groceries` : 'Groceries already had it all';
@@ -262,7 +286,7 @@ function edit(k, m) {
         H.favorites?.length ? h('div', { class: 'chips', 'data-keep': 'favs' },
           H.favorites.map((f) => chip(f.text, same(f.text, now), () => { s.close(); setMeal(k, m, f.text); }, f.pinned ? 'var(--gold)' : null))) : null,
         now ? h('div', { class: 'chips' },
-          H.ai ? btn('Add to Groceries', () => { s.close(); H.mealWork = { ...H.mealWork, [`${k}|${m}`]: { state: 'working', added: [] } }; draw(); house.addIngredients(k, m); }, { soft: true }) : null,
+          btn('Add to Groceries', () => { s.close(); groceriesFor(k, m); }, { soft: true }),
           btn(recipeOf(now) ? 'Recipe' : 'Add a recipe', () => { s.close(); recipeCard(now); }, { soft: true }),
           recipeOf(now) ? btn('Cook', () => { s.close(); askApp('recipes', 'cook', { recipe: now }); }, { soft: true }) : null,
           btn(pinned ? 'Unfavorite' : 'Favorite', () => favorite(now, !pinned), { soft: true }),

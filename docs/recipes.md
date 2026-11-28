@@ -17,7 +17,8 @@ Tablets that already chose their tabs keep them; Recipes is in their Apps.
     (`share_target`); on any phone there's a link field on Home. The route is `POST /house/recipe-link`, allowed for
     the `ask` scope only, so not from kids' phones.
   - A photo of a cookbook page (the existing `phone.recipe`).
-  - Typed or pasted.
+  - Pasted, or typed in a part at a time (**Type it in**: name, ingredients and steps a line each; link, picture link,
+    serves and minutes if they like; `house.addTypedRecipe`, the assistant's `save_recipe` with name and steps).
   - "Write one for me" (the existing `writeRecipe`).
   - The assistant's `set_meals recipes`.
 - **Made into steps once** (`bridge/cooking.js`). A recipe is turned into steps whenever it is saved and the assistant
@@ -34,7 +35,21 @@ Tablets that already chose their tabs keep them; Recipes is in their Apps.
   for most households). That's a service they already chose, and nothing new gets their data.
   - The answer is checked by `parseCook`: amounts kept, steps of 400 characters at most, a timer only when a step
     names a time.
-- The assistant's tools see how many steps a recipe has, never the steps themselves (`family_things`).
+- **With no assistant** (2026-11-28) a recipe still cooks, made with no model (`bridge/kit/recipe-text.js`):
+  - typed in, or pasted or written in Meals in the shape Opie writes (a line "Ingredients", one a line, a line
+    "Steps", numbered steps; "Directions", "Instructions" or "Method" do for Steps; without headings, "- " lines are
+    ingredients and numbered lines steps);
+  - a link whose page carries its schema.org `Recipe`: its own name, ingredients and steps, used as they are. A page
+    without one says to paste or type it in.
+  - Such steps have no per-step amounts or titles; a step that names a time ("simmer 20 minutes") gets a timer. The
+    cooking view needs only each step's text.
+  - With an assistant, links and pastes are still made into steps by the model (the page's own data if the model
+    fails). Ideas, cookbook photos, pages without a `Recipe` and web search need it.
+- **How the steps were made** is kept (`cook.by`: `hand`, `page` or `model`). Steps the household wrote (`hand`, and
+  the recipe's `hand`) are read again as written when the recipe changes, never by the model; **Make the steps again**
+  on them asks "Replace your steps with Opie's?" first.
+- The assistant's tools see how many steps a recipe has and what it needs to buy (`needs`), never the steps
+  themselves (`family_things`).
 
 **Taking one out:** a recipe's card has **Take it out**, then "Take out Tacos?" with **Keep it** or **Take it out**.
 It's the same recipe as the Meals app's, so it leaves that meal too (`house.setRecipe(meal, {})`). A recipe being

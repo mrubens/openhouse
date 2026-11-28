@@ -272,8 +272,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
     // redirects and all, only from those)
     const reach = Array.isArray(req.reaches) ? req.reaches : undefined;
     if (p === '/house/recipe-link') { send(house.addRecipeLink({ ...b, reach })); return true; } // a link shared from a phone (Recipes)
-    if (p === '/house/meal') { send(b.favorite != null ? house.favorite(b.favorite, b.value !== false) : b.recipe ? house.setRecipe({ ...b.recipe, quiet: false, video: b.recipe.video, reach }) : b.cook ? house.prepareCook(b.cook, { force: !!b.force }) : b.find ? house.findRecipes(b.find) : b.findDone ? house.findDone() : b.writeRecipe ? house.writeRecipe(b.writeRecipe) : b.addText ? house.addRecipeText(b.addText, { reach }) : b.slots ? house.setSlots(b.slots) : house.setMeals([b])); return true; }
-    if (p === '/house/meal/ingredients') { send(await house.ingredients(b.date, str(b.meal || 'dinner', 20).toLowerCase())); return true; }
+    if (p === '/house/meal') { send(b.favorite != null ? house.favorite(b.favorite, b.value !== false) : b.recipe ? house.setRecipe({ ...b.recipe, quiet: false, video: b.recipe.video, reach }) : b.cook ? house.prepareCook(b.cook, { force: !!b.force }) : b.find ? house.findRecipes(b.find) : b.findDone ? house.findDone() : b.writeRecipe ? house.writeRecipe(b.writeRecipe) : b.addText ? house.addRecipeText(b.addText, { reach }) : b.typed ? house.addTyped(b.typed, { reach }) : b.slots ? house.setSlots(b.slots) : house.setMeals([b])); return true; }
+    if (p === '/house/meal/ingredients') { send(await house.ingredients(b.date, str(b.meal || 'dinner', 20).toLowerCase(), { items: Array.isArray(b.items) ? b.items : null })); return true; }
     if (p === '/house/event') {
       // With the calendar locked, an app changes it only for a little while after the PIN on the display.
       if (fromApp && data.settings.calendarLock && house.unlocked() < Date.now()) { json(res, 403, { error: 'The calendar is locked: someone unlocks it with the PIN.', locked: true }); return true; }

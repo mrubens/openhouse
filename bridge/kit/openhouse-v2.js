@@ -279,10 +279,14 @@ export const house = {
   writeRecipe: (meal) => send('/house/meal', { writeRecipe: meal }),
   /** Add a recipe from whatever they typed: a link, a recipe pasted in, or an idea the assistant writes one for (watch mealWork.link). */
   addRecipe: (text) => send('/house/meal', { addText: text }),
+  /** A recipe typed in: { name, ingredients, steps } (a line each, or lists), and link, picture (https), serves, minutes if
+   *  they gave them. Cooked from as written; no assistant needed. */
+  addTypedRecipe: (t) => send('/house/meal', { typed: t }),
   /** Which meals the Meals app plans: some of 'breakfast', 'lunch', 'dinner' (data.mealSlots). */
   mealSlots: (slots) => send('/house/meal', { slots }),
-  /** The assistant puts what that meal needs on Groceries (watch data.mealWork["date|meal"]). */
-  addIngredients: (date, meal = 'dinner') => send('/house/meal/ingredients', { date, meal }),
+  /** What that meal needs onto Groceries (watch data.mealWork["date|meal"]): items, else what its recipe lists, else (no
+   *  recipe) what the assistant thinks. */
+  addIngredients: (date, meal = 'dinner', items = null) => send('/house/meal/ingredients', { date, meal, ...(items ? { items } : {}) }),
   // the calendar: events added on the display, and those in a two-way calendar (editable: Google or iCloud signed in on
   // the display); calendars read from a link are read-only. calendar: where a new one goes (a key from
   // data.calendarTargets, or 'here' for only the display); left out, the person's own two-way calendar, else the default.

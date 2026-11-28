@@ -2,6 +2,7 @@
 // conversation knows of the house.
 import { DAY, WEEKDAYS, REPEATS, PICS, SHOWS, NIGHT, dayKey, daysFrom, localWhen, inLocal, str, objs, same, arr } from './util.js';
 import { asData } from '../as-data.js';
+import { groceriesOf } from '../kit/recipe-text.js';
 
 export default function (house) {
   const { data, view, board, notes, appEvents } = house;
@@ -69,14 +70,19 @@ export default function (house) {
         check: { type: 'array', items: { type: 'object', required: ['name', 'step', 'who'], properties: { name: { type: 'string' }, step: { type: 'string' }, who: person, done: { type: 'boolean' } } } },
         times: { type: 'array', description: 'Give one step a time, or 0 to take it off', items: { type: 'object', required: ['name', 'step', 'minutes'], properties: { name: { type: 'string', description: 'The routine' }, step: { type: 'string' }, minutes: { type: 'number' } } } },
       } } },
-    { name: 'save_recipe', description: "Save a recipe into the recipe box, where it is made into cooking steps and shows in Recipes. Every recipe goes here, never in a note: a link to its page (one someone gives or shares, or one you found), or else the recipe itself as text, its ingredients and steps (one you know or read out). meal: the meal it's for, only if they said.",
-      inputSchema: { type: 'object', properties: { link: { type: 'string', description: 'Its web page' }, text: { type: 'string', description: 'Without a page: the whole recipe, its name, ingredients and steps' }, meal: { type: 'string' } } } },
+    { name: 'save_recipe', description: "Save a recipe into the recipe box, where it is made into cooking steps and shows in Recipes. Every recipe goes here, never in a note: a link to its page (one someone gives or shares, or one you found), or a recipe someone tells you or types (name, ingredients and steps: kept as they said it, ready to cook at once, as Recipes' Type it in does), or else the recipe itself as text. meal: the meal it's for, only if they said.",
+      inputSchema: { type: 'object', properties: { link: { type: 'string', description: 'Its web page (with steps: just where it came from)' }, name: { type: 'string', description: 'With steps: its name' },
+        ingredients: { type: 'array', items: { type: 'string' }, description: 'With steps: one each, with its amount ("2 tsp ground cumin")' }, steps: { type: 'array', items: { type: 'string' }, description: 'One each, in order, in their words' },
+        serves: { type: 'string' }, minutes: { type: 'number', description: 'How long it takes in all' }, picture: { type: 'string', description: 'An https link to a photo of the dish' },
+        text: { type: 'string', description: 'Without a page or steps: the whole recipe, its name, ingredients and steps' }, meal: { type: 'string' } } } },
     { name: 'set_meals', description: 'Plan meals (the Meals app): set or change what\'s for a meal on a day; empty text clears it. Also the recipe box (a recipe per meal) and which meals the app plans. Meals they have often come back as one-tap choices; favorite pins one there.',
       inputSchema: { type: 'object', properties: { meals: { type: 'array', items: { type: 'object', required: ['date', 'text'], properties: {
         date: { type: 'string', description: 'YYYY-MM-DD' }, meal: { type: 'string', description: 'dinner (default), lunch, breakfast' }, text: { type: 'string' } } } },
         favorite: { type: 'array', items: { type: 'string' }, description: 'Meals to pin as favorites' }, unfavorite: { type: 'array', items: { type: 'string' } },
         recipes: { type: 'array', description: 'Save a recipe in the recipe box, by the meal it is for (a link and/or notes: ingredients and steps); both empty takes it out. It shows on every day that meal is planned.', items: { type: 'object', required: ['meal'], properties: { meal: { type: 'string' }, link: { type: 'string' }, notes: { type: 'string' } } } },
-        slots: { type: 'array', items: { type: 'string', enum: ['breakfast', 'lunch', 'dinner'] }, description: 'Which meals the Meals app plans each day (dinner only unless they want more).' } } } },
+        slots: { type: 'array', items: { type: 'string', enum: ['breakfast', 'lunch', 'dinner'] }, description: 'Which meals the Meals app plans each day (dinner only unless they want more).' },
+        groceries: { type: 'array', description: "Put a planned meal's ingredients on Groceries (the Meals app's Add to Groceries): what its recipe lists (family_things recipes' needs), or only items. Ones already on the list are left.", items: { type: 'object', required: ['date'], properties: {
+          date: { type: 'string', description: 'YYYY-MM-DD' }, meal: { type: 'string', description: 'dinner (default), lunch, breakfast' }, items: { type: 'array', items: { type: 'string' }, description: 'Only these, by name; leave out for all it lists' } } } } } } },
     { name: 'flyer_photo', description: 'The latest photo someone sent to the display from their phone: a flyer, school notice or invitation (the Calendar app\'s camera button), or a recipe (the Meals app). Look at it to add its events (say what you found and ask before adding) or type up the recipe.',
       inputSchema: { type: 'object', properties: {} } },
     { name: 'calendar_event', description: "The family calendar (the Calendar app). Add an event; change one added on this display (update: its id and only what changes: a new time, place, title, notes, whose, repeat); remove one added here (by id; with date, only that day of a repeating one); remind them before any event (remind; synced ones too); or count down to any event, synced ones too (countdown: id for one added here, uid for a synced one; family_things lists both). Events in a two-way calendar (editable: true in family_things; Google or iCloud signed in on the display) are changed and removed by id here like the display's own, and new events go into the person's own two-way calendar, else the household's (the answer says which). Other synced calendars (read from a link) can't be changed here: say so, and offer to add it on the display's calendar instead.",
@@ -111,7 +117,7 @@ export default function (house) {
     const out = (r) => (r.error ? { content: [{ type: 'text', text: r.error }], isError: true } : ok(r));
     if (name === 'family_things') {
       const v = view(); delete v.v; delete v.mealWork; delete v.ai; delete v.night; v.photos = v.photos.length; delete v.screensaver; delete v.aisles; delete v.removed;
-      v.recipes = Object.fromEntries(Object.entries(v.recipes || {}).map(([k, { cook, ...r }]) => [k, { ...r, ...(cook ? { steps: cook.steps.length } : {}) }])); // the cooking steps are the Recipes app's
+      v.recipes = Object.fromEntries(Object.entries(v.recipes || {}).map(([k, { cook, ...r }]) => [k, { ...r, ...(cook ? { steps: cook.steps.length } : {}), needs: groceriesOf({ ...r, cook }) }])); // the cooking steps are the Recipes app's
       v.albums = v.albums.map((a) => ({ name: a.name, photos: a.photos.length }));
       // Events added here (changeable, by id), and the coming two weeks of everything else (synced: by uid, for a countdown).
       v.events = data.events.map((e) => ({ id: e.id, title: e.title, start: localWhen(e.start, e.allDay), end: localWhen(e.end, e.allDay, true), allDay: e.allDay, who: e.who, ...(e.also ? { also: e.also } : {}), ...(e.place ? { place: e.place } : {}), ...(e.notes ? { notes: e.notes } : {}), ...(e.countdown ? { countdown: true } : {}), ...(e.remind != null ? { remind: e.remind } : {}), ...(e.repeat ? { repeat: e.repeat, until: e.until } : {}) }));
@@ -162,7 +168,11 @@ export default function (house) {
       return { content: [{ type: 'text', text: [...did, given ? `Given: ${who} spent ${r.stars} stars on ${r.title}.` : ask?.manual ? 'Asked: someone says yes in the Chores app on the device.' : `Not given: nobody said yes on the device${ParentPinNote}.`].join('; ') }], isError: !given && !ask?.manual };
     }
     if (name === 'change_routines') return out(house.changeChecklists(a));
-    if (name === 'save_recipe') { const r = a.link ? house.addRecipeLink({ link: a.link, meal: a.meal || '' }) : house.addRecipeText(a.text); return r.error ? out(r) : ok('Saved: it is being read and made into steps; it will be in Recipes in a moment.'); }
+    if (name === 'save_recipe') {
+      if (a.steps != null) { const r = house.addTyped({ name: a.name || a.meal, ingredients: a.ingredients, steps: a.steps, serves: a.serves, minutes: a.minutes, link: a.link, picture: a.picture }); return r.error ? out(r) : ok(`Saved ${r.meal}: it is in Recipes, ready to cook.`); }
+      const r = a.link ? house.addRecipeLink({ link: a.link, meal: a.meal || '' }) : house.addRecipeText(a.text);
+      return r.error ? out(r) : ok(r.meal ? `Saved ${r.meal}: it is in Recipes, ready to cook.` : 'Saved: it is being read and made into steps; it will be in Recipes in a moment.');
+    }
     if (name === 'set_meals') {
       for (const f of arr(a.favorite)) house.favorite(f, true);
       for (const f of arr(a.unfavorite)) house.favorite(f, false);
@@ -170,6 +180,10 @@ export default function (house) {
       for (const r of objs(a.recipes)) { const x = house.setRecipe(r); did.push(...(x.did || [x.error])); }
       if (a.slots) did.push(`plans ${house.setSlots(a.slots).slots.join(', ')}`);
       const m = a.meals ? house.setMeals(a.meals) : { ok: true, did: [] };
+      for (const g of objs(a.groceries)) { // (after the meals: "plan tacos tonight and get what they need")
+        const x = await house.ingredients(str(g.date, 10), str(g.meal || 'dinner', 20).toLowerCase(), { items: g.items == null ? null : arr(g.items) });
+        did.push(x.error ? x.error : x.added ? [`added ${x.added.length ? x.added.join(', ') : 'nothing'} to Groceries`, x.had?.length ? `already on it: ${x.had.join(', ')}` : ''].filter(Boolean).join('; ') : 'the assistant is adding what it needs to Groceries');
+      }
       return out({ ...m, did: [...(m.did || []), ...did] });
     }
     if (name === 'calendar_event') {

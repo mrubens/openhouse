@@ -87,9 +87,10 @@ reject.
 | `house.findDone()` | | change |
 | `house.prepareCook(meal, force = false)` | | change; watch `data.mealWork["cook|<key>"]` |
 | `house.writeRecipe(meal)` | | change; watch `data.mealWork["recipe|<key>"]` |
-| `house.addRecipe(text)` | a link, a pasted recipe, or an idea | change |
+| `house.addRecipe(text)` | a link, a pasted recipe, or an idea (an idea needs the assistant) | change |
+| `house.addTypedRecipe({name, ingredients, steps, link?, picture?, serves?, minutes?})` | a line each, or lists; cooked from as written | change |
 | `house.mealSlots(slots)` | some of `'breakfast'`, `'lunch'`, `'dinner'` | change |
-| `house.addIngredients(date, meal = 'dinner')` | | change; watch `data.mealWork["date|meal"]` |
+| `house.addIngredients(date, meal = 'dinner', items?)` | items; else what its recipe lists; else the assistant's guess | change; watch `data.mealWork["date|meal"]` |
 | `house.addEvent({title, start, end?, allDay?, who?, also?, repeat?, until?, place?, notes?, countdown?, remind?, calendar?, src?, from?})` | `start`/`end`: anything `new Date()` takes; `calendar`: a key from `data.calendarTargets` or `'here'`; `src`, `from`: a waiting event's (`data.flyer`), so the event keeps where it came from (`house.flyerSource`) | change |
 | `house.updateEvent(id, fields)` | only what changes; `repeat: 'none'` stops it; `date`: which time of a repeating one | change |
 | `house.removeEvent(id, date?)` | `date`: one time of a repeating one | change |
