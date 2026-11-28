@@ -13,7 +13,7 @@ import { dayKey } from './dates.js';
 const DAY = 86400e3;
 export const SUMMARY_RULES = 'You keep a household assistant\'s diary. Below is what was said with it on one day, by voice or typed ' +
   '(they: the household; you: the assistant), and that day\'s lines so far if there are any. Write that day\'s lines again, in at most five short ' +
-  'lines, plain text, one thing per line, newest last: what they asked or told you and what came of it ("Asked how Skylight shares a ' +
+  'lines, plain text, one thing per line, newest last: what they asked or told you and what came of it ("Asked how the calendar shares a ' +
   'Google calendar: it can\'t edit synced events either", "Added Dolly to daycare at 12:30, once"). Keep names, times and places. Leave ' +
   'out greetings, small talk, and anything sensitive (health, money, passwords, arguments) unless they asked you to remember it. ' +
   'Nothing worth keeping: answer with one dash.';

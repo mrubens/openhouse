@@ -5,7 +5,7 @@ isn't started. Before this the family's calendars come in by their private iCal
 links (read-only, `bridge/calendar-links.js`, the shell keeps the links sealed and fetches them) and events added on
 the tablet stay on the tablet (`bridge/house.js`, `/house/event`). The goal: an event added or changed on the tablet
 shows up in the household's Google Calendar (then iCloud, then Outlook), and changes there show up here, the way
-Skylight's two-way sync works.
+a dedicated family calendar display's two-way sync works.
 
 ## What's built (2026-11-24)
 
@@ -47,12 +47,12 @@ restore the accounts are signed in again anyway (the sign-ins never leave the ta
   when hers is connected and writable; otherwise into the one default (a shared "Family" calendar, say). The add sheet
   says where it's going and can change it.
 
-## Reference: what Skylight does
+## Reference: what a typical family calendar display does
 
-From Skylight's public help pages: two-way sync for Google and iCloud (iCloud needs two-factor on the Apple ID, and
+From such displays' public help pages: two-way sync for Google and iCloud (iCloud needs two-factor on the Apple ID, and
 changes can take up to 15 minutes); Outlook appears read-only. Two-way is chosen per calendar when it's added, and
 mixing a one-way and a two-way copy of the same calendar doubles every event. The person connecting must own the
-calendar, not just view a shared one. Their sync runs in their cloud; ours doesn't.
+calendar, not just view a shared one. Their sync runs in the vendor's cloud; ours doesn't.
 
 ## How it fits together
 
@@ -65,7 +65,7 @@ authorization, only to that provider's API host. This keeps one rule for every p
 
 **An account and its calendars.** An account is one sign-in (Sam's Google, Alex's iCloud). It has calendars; each
 calendar is off, read-only, or two-way, and may belong to a person. A calendar connected through an account replaces
-its iCal link (we offer to remove the link, so events don't show twice, the doubling Skylight warns about).
+its iCal link (we offer to remove the link, so events don't show twice, the doubling such displays warn about).
 
 **Reading.** The window the Calendar shows (35 days back, 70 ahead), every two minutes and right after a write:
 Google's events list (once for the repeating series, once for each time), CalDAV's `calendar-query` REPORT. Simpler

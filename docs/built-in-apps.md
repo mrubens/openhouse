@@ -1,19 +1,17 @@
-# The built-in apps against a family screen
+# The built-in apps against a family calendar display
 
-2026-11-18. What a Skylight Calendar does (from its help centre and reviews, Nov 2026), what ours did when we
-started, and what they do now. We match what it does for a family, not how it looks.
+2026-11-18. What a typical dedicated family calendar display does (from public help pages and reviews, Nov 2026),
+what ours did when we started, and what they do now. We match what it does for a family, not how it looks.
 
-Skylight's paid plan (about $79 a year) holds photos, meal planning, stars and rewards, and its AI import. Here all of
-it is free and on the tablet.
+Photos, meal planning, stars and rewards, and AI import are all on the tablet here.
 
 ## Where we're ahead
 
-- Nothing is behind a subscription.
 - An assistant on the tablet itself, by voice or typing, that changes the family's things and builds new apps.
 - Routines as picture checklists that show at their own time of day.
 - "Add to groceries" from a meal: the assistant writes the ingredients (from the meal's recipe when it has one),
   skipping what's on the list already.
-- A reward needs a yes with the PIN, and so does setting rewards up (Skylight has no approval step).
+- A reward needs a yes with the PIN, and so does setting rewards up (a typical display has no approval step).
 - The whiteboard and kitchen timers.
 
 ## The comparison
@@ -23,7 +21,7 @@ it is free and on the tablet.
 
 ### Calendar
 
-| What | Skylight | Ours now | Status |
+| What | Typical display | Ours now | Status |
 |---|---|---|---|
 | Sync sources | Google, iCloud, Outlook, Yahoo, Cozi, TeamSnap, any ICS | Any private ICS link, up to 12 | Same in practice |
 | Two-way sync | Google and iCloud | Read-only; events added on the tablet stay on it | Open, P3 (needs a Cloud project; parked) |
@@ -42,7 +40,7 @@ it is free and on the tablet.
 
 ### Photos and the idle screen
 
-| What | Skylight | Ours now | Status |
+| What | Typical display | Ours now | Status |
 |---|---|---|---|
 | Adding | Phone app, email to the device | Phone by QR code (many at once) | Email-in needs the cloud: open, P3 |
 | Slideshow | When idle, captions, albums | When idle, every 10 s, from a tapped photo; a caption per photo, shown with it there and on the idle screen | Done |
@@ -54,14 +52,14 @@ it is free and on the tablet.
 
 ### Today
 
-| What | Skylight | Ours now | Status |
+| What | Typical display | Ours now | Status |
 |---|---|---|---|
 | The glance | Calendar beside tasks and lists | A card per tab, each opening it: what's next and the rest of today (then tomorrow) with the nearest countdown, the weather now with the high and rain, each person's chores left (or the routine that's on), tonight's dinner, the grocery list's first items and count, notes and reminders due, a photo that changes each minute; fits the sheet without scrolling and shows only the tabs the family has | Done |
 | Groceries tick | Inline | Instant, with a moment to undo | Done |
 
 ### Chores, routines and stars
 
-| What | Skylight | Ours now | Status |
+| What | Typical display | Ours now | Status |
 |---|---|---|---|
 | Chores per person, repeating | By date or after done | By weekday, or every 2 days to a month (from a day, or after it's last done); one can stay up until done, showing how late | Done |
 | A picture per chore | Yes | Guessed from the words, or picked | Done |
@@ -77,7 +75,7 @@ it is free and on the tablet.
 
 ### Lists
 
-| What | Skylight | Ours now | Status |
+| What | Typical display | Ours now | Status |
 |---|---|---|---|
 | Several lists | Yes | Add, rename, delete (asks first); type right on a list to add | Done |
 | Edit an item | Yes | Its words and whose it is, from its … button | Done |
@@ -86,7 +84,7 @@ it is free and on the tablet.
 
 ### Meals
 
-| What | Skylight | Ours now | Status |
+| What | Typical display | Ours now | Status |
 |---|---|---|---|
 | Plan | Up to 4 meals a day | Dinner, and breakfast and lunch when wanted | Done |
 | Recipes | Recipe box: URL, photo, voice | A recipe per meal: a link, notes, a photo the assistant types up, or the assistant writes it; shown every day that meal is planned | Done |
@@ -94,9 +92,9 @@ it is free and on the tablet.
 | Ingredients to the list | Yes | Yes, by the assistant | – |
 | AI week plan | Yes | Ask the assistant | – |
 
-### The assistant (Skylight's AI import)
+### The assistant
 
-| What | Skylight | Ours now | Status |
+| What | Typical display | Ours now | Status |
 |---|---|---|---|
 | Add events, lists, meals by voice | Through Alexa | Yes, on the tablet | – |
 | See synced events | – | The next two weeks of everything | Done |
