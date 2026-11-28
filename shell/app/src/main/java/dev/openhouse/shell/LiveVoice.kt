@@ -233,6 +233,8 @@ internal object LiveVoice {
     // the household's volume, the media stream's share, on a curve so the low steps are really quiet and 0 is silent.
     // The volume keys turn the media stream as always (MainActivity.dispatchKeyEvent sends them here), and the page follows.
     private const val LIVE_CALL_SHARE = 0.5f
+    /** (bridge usage.js overWords says the same) */
+    private const val CREDIT_GONE = "Opie's credit has run out. Someone can add more on the account page."
     /** Android's audio mode (normal, call...) as it changes during a session, for the log: a change can cut off a moment of sound. */
     private var modeListener: Any? = null
     private fun watchMode(a: MainActivity, on: Boolean) = runCatching {
@@ -333,6 +335,11 @@ internal object LiveVoice {
             // Out of Opie credit (the cloud's credits.ts): said as that, not as "couldn't connect".
             if (r?.optString("code") == "over_credit") { trouble(r.optString("error")); toldWhy = true }
             val w = web ?: return@thread
+            // Less credit left than a whole conversation (the cloud's creditSecs): this one ends when it's used, saying why.
+            r?.optInt("creditSecs", 0)?.takeIf { it > 0 }?.let { secs ->
+                mark("credit for $secs s")
+                main.postDelayed({ if (web === w) { trouble(CREDIT_GONE); toldWhy = true; end("credit used") } }, secs * 1000L)
+            }
             main.post { w.evaluateJavascript("answer(${JSONObject.quote((r ?: JSONObject().put("error", "the device's software didn't answer")).toString())})", null) }
         }
         /** It handed a request over: the family's assistant answers it as if it had been asked aloud. */
