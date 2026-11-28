@@ -30,14 +30,6 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             o.openTyping(note = note, seed = "Make ")
         }
 
-        /** An app to ask for, in the kids' names; with none known to be kids, a neutral one, never a name that might be
-         *  an adult's (chat/src/home.jsx makeExample says the same on the
-         *  Apps tab and the phone). */
-        fun example(family: List<JSONObject>): String {
-            val kids = family.filter { it.optString("name").isNotBlank() && it.optString("kind") == "kid" }
-            val names = kids.take(2).map { it.optString("name").trim() }
-            return if (names.isEmpty()) "Make a countdown to our next trip" else "Make a reading streak for ${names.joinToString(" and ")}"
-        }
     }
 
     /** Where a dialog goes back to: Settings' list of plugins, or (from the Apps tab) the gallery. */
@@ -293,16 +285,12 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         }
 
         // ---- Make your own: ask Opie (it builds it here, bridge/builder.js); a computer for bigger work ----
-        val first = example(family)
         val make = Calm.column(c).apply {
             setPadding(Calm.px(c, 32), Calm.px(c, 28), Calm.px(c, 32), Calm.px(c, 32))
             background = Calm.rounded(Calm.TINT, 24 * u)
             addView(Calm.eyebrow(c, "Make your own"))
             addView(Calm.text(c, "Ask Opie for the app you want, out loud or typed, and it builds it here.", 21f, 400).apply { setPadding(0, Calm.px(c, 14), 0, Calm.px(c, 18)) })
-            for (ex in listOf(first, "Make a chore chart with stars for the week")) {
-                addView(Calm.text(c, "\u201C$ex\u201D", 19f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, 6), 0, Calm.px(c, 6)) })
-            }
-            addView(Calm.primary(c, "Make an app") { go { makeApp("Say what app to make, like \u201C$first\u201D") } },
+            addView(Calm.primary(c, "Make an app") { go { makeApp("Say what app to make") } },
                 android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 18) })
             addView(Calm.text(c, "For bigger work, connect Claude or ChatGPT on a computer (the connector is cloud.opie.house/mcp).", 17f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, 28), 0, 0) })
             addView(Calm.quiet(c, "Pair a computer") { go { Screens.computer(act) } }.apply { setPadding(0, Calm.px(c, 12), 0, 0) },

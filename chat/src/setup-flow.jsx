@@ -1,7 +1,6 @@
 // The setup's steps on the phone or computer it's done from (chat/src/phone.jsx, a tablet's 'setup' scope), and on a
 // hub's settings device (chat/src/hub.jsx, docs/hub.md), where the hub's bridge drives the steps itself (bridge/hub-shell.js).
 import { useEffect, useState } from 'react';
-import { makeExample } from './home.jsx';
 
 /** On a hub there's no tablet: its words and what it can't do yet (signing in to calendars, photos from this device). */
 let HUB = false;
@@ -363,18 +362,11 @@ function Invite({ c, family, sub = false }) {
     {link && <><p className="soft">Send {link.who} this link:</p><input readOnly value={link.url} onFocus={(e) => e.target.select()} /></>}
   </>;
 }
-/** A second app to ask for, from who lives here: a rota needs nothing more than their names, so Opie can build it
- *  without asking anything back. */
-function rotaExample(family = []) {
-  const names = family.filter((f) => String(f.name || '').trim() && f.kind !== 'pet').map((f) => String(f.name).trim()).slice(0, 4);
-  const list = names.length > 1 ? names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1] : names[0];
-  return list ? `Make a rota for who sets the table each night: ${list}` : 'Make a rota for who sets the table each night';
-}
 /** Setup's last step: asking Opie is the way to a new app; a computer's Claude or ChatGPT is for bigger work. */
 function Apps({ computer, family }) {
   return <>
     <h1>Make your own apps</h1>
-    <p>Ask Opie for one {HUB ? 'on a phone or screen' : 'at the device'}, out loud or typed: “{makeExample(family)}”, or “{rotaExample(family)}”. Opie makes it there, and you try it before it goes in Apps.</p>
+    <p>Ask Opie for one {HUB ? 'on a phone or screen' : 'at the device'}, out loud or typed. Opie makes it there, and you try it before it goes in Apps.</p>
     <p className="soft">For bigger work, connect Claude or ChatGPT{computer ? ' on this computer' : ' on a computer'}: add the connector cloud.opie.house/mcp, then ask it for a game, a tracker or a new tab.</p>
   </>;
 }
