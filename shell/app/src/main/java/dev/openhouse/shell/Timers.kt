@@ -71,7 +71,13 @@ class Timers(private val activity: Activity, parent: FrameLayout) {
     fun stopped(endAt: Long) { timers.firstOrNull { it.endAt == endAt }?.let { remove(it, quiet = true) } }
 
     /** The board shows timers itself; the pills are for everywhere else. */
-    fun showPills(show: Boolean) { view.visibility = if (show) android.view.View.VISIBLE else android.view.View.GONE }
+    fun showPills(show: Boolean) {
+        view.visibility = if (show) android.view.View.VISIBLE else android.view.View.GONE
+        // Beside the rail's Talk and Type, which float in that corner over apps (dev.openhouse.ui.RailTools), not on them.
+        val s = dev.openhouse.ui.RailTools.spots
+        val past = listOfNotNull(s?.talk, s?.type).maxOfOrNull { it.x + it.size }?.toInt()?.plus(dp(12)) ?: 0
+        (view.layoutParams as? FrameLayout.LayoutParams)?.let { it.leftMargin = maxOf(dp(20), past); view.layoutParams = it }
+    }
 
     private fun remove(t: T, quiet: Boolean = false) {
         if (t !in timers) return
