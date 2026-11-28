@@ -261,6 +261,25 @@ function Updates({ c, onRemoved }) {
   );
 }
 
+/** What the household's screens do when nobody's using them (bridge house/settings.js), as the device's Settings → Screen. */
+function Screen({ c, onRemoved }) {
+  const [h, reload] = useGet(c, '/house', 0, onRemoved), [err, setErr] = useState('');
+  const post = async (b) => { setErr(''); const r = await c.json('POST', '/house/settings', b).catch(() => null); if (r?.status !== 200) setErr(r?.json?.error || 'That didn\'t work.'); reload(); };
+  if (!h || h.error) return null;
+  const n = h.night;
+  return (
+    <section>
+      <h2>Screen</h2>
+      <label className="check"><input type="checkbox" checked={!!n} onChange={(e) => post({ night: e.target.checked ? { from: '21:30', to: '06:30' } : false })} /> Night hours</label>
+      {n && <div className="btns">
+        <input className="field" type="time" aria-label="From" value={n.from} onChange={(e) => e.target.value && post({ night: { from: e.target.value, to: n.to } })} />
+        <input className="field" type="time" aria-label="To" value={n.to} onChange={(e) => e.target.value && post({ night: { from: n.from, to: e.target.value } })} />
+      </div>}
+      {err && <p className="soft">{err}</p>}
+    </section>
+  );
+}
+
 /** The calendars and iCloud albums the keeper holds (without their links), and adding one by its link. */
 function Calendars({ c, k, onRemoved }) {
   const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [sync, reloadSync] = useGet(c, '/calendar/sync', 0, onRemoved), [adding, setAdding] = useState(null);
@@ -458,6 +477,7 @@ function Hub({ me, c, onRemoved }) {
             <Devices c={c} onRemoved={onRemoved} />
             <Calendars c={c} k={k} onRemoved={onRemoved} />
             <HomeAssistant c={c} onRemoved={onRemoved} />
+            <Screen c={c} onRemoved={onRemoved} />
             <Account c={c} onRemoved={onRemoved} />
             <Keeper c={c} k={k} reload={reloadK} />
             <Backups c={c} onRemoved={onRemoved} />

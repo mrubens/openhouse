@@ -62,7 +62,7 @@ test('the settings device reaches the hub settings; a plain screen and a phone d
   assert.equal((await admin.json('GET', '/hub')).json.hub, true);
   assert.equal((await admin.json('GET', '/backup/status')).status, 200);
   assert.equal((await admin.json('GET', '/cloud/status')).json.linked, false);
-  for (const [m, p] of [['GET', '/screens'], ['POST', '/screens/pair'], ['POST', '/cloud/link/start'], ['POST', '/cloud/link/confirm'], ['POST', '/backup/restore'], ['POST', '/hub/update'], ['POST', '/relay']]) {
+  for (const [m, p] of [['GET', '/screens'], ['POST', '/screens/pair'], ['POST', '/cloud/link/start'], ['POST', '/cloud/link/confirm'], ['POST', '/backup/restore'], ['POST', '/hub/update'], ['POST', '/relay'], ['POST', '/house/settings']]) {
     assert.ok(allowed(ADMIN_SCOPES, m, p), `${m} ${p} for settings`);
     assert.ok(!allowed(DEFAULT_SCOPES, m, p) && !allowed(PHONE_SCOPES.grownup, m, p), `${m} ${p} not for a screen or a phone`);
   }

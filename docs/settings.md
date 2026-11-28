@@ -16,7 +16,7 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 | Household | who lives here (a name, Adult, Kid or Pet, their color, an age or note), where you live, chores; Save | |
 | Opie | Voice (Off or the voice's name; the household's own OpenAI key and its monthly stop inside), Talk to Opie ("Hey Opie" or Tap to talk, while the voice is on: docs/wake-word.md), Check the microphone, What Opie remembers, Check-ins, Device control, Opie uses apps, Now playing (while it's off) | Voice: Change settings; Check-ins and the rest from Device control down: always |
 | Connections | every outside account or link the household hooks up, in sections: Calendars (Google and iCloud accounts and their calendars, calendars' links; Add), Photo albums (the iCloud shared albums, each with Remove; Add), Music and apps (Spotify, Google Play) | no PIN to look; each part as on its own (below) |
-| Screen | Brightness, Volume (with Adjust to the room), Time | Time: Change settings |
+| Screen | Brightness, Volume (with Adjust to the room), Time, Night hours (on or off, from, to: the household's, so every screen and a hub's settings page, which has the same row under Screen, agree) | Time: Change settings |
 | Devices | paired screens, TVs, phones and computers (Add, Remove), then the house's speakers, streamers and printers | Add always; Remove: Change settings |
 | Account | link or unlink, Backups, Email, Use it away from home | always |
 | Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Add this device to another Opie, Send a report; Tinkering: Reach it from away (Tailscale), Keep a log of what it hears, USB debugging, Android settings, Leave kiosk mode, Erase this device | always |
