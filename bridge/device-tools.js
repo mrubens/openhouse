@@ -11,7 +11,7 @@
 //
 // Every action goes to the speech log (the shell logs it too, with what came of it).
 
-export const DEVICE_NAMES = ['open_app', 'install_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'look_with_camera'];
+export const DEVICE_NAMES = ['open_app', 'install_app', 'video_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'look_with_camera'];
 
 /** Opie looking at something through the tablet's camera. The tablet asks on screen every time, and only a person's
  *  Allow opens it (the shell's CameraLook: Opie's screen tools can't see or tap that sheet). The one picture goes from
@@ -35,6 +35,9 @@ export const DEVICE_TOOLS = [
       'also asks on screen (with the PIN when Add apps asks for it), then opens the app\'s Google Play page. They tap Install there themselves: ' +
       'Opie never taps or types on Google Play. Once it\'s installed it\'s in Apps, and open_app opens it.',
     inputSchema: { type: 'object', required: ['name'], properties: { name: { type: 'string', description: 'The app\'s name' }, package: { type: 'string', description: 'Its package, only if you know it' }, confirmed: { type: 'boolean', description: 'They said yes to installing it' } } } },
+  { name: 'video_app', description: 'Make one of the Android apps in Apps a video app, or not (as its hold menu in Apps does): when someone goes Home while it plays, ' +
+      'its video keeps playing in a small floating window over the home screen. "Let YouTube TV float over Home." The device asks for the PIN itself when Add apps asks for it; a person types it.',
+    inputSchema: { type: 'object', required: ['name', 'on'], properties: { name: { type: 'string', description: 'The app\'s name, as in Apps' }, on: { type: 'boolean', description: 'true: a video app; false: not any more' } } } },
   { name: 'look_at_screen', description: 'What is on the device\'s screen now (Opie\'s own tabs and apps, or another app you opened): numbered elements with their text, what can be done ' +
       'with each (tap, type, scroll) and where. picture: also a short description of a picture of it, for pictures, maps or games the list can\'t ' +
       'show. wait: seconds to wait first for something to load (up to 10). The actions already answer with the screen afterwards, so look only when unsure.',
@@ -122,6 +125,7 @@ export function deviceTools({ server = () => null, describe = null, log = () => 
           if (args.confirmed !== true) return { text: `Ask them first, by name: add ${args.name || 'it'} from Google Play? Then call again with confirmed true once they say yes.`, isError: false };
           return out(await shell('install_app', { name: String(args.name || ''), ...(args.package ? { package: String(args.package) } : {}) }, 120e3), 2000);
         }
+        case 'video_app': return out(await shell('video_app', { name: String(args.name || ''), on: args.on !== false }, 120e3));
         case 'look_at_screen': {
           const wait = Math.max(0, Math.min(10, Number(args.wait) || 0));
           const r = wait ? await shell('wait', { seconds: wait }, 20e3) : await shell('screen', {}, 75e3); // (it waits for a PIN someone is typing: DeviceServer)

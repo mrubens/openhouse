@@ -202,6 +202,9 @@ object Openhouse : AnswerActions {
     private var lastTouch = System.currentTimeMillis()
     /** An app is in use hands-free until then (the home screen's handsFree: the Recipes app while cooking): no resting screen. */
     @Volatile private var appInUseUntil = 0L
+    /** A video floats over the home screen and plays (shell/VideoFloat.kt): no resting screen under it until then. */
+    @Volatile private var videoUntil = 0L
+    fun videoPlaying(ms: Long) { videoUntil = System.currentTimeMillis() + ms }
     /** The latest "show this" from the bridge (home-screen.js showTab/showApp) already seen. */
     @Volatile private var shownAt = 0L
     private var started = false
@@ -239,7 +242,7 @@ object Openhouse : AnswerActions {
                 now = System.currentTimeMillis()
                 timers = runCatching { host.timers() }.getOrDefault(emptyList())
                 if (timers.any { it.ringing }) touch()
-                if (now < appInUseUntil) lastTouch = now // an app in use hands-free (cooking): the screen stays as it is
+                if (now < appInUseUntil || now < videoUntil) lastTouch = now // an app in use hands-free (cooking): the screen stays as it is
                 if (showWelcome || setupStep != null) { lastTouch = now; if (idle) idle = false } // the welcome or setup showing: never the resting screen under it
                 if (!idle && now - lastTouch > IDLE_MS && answer?.live != true && !speaking) idle = true
                 main.postDelayed(this, 1000)

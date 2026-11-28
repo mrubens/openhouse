@@ -125,6 +125,37 @@ picture can't be recognised. Keep to well-made apps; Opie is told to stop at any
 An app Opie opens or installs is added to the tablet's apps (AppStore's list: it shows in Apps, and the kiosk's lock
 task list lets it open). Back from an app's first screen and Home both land on Opie; the kiosk stays locked.
 
+## Video apps floating over Home
+
+An Android app in Apps can be a video app (its hold menu in Apps: Float its video over Home; or Opie's `video_app`;
+the PIN when Add apps asks for it). Going Home while it plays leaves its video in Android's floating
+picture-in-picture window over Opie's home screen (`VideoFloat.kt`).
+
+Android ends picture-in-picture whenever lock task starts, so opening a video app lifts lock task for it
+(`stopLockTask` from Opie's activity) and nothing else: Opie stays Home, the status bar and notification shade stay
+off (`setStatusBarDisabled`), and Kiosk's restrictions stay on. Opie's own screen doesn't lock again while that
+app is in front or floating. Lock task comes back, with what was playing paused, when the floating window is closed
+and the app isn't in front (after a few seconds' grace for Android's animation), when the screen sleeps (Sleep now,
+night hours, the screen going off), when nothing has played for 10 minutes, when another Android app is opened from
+Opie, and when anything other than Opie and that app is in front for 0.8 s.
+
+While it's lifted, a person can reach Android's Home and Back gestures (both land on Opie or the video app) and the
+recent apps screen, and the floating window's own menu has a way into the app's Android settings. Those (and any app
+the video app itself opens) count as something else in front, so lock task comes back at once and Opie is in
+front again. Nothing else changes: no notifications or quick settings, no other launcher.
+
+It needs device control: the accessibility service's windows say which one is in picture-in-picture
+(`AccessibilityWindowInfo.isInPictureInPictureMode`) and which app is in front. With device control off, a video
+app opens inside kiosk mode like any other app and doesn't float.
+
+## USB debugging's "Allow?" prompt
+
+Android's "Allow USB debugging?" is System UI's own screen, and lock task lets only listed apps open, so it never came
+up and a computer waited for an answer nobody could give. While Opie's USB debugging switch allows it,
+`com.android.systemui` is on the lock task list (`Kiosk.SYSTEM_UI`); turning the switch off takes it off. That lets in
+only screens Android itself opens from System UI (that prompt, a screen-recording or USB permission question an app
+asks for): the status bar, shade, Home and recents are lock task's features and stay off.
+
 ## Google Play
 
 Android apps come from Google Play, with the household's own Google account on the tablet (Aurora Store, the earlier

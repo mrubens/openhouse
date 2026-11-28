@@ -295,6 +295,8 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
 
     // --- kiosk and the lock -------------------------------------------------------------------
     internal fun leaveKiosk() { kioskPaused = true; DeviceOwner.leaveKiosk(this) }
+    /** Kiosk mode again after a video app floated over the home screen (VideoFloat), unless someone left it. */
+    internal fun relock() = DeviceOwner.enterKiosk(this, kioskPaused)
     /** "Add a calendar" from the Calendar app (or anywhere): behind the PIN when the lock is on, then the paste box. */
     internal fun addCalendar() = CalendarAccounts.choose(this, ::immersive) // Google, iCloud, or a link: no PIN (adding one is everyday; removing one stays behind it)
     /** A calendar link from the computer or the assistant (DeviceServer /calendar): the tablet's card, a person's yes, no PIN. */
@@ -533,6 +535,12 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         if (!KioskApps.needsParent(pkg)) { KioskApps.openApp(pkg); return }
         val acc = DeviceAccess.instance ?: return lock.always { KioskApps.openApp(pkg, parentOk = true) } // (a way out of Opie: always)
         thread { if (acc.approve("Open ${AppStore.label(pkg)}?", "", parent = ParentPin.isSet(this), yes = "Open")) main.post { KioskApps.openApp(pkg, parentOk = true) } }
+    }
+
+    /** An app in Apps marked as a video app, or not (its hold menu): behind the PIN when Add apps asks for it. */
+    internal fun videoApp(pkg: String, on: Boolean) {
+        if (!VideoFloat.inApps(pkg)) return
+        lock.withPin(choice = PinChoices.APPS) { VideoFloat.setVideo(this, pkg, on) }
     }
 
     // --- video: YouTube full screen over everything, with a close button (a note's Video, from the home screen) ---------

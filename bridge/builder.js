@@ -50,6 +50,7 @@ export function builderRoutes({ HERE, APP_DIR, agentName, currentAgent, edits, e
       if (t === 'tap') return 'Tapping';
       if (t === 'scroll') return 'Scrolling';
       if (t === 'install_app') return `Adding ${f || 'an app'}`;
+      if (t === 'video_app') return 'Changing Apps';
       return 'Looking at the screen';
     }
     const app = f.match(/^apps\/([\w-]+)\//)?.[1]?.replace(/[-_]/g, ' ');

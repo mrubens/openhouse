@@ -39,9 +39,22 @@ object Kiosk {
     fun developerOptions(c: Context): Boolean =
         runCatching { android.provider.Settings.Global.getInt(c.contentResolver, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) == 1 }.getOrDefault(false)
 
+    /**
+     * Android's own dialogs (System UI's package). While USB debugging is allowed, lock task lets them open, so
+     * "Allow USB debugging?" can come up over Opie when a computer connects; otherwise lock task keeps it from
+     * opening and the computer waits for an answer nobody can give. It lets in only what Android itself starts from
+     * there (that prompt, a screen-recording or USB permission question an app asks for); the status bar, the
+     * notification shade, Home and recents stay off (they're lock task's features and setStatusBarDisabled, not this).
+     */
+    const val SYSTEM_UI = "com.android.systemui"
+
     fun setDebugging(c: Context, allowed: Boolean) {
         prefs(c).edit().putBoolean("debugging", allowed).apply()
         set(c, UserManager.DISALLOW_DEBUGGING_FEATURES, !allowed)
+        if (owner(c)) runCatching {
+            val cur = dpm(c).getLockTaskPackages(admin(c)).toMutableSet()
+            if (if (allowed) cur.add(SYSTEM_UI) else cur.remove(SYSTEM_UI)) dpm(c).setLockTaskPackages(admin(c), cur.toTypedArray())
+        }.onFailure { Log.w(TAG, "lock task packages: $it") }
         // Allowing it isn't enough: Android's own USB debugging (and Developer options, which it lives under) comes on
         // too, so a computer can connect without a trip through Android's settings. Off leaves them as they are.
         if (allowed && owner(c)) {

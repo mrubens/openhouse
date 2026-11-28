@@ -499,7 +499,10 @@ object DeviceServer {
             "at once. Otherwise someone says yes on screen, and its Google Play page opens: they tap Install there themselves (Opie never taps " +
             "on Google Play), and once it's installed it's in Apps.",
             JSONObject().put("name", p("string", "The app's name")).put("package", p("string", "Its package, if you know it (e.g. com.instagram.android)")),
-            listOf())
+            listOf()),
+        tool("video_app", "Make an Android app in Apps a video app, or not: going Home while it plays, its video floats in a small window over Opie's home screen. " +
+            "With the PIN when Add apps asks for it (a person types it on the device).",
+            JSONObject().put("name", p("string", "The app's name, as in Apps")).put("on", p("boolean", "true: a video app; false: not")), listOf("name", "on"))
     ))
 
     internal fun text(t: String, error: Boolean = false) =
@@ -531,7 +534,7 @@ object DeviceServer {
         val fg = acc.foregroundPackage()
         val own = fg == ctx.packageName || fg?.startsWith(AppStubs.PREFIX) == true
         val onScreen = name.removePrefix("device_") in setOf("look", "screen", "wait", "tap", "type", "scroll", "key", "pick")
-        if (name.removePrefix("device_") != "look" && !(own && onScreen) && !appsOn())
+        if (name.removePrefix("device_") !in setOf("look", "video_app") && !(own && onScreen) && !appsOn()) // (video_app: a setting of Apps, as its hold menu)
             return text("Opie using apps is off on this device. Someone can turn it on in Settings, Opie, Opie uses apps.", true)
         acc.usingScreen()
         val app = acc.appLabel(acc.foregroundPackage())
@@ -700,6 +703,21 @@ object DeviceServer {
                 after("Chose “${hit.second}”.")
             }
             "wait" -> { acc.status("Waiting for it to load"); Thread.sleep((a.optDouble("seconds", 1.0).coerceIn(0.2, 10.0) * 1000).toLong()); text(acc.describe()) }
+            "video_app" -> {
+                val q = a.optString("name").trim().lowercase()
+                val apps = AppStore.homeApps()
+                val hit = apps.firstOrNull { it.first.lowercase() == q || it.second.lowercase() == q } ?: apps.firstOrNull { it.second.lowercase().startsWith(q) }
+                    ?: return text("No app called \"$q\" in Apps. In Apps: ${apps.joinToString { it.second }.ifEmpty { "none" }}", true)
+                val on = a.optBoolean("on", true)
+                if (VideoFloat.isVideo(ctx, hit.first) == on) return text("${hit.second} ${if (on) "is already" else "isn't"} a video app.")
+                if (PinChoices.needed(ctx, PinChoices.APPS)) {
+                    acc.status("Waiting for the PIN")
+                    if (!acc.approve(if (on) "Let ${hit.second} float over Home?" else "Stop ${hit.second} floating over Home?", "", parent = true, yes = if (on) "Allow" else "Stop"))
+                        return text("Nobody typed the PIN, so ${hit.second} stays as it was. Say so.", true)
+                }
+                VideoFloat.setVideo(ctx, hit.first, on)
+                text(if (on) "${hit.second} is a video app: going Home while it plays, its video floats over the home screen." else "${hit.second} isn't a video app any more.")
+            }
             "install_app" -> {
                 val given = a.optString("name").trim(); var pkg = a.optString("package").trim()
                 if (pkg.isEmpty()) {

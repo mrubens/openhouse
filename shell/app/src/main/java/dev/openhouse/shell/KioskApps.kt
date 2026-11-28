@@ -43,6 +43,8 @@ object KioskApps {
         if (gated && !parentOk) { Log.w(TAG, "refused to open $pkg without a yes"); return false }
         allowInKiosk(pkg, temporary = gated)
         val i = ctx.packageManager.getLaunchIntentForPackage(pkg) ?: return false
+        VideoFloat.beforeOther(pkg) // a video floating: kiosk mode again first
+        if (!gated) VideoFloat.liftFor(ctx, pkg) // a video app: out of lock task, so it can float over the home screen
         ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED))
         return true
     }

@@ -115,7 +115,7 @@ export const VOLUME_TOOL = { name: 'volume', description: "The device's volume (
  *  the PIN on the tablet: Brightness is in Settings → Screen, Sleep now is the moon button. */
 /** What acts on this tablet itself (its screen, speaker, camera, media and other apps): not offered to a conversation on
  *  another of the household's tablets (setupFor), which would have them act here, in another room. */
-const ON_THIS_DEVICE = new Set(['look_with_camera', 'open_app', 'install_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'tablet_screen', 'volume', 'music', 'bluetooth', 'pin_choices']);
+const ON_THIS_DEVICE = new Set(['look_with_camera', 'open_app', 'install_app', 'video_app', 'look_at_screen', 'tap', 'type', 'pick', 'scroll', 'stop_using_apps', 'press', 'tablet_screen', 'volume', 'music', 'bluetooth', 'pin_choices']);
 export const SCREEN_TOOL = { name: 'tablet_screen', description: "The device's screen itself: its brightness (Automatic, Low, Medium, High or Full, or a step brighter or dimmer: \"it's too bright\", \"I can't see the screen\"), " +
     'or put it to sleep now, dark as at night until someone touches it ("go to sleep", "turn the screen off"). get says the brightness. For when the screen goes dark every night, that is night_hours.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['get', 'brightness', 'sleep'] },

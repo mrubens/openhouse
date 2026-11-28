@@ -51,7 +51,7 @@ class DeviceAccess : AccessibilityService() {
 
     override fun onAccessibilityEvent(e: AccessibilityEvent?) {
         // The app in front changed: the floating assistant shows over other apps, not over the display.
-        if (e?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || e?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) Buddy.recheck()
+        if (e?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED || e?.eventType == AccessibilityEvent.TYPE_WINDOWS_CHANGED) { Buddy.recheck(); VideoFloat.check() }
     }
     override fun onInterrupt() {}
 

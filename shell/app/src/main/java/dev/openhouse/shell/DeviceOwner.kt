@@ -39,7 +39,8 @@ internal object DeviceOwner {
             // The display, the update cover, each family app (AppStubs) and the apps someone added. Anything else
             // (Settings, a store) is let in only for someone, until the display is back (KioskApps.revokeTemporary).
             dpm.setLockTaskPackages(admin, (arrayOf(a.packageName, MainActivity.HOST_PKG) + AppStubs.installed().values +
-                AppStore.homeApps().map { it.first }.filter { !KioskApps.needsParent(it) }).distinct().toTypedArray())
+                AppStore.homeApps().map { it.first }.filter { !KioskApps.needsParent(it) } +
+                listOfNotNull(Kiosk.SYSTEM_UI.takeIf { Kiosk.debugging(a) })).distinct().toTypedArray())
             Kiosk.apply(a) // no factory reset, new users, unknown sources (or USB debugging, if someone turned it off)
             // Keep the power menu so someone can still turn the device off.
             dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_GLOBAL_ACTIONS)
@@ -71,6 +72,7 @@ internal object DeviceOwner {
         UpdateGuard.kioskBack(a) // an update being watched gets its health time again from now
         backFromOut(a)
         Kiosk.apply(a)
+        if (VideoFloat.holding()) { VideoFloat.check(); return } // a video app's window floats: lock task would end it
         val am = a.getSystemService(android.app.ActivityManager::class.java)
         if (am.lockTaskModeState == android.app.ActivityManager.LOCK_TASK_MODE_NONE) runCatching { a.startLockTask() }.onFailure { Log.w(TAG, "startLockTask: $it") }
     }
@@ -112,7 +114,7 @@ internal object DeviceOwner {
     }
 
     /** Someone leaves kiosk mode until the display is reopened (Home): restrictions off too. */
-    fun leaveKiosk(a: Activity) { runCatching { a.stopLockTask() }; Kiosk.lift(a); if (isOwner(a)) UpdateGuard.kioskLeft(a) } // an update being watched isn't judged meanwhile
+    fun leaveKiosk(a: Activity) { VideoFloat.forget(); runCatching { a.stopLockTask() }; Kiosk.lift(a); if (isOwner(a)) UpdateGuard.kioskLeft(a) } // an update being watched isn't judged meanwhile
 
     /**
      * When the display is updated it's gone for a second or two and Android shows the tablet's own home

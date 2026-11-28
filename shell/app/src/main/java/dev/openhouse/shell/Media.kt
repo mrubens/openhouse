@@ -94,6 +94,12 @@ object Media {
         return SpotifyEmbed.inUse(otherAt)
     }
     /** The tablet's own Spotify player starting: the apps that play, paused (one thing at a time). */
+    /** Pause what [pkg] plays: its own sessions when Opie can see them, else the media key (whatever played last). */
+    fun pause(pkg: String) {
+        if (!runCatching { ctx.getSystemService(AudioManager::class.java).isMusicActive }.getOrDefault(false)) return
+        if (listening()) sessions().filter { it.packageName == pkg && playing(it) }.forEach { it.transportControls.pause() }
+        else key(KeyEvent.KEYCODE_MEDIA_PAUSE)
+    }
     fun pauseOthers() { Thread { sessions().filter(::playing).forEach { it.transportControls.pause() } }.start() }
 
     private fun playing(c: MediaController) = c.playbackState?.state.let { it == PlaybackState.STATE_PLAYING || it == PlaybackState.STATE_BUFFERING || it == PlaybackState.STATE_CONNECTING }

@@ -105,7 +105,10 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         /** Android apps added (Google Play, or opened by Opie), for the home screen: [{id: "android:<package>", name, icon}]. */
         @JavascriptInterface fun androidApps(g: String?): String = if (!ok(g)) "[]" else org.json.JSONArray(o.apps.filter { it.id.startsWith("android:") }.map {
             org.json.JSONObject().put("id", it.id).put("name", it.name).put("icon", androidIcon(it.id.removePrefix("android:")))
+                .put("video", VideoFloat.isVideo(act, it.id.removePrefix("android:")))
         }).toString()
+        /** An Android app's hold menu in Apps: its video floats over Home, or not (VideoFloat). The PIN when Add apps asks. */
+        @JavascriptInterface fun videoApp(g: String?, id: String, on: Boolean) { if (ok(g) && id.startsWith("android:")) main.post { (act as? MainActivity)?.videoApp(id.removePrefix("android:"), on) } }
         /** A phone card over the home, for an app in one of its tabs: "photos", "flyer", or "list" (arg: its name). */
         @JavascriptInterface fun phone(g: String?, kind: String, arg: String) { if (ok(g) && kind in setOf("photos", "flyer", "list", "recipe", "pin", "calendar", "album", "share", "google", "unlink", "link")) main.post { when (kind) { "unlink" -> (act as? MainActivity)?.stopAlbum(arg); "share" -> (act as? MainActivity)?.sharePhotos(); "google" -> (act as? MainActivity)?.googlePhotos(); "pin" -> o.unlockCalendar(); "calendar" -> (act as? MainActivity)?.addCalendar(); "album" -> (act as? MainActivity)?.addAlbum(); else -> o.phoneCard = kind to arg.take(if (kind == "link") 600 else 80) } } }
         /** Home's Now playing card: "status" (Media.forHome), or a button (play, pause, next, previous). */

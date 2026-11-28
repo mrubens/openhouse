@@ -990,7 +990,7 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
   const [menu, setMenu] = useState(null);
   const inTabs = new Set(tabs.map((t) => t.id));
   const all = [...apps.filter((a) => a.id !== 'home' && !inTabs.has(a.id)).map((a) => ({ id: a.id, name: a.meta?.name || a.id, about: a.meta?.description || '', svg: a.icon, web: a.web !== false, today: a.today })),
-    ...android.map((a) => ({ id: a.id, name: a.name || a.id, img: a.icon, android: true }))]
+    ...android.map((a) => ({ id: a.id, name: a.name || a.id, img: a.icon, android: true, video: !!a.video }))]
     .sort((a, b) => a.name.localeCompare(b.name));
   const off = (a) => hid[a.id] ?? !!places['app:' + a.id]?.hidden;
   const here = all.filter((a) => !off(a));
@@ -999,10 +999,14 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
   const [onToday, setOnToday] = useState({}); // shown at once, until the home screen has it
   const isOn = (a) => onToday[a.id] ?? cards.includes(a.id);
   const toToday = (a, on) => { setMenu(null); setOnToday({ ...onToday, [a.id]: on }); c.json('POST', '/home/look', { cards: on ? [...cards.filter((x) => x !== a.id), a.id] : cards.filter((x) => x !== a.id) }).catch(() => {}); };
+  // A video app's video floats over Home when someone goes Home while it plays (shell/VideoFloat.kt). The shell asks
+  // for the PIN when Add apps does, so the menu reads it afresh each time it opens.
+  const hold = (a) => { if (!a.android) return setMenu(a); let v = a.video; try { v = !!JSON.parse(shell.androidApps() || '[]').find((x) => x.id === a.id)?.video; } catch {} setMenu({ ...a, video: v }); };
+  const toVideo = (a, on) => { setMenu(null); shell.videoApp(a.id, on); };
   const open = (a) => { if (a.web === false) setMenu({ ...a, old: true }); else shell?.openApp(a.id); };
   const held = useRef(null);
   const press = (a) => ({
-    onPointerDown: (e) => { const at = [e.clientX, e.clientY]; clearTimeout(held.current?.t); held.current = { at, t: setTimeout(() => { held.current = { done: true }; setMenu(a); }, 600) }; },
+    onPointerDown: (e) => { const at = [e.clientX, e.clientY]; clearTimeout(held.current?.t); held.current = { at, t: setTimeout(() => { held.current = { done: true }; hold(a); }, 600) }; },
     onPointerMove: (e) => { const h = held.current; if (h?.at && Math.hypot(e.clientX - h.at[0], e.clientY - h.at[1]) > 12) { clearTimeout(h.t); held.current = null; } },
     onPointerUp: () => { const h = held.current; held.current = null; if (h?.at) { clearTimeout(h.t); open(a); } },
     onPointerCancel: () => { clearTimeout(held.current?.t); held.current = null; },
@@ -1031,6 +1035,7 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
           <div className="h-menu-head"><Icon a={menu} /><span>{menu.name}</span></div>
           {menu.old ? <div className="h-soft">This one can't open yet. Ask Opie to remake it.</div> : <>
             {menu.web && <button className="h-menu-row" onClick={() => toTab(menu)}>Make it a tab</button>}
+            {menu.android && shell?.videoApp && <button className="h-menu-row" onClick={() => toVideo(menu, !menu.video)}>{menu.video ? "Don't float its video" : 'Float its video over Home'}</button>}
             {menu.today && <button className="h-menu-row" onClick={() => toToday(menu, !isOn(menu))}>{isOn(menu) ? 'Take it off Home' : 'Add to Home'}</button>}
             <button className="h-menu-row" onClick={() => hide(menu, true)}>Take it off Apps</button></>}
           <button className="h-menu-row soft" onClick={() => setMenu(null)}>{menu.old ? 'Close' : 'Cancel'}</button>
