@@ -1,20 +1,26 @@
 // A paired device's way to the tablet through the cloud's relay, when it isn't on the home Wi-Fi (docs/networking.md,
 // openhouse-cloud/lambda/relay.ts, bridge/relay.js). One WebSocket, many requests at once; each request is the same sealed
 // bytes a device POSTs to /s on the Wi-Fi, and each answer comes back as a Response with the same sealed body, so
-// screen-client.js reads it the same way. The relay never has a key.
+// screen-client.js reads it the same way. The relay never has a key. Past the household's day on the relay, requests
+// fail with OverToday until the next UTC day, without dialling (the phone page says until when).
 import { b64 } from './seal.js';
 
 const CHUNK = 16 * 1024;
 export class Refused extends Error {}
+/** The household's relay is past its day (openhouse-cloud relay.ts perDay): nothing goes through it until `until`
+ *  (ms, the next UTC day), so it isn't dialled again before then. On the home Wi-Fi everything still works. */
+export class OverToday extends Error { constructor(until) { super('the relay is past its day'); this.until = until; } }
 
 /** cfg: {url, relay, token} from the tablet's GET /relay/me, or {url, pair} for a pairing (an invite's link: its two
  *  steps, p 'hello' and 'wait', as on the home network). api: the cloud's own address, when this page may reach it
  *  (the cloud's copy of the phone page): a big reply can then come as a box in its storage (bx, openhouse-cloud
  *  relay-box.ts box/out), fetched from there once, still sealed. */
 export function relayTransport({ url, relay, token, pair }, { WS = globalThis.WebSocket, pingMs = 4 * 60e3, api = null, fetch: f = globalThis.fetch } = {}) {
-  let ready = null, n = 0, ping = null;
+  let ready = null, n = 0, ping = null, restUntil = 0;
   const pending = new Map();
+  const resting = () => Date.now() < restUntil;
   function connect() {
+    if (resting()) return Promise.reject(new OverToday(restUntil));
     if (ready) return ready;
     const p = new Promise((resolve, reject) => {
       const s = new WS(url);
@@ -22,6 +28,7 @@ export function relayTransport({ url, relay, token, pair }, { WS = globalThis.We
       s.onmessage = (e) => {
         let m; try { m = JSON.parse(String(e.data)); } catch { return; }
         if (m.t === 'ok') { resolve(s); ping = setInterval(() => { try { s.send('{"t":"ping"}'); } catch {} }, pingMs); ping.unref?.(); }
+        else if (m.t === 'no' && m.why === 'day') { restUntil = Number(m.until) || (Math.floor(Date.now() / 864e5) + 1) * 864e5; reject(new OverToday(restUntil)); try { s.close(); } catch {} }
         else if (m.t === 'no') { reject(new Refused(m.why || 'refused')); try { s.close(); } catch {} }
         else if (m.t === 'res') pending.get(m.rid)?.(m);
       };
@@ -63,7 +70,7 @@ export function relayTransport({ url, relay, token, pair }, { WS = globalThis.We
       if (m.e) { pending.delete(rid); if (!gotHead) { gotHead = true; headOk(200); } try { ctl.close(); } catch {} }
     };
     pending.set(rid, (m) => {
-      if (m.closed) { if (!gotHead) headNo(new TypeError('relay closed')); else try { ctl.error(new Error('cut off')); } catch {} return; }
+      if (m.closed) { if (!gotHead) headNo(resting() ? new OverToday(restUntil) : new TypeError('relay closed')); else try { ctl.error(new Error('cut off')); } catch {} return; }
       if (!Number.isInteger(m.i)) return take(m);
       early.set(m.i, m);
       while (early.has(next)) { const x = early.get(next); early.delete(next); next++; take(x); }

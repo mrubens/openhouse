@@ -109,6 +109,12 @@ which to show, which are two-way, whose each is, and the default for new events.
 (its relay key), rate-limited per tablet, logging nothing of the token. An `invalid_grant` answer (revoked, or
 Google's 7-day expiry for apps still in testing) tells the tablet to ask for a new sign-in on that account.
 
+**Free, with a linked tablet.** Linking is free for every household (since 2026-11-28), and Google's sign-in and
+refresh need no credit; only voice and the cloud assistant do. On a tablet that isn't linked, Add a calendar → Google
+Calendar offers to link first and then goes on to the sign-in (`CalendarAccounts.linkFirst`); so does finding an
+account's calendars when the tablet turns out not to be linked (the shell's refresh answers `unlinked`, and the bridge
+passes it on from `/calendar/sync/discover`).
+
 **What the user sets up** (in the Opie Google Cloud project, which Google Photos needs too):
 
 1. Enable the Google Calendar API; add the two scopes to the consent screen.

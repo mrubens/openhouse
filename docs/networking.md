@@ -164,7 +164,11 @@ tablet bridge ◀──wss (dialed out, authenticated with the tablet's cloud de
   connected all month with a keepalive every 5 minutes is about 44,000 minutes and 9,000 messages: about **$0.02 a
   tablet-month**, plus Lambda (cents). A busy workshop evening is a few thousand messages. Nothing runs when idle.
   Limits to design around: 128 KB per message (screenshots are cut into frames already), 10 minutes idle and 2 hours
-  per connection (the tablet pings and reconnects).
+  per connection (the tablet pings and reconnects). The relay is free for every linked household, so it has a day per
+  household (`RELAY_LIMITS.perDay` in the cloud, 200,000 messages, its tablet's and phones' together, far past real
+  use). Past it, the relay answers `{t: 'no', why: 'day', until}` and closes; the tablet waits until then
+  (`bridge/relay.js`), a phone stops dialling until then (`relay-client.js` OverToday) and says "Out of reach from away
+  until" that time over the copy it shows, and the Wi-Fi at home works as before. The cloud's owner gets an alarm.
 - **Security:** a stolen phone's list page key lasts 3 hours and reaches only that list page. A stolen paired laptop
   reaches the workshop tools from anywhere until someone removes it on the tablet (today: only from the Wi-Fi); that
   is the real change, so the switch stays off until someone turns it on or opens the Connect screen, and the Screens list shows when each device last came in from

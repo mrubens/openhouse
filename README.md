@@ -62,8 +62,8 @@ Some devices [work best](docs/tablets.md).
    Opie stops for the month at a spending stop you set, $20 to start).
 
 It's free, and nothing in the software is locked behind a subscription. [Opie Cloud](https://opie.house), the
-optional hosted service, adds backups, use away from home, and Opie's voice without a key of your own. It's in
-private beta.
+optional hosted service, is free to link a device to: that adds backups, Google Calendar sign-in and use away from
+home. Opie's voice without a key of your own runs on credit you add.
 
 ## Try it on a computer first
 

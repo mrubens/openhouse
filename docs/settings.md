@@ -172,7 +172,7 @@ One switch, PIN Lock: Off or On.
 - **The first PIN:** chosen in the first setup's Choose a PIN step (no account needed; since 2026-11-28 the setup
   doesn't end without one), or later, on a tablet set up before that or whose lock was turned off, from PIN Lock,
   "Set a PIN first" or a card's Choose a PIN (all the same steps: `SettingsLock.firstPin`). A linked tablet's account can reset it if it's forgotten. On an unlinked tablet (one set up
-  without an account, as a do-it-yourself tablet may be, now that the cloud lets households in a few at a time) a
+  without an account, as a do-it-yourself tablet may be: linking is free for every household since 2026-11-28, but optional) a
   later first PIN is still allowed, after a line that it's for an adult of the household and that the recovery code
   is its only way back. Whoever chooses it first holds Settings, and nothing at the tablet tells an adult from
   anyone else, so the setup's step says it's best chosen then (2026-11-26; until 2026-11-25 an unlinked tablet

@@ -65,8 +65,10 @@ On the tablet:
    browser blocks a tab opened after the round trip (Safari always), which on 1.0.55 left "Sign in to Google on the
    page that opened" with no page open. Where even that's blocked, the page is a link to tap. The link box's words
    leave out Google's secret address on a phone (Google Calendar's app has none; it's on calendar.google.com on a
-   computer), and say it's on a computer where the tablet isn't linked. The setup offers no Opie account until accounts are open to
-   everyone (a beta household's tablet comes linked, from a setup code), so Google's sign-ins show only on a linked tablet.
+   computer), and say it's on a computer where the tablet isn't linked. Accounts are open to every household, free, since
+   2026-11-28, but the setup still offers none (a tablet set up from an account's setup code comes linked), so Google's
+   sign-ins show here only on a linked tablet. After the setup, Settings → Add a calendar → Google on an unlinked tablet
+   offers to link it first (`CalendarAccounts.linkFirst`), then goes on to Google's sign-in.
    4. **Do you have a family calendar?** Google, iCloud, Outlook, Another link, or Start one here, each with what to
       do in a few numbered lines: Google signs in through the account (`CalendarAccounts`, two-way) on a linked
       tablet, else its Secret address in iCal format, copied on the computer and pasted into Opie there (the connected

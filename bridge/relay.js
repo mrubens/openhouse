@@ -35,7 +35,7 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () =
   const save = (v) => { fs.mkdirSync(path.dirname(FILE), { recursive: true, mode: 0o700 }); writeJson(FILE, v, { bak: false, mode: 0o600 }); };
 
   let sock = null, url = null, relayId = null, connected = false, since = null, error = null;
-  let tries = 0, retryTimer = null, pingTimer = null, ageTimer = null, sentTokens = '';
+  let tries = 0, retryTimer = null, pingTimer = null, ageTimer = null, sentTokens = '', restUntil = 0;
   let sentPairs = new Set(); // computer pairings the relay knows are showing (a web connector may pair with the code)
   const handoffs = new Map(); // token hash -> {base, until}
   const open = new Map(); // from:rid -> {parts, done, cancel: Set}
@@ -88,7 +88,8 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () =
       sock = null; connected = false; sentTokens = ''; sentPairs = new Set(); clearTimers();
       for (const x of open.values()) for (const c of x.cancel) c();
       open.clear();
-      if (want()) later(backoff[Math.min(tries, backoff.length - 1)]);
+      // (Past the household's day on the relay: not before the next day, when it's let through again.)
+      if (want()) later(Math.max(backoff[Math.min(tries, backoff.length - 1)], restUntil - now()));
       tries++;
     };
   }
@@ -104,6 +105,11 @@ export function relayRoutes({ DISPLAY, json, body, screens, cloud, onMail = () =
       tokens(true); pairings();
       pingTimer = setInterval(() => send({ t: 'ping' }), pingMs); pingTimer.unref?.();
       ageTimer = setTimeout(() => { try { sock?.close(); } catch {} }, maxAgeMs); ageTimer.unref?.(); // the relay's 2 hours: a fresh socket first
+      return;
+    }
+    if (m.t === 'no' && m.why === 'day') {
+      restUntil = Number(m.until) || 0;
+      error = `past today's limit, back by ${new Date(restUntil || now()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
       return;
     }
     if (m.t === 'no') { error = m.why === 'unlinked' ? 'the Opie account doesn\'t know this device' : String(m.why || 'refused'); tries = Math.max(tries, backoff.length - 1); return; }
