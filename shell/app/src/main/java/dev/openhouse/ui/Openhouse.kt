@@ -38,6 +38,8 @@ interface Host {
     fun guessHome(): JSONObject? = null
     /** The first setup: a code for [person]'s phone or computer ({url, code, address}), or null. Blocking. */
     fun setupPair(person: String): JSONObject? = null
+    /** The first setup: the phone or computer that used that code asks to join, as [name]: a person's Allow or Not now. */
+    fun setupConfirm(pair: String, name: String) {}
     /** Up one level (MainActivity.back): a sheet, then Settings, then an app. */
     fun back() {}
     /** A row of Settings that the shell opens (its dialogs over the list): "voice", "screens",

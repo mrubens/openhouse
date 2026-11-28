@@ -81,6 +81,8 @@ object DeviceServer {
     // The few controls that would widen what Opie may do, take the tablet out of Opie, or say yes to something Opie
     // or a computer asked for: they check [personOnly] and do nothing when Opie's own tap set them off.
     @Volatile private var actedAt = 0L
+    /** The setup's PIN pad is up (/setup/pin, here): a second ask doesn't open another. */
+    @Volatile private var choosingPin = false
     @Volatile private var refused: String? = null
     /** Opie's tap (or typing) just now set this off: don't, and tell Opie. */
     fun personOnly(what: String): Boolean {
@@ -352,6 +354,8 @@ object DeviceServer {
             }
             "/setup/icloud" -> {
                 val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                // Its page came over plain http (bridge /setup/icloud): the password is typed here instead.
+                if (b.optBoolean("here")) { handler.post { CalendarAccounts.addICloud(a, a::immersive) }; return 200 to """{"here":true}""" }
                 val why = CalendarAccounts.addICloudFrom(a, b.optString("user"), b.optString("pass"), b.optString("who"), a::immersive)
                 if (why == null) 200 to """{"ok":true}""" else 400 to JSONObject().put("error", why).toString()
             }
@@ -360,6 +364,12 @@ object DeviceServer {
             // here but as a hash).
             "/setup/pin" -> {
                 if (dev.openhouse.ui.Openhouse.setupStep != "pin" || ParentPin.isSet(ctx)) return 409 to """{"error":"The PIN can be chosen here only during the setup, before one is set."}"""
+                // Its page came over plain http: the PIN pad here instead, once (then the setup's next step).
+                if (b.optBoolean("here")) {
+                    val a = MainActivity.live ?: return 409 to """{"error":"the display isn't showing"}"""
+                    handler.post { if (!choosingPin) { choosingPin = true; PinPrompt.choose(a, ctx, then = { choosingPin = false; dev.openhouse.ui.Setup.next() }, back = { choosingPin = false }) } }
+                    return 200 to """{"here":true}"""
+                }
                 val pin = b.optString("pin")
                 if (!ParentPin.valid(pin)) return 400 to """{"error":"4 to 8 digits."}"""
                 val code = if (b.optBoolean("linked")) null else RecoveryCode.new()

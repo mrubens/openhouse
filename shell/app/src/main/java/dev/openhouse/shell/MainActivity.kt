@@ -478,6 +478,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         override fun back() { main.post { this@MainActivity.back() } }
         override fun guessHome() = SetupDevice.guessHome(this@MainActivity)
         override fun setupPair(person: String) = SetupDevice.pair(this@MainActivity, bridge, person)
+        override fun setupConfirm(pair: String, name: String) { main.post { Screens.confirmSetup(this@MainActivity, pair, name) } }
         override fun closeApp() { main.post { val stub = apps.stubAppId != null; this@MainActivity.closeApp(); if (stub) { apps.stubAppId = null; KioskApps.goHome() } } }
         override val openAppId: String? get() = apps.appId ?: apps.stubAppId
         override fun playVideo(url: String, title: String) { main.post { this@MainActivity.playVideo(url) } }

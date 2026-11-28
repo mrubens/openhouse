@@ -2,7 +2,7 @@ package dev.openhouse.shell
 
 // What the first setup (ui/Setup.kt) needs from the tablet itself: a guess at the home's street address, from where
 // the tablet is (Android's own location and geocoder; only with location on), and the code a phone scans or a computer
-// types to carry on there (bridge screens.js, a 'setup' pairing: it joins at once, as that person's).
+// types to carry on there (bridge screens.js, a 'setup' pairing: it joins as that person's once someone allows it here).
 
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
@@ -50,16 +50,16 @@ internal object SetupDevice {
 
     /**
      * Off the main thread: a new setup code for [person]'s phone or computer: {url} for the phone to scan, {code} and
-     * {address} ("opie.local:8788", which goes to the page for the code while it lasts: screens.js) for a computer to
-     * type; no address when the tablet's name isn't answered (never its raw Wi-Fi address: that's not for people).
-     * null: no Wi-Fi, or the bridge didn't answer.
+     * {address} for a computer to type (the tablet's https name while it has one, else its Wi-Fi address and port,
+     * whose bare address goes to the page for the code while it lasts: screens.js; never a name anyone on the Wi-Fi
+     * could answer), and {pair}, to know it when it asks to join (someone allows it here). null: no Wi-Fi, or the
+     * bridge didn't answer.
      */
     fun pair(c: Context, bridge: String, person: String): JSONObject? = runCatching {
         val ip = Handoff.lanAddress(c)?.hostAddress ?: return null
         val r = JSONObject(BridgeClient.post("$bridge/screens/pair", JSONObject().put("setup", true).put("person", person).put("address", ip).toString()) ?: return null)
-        val port = r.optInt("port")
-        val url = "${Screens.base(r, ip)}/phone/?for=${android.net.Uri.encode(person)}#${r.optString("pair")}.${r.optString("key")}"
-        val host = r.optString("host").takeIf { it.isNotEmpty() && !r.isNull("host") }
-        JSONObject().put("url", url).put("code", r.optString("code")).apply { if (host != null) put("address", "$host:$port") }
+        val base = Screens.base(r, ip)
+        val url = "$base/phone/?for=${android.net.Uri.encode(person)}#${r.optString("pair")}.${r.optString("key")}"
+        JSONObject().put("url", url).put("code", r.optString("code")).put("pair", r.optString("pair")).put("address", base.removePrefix("http://"))
     }.onFailure { Log.w(TAG, "pair: $it") }.getOrNull()
 }
