@@ -23,10 +23,11 @@ object RoomVolume {
     private const val TAG = "RoomVolume"
     private const val PREFS = "shell"
     private const val KEY = "roomVolume"
-    /** dB in a room at its usual quiet, and at most in a noisy one; the night takes off NIGHT_DB more. */
-    private const val QUIET_DB = -3.0
+    /** dB in a room at its usual quiet, and at most in a noisy one; the night takes off NIGHT_DB more. At most 4 dB
+     *  quieter in all: 9 dB (-3 and -6) left Opie hard to hear on a Lenovo Tab One at night (the user). */
+    private const val QUIET_DB = -2.0
     private const val LOUD_DB = 9.0
-    private const val NIGHT_DB = -6.0
+    private const val NIGHT_DB = -2.0
     /** How far over the usual quiet (dB) the room's floor is when it's as loud as it gets here, and where it starts. */
     private const val OVER_FROM = 4.0
     private const val OVER_TO = 22.0
@@ -94,6 +95,6 @@ object RoomVolume {
     fun describe(): org.json.JSONObject = org.json.JSONObject().put("adjust", on).apply {
         if (!on) return@apply
         val f = factor(); val db = 20 * kotlin.math.log10(f)
-        put("now", when { House.isNight() && db < -4 -> "quieter for the night"; db > 2 -> "louder for a noisy room"; db < -1 -> "a little quieter, the room is quiet"; else -> "as set" })
+        put("now", when { House.isNight() && db < -1 -> "quieter for the night"; db > 2 -> "louder for a noisy room"; db < -1 -> "a little quieter, the room is quiet"; else -> "as set" })
     }
 }
