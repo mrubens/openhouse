@@ -145,11 +145,8 @@ internal fun ColumnScope.FamilyContent(inSettings: Boolean = false, onBack: (() 
             Field(c.a, { c.a = it }, "Who", Modifier.width(170.u), words = true); Field(c.b, { c.b = it }, "Feed the cat", Modifier.weight(1f)); Remove { chores.remove(c) } } }
         AddLink("Add a chore") { chores += Pair2(names.firstOrNull() ?: "", "") }
     }
-    if (narrow) Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { who(); jobs(); Spacer(Modifier.height(24.u)) }
-    else Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(40.u)) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { who() }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.u)) { jobs() }
-    }
+    // One column: who lives here, then the chores (side by side, each person's row was too narrow to type in).
+    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).widthIn(max = 980.u), verticalArrangement = Arrangement.spacedBy(10.u)) { who(); jobs(); Spacer(Modifier.height(24.u)) }
 }
 
 /** Adult · Kid · Pet: who a person is to the household (none chosen reads as an adult). */
@@ -169,11 +166,16 @@ internal fun ColumnScope.FamilyContent(inSettings: Boolean = false, onBack: (() 
 @Composable
 internal fun Field(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier.fillMaxWidth(), focus: FocusRequester? = null, words: Boolean = false) {
     val change = onChange
-    Box(modifier.clip(RoundedCornerShape(12.u)).background(Color(0xFFF1EEE6)).border(1.u, Color(0xFFDAD5CA), RoundedCornerShape(12.u)).padding(horizontal = 14.u, vertical = 11.u)) {
-        if (value.isEmpty()) Text(hint, style = quietText(18, color = PaperLook.inkSoft.copy(alpha = .6f)), maxLines = 1)
-        val cover = coverAttached()
-        BasicTextField(value, change, Modifier.fillMaxWidth().let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, change, null) }, readOnly = cover, singleLine = true, keyboardOptions = if (words) NameKeys else TextKeys, textStyle = quietText(18), cursorBrush = SolidColor(PaperLook.ink))
-    }
+    val cover = coverAttached()
+    // The whole box is the field (a tap anywhere in it focuses it, not just on the line of text).
+    BasicTextField(value, change, modifier.let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, change, null) },
+        readOnly = cover, singleLine = true, keyboardOptions = if (words) NameKeys else TextKeys, textStyle = quietText(18), cursorBrush = SolidColor(PaperLook.ink),
+        decorationBox = { inner ->
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.u)).background(Color(0xFFF1EEE6)).border(1.u, Color(0xFFDAD5CA), RoundedCornerShape(12.u)).padding(horizontal = 14.u, vertical = 11.u)) {
+                if (value.isEmpty()) Text(hint, style = quietText(18, color = PaperLook.inkSoft.copy(alpha = .6f)), maxLines = 1, softWrap = false)
+                inner()
+            }
+        })
 }
 
 @Composable private fun Remove(onClick: () -> Unit) {
