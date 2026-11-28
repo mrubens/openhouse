@@ -23,6 +23,13 @@ class PinChoicesTest {
         assertTrue(PinChoices.asks(PinChoices.SETTINGS, saved))
     }
 
+    @Test fun addAppsAsksOnceAGoogleAccountIsOn() {
+        assertTrue(PinChoices.asks(PinChoices.APPS, PinChoices.withAccount(true, saved)))
+        assertFalse(PinChoices.asks(PinChoices.PHOTOS, PinChoices.withAccount(true, saved)))
+        kept[PinChoices.APPS] = false // someone turned it off: that holds
+        assertFalse(PinChoices.asks(PinChoices.APPS, PinChoices.withAccount(true, saved)))
+    }
+
     @Test fun whatIsNotAChoiceAlwaysAsksAndCannotBeTurnedOff() {
         for (k in listOf(null, "", "advanced", "account", "kiosk", "erase", "pair", "pin", "choices", "Apps")) {
             kept[k ?: "null"] = false

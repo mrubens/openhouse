@@ -146,16 +146,28 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         stage.text = s; main.removeCallbacks(slow)
         if (s == "Starting") main.postDelayed(slow, 60_000)
     }
+    /** After a minute on this screen, Settings of the shell's own (SettingsLock.starting): Wi-Fi, an update, starting
+     *  the software again, and the ways out all work without the page, which may never come. */
+    private val settings = dev.openhouse.ui.Calm.quiet(act, "Settings") { (act as? MainActivity)?.lock?.starting() }.apply { visibility = View.GONE }
+    private val showSettings = Runnable { if (splash.visibility == View.VISIBLE) settings.visibility = View.VISIBLE }
+    private var settingsDue = false
     private val splash = dev.openhouse.ui.Calm.column(act).apply {
         val K = dev.openhouse.ui.Calm
         gravity = Gravity.CENTER_HORIZONTAL
         addView(logo, android.widget.LinearLayout.LayoutParams(K.px(act, 148), K.px(act, 148)))
         addView(K.text(act, "Opie", 34f, 600).apply { letterSpacing = -.01f }, android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = K.px(act, 26) })
         addView(stage, android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = K.px(act, 10) })
+        addView(settings, android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = K.px(act, 28) })
     }
     private fun loading(on: Boolean) {
         splash.visibility = if (on) View.VISIBLE else View.GONE
-        if (on) { if (!breathe.isStarted) breathe.start() } else { breathe.cancel(); logo.alpha = 1f; main.removeCallbacks(slow); stage.text = "Starting" }
+        if (on) {
+            if (!breathe.isStarted) breathe.start()
+            if (!settingsDue && settings.visibility != View.VISIBLE) { settingsDue = true; main.postDelayed(showSettings, 60_000) } // (each retry: the same minute)
+        } else {
+            breathe.cancel(); logo.alpha = 1f; main.removeCallbacks(slow); stage.text = "Starting"
+            main.removeCallbacks(showSettings); settingsDue = false; settings.visibility = View.GONE
+        }
     }
 
     fun start() {
@@ -169,7 +181,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
 
     /** The activity is going: the page stops too (else it keeps running, hidden, polling and placing things). */
     fun destroy() {
-        gone = true; main.removeCallbacks(again); main.removeCallbacks(remake); main.removeCallbacks(slow)
+        gone = true; main.removeCallbacks(again); main.removeCallbacks(remake); main.removeCallbacks(slow); main.removeCallbacks(showSettings)
         breathe.cancel(); web?.let { it.stopLoading(); it.loadUrl("about:blank"); it.destroy() }; web = null
     }
     private var gone = false
@@ -240,7 +252,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
             override fun onPageStarted(v: WebView, url: String?, b: android.graphics.Bitmap?) { calls.ours = ours(url); calls.fresh(); failed = false; banner.visibility = View.GONE }
             // The bridge answered: what's left is the page itself (slow on a slower tablet's first load).
             override fun onPageCommitVisible(v: WebView, url: String?) { if (!failed && ours(url) && splash.visibility == View.VISIBLE) stage("Opening the home screen") }
-            override fun onPageFinished(v: WebView, url: String?) { if (!failed && ours(url)) { v.visibility = View.VISIBLE; loading(false); Updater.homeLoaded = true; (act as? MainActivity)?.lock?.syncCalendar() } } // (syncCalendar: the bridge answers now)
+            override fun onPageFinished(v: WebView, url: String?) { if (!failed && ours(url)) { v.visibility = View.VISIBLE; loading(false); Updater.homeLoaded = true; Kiosk.displayUp(act); (act as? MainActivity)?.lock?.syncCalendar() } } // (syncCalendar: the bridge answers now)
             override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) { if (r.isForMainFrame) retry(e.description.toString()) }
             override fun onReceivedHttpError(v: WebView, r: WebResourceRequest, e: android.webkit.WebResourceResponse) { if (r.isForMainFrame) retry("HTTP ${e.statusCode}") }
             // Answered, always: else Android ends the whole app with the renderer (the shell, the bridge, the microphone).

@@ -155,12 +155,13 @@ object Releases {
     /**
      * May a downloaded update go on now? Never while the family is using the tablet ([quiet]: no turn running, no one
      * talking, nobody at the screen for a while). Someone's "Install now" goes on at once, rescue build or not;
-     * otherwise it needs a rescue build to go back to, and waits for the night unless it's urgent.
+     * otherwise it needs a rescue build to go back to, and waits for the night unless it's urgent or Opie's software
+     * has stopped answering for good ([bridgeStuck]: nothing is in use to interrupt, and this may be the fix).
      */
-    fun mayInstall(quiet: Boolean, parentAsked: Boolean, urgent: Boolean, hasRescue: Boolean, inNight: Boolean): Boolean = when {
+    fun mayInstall(quiet: Boolean, parentAsked: Boolean, urgent: Boolean, hasRescue: Boolean, inNight: Boolean, bridgeStuck: Boolean = false): Boolean = when {
         parentAsked -> true
         !quiet || !hasRescue -> false
-        else -> urgent || inNight
+        else -> urgent || inNight || bridgeStuck
     }
 
     /** The installed app's signer must be the new APK's, or one it rotated from (apksigner's lineage). Hex SHA-256s. */

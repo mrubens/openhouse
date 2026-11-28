@@ -166,10 +166,45 @@ internal class SettingsLock(private val act: MainActivity) {
             .setNegativeButton("Not now") { _, _ -> tablet() }.show()
     }
 
-    private fun erase() {
+    private fun erase(back: () -> Unit = { tablet() }) {
         CalmDialog(act).setTitle("Erase this device?")
             .setMessage("Everything on it goes: the household, calendars, lists, photos and apps. It's unlinked from the account, whose backups stay there. This can't be undone.")
-            .setPositiveButton("Erase") { _, _ -> eraseNow(act) }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
+            .setPositiveButton("Erase") { _, _ -> eraseNow(act) }.setNegativeButton("Cancel") { _, _ -> back() }.show()
+    }
+
+    private fun leave(back: () -> Unit = { tablet() }) = withPinSet(back = back) {
+        CalmDialog(act).setTitle("Leave kiosk mode?").setMessage("Open Opie from its icon to come back.")
+            .setPositiveButton("Leave") { _, _ -> act.leaveKioskForGood() }.setNegativeButton("Cancel") { _, _ -> back() }.show()
+    }
+
+    /** Opie's software (Runtime): started again, or put back as the app has it (Reset keeps the household's things).
+     *  Behind the PIN, as the ways out: it stops whatever Opie is doing. */
+    private fun software(back: () -> Unit = { tablet() }) = withPinSet(back = back) {
+        CalmDialog(act).setTitle("Restart Opie's software?").setMessage("Reset also puts it back as it came. The household's things stay.")
+            .setPositiveButton("Restart") { _, _ -> Runtime.restart(); act.toast("Restarting") }
+            .setNeutralButton("Reset") { _, _ -> Runtime.reset(); act.toast("Resetting") }
+            .setNegativeButton("Cancel") { _, _ -> back() }.show()
+    }
+
+    /**
+     * The starting screen's Settings (HomeView), once Opie's software has taken more than a minute to answer: what
+     * works without it. Wi-Fi, an update that's downloaded (or a check for one), starting the software again or
+     * putting it back, and the ways out, behind the PIN as in Advanced.
+     */
+    fun starting() {
+        val again = { starting() }
+        val ready = Updater.readyVersion(act)
+        val items = listOf<Pair<CalmDialog.Row, () -> Unit>>(
+            CalmDialog.Row("Wi-Fi") to { Openhouse.host.wifi() },
+            if (ready != null) CalmDialog.Row("Install version $ready") to { Updater.installNow(act); act.toast("Installing $ready") }
+            else CalmDialog.Row("Updates", value = Updater.installedVersion(act)) to { updates() },
+            CalmDialog.Row("Restart Opie's software") to { software(back = again) },
+            CalmDialog.Row("Leave kiosk mode") to person("Leave kiosk mode") { leave(back = again) },
+            CalmDialog.Row("Erase this device") to person("Erase this device") { withPinSet(back = again) { erase(back = again) } },
+        )
+        CalmDialog(act).setTitle("Settings").setSettingsLook().setRows(items.map { it.first }) { _, i -> items[i].second() }
+            .setNegativeButton("Close", null).show()
+        act.immersive()
     }
 
     // --- the lock ------------------------------------------------------------------------------------------------
@@ -182,7 +217,7 @@ internal class SettingsLock(private val act: MainActivity) {
      * recovery code, keeping everyone else out of Account, Erase and Android's settings, so it asks to link first.
      * Changing or resetting a PIN that's set is PinPrompt's, as before.
      */
-    private fun firstPin(then: () -> Unit, back: () -> Unit) = thread {
+    fun firstPin(then: () -> Unit, back: () -> Unit) = thread {
         val linked = get("/cloud/status")?.optBoolean("linked") == true
         act.runOnUiThread {
             if (linked) return@runOnUiThread PinPrompt.choose(act, act, then = then, back = back)
@@ -396,8 +431,9 @@ internal class SettingsLock(private val act: MainActivity) {
     }
 
     /**
-     * Settings → Connections → Google Play (and Add apps before anyone signed in): Android's own Google sign-in, then
-     * Play's purchase setting, so nothing can be bought with a tap. Signed in: the account, and signing out.
+     * Settings → Connections → Google Play (and Add apps before anyone signed in): Android's own Google sign-in. Play's
+     * purchase setting isn't set from here: the household turns on a password for purchases in Play itself
+     * (docs/setup.md). Signed in: the account, and signing out.
      */
     fun googlePlay(back: () -> Unit = {}) {
         val name = PlayStore.accounts(act).firstOrNull()
@@ -502,6 +538,7 @@ internal class SettingsLock(private val act: MainActivity) {
             CalmDialog.Row("Add this device to another Opie") to person("Add this device to another Opie") { withPinSet { Satellite.join(act) } },
         )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
             CalmDialog.Row("Send a report") to person("Send a report") { report() },
+            CalmDialog.Row("Restart Opie's software") to { software() },
         ) + (if (!Runtime.childLimitHit(act)) emptyList() else listOf<Pair<CalmDialog.Row, () -> Unit>>(
             // Shown only once Android seems to have stopped the runtime with its child-process limit (Runtime.lost).
             CalmDialog.Row("Opie's software was stopped by Android") to { childLimit() },
@@ -517,10 +554,7 @@ internal class SettingsLock(private val act: MainActivity) {
                 if (Kiosk.adbOn(act)) { Kiosk.setDebugging(act, false); again() } else withPinSet { usbDebugging() }
             },
             CalmDialog.Row("Android settings") to person("Android settings") { withPinSet { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) } },
-            CalmDialog.Row("Leave kiosk mode") to person("Leave kiosk mode") { withPinSet {
-                CalmDialog(act).setTitle("Leave kiosk mode?").setMessage("Open Opie from its icon to come back.")
-                    .setPositiveButton("Leave") { _, _ -> act.leaveKioskForGood() }.setNegativeButton("Cancel") { _, _ -> tablet() }.show()
-            } },
+            CalmDialog.Row("Leave kiosk mode") to person("Leave kiosk mode") { leave() },
             // Kiosk mode blocks Android's own factory reset, so this is the way to hand a tablet on (docs/beta.md).
             CalmDialog.Row("Erase this device") to person("Erase this device") { withPinSet { erase() } },
         )

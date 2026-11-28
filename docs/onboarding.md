@@ -74,8 +74,10 @@ On the tablet:
       photos (a person's yes here, `PhotoShare.turnOn`), then the connected phone shows Choose photos (no second code
       to scan). The albums and photos that came in show below, the newest as small pictures.
    6. **Choose a PIN** ("It guards Settings and new apps"): PIN Lock on, so Settings and approving a new app
-      ask for it. Skip leaves the lock off (Settings, PIN Lock, later). On a linked tablet there's no recovery code
-      to keep, since the account page resets the PIN; unlinking shows one first.
+      ask for it. It can't be skipped (the owner, 2026-11-28): the tablet doesn't go past it, or out of the setup,
+      until a PIN is set (`Setup.allowed`), and Later on an earlier step comes here first. With no phone or computer
+      in, it's chosen on the tablet. On a linked tablet there's no recovery code to keep, since the account page
+      resets the PIN; unlinking shows one first.
    7. **Two of Android's settings** (`AndroidStep`, since 2026-11-26): Let Opie use other apps (Android's
       accessibility page for the Opie assistant; "On" once it is) and Stop charging at 80% (Android's settings, with
       the path for a Samsung, else a pointer to [tablets.md](tablets.md)). Each leaves kiosk mode, behind the PIN if

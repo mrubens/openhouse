@@ -85,7 +85,8 @@ remove it in Tailscale's admin console *and* in Settings → Devices.
 
 ## 5. How to undo it
 
-**Settings → Advanced → Erase this tablet** (with the PIN, if you set one). It unlinks the tablet from your account
+**Settings → Advanced → Erase this device**, with the PIN (a tablet that has none asks you to choose one first). It
+unlinks the tablet from your account
 and resets it to factory settings, and it starts again at Android's welcome screen as a normal tablet. Backups in
 your account stay there until you delete the account.
 
@@ -95,8 +96,9 @@ see "Stuck in kiosk mode" below.
 ## 6. When it's stuck
 
 These are the ones we've seen on real tablets, with what fixed them. Something else? Tell us on
-[the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml), and if Opie opens,
-send its logs with **Settings → Advanced → Send a report** (needs the tablet linked to an account).
+[the "My tablet" form](https://github.com/mrubens/opie/issues/new?template=my-tablet.yml). A tablet linked to an
+Opie account can also send its logs, if Opie opens: **Settings → Advanced → Send a report**. Without an account
+there's nowhere for a report to go, so the form is the way.
 
 - **The code is refused, or the tablet says it can't set up a work device** (Xiaomi's HyperOS): that tablet can't run
   Opie. Reset it and use it as a normal tablet.
@@ -118,15 +120,22 @@ What each way back is, as the code has it. **None of these has been walked throu
   the PIN was set) or the backups' recovery code. On a tablet linked to an account there's also **Reset with your
   account**: the tablet shows a code, someone in the household types it on the account page at
   [cloud.opie.house](https://cloud.opie.house), and the tablet lets you choose a new PIN. Without either code and
-  without an account, the way back is erasing the tablet from Android's recovery menu (the last item).
+  without an account, the last resort is Android's recovery menu (the last item), which may refuse to wipe a tablet
+  Opie still opens on. Keep the recovery code.
 - **An update that won't start.** Nothing to do: each release carries the one before it, and a tablet whose new
   release doesn't come up healthy installs that one by itself ([self-update.md](self-update.md), "Going back").
-- **Opie's software not answering** ("The tablet's software isn't answering right now"). The tablet starts it again
-  by itself within a minute or so. If Settings → Advanced says "Opie's software was stopped by Android", tap it and
-  follow its steps once. If it keeps happening, restart the tablet (hold the power button, then Restart).
-- **Stuck in kiosk mode, Opie open.** Settings → Advanced → Leave kiosk mode (with the PIN), or Erase this tablet to
+- **Opie's software not answering** (the tablet stays on Opie's starting screen, or says "The tablet's software
+  isn't answering right now"). The tablet starts it again by itself within a minute or so. After a minute on the
+  starting screen, **Settings** appears under it: Wi-Fi, an update that's waiting (Install version …, or Updates to
+  check for one), Restart Opie's software (Reset there puts its software back as it came, keeping the household's
+  things), Leave kiosk mode and Erase this device, the last three with the PIN. A downloaded update also goes in by
+  itself once the software has been silent for a quarter of an hour. If Settings → Advanced says "Opie's software
+  was stopped by Android", tap it and follow its steps once.
+- **Stuck in kiosk mode, Opie open.** Settings → Advanced → Leave kiosk mode (with the PIN), or Erase this device to
   give it back to Android entirely.
 - **Stuck in kiosk mode, Opie not opening at all.** Opie stops Android's own factory reset and safe mode while it owns
-  the tablet, but not the recovery menu: with the tablet off, hold the power and volume-up buttons until it appears
-  (the keys differ by maker), choose Wipe data / factory reset, and confirm. The tablet starts again as a normal
-  Android tablet. If it then asks for a Google account, it's the one that was on it before the reset (section 2).
+  the tablet. If its home screen hasn't come up 10 minutes after the tablet starts, it lets both through until it
+  does. So: turn the tablet on, leave it 10 minutes, turn it off, then hold the power and volume-up buttons until the
+  recovery menu appears (the keys differ by maker), choose Wipe data / factory reset, and confirm. The tablet starts
+  again as a normal Android tablet. If it then asks for a Google account, it's the one that was on it before the
+  reset (section 2).

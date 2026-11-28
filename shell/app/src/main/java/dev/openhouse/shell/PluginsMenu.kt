@@ -242,7 +242,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
                     for ((name, pkg) in hits) {
                         val here = AppStore.installed(pkg)
                         play.addView(line(name, if (here) "On this device" else null, null) {
-                            if (!here) addAndroid(pkg, name) else { AppStore.addToHome(pkg); if (!KioskApps.openApp(pkg)) say(name, "It didn't open. Try it from Apps.") }
+                            if (!here) addAndroid(pkg, name) else addInstalled(pkg, name)
                         })
                     }
                 }
@@ -328,6 +328,17 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
         if (!PlayStore.available(act)) return say(name, "Adding Android apps needs Google Play, and this device doesn't have it.")
         if (!PlayStore.signedIn(act)) return act.lock.open("googlePlay") // (its first screen says what it's for)
         guard { if (!PlayStore.openPage(act, pkg)) say(name, "Google Play didn't open. Try again in a minute.") }
+    }
+
+    /**
+     * An app already on the device, into Apps and open. Adding is Add apps' (the PIN when it asks: [guard]); one of
+     * the device's own (a browser, Files, a store: KioskApps.needsParent) also takes a person's yes on the card, with
+     * the PIN when one is set, as opening it from Apps does, since once it's in Apps it opens like any other.
+     */
+    private fun addInstalled(pkg: String, name: String) = guard {
+        val add = { AppStore.addToHome(pkg); if (!KioskApps.openApp(pkg)) say(name, "It didn't open. Try it from Apps.") }
+        if (!KioskApps.needsParent(pkg)) return@guard add()
+        thread { if (ApprovalCard.ask("Add $name to Apps?", "", parent = ParentPin.isSet(act), yes = "Add")) ui { add() } }
     }
 
     private fun installedOne(name: String) = thread {
