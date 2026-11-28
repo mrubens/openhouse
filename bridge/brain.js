@@ -196,7 +196,9 @@ const plugins = pluginsRoutes({ APP_DIR, edits, homeScreen: chat.homeScreen, jso
   ai: async (q) => { if (!cloudRef?.brainOn?.()) throw new Error("Opie's cloud isn't set up"); return cloudRef.ai(q); },
   DATA: path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'), '../appdata'), DEFAULTS, SEEDED: path.join(HERE, '../.defaults-seeded'),
   onChange: () => { emit({ type: 'state', ...events.state }); emit({ type: 'apps' }); },
-  household: () => { try { return JSON.parse(fs.readFileSync(path.join(HERE, '../household.json'), 'utf8')); } catch { return {}; } } });
+  household: () => { try { return JSON.parse(fs.readFileSync(path.join(HERE, '../household.json'), 'utf8')); } catch { return {}; } },
+  // a plugin's starter: routines and chores, added through the house's own tools (only names the household has none of)
+  house: { checklists: () => chat.house.checklists(), chores: () => chat.house.chores(), changeChecklists: (a) => chat.house.changeChecklists(a), changeChores: (a) => chat.house.changeChores(a) } });
 chat.homeScreen.addTools(plugins.tools, plugins.call);
 // An app's card on Home (its widget.html): a plugin's app only with "today-card" granted; the household turns each on (home-screen.js today_card).
 apps.setRightsOf(plugins.rightsOf); apps.setFrozenOf(plugins.frozenOf);
@@ -243,6 +245,11 @@ const checksFromApps = appChecks({ APP_DIR, readData: dataReader(path.resolve(HB
 const approvePrompt = async (text) => !host.there() || await shellApprove('Change what check-ins look for?', text, true, { yes: 'Save', for: 'settings' });
 const hb = heartbeat({ approvePrompt, judge: { name: 'cloud', ready: () => !!cloudRef?.liveOn?.(), decide: (i, q) => cloudRef.decide(i, q), ai: (q) => cloudRef.ai(q) },
   fixes, things: chat.things, extraChecks: checksFromApps.run, checkProblems: checksFromApps.problems,
+  // the one offer from Opie's list: what's on it and not on the device (by plugin or app name), and what is
+  offers: async () => {
+    const mine = plugins.installed().filter((p) => !p.removed), have = new Set(mine.flatMap((p) => [p.name, ...(p.apps || []).map((a) => a.id)]));
+    return { candidates: (await plugins.gallery()).filter((c) => !c.installed && !have.has(c.name)).map(({ name, title, description }) => ({ name, title, description })), have: mine.map((p) => p.title).filter(Boolean) };
+  },
   changesOf: (app) => { const all = edits.listChanges(); const mine = all.filter((c) => c.change.includes(app)); return (mine.length ? mine : all).slice(0, 5); },
   HERE, DIR: HB_DIR, homeScreen: chat.homeScreen, house: chat.house, board: chat.board,
   appErrors: builder.errors, busy: chat.busy, json, body,

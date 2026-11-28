@@ -182,8 +182,7 @@ twins-chores/
 - house data, `appdata`, photos, notes, `household.json`, `preferences.md`, sign-ins
 - code for the bridge or the shell
 
-Starter data (a set of chores, a morning routine) is plausible later as a declared, previewed `data/` file that goes
-in through the house tools. It is left out of v1.
+Starter data (a set of chores, a morning routine) is a declared, previewed `starter.json` (§21).
 
 ## 4. Each kind of piece
 
@@ -295,9 +294,9 @@ There is no `npm install` and nothing runs.
   - `export_plugin {apps, look?, skills?}` goes the other way. It returns the plugin's files to the computer, where
     Claude or Codex writes them to a folder and, if the person asks, pushes them to *their own* GitHub repo with
     their own `git`. Opie never publishes anything.
-- **From a link on openhouse.computer (later):** the index page for a plugin shows the README, the preview, what it
-  uses, and a QR code. Scanning it with the family's phone hands the link to the tablet (the phone hand-off that
-  exists for flyers and recipes), and the tablet shows the card.
+- **From opie.house/plugins (§19):** a plugin's page there shows what it does, what it uses, and a QR code. Scanning
+  it with the family's phone opens the page there, and sharing it to Opie hands its name to the device (the phone
+  hand-off that exists for flyers and recipes), and the device shows the card.
 - **From Settings:** a "Plugins" row lists what's installed (source, version, "changed by you" or not),
   with Update and Remove. There's no browsing on the tablet in v1.
 
@@ -788,7 +787,8 @@ tablet says so and opens its own page (Remove). "From a link" stays at the botto
   `scripts/plugin-index.mjs` builds it from `plugins/*/package.json` and the tarballs `scripts/plugin-tarballs.sh`
   made, unpacking and checking each one as the tablet does (`checkPlugin`) and writing its rights with `rightsMerged`.
   A picture is `plugins/<name>/preview.png` (or `.jpg`, `.webp`), copied next to its tarball.
-- The tablet fetches the list only when someone opens it or asks Opie (kept 10 minutes). It takes only entries whose
+- The tablet fetches the list when someone opens it or asks Opie (kept 10 minutes), and at most once a day for the
+  heartbeat's one offer (docs/heartbeat.md §8), only when check-ins may judge (the cloud's judge is on). It takes only entries whose
   tarball and picture are https on the list's own host and that carry a sha256 (`cleanCatalog`), installs only from
   that tarball, and refuses it if its sha256 differs. The card is made from the tarball itself, never from the list's
   words, and says it was reviewed for the list. The manifest keeps `source: "catalog:<name>"`, `sha256` and `reviewed`.
@@ -826,8 +826,17 @@ backups. Nothing here uploads or publishes them; `export_plugin`, asked for by s
 Tests: `plugins.test.mjs` (the list's hosts and sha256; a merge keeps both sides and never the household's or the
 model's rights; a merge that can't be done changes nothing).
 
-**Later:** the same list as a page on openhouse.computer, with a QR code per plugin that hands its name to the tablet
-(the phone hand-off), in the cloud repo's landing page. Not built yet.
+**On the web (2026-11-28):** the same list is a page, opie.house/plugins, served by the cloud from the very
+`index.json` the devices read (read again after five minutes), in the list's order, with each plugin's `rights` as
+they are (the card's words, from `rightsMerged`). It has no scripts. Each plugin has a page of its own,
+opie.house/plugins/<name>, with a QR code of that address: the phone opens it and shares it to Opie (Send to Opie),
+or someone asks Opie by name. `add_plugin` and `look_at_plugin` take that address as the list's name (`listLink`:
+only opie.house or openhouse.computer, never a git link), so it is the same card and PIN on the device.
+- **The list's order** is set by `scripts/plugin-index.mjs`: first the ones that work from the household's own local
+  data (School lunch, Trash day, Game days, Bus times, School menus), then the rest by name. Settings and
+  `find_plugins` keep it too.
+- The cloud's `test/plugins-page.test.ts` fails if the page and `index.json` disagree (with an OpenHouse checkout, it
+  also builds a fresh `index.json` from `plugins/` and checks against that).
 
 ## 20. On the household's phones (2026-11-23)
 
@@ -843,3 +852,25 @@ which marks each call with the app. Nothing new is asked on the install card: a 
   === 'phone'` (from the kit) says where it is, to leave such a button out.
 - No `localStorage` surprises: it works, kept per app on that phone. No `indexedDB` or `caches` there.
 - An app that can't work on a phone says so: `"screens": ["tablet"]` in its app.json (add `"tv"` if it's for a TV too).
+
+## 21. A starter: routines and chores to begin with (2026-11-28)
+
+A plugin may carry a starter: `starter.json` at its root (or `"openhouse": {"starter": "<file>"}`), plain data:
+
+```json
+{ "routines": [{ "name": "Bedtime", "from": "19:00", "to": "21:00", "days": ["mon"], "steps": ["Bath", "Pajamas"] }],
+  "chores": [{ "task": "Set the table", "days": ["mon", "wed"] }, { "task": "Water the plants", "every": 3, "stars": 2 }] }
+```
+
+- **Checked like the rest** (`cleanStarter`): up to 4 routines of up to 10 steps, up to 20 chores, short plain text, times
+  as HH:MM. A chore in a starter is anyone's (no `who`): the household says whose later.
+- **Shown before it's added.** The card lists every routine with its steps and every chore (`starterWords`), as one of
+  its lines; so does Opie's `look_at_plugin`, and the list's `rights` (`scripts/plugin-index.mjs`), so opie.house/plugins
+  shows it too.
+- **Never overwrites.** On the yes, after the apps go in, each routine and chore is added through the house's own
+  tools (`changeChecklists`, `changeChores` add) only when the household has none by that name (any case, anyone's).
+  Nothing they have is changed, moved or removed. It's household data, not part of the plugin's change in `webapp/`.
+- **Only on adding**, never on an update. `add_plugin {starter: false}` leaves it out; Settings' Add takes `starter`
+  the same way (yes by default).
+- Example: `plugins/bedtime` comes with a Bedtime routine.
+- Test: `plugins.test.mjs` (a starter adds only what's missing and leaves the household's own as it was).

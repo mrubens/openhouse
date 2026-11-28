@@ -306,7 +306,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   data.asks = [];
   kept = structuredClone(data);
   for (const k of ['context', 'settings', 'putAway', 'addFlyer', 'readEmail', 'addRecipePhoto', 'prepareCook', 'addRecipeLink', 'findRecipes',
-    'changeAlbums', 'caption', 'addPhoto', 'serveVideo', 'stills', 'removePhoto', 'restorePhoto', 'albums']) handle[k] = house[k];
+    'changeAlbums', 'caption', 'addPhoto', 'serveVideo', 'stills', 'removePhoto', 'restorePhoto', 'albums',
+    'checklists', 'chores', 'changeChecklists', 'changeChores']) handle[k] = house[k]; // (the last four: a plugin's starter, plugins.js)
   // A tool whose change wasn't saved says so (isError, with why), as a tap is told: never "Done" for what a restart loses.
   handle.call = async (...a) => {
     try { return await house.call(...a); }

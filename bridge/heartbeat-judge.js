@@ -87,3 +87,31 @@ export async function writeNote({ ai, finding, verdict, level, fixQueued = false
   }
   return { ok: true, said: '', cost, steps };
 }
+
+// ---- one plugin from Opie's list, offered when the household's own things show it's needed (docs/heartbeat.md §8) ----
+export const OFFER_SURE = 0.8; // how sure "their own things show they need it" must be
+
+/** One question per plugin not on the device: do the household's own things show a need it meets? */
+export function offerQuestions(plugins) {
+  return plugins.map((p, i) => ({ type: 'predicate', name: `need_${i + 1}`,
+    instructions: `Plugin ${i + 1}: do this household's own things above (their calendars, events, routines, chores, lists, meals) show a clear, specific need it meets: something they already follow, keep track of or do by hand that it would take over? No when it would only be nice to have, when nothing above points to it, or when what they have already does it.` }));
+}
+
+/** What the decision model is shown for an offer: the household as conversations know it, its calendars' names, the
+ *  coming weeks' events, what's on the device, and the plugins on Opie's list that aren't, numbered. */
+export function offerInput({ when, household = '', calendars = [], events = [], have = [], plugins }) {
+  return `It is ${when}. A household's screen could suggest one plugin from Opie's reviewed list, if their own things show they need it.\n\n` +
+    `The household:\n${String(household).slice(0, 4000)}\n\n` +
+    `Their calendars: ${calendars.length ? asData(calendars.join('; '), 'the names they gave their calendars', { max: 600 }) : 'none'}\n` +
+    `The next four weeks:\n${events.length ? asData(events.join('\n'), "the calendar's events, in the words of whoever put them there", { max: 4000 }) : '- nothing'}\n\n` +
+    `On the device already: ${have.length ? have.join(', ').slice(0, 800) : 'nothing beyond what Opie comes with'}\n\n` +
+    `The plugins:\n${asData(plugins.map((p, i) => `${i + 1}. ${p.title}: ${p.description}`).join('\n'), "the plugins' own descriptions", { max: 4000 })}`;
+}
+
+/** The plugin to offer, or null: the one the model is surest about, if it's sure enough. */
+export function offerPick(plugins, answers = []) {
+  const by = Object.fromEntries((answers || []).map((a) => [a.name, a]));
+  let best = null;
+  plugins.forEach((p, i) => { const w = by[`need_${i + 1}`]?.probability; if (typeof w === 'number' && w >= OFFER_SURE && (!best || w > best.sure)) best = { ...p, sure: w }; });
+  return best;
+}

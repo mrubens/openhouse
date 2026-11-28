@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Opie's list of plugins (the gallery in Settings, Opie's find_plugins): index.json, built from plugins/*/package.json
+// Opie's list of plugins (the gallery in Settings, Opie's find_plugins, opie.house/plugins): index.json, built from plugins/*/package.json
 // and the tarballs scripts/plugin-tarballs.sh made. Each tarball is unpacked and checked the way the tablet checks it
 // (bridge/plugins.js checkPlugin), and what it may do is written in the card's words. The tablet installs only from the
 // tarball address here, and only if its sha256 matches. Uploading (next to the tarballs) is a separate, asked-for step.
@@ -14,7 +14,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkPlugin, rightsMerged } from '../bridge/plugins.js';
+import { checkPlugin, rightsMerged, starterWords } from '../bridge/plugins.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2), names = [];
@@ -28,7 +28,12 @@ for (let i = 0; i < args.length; i++) {
 out ||= path.join(dir, 'index.json');
 const sha = (b) => crypto.createHash('sha256').update(b).digest('hex');
 const tarballs = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /\.tgz$/.test(f)) : [];
-const wanted = names.length ? names : fs.readdirSync(path.join(ROOT, 'plugins')).filter((n) => fs.existsSync(path.join(ROOT, 'plugins', n, 'package.json'))).sort();
+// The list's order is the order Settings, Opie and opie.house/plugins show it in: first the ones that work from the
+// household's own local data (their school, their pickup days, their team, their stop), then the rest by name.
+const FIRST = ['school-lunch', 'trash-day', 'game-schedule', 'bus-times', 'school-menus'];
+const rank = (n) => (FIRST.includes(n) ? FIRST.indexOf(n) : FIRST.length);
+const wanted = (names.length ? names : fs.readdirSync(path.join(ROOT, 'plugins')).filter((n) => fs.existsSync(path.join(ROOT, 'plugins', n, 'package.json'))))
+  .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 
 const plugins = [], skipped = [];
 for (const n of wanted) {
@@ -46,7 +51,7 @@ for (const n of wanted) {
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   if (p.name !== pkg.name) throw new Error(`${file} holds ${p.name}, not ${pkg.name}`);
   const entry = { name: p.name, title: p.title, description: p.description, version: p.version, commit, tarball: base + file, sha256: sha(buf),
-    rights: [...rightsMerged(p.apps), ...(p.look ? ['Changes the look.'] : []), ...(p.tabs.length ? [`Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}.`] : [])] };
+    rights: [...rightsMerged(p.apps), ...(p.look ? ['Changes the look.'] : []), ...(p.tabs.length ? [`Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}.`] : []), ...(p.starter ? [starterWords(p.starter)] : [])] };
   const pic = ['png', 'jpg', 'webp'].map((x) => path.join(ROOT, 'plugins', n, `preview.${x}`)).find((f) => fs.existsSync(f));
   if (pic) {
     const to = `${pkg.name}-${pkg.version}-${commit}${path.extname(pic)}`;

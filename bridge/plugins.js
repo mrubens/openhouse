@@ -27,6 +27,7 @@ import { USES } from './apps.js';
 import { validateChecks } from './heartbeat-checks.js';
 import { publicGet } from './app-web.js';
 import { GIT_SAFE } from './edits.js';
+import { WEEKDAYS } from './house/util.js';
 
 const ID = /^[a-z0-9][a-z0-9-]{0,60}$/;
 const HOST = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}(:\d{1,5})?$/;
@@ -62,6 +63,15 @@ export function parseSource(s, { local = false } = {}) {
   if (!m || !HOST.test(m[1].toLowerCase()) || m[3]?.startsWith('-')) return null; // a ref is never an option to git
   const where = `${m[1].toLowerCase()}/${m[2]}`;
   return { kind: 'git', url: `https://${where}.git`, ref: m[3] || null, label: where, key: `git:${where}` };
+}
+
+/**
+ * A plugin's own page on opie.house (its QR code, or the link shared from a phone): the name of a plugin on Opie's list,
+ * never a git link. Only Opie's own site; anything else is null.
+ */
+export function listLink(s) {
+  const m = String(s || '').trim().match(/^(?:https?:\/\/)?(?:www\.)?(?:opie\.house|openhouse\.computer)\/plugins\/([a-z0-9][a-z0-9-]{0,63})\/?(?:[?#].*)?$/i);
+  return m ? m[1].toLowerCase() : null;
 }
 
 /** A git or tar run, off the event loop (a slow fetch mustn't stall the bridge: the shell restarts one that stops answering). */
@@ -239,9 +249,45 @@ export function checkPlugin(dir) {
   const tabs = (list(oh.tabs) || []).map((t) => (typeof t === 'string' ? { app: t } : t))
     .filter((t) => t && apps.some((a) => a.id === t.app)).map((t) => ({ app: t.app, ...(t.name ? { name: String(t.name).slice(0, 24) } : {}) }));
   if (!apps.length && !look) throw new Error('It has no apps or look for Opie.');
+  // Its starter (docs/plugins.md §21): routines and chores, data only, shown on the card, added only where missing.
+  let starter = null;
+  const starterFile = list(oh.starter)?.[0] ?? (fs.existsSync(path.join(root, 'starter.json')) ? 'starter.json' : null);
+  if (starterFile) {
+    const f = inside(root, String(starterFile));
+    let raw; try { raw = readJson(f); } catch { throw new Error(`Its starter (${starterFile}) isn't JSON.`); }
+    starter = cleanStarter(raw);
+    if (!starter) notes.push(`Its starter (${starterFile}) has nothing Opie can add.`);
+  }
   let readme = ''; try { readme = fs.readFileSync(path.join(root, 'README.md'), 'utf8').slice(0, 1500); } catch {}
   return { name, title: String(oh.title || (apps.length === 1 ? apps[0].name : name.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase()))).slice(0, 60), version: String(pkg.version || '').slice(0, 20),
-    description: String(pkg.description || '').slice(0, 300), readme, apps, look, tabs, notes };
+    description: String(pkg.description || '').slice(0, 300), readme, apps, look, tabs, ...(starter ? { starter } : {}), notes };
+}
+
+/**
+ * A plugin's starter: routines (morning, bedtime) and chores to begin with, as plain data. { routines: [{ name, from,
+ * to, days?, steps: [text] }], chores: [{ task, days?, every?, stars? }] }, or null when there's nothing in it. A chore
+ * in a starter is anyone's: the household says whose later.
+ */
+export function cleanStarter(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const s = (v, n) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, n) : '');
+  const time = (v) => (/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v)) ? String(v) : null);
+  const days = (v) => { const d = [...new Set((Array.isArray(v) ? v : []).map((x) => String(x).slice(0, 3).toLowerCase()).filter((x) => WEEKDAYS.includes(x)))]; return d.length && d.length < 7 ? { days: d } : {}; };
+  const int = (v, a, b) => { const n = Math.round(Number(v)); return n >= a && n <= b ? n : null; };
+  const routines = (Array.isArray(raw.routines) ? raw.routines : []).slice(0, 4).map((r) => ({ name: s(r?.name, 30), from: time(r?.from), to: time(r?.to), ...days(r?.days),
+    steps: (Array.isArray(r?.steps) ? r.steps : []).slice(0, 10).map((x) => s(typeof x === 'object' ? x?.text : x, 40)).filter(Boolean) }))
+    .filter((r) => r.name && r.from && r.to && r.steps.length);
+  const chores = (Array.isArray(raw.chores) ? raw.chores : []).slice(0, 20).map((c) => {
+    const every = int(c?.every, 2, 90), stars = int(c?.stars, 2, 10);
+    return { task: s(c?.task, 60), ...(every ? { every } : days(c?.days)), ...(stars ? { stars } : {}) };
+  }).filter((c) => c.task);
+  return routines.length || chores.length ? { routines, chores } : null;
+}
+/** A starter in the card's words: everything it adds, shown before anyone says yes. */
+export function starterWords(st) {
+  const parts = [...(st.routines.length ? [`${st.routines.length === 1 ? 'a routine' : 'routines'}: ${st.routines.map((r) => `${r.name} (${r.steps.join(', ')})`).join('; ')}`] : []),
+    ...(st.chores.length ? [`${st.chores.length === 1 ? 'a chore' : 'chores'}: ${st.chores.map((c) => c.task).join(', ')}`] : [])];
+  return `Starts you off with ${parts.join('; and ')}. Only ones you don't have are added; nothing you have changes.`;
 }
 
 /**
@@ -386,7 +432,7 @@ export function cleanCatalog(raw, indexUrl = CATALOG_URL, { http = false } = {})
  * A household change to a built-in makes a local plugin that overrides it (the built-in stays listed, overriddenBy),
  * in the same commit as the change (reconcile, edits.js snapshot), so our updates and their changes never collide.
  */
-export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve = null, onChange = () => {}, local = !!process.env.PLUGINS_LOCAL, household = () => ({}),
+export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve = null, onChange = () => {}, local = !!process.env.PLUGINS_LOCAL, household = () => ({}), house = null,
   DATA = null, DEFAULTS = null, SEEDED = null, answerWaitMs = 6000, log = (...a) => console.log('[plugins]', ...a),
   ai = null, fetchImpl = (...a) => fetch(...a), web = {}, catalogUrl = process.env.PLUGIN_INDEX_URL || CATALOG_URL }) {
   const DIR = path.join(APP_DIR, 'plugins');
@@ -811,8 +857,9 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
    * Opie's list, which is then fetched only from the tarball the list pins, and only if its sha256 matches.
    */
   async function inspect(source, opts = {}) {
-    let src = parseSource(source, { local: local || opts.local });
-    if (!src && !/[/:]/.test(String(source || ''))) { const c = await listed(source); if (c) src = catalogSource(c); }
+    const onSite = listLink(source); // a plugin's page on opie.house: its name on the list
+    let src = onSite ? null : parseSource(source, { local: local || opts.local });
+    if (!src && (onSite || !/[/:]/.test(String(source || '')))) { const c = await listed(onSite || source); if (c) src = catalogSource(c); }
     if (!src) throw new Error('That isn\'t a plugin on Opie\'s list or a link one comes from: give a git link (github.com/someone/something, or with @version) or an https link to a .tgz.');
     const got = await fetchSource(src, fetchImpl, web);
     try {
@@ -831,6 +878,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     if (p.apps.length) lines.push(`${p.apps.length === 1 ? 'One app' : p.apps.length + ' apps'}${p.apps.length > 1 ? ` (${p.apps.map((a) => a.name).join(', ')})` : ''}. It:`, ...rightsMerged(p.apps).map((l) => '- ' + l));
     if (p.look) lines.push(`- Changes the look: ${lookWords(p.look)}.`);
     if (p.tabs.length) lines.push(`- Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}: ${p.tabs.map((t) => t.name || t.app).join(', ')}.`);
+    if (p.starter) lines.push(`- ${starterWords(p.starter)} (Leave it out with starter: false.)`);
     if (already && readAll()[p.name]?.kind === 'shared') lines.push('It is already on this device.');
     lines.push(...p.notes);
     if (p.description) lines.push(`In its own words: "${p.description.replace(/\s+/g, ' ').trim()}"`);
@@ -846,6 +894,7 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
     if (p.apps.length) rights.push(...rightsList(p.apps));
     if (p.look) rights.push({ kind: 'look', text: `Changes the look: ${lookWords(p.look)}.` });
     if (p.tabs.length) rights.push({ kind: 'tabs', text: `Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}: ${p.tabs.map((t) => t.name || t.app).join(', ')}.` });
+    if (p.starter) rights.push({ kind: 'data', text: starterWords(p.starter) });
     const full = String(p.src.label || ''), label = full.length > 60 ? `${full.slice(0, 57)}...` : full;
     rights.push({ kind: 'from', text: p.src.catalog ? "From Opie's list, reviewed." : `From ${label}. Not reviewed for Opie's list.` });
     if (p.apps.length > 1) rights.push({ kind: 'apps', text: `${p.apps.length} apps: ${p.apps.map((a) => a.name).join(', ')}.` });
@@ -876,10 +925,29 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   const appEntry = (a, files) => ({ from: a.id, name: a.name, uses: a.uses, reaches: a.reaches, ...(a.setupReaches?.length ? { setupReaches: a.setupReaches } : {}), ...(a.actions?.length ? { actions: a.actions } : {}), ...(a.checks?.length ? { checks: a.checks } : {}),
     ...(a.background ? { background: true } : {}), ...(a.screens?.length ? { screens: a.screens, tablet: a.tablet === true } : {}), files });
 
-  /** Put it in: one change, undoable. by: a turn already holding the lock (its change then includes this). */
-  function put(p, { tabs = true, who = null, by = null } = {}) {
+  /**
+   * A starter's routines and chores, into the household's own (house.js), each only if they have none by that name:
+   * nothing of theirs is changed or replaced. { routines, chores }: the names added.
+   */
+  function addStarter(st) {
+    if (!st || !house) return { routines: [], chores: [] };
+    const key = (x) => String(x || '').trim().toLowerCase();
+    const haveR = new Set(house.checklists().map((c) => key(c.name))), haveC = new Set(house.chores().map((c) => key(c.task)));
+    const routines = st.routines.filter((r) => !haveR.has(key(r.name))), chores = st.chores.filter((c) => !haveC.has(key(c.task)));
+    if (routines.length) house.changeChecklists({ add: routines.map((r) => ({ ...r, who: [] })) });
+    if (chores.length) { const r = house.changeChores({ add: chores }); if (r?.error) log(`starter chores not added: ${r.error}`); }
+    return { routines: routines.map((r) => r.name), chores: chores.map((c) => c.task) };
+  }
+
+  /** Put it in: one change, undoable. by: a turn already holding the lock (its change then includes this). starter:
+   *  also its starter's routines and chores, where the household has none by those names. */
+  function put(p, { tabs = true, starter = true, who = null, by = null } = {}) {
     const all = readAll();
     if (all[p.name]?.kind === 'shared') return { error: `The ${p.title} plugin is already on this device. update_plugin brings a newer version.` };
+    const r = putApps(p, { tabs, who, by, all });
+    return r.error || !starter || !p.starter ? r : { ...r, starter: addStarter(p.starter) };
+  }
+  function putApps(p, { tabs, who, by, all }) {
     return inChange(`Add the ${p.title} plugin (${p.src.label}${p.commit ? ' @ ' + p.commit.slice(0, 7) : ''})`, who, by, (owner) => {
       const name = all[p.name] ? freeName(p.name, all) : p.name;
       const entry = { kind: 'shared', source: p.src.key || p.src.label, commit: p.commit, ...(p.sha256 ? { sha256: p.sha256 } : {}), ...(p.src.catalog ? { reviewed: true } : {}),
@@ -1312,12 +1380,12 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
   const images = new Map();
 
   // ---- the tools: the assistant's and a computer's (homeScreen.addTools; the workshop adds export_plugin) ----
-  const SRC = { type: 'string', description: "The name of a plugin on Opie's list (find_plugins), or where it comes from, as the family gave it: a git link (github.com/someone/thing, optionally @version) or an https link to a .tgz." };
+  const SRC = { type: 'string', description: "The name of a plugin on Opie's list (find_plugins) or its page on opie.house (opie.house/plugins/<name>, as a phone shares it), or where it comes from, as the family gave it: a git link (github.com/someone/thing, optionally @version) or an https link to a .tgz." };
   const NAME = { type: 'string', description: 'The plugin\'s name or title, or one of its app ids (list_plugins).' };
   const tools = [
     { name: 'find_plugins', description: "The plugins on Opie's reviewed list (its gallery): each with its name, what it does, what it may use, and whether it's on this device. For \"what plugins are there?\" or finding one by what it does. Add one with add_plugin and its name.", inputSchema: { type: 'object', properties: {} } },
     { name: 'look_at_plugin', description: "See what a plugin (something another family made: apps, a look) has in it before adding it: its apps, what each may use of the family's things and which sites it may reach. Say it back in a sentence or two, then add it with add_plugin if they want it.", inputSchema: { type: 'object', required: ['source'], properties: { source: SRC } } },
-    { name: 'add_plugin', description: 'Add a plugin to this device. Someone says yes on the device first (with the PIN); this waits for them, up to a minute and a half. Its apps go in Apps, and the tabs it suggests are added unless tabs is false.', inputSchema: { type: 'object', required: ['source'], properties: { source: SRC, tabs: { type: 'boolean', description: 'Add the tabs it suggests (default yes).' } } } },
+    { name: 'add_plugin', description: 'Add a plugin to this device. Someone says yes on the device first (with the PIN); this waits for them, up to a minute and a half. Its apps go in Apps, and the tabs it suggests are added unless tabs is false.', inputSchema: { type: 'object', required: ['source'], properties: { source: SRC, tabs: { type: 'boolean', description: 'Add the tabs it suggests (default yes).' }, starter: { type: 'boolean', description: "Add its starter's routines and chores, the ones the household has none of by that name (default yes; the card shows them)." } } } },
     { name: 'update_plugin', description: "Bring a plugin from a link or Opie's list up to its newest version (or source, a pinned version). Someone says yes on the device first (with the PIN when it asks for more). If the household changed its app here, it says so: then ask which they want and call again with choice: keep (theirs stays, this update is skipped), theirs (the new version replaces their changes), or both (the new version's changes put onto theirs; if that can't be done cleanly, theirs stays).", inputSchema: { type: 'object', required: ['name'], properties: { name: NAME, source: SRC, choice: { type: 'string', enum: ['keep', 'theirs', 'both'] }, replace: { type: 'boolean', description: 'The same as choice theirs.' } } } },
     { name: 'list_plugins', description: "Everything that adds apps to this device, as plugins: Opie's own (Calendar, Chores…), the household's own (each app made here is one), and ones from a link. Each with its version, where it came from, and whether the household's version is used over ours.", inputSchema: { type: 'object', properties: {} } },
     { name: 'remove_plugin', description: 'Take a plugin off this device: its apps and the tabs it added. Someone says yes on the device first.', inputSchema: { type: 'object', required: ['name'], properties: { name: NAME } } },
@@ -1346,8 +1414,9 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
         const yes = await approve(`Add ${p.title}?`, '', true, { yes: 'Add', for: 'apps', ...card(p, { already: false }) });
         if (yes === null) return err(cantAsk);
         if (!yes) return err('Not added: someone said no, or nobody answered.');
-        const r = put(p, { tabs: a.tabs !== false, who, by });
-        return r.error ? err(r.error) : ok(`Added ${p.title}: ${r.apps.length ? 'apps ' + r.apps.join(', ') : 'its look'}${r.tabs.length ? '; tabs ' + r.tabs.join(', ') : ''}.`);
+        const r = put(p, { tabs: a.tabs !== false, starter: a.starter !== false, who, by });
+        const st = r.starter ? [...r.starter.routines.map((x) => `routine ${x}`), ...r.starter.chores.map((x) => `chore ${x}`)] : [];
+        return r.error ? err(r.error) : ok(`Added ${p.title}: ${r.apps.length ? 'apps ' + r.apps.join(', ') : 'its look'}${r.tabs.length ? '; tabs ' + r.tabs.join(', ') : ''}${st.length ? '; from its starter ' + st.join(', ') : r.starter ? "; its starter's routines and chores were all here already" : ''}.`);
       }
       if (name === 'update_plugin') {
         const f = find(a.name);
@@ -1439,7 +1508,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
         const yes = approve ? await approve(`Add ${p.title}?`, '', true, { yes: 'Add', for: 'apps', ...card(p, { already: false }) }) : null;
         if (yes === null) { json(res, 409, { error: cantAsk }); return true; }
         if (!yes) { json(res, 200, { declined: true, title: p.title }); return true; }
-        const r = put(p, { tabs: b.tabs !== false, who: 'someone' }); json(res, r.error ? 409 : 200, { title: p.title, ...r }); return true;
+        const r = put(p, { tabs: b.tabs !== false, starter: b.starter !== false, who: 'someone' }); json(res, r.error ? 409 : 200, { title: p.title, ...r }); return true;
       }
       // An update from Settings: what it is first (check), then the household's choice (update).
       if (url.pathname === '/plugins/check') {

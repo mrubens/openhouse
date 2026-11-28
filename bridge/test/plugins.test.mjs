@@ -287,6 +287,11 @@ test('the gallery: only tarballs on the list\'s own host, and only the exact one
   assert.equal(yes.isError, undefined, yes.content[0].text);
   assert.equal(t.pl.readAll()['twins-chores'].reviewed, true);
   assert.equal(t.pl.readAll()['twins-chores'].source, 'catalog:twins-chores');
+  // Its page on opie.house (a QR code, a link shared from a phone) is the list's own entry, and only on Opie's site.
+  const t3 = tablet(served({ [CDN + 'index.json']: index, [entry.tarball]: good }));
+  assert.equal((await t3.pl.call('add_plugin', { source: 'https://opie.house/plugins/twins-chores' })).isError, undefined);
+  assert.equal(t3.pl.readAll()['twins-chores'].source, 'catalog:twins-chores');
+  assert.equal((await tablet(served({ [CDN + 'index.json']: index, [entry.tarball]: good })).pl.call('add_plugin', { source: 'https://opie.house.example.com/plugins/twins-chores' })).isError, true);
 
   // The same address serving something else (asking for more): refused, nothing added.
   const t2 = tablet(served({ [CDN + 'index.json']: index, [entry.tarball]: other }));
@@ -294,6 +299,35 @@ test('the gallery: only tarballs on the list\'s own host, and only the exact one
   assert.equal(no.isError, true);
   assert.deepEqual(t2.pl.readAll(), {});
   assert.equal(t2.pl.rightsOf('twins-chores'), null);
+});
+
+test('a starter adds only what the household has none of, and never changes what it has', async () => {
+  const { houseRoutes } = await import('../house.js');
+  const DIR = tmp('house');
+  let chores = [{ who: 'Leo', task: 'Feed the cat' }];
+  const house = houseRoutes({ DIR, json: () => {}, body: async () => ({}), board: { householdView: () => ({ family: [{ name: 'Leo' }, { name: 'Maya' }], chores, calendars: [] }), saveHousehold: (b) => { chores = b.chores; }, calendarEvents: () => [] } });
+  house.changeChecklists({ add: [{ name: 'Bedtime', from: '20:00', to: '21:00', who: ['Maya'], steps: ['Read', 'Lights out'] }] });
+  const mine = structuredClone(house.checklists().find((c) => c.name === 'Bedtime'));
+  const starter = { routines: [{ name: 'bedtime', from: '19:00', to: '21:00', steps: ['Bath', 'Pajamas'] }, { name: 'Morning', from: '06:30', to: '08:30', steps: ['Get dressed', 'Breakfast'] }],
+    chores: [{ task: 'feed the cat' }, { task: 'Set the table', days: ['mon', 'wed'] }] };
+  const good = tarball({ extra: (d) => fs.writeFileSync(path.join(d, 'starter.json'), JSON.stringify(starter)) });
+  const entry = { name: 'twins-chores', title: 'Twins chores', version: '1.2.0', commit: 'abc1234', tarball: CDN + 'twins-chores-1.2.0-abc1234.tgz', sha256: hex(good), rights: [] };
+  let shown = null;
+  const t = tablet(served({ [CDN + 'index.json']: JSON.stringify({ plugins: [entry] }), [entry.tarball]: good }), { house, approve: async (title, d, pin, card) => { shown = card; return true; } });
+  const r = await t.pl.call('add_plugin', { source: 'twins-chores' });
+  assert.equal(r.isError, undefined, r.content[0].text);
+  // shown on the card before the yes: every routine, step and chore it would add
+  const words = shown.rights.map((x) => x.text).join(' ');
+  for (const w of ['Morning', 'Bath', 'Get dressed', 'Set the table']) assert.ok(words.includes(w), w);
+  // theirs untouched (same steps, same times, same people), the new routine added, no second "Feed the cat"
+  assert.deepEqual(house.checklists().find((c) => c.id === mine.id), mine);
+  assert.equal(house.checklists().filter((c) => c.name.toLowerCase() === 'bedtime').length, 1);
+  assert.deepEqual(house.checklists().find((c) => c.name === 'Morning').steps.map((x) => x.text), ['Get dressed', 'Breakfast']);
+  assert.deepEqual(chores.map((c) => c.task), ['Feed the cat', 'Set the table']);
+  assert.equal(chores[0].who, 'Leo');
+  // and left out when they say so
+  const t2 = tablet(served({ [CDN + 'index.json']: JSON.stringify({ plugins: [entry] }), [entry.tarball]: good }), { house: { checklists: () => [], chores: () => [], changeChecklists: () => assert.fail('added'), changeChores: () => assert.fail('added') } });
+  assert.equal((await t2.pl.call('add_plugin', { source: 'twins-chores', starter: false })).isError, undefined);
 });
 
 test('a tarball from a link: every redirect checked, and nothing in it is a link or lands outside', async () => {

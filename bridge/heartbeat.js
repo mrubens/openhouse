@@ -9,6 +9,8 @@
 //    (heartbeat-fixes.js). No agent turn (heartbeat-judge.js).
 //  - and once an hour in waking hours, the hourly review (heartbeat-review.js): the text model on OpenAI's Flex tier
 //    looks at today and tomorrow and does at most one small thing, usually nothing.
+//  - at most once a day, one plugin from Opie's list offered on Home, if the decision model finds the household's own
+//    things show they need it (each plugin offered once, ever; inside the same daily caps).
 //  - with no judge (the tablet isn't linked, or OpenAI isn't chosen): the checks and the tidying only.
 //
 // GET  /heartbeat               { level, path, findings, log, today, asleep, last, fixes, checkProblems }
@@ -24,7 +26,7 @@ import fs from 'node:fs';
 import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
-import { questions, judgeInput, verdicts, writeNote, decideCost, WORTH } from './heartbeat-judge.js';
+import { questions, judgeInput, verdicts, writeNote, decideCost, WORTH, offerQuestions, offerInput, offerPick } from './heartbeat-judge.js';
 import { REVIEW_RULES, snapshot, runReview } from './heartbeat-review.js';
 import { forModel, fromModel } from './tool-args.js';
 import { dayKey } from './dates.js';
@@ -113,11 +115,12 @@ export function storage(free) {
  * holder), busy() (a conversation is going), now(), freeBytes(), log(chats.jsonl line), every (ms; 0: no timer),
  * judge ({ ready(), name, decide, ai }: the decision and text models, or null), fixes (heartbeat-fixes.js),
  * extraChecks (heartbeat-checks.js's run(d)), changesOf(app) (recent changes, for a fix's log), review (the hourly
- * review, heartbeat-review.js: judge.ai with tier "flex").
+ * review, heartbeat-review.js: judge.ai with tier "flex"), offers() (-> { candidates: [{name, title, description}]: Opie's
+ * list, less what's on the device; have: titles on the device }, for the one offer, or null).
  */
 export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () => [], edits = null, busy = () => false,
   now = () => Date.now(), freeBytes = null, logTurn = null, every = 5 * 60e3, json = null, body = null, onChange = () => {},
-  judge = null, fixes = null, things = null, extraChecks = null, checkProblems = () => ({}), changesOf = () => [], review = true, approvePrompt = null }) {
+  judge = null, fixes = null, things = null, extraChecks = null, checkProblems = () => ({}), changesOf = () => [], review = true, approvePrompt = null, offers = null }) {
   const FILE = registered('heartbeat', path.join(DIR, '../heartbeat.json'));
   const read = () => readJson(FILE, {});
   const st = { level: DEFAULT_LEVEL, handled: {}, log: [], day: null, sleepUntil: 0, lastCheckIn: 0, lastReview: 0, last: null, findings: [], notesFor: {}, judgedAt: [], ...read() };
@@ -392,6 +395,55 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
     return entry;
   }
 
+  /**
+   * One plugin from Opie's list on Home, when the household's own things show they need it (a team's calendar and no
+   * Game days): the decision model judges that, never matching words. At most one try a day, at Tidy up or more; each
+   * plugin offered once, ever; counted in the day's judgments, spending and lines on Home. The line's tap asks Opie
+   * about it, and adding it is still the device's card and a person's yes.
+   */
+  async function offerNow() {
+    if (!offers || !things) return { skipped: 'no list' };
+    try { if (!judge?.ready?.()) return { skipped: 'no judge' }; } catch { return { skipped: 'no judge' }; }
+    if (RANK[st.level] < RANK.tidy) return { skipped: 'level' };
+    const a = asleep(); if (a) return { skipped: a };
+    if (busy() || edits?.holder?.()) return { skipped: 'in use' };
+    st.offers ||= { offered: {}, tried: 0 };
+    if (now() - st.offers.tried < DAY - 10 * 60e3) return { skipped: 'day' };
+    const t = today();
+    if (t.judgments >= JUDGE_CAPS.judgments || t.cost >= JUDGE_CAPS.cost || t.notes >= JUDGE_CAPS.notes) return { skipped: 'cap' };
+    const t0 = now(); st.offers.tried = t0;
+    let list; try { list = await offers(); } catch { save(); return { skipped: 'no list' }; }
+    const plugins = (list?.candidates || []).filter((p) => p?.name && !st.offers.offered[p.name]).slice(0, MAX_JUDGED);
+    if (!plugins.length) { save(); return { skipped: 'quiet' }; }
+    const d = new Date(t0), soon = t0 + 28 * DAY;
+    let household = '', calendars = [], events = [];
+    try { household = board.household(); } catch {}
+    try { calendars = (board.householdView().calendars || []).map((c) => c.name || c.label).filter(Boolean); } catch {}
+    try { events = (board.calendarEvents?.() || []).filter((e) => Date.parse(e.start) > t0 && Date.parse(e.start) < soon).sort((x, y) => Date.parse(x.start) - Date.parse(y.start)).slice(0, 40)
+      .map((e) => `- ${new Date(e.start).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}: ${e.who ? e.who + ' — ' : ''}${String(e.title || '').slice(0, 100)}`); } catch {}
+    const input = offerInput({ when: d.toLocaleString('en-US', { weekday: 'long', hour: 'numeric', minute: '2-digit' }), household, calendars, events, have: list.have || [], plugins });
+    const qs = offerQuestions(plugins), cost = decideCost(input, qs);
+    st.judgedAt.push(t0); st.day.judgments++;
+    let answers;
+    try { ({ answers } = await judge.decide(input, qs)); }
+    catch (e) { save(); console.log(`[heartbeat] the judge couldn't answer an offer (${e?.code || e?.message || 'failed'})`); return { skipped: 'judge' }; }
+    const pick = offerPick(plugins, answers);
+    let did = null;
+    if (pick) {
+      try {
+        things.put({ text: `Try ${pick.title}, from Opie's plugins`, ask: `Tell us about the ${pick.title} plugin`, minutes: 24 * 60, by: 'heartbeat' });
+        st.offers.offered[pick.name] = t0; st.day.notes++;
+        did = `Offered ${pick.title} on Home`;
+      } catch (e) { console.error('[heartbeat] offer', e.message); }
+    }
+    const entry = { at: t0, level: st.level, path: 'offer', via: judge.name || 'cloud', saw: plugins.map((p) => p.name), did, ...(pick ? { sure: Math.round(pick.sure * 100) / 100 } : {}), notes: [], ok: true, cost: Math.round(cost * 1e6) / 1e6 };
+    st.log = [entry, ...st.log].slice(0, 50);
+    save();
+    logTurn({ at: new Date(t0).toISOString(), id: 'heartbeat', background: 'heartbeat', path: 'offer', ok: true, ms: now() - t0, agent: judge.name || 'cloud', model: 'gpt-6-luna', usage: { cost: entry.cost }, text: did || 'no offer' });
+    console.log(`[heartbeat] offer: ${did || 'nothing'} (${plugins.length} looked at)`);
+    return entry;
+  }
+
   /** One beat: the checks, the decision model for anything new, then the hourly review if it's due. */
   let beating = null;
   function beat(opts) {
@@ -403,6 +455,7 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
         if (via === 'judge') {
           const r = await judgeNow(opts);
           const rv = await reviewNow(opts).catch((e) => { console.error('[heartbeat] review', e); return { skipped: 'error' }; });
+          await offerNow().catch((e) => console.error('[heartbeat] offer', e));
           const out = r.fallback ? { skipped: 'no judge', why: r.fallback } : r;
           return rv.path === 'review' ? { ...out, review: rv } : out;
         }
@@ -456,5 +509,5 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
     }
     return false;
   }
-  return Object.assign(handle, { check, judgeNow, reviewNow, tidyUp, pathNow, beat, hold, view, awake: () => { if (st.sleepUntil) { st.sleepUntil = 0; save(); } }, state: st });
+  return Object.assign(handle, { check, judgeNow, reviewNow, offerNow, tidyUp, pathNow, beat, hold, view, awake: () => { if (st.sleepUntil) { st.sleepUntil = 0; save(); } }, state: st });
 }
