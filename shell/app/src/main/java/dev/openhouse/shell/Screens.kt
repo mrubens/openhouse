@@ -64,6 +64,13 @@ internal object Screens {
         CalmDialog(a).setTitle("Get the iPhone app").setView(col).setNegativeButton("Close", null).show().also { a.immersive() }
     }
 
+    /** Linked devices' Cancel for an invite nobody has opened yet (the person it's for): asks first. */
+    fun uninvite(a: MainActivity, person: String) = main.post {
+        CalmDialog(a).setTitle("Cancel the invite for $person?")
+            .setPositiveButton("Cancel invite") { _, _ -> thread { post("/screens/invite/cancel", JSONObject().put("person", person)) } }
+            .setNegativeButton("Keep it", null).show().also { a.immersive() }
+    }
+
     /** Linked devices' Remove for one (its id): asks first. */
     fun remove(a: MainActivity, id: String) = thread {
         val x = get(a)?.optJSONArray("screens")?.let { l -> (0 until l.length()).mapNotNull { l.optJSONObject(it) } }?.firstOrNull { it.optString("id") == id } ?: return@thread

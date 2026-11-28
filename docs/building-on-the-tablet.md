@@ -71,7 +71,12 @@ what it was given before (a change to an app someone already said yes to, with n
 the PIN → Add apps is off (the default), goes in as soon as it's made, with no bar and nothing said:
 the app opening is the news. It stays limited, like an app from a link. Taking it off is Apps' remove, or asking Opie.
 The bar below is only for an app whose keeping would give it the household's things or websites, or where Add apps asks
-for the PIN, and on a host that can't say (a hub).
+for the PIN, and on a host that can't say (a hub, or a shell that doesn't answer in time).
+
+**A change to one of the household's own apps always has the bar** (the owner, 2026-11-28). Those apps have every
+right (the house's settings included), so model-written code for one never goes in unasked: it opens to try with Keep
+it, one tap, with the PIN only when Add apps asks for it. One asked for from a run nobody is at (a "later" job) puts no
+bar up: it waits on Home, "ready to try", for a person (and those runs don't get `make_app` at all).
 
 "Make me a dinosaur game", asked aloud: Opie calls `make_app` and says it's making it; the chip shows it being made.
 When it's done, the game is open on the tablet (it opened as it was written), and a small bar at the top over it says

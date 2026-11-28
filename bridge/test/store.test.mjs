@@ -15,6 +15,7 @@ import { INCLUDE, pack } from '../backup-format.js';
 import { laterRoutes } from '../later.js';
 import { homeScreenRoutes } from '../home-screen.js';
 import { dayNotes } from '../day-notes.js';
+import { mailRoutes } from '../mail.js';
 
 const family = [{ name: 'Sam' }, { name: 'Alex' }, { name: 'Maya' }, { name: 'Leo' }];
 const names = (h) => (h.family || []).map((f) => f.name);
@@ -154,6 +155,15 @@ test('the home screen and the apps\' calendar notes: a refused save is said to f
     assert.throws(() => notes.put('lunch', 'Lunch', [{ date: day, text: 'Lunch: Tacos' }]), (e) => e.unsaved);
     assert.deepEqual(notes.apps(), []);
     assert.equal(fs.readFileSync(dn, 'utf8'), dnNewer);
+
+    // mail.json the same: a sender added isn't kept, and a tap is told it failed.
+    const mf = path.join(root, 'mail.json'), mailNewer = JSON.stringify({ $v: 999, senders: [] });
+    fs.writeFileSync(mf, mailNewer);
+    const mail = mailRoutes({ DISPLAY: root, json: () => {}, body: async () => ({}), house: {}, every: 0, log: () => {} });
+    const r = await mail.set({ senders: [{ address: 'alex@example.com', who: 'Alex' }] });
+    assert.ok(r.error && r.status >= 400);
+    assert.deepEqual(mail.view().senders, []);
+    assert.equal(fs.readFileSync(mf, 'utf8'), mailNewer);
   } finally {
     console.error = errors;
     fs.rmSync(root, { recursive: true, force: true });

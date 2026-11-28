@@ -10,7 +10,7 @@
 //
 // Saved in display/devices.json: the devices, the recipes the agent wrote, and pairings (TV tokens).
 import fs from 'node:fs';
-import { readJson, writeJson } from '../store.js';
+import { readJson, writeJson, unsaved } from '../store.js';
 import { registered } from '../stores.js';
 import path from 'node:path';
 import zlib from 'node:zlib';
@@ -96,10 +96,17 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   const PORT = Number(process.env.PORT || 8787);
   let db = { scannedAt: null, devices: [], recipes: {}, pairing: {}, certs: {} };
   db = { ...db, ...readJson(FILE, {}) };
-  const save = () => writeJson(FILE, db, { space: 1 });
+  // A save that's refused or fails throws (marked unsaved: store.js unsaved says what to answer). A change someone asked
+  // for (a recipe, a name, a yes) is taken back in memory too (before), so what shows is what's on disk; what a scan or
+  // a connection learned is kept in memory all the same (kept).
+  const save = (before) => {
+    try { writeJson(FILE, db, { space: 1 }); }
+    catch (e) { if (before) db = before; log(`devices not saved: ${e.message}`); throw Object.assign(e, { unsaved: true }); }
+  };
+  const kept = () => { try { save(); } catch {} };
   // Each device's own certificate, kept for its address (net.js checkPin).
   db.certs ||= {};
-  Object.assign(netPins, { get: (where) => db.certs[where] || null, set: (where, fp) => { db.certs[where] = fp; save(); } });
+  Object.assign(netPins, { get: (where) => db.certs[where] || null, set: (where, fp) => { db.certs[where] = fp; kept(); } });
 
   // The agent's MCP config (Claude Code reads it with --mcp-config; Codex gets the same through -c).
   const token = crypto.randomBytes(18).toString('hex');
@@ -204,7 +211,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       next.sort((a, b) => (b.present - a.present) || rank(a) - rank(b) || a.address.localeCompare(b.address, undefined, { numeric: true }));
       db.devices = next; db.scannedAt = now;
       db.lastScan = lastScan;
-      save();
+      kept();
       log(`scan: ${fresh.length} devices (${lastScan.bluetooth || 0} Bluetooth) in ${lastScan.ms.total} ms (discovery ${lastScan.ms.discover ?? '-'} ms; arp: ${lastScan.arp || 'not readable'}; merged in ${Date.now() - t0} ms)`);
       return db;
   }
@@ -303,7 +310,7 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
       }
       if (app) (pairing.apps ||= {})[app.id] = new Date().toISOString();
       else { pairing.allowed = true; pairing.allowedAt = new Date().toISOString(); }
-      save();
+      kept(); // (not saved: the yes holds until a restart, then it's asked again)
     }
     if (a.risky && !(a.boardOk && who === 'board')) { // (a person's own tap on Pair is their yes)
       const what = `${a.says.replace(/\.$/, '')}${Object.keys(p.values).length ? ` (${Object.entries(p.values).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''}`;
@@ -374,39 +381,42 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
     const errs = R.validate(recipe);
     if (errs.length) return { ok: false, text: `The recipe isn't valid yet:\n- ${errs.slice(0, 20).join('\n- ')}` };
     if (Object.values(db.recipes).length >= 50 && !db.recipes[recipe.id]) return { ok: false, text: 'There are already 50 recipes.' };
+    const before = structuredClone(db);
     db.recipes[recipe.id] = { ...recipe, savedAt: new Date().toISOString() };
     let bound = null;
     if (deviceQ) {
       const d = lookup(deviceQ);
-      if (!d) return { ok: false, text: `Saved the recipe, but no device matches "${deviceQ}".` };
-      if ((recipe.over === 'bluetooth') !== (d.transport === 'bluetooth')) return { ok: false, text: `Saved the recipe, but ${d.name} is a ${d.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'} device: its recipe needs "over": "${d.transport === 'bluetooth' ? 'bluetooth' : 'wifi'}".` };
-      if (d.driver && d.driver !== 'bluetooth') return { ok: false, text: `${d.name} already has a built-in driver (${d.driver}); a recipe isn't needed.` };
+      const only = (text) => { try { save(before); } catch (e) { return { ok: false, text: unsaved(e).error }; } return { ok: false, text }; }; // (the recipe is saved on its own)
+      if (!d) return only(`Saved the recipe, but no device matches "${deviceQ}".`);
+      if ((recipe.over === 'bluetooth') !== (d.transport === 'bluetooth')) return only(`Saved the recipe, but ${d.name} is a ${d.transport === 'bluetooth' ? 'Bluetooth' : 'Wi-Fi'} device: its recipe needs "over": "${d.transport === 'bluetooth' ? 'bluetooth' : 'wifi'}".`);
+      if (d.driver && d.driver !== 'bluetooth') return only(`${d.name} already has a built-in driver (${d.driver}); a recipe isn't needed.`);
       Object.assign(d, { recipe: recipe.id, kind: recipe.kind, maker: recipe.maker || d.maker, name: d.customName ? d.name : recipe.name });
       d.actions = actionsOf(d).map((a) => a.name);
       bound = d;
     }
-    save();
+    try { save(before); } catch (e) { return { ok: false, text: unsaved(e).error }; }
     return { ok: true, text: `Saved recipe "${recipe.id}"${bound ? ` for ${bound.customName || bound.name} (${bound.address}). Try one of its actions now with device_action` : '. It applies to devices that match its find rules at the next scan'}.` };
   }
 
   function removeRecipe(id) {
     if (!db.recipes[id]) return { ok: false, text: `No recipe "${id}". Recipes: ${Object.keys(db.recipes).join(', ') || 'none'}.` };
+    const before = structuredClone(db);
     delete db.recipes[id];
     // its devices go back to what a scan would make of them
     for (const d of db.devices) if (d.recipe === id) {
       if (d.transport === 'bluetooth') { const fresh = toDevice({ ...d.evidence.bt, mac: d.mac, name: d.name, bonded: d.evidence.bt.bonded }); Object.assign(d, { recipe: null, kind: fresh?.kind || 'other' }); d.actions = actionsOf(d).map((a) => a.name); }
       else Object.assign(d, { recipe: null, actions: [], name: d.hostname || `Device at ${d.address}`, kind: 'other' });
     }
-    save();
+    try { save(before); } catch (e) { return { ok: false, text: unsaved(e).error }; }
     return { ok: true, text: `Removed recipe "${id}". Scan again to see its devices as they are.` };
   }
 
   function rename(q, name) {
     const d = lookup(q);
     if (!d) return { ok: false, text: `No device matches "${q}".` };
-    const n = String(name || '').trim().slice(0, 40);
+    const n = String(name || '').trim().slice(0, 40), before = structuredClone(db);
     d.customName = n || undefined;
-    save();
+    try { save(before); } catch (e) { return { ok: false, text: unsaved(e).error }; }
     return { ok: true, text: n ? `${d.name} is now called "${n}".` : `${d.name} has its own name again.` };
   }
 
@@ -527,13 +537,13 @@ export function devicesRoutes({ HERE: BRIDGE, json, body }) {
   const local = (req) => /^(127\.|::1$|::ffff:127\.)/.test(req.socket.remoteAddress || '');
 
   /** Returns true if it handled the request. */
-  handle.allow = (id, yes = true) => { const pr = (db.pairing[id] ||= {}); if (yes) pr.allowed = true; else { delete pr.allowed; delete pr.apps; } save(); }; // the tablet's yes (or someone taking it back: the apps' yeses too)
+  handle.allow = (id, yes = true) => { const before = yes ? structuredClone(db) : null, pr = (db.pairing[id] ||= {}); if (yes) pr.allowed = true; else { delete pr.allowed; delete pr.apps; } save(before); }; // (throws when it isn't saved: a yes taken back, a no kept in memory) // the tablet's yes (or someone taking it back: the apps' yeses too)
 
   // --- the household's apps (the kit's devices: apps.js group "devices", docs/plugins.md) ---
   // An app sees a device by an id of its own (never its address, MAC or pairing), and uses the same actions under the
   // same asks as Opie (act, with app): never pairing, forgetting, or where the tablet's sound goes; at most 60
   // changes and 120 reads a minute.
-  const salt = () => { if (!db.appSalt) { db.appSalt = crypto.randomBytes(16).toString('hex'); save(); } return db.appSalt; }; // (kept: an app's saved ids still work after a restart)
+  const salt = () => { if (!db.appSalt) { db.appSalt = crypto.randomBytes(16).toString('hex'); kept(); } return db.appSalt; }; // (kept: an app's saved ids still work after a restart)
   const appId = (d) => 'dev-' + crypto.createHmac('sha256', salt()).update(d.id).digest('hex').slice(0, 16);
   const APP_NEVER = /^(pair|unpair|forget|play_here|stop_here|install|uninstall|reset|factory_reset|settings?|set_setting|update|firmware)$/;
   const appMay = (d, a) => !APP_NEVER.test(a.name) && !(a.boardOk && a.risky);

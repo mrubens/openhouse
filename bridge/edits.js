@@ -204,15 +204,26 @@ export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit
   const busyText = () => holder && `Busy with ${holder.who ? holder.who + "'s" : 'another'} change ("${String(holder.text || '').slice(0, 80)}"); try again in a moment.`;
 
   /** Take back one change: a revert commit (so later changes stay). As `by` (a turn holding the lock), or on its own. */
+  // What an undo brings back is looked at before it's committed (plugins.js: an app's rights it brings back are held for
+  // the tablet's card, not given back by the undo itself): { before() -> what's there now, hold(that) -> anything to
+  // ask about (it may change the files, in the same commit), after(that) once it's committed }.
+  let revertHook = null;
   function revert(sha, by) {
     const msg = git('log', '-1', '--format=%s', sha);
     if (by && holder === by) commit(by); // its own edits so far are a change of their own first
-    try { git('revert', '--no-edit', sha); }
+    let was, held = null;
+    try { was = revertHook?.before(); } catch (e) { log('before undo:', e.message); }
+    try { git('revert', '--no-commit', sha); }
     catch (e) {
       try { git('revert', '--abort'); } catch {}
       return { ok: false, error: `Later changes touched the same code, so it can't be taken back on its own. (${String(e.stderr || e.message).slice(0, 300)})` };
     }
+    if (revertHook && was !== undefined) { try { held = revertHook.hold(was); } catch (e) { log('undo hold:', e.message); } }
+    git('add', '-A');
+    try { git('commit', '-q', '--no-edit'); }
+    catch (e) { try { git('revert', '--abort'); } catch {} return { ok: false, error: `It couldn't be taken back. (${String(e.stderr || e.message).slice(0, 300)})` }; }
     if (by && holder === by) by.base = git('rev-parse', 'HEAD');
+    if (held) { try { revertHook.after(held); } catch (e) { log('undo after:', e.message); } }
     return { ok: true, msg };
   }
   function withLock(by, fn, { checkpoint = true } = {}) {
@@ -224,6 +235,7 @@ export function editLock({ APP_DIR, UNDO_FILE, onLanded = () => {}, beforeCommit
 
   return {
     setBeforeCommit: (fn) => { hook = fn; },
+    setRevertHook: (h) => { revertHook = h; },
     git, dirty, snapshot, tryAcquire, acquire, release, commit, discard, finish,
     holder: () => holder,
     busyText,

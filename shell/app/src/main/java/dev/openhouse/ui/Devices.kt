@@ -235,8 +235,11 @@ internal fun ColumnScope.DevicesContent(inSettings: Boolean = false, onBack: (()
         if (inSettings) { if (Devices.scannedAt == null) Devices.scan() else Devices.refreshStatus() }
         while (true) {
             linked = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                runCatching { org.json.JSONObject(BridgeClient.getText(Openhouse.bridgeUrl + "/screens", 2000, 4000)).optJSONArray("screens") }.getOrNull()
-                    ?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { Linked(it.optString("id"), it.optString("name"), it.optString("kind", "screen")) } }.orEmpty()
+                val s = runCatching { org.json.JSONObject(BridgeClient.getText(Openhouse.bridgeUrl + "/screens", 2000, 4000)) }.getOrNull()
+                val paired = s?.optJSONArray("screens")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) }.map { Linked(it.optString("id"), it.optString("name"), it.optString("kind", "screen")) } }.orEmpty()
+                // Invites sent from the setup phone that nobody has opened yet (a week each): one row per person, to cancel.
+                val invited = s?.optJSONArray("invites")?.let { a -> (0 until a.length()).map { a.optString(it) }.filter { it.isNotBlank() }.distinct().map { Linked("invite:$it", it, "invite") } }.orEmpty()
+                paired + invited
             }
             kotlinx.coroutines.delay(3000)
         }
@@ -257,12 +260,13 @@ internal fun ColumnScope.DevicesContent(inSettings: Boolean = false, onBack: (()
     Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.u)) {
         linked.forEach { l ->
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.u)) {
-                DeviceGlyph(if (l.kind == "tv") "tv" else l.kind, Modifier.size(30.u))
+                DeviceGlyph(if (l.kind == "tv") "tv" else if (l.kind == "invite") "phone" else l.kind, Modifier.size(30.u))
                 Spacer(Modifier.width(14.u))
                 Text(l.name, style = calmText(21, FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                Text(when (l.kind) { "computer" -> "Computer"; "tv" -> "TV"; "phone" -> "Phone"; else -> "Screen" }, style = calmText(17, FontWeight.Normal, Calm.soft))
+                Text(when (l.kind) { "computer" -> "Computer"; "tv" -> "TV"; "phone" -> "Phone"; "invite" -> "Invited"; else -> "Screen" }, style = calmText(17, FontWeight.Normal, Calm.soft))
                 Spacer(Modifier.width(16.u))
-                DeviceButton("Remove") { Openhouse.host.setting("unlink:" + l.id) }
+                if (l.kind == "invite") DeviceButton("Cancel") { Openhouse.host.setting("uninvite:" + l.name) }
+                else DeviceButton("Remove") { Openhouse.host.setting("unlink:" + l.id) }
             }
         }
         if (linked.isNotEmpty() && useful.isNotEmpty()) Spacer(Modifier.height(8.u))

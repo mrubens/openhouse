@@ -50,12 +50,12 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Notes: open, take down | yes | look_at_notes, take_down_note; put_note and update_note too |
 | Put back a note taken down, or an app taken off Apps | **new** | put_back (was typed-only) |
 | Take an app off the Apps tab | screen | Rare; hold the tile, Take it off Apps |
-| "Undo that" (an app, the tabs or the look) | **new** | undo_change "latest" or by id, list_changes (the voice had no undo; never offered, only done when asked) |
+| "Undo that" (an app, the tabs or the look) | **new** | undo_change "latest" or by id, list_changes (the voice had no undo; never offered, only done when asked). An undo that brings back what a plugin's app was granted (its removal taken back) brings the app back without it, and the tablet's card asks to give it back (the PIN when Add apps asks) |
 | Meals card: plan tonight's dinner | yes | set_meals |
 | Lists card: tick, untick, add | yes | change_list |
 | An app's day notes: week, today only, off | **new** | calendar_event settings.app_notes |
 | Sleep now (the moon) | **new** | tablet_screen sleep |
-| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and it opens on the tablet; one that gets no family things or websites goes straight in (with Add apps off), otherwise it goes in only on a person's Keep it there (with the PIN when Ask for the PIN → Add apps is on; the card then also names what it may use and any exact websites it asked to reach). Opie can't keep it (docs/building-on-the-tablet.md) |
+| Make a new app or game, or change one ("make the text on Chores bigger"), on the tablet itself | **new** | make_app (the typed assistant starts it too): the builder makes it on rails (`bridge/rails.js`), and it opens on the tablet; a new or limited app that gets no family things or websites goes straight in (with Add apps off), otherwise it goes in only on a person's Keep it there (with the PIN when Ask for the PIN → Add apps is on; the card then also names what it may use and any exact websites it asked to reach). A change to one of the household's own apps (every right) always opens with Keep it, one tap. Asked for from a "later" run, a change that needs a Keep it waits on Home for a person instead (and those runs have no make_app). Opie can't keep it (docs/building-on-the-tablet.md) |
 | Home: "… is ready to try" (an app made on the tablet nobody kept yet): open it to try again | **new** | try_made_app opens it with its bar; Keep it stays a person's own tap (with the PIN when Add apps asks), never Opie's |
 
 ## The built-in apps
@@ -110,7 +110,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Connections → Calendars: accounts, shown or not, two-way, whose, where new events go | screen, with the PIN | Opie opens the tab, the tablet asks for the PIN (while Change settings asks), Opie carries on there; adding one by link is add_calendar |
 | Connections → Photo albums: add, remove | yes / screen | add_photo_album asks a person's yes (with the PIN when Add photo albums asks); Remove is on the screen, as Stop keeping it here in Photos |
 | Opie → What Opie remembers | yes | remember_preference, forget_preference |
-| Devices: pair or remove a screen, phone, computer, TV | screen, with the PIN | Add and Remove ask for the PIN; the pairing code itself is shown for the person's own device |
+| Devices: pair or remove a screen, phone, computer, TV; cancel an invite nobody has opened | screen, with the PIN | Add, Remove and Cancel ask for the PIN; the pairing code itself is shown for the person's own device |
 | Devices → Add → Another Opie tablet: the code another tablet scans to join this household (docs/multi-tablet.md) | screen, with the PIN | Opie opens it (Settings → Devices → Add); the tablet asks for the PIN; the code is for the person standing at the new tablet |
 | Advanced → Add this device to another Opie; on a tablet that's part of another's household, Household → Leave the household | no, on purpose | personOnly, as pairing and Tailscale are: it changes which household this tablet shows and hears for. Opie can open the row; the tap, the code and the PIN are a person's |
 | On a tablet that's part of another's household: Opie's own tools for that tablet (its screen, volume, camera, media, other apps) | not yet | Its conversations run with the main tablet's tools, which would act on the main tablet: those are left out there (live-tools.js ON_THIS_DEVICE), and Opie says so. Phase 2 of docs/multi-tablet.md sends them to the tablet they're at |
@@ -128,7 +128,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | The PIN's recovery code: shown when a PIN is chosen, Forgot PIN?, PIN recovery code | no, on purpose | Like the PIN: only a person sees or types it. Its card and box count as a PIN pad (nothing Opie does lands while they're up) and "I've kept it" takes a real finger. Opie can open the PIN pad; Forgot PIN? is the person's |
 | Opie: Opie uses apps, device control; Advanced: USB debugging, Android settings | no, on purpose | personOnly: they widen what Opie may do or leave Opie |
 | Advanced: Tailscale (turn on, sign in, an auth key, turn off) | no, on purpose | personOnly, as pairing is: it changes who can reach the tablet, from anywhere, and signing in is the person's own Tailscale account (its login opens on their phone; an auth key is pasted by a person). Opie can open Advanced (the tablet asks for the PIN); the row itself refuses Opie's tap. A hub's settings page has the same, for a person on a settings device |
-| Opie → Check-ins (how often, what they look for) | yes | heartbeat_settings |
+| Opie → Check-ins (how often, what they look for) | yes | heartbeat_settings; new instructions (what they look for) put the tablet's card up first, showing them, with the PIN when Change settings asks |
 | Night hours | yes | night_hours |
 | Volume (no row: the tablet's buttons) | yes | volume |
 | Opie → Now playing (shown while Opie can't see what the media apps play) | no, on purpose | personOnly: it widens what Opie may see; Android's own page, with the PIN |

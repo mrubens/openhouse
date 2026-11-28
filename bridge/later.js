@@ -18,11 +18,14 @@ import { registered } from './stores.js';
 import path from 'node:path';
 import { isNight } from './heartbeat.js';
 import { runReview } from './heartbeat-review.js';
-import { parseRule, nextAfter, ruleWords, fromOld } from './repeat-rule.js';
+import { parseRule, nextAfter, ruleWords, fromOld, shortestGap } from './repeat-rule.js';
 
 const MIN = 60e3, HOUR = 60 * MIN, DAY = 24 * HOUR;
 export const LATE = HOUR; // later than this, a missed one is dropped
 const MAX = 60; // kept at once
+// Runs nobody is at: a repeat comes at most once an hour, and a day has at most RUNS of them in all, DO_RUNS of them
+// done with the text model and the tools (the rest of that day's are skipped, with one line on Home).
+export const RUNS = 48, DO_RUNS = 12;
 const hm = (t) => new Date(t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 const whenText = (t, now) => {
   const d = new Date(t), a = new Date(now); a.setHours(0, 0, 0, 0); const b = new Date(t); b.setHours(0, 0, 0, 0);
@@ -59,14 +62,15 @@ export const LATER_TOOL = { name: 'later', description: 'Say or do something at 
     repeat: { type: 'string', description: 'Only when they asked for it to repeat: an iCal repeat rule (RRULE), with `when` its first time. ' +
       'Examples: FREQ=DAILY; FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR (weekdays); FREQ=WEEKLY;BYDAY=MO,WE,FR; FREQ=WEEKLY;INTERVAL=2;BYDAY=TU (every other Tuesday); ' +
       'FREQ=HOURLY;INTERVAL=2;BYHOUR=8,10,12,14,16,18 (every 2 hours from 8 to 6); FREQ=DAILY;BYHOUR=8,15 (8 AM and 3 PM); FREQ=MONTHLY;BYMONTHDAY=1; ' +
-      'FREQ=MONTHLY;BYDAY=-1FR (the last Friday); add UNTIL=20270604 (until a date) or COUNT=5 (5 times). The answer says it back in words: check it matches what they meant.' },
+      'FREQ=MONTHLY;BYDAY=-1FR (the last Friday); add UNTIL=20270604 (until a date) or COUNT=5 (5 times). At most once an hour. The answer says it back in words: check it matches what they meant.' },
+    message: { type: 'boolean', description: 'For do: true only when the person setting it up asked for what you find to be sent to someone\'s phone (message_family) then. Without it, it is only said aloud and shown on Home.' },
   } } };
 export const LIST_TOOL = { name: 'later_list', description: 'What is set for later (with later): list them, or cancel one by its id ("never mind the piano reminder", "stop the shoes one").',
   inputSchema: { type: 'object', properties: { cancel: { type: 'string', description: 'An id from the list: cancels it, and all its repeats' } } } };
 
 // A "do" follow-up, run by the text model in the background with the household's tools (heartbeat-review.js runReview).
 const DO_RULES = 'Earlier, someone in the household asked you to do something at this time, and now it is that time. Nobody is talking to you right now. ' +
-  'Do it with your tools, as they asked. Then reply with what to tell them, on one line: one or two short plain sentences, said aloud on the device and shown on its screen, ' +
+  'Do it with your tools, as they asked: you have only the ones for this (no making apps, no devices or the screen, no settings). Then reply with what to tell them, on one line: one or two short plain sentences, said aloud on the device and shown on its screen, ' +
   'like "The package came at 2:10: it\'s on the porch." Say what you found, or plainly that you couldn\'t find out. No emoji, no lists.';
 
 /**
@@ -92,7 +96,10 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
   };
   const quiet = (t) => { try { return !!asleep() || isNight(night(), new Date(t)); } catch { return false; } };
   const repeatWords = (x) => { const r = ruleOf(x); return r && !r.error ? ruleWords(r, x.start) : ''; };
-  const describe = (x, t = now()) => `${x.id}: ${x.kind === 'say' ? `say "${x.what}"` : `do: ${x.what}`}, ${x.rule ? `${repeatWords(x)} (next: ${whenText(x.at, t)})` : whenText(x.at, t)}`;
+  const describe = (x, t = now()) => `${x.id}: ${x.kind === 'say' ? `say "${x.what}"` : `do: ${x.what}${x.message ? ' (and message the phones)' : ''}`}, ${x.rule ? `${repeatWords(x)} (next: ${whenText(x.at, t)})` : whenText(x.at, t)}`;
+  // How many ran today (the cap: RUNS, DO_RUNS), kept with the items so a restart doesn't start the count again.
+  const today = (t) => new Date(t).toDateString();
+  const runs = (t) => { if (st.runs?.day !== today(t)) st.runs = { day: today(t), n: 0, do: 0, told: false }; return st.runs; };
 
   function add(a) {
     const t = now(), kind = a.kind === 'do' ? 'do' : a.kind === 'say' ? 'say' : null, what = plain(a.what).slice(0, 400);
@@ -102,12 +109,13 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
     if (at == null) return { error: 'when: a local time like "16:00" or "2026-11-24T07:30", or in_minutes.' };
     if (at < t - MIN) return { error: `That's already past (${whenText(at, t)}).` };
     if (at > t + 366 * DAY) return { error: 'At most a year ahead.' };
-    const item = { id: `l-${t.toString(36)}${Math.random().toString(36).slice(2, 4)}`, kind, what, at, made: t };
+    const item = { id: `l-${t.toString(36)}${Math.random().toString(36).slice(2, 4)}`, kind, what, at, made: t, ...(kind === 'do' && a.message === true ? { message: true } : {}) };
     if (String(a.repeat || '').trim()) {
       const r = parseRule(a.repeat);
       if (r.error) return { error: `repeat: ${r.error}` };
       const first = nextAfter(r, at, at - 1); // its first time, or the first after it the rule allows ("weekdays at 7:30", asked on a Saturday)
       if (first == null) return { error: 'That repeat never comes (check UNTIL, COUNT and the days).' };
+      if (shortestGap(r, first) < HOUR) return { error: 'repeat: at most once an hour.' };
       Object.assign(item, { rule: r.text, start: at, fired: 0, at: first });
     }
     if (st.items.length >= MAX) return { error: `That's ${MAX} set already: cancel some first (later_list).` };
@@ -141,14 +149,16 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
   async function doIt(x, t) {
     const sorry = `I couldn't do what you asked for ${hm(t)}: ${x.what}`;
     if (!ai || !live) return sorry;
-    const skip = new Set([LATER_TOOL.name, LIST_TOOL.name, 'go_away']);
+    // Only what a run nobody is at may use (live-tools.js unattendedTools): message_family only when it was asked for.
+    const may = { message: !!x.message };
     let tools = [], rules = '', today = '';
-    try { tools = live.tools().filter((tl) => !skip.has(tl.name)); } catch {}
+    try { tools = live.unattendedTools(may); } catch {}
+    const names = new Set(tools.map((tl) => tl.name));
     try { rules = live.instructions(); } catch {}
     try { today = picture() || ''; } catch {}
     const input = `It is ${new Date(t).toLocaleString('en-US', { weekday: 'long', month: 'long', day: 'numeric', hour: 'numeric', minute: '2-digit' })}. ` +
       `Earlier (${new Date(x.made).toLocaleString('en-US', { weekday: 'long', hour: 'numeric', minute: '2-digit' })}) you were asked to do this now${x.rule ? ` (it repeats: ${repeatWords(x)})` : ''}: ${x.what}\n\n---\n\n${today}`;
-    const callTool = (name, args) => (skip.has(name) ? { text: 'Not now.', isError: true } : live.callTool(name, args));
+    const callTool = (name, args) => (!names.has(name) ? { text: 'Not now.', isError: true } : live.callTool(name, args, { unattended: may }));
     try {
       const r = await runReview({ ai, instructions: DO_RULES + (rules ? `\n\n---\n\n${rules}` : ''), input, tools, callTool, tier: 'standard' });
       console.log(`[later] ${x.id} ran: ${r.ok ? 'ok' : r.error}; $${(r.cost || 0).toFixed(5)}`);
@@ -163,14 +173,23 @@ export function laterRoutes({ DIR, now = () => Date.now(), say = () => false, th
     try {
       const t = now(), due = st.items.filter((x) => x.at <= t).map((x) => ({ x, was: x.at }));
       if (!due.length) return;
-      for (const { x } of due) {
-        const r = ruleOf(x), next = r && !r.error ? nextAfter(r, x.start, t, (x.fired = (x.fired || 0) + 1)) : null;
+      for (const { x, was } of due) {
+        // (never sooner than an hour after the time it came: one kept from before the floor, too)
+        const r = ruleOf(x), next = r && !r.error ? nextAfter(r, x.start, Math.max(t, was + HOUR - 1), (x.fired = (x.fired || 0) + 1)) : null;
         if (next != null) x.at = next; else st.items = st.items.filter((y) => y !== x); // (once, or a repeat that's over)
       }
       st.items.sort((p, q) => p.at - q.at); // (moved on before running: a crash mid-way never says it twice)
       try { save(); } catch {} // (not saved: kept moved on in memory all the same, so it isn't said every 20 s)
       for (const { x, was } of due) {
         if (t - was > LATE) { console.log(`[later] ${x.id} dropped: due ${hm(was)}, over an hour ago`); continue; }
+        const n = runs(t);
+        if (n.n >= RUNS || (x.kind === 'do' && n.do >= DO_RUNS)) {
+          console.log(`[later] ${x.id} skipped: ${n.n} run today already`);
+          if (!n.told) { n.told = true; try { things?.put({ text: 'Some things set for later were skipped today: too many in one day', until: t + 12 * HOUR, key: 'later:cap', kind: 'reminder', by: 'later' }); } catch {} }
+          continue;
+        }
+        n.n++; if (x.kind === 'do') n.do++;
+        try { save(); } catch {} // (the count: not saved, it's kept in memory all the same)
         await fire(x, t).catch((e) => console.error('[later] fire', e));
       }
     } finally { ticking = false; }

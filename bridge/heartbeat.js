@@ -117,7 +117,7 @@ export function storage(free) {
  */
 export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () => [], edits = null, busy = () => false,
   now = () => Date.now(), freeBytes = null, logTurn = null, every = 5 * 60e3, json = null, body = null, onChange = () => {},
-  judge = null, fixes = null, things = null, extraChecks = null, checkProblems = () => ({}), changesOf = () => [], review = true }) {
+  judge = null, fixes = null, things = null, extraChecks = null, checkProblems = () => ({}), changesOf = () => [], review = true, approvePrompt = null }) {
   const FILE = registered('heartbeat', path.join(DIR, '../heartbeat.json'));
   const read = () => readJson(FILE, {});
   const st = { level: DEFAULT_LEVEL, handled: {}, log: [], day: null, sleepUntil: 0, lastCheckIn: 0, lastReview: 0, last: null, findings: [], notesFor: {}, judgedAt: [], ...read() };
@@ -429,6 +429,11 @@ export function heartbeat({ DIR, HERE, homeScreen, house, board, appErrors = () 
   }
   const said = () => `Check-ins: ${st.level === 'off' ? 'off' : `every ${st.every || 60} minutes, level ${st.level}`}; prompt: ${st.prompt ? 'their own' : 'ours'}.\n\nThe prompt now:\n${st.prompt || REVIEW_RULES}`;
   homeScreen?.addTools?.([SETTINGS_TOOL], async (name, a) => {
+    // A new prompt is the instructions for every run nobody is at: from Opie, a person says yes on the device first
+    // (approvePrompt: its card shows the new prompt, a person's tap, the PIN when Change settings asks for it).
+    const next = !a?.reset_prompt && a?.prompt != null ? String(a.prompt).trim().slice(0, 6000) : '';
+    if (next && next !== (st.prompt || REVIEW_RULES).trim() && approvePrompt && !(await approvePrompt(next).catch(() => false)))
+      return { content: [{ type: 'text', text: "Not changed: someone has to say yes on the device to new check-in instructions, and nobody did. They can also change them in Settings, Opie, Check-ins." }], isError: true };
     const e = setSettings({ ...(a?.every != null ? { every: a.every } : {}), ...(a?.reset_prompt ? { prompt: '' } : a?.prompt != null ? { prompt: a.prompt } : {}), ...(a?.level ? { level: a.level } : {}) });
     return { content: [{ type: 'text', text: e ? e.error : said() }], isError: !!e };
   });

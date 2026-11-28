@@ -236,7 +236,7 @@ export function rails(deps) {
         fs.mkdirSync(path.join(appsDir, app), { recursive: true });
         const nm = String(a.name || app.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase())).replace(/[\p{Cc}\p{Cf}"\\<>`]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 40) || app;
         // The name as each kind of file needs it: in the template's JS it's in a "…" string, in its HTML text escaped.
-        const named = (f, text) => text.replaceAll('NAME', /\.html$/.test(f) ? nm.replace(/&/g, '&amp;') : nm);
+        const named = (f, text) => { const v = /\.html$/.test(f) ? nm.replace(/&/g, '&amp;') : nm; return text.replaceAll('NAME', () => v); }; // (a function: a name with $' or $& in it stays as typed)
         for (const f of fs.readdirSync(tpl)) fs.writeFileSync(path.join(appsDir, app, f), named(f, fs.readFileSync(path.join(tpl, f), 'utf8')));
         s.target = s.dir = app; s.kind = a.kind; s.fresh = true;
         making(app); // its page says "Making <name>…" until check_build first passes, not a page half written

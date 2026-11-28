@@ -34,6 +34,12 @@ export const LIVE_TOOLS = ['about_household', 'family_things', 'change_list', 'c
   // plugins (Settings' Plugins and Apps' Add apps, behind the PIN there): each add, update or removal asks on the tablet,
   // and a person types the PIN there (plugins.js)
   'find_plugins', 'look_at_plugin', 'list_plugins', 'add_plugin', 'update_plugin', 'remove_plugin'];
+/** What a run nobody is at may use ("later" jobs, later.js): the household's things and looking something up, as
+ *  someone asked for when they set it. Never making apps, the device and its screen, the house's devices or the TV,
+ *  settings, plugins, undo or the house rules; message_family only when the person who set it up asked for a message
+ *  (unattendedTools {message}). The apps' own voice actions are data for their own app, so they stay. */
+export const UNATTENDED_TOOLS = new Set(['about_household', 'family_things', 'change_list', 'change_chores', 'set_meals', 'calendar_event',
+  'look_at_notes', 'put_note', 'update_note', 'take_down_note', 'take_down_thing', 'weather', 'read_page']);
 const WEATHER = { name: 'weather', description: "The weather where the family lives: now, the next 24 hours, and the next 7 days (°F, mph).", inputSchema: { type: 'object', properties: {} } };
 
 /** Kitchen timers (the tablet rings them: home-screen.js timers), as a person sets them on the screen. */
@@ -241,6 +247,9 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     return [...all, WEATHER, READ_PAGE_TOOL, GO_AWAY_TOOL, ...volumeTools(), ...tabletScreenTools(), ...pinTools(), ...tvTools(), ...btTools(), ...extraTools(), ...(homeScreen.timers ? [TIMER_TOOL] : []), ...(usageNow ? [USAGE_TOOL] : []), ...screenTools(), ...deviceTools(), ...messageTools(), ...(builds ? [MAKE_APP_TOOL, ...waitTools()] : [])];
   };
   const tools = () => rawTools().map((t) => ({ type: 'function', name: t.name, description: String(t.description || ''), parameters: forModel(t.inputSchema || { type: 'object', properties: {} }) }));
+  const unattendedOk = (name, { message = false } = {}) => UNATTENDED_TOOLS.has(name) || (message && name === MESSAGE_NAME) || extraTools().some((t) => t.name === name);
+  /** The tools for a run nobody is at (UNATTENDED_TOOLS): {message} when it was set up to message the phones. */
+  const unattendedTools = (may = {}) => tools().filter((t) => unattendedOk(t.name, may));
   const instructions = () => livePreamble(assistantName(), !!builds) + read('CHAT.md') + (device?.rules() || '') + prefsBlock();
   /** One tool, as the assistant would call it (outside any conversation's turn). */
   const lately = []; // [{at, key}]: the calls of the last minute, to stop the same one being made over and over
@@ -248,6 +257,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   // wasn't given (null, "", [], an object missing what it requires), by the tool's own schema.
   const schemaOf = (name) => { try { return rawTools().find((t) => t.name === name)?.inputSchema || null; } catch { return null; } };
   async function callTool(name, args, ctx = {}) {
+    if (ctx.unattended && !unattendedOk(name, ctx.unattended)) return { text: `${name} isn't for a run nobody is at.`, isError: true };
     args = fromModel(schemaOf(name), args || {});
     const key = name + ' ' + JSON.stringify(args || {}), t = Date.now();
     while (lately.length && t - lately[0].at > 60e3) lately.shift();
@@ -312,7 +322,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       return { text: `${one.name} is opening on the device to try. Keeping it is their own tap there (Keep it); you can't keep it for them.`, isError: false };
     }
     if (name === MAKE_APP_TOOL.name && builds) {
-      const r = await builds(String(args?.what || ''), ctx.phone?.person || null, { phone: !!ctx.phone, typed: ctx.typed || null }).catch(() => ({ ok: false }));
+      const r = await builds(String(args?.what || ''), ctx.phone?.person || null, { phone: !!ctx.phone, typed: ctx.typed || null, unattended: !!ctx.unattended }).catch(() => ({ ok: false }));
       // Said once, then the conversation ends as usual: the tablet shows it being made, and how it went (open to try,
       // or why it couldn't). So the line promises no outcome: a build can still fail.
       return r.queued ? { text: `Queued: the device makes it right after what it's making now${r.queued > 1 ? ` (${r.queued - 1} more before it)` : ''}. Tell them in one short sentence that it's next and it'll show here when it's ready; promise nothing more, and don't wait for it.`, isError: false }
@@ -430,7 +440,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const otherTabletNote = (w) => `\n\nThis conversation is on another of the household's devices, the ${w.name || 'other device'}, not this one. The household is the same: its calendar, lists, chores, meals, notes and apps. Its own screen, volume, camera and apps can't be changed from here yet: say so if they ask. Anything that needs the PIN asks for it on the main device.`;
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the device: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the device itself, not this phone: say so, so someone at home can type it.`;
-  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setUsage: (f) => { usageNow = f; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,
+  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, unattendedTools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setUsage: (f) => { usageNow = f; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,
     /** The setup step on the tablet's screen now, or null (none, or shown more than an hour ago). */
     /** The setup phone or computer's Next: the tablet goes to [s] at its next look (Setup.kt). */
     setupWant: (s) => { if (/^[a-z]{1,20}$/.test(String(s || ''))) wanted = String(s); },

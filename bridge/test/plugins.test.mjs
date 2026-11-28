@@ -115,15 +115,28 @@ test('the assistant\'s add_plugin: a yes on the card first, then one change that
   assert.equal(pl.rightsOf('twins-chores-2'), null);
   assert.deepEqual(pl.installed(), []);
 
-  // In again, then removed (a card without the PIN), and undo brings it back.
+  // In again, then removed (a card without the PIN), and undo brings it back: its files at once, what it was granted
+  // only after the card's yes (with the PIN); a no leaves it with nothing.
   await pl.call('add_plugin', { source: src, tabs: false });
-  const rm = await pl.call('remove_plugin', { name: 'twins-chores' });
-  assert.equal(rm.isError, undefined, rm.content[0].text);
-  assert.equal(asked.at(-1).pin, false);
-  assert.equal(fs.existsSync(path.join(app, 'apps/twins-chores-2')), false);
-  edits.undoLatest();
-  assert.ok(fs.existsSync(path.join(app, 'apps/twins-chores-2/main.js')));
-  assert.deepEqual([...pl.rightsOf('twins-chores-2')], ['chores', 'rewards']);
+  const removeAndUndo = async (yes) => {
+    answer = true;
+    const rm = await pl.call('remove_plugin', { name: 'twins-chores' });
+    assert.equal(rm.isError, undefined, rm.content[0].text);
+    assert.equal(asked.at(-1).pin, false);
+    assert.equal(fs.existsSync(path.join(app, 'apps/twins-chores-2')), false);
+    const n = asked.length;
+    answer = yes;
+    assert.equal(edits.undoLatest().ok, true);
+    assert.ok(fs.existsSync(path.join(app, 'apps/twins-chores-2/main.js')));
+    assert.deepEqual([...pl.rightsOf('twins-chores-2')], [], 'nothing granted by the undo itself');
+    for (let i = 0; i < 100 && (asked.length === n || edits.holder() || fs.readFileSync(path.join(app, 'plugins/twins-chores.json'), 'utf8').includes('"held"')); i++) await new Promise((r) => setTimeout(r, 20));
+    assert.equal(asked.at(-1).pin, true, 'the card, with the PIN');
+  };
+  await removeAndUndo(true);
+  assert.deepEqual([...pl.rightsOf('twins-chores-2')], ['chores', 'rewards'], 'back on a yes');
+  await removeAndUndo(false);
+  assert.deepEqual([...pl.rightsOf('twins-chores-2')], [], 'a no leaves it with nothing');
+  assert.equal(edits.dirty(), false);
 });
 
 test('an app reaching the web through the tablet: only its own hosts, never the home network; and only its own line on Home', async () => {

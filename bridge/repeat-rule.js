@@ -115,6 +115,17 @@ export function nextAfter(r, start, after, fired = 0) {
   return null;
 }
 
+/** The shortest time between two of the rule's next [n] times from its start, ms (Infinity with fewer than two). */
+export function shortestGap(r, start, n = 60) {
+  let gap = Infinity, prev = nextAfter(r, start, start - 1);
+  for (let i = 1; i < n && prev != null; i++) {
+    const t = nextAfter(r, start, prev, i);
+    if (t == null) break;
+    gap = Math.min(gap, t - prev); prev = t;
+  }
+  return gap;
+}
+
 const ORD = { 1: 'first', 2: 'second', 3: 'third', 4: 'fourth', 5: 'fifth', '-1': 'last', '-2': 'second to last' };
 const nth = (n) => `${n}${n % 10 === 1 && n !== 11 ? 'st' : n % 10 === 2 && n !== 12 ? 'nd' : n % 10 === 3 && n !== 13 ? 'rd' : 'th'}`;
 const list = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} and ${xs.at(-1)}`);
@@ -132,15 +143,23 @@ export function ruleWords(r, start) {
   };
   const inMonth = () => r.bymonthday.length ? `the ${list(r.bymonthday.map((n) => (n > 0 ? nth(n) : n === -1 ? 'last day' : `${nth(-n)} to last day`)))}`
     : r.byday.length ? `the ${list(r.byday.map((b) => `${ORD[b.nth] || nth(Math.abs(b.nth))} ${WD_NAME[b.wd]}`))}` : `the ${nth(s.getDate())}`;
+  // Every part of the rule is said, so what's heard back is what it does (the minutes, hours that aren't evenly
+  // spaced, the days of the month and the months too).
+  const ms = r.byminute.length ? [...r.byminute].sort((a, b) => a - b) : [s.getMinutes()];
   let what;
   switch (r.freq) {
     case 'HOURLY': {
-      what = every(r.interval, 'hour', 'hours');
-      if (r.byhour.length > 1) { const hs = [...r.byhour].sort((a, b) => a - b); what += ` from ${clock(hs[0], s.getMinutes())} to ${clock(hs.at(-1), s.getMinutes())}`; }
+      const hs = [...r.byhour].sort((a, b) => a - b);
+      const even = hs.length > 1 && hs.every((h, i) => !i || h - hs[i - 1] === r.interval);
+      if (hs.length && !even) what = `at ${list(hs.flatMap((h) => ms.map((m) => clock(h, m))))}`; // (the hours it picks, as times)
+      else {
+        what = every(r.interval, 'hour', 'hours') + (even ? ` from ${clock(hs[0], ms[0])} to ${clock(hs.at(-1), ms.at(-1))}`
+          : ms.length === 1 ? (ms[0] ? ` at ${ms[0]} minutes past` : ', on the hour') : ` at ${list(ms.map((m) => `${m}`))} minutes past`);
+      }
       if (r.byday.length) what += ` on ${daysOf(r.byday)}`;
       break;
     }
-    case 'DAILY': what = r.byday.length ? `on ${daysOf(r.byday)}` : every(r.interval, 'day', 'days'); break;
+    case 'DAILY': what = r.byday.length ? `${r.interval > 1 ? every(r.interval, 'day', 'days') + ', ' : ''}on ${daysOf(r.byday)}` : every(r.interval, 'day', 'days'); break;
     case 'WEEKLY': {
       const days = r.byday.length ? daysOf(r.byday) : WD_NAME[s.getDay()] + 's';
       what = r.interval === 1 ? days : `${every(r.interval, 'week', 'weeks')} on ${days.replace(/s\b/g, '').replace('weekday', 'weekdays').replace('weekend', 'weekends')}`;
@@ -154,9 +173,11 @@ export function ruleWords(r, start) {
     }
   }
   if (r.freq !== 'HOURLY') {
-    const hs = r.byhour.length ? r.byhour : [s.getHours()], ms = r.byminute.length ? r.byminute : [s.getMinutes()];
+    const hs = r.byhour.length ? [...r.byhour].sort((a, b) => a - b) : [s.getHours()];
     what += ` at ${list(hs.flatMap((h) => ms.map((m) => clock(h, m))))}`;
   }
+  if ((r.freq === 'HOURLY' || r.freq === 'DAILY' || r.freq === 'WEEKLY') && r.bymonthday.length) what += `, only on ${inMonth()} of the month`;
+  if (r.freq !== 'YEARLY' && r.bymonth.length) what += `, only in ${list(r.bymonth.map((m) => MONTHS[m - 1]))}`;
   if (r.until) what += `, until ${new Date(r.until).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: new Date(r.until).getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined })}`;
   if (r.count) what += `, ${r.count} time${r.count === 1 ? '' : 's'}`;
   return what[0].toUpperCase() + what.slice(1);
