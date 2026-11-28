@@ -7,6 +7,7 @@
 import { createRoot } from 'react-dom/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { pair, relayPair, client, Removed } from './screen-client.js';
+import { OverToday } from './relay-client.js';
 import { Talk, canTalk } from './talk.jsx';
 import { pairingFromCode } from './scrypt.js';
 import { AppFrame, AppIcon, usePhoneApps, phoneTabs, appBundle } from './phone-apps.jsx';
@@ -75,6 +76,8 @@ function useHouse(c, onRemoved) {
   const [house, setHouse] = useState(() => get(CACHE)?.house || null), [homeScreen, setHomeScreen] = useState(null), [messages, setMessages] = useState([]);
   // (when what it shows was last so: a ref, not state, as it changes with every answer and only shows when home is out of touch)
   const [up, setUp] = useState(null), at = useRef(get(CACHE_AT) || get(CACHE)?.at || null), [waiting, setWaiting] = useState(() => get(QUEUE, []).length);
+  // Away, past the household's day on the relay: until when (relay-client.js OverToday), else 0.
+  const [rest, setRest] = useState(0);
   const flushing = useRef(false);
   async function flush() {
     if (flushing.current) return; flushing.current = true;
@@ -101,8 +104,8 @@ function useHouse(c, onRemoved) {
           // Nothing changed: what it shows is still so. (Only the time is kept, not the whole house again: this comes often.)
           if (r.json.same) { const t = Date.now(); at.current = t; put(CACHE_AT, t); }
           else keepHouse(r.json);
-          setUp(true); flush();
-        } catch (e) { if (e instanceof Removed) { stop = true; return onRemoved(); } setUp(false); v = -1; if (!stop) await new Promise((r) => setTimeout(r, 4000)); }
+          setUp(true); setRest(0); flush();
+        } catch (e) { if (e instanceof Removed) { stop = true; return onRemoved(); } setUp(false); setRest(e instanceof OverToday ? e.until : 0); v = -1; if (!stop) await new Promise((r) => setTimeout(r, 4000)); }
       }
     })();
     (async () => { while (!stop) { try { const r = await c.json('GET', '/home'); if (r.status === 200) setHomeScreen(same(r.json)); } catch {} await new Promise((r) => setTimeout(r, 60e3)); } })();
@@ -119,8 +122,11 @@ function useHouse(c, onRemoved) {
   }
   /** A change an app made with no signal: it goes, marked with that app, when the phone is back in touch. */
   const later = ({ p, b, a }) => { const q = [...get(QUEUE, []), { p, b, a }]; put(QUEUE, q); setWaiting(q.length); setUp(false); };
-  return { house, homeScreen, messages, up, at: at.current, waiting, change, later };
+  return { house, homeScreen, messages, up, rest, at: at.current, waiting, change, later };
 }
+/** Out of touch with home: why, in a few words (past the relay's day: until when; the Wi-Fi at home still works). */
+const outOfReach = (until) => `Out of reach from away until ${new Date(until).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+const notInTouch = (e) => (e instanceof OverToday ? `${outOfReach(e.until)}.` : 'Not in touch with home right now. Try again in a moment.');
 
 // ---- the tabs --------------------------------------------------------------------------------------------
 /** A recipe's page shared to Opie from the browser (the manifest's share_target, Android): it opens the Ask
@@ -224,7 +230,7 @@ function Ask({ me, c, onClose, convoId = null }) {
       const r = await c.json('POST', '/phone/share', { text: q });
       if (r.json?.id) convo.current = r.json.id; // (answering back goes on in the same conversation)
       set(() => ({ a: r.json?.text || r.json?.error || 'That didn’t go through.', live: false }));
-    } catch { set(() => ({ a: 'Not in touch with home right now. Try again in a moment.', live: false })); }
+    } catch (e) { set(() => ({ a: notInTouch(e), live: false })); }
   }
   async function ask(e) {
     e?.preventDefault();
@@ -241,7 +247,7 @@ function Ask({ me, c, onClose, convoId = null }) {
         else if (ev.type === 'done') set(() => ({ a: ev.text || said, live: false, ok: ev.ok }));
       }, { signal: ctl.current.signal });
       set((t) => (t.live ? { live: false, a: t.a || 'No answer came back.' } : {}));
-    } catch { set((t) => ({ live: false, a: t.a || 'Not in touch with home right now. Try again in a moment.' })); }
+    } catch (e) { set((t) => ({ live: false, a: t.a || notInTouch(e) })); }
   }
   function stop() { ctl.current?.abort(); c.json('POST', '/chat/stop', { id: convo.current }).catch(() => {}); }
   return (
@@ -432,7 +438,7 @@ function Phone({ me, c, onRemoved }) {
   const frames = alive.map((a) => <AppFrame key={a.id} c={c} app={(apps || []).find((x) => x.id === a.id) || a} style={style} hidden={showing?.id !== a.id} onOpen={open} onClose={() => (opened ? setOpened(null) : go('today'))} onQueue={h.later} onRemoved={onRemoved} onBg={onBg} />);
   return (
     <div className={'app' + (canAsk(me) ? ' asks' : '') + (showing ? ' framed' : '') + (style?.palette === 'dusk' ? ' dark' : '')} style={{ ...phoneVars(style, opened ? opened.id : tab), ...(showing && bgs[showing.id] ? { '--fbg': bgs[showing.id] } : {}) }}>
-      {h.up === false && <div className="status">{h.house ? `Not in touch with home. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
+      {h.up === false && <div className="status">{h.house ? `${h.rest ? outOfReach(h.rest) : 'Not in touch with home'}. Showing what was here ${ago < 2 ? 'a moment' : ago < 90 ? `${ago} min` : `${Math.round(ago / 60)} h`} ago` : h.rest ? outOfReach(h.rest) : 'Not in touch with home yet'}{h.waiting ? `; ${h.waiting === 1 ? 'one change waits' : `${h.waiting} changes wait`} and goes when it's back.` : '.'}</div>}
       {canAsk(me) && <Asks c={c} />}{/* a hub's "Is this OK?" cards, for an adult's phone */}
       {opened && <div className="openbar"><button className="quiet" onClick={() => setOpened(null)}>Back</button><span>{opened.name}</span></div>}
       {frames}

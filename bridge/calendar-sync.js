@@ -74,7 +74,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     for (let hop = 0; hop < 4; hop++) {
       const r = await shell('/calendar/request', { account, method, url, headers, body: body == null ? null : typeof body === 'string' ? body : JSON.stringify(body) });
       trail.push(`${method} ${r?.status || 'x'}`);
-      if (r?.error && !r.status) throw Object.assign(new Error(str(r.error)), { offline: true });
+      if (r?.error && !r.status) throw Object.assign(new Error(str(r.error)), { offline: true, unlinked: r.unlinked === true });
       if (r.status >= 300 && r.status < 400 && r.headers?.location) { url = new URL(r.headers.location, url).toString(); continue; }
       return { status: r.status, etag: r.headers?.etag || null, text: r.body || '', json: () => { try { return JSON.parse(r.body || '{}'); } catch { return {}; } } };
     }
@@ -375,7 +375,7 @@ export function calendarSync({ FILE, shell, family = () => [], now = Date.now, e
     const a = acc(accountId); if (!a) return { error: 'No such account.' };
     let list;
     try { list = await prov(a).calendars(a); }
-    catch (e) { st.errors[a.id] = e.signin ? 'signin' : str(e.message, 120); try { save(); } catch {} return { error: e.signin ? 'The sign-in didn\'t work.' : `Couldn't reach it (${str(e.message, 80)}).`, signin: !!e.signin }; }
+    catch (e) { st.errors[a.id] = e.signin ? 'signin' : str(e.message, 120); try { save(); } catch {} return { error: e.signin ? 'The sign-in didn\'t work.' : `Couldn't reach it (${str(e.message, 80)}).`, signin: !!e.signin, ...(e.unlinked ? { unlinked: true } : {}) }; }
     {
       const before = structuredClone(st);
       const fam = family().map((n) => String(n).toLowerCase());
