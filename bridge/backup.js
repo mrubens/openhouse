@@ -63,7 +63,12 @@ export async function unpack(tgz, out, max) {
   let n = 0;
   const count = new Transform({ transform(chunk, _, next) { n += chunk.length; next(n > max ? Object.assign(new Error("the backup is bigger than the room on this device"), { code: 'toobig' }) : null, chunk); } });
   try { await pipeline(fs.createReadStream(tgz), zlib.createGunzip(), count, tar.stdin); }
-  catch (e) { tar.kill(); await done.catch(() => {}); throw e.code === 'toobig' ? e : new Error(`the backup couldn't be unpacked (${e.message})`); }
+  catch (e) {
+    if (e.code === 'toobig') { tar.kill(); await done.catch(() => {}); throw e; }
+    // tar stops reading at the archive's end marker and closes its input, which can leave the last of the gzip
+    // stream (its padding) unread: a "Premature close" here with tar itself finished well is a whole unpack.
+    try { await done; return; } catch { tar.kill(); throw new Error(`the backup couldn't be unpacked (${e.message})`); }
+  }
   await done;
 }
 
