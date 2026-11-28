@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Removed } from './screen-client.js';
 import { paletteOf, worldOf } from './look.js';
+import { haptic } from './native.js';
 
 const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const put = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -93,7 +94,7 @@ export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQue
   useEffect(() => {
     const frame = ref.current;
     if (!frame || !app?.v) return;
-    let sent = false, loads = 0, gone = false, firstHouse = false;
+    let sent = false, loads = 0, gone = false, firstHouse = false, tapped = 0;
     // How long each part of opening it took (window.__ohOpen[app]: ms from the frame's start), for looking into speed.
     const t0 = performance.now(), T = ((window.__ohOpen ||= {})[app.id] = { at: Date.now() }), mark = (k) => { if (T[k] == null) T[k] = Math.round(performance.now() - t0); };
     const bundle = appBundle(c, app);
@@ -110,6 +111,8 @@ export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQue
       while (shown.current?.wait) await shown.current.wait;
       const p = String(m.p || ''), method = m.m === 'POST' ? 'POST' : 'GET';
       if (!p.startsWith('/') || p.length > 2000) return to({ oh: 'reply', id: m.id, status: 400 });
+      // A change made by a tap (a tick, an add, a chore done): the phone's tap back, once for that tap.
+      if (method === 'POST' && performance.now() - tapped < 1500) { tapped = 0; haptic(); }
       // Its first look at the house: what it saw last time, at once (its next /house/wait then answers straight away
       // with what's new, as the version it gives is old).
       const kept0 = method === 'GET' && p === '/house' && !firstHouse && get(houseKey(app.id));
@@ -149,6 +152,7 @@ export function AppFrame({ c, app, style, hidden = false, onOpen, onClose, onQue
       else if (m.oh === 'ls' && m.data && typeof m.data === 'object') { const s = JSON.stringify(m.data); if (s.length < 2e6) put(lsKey(app.id), m.data); }
       else if (m.oh === 'failed') console.warn(`[${app.id}]`, String(m.text || '').slice(0, 300));
       else if (m.oh === 'close') onClose?.();
+      else if (m.oh === 'tap') tapped = performance.now();
       else if (m.oh === 'bg' && /^rgba?\([\d., ]+\)$/.test(String(m.bg || ''))) onBg?.(app.id, m.bg);
       else if (m.openhouse === 'open' && /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(m.app || ''))) { if (!app.shared || m.app === app.id) onOpen?.(String(m.app)); }
     };

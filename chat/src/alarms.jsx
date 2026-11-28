@@ -1,6 +1,8 @@
 // The alarm clocks, on the tablet's Home and the phone page (bridge/alarms.js keeps them, the tablet's shell rings them:
 // Alarms.kt). A sheet: the alarms, each turned on or off with a tap and changed by tapping it; Add for a new one.
 import { useEffect, useState } from 'react';
+import { Veil } from './sheet.jsx';
+import { haptic } from './native.js';
 
 const DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -57,10 +59,10 @@ export function AlarmsSheet({ c, alarms, family = [], me = null, onClose }) {
     setMine(b.cancel ? list.filter((y) => y.id !== b.cancel) : list.some((y) => y.id === x?.id) ? list.map((y) => (y.id === x.id ? x : y)) : x ? [...list, x] : list);
     return r;
   });
-  const toggle = (a) => send({ change: { id: a.id, on: !a.on } }).catch((e) => setErr(e.message));
+  const toggle = (a) => { haptic(); return send({ change: { id: a.id, on: !a.on } }).catch((e) => setErr(e.message)); };
   return (
-    <div style={S.veil} onClick={onClose}>
-      <div style={S.card} onClick={(e) => e.stopPropagation()}>
+    <Veil className="al-veil" style={S.veil} onClose={onClose}>{(close) =>
+      <div className="al-card" style={S.card}>
         {edit ? <Edit a={edit} family={family} me={me} send={send} done={() => setEdit(null)} />
           : <>
             <h2 style={S.title}>Alarms</h2>
@@ -70,10 +72,10 @@ export function AlarmsSheet({ c, alarms, family = [], me = null, onClose }) {
                 <button style={S.sw(a.on)} aria-label={a.on ? 'Turn off' : 'Turn on'} onClick={(e) => { e.stopPropagation(); toggle(a); }}><i style={S.knob} /></button>
               </div>))}
             {err && <div style={{ ...S.soft, color: '#c8372b' }}>{err}</div>}
-            <div style={S.btns}><button style={S.tint} onClick={() => setEdit({})}>Add</button><button style={S.fill} onClick={onClose}>Done</button></div>
+            <div style={S.btns}><button style={S.tint} onClick={() => setEdit({})}>Add</button><button style={S.fill} onClick={close}>Done</button></div>
           </>}
-      </div>
-    </div>
+      </div>}
+    </Veil>
   );
 }
 
@@ -87,6 +89,7 @@ function Edit({ a, family, me, send, done }) {
   const names = [...new Set([...family.map((p) => p.name).filter(Boolean), ...(who ? [who] : [])])];
   const flip = (d) => setDays(days.includes(d) ? days.filter((x) => x !== d) : [...days, d].sort());
   const save = () => send(fresh ? { set: { time, days, label, who } } : { change: { id: a.id, time, days, label, who, on: true } }).then(done, (e) => setErr(e.message));
+  const keep = (e) => e.preventDefault(); // (the field keeps its focus: the keyboard doesn't close under the finger, moving the sheet)
   return <>
     <input type="time" value={time} onChange={(e) => setTime(e.target.value)} style={{ ...S.input, fontSize: 40, fontWeight: 300, alignSelf: 'flex-start' }} />
     <div style={{ display: 'flex', gap: 6 }}>{DAYS.map((d, i) => <button key={i} style={S.day(days.includes(i))} aria-label={DAY_NAMES[i]} aria-pressed={days.includes(i)} onClick={() => flip(i)}>{d}</button>)}</div>
@@ -98,9 +101,9 @@ function Edit({ a, family, me, send, done }) {
     </div>
     {err && <div style={{ ...S.soft, color: '#c8372b' }}>{err}</div>}
     <div style={S.btns}>
-      {!fresh && <button style={{ ...S.tint, color: '#c8372b', marginRight: 'auto' }} onClick={() => send({ cancel: a.id }).then(done, (e) => setErr(e.message))}>Delete</button>}
-      <button style={S.tint} onClick={done}>Cancel</button>
-      <button style={S.fill} onClick={save}>Save</button>
+      {!fresh && <button style={{ ...S.tint, color: '#c8372b', marginRight: 'auto' }} onPointerDown={keep} onClick={() => send({ cancel: a.id }).then(done, (e) => setErr(e.message))}>Delete</button>}
+      <button style={S.tint} onPointerDown={keep} onClick={done}>Cancel</button>
+      <button style={S.fill} onPointerDown={keep} onClick={() => { haptic(); save(); }}>Save</button>
     </div>
   </>;
 }

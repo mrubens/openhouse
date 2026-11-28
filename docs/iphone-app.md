@@ -15,6 +15,11 @@ iPhone: a real share sheet entry, notes that open the right screen, widgets, and
   (`relay-box.ts`), the app fetches for it. The page knows it's in the app
   (`window.openhouseApp`) and leaves out what the app does itself: asking to be put on the home screen, turning on
   Web Push, and setting up the Send to Opie shortcut.
+- **Feels like an app, not a page**: no zoom, no text selection or long-press callout on what's tapped, no rubber band
+  round the page, no link previews or system-made links (`WebPage.swift`); a pressed look on every tap, sheets that
+  slide up, keep above the keyboard and close with a swipe down (`chat/src/sheet.jsx`, `native.js`); the phone's own
+  dark. A tick, an add or a done gives a light tap: the page calls `haptic()` (`native.js`, the `haptic` message
+  handler), and an app's change made by a tap does the same through its frame (`{oh: 'tap'}`, `phone-frame.js`).
 - **Joining**: the app scans the tablet's code (Settings, Devices, Add, Someone's phone), or takes its link
   pasted. That opens the tablet's own joining page in the web view; once joined, the page goes on to the cloud's copy
   with the pairing after `#`, as it does in Safari, and the app takes the pairing from that address and opens its own
