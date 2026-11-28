@@ -635,11 +635,14 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
       : <div className="t-invite"><div className="t-line">Nothing to get</div><div className="t-soft">Add things as you run out</div></div>}
     {ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Put it back</span>}
     {refused && !ticked && <span className="t-undo">{refused}</span>}
-    {adding !== null && <div className="h-veil" onClick={(e) => { e.stopPropagation(); setAdding(null); }}>
+    {/* On an iPhone a tap on a button first closes the keyboard, the sheet moves, and the tap lands on the veil (closing
+        it, nothing added): the buttons keep the field's focus (no keyboard closing under the finger), and the veil
+        closes only for a tap that started on it. */}
+    {adding !== null && <div className="h-veil" onPointerDown={(e) => { e.currentTarget.dataset.down = e.target === e.currentTarget ? '1' : ''; }} onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget && e.currentTarget.dataset.down === '1') setAdding(null); }}>
       <form className="h-note-full t-addsheet" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); add(); }}>
         <h2>Add to {list.name}</h2>
         <input autoFocus value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="Milk" aria-label={'Add to ' + list.name} />
-        <div className="t-nacts"><button type="button" className="h-chip" onClick={() => setAdding(null)}>Cancel</button><button type="submit" className="h-chip on">Add</button></div>
+        <div className="t-nacts"><button type="button" className="h-chip" onPointerDown={(e) => e.preventDefault()} onClick={() => setAdding(null)}>Cancel</button><button type="submit" className="h-chip on" onPointerDown={(e) => e.preventDefault()}>Add</button></div>
       </form>
     </div>}
   </div>);
