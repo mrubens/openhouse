@@ -14,7 +14,7 @@ const json = (res, code, obj) => { res.code = code; res.body = obj; };
 const post = (h, b, screen) => { const res = {}; return h({ method: 'POST', headers: screen ? { 'x-openhouse-screen': screen } : {} }, res, new URL('http://x/home/note')).then(() => res); };
 
 function setup(dir, { clock, said, night = () => false }) {
-  const homeScreen = homeScreenRoutes({ DIR: dir, json, body: async () => ({}) });
+  const homeScreen = homeScreenRoutes({ DIR: dir, json, body: async () => ({}), APP_DIR: path.join(dir, '..', 'app') });
   let next = {};
   const screens = { who: (id) => ({ 's-sam': { id: 's-sam', kind: 'phone', person: 'Sam', scopes: PHONE_SCOPES.grownup } })[id] || null };
   const notes = homeNoteRoutes({ homeScreen, screens, json, body: async () => next, say: (t) => said.push(t), quiet: (t) => night(t), people: () => ['Sam', 'Alex', 'Maya', 'Leo'], now: () => clock.t, every: 0 });
