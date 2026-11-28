@@ -288,6 +288,8 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             addView(search, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 14) })
             addView(Calm.Capped(c, (screenH * (if (wide) .52f else .3f)).toInt()).apply { addView(rows); isVerticalScrollBarEnabled = false },
                 android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 10); leftMargin = -Calm.px(c, 16); rightMargin = -Calm.px(c, 16) })
+            if (PlayStore.available(c)) addView(Calm.quiet(c, "Open Google Play") { go { browsePlay() } }.apply { setPadding(0, Calm.px(c, 12), 0, 0) },
+                android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 4) })
         }
 
         // ---- Make your own: ask Opie (it builds it here, bridge/builder.js); a computer for bigger work ----
@@ -320,6 +322,12 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             .setNegativeButton(if (fromApps) "Close" else "Back") { _, _ -> if (!fromApps) show() }.show()
         // the search box shouldn't bring up the keyboard by itself (CalmDialog focuses the first field)
         search.clearFocus(); dialog?.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN or android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+    }
+
+    /** Google Play to look around in (the PIN first when Add apps asks for it); not signed in yet: the sign-in. */
+    private fun browsePlay() {
+        if (!PlayStore.signedIn(act)) return act.lock.open("googlePlay")
+        guard { if (!PlayStore.openStore(act)) say("Google Play", "Google Play didn't open. Try again in a minute.") }
     }
 
     /** An Android app: its Google Play page, where the person taps Install (the PIN first when Add apps asks for it).

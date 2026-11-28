@@ -69,6 +69,15 @@ object PlayStore {
         }.onFailure { Log.w(TAG, "open $pkg: $it") }.getOrDefault(false)
     }
 
+    /** Google Play itself, to look around (Apps → Add apps), the same way as one app's page: let in until Opie is back. */
+    fun openStore(c: Context): Boolean {
+        if (!available(c)) return false
+        val i = c.packageManager.getLaunchIntentForPackage(PKG) ?: return false
+        KioskApps.allowInKiosk(PKG, temporary = true)
+        return runCatching { c.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)); true }
+            .onFailure { Log.w(TAG, "open store: $it") }.getOrDefault(false)
+    }
+
     /** Who installed [pkg] (Play, the shell, ...), or null. */
     fun installer(c: Context, pkg: String): String? = runCatching { c.packageManager.getInstallSourceInfo(pkg).installingPackageName }.getOrNull()
 }

@@ -32,7 +32,7 @@ const shell = (() => {
   let hi = null; try { hi = raw && JSON.parse(raw.hello() || 'null'); } catch {}
   if (!hi?.gate) return null;
   const g = hi.gate;
-  return { token: () => hi.token, ui: hi.ui, openApp: (id) => raw.openApp(g, id), settings: () => raw.settings(g), plugins: raw.plugins ? () => raw.plugins(g) : null, makeApp: raw.makeApp ? (note) => raw.makeApp(g, String(note || '')) : null, type: raw.type ? () => raw.type(g) : undefined, sleep: raw.sleep ? () => raw.sleep(g) : undefined, weather: () => raw.weather(g), touch: () => raw.touch(g),
+  return { token: () => hi.token, ui: hi.ui, openApp: (id) => raw.openApp(g, id), settings: () => raw.settings(g), plugins: raw.plugins ? () => raw.plugins(g) : null, makeApp: raw.makeApp ? (note) => raw.makeApp(g, String(note || '')) : null, type: raw.type ? () => raw.type(g) : undefined, sleep: raw.sleep ? () => { window.dispatchEvent(new Event('opie-sleep')); raw.sleep(g); } : undefined, weather: () => raw.weather(g), touch: () => raw.touch(g),
     idle: () => raw.idle(g), clock24: () => { try { return !!raw.clock24(g); } catch { return false; } }, wakeOn: () => { try { return !!raw.wakeOn?.(g); } catch { return false; } }, battery: () => { try { return JSON.parse(raw.battery(g) || 'null'); } catch { return null; } }, sleeping: () => { try { return !!raw.sleeping(g); } catch { return false; } }, dim: (on) => { try { raw.dim(g, !!on); } catch {} }, ask: (t) => raw.ask(g, t), androidApps: () => raw.androidApps(g), video: (u) => raw.video(g, u),
     spotifyState: raw.spotifyState ? (j) => { try { raw.spotifyState(g, j); } catch {} } : null,
     media: raw.media ? (what) => { try { return JSON.parse(raw.media(g, what) || '{}'); } catch { return {}; } } : null,
@@ -878,7 +878,11 @@ function App() {
   // Whether the display has rested (the shell says), asked each second; the time is each part's own (now.js), so the
   // page isn't drawn again every second.
   const [idle, setIdle] = useState(false);
-  useEffect(() => { if (!shell?.idle) return; const t = setInterval(() => setIdle(!!shell.idle()), 1000); return () => clearInterval(t); }, []);
+  // The moon shows the sleep screen at once; the shell's own idle follows a moment later (after the finger lifts).
+  useEffect(() => { if (!shell?.idle) return; let slept = 0;
+    const now = () => { slept = Date.now(); setIdle(true); }; window.addEventListener('opie-sleep', now);
+    const t = setInterval(() => setIdle(!!shell.idle() || Date.now() - slept < 2500), 1000);
+    return () => { clearInterval(t); window.removeEventListener('opie-sleep', now); }; }, []);
   if (!c) return <Pairing removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;
   const gone = () => { keep(null); setMe(null); setRemoved(true); };
   if ((TV || me?.kind === 'tv') && !shell) return <TvFrame c={c} onRemoved={gone} />;
