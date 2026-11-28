@@ -295,9 +295,9 @@ There is no `npm install` and nothing runs.
   - `export_plugin {apps, look?, skills?}` goes the other way. It returns the plugin's files to the computer, where
     Claude or Codex writes them to a folder and, if the person asks, pushes them to *their own* GitHub repo with
     their own `git`. Opie never publishes anything.
-- **From a link on openhouse.computer (later):** the index page for a plugin shows the README, the preview, what it
-  uses, and a QR code. Scanning it with the family's phone hands the link to the tablet (the phone hand-off that
-  exists for flyers and recipes), and the tablet shows the card.
+- **From opie.house/plugins (§19):** a plugin's page there shows what it does, what it uses, and a QR code. Scanning
+  it with the family's phone opens the page there, and sharing it to Opie hands its name to the device (the phone
+  hand-off that exists for flyers and recipes), and the device shows the card.
 - **From Settings:** a "Plugins" row lists what's installed (source, version, "changed by you" or not),
   with Update and Remove. There's no browsing on the tablet in v1.
 
@@ -826,8 +826,17 @@ backups. Nothing here uploads or publishes them; `export_plugin`, asked for by s
 Tests: `plugins.test.mjs` (the list's hosts and sha256; a merge keeps both sides and never the household's or the
 model's rights; a merge that can't be done changes nothing).
 
-**Later:** the same list as a page on openhouse.computer, with a QR code per plugin that hands its name to the tablet
-(the phone hand-off), in the cloud repo's landing page. Not built yet.
+**On the web (2026-11-28):** the same list is a page, opie.house/plugins, served by the cloud from the very
+`index.json` the devices read (read again after five minutes), in the list's order, with each plugin's `rights` as
+they are (the card's words, from `rightsMerged`). It has no scripts. Each plugin has a page of its own,
+opie.house/plugins/<name>, with a QR code of that address: the phone opens it and shares it to Opie (Send to Opie),
+or someone asks Opie by name. `add_plugin` and `look_at_plugin` take that address as the list's name (`listLink`:
+only opie.house or openhouse.computer, never a git link), so it is the same card and PIN on the device.
+- **The list's order** is set by `scripts/plugin-index.mjs`: first the ones that work from the household's own local
+  data (School lunch, Trash day, Game days, Bus times, School menus), then the rest by name. Settings and
+  `find_plugins` keep it too.
+- The cloud's `test/plugins-page.test.ts` fails if the page and `index.json` disagree (with an OpenHouse checkout, it
+  also builds a fresh `index.json` from `plugins/` and checks against that).
 
 ## 20. On the household's phones (2026-11-23)
 

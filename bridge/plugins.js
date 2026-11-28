@@ -64,6 +64,15 @@ export function parseSource(s, { local = false } = {}) {
   return { kind: 'git', url: `https://${where}.git`, ref: m[3] || null, label: where, key: `git:${where}` };
 }
 
+/**
+ * A plugin's own page on opie.house (its QR code, or the link shared from a phone): the name of a plugin on Opie's list,
+ * never a git link. Only Opie's own site; anything else is null.
+ */
+export function listLink(s) {
+  const m = String(s || '').trim().match(/^(?:https?:\/\/)?(?:www\.)?(?:opie\.house|openhouse\.computer)\/plugins\/([a-z0-9][a-z0-9-]{0,63})\/?(?:[?#].*)?$/i);
+  return m ? m[1].toLowerCase() : null;
+}
+
 /** A git or tar run, off the event loop (a slow fetch mustn't stall the bridge: the shell restarts one that stops answering). */
 function run(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
@@ -811,8 +820,9 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
    * Opie's list, which is then fetched only from the tarball the list pins, and only if its sha256 matches.
    */
   async function inspect(source, opts = {}) {
-    let src = parseSource(source, { local: local || opts.local });
-    if (!src && !/[/:]/.test(String(source || ''))) { const c = await listed(source); if (c) src = catalogSource(c); }
+    const onSite = listLink(source); // a plugin's page on opie.house: its name on the list
+    let src = onSite ? null : parseSource(source, { local: local || opts.local });
+    if (!src && (onSite || !/[/:]/.test(String(source || '')))) { const c = await listed(onSite || source); if (c) src = catalogSource(c); }
     if (!src) throw new Error('That isn\'t a plugin on Opie\'s list or a link one comes from: give a git link (github.com/someone/something, or with @version) or an https link to a .tgz.');
     const got = await fetchSource(src, fetchImpl, web);
     try {
@@ -1312,7 +1322,7 @@ Answer with JSON only, no other text: {"ok": true, "files": {"<file name>": "<th
   const images = new Map();
 
   // ---- the tools: the assistant's and a computer's (homeScreen.addTools; the workshop adds export_plugin) ----
-  const SRC = { type: 'string', description: "The name of a plugin on Opie's list (find_plugins), or where it comes from, as the family gave it: a git link (github.com/someone/thing, optionally @version) or an https link to a .tgz." };
+  const SRC = { type: 'string', description: "The name of a plugin on Opie's list (find_plugins) or its page on opie.house (opie.house/plugins/<name>, as a phone shares it), or where it comes from, as the family gave it: a git link (github.com/someone/thing, optionally @version) or an https link to a .tgz." };
   const NAME = { type: 'string', description: 'The plugin\'s name or title, or one of its app ids (list_plugins).' };
   const tools = [
     { name: 'find_plugins', description: "The plugins on Opie's reviewed list (its gallery): each with its name, what it does, what it may use, and whether it's on this device. For \"what plugins are there?\" or finding one by what it does. Add one with add_plugin and its name.", inputSchema: { type: 'object', properties: {} } },

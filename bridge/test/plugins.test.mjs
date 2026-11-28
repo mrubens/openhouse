@@ -287,6 +287,11 @@ test('the gallery: only tarballs on the list\'s own host, and only the exact one
   assert.equal(yes.isError, undefined, yes.content[0].text);
   assert.equal(t.pl.readAll()['twins-chores'].reviewed, true);
   assert.equal(t.pl.readAll()['twins-chores'].source, 'catalog:twins-chores');
+  // Its page on opie.house (a QR code, a link shared from a phone) is the list's own entry, and only on Opie's site.
+  const t3 = tablet(served({ [CDN + 'index.json']: index, [entry.tarball]: good }));
+  assert.equal((await t3.pl.call('add_plugin', { source: 'https://opie.house/plugins/twins-chores' })).isError, undefined);
+  assert.equal(t3.pl.readAll()['twins-chores'].source, 'catalog:twins-chores');
+  assert.equal((await tablet(served({ [CDN + 'index.json']: index, [entry.tarball]: good })).pl.call('add_plugin', { source: 'https://opie.house.example.com/plugins/twins-chores' })).isError, true);
 
   // The same address serving something else (asking for more): refused, nothing added.
   const t2 = tablet(served({ [CDN + 'index.json']: index, [entry.tarball]: other }));
