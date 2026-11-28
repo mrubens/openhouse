@@ -167,8 +167,10 @@ internal fun ColumnScope.FamilyContent(inSettings: Boolean = false, onBack: (() 
 internal fun Field(value: String, onChange: (String) -> Unit, hint: String, modifier: Modifier = Modifier.fillMaxWidth(), focus: FocusRequester? = null, words: Boolean = false) {
     val change = onChange
     val cover = coverAttached()
+    val focused = remember { booleanArrayOf(false) }
+    DisposableEffect(Unit) { onDispose { if (focused[0]) Openhouse.fieldFocused = false } } // (closed while focused: keys go back to Opie)
     // The whole box is the field (a tap anywhere in it focuses it, not just on the line of text).
-    BasicTextField(value, change, modifier.let { m -> if (focus != null) m.focusRequester(focus) else m }.onPreviewKeyEvent { e -> cover && coverKey(e, value, change, null) },
+    BasicTextField(value, change, modifier.let { m -> if (focus != null) m.focusRequester(focus) else m }.onFocusChanged { focused[0] = it.isFocused; Openhouse.fieldFocused = it.isFocused }.onPreviewKeyEvent { e -> cover && coverKey(e, value, change, null) },
         readOnly = cover, singleLine = true, keyboardOptions = if (words) NameKeys else TextKeys, textStyle = quietText(18), cursorBrush = SolidColor(PaperLook.ink),
         decorationBox = { inner ->
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.u)).background(Color(0xFFF1EEE6)).border(1.u, Color(0xFFDAD5CA), RoundedCornerShape(12.u)).padding(horizontal = 14.u, vertical = 11.u)) {

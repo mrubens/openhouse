@@ -391,9 +391,10 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
     /** A keyboard (the tablet's keyboard cover) types into the board, whatever was tapped last. */
     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
         val o = dev.openhouse.ui.Openhouse
-        // These have their own text fields: the Family and setup sheets, and a page of the shell's own over the board
+        // These have their own text fields: the Family and setup sheets, any of the shell's own fields that has focus
+        // (Settings → Household), and a page of the shell's own over the board
         // (Spotify's sign-in: tagged OWN_FIELDS), whose keys must reach it, digits and symbols too.
-        val fields = o.showFamily || o.setupStep != null || currentFocus?.let { f -> generateSequence(f) { it.parent as? android.view.View }.any { it.tag == OWN_FIELDS } } == true
+        val fields = o.showFamily || o.setupStep != null || o.fieldFocused || currentFocus?.let { f -> generateSequence(f) { it.parent as? android.view.View }.any { it.tag == OWN_FIELDS } } == true
         val onBoard = (apps.appId == null || o.showConversation) && !fields
         if (event.action == android.view.KeyEvent.ACTION_DOWN && !event.isPrintingKey) Log.d("Keys", "key ${event.keyCode} ${android.view.KeyEvent.keyCodeToString(event.keyCode)} scan ${event.scanCode}")
         // A key wakes it as a touch does (asleep, the night's dark or the photos): that key only wakes it, as a tap

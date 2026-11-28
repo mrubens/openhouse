@@ -532,6 +532,8 @@ object Openhouse : AnswerActions {
     fun openTyping(note: String = "", seed: String = "") { touch(); awaitingUntil = 0; handsFreeUntil = 0; draft = seed; typing = note; Listening.arm(0, "typing") }
     /** Keys typed before the typing box has focus (the first one opens it): kept, so nothing is lost. */
     var typingFocused = false
+    /** One of the shell's own text fields (Field: Settings, the household, setup) has focus: keys go to it, not to Opie. */
+    var fieldFocused = false
     /** A key typed on a keyboard while the typing box is closed (the shell routes these here). */
     fun typed(ch: String) { if (typing == null && (setupStep != null || showWelcome)) return; if (typing == null) { typingFocused = false; openTyping(seed = ch) } else draft += ch }
     /** The keyboard's AI key: Opie open (talking, its typing box, a conversation) goes away; otherwise it comes out, as a tap. */
