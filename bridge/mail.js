@@ -3,7 +3,7 @@
 // Photos (and videos, kept as they come) go into the Email album and events are offered on the Calendar app to say yes to (house.js readEmail). Mail from
 // anyone else is held, unread, for Allow in Settings → Account → Email, and deleted after 3 days.
 //
-//   GET  /mail                 what Settings → Account → Email shows: {cloud, own, senders, held, recent, notes}
+//   GET  /mail                 what Settings → Account → Email shows: {cloud, own, senders, held, recent, notes, reads}
 //   POST /mail/set             {on?, address?: 'new' | <name>, senders?: [{address, who}], own?}
 //   POST /mail/held            {id, allow}
 //   POST /mail/incoming        {raw: base64 MIME, source: 'imap'} (the shell's own mailbox) -> {ok} | {error}
@@ -243,6 +243,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
       held: st.held.map(({ id, from, name, subject, at, unverified }) => ({ id, from, name, subject, at, ...(unverified ? { unverified: true } : {}) })),
       recent: st.recent.slice().reverse().map(({ id, from, who, subject, at, photos, events, unread }) => ({ id, from, who, subject, at, photos, events, ...(unread ? { unread: true } : {}) })),
       notes: st.notes.map((n) => n.text),
+      ...(house.canRead ? { reads: !!house.canRead() } : {}), // false: no assistant, so events wait (house.js readEmail)
       limits: LIMITS,
     };
   }

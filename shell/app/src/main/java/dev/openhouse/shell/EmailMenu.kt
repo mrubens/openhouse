@@ -73,6 +73,7 @@ internal class EmailMenu(private val act: MainActivity) {
 
         val d = CalmDialog(act).setTitle("Email").setWidth(860f)
         if (cloud == null && own == null) d.setMessage("Email photos and invitations to the device: link it to your account (Settings, Account), or use a mailbox of your own.")
+        else if (m.has("reads") && !m.optBoolean("reads")) d.setMessage((listOf("Photos come in; events wait until Opie's voice is on (Settings → Opie → Voice).") + notes).joinToString("\n"))
         else if (notes.isNotEmpty()) d.setMessage(notes.joinToString("\n"))
         d.setRows(rows.map { it.first }) { _, i -> rows[i].second?.invoke() }.setNegativeButton("Back", null).show()
     }

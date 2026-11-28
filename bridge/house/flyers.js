@@ -101,9 +101,14 @@ export default function (house) {
     return kind === 'photo' ? PHOTO.test(x) && !x.includes('/') && fs.existsSync(path.join(FLYERS, x)) : kind === 'email' ? !!mail?.has(x) : false; };
   const flyerNow = () => (flyer?.events ? { ...flyer, events: flyer.events.map(({ src, ...e }) => (kept(src) ? { ...e, src } : e)) } : flyer);
   /** GET /house/flyer/source: what an offered event came from, only while one waiting names it. n: an email's nth
-   *  picture. -> {photo: {bytes, type}} | {email: {from, subject, at, text, invites, pictures: n}} | {picture} | null */
+   *  picture. An added event's too (events.js keeps its src). -> {photo: {bytes, type}} | {email: {from, subject, at, text, invites, pictures: n}} | {picture} | null */
+  /** Is src one a waiting event came from? (Only those go on with an event that's added: events.js.) */
+  let putAway = []; // [{src, at}]: the offers just put away, whose adds may come in just after (the Calendar sends both at once)
+  const offered = (src) => !!src && (!!flyer?.events?.some((e) => e.src === src) || putAway.some((x) => x.src === src && Date.now() - x.at < 10 * 60e3));
   async function flyerSource(src, n = null) {
-    if (!flyer?.events?.some((e) => e.src === src) || !kept(src)) return null;
+    // (a waiting event's, or one added from it: on the device's own calendar, or what it keeps about a synced one)
+    const onEvent = (s) => data.events.some((e) => e.src === s) || Object.values(data.srcs || {}).some((x) => x.src === s);
+    if (!(offered(src) || onEvent(src)) || !kept(src)) return null;
     const [kind, x] = String(src).split(/:(.*)/s);
     if (kind === 'photo') { const ext = path.extname(x).slice(1).toLowerCase(); return { photo: { bytes: fs.readFileSync(path.join(FLYERS, x)), type: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg' } }; }
     const m = await mail.source(x); if (!m) return null;
@@ -111,7 +116,10 @@ export default function (house) {
     const { pictures, ...rest } = m;
     return { email: { ...rest, pictures: pictures.length } };
   }
-  function clearFlyer() { flyer = null; keepFlyer(); }
+  function clearFlyer() {
+    putAway = [...putAway.filter((x) => Date.now() - x.at < 10 * 60e3), ...(flyer?.events || []).filter((e) => e.src).map((e) => ({ src: e.src, at: Date.now() }))].slice(-48);
+    flyer = null; keepFlyer();
+  }
   const mailAddress = () => { try { return mail?.address?.() || null; } catch { return null; } };
-  return { photoBytes, latestFlyer, addFlyer, readEmail, flyerPhoto, keepFlyer, flyerNow, clearFlyer, flyerSource, mailAddress, setMail: (m) => { mail = m; } };
+  return { photoBytes, latestFlyer, addFlyer, readEmail, flyerPhoto, keepFlyer, flyerNow, clearFlyer, flyerSource, mailAddress, offered, sourceKept: kept, setMail: (m) => { mail = m; } };
 }

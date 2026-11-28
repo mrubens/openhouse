@@ -88,6 +88,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   data.events ||= []; // added on the display: [{ id, title, start, end?, allDay, who, place?, notes?, repeat?, until?, skip?, countdown? }]
   data.countdowns ||= []; // synced events counted down to (their uid from calendar.js)
   data.reminds ||= {}; // synced events' reminders: uid -> minutes before (-1: none, over the household's default)
+  data.srcs ||= {}; // two-way synced events added from an offer: uid -> { src, from } (the email or flyer photo it came from; never sent to the calendar)
   data.whose ||= {}; // two-way synced events' people when they aren't the calendar's own: uid -> { who, also? } (calendar-sync.js)
   data.reminded ||= []; // reminders put away: "uid-or-id|start ISO" (the latest 200)
   data.rewards ||= []; // [{ id, title, stars, who? }]
@@ -330,7 +331,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   handle.answer = (...a) => house.answer(...a); // one answer from the assistant (the music tool's Spotify search: devices/index.js)
   handle.changed = changed;
   handle.setVoice = (fn) => { voiceNeed = fn; };
-  handle.setMail = (m) => house.setMail(m); // mail.js: an offered event's email, to open (flyers.js)
+  handle.setMail = (m) => house.setMail(m);
+  handle.canRead = () => !house.noAssistant(''); // whether an email's events can be read now (mail.js: Settings → Account → Email says when not) // mail.js: an offered event's email, to open (flyers.js)
   handle.tick = tick; // (tests: what the 30 s clock does)
   handle.events = () => house.events(); // the calendar as screens get it (tests)
   handle.reminders = (now) => house.reminders(now); // the reminders due now (phone-buzz.js: they buzz the phones of the people on them)

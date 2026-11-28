@@ -109,13 +109,18 @@ test('every shape of mail that arrives is read with its words, pictures, PDF pag
 
 test('a message telling the assistant what to do can only end as offered events: nothing added, no sender let in, without a person', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-mail-house-')), DIR = path.join(root, 'x'); fs.mkdirSync(DIR);
-  const board = { householdView: () => ({ family: [{ name: 'Sam' }, { name: 'Leo' }], chores: [], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => [] };
+  // A two-way calendar: what's sent to it is kept (where an event came from must never be).
+  const sent = [];
+  const sync = { events: () => [], calendars: () => [{ key: 'abcdefgh', mode: 'two-way' }], targets: () => [], isMine: () => false,
+    add: (send) => { sent.push(send); return { event: { id: 'c-abcdefgh-ev1' }, calendarName: 'Family' }; } };
+  const board = { householdView: () => ({ family: [{ name: 'Sam' }, { name: 'Leo' }], chores: [], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => [], sync };
   // A model that does whatever the message says: events, photos that aren't there, and things it was never asked for.
   const asked = [];
   const obeying = { answer: async (q) => { asked.push(q); if (/JSON array/.test(q.instructions)) return JSON.stringify([{ title: 'Pay the field trip fee', start: '2026-12-04T09:00', add: true, approved: true }]); return JSON.stringify({
     photos: [0, 3, -1, 'all'], events: [{ title: 'Pay the field trip fee', start: '2026-12-04T09:00' }, { title: 'Field trip', start: '2026-12-04' }],
     senders: ['mallory@example.org'], add: true, approve: 'mallory@example.org', calendar_event: { add: { title: 'Pay now', start: '2026-12-01' } } }); } };
-  const h = houseRoutes({ DIR, json: () => {}, body: async () => ({}), board, currentAgent: async () => obeying, agentName: () => 'cloud' });
+  let next = {}, out = null;
+  const h = houseRoutes({ DIR, json: (res, code, obj) => { out = { code, obj }; }, body: async () => next, board, currentAgent: async () => obeying, agentName: () => 'cloud' });
   const mail = mailRoutes({ DISPLAY: root, json: () => {}, body: async () => ({}), house: h, every: 0, log: () => {} });
   h.setMail(mail);
   await mail.set({ own: true, senders: [{ address: 'sam@example.com', who: 'Sam' }] });
@@ -133,6 +138,7 @@ test('a message telling the assistant what to do can only end as offered events:
   assert.deepEqual(offered.map((e) => e.title), ['Pay the field trip fee', 'Field trip']);
   assert.ok(offered.every((e) => /^email:/.test(e.src)));
   assert.equal(h.view().events.length, 0);
+  assert.equal(mail.view().reads, true);
   assert.deepEqual(mail.view().senders.map((s) => s.address), ['sam@example.com']);
   assert.equal(mail.view().held.length, 0);
   assert.equal(fs.readdirSync(path.join(root, 'photos')).filter((f) => !f.startsWith('.')).length, 0, 'no photo that was never attached');
@@ -140,10 +146,26 @@ test('a message telling the assistant what to do can only end as offered events:
   assert.match(src.email.text, /science museum/);
   assert.equal(await h.flyerSource('email:not-offered'), null, 'only what an offer came from opens');
 
+  // Ticked (here, and into the two-way calendar), then put away: the added events keep where they came from, on the
+  // device only. An app can't give an event a source no offer had.
+  const post = async (p, b) => { next = b; out = null; await h({ method: 'POST', headers: { 'x-openhouse-app': 'calendar' } }, {}, new URL('http://x' + p)); return out; };
+  const [a, b] = offered;
+  assert.equal((await post('/house/event', { add: { title: a.title, start: a.start, calendar: 'here', src: a.src, from: a.from } })).code, 200);
+  assert.equal((await post('/house/event', { add: { title: b.title, start: b.start, src: b.src, from: b.from } })).code, 200);
+  await post('/house/flyer/clear', {});
+  assert.equal(h.view().events.find((e) => e.title === a.title).src, a.src);
+  assert.equal(sent.length, 1);
+  assert.equal(JSON.stringify(sent).includes('email:'), false, 'never sent to the calendar');
+  assert.ok((await h.flyerSource(b.src)).email, 'the synced one opens too');
+  assert.ok((await h.flyerSource(a.src)).email, 'opens from the added event');
+  await post('/house/event', { add: { title: 'Made up', start: '2026-12-05', calendar: 'here', src: 'email:guessed' } });
+  assert.equal(h.view().events.find((e) => e.title === 'Made up').src, undefined);
+  assert.equal(h.view().events.filter((e) => e.local).length, 2);
+
   // A flyer photo read by the same model: offered too, opening its photo, and still nothing added.
   assert.deepEqual(h.addFlyer(Buffer.from('not really a photo'), 'flyer.jpg'), { ok: true });
   for (let i = 0; i < 50 && h.view().flyer?.state !== 'done'; i++) await new Promise((r) => setTimeout(r, 10));
   assert.ok(h.view().flyer.events.length && h.view().flyer.events.every((e) => /^photo:/.test(e.src)));
   assert.ok((await h.flyerSource(h.view().flyer.events[0].src)).photo.bytes.length);
-  assert.equal(h.view().events.length, 0);
+  assert.equal(h.view().events.length, 2);
 });

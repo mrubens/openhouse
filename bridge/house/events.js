@@ -41,8 +41,12 @@ export default function (house) {
     const all = data.settings.remind ?? null;
     const remindOf = (e) => { if (e.allDay || e.fromApp) return null; /* (an app's events: read-only, no chime) */ const m = e.local ? e.remind ?? all : e.uid && data.reminds[e.uid] !== undefined ? data.reminds[e.uid] : all; return m == null || m < 0 ? null : m; };
     const whose = (e) => (e.calendar && e.uid && data.whose[e.uid.replace(/\|.*$/, '')] ? { ...e, ...data.whose[e.uid.replace(/\|.*$/, '')] } : e); // (a repeat's times share one)
-    return [...calendarEvents().map(whose).map((e) => (e.uid && counted(e.uid) ? { ...e, countdown: true } : e)), ...local, ...appEvents()]
+    const kept = (e) => { const k = e.calendar && e.uid && data.srcs[e.uid.replace(/\|.*$/, '')]; return k ? { ...e, src: k.src, ...(k.from ? { srcFrom: k.from } : {}) } : e; };
+    // An added event's email or flyer photo, while it's kept (the latest 5 photos; an email's week): else not shown.
+    const source = (e) => (e.src && !house.sourceKept?.(e.src) ? (({ src, srcFrom, ...r }) => r)(e) : e);
+    return [...calendarEvents().map(whose).map(kept).map((e) => (e.uid && counted(e.uid) ? { ...e, countdown: true } : e)), ...local, ...appEvents()]
       .filter((e) => new Date(e.end || e.start) > from && new Date(e.start) < to)
+      .map(source)
       .map((e) => { // remind: its own minutes (the household's when absent); remindAt: when it's due
         const own = !e.local && e.uid && data.reminds[e.uid] !== undefined ? { remind: data.reminds[e.uid] } : {}, m = remindOf(e);
         return m == null ? { ...e, ...own } : { ...e, ...own, remindAt: new Date(new Date(e.start).getTime() - m * 60e3).toISOString(), remindMin: m };
@@ -76,9 +80,13 @@ export default function (house) {
     const also = (e.also !== undefined ? arr(e.also) : was.also || []).map((n) => str(n, 40)).filter((n) => n && !same(n, who)).slice(0, 6); // whoever else it's for
     const countdown = e.countdown !== undefined ? !!e.countdown : !!was.countdown;
     const remind = e.remind !== undefined ? remindMin(e.remind) : was.remind; // minutes before; -1 none; absent: the household's
+    // Where it came from (an offer's email or flyer photo, flyers.js), only as it's added from that offer; kept after.
+    const src = e.src !== undefined ? (house.offered?.(e.src) ? String(e.src) : null) : was.src || null;
+    const srcFrom = src ? (e.src !== undefined ? str(e.from, 40) : was.srcFrom || '') : '';
     return { title, start: s.toISOString(), end: end.toISOString(), allDay, who, ...(who && also.length ? { also } : {}),
       ...(pick('place', 80) ? { place: pick('place', 80) } : {}), ...(pick('notes', 400) ? { notes: pick('notes', 400) } : {}),
-      ...(repeat ? { repeat } : {}), ...(repeat && until ? { until } : {}), ...(countdown ? { countdown: true } : {}), ...(remind != null ? { remind } : {}), ...(repeat && was.skip ? { skip: was.skip } : {}) };
+      ...(repeat ? { repeat } : {}), ...(repeat && until ? { until } : {}), ...(countdown ? { countdown: true } : {}), ...(remind != null ? { remind } : {}), ...(repeat && was.skip ? { skip: was.skip } : {}),
+      ...(src ? { src, ...(srcFrom ? { srcFrom } : {}) } : {}) };
   }
   /** What this display keeps about a two-way synced event that its calendar doesn't: whose (when not the calendar's
    *  own person), a countdown, its reminder. By uid ("<calendar>:<id>"). [asked]: only what an update changed. */
@@ -91,6 +99,7 @@ export default function (house) {
     }
     if (has('countdown')) data.countdowns = f.countdown ? [...new Set([...data.countdowns, uid])].slice(-40) : data.countdowns.filter((x) => x !== uid);
     if (has('remind')) { if (f.remind == null) delete data.reminds[uid]; else data.reminds[uid] = f.remind; }
+    if (f.src) { data.srcs[uid] = { src: f.src, ...(f.srcFrom ? { from: f.srcFrom } : {}) }; const keys = Object.keys(data.srcs); if (keys.length > 400) delete data.srcs[keys[0]]; }
   }
   /** Minutes before an event, from what was asked: 0 at the start, up to a day; "none"/false/-1 no reminder; null/"default" the household's. */
   function remindMin(v) {
@@ -116,7 +125,7 @@ export default function (house) {
       if (f.error) return f;
       const twin = sync.events().find((e) => e.editable && same(e.title, f.title) && Math.abs(new Date(e.start) - new Date(f.start)) <= 5 * 60e3);
       if (twin) { const r = changeEvents({ update: { ...a.add, id: twin.id, date: twin.date } }); return r.error ? r : { ...r, already: true, note: 'Already on the calendar, so it was changed rather than added again. Nothing more to add; to change it later, update it by id.' }; }
-      const { countdown, remind, also, ...send } = f;
+      const { countdown, remind, also, src, srcFrom, ...send } = f; // (where it came from stays here: never sent to the calendar)
       const r = sync.add(send, a.add.calendar || null);
       if (r) {
         const k = /^c-([A-Za-z0-9]{8})-(.+)$/.exec(r.event.id), uid = `${k[1]}:${k[2]}`;
@@ -137,7 +146,7 @@ export default function (house) {
         if (!was) return { error: `No event ${a.update.id}.` };
         const f = eventFields(a.update, was);
         if (f.error) return f;
-        const { countdown, remind, also, who, ...send } = f;
+        const { countdown, remind, also, who, src, srcFrom, ...send } = f;
         if (a.update.repeat === undefined && was.repeat === 'custom') send.repeat = 'custom'; // a rule this can't say: left as it is
         if (a.update.repeat === 'custom') send.repeat = 'custom';
         const r = sync.update(a.update.id, { ...send, date: was.date });

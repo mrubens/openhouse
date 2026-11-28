@@ -532,6 +532,7 @@ function openEvent(e) {
     e.place ? h('p', { class: 'line light' }, e.place) : null,
     whoText(e) ? h('p', { class: 'line ink' }, whoText(e)) : null,
     e.notes ? h('p', { class: 'line notes' }, e.notes) : null,
+    e.src && !onScreen ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'From'), h('div', { class: 'chips' }, chip(e.srcFrom || 'The photo', false, () => openSource(e.src, e.srcFrom || 'The photo')))) : null,
     e.note ? h('p', { class: 'line light small' }, e.note) : null, // changed on its calendar before a change here went in
     e.editable && e.calendarName ? h('p', { class: 'line light small' }, `On ${e.calendarName}${e.sending ? ' · sending' : ''}`) : null,
     e.fromApp ? h('p', { class: 'line light small' }, `From ${e.appName || appName(e.fromApp)}`) // one of the household's apps put it here (read-only)
@@ -626,7 +627,7 @@ function showFlyer() {
         btn(n === 0 ? 'Add' : n === 1 ? 'Add 1' : `Add ${n}`, () => guard(() => {
           for (const i of [...flyerPick.on].sort()) {
             const e = evs[i], t0 = Date.parse(e.allDay ? e.start + 'T00:00' : e.start), t1 = e.end ? Date.parse(e.end) : null;
-            house.addEvent({ title: e.title, start: t0, end: !e.allDay && t1 > t0 ? t1 : null, allDay: !!e.allDay, who: flyerPick.who, place: e.place || '', notes: e.notes || '' });
+            house.addEvent({ title: e.title, start: t0, end: !e.allDay && t1 > t0 ? t1 : null, allDay: !!e.allDay, who: flyerPick.who, place: e.place || '', notes: e.notes || '', src: e.src, from: e.from });
           }
           done(close);
         }), { disabled: n === 0 })),

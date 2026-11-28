@@ -32,8 +32,7 @@ and needs its own plan: what may be sent, who says yes, and replies.
   endpoints, deletion with the account, the privacy page's bullet.
 
 **Not yet:** a real message through SES (below); the own mailbox against a real IMAP server; PDF and HEIC conversion
-and the Email screens on a tablet. An added event doesn't keep its source once it's on the calendar (only the offer
-does). Outlook's `winmail.dat` attachments aren't read (a forward from Outlook in rich text loses its attachments). Opie doesn't yet mention a new
+and the Email screens on a tablet. Outlook's `winmail.dat` attachments aren't read (a forward from Outlook in rich text loses its attachments). Opie doesn't yet mention a new
 email's events on its own (they wait on the Calendar). A hub has no shell, so no own mailbox and no PDF pages there.
 
 **The own mailbox from a computer** (instead of the form in Settings → Account → Email), with adb:
@@ -125,13 +124,14 @@ in a subject line); the model makes the call, with what the message holds as con
   the message's subject. Duplicates are skipped as `addPhoto` already does.
 - **Events** go where flyer events go now: the Calendar app shows them, from "Sam's email", each one to say yes to.
   On the device, the offer's From opens the email itself (its text, pictures and PDF's first pages), so anyone can
-  check a date before ticking; a flyer photo's offer opens the photo. That lasts while the email is kept (a week) or
-  the photo is (the latest 5). Nothing is added until someone says yes on the tablet or on a phone. Opie mentions there's an email waiting the next
+  check a date before ticking; a flyer photo's offer opens the photo. An event ticked from it keeps that, and its card's
+  From opens it too (for an event sent to a two-way calendar, the device keeps it: it never goes to the calendar).
+  That lasts while the email is kept (a week) or the photo is (the latest 5). Nothing is added until someone says yes on the tablet or on a phone. Opie mentions there's an email waiting the next
   time someone talks to it, once.
 - **Everything else** (a message with no events and no photos) is kept on the tablet for a week in Settings → Account → Email
   so someone can see what came in, then deleted. Nothing in it is acted on.
 - If the household has no assistant connected, photos still go into Photos; flyers and other messages wait in
-  Settings → Account → Email until one is.
+  Settings → Account → Email until one is, and that screen says so in one line.
 
 ## Safety
 

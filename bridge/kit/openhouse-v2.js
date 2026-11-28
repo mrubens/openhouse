@@ -286,8 +286,8 @@ export const house = {
   // the calendar: events added on the display, and those in a two-way calendar (editable: Google or iCloud signed in on
   // the display); calendars read from a link are read-only. calendar: where a new one goes (a key from
   // data.calendarTargets, or 'here' for only the display); left out, the person's own two-way calendar, else the default.
-  addEvent: ({ title, start, end = null, allDay = false, who = null, also = [], repeat = null, until = null, place = '', notes = '', countdown = false, remind = null, calendar = null }) => !title?.trim() ? nothing() : send('/house/event', {
-    add: { title: title.trim(), start: iso(new Date(start), allDay), ...(end && !allDay ? { end: iso(new Date(end), false) } : {}), allDay, who, ...(also?.length ? { also } : {}), repeat, ...(until ? { until } : {}), place, notes, countdown, ...(remind != null ? { remind } : {}), ...(calendar ? { calendar } : {}) } }),
+  addEvent: ({ title, start, end = null, allDay = false, who = null, also = [], repeat = null, until = null, place = '', notes = '', countdown = false, remind = null, calendar = null, src = null, from = null }) => !title?.trim() ? nothing() : send('/house/event', {
+    add: { title: title.trim(), start: iso(new Date(start), allDay), ...(end && !allDay ? { end: iso(new Date(end), false) } : {}), allDay, who, ...(also?.length ? { also } : {}), repeat, ...(until ? { until } : {}), place, notes, countdown, ...(remind != null ? { remind } : {}), ...(calendar ? { calendar } : {}), ...(src ? { src, from } : {}) } }),
   /** Change an event (added here, or editable): its id and only what changes (start/end as times; repeat 'none' to
    *  stop; date: which time of a repeating one it was changed from). */
   updateEvent: (id, f) => send('/house/event', { update: { id, ...f,
