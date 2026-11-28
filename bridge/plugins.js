@@ -499,6 +499,55 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   }
   edits.setBeforeCommit?.(reconcile);
 
+  // ---- undo and an app's rights ----
+  // An undo that brings back what an app from a link (or one made here, limited) was granted (taking back its removal,
+  // or a website forgotten) doesn't give it back by itself: the undo puts the app back with only what it still had,
+  // the rest held in its manifest, and the tablet's card asks, as adding it did (with the PIN when Add apps asks).
+  // A yes gives it back as one change; a no, or no answer, leaves it without.
+  const GRANTS = ['uses', 'reaches', 'chosen', 'actions', 'checks'];
+  const grantedApps = (all) => { const m = new Map(); for (const e of Object.values(all)) for (const [id, a] of Object.entries(e.apps || {})) if (e.kind === 'shared' || (e.kind === 'local' && a.limited)) m.set(id, a); return m; };
+  function holdGrants(was) {
+    const all = readAll(), back = [], key = (x) => JSON.stringify(x);
+    for (const [name, e] of Object.entries(all)) {
+      let changed = false;
+      for (const [id, a] of Object.entries(e.apps || {})) {
+        if (!(e.kind === 'shared' || (e.kind === 'local' && a.limited))) continue;
+        const b = was.get(id) || {}, held = {};
+        for (const k of GRANTS) {
+          const had = new Set((Array.isArray(b[k]) ? b[k] : []).map(key)), now = Array.isArray(a[k]) ? a[k] : [];
+          const more = now.filter((x) => !had.has(key(x)));
+          if (more.length) { held[k] = more; a[k] = now.filter((x) => had.has(key(x))); }
+        }
+        if (a.background === true && b.background !== true) { held.background = true; delete a.background; }
+        if (!Object.keys(held).length) continue;
+        a.held = held; changed = true;
+        back.push({ name, id, title: a.name || e.title || id });
+      }
+      if (changed) save(name, e);
+    }
+    cache.stamp = null;
+    return back.length ? back : null;
+  }
+  async function askGrants(back) {
+    for (const { name, id, title } of back) {
+      const a = readAll()[name]?.apps?.[id], h = a?.held;
+      if (!h) continue;
+      const rights = rightsList([{ name: title, uses: h.uses || [], reaches: h.reaches || [], chosen: h.chosen || [], actions: h.actions || [], checks: h.checks || [], background: !!h.background }]);
+      let yes = false;
+      try { yes = approve ? await approve(`Give ${title} back what it had?`, '', true, { yes: 'Allow', for: 'apps', rights }) === true : false; } catch (e) { log('card:', e.message); }
+      const owner = { id: 'plugin-grants', kind: 'plugin', who: null, text: yes ? `Gave ${title} back what it had` : `${title} stays without what it had` };
+      if (!(await edits.acquire(owner, { timeoutMs: 120e3, checkpoint: true }))) { log(`${title}: busy, what it had stays held`); continue; }
+      try {
+        const all = readAll(), x = all[name]?.apps?.[id];
+        if (x?.held) {
+          if (yes) { for (const k of GRANTS) if (x.held[k]) x[k] = [...(x[k] || []), ...x.held[k]]; if (x.held.background) x.background = true; }
+          delete x.held; save(name, all[name]); cache.stamp = null;
+        }
+      } finally { edits.finish(owner, true, { quiet: !yes }); onChange(); }
+    }
+  }
+  edits.setRevertHook?.({ before: () => grantedApps(readAll()), hold: holdGrants, after: (back) => { askGrants(back).catch((e) => log('grants:', e.message)); } });
+
   /** An app's commits so far all came from us ("Starting apps…"), and nothing in it is uncommitted. */
   function untouched(id) {
     try {
@@ -790,13 +839,17 @@ export function pluginsRoutes({ APP_DIR, edits, homeScreen, json, body, approve 
   const lookWords = (look) => Object.entries(look).map(([k, v]) => (k === 'colors' ? 'its own colors' : `${k} ${v}`)).join(', ');
   /** The tablet's card for a plugin (docs/ux.md): where it's from and everything it may do, each as a short line with
    *  its kind (shown in full, never behind More); the version, our notes and its own words behind More. */
+  // What it may do comes first, so it's what the card's box opens on; where it's from (a link can be long) and its
+  // apps' names after, and the whole link under More.
   const card = (p, { already = true } = {}) => {
-    const rights = [{ kind: 'from', text: p.src.catalog ? "From Opie's list, reviewed." : `From ${p.src.label}. Not reviewed for Opie's list.` }];
-    if (p.apps.length > 1) rights.push({ kind: 'apps', text: `${p.apps.length} apps: ${p.apps.map((a) => a.name).join(', ')}.` });
+    const rights = [];
     if (p.apps.length) rights.push(...rightsList(p.apps));
     if (p.look) rights.push({ kind: 'look', text: `Changes the look: ${lookWords(p.look)}.` });
     if (p.tabs.length) rights.push({ kind: 'tabs', text: `Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}: ${p.tabs.map((t) => t.name || t.app).join(', ')}.` });
-    const more = [[p.version, p.commit?.slice(0, 7)].filter(Boolean).join(', '), already && readAll()[p.name]?.kind === 'shared' ? 'Already on this device.' : '', ...p.notes,
+    const full = String(p.src.label || ''), label = full.length > 60 ? `${full.slice(0, 57)}...` : full;
+    rights.push({ kind: 'from', text: p.src.catalog ? "From Opie's list, reviewed." : `From ${label}. Not reviewed for Opie's list.` });
+    if (p.apps.length > 1) rights.push({ kind: 'apps', text: `${p.apps.length} apps: ${p.apps.map((a) => a.name).join(', ')}.` });
+    const more = [!p.src.catalog && label !== full ? `From ${full}` : '', [p.version, p.commit?.slice(0, 7)].filter(Boolean).join(', '), already && readAll()[p.name]?.kind === 'shared' ? 'Already on this device.' : '', ...p.notes,
       p.description ? `In its own words: "${p.description.replace(/\s+/g, ' ').trim()}"` : ''].filter(Boolean).join('\n');
     return { rights, more };
   };

@@ -28,6 +28,7 @@
 //   POST /screens/pair/end {pair}  the Connect screen closed: its page and name go now
 //   POST /screens/answer {pair, yes}   a screen that asked to join: let it in, or not
 //   POST /screens/revoke {id}      that screen's key stops working now, and its open requests end
+//   POST /screens/invite/cancel {person}   the invites sent for that person stop working now (GET /screens: invites)
 // Away from home (relay.js, docs/networking.md): the same sealed requests can arrive through the cloud's relay
 // instead of the home network (handle.relayed), from a device holding its relay token (handle.relayTokens: derived
 // from its key, handed over sealed by GET /relay/me). `away` is when one last came that way.
@@ -108,7 +109,7 @@ const RULES = [
   ['tablet', 'GET', /^\/(cloud\/voice|cloud\/status|household)$/],
   ['tablet', 'POST', /^\/home\/handsfree$/], // a note's hands-free view, as on this tablet
   ['admin', 'GET', /^\/(screens|cloud\/status|cloud\/voice|backup\/status|backup\/list|backup\/recovery-code|relay|hub)$/],
-  ['admin', 'POST', /^\/screens\/(pair|pair\/end|answer|revoke)$/],
+  ['admin', 'POST', /^\/screens\/(pair|pair\/end|answer|revoke|invite\/cancel)$/],
   ['admin', 'POST', /^\/cloud\/(link\/start|link\/confirm|link\/cancel|unlink|voice|voice\/name)$/],
   ['admin', 'POST', /^\/backup\/(dest|now|restore|escrow|recovery-code\/confirmed|storage|storage\/remove)$/],
   ['admin', 'POST', /^\/(relay|hub\/update|webmcp)$/], ['admin', 'GET', /^\/webmcp$/], // the connector at the household's own address (web-mcp.js)
@@ -135,6 +136,23 @@ export const TABLET_SCOPES = ['door', 'arrange', 'ask', 'voice', 'tablet'];
 export const ADMIN_SCOPES = [...DEFAULT_SCOPES, 'admin'];
 export function allowed(scopes, method, pathname) {
   return RULES.some(([s, m, re]) => scopes.includes(s) && m === method && re.test(pathname));
+}
+/** What an app on a phone, TV or screen may reach, by that device's own scopes: the app's rights (brain.js appAllowed)
+ *  and these both have to say yes, so naming an app never gives a device more than it has. Reading is 'door'; the
+ *  family's everyday changes are 'arrange' (as the device's own taps); what only an adult's phone does is 'ask'. The
+ *  house's settings, where the household lives, the flyer and handing things to a phone are never from a device's app
+ *  (docs/phones.md: no settings on any phone). Another Opie tablet's apps run in its own room, as here, and aren't cut. */
+const APP_RULES = [
+  ['door', 'GET', /^\/(state|apps|house|house\/wait|weather|home|home\/wait|board|appdata\/[\w.-]{1,40})$/], ['door', 'GET', /^\/house\/photo\/[^/]{1,120}$/],
+  ['arrange', 'POST', /^\/(apperror|appdata\/[\w.-]{1,40}|apps\/fetch|apps\/reach(\/forget)?|today\/line|calendar\/(days|events))$/],
+  ['arrange', 'POST', /^\/house\/(list|chore|checklist|reward|meal|meal\/ingredients|event|remind|photo|photo\/album|photo\/caption)$/], // (rewards: a change to them is the tablet's card, a kid's ask too)
+  ['arrange', 'POST', /^\/(home\/timer|voice\/say|home\/handsfree|home\/alarm)$/], // (refused from a phone anyway: brain.js, not in the room)
+  ['arrange', 'GET', /^\/home\/timer$/],
+  ['ask', 'POST', /^\/house\/(recipe-link|photo\/remove|photo\/restore)$/], ['ask', 'POST', /^\/(phone\/album|cloud\/decide|apps\/ask|apps\/devices(\/(get|do))?)$/],
+  ['ask', 'GET', /^\/map(\/route)?$/], ['ask', 'POST', /^\/map\/(on|place|place\/remove|clear)$/],
+];
+export function appReach(scopes, method, pathname) {
+  return APP_RULES.some(([s, m, re]) => scopes.includes(s) && m === method && re.test(pathname));
 }
 
 const b64 = (b) => Buffer.from(b).toString('base64url');
@@ -492,6 +510,14 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
       json(res, 200, { ok: state.screens.length !== before });
       return true;
     }
+    if (p === '/screens/invite/cancel') {
+      const who = String(b.person || ''), gone = state.invites.filter((v) => v.person === who);
+      for (const v of gone) { const x = pairs.get(v.pair); pairs.delete(v.pair); for (const w of x?.waiters || []) w(); }
+      state.invites = state.invites.filter((v) => v.person !== who);
+      if (gone.length) { write(); changed(); }
+      json(res, 200, { ok: gone.length > 0 });
+      return true;
+    }
     json(res, 404, { error: 'not found' });
     return true;
   }
@@ -678,7 +704,8 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     // rights, checked by dispatch as on the tablet, not the phone's routes.)
     const sc = s.scopes || [];
     const appOk = fromApp === null || (APP_ID.test(fromApp) && appsFor(s).some((a) => a.id === fromApp) && !share
-      && (msg.m === 'GET' ? sc.includes('door') : (s.kind === 'phone' || s.kind === 'tablet') && sc.includes('arrange')));
+      && (msg.m === 'GET' ? sc.includes('door') : (s.kind === 'phone' || s.kind === 'tablet') && sc.includes('arrange'))
+      && (s.kind === 'tablet' || (url && appReach(sc, msg.m, url.pathname)))); // (and only what this device's own scopes reach: APP_RULES)
     if (!url || !appOk || (share ? !(msg.m === 'POST' && url.pathname === '/phone/share' && sc.includes('ask')) : fromApp === null && !allowed(sc, msg.m, url.pathname))) {
       frame(0, JSON.stringify({ status: 403, type: 'application/json' })); frame(1, '{"error":"not for screens"}'); frame(2, ''); return res.end();
     }

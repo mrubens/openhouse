@@ -102,6 +102,13 @@ const TYPES = { '.js': 'text/javascript', '.css': 'text/css', '.ttf': 'font/ttf'
 
 export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'), '../appdata') }) {
   const MAX = 8e6;
+  // What one app may keep in all: 40 MB in up to 200 names (each name up to MAX). A save past it is refused (507).
+  const QUOTA = { bytes: 40e6, files: 200 };
+  function roomFor(id, name, size) {
+    let files = 0, bytes = 0;
+    try { for (const f of fs.readdirSync(path.join(DATA, id))) { if (!f.endsWith('.json') || f === name + '.json') continue; files++; bytes += fs.statSync(path.join(DATA, id, f)).size; } } catch {}
+    return files + 1 <= QUOTA.files && bytes + size <= QUOTA.bytes;
+  }
   const dataFile = (id, name) => path.join(DATA, id, name + '.json');
   const readRaw = (req) => new Promise((resolve) => {
     const parts = []; let n = 0;
@@ -213,6 +220,7 @@ export function appsRoutes({ HERE, APP_DIR, json, DATA = path.resolve(process.en
       if (text == null) { json(res, 413, { error: 'too big' }); return true; }
       if (text === '' || text === 'null') { try { fs.unlinkSync(dataFile(app, d[1])); } catch {} onData(app, d[1]); json(res, 200, { ok: true }); return true; }
       try { JSON.parse(text); } catch { json(res, 400, { error: 'json please' }); return true; }
+      if (!roomFor(app, d[1], Buffer.byteLength(text))) { json(res, 507, { error: `This app keeps too much already (${QUOTA.bytes / 1e6} MB, ${QUOTA.files} saves at most): it has to take some away first.` }); return true; }
       writeData(app, d[1], text);
       onData(app, d[1]);
       json(res, 200, { ok: true });

@@ -12,7 +12,7 @@
 // State in display/mail.json (senders, held and recent lists, counts); held and recent messages themselves in
 // display/mail/ (a week at most); the mail key in display/.cloud/mail-key.json (0600, never in a backup).
 import fs from 'node:fs';
-import { readJson, writeJson } from './store.js';
+import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -33,18 +33,34 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
   let st;
   st = readJson(FILE, null) || {};
   st.senders ||= []; st.held ||= []; st.recent ||= []; st.notes ||= []; st.counts ||= {};
-  const save = () => writeJson(FILE, st, { space: 2 });
+  // A save that's refused or fails throws (marked unsaved: store.js unsaved says what to answer); a change someone
+  // asked for (the senders, on or off, a held message let in or not) and a message arriving are taken back in memory
+  // too (change), so what shows is what's on disk and the message is offered again. What already happened (a message
+  // read into the photos and calendar, upkeep, a note) is kept in memory all the same (kept), so it isn't done twice.
+  const save = () => { try { writeJson(FILE, st, { space: 2 }); } catch (e) { log(`[mail] not saved: ${e.message}`); throw Object.assign(e, { unsaved: true }); } };
+  const kept = () => { try { save(); } catch {} };
+  async function change(fn) {
+    const before = structuredClone(st);
+    try { return await fn(); }
+    catch (e) { if (!e?.unsaved) throw e; st = before; const u = unsaved(e); return { error: u.error, status: u.status }; }
+  }
   const raw = (id) => path.join(DIR, id.replace(/[^\w-]/g, '') + '.eml');
   const keep = (id, bytes) => { fs.mkdirSync(DIR, { recursive: true, mode: 0o700 }); fs.writeFileSync(raw(id), bytes, { mode: 0o600 }); };
   const drop = (id) => fs.rmSync(raw(id), { force: true });
   const day = () => new Date(now()).toISOString().slice(0, 10);
   const counts = () => { if (st.counts.day !== day()) st.counts = { day: day(), n: 0, held: 0 }; return st.counts; };
-  const note = (text) => { st.notes = [...st.notes, { text, at: now() }].slice(-10); save(); };
+  const note = (text) => { st.notes = [...st.notes, { text, at: now() }].slice(-10); kept(); };
   const whoOf = (address) => st.senders.find((s) => s.address === address);
 
   // ---- arriving ----
   /** A message from a source: checked, then held or read. {ok} or {error} (the shell's mailbox keeps it then). */
   async function receive(bytes, source) {
+    const before = structuredClone(st);
+    let id = null;
+    try { return await arrive(bytes, source, (x) => { id = x; }); }
+    catch (e) { if (e?.unsaved) { st = before; if (id) drop(id); } throw e; }
+  }
+  async function arrive(bytes, source, onId) {
     if (bytes.length > LIMITS.size) { note('A message was too big to take (25 MB at most).'); return { ok: true, dropped: 'size' }; }
     let m; try { m = parseMail(bytes); } catch { return { ok: true, dropped: 'unreadable' }; }
     const from = m.from?.address;
@@ -58,7 +74,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     if (!verified || !whoOf(from)) {
       if (c.held >= LIMITS.heldPerDay) { save(); return { ok: true, dropped: 'held cap' }; }
       c.held++;
-      keep(id, bytes);
+      onId(id); keep(id, bytes);
       st.held.push({ id, from, name: m.from.name || '', subject: m.subject.slice(0, 200), at: now(), ...(verified ? {} : { unverified: true }) });
       save();
       return { ok: true, held: true };
@@ -94,7 +110,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     if (skipped) entry.skipped = skipped;
     keep(id, bytes); // a week, to see in Settings and to read again
     st.recent = [...st.recent.filter((x) => x.id !== id), entry].slice(-50);
-    save();
+    kept(); // (read already: its photos and events are in)
     return entry;
   }
 
@@ -102,10 +118,14 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
   async function held({ id, allow }) {
     const h = st.held.find((x) => x.id === id);
     if (!h) return { error: 'That message isn’t waiting any more.' };
-    st.held = st.held.filter((x) => x !== h);
-    if (!allow) { drop(id); save(); return { ok: true }; }
-    if (!whoOf(h.from)) { st.senders.push({ address: h.from, who: '' }); syncSenders(); }
-    save();
+    const r = await change(() => {
+      st.held = st.held.filter((x) => x !== h);
+      if (allow && !whoOf(h.from)) st.senders.push({ address: h.from, who: '' });
+      save();
+    });
+    if (r?.error) return r;
+    if (!allow) { drop(id); return { ok: true }; }
+    syncSenders();
     let bytes; try { bytes = fs.readFileSync(raw(id)); } catch { return { error: 'That message is gone.' }; }
     drop(id);
     await read(id, bytes);
@@ -172,9 +192,9 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     for (const r of st.recent.filter((x) => t - x.at > LIMITS.recentDays * DAY)) drop(r.id);
     st.recent = st.recent.filter((x) => t - x.at <= LIMITS.recentDays * DAY);
     st.notes = st.notes.filter((x) => t - x.at <= LIMITS.recentDays * DAY);
-    save();
+    kept();
     for (const r of st.recent.filter((x) => x.unread && !x.retried)) {
-      r.retried = true; save();
+      r.retried = true; kept();
       try { await read(r.id, fs.readFileSync(raw(r.id))); } catch {}
     }
   }
@@ -194,7 +214,8 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
       limits: LIMITS,
     };
   }
-  async function set(b) {
+  async function set(b) { return change(() => setting(b)); }
+  async function setting(b) {
     if (Array.isArray(b.senders)) {
       const seen = new Set();
       st.senders = b.senders.slice(0, 50).map((s) => String(s?.address || '').trim().toLowerCase())
@@ -224,8 +245,8 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     if (req.method === 'GET' && p === '/mail') { json(res, 200, view()); return true; }
     if (req.method !== 'POST') { json(res, 405, { error: 'POST' }); return true; }
     const b = await body(req);
-    if (p === '/mail/set') { const r = await set(b); json(res, r.error ? 400 : 200, r); return true; }
-    if (p === '/mail/held') { const r = await held({ id: String(b.id || ''), allow: !!b.allow }); json(res, r.error ? 400 : 200, r); return true; }
+    if (p === '/mail/set') { const r = await set(b); json(res, r.error ? r.status || 400 : 200, r); return true; }
+    if (p === '/mail/held') { const r = await held({ id: String(b.id || ''), allow: !!b.allow }); json(res, r.error ? r.status || 400 : 200, r); return true; }
     if (p === '/mail/incoming') {
       if (!st.own) { json(res, 409, { error: 'No mailbox is set up here.' }); return true; }
       const bytes = Buffer.from(String(b.raw || ''), 'base64');

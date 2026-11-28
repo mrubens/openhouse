@@ -170,15 +170,17 @@ const shellAsk = async ({ title, detail, yes, no, rights, pin, grownup, for: cho
   return r.ok && r.body?.yes === true ? 'yes' : r.ok && r.body?.answered === true ? 'no' : 'later';
 };
 /** Whether keeping an app made here takes the PIN there (Ask for the PIN → Add apps): what the tablet says when it's ready. */
-/** Does keeping this made app give it anything it hasn't been given before (family things, websites)? A new app: anything
- *  it asks for. A change to a limited app: only what's beyond its earlier yes. The household's own full app: nothing. */
+/** Does keeping this made app need a person's Keep it (its bar, no PIN unless Add apps asks)? A new app or a change to a
+ *  limited one: when it gets anything it wasn't given before (family things, websites). A change to one of the
+ *  household's own apps, which has every right: always (model-written code with every right never goes in unasked). */
 const madeAppWantsMore = (card) => {
-  if (!card.limited) return false;
+  if (!card.limited) return true;
   const had = card.fresh ? null : plugins.rightsOf(card.app), reach = card.fresh ? [] : plugins.reachesOf(card.app);
   return (card.uses || []).some((u) => !had?.has(u)) || (card.reaches || []).some((h) => !reach.includes(String(h).toLowerCase()));
 };
 // (A host that can't say, like a hub with no screen of its own: as if it did, so a made app is always asked about there.)
-const keepTakesPin = async () => { if (!host.can('pin-choices')) return true; const b = await host.json('/pin-choices', { do: 'get' }, 3000); return !!(b?.choices || []).some((c) => c.key === 'apps' && c.asks); };
+// No answer in time (null, a busy shell) counts as asking: the bar, never in unasked.
+const keepTakesPin = async () => { if (!host.can('pin-choices')) return true; const b = await host.json('/pin-choices', { do: 'get' }, 3000); if (!Array.isArray(b?.choices)) return true; return b.choices.some((c) => c.key === 'apps' && c.asks); };
 const shellApprove = async (title, detail, pin, extra = {}) => { // extra: { yes, rights: [{kind, text}], more, danger, for } (docs/ux.md; for: the PIN choice, shell PinChoices) // true, false, or null when there's no shell to ask (a laptop)
   const r = await host.call('/approve', { ...extra, title, detail, pin }, { ms: 100e3 });
   return r && r.ok && r.body?.yes === true;
@@ -237,7 +239,9 @@ chat.things.setWaits(() => builder.waits.waiting()); // and an app made here wai
 const checksFromApps = appChecks({ APP_DIR, readData: dataReader(path.resolve(HB_DIR, '../appdata')), houseView: () => chat.house.view(),
   houseKeysOf: (app) => { const r = plugins.rightsOf(app); return r ? new Set(Object.keys(houseFor(chat.house.view(), r))) : null; },
   fixedChecks: (app) => plugins.checksOf(app) });
-const hb = heartbeat({ judge: { name: 'cloud', ready: () => !!cloudRef?.liveOn?.(), decide: (i, q) => cloudRef.decide(i, q), ai: (q) => cloudRef.ai(q) },
+// heartbeat_settings with a new prompt (Opie): the device's own card first, as Settings' Check-ins is behind its PIN.
+const approvePrompt = async (text) => !host.there() || await shellApprove('Change what check-ins look for?', text, true, { yes: 'Save', for: 'settings' });
+const hb = heartbeat({ approvePrompt, judge: { name: 'cloud', ready: () => !!cloudRef?.liveOn?.(), decide: (i, q) => cloudRef.decide(i, q), ai: (q) => cloudRef.ai(q) },
   fixes, things: chat.things, extraChecks: checksFromApps.run, checkProblems: checksFromApps.problems,
   changesOf: (app) => { const all = edits.listChanges(); const mine = all.filter((c) => c.change.includes(app)); return (mine.length ? mine : all).slice(0, 5); },
   HERE, DIR: HB_DIR, homeScreen: chat.homeScreen, house: chat.house, board: chat.board,
@@ -301,7 +305,7 @@ import('./agents/cloud.js').then((m) => m.useCloud({ ai: cloud.ai, decide: cloud
   rails: buildHere, build: buildHere ? (text, o = {}) => builder.request(text, o.who || null, { app: o.app || null, ...(o.context ? { context: o.context } : {}), ...(o.conversation ? { conversation: o.conversation } : {}) }) : null }));
 // The voice's make_app (on the tablet: it says how it went), and a waiting one's card again. Typed (a written
 // conversation's make_app): how it went is written there instead, not said.
-if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, o.typed ? { conversation: o.typed.conversation || null } : { spoken: !o.phone }), builder.waits);
+if (buildHere) chat.live.setBuild?.((text, who, o = {}) => builder.request(text, who, { ...(o.typed ? { conversation: o.typed.conversation || null } : { spoken: !o.phone }), ...(o.unattended ? { unattended: true } : {}) }), builder.waits);
 // A host with no USB drive of its own (the keeper, docs/hub.md): backups go to a folder instead (a mounted drive, a share, a volume).
 const localDest = host.there() && !host.can('drive') ? folderDestination({ dir: process.env.OPENHOUSE_BACKUP_DIR || path.join(DISPLAY, 'backups') }) : driveDestination({ DISPLAY });
 // The household's own storage bucket (S3 and the like), where the host can keep its key (host.js 'storage').

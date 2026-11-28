@@ -223,7 +223,9 @@ a phone-only copy of it. Adding a plugin on the tablet adds it to the phone.
   requests (`{a: app}`). The tablet answers it as that app's own call on the tablet (`server.js` `appCall`): its rights
   (`apps.js` `appAllowed`, `/house` cut to its groups by `houseFor`), its own saved things, its `reaches` for the web.
   A phone adds its own limits: a change needs the phone's `arrange` scope, and a phone never makes the tablet speak or
-  run a timer for an app. A frame that tries to go somewhere else is replaced with a fresh one.
+  run a timer for an app. What an app may reach is also cut to the phone's own scopes (`screens.js` `APP_RULES`): the
+  everyday changes with `arrange`, recipe links, photo removal, devices and the map only on a phone that may ask Opie (`ask`),
+  and the house's settings, where the household lives and the flyer never, on any phone. A frame that tries to go somewhere else is replaced with a fresh one.
 - **At home and away the same.** On the Wi-Fi the sealed requests go to the tablet's listener; away, through the
   relay. With no signal an app sees what it last saw of the house (as cut for it), and a tick or an add waits and goes
   when the phone is back, still marked with its app.

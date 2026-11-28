@@ -45,3 +45,33 @@ test('a share key opens only POST /phone/share, only for a phone that may ask, a
   assert.equal((await send(sam, { key: crypto.randomBytes(32) })).status, 400, 'a made-up key opens nothing');
   assert.equal(reached.length, 1, 'nothing else reached the tablet');
 });
+
+// An app on a phone reaches only what that phone itself may (screens.js APP_RULES), whatever the app's own rights:
+// naming an app never takes a kid's phone to the house's settings, where the household lives, or the recipe links.
+test("an app on a phone is cut to the phone's own scopes", async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-appscope-')), FILE = path.join(dir, 'screens.json');
+  const sam = { id: 's-sam', kind: 'phone', person: 'Sam', key: b64(), scopes: ['door', 'arrange', 'ask', 'notify', 'voice'] };
+  const leo = { id: 's-leo', kind: 'phone', person: 'Leo', key: b64(), scopes: ['door', 'arrange', 'notify'] };
+  fs.writeFileSync(FILE, JSON.stringify({ lan: true, screens: [sam, leo] }));
+  const PORT = 20000 + crypto.randomInt(20000), reached = [];
+  const json = (res, code, obj) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)); };
+  const s = screensRoutes({ HERE: dir, FILE, PORT, HOST: '127.0.0.1', json, body: async () => ({}), screenApps: () => [{ id: 'chores', name: 'Chores' }],
+    dispatch: (req, res, url) => { reached.push(`${req.headers['x-openhouse-screen']} ${req.method} ${url.pathname}`); json(res, 200, {}); } });
+  t.after(() => s.stop());
+  await new Promise((r) => setTimeout(r, 200));
+  let n = Date.now() * 1000;
+  async function send(who, m, p) {
+    const key = Buffer.from(who.key, 'base64url'), at = ++n;
+    const box = seal(key, `req:${who.id}`, Buffer.from(JSON.stringify({ n: at, m, p, a: 'chores', ...(m === 'POST' ? { b: {} } : {}) })));
+    const r = await fetch(`http://127.0.0.1:${PORT}/s`, { method: 'POST', headers: { 'x-screen': who.id, 'content-type': 'application/octet-stream' }, body: box });
+    const body = Buffer.from(await r.arrayBuffer()), len = body.readUInt32BE(0);
+    return JSON.parse(open(key, `res:${who.id}:${at}:0`, body.subarray(4, 4 + len)).subarray(1).toString()).status;
+  }
+  for (const p of ['/house/settings', '/household/location', '/house/recipe-link', '/house/photo/remove', '/house/share', '/map/place'])
+    assert.equal(await send(leo, 'POST', p), 403, `a kid's phone: ${p}`);
+  for (const p of ['/house/settings', '/household/location', '/house/share']) assert.equal(await send(sam, 'POST', p), 403, `any phone: ${p}`);
+  assert.equal(await send(leo, 'POST', '/house/chore'), 200);
+  assert.equal(await send(leo, 'GET', '/house'), 200);
+  assert.equal(await send(sam, 'POST', '/house/recipe-link'), 200);
+  assert.deepEqual(reached, ['s-leo POST /house/chore', 's-leo GET /house', 's-sam POST /house/recipe-link']);
+});

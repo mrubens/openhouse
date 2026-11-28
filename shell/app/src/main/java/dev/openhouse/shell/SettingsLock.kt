@@ -71,6 +71,7 @@ internal class SettingsLock(private val act: MainActivity) {
     /** A row of Settings (the ids are SettingsScreen's, and the setup's and other callers'). */
     fun open(id: String) {
         if (id.startsWith("unlink:")) return withPin { Screens.remove(act, id.removePrefix("unlink:")) }
+        if (id.startsWith("uninvite:")) return withPin { Screens.uninvite(act, id.removePrefix("uninvite:")) }
         when (id) {
             "voice" -> withPin { CloudVoiceMenu(act).chooseVoice() }
             "connections" -> connections() // (no PIN to look: each part asks as it did on its own)
