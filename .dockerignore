@@ -6,9 +6,11 @@ cloud
 spikes
 runtime
 models
+!models/wake
 docs
 dist
 bridge/public
 **/*.log
 hub/data
 hub/backups
+hub/keeper

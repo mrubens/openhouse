@@ -20,6 +20,16 @@ PIN, two-way Google and iCloud calendars, Google Photos, "Hey Opie" on a screen 
 bad update (below). The pages still say "the
 tablet" in places (the phone's notes, the TV's empty view, the cloud backup's hint); the join page already says "the
 hub's settings page" on a hub.
+2026-11-28: tried in Docker on a Mac standing in for Linux (arm64 natively, x86_64 emulated), and `hub/install.sh`
+on Debian 12 with systemd in a container, both kinds. Fixed on the way: the image stopped at once (the screen client
+bridge/satellite.js loads wasn't in it), "Hey Opie" was missing from every image (no curl in the build, the wake
+model left out of the build's files) and from every x86_64 install (onnxruntime-node's installer failed fetching the
+CUDA build), and a checkout's `hub/data`, `hub/keeper` and `hub/backups` weren't ignored (the keeper's seal key could
+go into the image's build), and the setup could end without a PIN (Next on the PIN step with nothing typed). From one browser at localhost: the setup, the home screen, a typed question answered
+through the hub (by the local cloud's stand-in, linked like a real account), and a spoken one up to the session's
+start (the hub took the browser's offer to the cloud and back; the browser pane blocks the microphone, and the
+stand-in isn't OpenAI, so no audio). A backup made on the hub restored on another bridge linked to the same account.
+Still untried: a real Pi or x86_64 machine, host networking (Docker Desktop's is a VM's), a whole spoken conversation.
 
 ## How it fits together
 
@@ -170,6 +180,7 @@ Any always-on computer on the home network will do. Which way to run it:
 | A Linux machine or NAS that already runs Docker | `hub/compose.yml` (host networking) | Yes |
 | A Mac that stays on (a mini) | `hub/install-mac.sh` (native) | Yes (tried: 6 of 6 found) |
 | Docker Desktop on a Mac or Windows | `hub/compose.desktop.yml` | No: its containers live in a VM (tried on a Mac: 2 of 6, the VM's own) |
+| Trying it on any computer (README) | `hub/compose.desktop.yml` | No |
 | Windows | Ubuntu under WSL 2 with mirrored networking, then `hub/install.sh` | Should, untried |
 
 Whichever way, the hub prints a code when it starts with no settings device. On a phone or computer on the same Wi-Fi,
@@ -203,7 +214,8 @@ It shares the machine's network (`network_mode: host`): finding devices on the W
 home network, which a container's own network doesn't reach. It answers on 8788 (and 8789 only if the own-address
 connector is on). The household's things are in `hub/data` (the `/data` volume); backups go to `hub/backups`
 (`/backups`): point that at a USB drive or a share. Update with `docker compose -f hub/compose.yml up -d --build` from a
-newer checkout (images aren't published yet).
+newer checkout (the settings page shows that command). A release tag builds the image for both kinds in CI
+(`.github/workflows/hub-image.yml`); publishing it is off until we decide to.
 
 ### A Mac
 
@@ -249,8 +261,13 @@ On the hub itself: `docker exec openhouse /opt/openhouse/hub/owner-code.sh`; on 
   pulls it; the data volume stays. A hub installed on Linux or a Mac is a git checkout: Update on the settings page runs `hub/update.sh` (to the
   newest release tag, `v*`, on its branch and only ever forward, then a build; the tags aren't signed yet, so it trusts
   GitHub's https for what a tag points at), then the bridge exits and systemd or launchd starts it on the new code; `hub/start.sh` copies the
-  new bridge into the data folder each start, as the tablet's shell does from a new app. Images aren't published yet:
-  build from a checkout.
+  new bridge into the data folder each start, as the tablet's shell does from a new app. Images are built per
+  release in CI but not published yet: build from a checkout.
+- **Moving to a device of its own.** A backup made on the hub restores on a device like any other (the same format,
+  bridge/backup.js; the cloud lists the household's backups to every device linked to it; a folder's files are named as
+  a USB drive's, in `Display backups`). What the keeper holds never goes in a backup, as on the tablet: calendar and
+  album links, the household's own OpenAI key and the PIN are added again on the device. The settings page says so
+  in one line under This hub.
 - **Linking to the cloud.** The same device link as the tablet: the settings page asks for a link code
   (`/cloud/link/start`, named "Home hub"), someone types it on the account's web page, and the hub holds its device
   credential in `.cloud/` in the data folder (never in a backup). Optional: without it, the hub keeps the household's

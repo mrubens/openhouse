@@ -24,5 +24,6 @@ services:
     environment:
       TZ: ${TZ:-UTC}
       OPENHOUSE_KEEPER_DIR: /keeper
+      OPENHOUSE_UPDATE_COMMAND: git pull && docker compose -f hub/compose.yml up -d --build   # (the settings page shows it)
       # HUB_TLS_CERT: /data/tls/cert.pem   # https on the home network, for live voice in phone browsers
       # HUB_TLS_KEY: /data/tls/key.pem

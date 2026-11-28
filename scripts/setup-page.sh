@@ -34,6 +34,8 @@ cat <<'HTML'
   .warn { margin: 0 0 1.5rem; }
   .note { color: var(--soft); font-size: .875rem; border-top: 1px solid var(--line); padding-top: 1rem; }
   .note a { color: var(--ink); }
+  h2 { font-size: 1.125rem; font-weight: 500; margin: 2.5rem 0 .25rem; }
+  code { font: .875rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-word; }
 </style>
 </head>
 <body>
@@ -52,6 +54,14 @@ cat <<'HTML'
   <li>Wait while it downloads and gets ready. It's done when it says Welcome to Opie.</li>
 </ol>
 <p class="note">To undo it: Settings, Advanced, Erase this tablet. <a href="https://github.com/mrubens/opie/blob/main/docs/setup.md">The full guide</a> has every step and what to do when one gets stuck. <a href="https://github.com/mrubens/opie/blob/main/docs/tablets.md">Devices that work best</a>.</p>
+<h2>Try it on a computer first</h2>
+<p class="sub">Nothing is erased: it runs in Docker, and phones and laptops on your Wi-Fi are its screens.</p>
+<ol>
+  <li><code>git clone https://github.com/mrubens/opie.git &amp;&amp; cd opie</code></li>
+  <li><code>docker compose -f hub/compose.desktop.yml up -d --build</code></li>
+  <li><code>docker logs openhouse</code> shows a code. Open http://localhost:8788/hub/ and type it.</li>
+</ol>
+<p class="warn">A trial can't talk or hear "Hey Opie" except at localhost on that computer (or over https), control Android apps, use Bluetooth or find TVs and speakers on the Wi-Fi. Typed asking works on every screen.</p>
 </main>
 </body>
 </html>

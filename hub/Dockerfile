@@ -3,7 +3,7 @@
 #   docker compose -f hub/compose.yml up -d        (then: docker logs openhouse, for the settings code)
 # The household's things live in /data (one volume: back it up, or turn on backups); backups go to /backups.
 FROM node:22-bookworm-slim AS build
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends zip ca-certificates \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends zip ca-certificates curl \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY chat/package.json chat/package-lock.json chat/
@@ -26,6 +26,9 @@ COPY --from=build /src/defaults defaults
 COPY --from=build /src/device device
 COPY --from=build /src/hub hub
 COPY --from=build /src/chat/live chat/live
+# The screen client bridge/satellite.js loads (hub/start.sh copies these three beside the bridge).
+COPY --from=build /src/chat/src/screen-client.js /src/chat/src/seal.js /src/chat/src/relay-client.js chat/src/
+COPY --from=build /src/runtime/hub-voice runtime/hub-voice
 ENV OPENHOUSE_DATA=/data OPENHOUSE_CODE_DIR=/opt/openhouse OPENHOUSE_INSTALL=docker NODE_ENV=production
 VOLUME ["/data"]
 EXPOSE 8788 8789

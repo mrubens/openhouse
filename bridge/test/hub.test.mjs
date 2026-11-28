@@ -94,3 +94,11 @@ test('backups to a folder: the same files as a USB drive, kept, listed, restored
   assert.ok(fs.readdirSync(path.join(root, 'backups/Display backups')).some((n) => /^display-backup-.*-manual-[0-9a-f]{16}\.backup$/.test(n)));
   assert.equal((await fetch(url + '/backup/status', { headers: H }).then((r) => r.json())).dests.find((x) => x.id === 'folder').last.ok, true);
 });
+
+test("the setup doesn't end without a PIN", async () => {
+  const go = async (step) => (await admin.json('POST', '/setup/go', { step })).json.step;
+  assert.equal(await go('pin'), 'pin');
+  assert.equal(await go('android'), 'pin', 'past the PIN with none set');
+  assert.equal((await admin.json('POST', '/hub/pin', { pin: '2468' })).status, 200);
+  assert.equal(await go('android'), null);
+});

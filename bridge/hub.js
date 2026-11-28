@@ -17,6 +17,9 @@ import { spawn } from 'node:child_process';
 
 export function hubRoutes({ DISPLAY, screens, json, body = async () => ({}), CODE = process.env.OPENHOUSE_CODE_DIR || path.resolve(DISPLAY, '..'), log = console.log, exit = () => process.exit(0) }) {
   const install = fs.existsSync('/.dockerenv') || process.env.OPENHOUSE_INSTALL === 'docker' ? 'docker' : fs.existsSync(path.join(CODE, '.git')) ? 'git' : 'files';
+  // A Docker hub updates where it runs: a published image is pulled; one built from a checkout (hub/compose*.yml say
+  // which) is built again from a newer one.
+  const imageUpdate = process.env.OPENHOUSE_UPDATE_COMMAND || 'docker compose pull && docker compose up -d';
   const version = (() => { try { return fs.readFileSync(path.join(CODE, 'VERSION'), 'utf8').trim(); } catch {} try { return JSON.parse(fs.readFileSync(path.join(CODE, 'hub', 'package.json'), 'utf8')).version; } catch { return 'dev'; } })();
   let updating = null;
   /** Is there a version to go back to (hub/update.sh keeps the one before the last update)? */
@@ -39,7 +42,7 @@ export function hubRoutes({ DISPLAY, screens, json, body = async () => ({}), COD
     if (p !== '/hub' && !p.startsWith('/hub/')) return false;
     if (req.method === 'GET' && p === '/hub') {
       json(res, 200, { hub: true, version, install, updating, https: !!process.env.HUB_TLS_CERT, back: install === 'git' && previous(),
-        update: install === 'git' ? { how: 'git' } : install === 'docker' ? { how: 'image', command: 'docker compose pull && docker compose up -d' } : { how: 'files' } });
+        update: install === 'git' ? { how: 'git' } : install === 'docker' ? { how: 'image', command: imageUpdate } : { how: 'files' } });
       return true;
     }
     if (req.method === 'POST' && p === '/hub/owner-code') { // (not among a settings device's routes: screens.js RULES)
@@ -47,7 +50,7 @@ export function hubRoutes({ DISPLAY, screens, json, body = async () => ({}), COD
     }
     if (req.method === 'POST' && p === '/hub/update') {
       const back = (await body(req).catch(() => ({})))?.back === true; // Go back: the version before the last update
-      if (install !== 'git') { json(res, 200, { ok: false, how: install === 'docker' ? 'image' : 'files', command: install === 'docker' ? 'docker compose pull && docker compose up -d' : null }); return true; }
+      if (install !== 'git') { json(res, 200, { ok: false, how: install === 'docker' ? 'image' : 'files', command: install === 'docker' ? imageUpdate : null }); return true; }
       if (updating) { json(res, 409, { error: 'already updating' }); return true; }
       updating = { at: new Date().toISOString() };
       const out = fs.openSync(path.join(DISPLAY, 'update.log'), 'a');
