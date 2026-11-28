@@ -284,6 +284,7 @@ onUse((p) => cloud.counted(p)); // a typed question answered, an app made or cha
 chat.house.setVoice?.(() => cloud.voiceNeed()); cloud.onNeed(() => chat.house.changed()); // Today's card while Opie's voice can't answer (no key, or the key's trouble)
 chat.live.useDecide((i, q) => cloud.decide(i, q));
 chat.live.setUsage(() => cloud.usageNow()); // Opie's how_much_used: Settings → Voice's "This month"
+chat.live.setVendor?.(() => cloud.liveVendor()); // whose live voice a session starts with (/live/setup: a browser picks its page by it)
 import('./calendar.js').then((m) => m.useCalendarDecide((i, q) => cloud.decide(i, q)));
 import('./maps.js').then((m) => m.useMapCloud({ suggest: (q, near) => cloud.placesSuggest(q, near), place: (id) => cloud.placeOf(id) })); // the Map's address suggestions // which events of a calendar kept only in part (calendar.js) // judgments about what was said, from the whole conversation (live-tools.js judge)
 // The tablet's assistant for typed turns and the rest: the cloud's text model with the household's tools (chat.js textTools).
@@ -610,12 +611,13 @@ async function route(req, res, url) {
       json(res, r.error ? 400 : 200, r); return true;
     }
     if (url.pathname === '/setup/go' && req.method === 'POST') { chat.live.setupWant?.((await body(req)).step); json(res, 200, { ok: true }); return true; }
-    if (req.method === 'POST' && /^\/setup\/(calendar|album|invite|openai)$/.test(url.pathname)) {
+    if (req.method === 'POST' && /^\/setup\/(calendar|album|invite|openai|gemini)$/.test(url.pathname)) {
       const b = await body(req);
-      // The household's own OpenAI key (a hub's settings page): straight on to the host, which checks and keeps it
-      // (OwnKey.kt). Passed through, never written, logged or answered back here.
-      if (url.pathname === '/setup/openai') {
-        const r = await calendar.toShell('/ownkey', { key: String(b.key || '').trim().slice(0, 400) });
+      // The household's own OpenAI or Gemini key (a settings page on a phone or computer): straight on to the host,
+      // which asks for a yes there and checks and keeps it (OwnKey.kt, GeminiKey.kt). Passed through, never written,
+      // logged or answered back here.
+      if (url.pathname === '/setup/openai' || url.pathname === '/setup/gemini') {
+        const r = await calendar.toShell(url.pathname === '/setup/openai' ? '/ownkey' : '/geminikey', { key: String(b.key || '').trim().slice(0, 400) });
         json(res, r.error ? 400 : 200, r.error ? { added: false, error: r.error } : r); return true;
       }
       if (url.pathname === '/setup/invite') {

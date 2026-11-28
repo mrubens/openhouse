@@ -4,11 +4,12 @@
 // Opie cloud's voice the cloud counts the minutes and the cost itself (it has the bill); this tablet tells it its
 // questions and apps (cloud.js reportUse), which only the tablet knows.
 //
-// file: display/.cloud/usage.json {month: 'yyyy-mm' (UTC, as the cloud's), liveSecs, questions, apps, mc (millicents)}
+// file: display/.cloud/usage.json {month: 'yyyy-mm' (UTC, as the cloud's), liveSecs, questions, apps, mc (millicents, the
+// OpenAI key's), gmc (millicents, the Gemini key's: own-gemini.js)}
 import path from 'node:path';
 import { readJson, writeJson } from './store.js';
 
-const FIELDS = ['liveSecs', 'questions', 'apps', 'mc'];
+const FIELDS = ['liveSecs', 'questions', 'apps', 'mc', 'gmc'];
 
 export function usageCounter({ DIR, now = Date.now }) {
   const FILE = path.join(DIR, 'usage.json');
@@ -19,7 +20,7 @@ export function usageCounter({ DIR, now = Date.now }) {
     const m = month();
     return { month: m, ...Object.fromEntries(FIELDS.map((f) => [f, u.month === m ? Math.max(0, Number(u[f]) || 0) : 0])) };
   }
-  /** Adds to this month's counts: {liveSecs?, questions?, apps?, mc?}. */
+  /** Adds to this month's counts: {liveSecs?, questions?, apps?, mc?, gmc?}. */
   function add(p) {
     const u = read();
     for (const f of FIELDS) if (Number(p?.[f]) > 0) u[f] += Number(p[f]);
@@ -38,18 +39,25 @@ export function aboutCost(cents) {
 }
 
 /**
- * The month in plain words: {minutes, questions, apps, cents, text}. text is two lines: what was done, and the cost
- * ("This month: 42 minutes talking to Opie, 12 typed questions, 2 apps made or changed." / "About $3 so far.").
+ * The month in plain words: {minutes, questions, apps, cents, text}. text is what was done, then a line for what each
+ * account cost, naming whose it is ("This month: 42 minutes talking to Opie, 12 typed questions, 2 apps made or
+ * changed." / "About $3 so far on OpenAI, of the $20 monthly stop." / "About 40¢ so far on Google."). costs: [{vendor,
+ * cents, stopCents?}]; cents and stopCents alone are one with no name.
  */
-export function monthWords({ liveSecs = 0, questions = 0, apps = 0, cents = 0, stopCents = 0 }, name = 'Opie') {
+export function monthWords({ liveSecs = 0, questions = 0, apps = 0, cents = 0, stopCents = 0, costs = null }, name = 'Opie') {
   const minutes = Math.round((Number(liveSecs) || 0) / 60);
   const n = (x, one, many) => `${x} ${x === 1 ? one : many}`;
   const parts = [`${n(minutes, 'minute', 'minutes')} talking to ${name}`, n(questions, 'typed question', 'typed questions'), n(apps, 'app made or changed', 'apps made or changed')];
-  const cost = aboutCost(cents);
-  const stop = stopCents > 0 ? `, of the $${Math.round(stopCents / 100)} monthly stop` : ''; // (the household's own key: cloud.js stopCents)
-  const text = !minutes && !questions && !apps && cost === 'nothing yet' ? 'Nothing used yet this month.'
-    : `This month: ${parts.join(', ')}.${cost === 'nothing yet' ? '' : `\n${cost[0].toUpperCase()}${cost.slice(1)} so far${stop}.`}`;
-  return { minutes, questions, apps, cents: Math.round(Number(cents) || 0), text };
+  const all = (costs || [{ cents, stopCents }]).filter((c) => aboutCost(c.cents) !== 'nothing yet');
+  const lines = all.map((c) => {
+    const cost = aboutCost(c.cents), on = c.vendor ? ` on ${c.vendor}` : '';
+    const stop = c.stopCents > 0 ? `, of the $${Math.round(c.stopCents / 100)} monthly stop` : ''; // (the household's own key: cloud.js stopCents)
+    return `${cost[0].toUpperCase()}${cost.slice(1)} so far${on}${stop}.`;
+  });
+  const text = !minutes && !questions && !apps && !lines.length ? 'Nothing used yet this month.'
+    : `This month: ${parts.join(', ')}.${lines.map((l) => `\n${l}`).join('')}`;
+  const total = (costs || [{ cents }]).reduce((a, c) => a + (Number(c.cents) || 0), 0);
+  return { minutes, questions, apps, cents: Math.round(total), text };
 }
 
 /** On the household's own OpenAI key (own-openai.js, cloud.js), why a call didn't go: OpenAI refused the key, its
@@ -61,6 +69,12 @@ export const OWN_WORDS = {
   no_key: 'The device has no OpenAI key. An adult can add one in Settings, Opie, Voice.',
   own_stop: "This month's spending stop for the OpenAI key is reached. An adult can raise it in Settings, Opie, Voice.",
   wake_cap: "I've talked for an hour today after hearing my name, the most for one day. Tap me to talk.",
+  // the household's own Gemini key (own-gemini.js): Google's voice
+  gemini_key_refused: "Google stopped accepting the household's Gemini key. An adult can put in a new one in Settings, Opie, Voice.",
+  gemini_key_limit: "Google says the household's Gemini project is over its limit or out of credit. Check it on Google's AI Studio, then try again.",
+  gemini_key_billing: "Google says the household's Gemini project needs billing turned on. An adult can turn it on in Google's AI Studio.",
+  gemini_no_key: 'The device has no Gemini key. An adult can add one in Settings, Opie, Voice.',
+  gemini_stop: "This month's spending stop for the Gemini key is reached. An adult can raise it in Settings, Opie, Voice.",
 };
 
 /** What to say when Opie's service said no to a call for what it costs (its 429 `over`): the credit ran out, or the

@@ -18,7 +18,7 @@ turns it on, and the apps hide what needs it (`/house` `ai: false`). Safe mode i
 
 **The household's own OpenAI key** (`own`): for a tablet without Opie's cloud voice (not linked, or not let in
 yet). While there's no voice (no account and no key), Today shows a card first, **Opie's voice**, with **Add a key**;
-the same is in Settings → Opie → Voice → Your own OpenAI key. Either opens, behind the PIN, a QR code for a phone on the
+the same is in Settings → Opie → Voice → Your own keys → OpenAI key. Either opens, behind the PIN, a QR code for a phone on the
 home Wi-Fi: the phone's page (the shell's `Handoff`, as their own storage's key comes: `OwnStorage.setUp`) seals the
 key with the code's own secret and sends it straight to the shell, never through the bridge, so Opie never sees or
 hears it; or the key is typed on the device with a keyboard cover. A hub's settings page sends it to its keeper
@@ -40,7 +40,7 @@ sent through the shell's route (`DeviceServer` `/openai`), which adds the key an
 api.openai.com (`/v1/live/sessions`, `/v1/responses`, `/v1/decisions`). Opie's cloud is never asked while a key is in.
 OpenAI bills the household, and nobody may be watching, so the bridge stops the spending itself (`cloud.js`):
 
-- **A monthly stop** (Settings → Opie → Voice → Your own OpenAI key → Monthly stop: $5 to $200, $20 until someone
+- **A monthly stop** (Settings → Opie → Voice → Your own keys → OpenAI key → Monthly stop: $5 to $200, $20 until someone
   changes it), checked against this month's estimate (`usage.js`, OpenAI's list prices) before every live start, text
   model call and Decisions call. Once it's reached they wait for next month, Today's card says so, and a live
   conversation that starts with less left than a whole one ends when that's used, saying why. Settings → Voice's This
@@ -49,6 +49,32 @@ OpenAI bills the household, and nobody may be watching, so the bridge stops the 
   their reported minutes. A tap on Opie, a phone's start and a session opened to say something aren't capped.
 - **Each app's small questions** (the kit's `decide`, for apps granted it: `brain.js` `appCall` passes them to
   `/cloud/decide`): 100 a day per app, on either bill. Its card says whose bill it is.
+
+**The household's own Gemini key**: a second live voice, Google's Gemini Live (`gemini-3.8-live`), on the household's
+own Google account. Only the voice: typed questions, the heartbeat and Decisions stay on the OpenAI key or Opie's
+cloud. It comes in the same ways as the OpenAI key (Settings → Opie → Voice → Your own keys → Gemini key: the QR code
+for a phone on the Wi-Fi, typed on the device, or sent from a settings page with `/setup/gemini`, where the device asks
+a person for a yes that names Google, with the PIN when the lock is on). Putting it in is `personOnly`. The shell
+(`shell/…/GeminiKey.kt`) checks it with two free calls (the list of models, then a one-use token), keeps it sealed as
+the OpenAI key is, and tells the bridge only that one is in (`POST /cloud/gemini {on}`). The key should be from a
+project with billing on: on Google's free tier, Google may use what's said to improve its products, and the key's
+words say so.
+
+Putting it in switches the voice to Google's (its default voice, Kore); Settings → Voice then lists Google's voices
+first, and picking one of OpenAI's goes back (`cloud.js` `vendor()`: Google's when a Gemini key is in and one of its
+voices is picked). Each conversation, the bridge (`bridge/own-gemini.js`) asks the shell's route (`DeviceServer`
+`/gemini`, which reaches only Google's `/v1beta/auth_tokens`) for a token that works once, for this model only, and
+the session's page connects to Google with it over a WebSocket (`chat/live/gemini-session.cjs`, the same Host as
+OpenAI's `live-session.cjs`). The key never leaves the shell, and no token is kept. The session gets the same
+instructions and tools as OpenAI's voice (`live-tools.js` `setupFor`); Gemini calls the tools itself, and Google Search
+stands in for OpenAI's web search.
+
+Its spending has its own stop: a monthly stop for the Gemini key (Your own keys → Gemini key → Monthly stop, $20 to
+start), checked before each start against this month's estimate from Google's own token counts (`usage.js` `gmc`,
+Google's list prices: audio in $3 and out $12 per million tokens, about half a cent and two cents a minute, billed each
+turn for the conversation so far). The day's "Hey Opie" cap is shared. When the key stops working (`gemini_key_refused`,
+`gemini_key_limit`, `gemini_key_billing`, `gemini_no_key`, `gemini_stop`), the voice and Today's card say so plainly.
+Settings → Voice's "This month" names each account's cost ("About 40¢ so far on Google, of the $20 monthly stop").
 
 ## In this home
 

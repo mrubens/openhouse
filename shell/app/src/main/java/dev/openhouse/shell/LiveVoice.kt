@@ -44,6 +44,14 @@ internal object LiveVoice {
     @Volatile var chosen = false
         set(v) { val was = field; field = v; if (was != v) onChosen?.invoke(v) }
     @Volatile var onChosen: ((Boolean) -> Unit)? = null
+    /** Whose live voice a session is: Google's (the household's own Gemini key, one of Google's voices picked: bridge
+     *  cloud.js vendor) runs chat/live/gemini-session.cjs, else OpenAI's live-session.cjs. Both take the same Host. */
+    @Volatile var gemini = false
+    /** What the bridge says of the voice (/cloud/voice): on, and whose. */
+    fun follow(v: JSONObject) {
+        gemini = v.optString("vendor") == "Google"
+        chosen = v.optBoolean("on") && v.optString("over") != "month" && v.optString("over") != "credit"
+    }
     /** A session is open. */
     val active: Boolean get() = web != null || pretending
     /** On an emulator (adb: ConfigReceiver's liveMood), a session's look without one, so each state can be seen and
@@ -415,6 +423,8 @@ internal object LiveVoice {
     // The session's page: chat/live/live-session.cjs, the one copy the tablet and every browser run (a phone or laptop
     // on the household's hub: chat/src/live-voice.js, docs/hub.md). Its events: https://developers.openai.com/api/docs/guides/live
     // (WebRTC, client delegation). It talks to this file through Host, above.
+    // On the household's Gemini key, Google's Gemini Live over a WebSocket instead (chat/live/gemini-session.cjs), with
+    // the same Host: the bridge answers its start with Google's address and a one-use token the shell got (GeminiKey).
     private fun page(a: MainActivity) = "<!doctype html><meta charset=\"utf-8\"><script>\n" +
-        a.assets.open("live-session.cjs").bufferedReader().use { it.readText() } + "\n</script>"
+        a.assets.open(if (gemini) "gemini-session.cjs" else "live-session.cjs").bufferedReader().use { it.readText() } + "\n</script>"
 }

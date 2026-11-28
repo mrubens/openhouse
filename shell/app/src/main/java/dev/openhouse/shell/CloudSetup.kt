@@ -88,7 +88,7 @@ internal object CloudSetup {
 
     fun refreshVoice(c: Context, bridge: String) {
         val v = runCatching { JSONObject(BridgeClient.getText("$bridge/cloud/voice", 2000, 4000)) }.getOrNull() ?: return
-        LiveVoice.chosen = v.optBoolean("on") && v.optString("over") != "month" && v.optString("over") != "credit"
+        LiveVoice.follow(v)
         runCatching { autoVoice(c, bridge, v) }.onFailure { Log.d("CloudSetup", "voice: ${it.message}") }
     }
 

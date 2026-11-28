@@ -108,6 +108,9 @@ This covers everything above, including data from Google (calendar events, photo
 - **OpenAI**: the cloud assistant (typed and spoken) and making apps on the device, when the household uses it.
   With the household's own OpenAI key on the device, the device talks to OpenAI directly on the household's own
   account, and none of it passes through our service. The key stays on the device and never reaches us.
+- **Google** (Gemini): only with the household's own Gemini key on the device and one of Google's voices chosen, what's
+  said after "Hey Opie" goes from the device to Google directly, on the household's own account, and none of it passes
+  through our service. The key stays on the device and never reaches us.
 - **Stripe**: takes payments for Opie credit, under its own privacy policy.
 - **Resend**: sends the sign-in emails.
 - **Apple**: delivers iPhone notifications, which carry only a sealed note.

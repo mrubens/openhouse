@@ -5,7 +5,8 @@
 // code isn't among them: make_app hands a request to the tablet's own builder (rails.js), and anything bigger is
 // someone's own Claude or ChatGPT on a computer (workshop.js).
 //
-//   GET  /live/setup   {instructions, tools: [{type:'function', name, description, parameters}], earlier, quietS?}
+//   GET  /live/setup   {instructions, tools: [{type:'function', name, description, parameters}], earlier, quietS?, vendor?}
+//                      (vendor: 'gemini' when the session is Google's: chat/live/gemini-session.cjs; else OpenAI's)
 //                      (quietS: an app is in use hands-free, home-screen.js handsFree: the session stays this long after the last words)
 //   POST /live/tool {name, args}  -> {text, isError}
 //   POST /live/said {role: user|assistant|tool, text}   what a live conversation heard and said (the shell's LiveVoice)
@@ -426,6 +427,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   }
   // Someone's own phone (screens.js, docs/phones.md): who's talking is known, and nobody else is in the room.
   let whoOf = () => null;
+  let vendorOf = () => 'openai'; // (whose live voice: brain.js setVendor, cloud.js liveVendor)
   /** What a live session is set up with: the household's instructions, tools and what was said lately. A paired device
    *  (a phone) gets it from GET /live/setup to know the quiet time, but its session starts with this, made here again
    *  (server.js /live/start): the relay takes only small requests, and a device shouldn't say what Opie's rules are. */
@@ -437,7 +439,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     const recentlyTalked = () => { const a = talk.all(); return a.length > 0 && Date.now() - a[a.length - 1].at < 120e3; };
     const other = phone ? null : onOtherTablet(req);
     return { instructions: instructions() + await rightNow() + hf.text + (phone ? phoneNote(phone) : '') + (other ? otherTabletNote(other) : '') + (woke ? wakeNote(assistantName()) : ''),
-      tools: tools().filter((t) => !(phone && t.name === 'look_with_camera') && !(other && ON_THIS_DEVICE.has(t.name))), earlier: woke && !recentlyTalked() ? [] : talk.messages(), ...(hf.listen ? { quietS: hf.listen } : {}) }; // (the tablet's camera is for someone at the tablet, not a phone)
+      tools: tools().filter((t) => !(phone && t.name === 'look_with_camera') && !(other && ON_THIS_DEVICE.has(t.name))), earlier: woke && !recentlyTalked() ? [] : talk.messages(), ...(hf.listen ? { quietS: hf.listen } : {}), ...(vendorOf() === 'gemini' ? { vendor: 'gemini' } : {}) }; // (the tablet's camera is for someone at the tablet, not a phone)
   }
   // Another Opie tablet in the household (docs/multi-tablet.md): the household's tools work as here, but the tools that
   // act on this tablet's own screen, speaker, camera and apps would act here, not in the room they're talking in.
@@ -445,7 +447,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   const otherTabletNote = (w) => `\n\nThis conversation is on another of the household's devices, the ${w.name || 'other device'}, not this one. The household is the same: its calendar, lists, chores, meals, notes and apps. Its own screen, volume, camera and apps can't be changed from here yet: say so if they ask. Anything that needs the PIN asks for it on the main device.`;
   const onPhone = (req) => { const id = req.headers?.['x-openhouse-screen']; const w = id ? whoOf(String(id)) : null; return w?.kind === 'phone' && w.person ? w : null; };
   const phoneNote = (w) => `\n\nThis conversation is on ${w.person}'s own phone, not the device: you're talking with ${w.person}, so "me" and "my" are ${w.person}'s and you never ask who it is. They may be away from home, and nobody else hears you. Anything that needs the PIN asks for it on the device itself, not this phone: say so, so someone at home can type it.`;
-  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, unattendedTools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setUsage: (f) => { usageNow = f; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device,
+  return Object.assign(handle, { useDecide: (f) => { decide = f; } }, { tools, unattendedTools, instructions, callTool, talk, setWhoOf: (f) => { whoOf = f; }, setDayNotes: (f) => { dayNotesOf = f; }, setExtra: (x) => { extra = x; }, setTv: (x) => { tvDevices = x; }, setUsage: (f) => { usageNow = f; }, setDevice: (x) => { device = x; }, setScreen: (x) => { screen = x; }, setPhones: (x) => { phones = x; }, setBuild: (f, w = null) => { builds = f; waits = w; }, heard, setupFor, device: () => device, setVendor: (f) => { vendorOf = f; },
     /** The setup step on the tablet's screen now, or null (none, or shown more than an hour ago). */
     /** The setup phone or computer's Next: the tablet goes to [s] at its next look (Setup.kt). */
     setupWant: (s) => { if (/^[a-z]{1,20}$/.test(String(s || ''))) wanted = String(s); },

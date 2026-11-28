@@ -21,6 +21,7 @@ export const CAPS = {
   calendar: 'POST /calendar, /album: a link kept sealed after a yes (its own, unless the setup sent it: trusted)',
   'calendar-accounts': 'POST /calendar/accounts, /calendar/request, /setup/icloud: two-way calendars signed in there',
   openai: 'POST /openai, /ownkey: the household\'s own OpenAI key, kept there and added to the bridge\'s calls',
+  gemini: 'POST /gemini, /geminikey: the household\'s own Gemini key, kept there; it asks Google for a one-use token for each conversation',
   pin: 'POST /setup/pin: the PIN, chosen during the setup, kept there (only its hash), and checked there',
   'google-signin': 'POST /setup/google: it starts Google\'s sign-in from the setup (else the bridge does, back to its own address)',
   drive: 'a USB drive it owns, for backups (else they go to a folder)',
