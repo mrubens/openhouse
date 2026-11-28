@@ -84,6 +84,29 @@ The new ones exist only because the desktop has no turn and no file system on th
   in by itself after 10 quiet minutes, so a closed laptop never blocks the family's assistant.
 - `undo_latest` and `undo_change` are the same undo as the tablet's: a git revert, itself undoable.
 
+### In Claude's connector directory
+
+The directory (its submission page and pre-submission checklist, read 2026-11-28) asks for a `title` and
+`readOnlyHint` or `destructiveHint` on every tool, and a privacy policy, an icon and documentation for the listing.
+One list in `bridge/workshop.js` (`READ_ONLY`, `DESTRUCTIVE`, `OPEN_WORLD`, `titleOf`) gives every tool those hints,
+for a paired computer, the device's own connector (`web-mcp.js`) and Opie Cloud's (which passes `tools/list` through
+as the device answers it):
+
+- **Read only:** it only looks (`read_file`, `look_at_tablet`, `weather`, `read_page`...).
+- **Destructive:** what it's for is taking something away (`delete_file`, `remove_plugin`, `reset_plugin`,
+  `take_down_note`, `take_down_thing`, `forget_preference`, `forget_place`, `remove_recipe`, `later_list`, which can
+  cancel a reminder).
+- **Everything else** changes things without that being its point (`change_list` can cross an item off, but adding is
+  most of what it does): `readOnlyHint: false, destructiveHint: false`. An app's own voice actions count here too.
+- **Open world:** the TV and other devices, Bluetooth, a web page and the family's phones.
+- **A title** for each: its own, or the name in words, with "device" for "tablet" (`look_at_tablet` is "Look at
+  device", `recipes__find` is "Recipes: find").
+
+A new tool goes in one of those lists when it's added. The server's `serverInfo` names it Opie, with the icon
+(`https://opie.house/icon-512.png`, and `/logo.svg`) and `websiteUrl`. The sign-in metadata of both connectors
+carries the privacy policy (`https://opie.house/privacy`), the terms and this repo's `web-chat-building.md` as the
+documentation (RFC 9728 `resource_policy_uri`, RFC 8414 `op_policy_uri`). Submitting is the owner's.
+
 ### Instructions
 
 The MCP `initialize` reply carries short instructions: what Opie is, that a family is watching, and to call

@@ -116,7 +116,7 @@ function off() {
   map = null;
   app.innerHTML = `<div class="m-off"><div class="q-panel"><span class="mark">${ic('pin')}</span><h1>Map</h1>
     <p class="lead">Home, the places you go, today's events and when to leave for them, and the places Opie shows you.</p>
-    <p>Maps come from OpenStreetMap: free, with no account. The places you look up, and the places in today's events, are sent to OpenStreetMap's services to find them and the drive from home.</p>
+    <p>Maps come from OpenStreetMap: free, with no account. The places you look up, and the places in today's events, are sent to OpenStreetMap's services to find them and the drive from home. On a device linked to an Opie account, what you type in an address also goes through Opie's cloud to Amazon's map service, for suggestions.</p>
     <button class="btn" data-do="on">Turn on the map</button></div></div>`;
 }
 

@@ -207,7 +207,7 @@ of value:
 | --- | --- | --- |
 | 1 | **`edit_file`** (old text → new text). A chat writing a whole 300-line file for a one-word change is slow and error-prone. | **Built** |
 | 2 | **One look says how it went in.** `look_at_tablet` returns the picture, the screen as text and the app's errors since its last save. | **Built** |
-| 3 | **Read-only hints** on every tool that only looks, so ChatGPT stops asking about `read_file`, and `destructiveHint` on deletes and resets. | **Built** |
+| 3 | **Read-only hints** on every tool that only looks, so ChatGPT stops asking about `read_file`, and `destructiveHint` on deletes and resets; a title on each, for Claude's directory ([workshop-mcp.md](workshop-mcp.md), "In Claude's connector directory"). | **Built** |
 | 4 | **Seeing without Device control.** The shell takes a picture of its own window (PixelCopy; no accessibility service), so `look_at_tablet` always works for the workshop. Without this, a chat on a phone builds blind. | Next, small (shell + workshop) |
 | 5 | **A live preview link**, Lamp's open window. A `preview` tool answers with `https://cloud.openhouse.computer/v#<key>`, a screen page that lasts an hour, served by the cloud like the list pages and reaching the tablet sealed through the relay. Phone list pages and paired screens already work this way. The person on their phone taps it and watches the tab change as files land, and can try it. | Next |
 | 6 | **The preview inside the chat.** Claude (web, desktop and phone) and ChatGPT now both render MCP Apps (`ui://` resources). A widget that frames the preview page shows the change right in the conversation. Item 5 has to come first. | After 5 |

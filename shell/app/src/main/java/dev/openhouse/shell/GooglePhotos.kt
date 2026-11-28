@@ -75,6 +75,7 @@ object GooglePhotos {
             addView(steps, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
         }
         dialog = CalmDialog(a).setTitle("Photos from Google Photos").setWidth(900f).setView(body)
+            .setMore("The photos come straight from Google to the device. Opie's cloud only does the sign-in.")
             .setNegativeButton("Close", null)
             .setOnDismissListener { h.stop(); if (run == me) { run++; token = null } }
             .show().also { immersive() }

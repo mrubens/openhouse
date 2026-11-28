@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Ask by email instead
+    url: mailto:hello@opie.house
+    about: No GitHub account, or something you'd rather not post in public.
