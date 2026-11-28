@@ -748,7 +748,9 @@ function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
   const tmr = showDay !== d.toDateString();
   const tmrWord = smallHours(d) ? new Date(showDay).toLocaleDateString('en-US', { weekday: 'long' }) : 'Tomorrow'; // (midnight to 4: still last night, so its name)
   const nextWhen = (e) => { const s = new Date(e.start); return `${hm(s)}${s.getHours() < 12 ? ' AM' : ' PM'}${isPerson(e.who) ? ' · ' + e.who : ''}`; };
-  const next = coming[0];
+  // What's next gets the big card only within the hour; before that it's the first line like the rest.
+  const soonMins = coming[0] && !tmr ? Math.round((Date.parse(coming[0].start) - now) / 60e3) : null;
+  const next = soonMins != null && soonMins <= 60 ? coming[0] : null;
   // The weather under the date: now, and the rest of today, or tomorrow's from the evening on (by the clock, not the events:
   // a morning with nothing left on the calendar still wants today's).
   const eve = d.getHours() >= 18;
@@ -762,9 +764,9 @@ function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
   // Tomorrow card today's read as tomorrow's); they're on Home and the Calendar.
   // What's next on its own card (its day above it when that's tomorrow), then a line each: the events after it, what
   // they're counting down to, timers. A line is its time or label, a round mark, the words.
-  const rest = coming.slice(1), initial = (e) => (isPerson(e.who) ? e.who.trim()[0].toUpperCase() : '');
+  const rest = next ? coming.slice(1) : coming, initial = (e) => (isPerson(e.who) ? e.who.trim()[0].toUpperCase() : '');
   const Mark = ({ e }) => { const bg = e && eventPaint(house, e); return bg ? <i className="ambient-av" style={{ background: bg }}>{initial(e)}</i> : <i className="ambient-av none" />; }; // nobody's: no mark (the words line up with the others')
-  const mins = next && !tmr ? Math.round((Date.parse(next.start) - now) / 60e3) : null;
+  const mins = next ? soonMins : null;
   const lines = [
     ...allDay.map((x) => ({ k: 'a' + x, one: x })),
     ...rest.map((e) => ({ k: (e.id || e.uid || e.start) + e.title, when: nextWhen(e).split(' · ')[0], e, text: e.title })),
@@ -787,7 +789,7 @@ function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
           <h2>{next.title}</h2><div className="t">{nextWhen(next)}</div>
         </div>}
         {lines.length > 0 && <div className="ambient-rows">
-          {tmr && !next && allDay.length > 0 && <div className="ambient-day">{tmrWord}</div>}
+          {tmr && !next && <div className="ambient-day">{tmrWord}</div>}
           {lines.map((l) => (l.one != null ? <div key={l.k} className="ambient-r one"><span>{l.one}</span></div>
             : <div key={l.k} className="ambient-r"><span>{l.when}</span><Mark e={l.e} /><span>{l.text}</span></div>))}
         </div>}
