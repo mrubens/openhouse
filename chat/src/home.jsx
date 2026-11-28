@@ -179,11 +179,11 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
     if (bar) { shell.railTools({}); return; }
     const el = toolsRef.current; if (!el) return;
     const send = () => {
-      const t = el.querySelector('[data-tool="talk"]'), y = el.querySelector('[data-tool="type"]'), b = t || y;
+      const t = el.querySelector('[data-tool="talk"]'), y = el.querySelector('[data-tool="type"]'), z = el.querySelector('[data-tool="sleep"]'), b = t || y; // (over an app, Opie's mark takes Sleep's place: back to Opie)
       if (!b) return shell.railTools({});
       const at = (x) => { if (!x) return null; const r = x.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10); };
       const cs = getComputedStyle(b), home = el.closest('.home');
-      shell.railTools({ dpr: devicePixelRatio, talk: at(t), type: at(y), inset: parseFloat(cs.paddingLeft) / b.offsetWidth || 0.25,
+      shell.railTools({ dpr: devicePixelRatio, talk: at(t), type: at(y), home: at(z), inset: parseFloat(cs.paddingLeft) / b.offsetWidth || 0.25,
         fill: solid(home ? getComputedStyle(home).backgroundColor : '#fff', cs.backgroundColor), ink: solid(cs.color) });
     };
     send(); const later = setTimeout(send, 500); // (and once the world's color has eased to the tab's)
@@ -218,7 +218,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
               Talk and Type float in these same places over an app (the shell, from railTools). */}
           {shell?.talk && <button className="h-tool" data-tool="talk" onClick={() => shell.talk()} aria-label="Talk to Opie"><Bars /></button>}
           {shell?.type && <button className="h-tool h-type" data-tool="type" onClick={() => shell.type()} aria-label="Type to Opie"><Keys /></button>}
-          {shell?.sleep && <button className="h-tool" onClick={() => shell.sleep()} aria-label="Sleep"><Moon /></button>}
+          {shell?.sleep && <button className="h-tool" data-tool="sleep" onClick={() => shell.sleep()} aria-label="Sleep"><Moon /></button>}
           {shell && <button className="h-tool" onClick={() => shell.settings()} aria-label="Settings"><Gear /></button>}
         </div>
       </aside>}

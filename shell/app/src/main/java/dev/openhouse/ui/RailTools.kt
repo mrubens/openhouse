@@ -47,12 +47,13 @@ object RailTools {
     /** A button's square on the screen, in pixels. */
     data class Spot(val x: Float, val y: Float, val size: Float)
     /** Where Talk and Type are, the icon's inset (of the size), and the rail's fill and ink. */
-    data class Spots(val talk: Spot?, val type: Spot?, val inset: Float, val fill: Int, val ink: Int)
+    data class Spots(val talk: Spot?, val type: Spot?, val inset: Float, val fill: Int, val ink: Int, val home: Spot? = null)
 
     var spots by mutableStateOf<Spots?>(null)
 
     /** Over an app, how much shows (the rest is the app under it). */
     const val OVER_APP = .8f
+    const val TALK = 0; const val TYPE = 1; const val HOME = 2
 
     /**
      * The page's report: {dpr, talk: [x, y, w, h], type: [...], inset, fill: "#rrggbb", ink: "#rrggbb"} in CSS pixels
@@ -65,10 +66,10 @@ object RailTools {
             val w = a.getDouble(2).toFloat() * dpr; val h = a.getDouble(3).toFloat() * dpr
             if (w < 8 || h < 8 || w > 600) null else Spot(left + a.getDouble(0).toFloat() * dpr, top + a.getDouble(1).toFloat() * dpr, minOf(w, h))
         }
-        val talk = spot("talk"); val type = spot("type")
+        val talk = spot("talk"); val type = spot("type"); val home = spot("home")
         if (talk == null && type == null) return null
         fun color(k: String, or: Int) = j.optString(k).takeIf { Regex("#[0-9a-fA-F]{6}").matches(it) }?.let { android.graphics.Color.parseColor(it) } ?: or
-        Spots(talk, type, j.optDouble("inset", .25).toFloat().coerceIn(0f, .45f), color("fill", Calm.PAPER), color("ink", Calm.INK))
+        Spots(talk, type, j.optDouble("inset", .25).toFloat().coerceIn(0f, .45f), color("fill", Calm.PAPER), color("ink", Calm.INK), home)
     }.getOrNull()
 
     /** Something is up over the app (a sheet, a card, typing, the conversation, the setup), or the screen is dark. */
@@ -84,26 +85,29 @@ object RailTools {
 fun RailToolsOverApp() {
     val s = RailTools.spots ?: return
     Box(Modifier.fillMaxSize()) {
-        s.talk?.let { RailToolButton(true, s, Modifier.offset { IntOffset(it.x.toInt(), it.y.toInt()) }) }
-        s.type?.let { RailToolButton(false, s, Modifier.offset { IntOffset(it.x.toInt(), it.y.toInt()) }) }
+        s.talk?.let { RailToolButton(RailTools.TALK, s, Modifier.offset { IntOffset(it.x.toInt(), it.y.toInt()) }) }
+        s.type?.let { RailToolButton(RailTools.TYPE, s, Modifier.offset { IntOffset(it.x.toInt(), it.y.toInt()) }) }
+        s.home?.let { RailToolButton(RailTools.HOME, s, Modifier.offset { IntOffset(it.x.toInt(), it.y.toInt()) }) }
     }
 }
 
-/** One of them: Talk ([talk]) or Type, the rail's size, fill and icon. A tap does what the rail's does. */
+/** One of them: Talk, Type, or Opie's mark (back to Opie, in the rail's third place), the rail's size, fill and icon. */
 @Composable
-fun RailToolButton(talk: Boolean, s: RailTools.Spots, modifier: Modifier = Modifier) {
-    val spot = (if (talk) s.talk else s.type) ?: return
+fun RailToolButton(kind: Int, s: RailTools.Spots, modifier: Modifier = Modifier) {
+    val spot = (when (kind) { RailTools.TALK -> s.talk; RailTools.TYPE -> s.type; else -> s.home }) ?: return
     val d = with(LocalDensity.current) { spot.size.toDp() }
     val fill = Color(s.fill); val ink = Color(s.ink)
     Box(modifier.size(d).graphicsLayer { alpha = RailTools.OVER_APP; compositingStrategy = CompositingStrategy.ModulateAlpha }.shadow(d / 10, CircleShape).clip(CircleShape).background(fill)
-        .clickable(remember { MutableInteractionSource() }, indication = null) { if (talk) Openhouse.tapToTalk() else Openhouse.openTyping() },
+        .clickable(remember { MutableInteractionSource() }, indication = null) { when (kind) { RailTools.TALK -> Openhouse.tapToTalk(); RailTools.TYPE -> Openhouse.openTyping(); else -> { Openhouse.host.closeApp(); dev.openhouse.shell.KioskApps.goHome() } } },
         contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(d * (1 - 2 * s.inset))) { if (talk) bars(ink) else keys(ink) }
+        Canvas(Modifier.size(d * (1 - 2 * s.inset))) { when (kind) { RailTools.TALK -> bars(ink); RailTools.TYPE -> keys(ink); else -> mark(ink) } }
     }
 }
 
 // The rail's own icons (home.jsx Bars and Keys), on their 24-unit box.
 private val barsPath by lazy { PathParser().parsePathString("M5 10.5v3M9.67 7.5v9M14.33 6v12M19 9.5v5").toPath() }
+/** Opie's mark (brand/mark.svg): the house outline, in a 24-unit box. */
+private val markPath by lazy { PathParser().parsePathString("M4 11.5 12 4.3l8 7.2v7.7a1.3 1.3 0 0 1-1.3 1.3H5.3A1.3 1.3 0 0 1 4 19.2Z").toPath() }
 private val keysPath by lazy { PathParser().parsePathString("M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8").toPath() }
 
 private fun DrawScope.bars(ink: Color) = scale(size.width / 24f, size.height / 24f, Offset.Zero) {
@@ -114,4 +118,7 @@ private fun DrawScope.keys(ink: Color) = scale(size.width / 24f, size.height / 2
     val line = Stroke(2f, cap = StrokeCap.Round, join = StrokeJoin.Round)
     drawRoundRect(ink, Offset(2.5f, 6f), Size(19f, 12f), CornerRadius(2f), style = line)
     drawPath(keysPath, ink, style = line)
+}
+private fun DrawScope.mark(ink: Color) = scale(size.width / 24f, size.height / 24f, Offset.Zero) {
+    drawPath(markPath, ink, style = Stroke(2.2f, cap = StrokeCap.Round, join = StrokeJoin.Round))
 }

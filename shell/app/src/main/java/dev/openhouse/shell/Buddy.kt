@@ -169,10 +169,10 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
     private var wordsAdded = false
 
     /** The home screen's Talk and Type (dev.openhouse.ui.RailTools), each in a small window of its own at its place. */
-    private inner class Tool(val talk: Boolean) {
+    private inner class Tool(val kind: Int) {
         val view = ComposeView(svc).apply {
             setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner)
-            setContent { dev.openhouse.ui.RailTools.spots?.let { s -> Box(Modifier.padding(with(androidx.compose.ui.platform.LocalDensity.current) { edge.toDp() })) { dev.openhouse.ui.RailToolButton(talk, s) } } }
+            setContent { dev.openhouse.ui.RailTools.spots?.let { s -> Box(Modifier.padding(with(androidx.compose.ui.platform.LocalDensity.current) { edge.toDp() })) { dev.openhouse.ui.RailToolButton(kind, s) } } }
         }
         val lp = WindowManager.LayoutParams(
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
@@ -190,8 +190,9 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
             if (added) runCatching { wm.updateViewLayout(view, lp) } else runCatching { wm.addView(view, lp); added = true }
         }
     }
-    private val talkTool = Tool(true)
-    private val typeTool = Tool(false)
+    private val talkTool = Tool(dev.openhouse.ui.RailTools.TALK)
+    private val typeTool = Tool(dev.openhouse.ui.RailTools.TYPE)
+    private val homeTool = Tool(dev.openhouse.ui.RailTools.HOME)
     /** Hidden for the agent's screenshot (Buddy.hideForShot). */
     @Volatile var shot = false
     private val scope = kotlinx.coroutines.MainScope()
@@ -210,7 +211,7 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
     private var chipAdded = false
 
 
-    fun close() { if (Buddy.window === this) Buddy.window = null; anim?.cancel(); scope.cancel(); talkTool.place(null); typeTool.place(null); if (added) runCatching { wm.removeView(view) }; added = false; if (wordsAdded) runCatching { wm.removeView(words) }; wordsAdded = false; if (chipAdded) runCatching { wm.removeView(chip) }; chipAdded = false }
+    fun close() { if (Buddy.window === this) Buddy.window = null; anim?.cancel(); scope.cancel(); talkTool.place(null); typeTool.place(null); homeTool.place(null); if (added) runCatching { wm.removeView(view) }; added = false; if (wordsAdded) runCatching { wm.removeView(words) }; wordsAdded = false; if (chipAdded) runCatching { wm.removeView(chip) }; chipAdded = false }
 
     fun refresh() {
         val want = !Buddy.shellOnTop && !Buddy.covering
@@ -227,7 +228,7 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
             else if (wordsLp.y != y) { wordsLp.y = y; runCatching { wm.updateViewLayout(words, wordsLp) } }
         } else if (wordsAdded) { runCatching { wm.removeView(words) }; wordsAdded = false }
         val s = dev.openhouse.ui.RailTools.spots?.takeIf { want && !shot && !dev.openhouse.ui.RailTools.stepAside() }
-        talkTool.place(s?.talk); typeTool.place(s?.type)
+        talkTool.place(s?.talk); typeTool.place(s?.type); homeTool.place(s?.home)
         if (want && !chipAdded) { chipLp.x = (12 * unit()).toInt(); chipLp.y = (12 * unit()).toInt(); runCatching { wm.addView(chip, chipLp); chipAdded = true } }
         else if (!want && chipAdded) { runCatching { wm.removeView(chip) }; chipAdded = false }
     }
