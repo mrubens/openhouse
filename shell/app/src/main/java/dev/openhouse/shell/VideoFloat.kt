@@ -108,7 +108,7 @@ object VideoFloat {
             t - playedAt > QUIET_MS -> return end("nothing played for ${QUIET_MS / 60_000} minutes", pause = false)
         }
         if (pip && playing) o.videoPlaying(5_000) // Opie's resting screen waits while a video floats over it
-        main.postDelayed(ticker, 1000)
+        main.postDelayed(ticker, if (otherSince > 0L) (OTHER_MS - (t - otherSince)).coerceIn(100L, OTHER_MS) else 1000L)
     }
 
     /** Back to kiosk mode: the floating video paused (if [pause]), and Opie's screen locks again. */
