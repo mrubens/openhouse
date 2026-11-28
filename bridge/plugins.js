@@ -335,7 +335,7 @@ export function rightsList(apps) {
   if (tv.length) out.push({ kind: 'tv', text: `Shows on the TV${many ? ` (${tv.map((a) => a.name).join(', ')})` : ''}.` });
   return out;
 }
-const rightWords = { lists: 'lists', chores: 'chores', rewards: 'rewards', meals: 'meals', events: 'the calendar', photos: 'photos', family: "the family's names", weather: 'the weather', home: 'the notes on Home', today: 'a line of its own on Home', days: 'notes of its own on the calendar\'s days (lunch, trash day)', 'calendar-events': 'events of its own on the calendar (it can\'t change the family\'s)', 'today-card': 'a card of its own on Home (once you turn it on)', timer: 'timers', say: 'speaking', devices: "the speakers and TVs (it asks before turning one on)", decide: "Opie's cloud for small questions (OpenAI)" };
+const rightWords = { lists: 'lists', chores: 'chores', rewards: 'rewards', meals: 'meals', events: 'the calendar', photos: 'photos', family: "the family's names", weather: 'the weather', home: 'the notes on Home', today: 'a line of its own on Home', days: 'notes of its own on the calendar\'s days (lunch, trash day)', 'calendar-events': 'events of its own on the calendar (it can\'t change the family\'s)', 'today-card': 'a card of its own on Home (once you turn it on)', timer: 'timers', say: 'speaking', devices: "the speakers and TVs (it asks before turning one on)", decide: "OpenAI for small questions, at most 100 a day, on your household's bill (Opie credit, or your own OpenAI key)" }; // (cloud.js APP_DECIDES)
 
 /** One line per app of what it may do, in the card's words. */
 export function rightsText(apps) {

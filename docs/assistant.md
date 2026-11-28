@@ -17,20 +17,38 @@ bridge's `agentName()` is then `cloud`. Otherwise it's `none` (`agents/none.js`)
 turns it on, and the apps hide what needs it (`/house` `ai: false`). Safe mode is `off`.
 
 **The household's own OpenAI key** (`own`): for a tablet without Opie's cloud voice (not linked, or not let in
-yet), the first setup's **Set up Opie's AI** step, or Settings → Opie → Voice. The key is pasted on the phone or computer
-connected for the setup (the box opens there as the step shows: `chat/src/phone.jsx` `AddKey`, sealed on the home
-Wi-Fi to the bridge's `/setup/openai`, passed straight on to the shell and never written or logged), or pasted on the
-tablet with a keyboard cover. The shell (`shell/…/OwnKey.kt`) checks it with one free call (the list of models: a
-wrong key, a key without access and an account out of credit each get their own words), asks for the PIN first when
-the lock is on, keeps it sealed in its no-backup files with a keystore key, and tells the bridge only that one is in
-(`POST /cloud/own {on}`, which refuses anything else in the body). The voice comes on with the key (it's the
-household's yes to OpenAI on their own account) and goes with it when there's no account to fall back on.
+yet). While there's no voice (no account and no key), Today shows a card first, **Opie's voice**, with **Add a key**;
+the same is in Settings → Opie → Voice → Your own OpenAI key. Either opens, behind the PIN, a QR code for a phone on the
+home Wi-Fi: the phone's page (the shell's `Handoff`, as their own storage's key comes: `OwnStorage.setUp`) seals the
+key with the code's own secret and sends it straight to the shell, never through the bridge, so Opie never sees or
+hears it; or the key is typed on the device with a keyboard cover. A hub's settings page sends it to its keeper
+(`/setup/openai`). Putting it in is a person's own tap (`DeviceServer.personOnly`). The shell (`shell/…/OwnKey.kt`)
+checks it with the list of models (free: a wrong key, a key without access), then the smallest answer from the
+assistant's model (a tiny fraction of a cent, the only call that sees an account out of credit), keeps it sealed in
+its no-backup files with a keystore key, and tells the bridge only that one is in (`POST /cloud/own {on}`, which
+refuses anything else in the body). The voice comes on with the key (it's the household's yes to OpenAI on their own
+account) and goes with it when there's no account to fall back on.
+
+When the key stops working (OpenAI refuses it, its account is out of credit or over its limit, or the device lost it:
+`own-openai.js` `own_key_refused`, `own_key_limit`, `no_key`), the live voice says so in plain words instead of
+"couldn't connect", a typed question gets the same words (`usage.js` `OWN_WORDS`), and Today's card says it with a
+button to the key. The next call that goes through clears it.
 
 `agentName()` is then `own`: the same assistant, with `ai`, `decide` and the live start built by
 `bridge/own-openai.js` (the cloud's own requests, models, live prompts and search words, moved here 2026-11-26) and
 sent through the shell's route (`DeviceServer` `/openai`), which adds the key and reaches only three fixed paths at
-api.openai.com (`/v1/live/sessions`, `/v1/responses`, `/v1/decisions`). Opie's cloud is never asked while a key is in,
-and nothing is counted here: OpenAI bills the household, and a budget on the key at OpenAI is the stop.
+api.openai.com (`/v1/live/sessions`, `/v1/responses`, `/v1/decisions`). Opie's cloud is never asked while a key is in.
+OpenAI bills the household, and nobody may be watching, so the bridge stops the spending itself (`cloud.js`):
+
+- **A monthly stop** (Settings → Opie → Voice → Your own OpenAI key → Monthly stop: $5 to $200, $20 until someone
+  changes it), checked against this month's estimate (`usage.js`, OpenAI's list prices) before every live start, text
+  model call and Decisions call. Once it's reached they wait for next month, Today's card says so, and a live
+  conversation that starts with less left than a whole one ends when that's used, saying why. Settings → Voice's This
+  month shows the cost against the stop. A budget on the key at OpenAI is still worth setting.
+- **A day's cap on "Hey Opie"**: an hour a day of conversations the wake word opened (a misfire opens one), counted from
+  their reported minutes. A tap on Opie, a phone's start and a session opened to say something aren't capped.
+- **Each app's small questions** (the kit's `decide`, for apps granted it: `brain.js` `appCall` passes them to
+  `/cloud/decide`): 100 a day per app, on either bill. Its card says whose bill it is.
 
 ## In this home
 

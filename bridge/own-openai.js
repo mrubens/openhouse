@@ -1,8 +1,9 @@
 // The household's own OpenAI key (docs/assistant.md): Opie's voice, its assistant and Decisions on the household's
 // own OpenAI account, with nothing through Opie's cloud. The same requests the cloud makes (openhouse-cloud
 // lambda/speech.ts and app.ts, copied here 2026-11-26 with the owner's yes), sent through the shell's route to OpenAI
-// (DeviceServer /openai, OwnKey.kt), which adds the key: the bridge never has it. No allowance here: OpenAI bills the
-// household, and the key's own budget at OpenAI is the stop.
+// (DeviceServer /openai, OwnKey.kt), which adds the key: the bridge never has it. OpenAI bills the household; what
+// stops the spending here is cloud.js: the monthly stop set in Settings (checked before each call), a day's cap on
+// minutes opened by "Hey Opie", and a cap on each app's small questions.
 
 /** GPT-Live's voices (the cloud's LIVE_VOICES). */
 export const LIVE_VOICES = ['marin', 'gleam', 'meridian', 'quartz', 'ripple', 'vesper', 'willow', 'stone', 'delta', 'cinder', 'beacon',

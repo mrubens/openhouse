@@ -41,19 +41,32 @@ export function aboutCost(cents) {
  * The month in plain words: {minutes, questions, apps, cents, text}. text is two lines: what was done, and the cost
  * ("This month: 42 minutes talking to Opie, 12 typed questions, 2 apps made or changed." / "About $3 so far.").
  */
-export function monthWords({ liveSecs = 0, questions = 0, apps = 0, cents = 0 }, name = 'Opie') {
+export function monthWords({ liveSecs = 0, questions = 0, apps = 0, cents = 0, stopCents = 0 }, name = 'Opie') {
   const minutes = Math.round((Number(liveSecs) || 0) / 60);
   const n = (x, one, many) => `${x} ${x === 1 ? one : many}`;
   const parts = [`${n(minutes, 'minute', 'minutes')} talking to ${name}`, n(questions, 'typed question', 'typed questions'), n(apps, 'app made or changed', 'apps made or changed')];
   const cost = aboutCost(cents);
+  const stop = stopCents > 0 ? `, of the $${Math.round(stopCents / 100)} monthly stop` : ''; // (the household's own key: cloud.js stopCents)
   const text = !minutes && !questions && !apps && cost === 'nothing yet' ? 'Nothing used yet this month.'
-    : `This month: ${parts.join(', ')}.${cost === 'nothing yet' ? '' : `\n${cost[0].toUpperCase()}${cost.slice(1)} so far.`}`;
+    : `This month: ${parts.join(', ')}.${cost === 'nothing yet' ? '' : `\n${cost[0].toUpperCase()}${cost.slice(1)} so far${stop}.`}`;
   return { minutes, questions, apps, cents: Math.round(Number(cents) || 0), text };
 }
 
+/** On the household's own OpenAI key (own-openai.js, cloud.js), why a call didn't go: OpenAI refused the key, its
+ *  account is out of credit or over its limit, the device has no key, the monthly stop set in Settings is reached, or
+ *  today's minutes opened by "Hey Opie" are used (cloud.js WAKE_DAY_SECS). The voice and a typed question say the same. */
+export const OWN_WORDS = {
+  own_key_refused: "OpenAI stopped accepting the household's key. An adult can put in a new one in Settings, Opie, Voice.",
+  own_key_limit: "OpenAI says the household's account is out of credit or over its limit. Add credit on OpenAI's site, then try again.",
+  no_key: 'The device has no OpenAI key. An adult can add one in Settings, Opie, Voice.',
+  own_stop: "This month's spending stop for the OpenAI key is reached. An adult can raise it in Settings, Opie, Voice.",
+  wake_cap: "I've talked for an hour today after hearing my name, the most for one day. Tap me to talk.",
+};
+
 /** What to say when Opie's service said no to a call for what it costs (its 429 `over`): the credit ran out, or the
- *  month's limit was reached. null for anything else. */
+ *  month's limit was reached; on the household's own key, OWN_WORDS. null for anything else. */
 export function overWords(e) {
+  if (OWN_WORDS[e?.code]) return OWN_WORDS[e.code];
   if (e?.over === 'credit') return "Opie's credit has run out. Someone can add more on the account page.";
   if (e?.code === 'http429') return "I've used this month's allowance. Someone can see it on the household's account page.";
   return null;

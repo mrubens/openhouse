@@ -36,7 +36,7 @@ const shell = (() => {
     idle: () => raw.idle(g), clock24: () => { try { return !!raw.clock24(g); } catch { return false; } }, wakeOn: () => { try { return !!raw.wakeOn?.(g); } catch { return false; } }, battery: () => { try { return JSON.parse(raw.battery(g) || 'null'); } catch { return null; } }, sleeping: () => { try { return !!raw.sleeping(g); } catch { return false; } }, dim: (on) => { try { raw.dim(g, !!on); } catch {} }, ask: (t) => raw.ask(g, t), androidApps: () => raw.androidApps(g), video: (u) => raw.video(g, u),
     spotifyState: raw.spotifyState ? (j) => { try { raw.spotifyState(g, j); } catch {} } : null,
     media: raw.media ? (what) => { try { return JSON.parse(raw.media(g, what) || '{}'); } catch { return {}; } } : null,
-    phone: raw.phone ? (kind, arg) => raw.phone(g, kind, arg) : null, editing: (on) => { try { raw.editing(g, !!on); } catch {} } };
+    phone: raw.phone ? (kind, arg) => raw.phone(g, kind, arg) : null, ownKey: raw.ownKey ? (why) => raw.ownKey(g, String(why || '')) : null, editing: (on) => { try { raw.editing(g, !!on); } catch {} } };
 })();
 const STORE = 'openhouse.screen';
 const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null'); } catch { return null; } };

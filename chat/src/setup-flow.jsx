@@ -318,7 +318,7 @@ export function AddKey({ c, computer }) {
   }
   if (state === 'done') return <p>Key added. Opie’s AI is on.</p>;
   return <>
-    <p>Opie’s voice and assistant run on your OpenAI account. Paste an API key from platform.openai.com, and set a monthly budget there.</p>
+    <p>Opie’s voice and assistant run on your OpenAI account, and stop for the month at $20. Paste an API key from platform.openai.com.</p>
     <input type="password" value={key} onChange={(e) => { setKey(e.target.value); setState(null); }} placeholder="sk-…" autoCapitalize="off" autoComplete="off" autoCorrect="off" spellCheck={false} />
     <button className="go act" disabled={!/^sk-\S{20,}$/.test(key.trim()) || state === 'sending'} onClick={send}>{state === 'sending' ? 'Checking it…' : 'Add'}</button>
     {state && state !== 'sending' && <p className="soft">{state}</p>}

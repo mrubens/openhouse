@@ -528,6 +528,14 @@ function DishPic({ house, name }) {
 const Check = () => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>;
 
 /** Today (also on someone's phone, phone.jsx, in one column). */
+/** Today's card while Opie's voice can't answer, by why (house view().voice): its line and its button. */
+const VOICE_NEED = {
+  no_key: ['Talk to Opie with an OpenAI key', 'Add a key'],
+  own_key_refused: ['OpenAI stopped accepting your key', 'Add a new key'],
+  own_key_limit: ['Your OpenAI account is out of credit', 'Your key'],
+  own_stop: ["This month's spending stop is reached", 'Change the stop'],
+};
+
 export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, addTo = go, openApp, shell, usePhoto, look, appsV, boardAt = 0 }) {
   // The time: the phone's own (phone.jsx), else the page's, drawn again each minute (not each second: Today is big).
   const clockNow = useNow(60e3), now = given ?? clockNow;
@@ -678,6 +686,14 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
       <div className="t-rows t-gap-s">{waiting.slice(0, 3).map((e, i) => <div key={i} className="t-row"><span className="t-when">{when(e)}</span><span className="h-grow">{plain(e.title)}</span></div>)}</div>
     </div>);
   }
+  // Opie's voice can't answer here (cloud.js voiceNeed): no account and no key, or the household's own key in trouble.
+  // First, on the device only (the key goes in there: OwnKey.kt), until it can; the button opens the key's own screen.
+  const need = shell?.ownKey && VOICE_NEED[h.voice];
+  if (need) cards.unshift(<div key="voice" {...card('voice', () => shell.ownKey(h.voice))}>
+    <div className="h-label">Opie's voice</div>
+    <div className="t-big">{need[0]}</div>
+    <div className="t-nacts"><span role="button" className="h-chip">{need[1]}</span></div>
+  </div>);
   const showCal = kinds.has('calendar') && todayOrder(look).includes('calendar');
   const per = showCal ? 2 : 3, rows = [];
   { let cur = null; for (const x of cards) { if (x.props.wide) { rows.push([x]); cur = null; } else { if (!cur || cur.length >= per) rows.push(cur = []); cur.push(x); } } }

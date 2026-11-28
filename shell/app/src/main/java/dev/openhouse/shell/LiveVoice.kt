@@ -67,6 +67,8 @@ internal object LiveVoice {
     /** session.started came and the data channel is open: answers can go to it. */
     @Volatile private var ready = false
     @Volatile private var idleS = 8
+    /** What opened this session (wake, tap, say): the bridge caps a day's minutes "Hey Opie" opened on the household's own key. */
+    @Volatile private var opened = ""
     /** When its name was heard (or the tap): the log's timings ("t+… ms") count from here. */
     @Volatile private var t0 = 0L
     private fun mark(what: String) = Log.i(TAG, "t+${System.currentTimeMillis() - t0} ms $what")
@@ -114,6 +116,7 @@ internal object LiveVoice {
         if (web != null || dev.openhouse.ui.Setup.hushed) return // (the welcome and the setup open no microphone)
         val now = System.currentTimeMillis()
         act = a; startedAt = now; t0 = if (how == "say") now else minOf(at, now); ready = false; idleS = 8
+        opened = how
         mark(if (how == "say") "opening to say something" else "starting ($how)")
         // From its name on, what's said is kept until the session can hear it (from 0.7 s before the wake model fired,
         // which is a moment after the name ends, so nothing after it is lost); a tap keeps from the tap.
@@ -327,18 +330,20 @@ internal object LiveVoice {
             // An app in use hands-free (cooking: bridge live-tools.js quietS) keeps the session a while longer after the last
             // words, so "next" works without the name; then it ends as usual and the name is needed again.
             setup?.optInt("quietS", 0)?.takeIf { it > idleS }?.let { idleS = it.coerceAtMost(30); mark("hands-free: ending ${idleS} s after the last words") }
-            val body = JSONObject().put("sdp", sdp).put("name", Openhouse.assistantName).put("idleTimeoutS", 60)
+            val body = JSONObject().put("sdp", sdp).put("name", Openhouse.assistantName).put("idleTimeoutS", 60).put("how", opened)
             if (setup != null) body.put("instructions", setup.optString("instructions")).put("tools", setup.optJSONArray("tools"))
                 .put("earlier", setup.optJSONArray("earlier") ?: org.json.JSONArray())
             val r = post("/cloud/live/start", body)
             mark("cloud answered")
-            // Out of Opie credit (the cloud's credits.ts): said as that, not as "couldn't connect".
-            if (r?.optString("code") == "over_credit") { trouble(r.optString("error")); toldWhy = true }
+            // Out of Opie credit (the cloud's credits.ts), or on the household's own key a reason in their words (said: the key
+            // refused, no credit at OpenAI, the monthly stop, today's "Hey Opie" minutes): said as that, not as "couldn't connect".
+            if (r?.optString("code") == "over_credit" || r?.optBoolean("said") == true) { trouble(r.optString("error")); toldWhy = true }
             val w = web ?: return@thread
             // Less credit left than a whole conversation (the cloud's creditSecs): this one ends when it's used, saying why.
             r?.optInt("creditSecs", 0)?.takeIf { it > 0 }?.let { secs ->
                 mark("credit for $secs s")
-                main.postDelayed({ if (web === w) { trouble(CREDIT_GONE); toldWhy = true; end("credit used") } }, secs * 1000L)
+                val why = r.optString("creditWhy").ifEmpty { CREDIT_GONE } // (the own key's monthly stop, or today's cap)
+                main.postDelayed({ if (web === w) { trouble(why); toldWhy = true; end("credit used") } }, secs * 1000L)
             }
             main.post { w.evaluateJavascript("answer(${JSONObject.quote((r ?: JSONObject().put("error", "the device's software didn't answer")).toString())})", null) }
         }
