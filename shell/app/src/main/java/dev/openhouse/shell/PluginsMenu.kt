@@ -280,8 +280,6 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             addView(search, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 14) })
             addView(Calm.Capped(c, (screenH * (if (wide) .52f else .3f)).toInt()).apply { addView(rows); isVerticalScrollBarEnabled = false },
                 android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 10); leftMargin = -Calm.px(c, 16); rightMargin = -Calm.px(c, 16) })
-            if (PlayStore.available(c)) addView(Calm.quiet(c, "Open Google Play") { go { browsePlay() } }.apply { setPadding(0, Calm.px(c, 12), 0, 0) },
-                android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 4) })
         }
 
         // ---- Make your own: ask Opie (it builds it here, bridge/builder.js); a computer for bigger work ----
@@ -297,14 +295,29 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
                 android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 4) })
         }
 
+        // ---- Google Play: any Android app. Its sign-in says "work email" (the device is a kiosk to it); a personal one works ----
+        val playBox = if (!PlayStore.available(c)) null else Calm.column(c).apply {
+            setPadding(Calm.px(c, 32), Calm.px(c, 28), Calm.px(c, 32), Calm.px(c, 32))
+            background = Calm.rounded(Calm.TINT, 24 * u)
+            addView(Calm.eyebrow(c, "Google Play"))
+            addView(Calm.text(c, "Any Android app, from Google Play.", 21f, 400).apply { setPadding(0, Calm.px(c, 14), 0, 0) })
+            if (!PlayStore.signedIn(c)) addView(Calm.text(c, "Its sign-in asks for a work email. A personal Google account works too.", 17f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, 10), 0, 0) })
+            addView(Calm.soft(c, "Open Google Play") { go { browsePlay() } },
+                android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 18) })
+        }
+
         val both = if (wide) Calm.row(c).apply {
             gravity = android.view.Gravity.TOP
             addView(find, android.widget.LinearLayout.LayoutParams(0, -2, 1.15f))
             addView(Calm.gap(c, 32, 1))
-            addView(make, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+            addView(Calm.column(c).apply {
+                addView(make, android.widget.LinearLayout.LayoutParams(-1, -2))
+                playBox?.let { addView(it, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 24) }) }
+            }, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
         } else Calm.column(c).apply {
             addView(find, android.widget.LinearLayout.LayoutParams(-1, -2))
             addView(make, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 24) })
+            playBox?.let { addView(it, android.widget.LinearLayout.LayoutParams(-1, -2).apply { topMargin = Calm.px(c, 24) }) }
         }
         dialog = CalmDialog(act).setTitle("Add apps").setWidth(if (wide) 1320f else 760f).setView(both)
             .setNegativeButton(if (fromApps) "Close" else "Back") { _, _ -> if (!fromApps) show() }.show()
