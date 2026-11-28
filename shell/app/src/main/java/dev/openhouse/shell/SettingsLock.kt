@@ -97,6 +97,7 @@ internal class SettingsLock(private val act: MainActivity) {
             "brightness" -> Brightness.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "volume" -> VolumeSetting.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "time" -> withPin { Clock.choose(act, act::immersive) { Openhouse.settingsChanged() } }
+            "resting" -> RestingScreen.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "night" -> NightHours.choose(act, act::immersive) { Openhouse.settingsChanged() }
             "addCalendar" -> act.addCalendar() // the setup's steps (ui/Setup.kt)
             "addAlbum" -> act.addAlbum()
@@ -306,6 +307,7 @@ internal class SettingsLock(private val act: MainActivity) {
         m["volume"] = VolumeSetting.label(act)
         m["time"] = Clock.label(act)
         m["night"] = NightHours.label(act)
+        m["resting"] = RestingScreen.label()
         m["albums"] = count(runCatching { PhotoAlbums.list().size }.getOrDefault(0)) // the setup's progress (ui/Setup.kt)
         // Voice: Off, or the voice it speaks with (Hey Opie listening too); while the listening models come, how that's going.
         val name = get("/cloud/voice")?.optString("voiceName")?.takeIf { it.isNotEmpty() }?.replaceFirstChar { c -> c.uppercase() } ?: "On"

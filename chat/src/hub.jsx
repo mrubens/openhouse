@@ -10,6 +10,7 @@ import { pair, client, Removed } from './screen-client.js';
 import { pairingFromCode } from './scrypt.js';
 import { Asks } from './asks.jsx';
 import { SetupFlow, AddLink, AddKey, SignIns, GooglePhotosHere, onTheHub } from './setup-flow.jsx';
+import { restingOf } from './now.js';
 
 onTheHub();
 
@@ -266,10 +267,22 @@ function Screen({ c, onRemoved }) {
   const [h, reload] = useGet(c, '/house', 0, onRemoved), [err, setErr] = useState('');
   const post = async (b) => { setErr(''); const r = await c.json('POST', '/house/settings', b).catch(() => null); if (r?.status !== 200) setErr(r?.json?.error || 'That didn\'t work.'); reload(); };
   if (!h || h.error) return null;
-  const n = h.night;
+  const n = h.night, r = restingOf(h), rest = (part) => post({ resting: part });
+  const after = (m) => (m === 0 ? 'Never' : m === 1 ? '1 minute' : `${m} minutes`);
   return (
     <section>
       <h2>Screen</h2>
+      <h3>Resting screen</h3>
+      <label className="check">Starts after <select value={r.after} onChange={(e) => rest({ after: Number(e.target.value) })}>{[1, 2, 5, 8, 10, 15, 30, 0].map((m) => <option key={m} value={m}>{after(m)}</option>)}</select></label>
+      <label className="check">Shows <select value={r.calendar ? 'calendar' : 'photos'} onChange={(e) => rest({ calendar: e.target.value === 'calendar' })}><option value="photos">Photos</option><option value="calendar">The calendar</option></select></label>
+      {!r.calendar && <>
+        <label className="check">Each photo <select value={r.every} onChange={(e) => rest({ every: Number(e.target.value) })}>{[...new Set([5, 10, 15, 20, 30, 60, 120, r.every])].sort((a, b) => a - b).map((s) => <option key={s} value={s}>{s % 60 ? `${s} seconds` : s === 60 ? '1 minute' : `${s / 60} minutes`}</option>)}</select></label>
+        <label className="check">Order <select value={r.order} onChange={(e) => rest({ order: e.target.value })}><option value="order">In order</option><option value="shuffle">Shuffled</option></select></label>
+        <label className="check">Photo <select value={r.fit} onChange={(e) => rest({ fit: e.target.value })}><option value="fit">Whole photo</option><option value="fill">Fills the screen</option></select></label>
+        {[['time', 'Time and date'], ['weather', 'Weather'], ['next', 'What’s next'], ['captions', 'Captions']].map(([k, label]) =>
+          <label key={k} className="check"><input type="checkbox" checked={!!r.show[k]} onChange={(e) => rest({ show: { [k]: e.target.checked } })} /> {label}</label>)}
+      </>}
+      <h3>Night</h3>
       <label className="check"><input type="checkbox" checked={!!n} onChange={(e) => post({ night: e.target.checked ? { from: '21:30', to: '06:30' } : false })} /> Night hours</label>
       {n && <div className="btns">
         <input className="field" type="time" aria-label="From" value={n.from} onChange={(e) => e.target.value && post({ night: { from: e.target.value, to: n.to } })} />

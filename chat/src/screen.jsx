@@ -17,7 +17,7 @@ import { pair, client, Removed } from './screen-client.js';
 import { AnswerBody, Display, page as answerPage } from './answer.jsx';
 import { Widget, Fit, IconFill, U } from './home-widgets.jsx';
 import { Home as HomeTabs, appOrigin, Clip, useClipUrl, usePhotoSwipe, wrap } from './home.jsx';
-import { useNow, smallHours } from './now.js';
+import { useNow, smallHours, isNight, restingOf } from './now.js';
 import { nextAlarm } from './alarms.jsx';
 import { pairingFromCode, cleanCode } from './scrypt.js';
 import { icon as weatherIcon } from '../../bridge/kit/weather-look.js';
@@ -722,18 +722,33 @@ function Scenery({ urls }) {
   return <div className="scenery">{shown.map((u, k) => <img key={u} src={u} alt="" className={k === shown.length - 1 ? 'on' : ''} draggable={false} />)}</div>;
 }
 
-/** When nobody has touched the display for a while: the family's photos (if an app asks for them, not at night), the time, the day's headline and timers. */
+/** The [i]th photo of the resting screen: in their order, or shuffled, a new order each time round, the same on every
+ *  screen (seeded by the round, so two screens side by side show the same photo). */
+function pickPhoto(names, i, shuffle) {
+  const n = names.length, k = wrap(i, n);
+  if (!shuffle || n < 3) return names[k];
+  let seed = Math.imul(Math.floor(i / n), 2654435761) >>> 0;
+  const rnd = () => { seed = (seed + 0x6d2b79f5) >>> 0; let t = seed; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const a = [...names].sort();
+  for (let j = n - 1; j > 0; j--) { const r = Math.floor(rnd() * (j + 1)); [a[j], a[r]] = [a[r], a[j]]; }
+  return a[k];
+}
+
+/** When nobody has touched the display for a while: the family's photos (if an app asks for them, not at night), the time, the day's headline and timers.
+ *  How is the household's (Settings → Screen → Resting screen: view().resting): how long each photo stays, in order or
+ *  shuffled, the whole photo or the whole screen, and which of the time, the weather, what's next and the captions show. */
 function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
   const now = useNow(1000); // its timers count down each second; the rest of the screen isn't drawn again for them
   const wantsPhotos = apps.some((a) => a.meta?.screensaver);
   const night = isNight(house?.night, now); // night hours only: the moon's "Sleep now" is this same screen, photos and all (the user)
+  const rs = restingOf(house), show = night ? { time: true, weather: true, next: true, captions: false } : rs.show; // (at night: the time and what's next, as before)
   // At night the backlight goes right down too (the shell), and comes back when someone touches it.
   useEffect(() => { shell?.dim?.(night); return () => shell?.dim?.(false); }, [night]);
   const names = wantsPhotos && !night ? house?.screensaver || house?.photos || [] : []; // those whose albums are on for the sleep screen (Photos)
   // A swipe moves along the photos and leaves the sleep screen up; any other touch wakes it, as before.
   const [off, setOff] = useState(0), swipe = usePhotoSwipe((d) => setOff((o) => o + d), { onTap: () => shell?.touch() });
-  const shown = names.length ? names[wrap(Math.floor(now / 12e3) + off, names.length)] : null;
-  const src = usePhoto(c, shown), caption = shown && house?.captions?.[shown];
+  const shown = names.length ? pickPhoto(names, Math.floor(now / (rs.every * 1000)) + off, rs.order === 'shuffle') : null;
+  const src = usePhoto(c, shown), caption = show.captions && shown && house?.captions?.[shown];
   const clipUrl = useClipUrl(c, /\.(mp4|mov|m4v)$/i.test(shown || '') ? shown : null); // a video plays silently over its still (the user)
   const d = new Date(now);
   // The rest of today (once today is done, tomorrow's): its all-day things on one line, then the next few events, the
@@ -750,11 +765,11 @@ function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
   const nextWhen = (e) => { const s = new Date(e.start); return `${hm(s)}${s.getHours() < 12 ? ' AM' : ' PM'}${isPerson(e.who) ? ' · ' + e.who : ''}`; };
   // What's next gets the big card only within the hour; before that it's the first line like the rest.
   const soonMins = coming[0] && !tmr ? Math.round((Date.parse(coming[0].start) - now) / 60e3) : null;
-  const next = soonMins != null && soonMins <= 60 ? coming[0] : null;
+  const next = show.next && soonMins != null && soonMins <= 60 ? coming[0] : null;
   // The weather under the date: now, and the rest of today, or tomorrow's from the evening on (by the clock, not the events:
   // a morning with nothing left on the calendar still wants today's).
   const eve = d.getHours() >= 18;
-  const w = weather && !weather.error && Number.isFinite(weather.temp) ? weather : null, wd = w?.days?.[eve ? 1 : 0];
+  const w = show.weather && weather && !weather.error && Number.isFinite(weather.temp) ? weather : null, wd = w?.days?.[eve ? 1 : 0];
   const lc = (x) => String(x || '').toLowerCase();
   const sky = w && [`${w.temp}° ${lc(w.condition)}`.trim(),
     wd && (eve ? `tomorrow ${lc(wd.condition)}, ${wd.high}°/${wd.low}°` : Number.isFinite(wd.high) && `high ${wd.high}°`),
@@ -767,22 +782,23 @@ function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
   const rest = next ? coming.slice(1) : coming, initial = (e) => (isPerson(e.who) ? e.who.trim()[0].toUpperCase() : '');
   const Mark = ({ e }) => { const bg = e && eventPaint(house, e); return bg ? <i className="ambient-av" style={{ background: bg }}>{initial(e)}</i> : <i className="ambient-av none" />; }; // nobody's: no mark (the words line up with the others')
   const mins = next ? soonMins : null;
-  const lines = [
+  const timerLines = timers.map((t) => ({ k: 't' + t.endAt, when: t.endAt <= now ? '0:00' : fmt(Math.ceil((t.endAt - now) / 1000)), text: t.label }));
+  const lines = !show.next ? timerLines : [ // (what's next off: the timers still show, they're ringing soon)
     ...allDay.map((x) => ({ k: 'a' + x, one: x })),
     ...rest.map((e) => ({ k: (e.id || e.uid || e.start) + e.title, when: nextWhen(e).split(' · ')[0], e, text: e.title })),
     ...counting.map((x) => ({ k: x.id, one: x.text })),
     ...(!next && board?.headline ? [{ k: 'head', one: board.headline }] : []),
-    ...timers.map((t) => ({ k: 't' + t.endAt, when: t.endAt <= now ? '0:00' : fmt(Math.ceil((t.endAt - now) / 1000)), text: t.label })),
+    ...timerLines,
   ].slice(0, 5);
   // The next alarm, when it rings within a day: always shown (last, in place of a fifth line).
   const al = nextAlarm(alarms, now);
-  if (al && al.at - now < 864e5) { const t = new Date(al.at); lines.splice(4, 1, { k: 'alarm', when: `${hm(t)}${t.getHours() < 12 ? ' AM' : ' PM'}`, e: isPerson(al.a.who) ? { who: al.a.who } : null, text: al.a.label || 'Alarm' }); }
+  if (al && al.at - now < 864e5 && show.next) { const t = new Date(al.at); lines.splice(4, 1, { k: 'alarm', when: `${hm(t)}${t.getHours() < 12 ? ' AM' : ' PM'}`, e: isPerson(al.a.who) ? { who: al.a.who } : null, text: al.a.label || 'Alarm' }); }
   return (
-    <div className={'ambient' + (night ? ' night' : '')} {...(names.length > 1 ? swipe : { onPointerDown: () => shell?.touch() })}>
-      {src && <img className="ambient-back" src={src} alt="" />}{src && <img className="ambient-fit" src={src} alt="" />}{clipUrl && <Clip className="ambient-fit" url={clipUrl} />}{/* the whole photo, its own blur in the margins (as Photos shows one) */}
+    <div className={'ambient' + (night ? ' night' : '') + (rs.fit === 'fill' ? ' fill' : '')} {...(names.length > 1 ? swipe : { onPointerDown: () => shell?.touch() })}>
+      {src && rs.fit !== 'fill' && <img className="ambient-back" src={src} alt="" />}{src && <img className="ambient-fit" src={src} alt="" />}{clipUrl && <Clip className="ambient-fit" url={clipUrl} />}{/* the whole photo, its own blur in the margins (as Photos shows one) */}
       {src && caption && <div className="ambient-caption">{caption}</div>}
-      <div className="ambient-time"><div className="t">{hm(d)}</div><div className="d">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div>
-        {sky && <div className="w"><span style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: weatherIcon(w.code, w.isDay !== false) }} />{sky}</div>}</div>
+      {(show.time || sky) && <div className="ambient-time">{show.time && <><div className="t">{hm(d)}</div><div className="d">{d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}</div></>}
+        {sky && <div className="w"><span style={{ display: 'contents' }} dangerouslySetInnerHTML={{ __html: weatherIcon(w.code, w.isDay !== false) }} />{sky}</div>}</div>}
       {(next || lines.length > 0) && <div className="ambient-side">
         {next && <div className="ambient-next">
           <div className="ambient-day">{tmr ? tmrWord : mins != null && mins < 60 ? `Next · in ${Math.max(1, mins)} ${mins <= 1 ? 'minute' : 'minutes'}` : 'Next'}</div>
@@ -796,12 +812,6 @@ function Ambient({ c, house, apps, board, timers, alarms = [], weather }) {
       </div>}
     </div>
   );
-}
-function isNight(n, now) {
-  if (!n?.from || !n?.to) return false;
-  const d = new Date(now), m = d.getHours() * 60 + d.getMinutes(), min = (s) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
-  const f = min(n.from), t = min(n.to);
-  return f <= t ? m >= f && m < t : m >= f || m < t;
 }
 
 const Gear = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg>;

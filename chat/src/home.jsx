@@ -11,7 +11,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Widget } from './home-widgets.jsx';
 import { SpotifySlot, useSpotifyOn } from './spotify-player.jsx';
-import { useNow, smallHours } from './now.js';
+import { useNow, smallHours, isNight, restingOf } from './now.js';
 import { AlarmsSheet, nextAlarm, ringTime } from './alarms.jsx';
 import { AnswerBody } from './answer.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
@@ -143,8 +143,11 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
   // (or Opie showing a place on the Map, or a recipe to cook: an app that isn't a tab opens full screen, home-screen.js showApp)
   useEffect(() => { const t = homeScreen?.show?.tab; if (!t || Date.now() - showAt >= 60e3) return;
     if (tabs.some((x) => x.id === t)) go(t); else if (homeScreen.show.open && appBy.has(t)) shell?.openApp(t); }, [showAt]);
-  // Back to the first tab when the screen has rested, as a glance is what it's for.
-  useEffect(() => { if (idle && tabs[0]) go(tabs[0].id); }, [idle]);
+  // Resting with the household's "Show the calendar" (Settings → Screen → Resting screen): the Calendar tab itself, by
+  // day (night hours are still the dark screen). Else back to the first tab, as a glance is what it's for.
+  const minute = useNow(60e3);
+  const restCal = !!idle && restingOf(house).calendar && tabs.some((t) => t.id === 'calendar') && !isNight(house?.night, minute);
+  useEffect(() => { if (idle && tabs[0]) go(restCal ? 'calendar' : tabs[0].id); }, [idle, restCal]);
   const [timerOpen, setTimerOpen] = useState(null);
   const [alarmsOpen, setAlarmsOpen] = useState(false);
   const alarms = homeScreen?.alarms?.list || [];
@@ -184,7 +187,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
     const o = new ResizeObserver(send); o.observe(el); addEventListener('resize', send);
     return () => { clearTimeout(later); o.disconnect(); removeEventListener('resize', send); };
   }, [shell, bar, idle, cur, st]);
-  if (idle) return ambient;
+  if (idle && !restCal) return ambient;
   // Someone's AI (Claude, ChatGPT, a computer) is changing an app (workshop.js): its tab pulses gently, or Apps for
   // one that isn't a tab (a new app goes there first). No words: the family sees where, and it stops when it's done.
   const busy = homeScreen?.computer?.apps || [];

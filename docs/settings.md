@@ -16,7 +16,7 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 | Household | who lives here (a name, Adult, Kid or Pet, their color, an age or note), where you live, chores; Save | |
 | Opie | Voice (Off or the voice's name; the household's own OpenAI key and its monthly stop inside), Talk to Opie ("Hey Opie" or Tap to talk, while the voice is on: docs/wake-word.md), Check the microphone, What Opie remembers, Check-ins, Device control, Opie uses apps, Now playing (while it's off) | Voice: Change settings; Check-ins and the rest from Device control down: always |
 | Connections | every outside account or link the household hooks up, in sections: Calendars (Google and iCloud accounts and their calendars, calendars' links; Add), Photo albums (the iCloud shared albums, each with Remove; Add), Music and apps (Spotify, Google Play) | no PIN to look; each part as on its own (below) |
-| Screen | Brightness, Volume (with Adjust to the room), Time, Night hours (on or off, from, to: the household's, so every screen and a hub's settings page, which has the same row under Screen, agree) | Time: Change settings |
+| Screen | Brightness, Volume (with Adjust to the room), Time, Resting screen (below), Night hours (on or off, from, to: the household's, so every screen and a hub's settings page, which has the same row under Screen, agree) | Time: Change settings |
 | Devices | paired screens, TVs, phones and computers (Add, Remove), then the house's speakers, streamers and printers | Add always; Remove: Change settings |
 | Account | link or unlink, Backups, Email, Use it away from home | always |
 | Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Add this device to another Opie, Send a report; Tinkering: Reach it from away (Tailscale), Keep a log of what it hears, USB debugging, Android settings, Leave kiosk mode, Erase this device | always |
@@ -32,6 +32,15 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
   Play shows only where the device has it.
 
 Under the tabs, quietly: the version (tap it to look for an update and install it).
+
+**Resting screen** (Screen → Resting screen, shell/RestingScreen.kt): what the screens show when nobody has touched them
+for a while. Starts after 1, 2, 5, 8 (the start), 10, 15 or 30 minutes, or Never (night hours still go dark, after 8);
+Shows the photos or the calendar (the Calendar tab itself, by day); for the photos: each photo's time (5 seconds to 2
+minutes, 15 to start), in order or shuffled (the same order on every screen), the whole photo or filling the screen, the
+albums (when there's more than one; each album's own switch, as in Photos), and on the photo the time and date, the
+weather, what's next and captions. They're the household's (house.json `settings.resting`, view().resting: bridge
+house/settings.js), so every screen and a hub's settings page (its Screen section) agree, and Opie's resting_screen
+changes the same. No PIN, as Night hours. At night the screen is dark with the time, whatever these say.
 
 House rules is in the Opie tab under Voice. It always asks for the PIN when one is set, whatever Ask for the PIN says
 (Opie can't tell who is asking).

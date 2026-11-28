@@ -98,6 +98,8 @@ object House {
     var mealWork by mutableStateOf(mapOf<String, MealWork>()); private set
     /** Night hours ("21:30" to "06:30") when the idle screen shows no photos; null: photos all night. */
     var night by mutableStateOf<Pair<String, String>?>("21:30" to "06:30"); private set
+    /** Minutes before the resting screen starts (Settings → Screen → Resting screen, the household's); 0: never by day. */
+    var restAfter by mutableStateOf(8); private set
     /** An assistant is set up (what needs one, like a meal's groceries, can be offered). */
     var ai by mutableStateOf(false); private set
     /** Reminders due now (the overlay shows them over everything); [remindAloud]: the family wants them said too. */
@@ -277,6 +279,15 @@ object House {
         night = if (from == null || to == null) null else from to to
         send("/house/settings", JSONObject().put("night", if (from == null || to == null) false else JSONObject().put("from", from).put("to", to)))
     }
+    /** The resting screen's settings ([part]: any of after, every, order, fit, show, calendar: bridge house/settings.js). */
+    fun setResting(part: JSONObject) {
+        if (part.has("after")) restAfter = part.optInt("after", restAfter)
+        send("/house/settings", JSONObject().put("resting", part))
+    }
+    /** Whether an album's photos show on the resting screen. */
+    fun albumOnRest(id: String, on: Boolean) = send("/house/photo/album", JSONObject().put("show", JSONObject().put("id", id).put("sleep", on)))
+    /** The household's resting screen and albums now (GET /house: {resting, albums}); blocking, off the main thread. */
+    fun restingNow(): JSONObject? = runCatching { JSONObject(get("/house")) }.getOrNull()
     /** Is it night now (by [night])? */
     fun isNight(now: Long = System.currentTimeMillis()): Boolean {
         val (a, b) = night ?: return false
@@ -335,11 +346,12 @@ object House {
         val fv = j.optJSONArray("favorites").map { HouseFavorite(it.optString("text"), it.optBoolean("pinned")) }
         val mw = j.optJSONObject("mealWork")?.let { o -> o.keys().asSequence().associateWith { k -> o.optJSONObject(k)!!.let { MealWork(it.optString("state"), it.optJSONArray("added").strings(), it.s("text")) } } } ?: emptyMap()
         val nt = j.optJSONObject("night")?.let { it.optString("from") to it.optString("to") }
+        val ra = j.optJSONObject("resting")?.optInt("after", 8) ?: 8
         val rm = j.optJSONArray("reminders").map { r -> time(r.s("start"))?.let { HouseReminder(r.optString("key"), r.optString("title"), it, r.s("who"), r.s("place")) } }
         main.post {
             if (nv >= v) v = nv
             today = j.optString("today"); family = fam; lists = ls; chores = ch; meals = ms; events = ev; calendars = j.optInt("calendars"); photos = ph
-            stars = st; rewards = rw; asks = ak; got = gt; checklists = cl; favorites = fv; mealWork = mw; night = nt; ai = j.optBoolean("ai"); loaded = true
+            stars = st; rewards = rw; asks = ak; got = gt; checklists = cl; favorites = fv; mealWork = mw; night = nt; restAfter = ra; ai = j.optBoolean("ai"); loaded = true
             reminders = rm; remindAloud = j.optBoolean("remindAloud"); calendarLock = j.optBoolean("calendarLock"); Openhouse.reminded(rm)
         }
     }
