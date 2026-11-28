@@ -102,3 +102,24 @@ test('over the tailnet: links use its address, and it reaches only sealed reques
   assert.doesNotMatch(said, /^logout/m, 'never signs a computer\'s own Tailscale out');
   assert.equal((await post('/screens/pair')).via, undefined);
 });
+
+test("a hub never runs Opie's own Tailscale (it would put the computer's whole loopback on the tailnet)", async () => {
+  const { tailscaleRoutes } = await import('../tailscale.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'openhouse-ts-hub-'));
+  // One from before a hub needed the computer's: its download, and a state that says it's on.
+  fs.mkdirSync(path.join(dir, '.tailscale-bin/1.0.0'), { recursive: true });
+  fs.mkdirSync(path.join(dir, '.tailscale')); fs.writeFileSync(path.join(dir, '.tailscale/opie.json'), '{"on":true}');
+  let started = 0, sent = null;
+  const json = (res, status, j) => { sent = { status, j }; };
+  const h = tailscaleRoutes({ DISPLAY: dir, json, body: async (r) => r.body, env: { OPENHOUSE_HOST: 'keeper', PATH: '' }, cli: null,
+    fetchFn: async () => { started++; throw new Error('no'); }, spawnFn: () => { started++; throw new Error('no'); }, log: () => {} });
+  for (let i = 0; i < 50 && fs.existsSync(path.join(dir, '.tailscale-bin')); i++) await wait(50);
+  assert.ok(!fs.existsSync(path.join(dir, '.tailscale-bin')) && !fs.existsSync(path.join(dir, '.tailscale')), 'the old one is gone');
+  await h({ method: 'POST', headers: {}, body: { on: true } }, {}, new URL('http://x/tailscale'));
+  assert.equal(sent.status, 400);
+  await h({ method: 'GET', headers: {} }, {}, new URL('http://x/tailscale'));
+  assert.equal(sent.j.on, false);
+  await wait(200);
+  assert.equal(started, 0, 'nothing downloaded or started');
+  h.stop(); fs.rmSync(dir, { recursive: true, force: true });
+});

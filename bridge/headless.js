@@ -39,7 +39,9 @@ export function settingsRoutes({ call, cloud, json, body, now = Date.now }) {
   let pinSet = false;
   const refresh = async () => { const r = await keeper('/status'); if (r.ok) pinSet = !!r.body?.pin; return r; };
   refresh();
-  const pinOk = async (pin) => (await keeper('/pin/check', { pin })).body?.ok === true;
+  /** The keeper's answer for this device's try: {ok, error?} (it counts wrong tries per device, and makes them wait). */
+  const pinCheck = async (pin, who) => (await keeper('/pin/check', { pin, who: String(who || '') })).body || {};
+  const pinOk = async (pin, who) => (await pinCheck(pin, who)).ok === true;
   /** May this settings device change settings now? Always while no PIN is set; else for 10 minutes after the PIN. */
   const open = (id) => !pinSet || (unlocked.get(id) || 0) > now();
   async function handle(req, res, url, deviceId) {
@@ -47,18 +49,20 @@ export function settingsRoutes({ call, cloud, json, body, now = Date.now }) {
     if (req.method === 'GET' && p === '/hub/asks') { const r = await keeper('/cards', {}, 5000); json(res, 200, { asks: r.body?.cards || [] }); return true; }
     if (req.method === 'POST' && p === '/hub/asks/answer') {
       const b = await body(req);
-      const r = await keeper('/cards/answer', { id: String(b.id || ''), yes: b.yes === true, later: b.later === true, pin: String(b.pin || '').slice(0, 8) }, 10e3);
+      const r = await keeper('/cards/answer', { id: String(b.id || ''), yes: b.yes === true, later: b.later === true, pin: String(b.pin || '').slice(0, 8), who: deviceId }, 10e3);
       json(res, r.ok ? 200 : 400, r.body || {}); return true;
     }
     if (req.method === 'GET' && p === '/hub/keeper') { const r = await refresh(); json(res, r.ok ? 200 : 503, r.ok ? { ...r.body, locked: !open(deviceId) } : { error: r.body?.error || "The hub's keeper isn't running." }); return true; }
     if (req.method === 'POST' && p === '/hub/unlock') {
       const b = await body(req);
-      if (!(await pinOk(String(b.pin || '')))) { json(res, 403, { error: 'That PIN isn\'t right.' }); return true; }
+      const c = await pinCheck(String(b.pin || ''), deviceId);
+      if (c.ok !== true) { json(res, 403, { error: c.wait ? c.error : 'That PIN isn\'t right.' }); return true; }
       unlocked.set(deviceId, now() + 10 * 60e3); json(res, 200, { ok: true }); return true;
     }
     if (req.method === 'POST' && p === '/hub/pin') {
       const b = await body(req);
-      if (pinSet && !(await pinOk(String(b.old || '')))) { json(res, 403, { error: 'The PIN now isn\'t right.' }); return true; }
+      const c = pinSet ? await pinCheck(String(b.old || ''), deviceId) : { ok: true };
+      if (c.ok !== true) { json(res, 403, { error: c.wait ? c.error : 'The PIN now isn\'t right.' }); return true; }
       const r = await keeper('/pin/set', { pin: String(b.pin || '') });
       await refresh();
       json(res, r.ok ? 200 : r.status || 503, r.body || {}); return true;

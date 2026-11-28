@@ -6,7 +6,8 @@
 //
 // Run by hub/start.sh, from the code (never the data folder's copy), on 127.0.0.1 with a token start.sh makes:
 //   OPENHOUSE_KEEPER_DIR   its folder (0700): default <data folder>-keeper, beside the data folder, never inside it
-//   KEEPER_PORT            its port on loopback (start.sh picks one); OPENHOUSE_KEEPER_TOKEN its bearer token
+//   KEEPER_PORT            its port on loopback (start.sh picks one); OPENHOUSE_KEEPER_TOKEN its bearer token (or
+//                          OPENHOUSE_KEEPER_TOKEN_FILE: on a Linux hub it runs as its own user, hub/install.sh)
 //   BRIDGE_URL, OPENHOUSE_TOKEN_FILE   the bridge, to hand it what the calendars and albums say (as the shell does)
 //   OPENHOUSE_KEEPER_STORE  'keychain' (a Mac's default: the seal key in the login Keychain) or 'file' (Linux: the seal
 //                           key in its own 0600 file in the keeper's folder)
@@ -17,7 +18,7 @@
 //   /approve {title, detail, more, yes, no, rights, danger, later, pin, grownup, waitMs} -> {yes, answered}
 //                                     an "Is this OK?" card: it waits here until a person answers it on a settings device
 //                                     or a grown-up's phone (the bridge shows /cards there), or its time is up
-//   /cards -> {cards}                 the cards waiting   /cards/answer {id, yes, later?, pin?} a person's answer (the PIN
+//   /cards -> {cards}                 the cards waiting   /cards/answer {id, yes, later?, pin?, who} a person's answer (the PIN
 //                                     is checked here, for a card that needs it once one is set)
 //   /calendar {url, who, name, only, from, trusted}  read once, then kept after a yes (trusted: the setup's own, no card)
 //                                     -> {added}   /calendar/list -> {calendars: [{id, who, name, problem}]}
@@ -25,7 +26,8 @@
 //   /openai {kind, body}              the bridge's call with the key added -> OpenAI's status and answer
 //   /ownkey {key} -> {added}          /ownkey/remove (both tell the bridge whether there is one: /cloud/own)                    /status -> {openai, pin, calendars, albums}
 //   /setup/pin {pin}                  the PIN chosen in the setup, only while none is set
-//   /pin/set {pin, only_if_none}      /pin/check {pin} -> {ok}          /pin/clear (the console's owner code only: hub.js)
+//   /pin/set {pin, only_if_none}      /pin/check {pin, who} -> {ok, error?, wait?} (who: the device, for its tries)
+//   /pin/clear                        only after the console made forget-pin in this folder (hub/owner-code.sh)
 //   /sync                             read the calendars and albums now
 //   Two-way calendars (the shell's CalendarAccounts.kt; the bridge's calendar-sync.js does the syncing):
 //   /calendar/accounts -> {accounts: [{id, provider, name, who, server?}]} (no secrets)
@@ -50,7 +52,8 @@ import * as s3 from './s3.mjs';
 const DATA = path.resolve(process.env.OPENHOUSE_DATA || '/data');
 const DIR = path.resolve(process.env.OPENHOUSE_KEEPER_DIR || `${DATA.replace(/\/+$/, '')}-keeper`);
 const PORT = Number(process.env.KEEPER_PORT || 0);
-const TOKEN = process.env.OPENHOUSE_KEEPER_TOKEN || '';
+// (a token file: a keeper run as a user of its own, hub/install.sh, with a token the bridge reads from the same file)
+const TOKEN = process.env.OPENHOUSE_KEEPER_TOKEN || (() => { try { return fs.readFileSync(process.env.OPENHOUSE_KEEPER_TOKEN_FILE, 'utf8').trim(); } catch { return ''; } })();
 const BRIDGE = process.env.BRIDGE_URL || `http://127.0.0.1:${process.env.PORT || 8787}`;
 const STORE = process.env.OPENHOUSE_KEEPER_STORE || (process.platform === 'darwin' ? 'keychain' : 'file');
 const log = (...a) => console.log('[keeper]', ...a); // never a link, a host, a key or a PIN
@@ -59,6 +62,8 @@ if (!TOKEN || TOKEN.length < 32) { log('no OPENHOUSE_KEEPER_TOKEN: not starting'
 if (DIR === DATA || DIR.startsWith(DATA + path.sep)) { log('its folder must not be inside the data folder'); process.exit(1); }
 fs.mkdirSync(DIR, { recursive: true, mode: 0o700 });
 try { fs.chmodSync(DIR, 0o700); } catch {}
+// On Linux, hub/install.sh runs the keeper as a user of its own, so code run as the bridge's user can't read the seal key.
+try { if (STORE === 'file' && fs.statSync(DATA).uid === process.getuid?.()) log("running as the bridge's user: code run as that user could open what's kept here (hub/install.sh gives the keeper a user of its own)"); } catch {}
 
 // --- the seal --------------------------------------------------------------------------------------------------
 // One 256-bit key seals everything (AES-256-GCM). On a Mac it's in the login Keychain (one item per keeper folder),
@@ -268,16 +273,45 @@ async function forward(kind, body) {
 }
 
 // --- the PIN (the shell's ParentPin.kt): only its scrypt hash, and a few tries at a time ----------------------
+// Wrong tries are counted per device (`who`, the settings device or phone the bridge says it came from), kept sealed so
+// a restart doesn't wipe them. After FREE wrong ones in a row a device waits, a minute and then twice as long each
+// time, up to a day. All devices together get ALL_FREE before everyone waits the same way: the bridge names the
+// device, so that's the bound on a bridge that makes up new names, and one device alone takes days to reach it.
 const hashPin = (pin, salt) => crypto.scryptSync(String(pin), salt, 32, { N: 16384 }).toString('hex');
 const validPin = (p) => /^\d{4,8}$/.test(String(p || ''));
-let tries = [];
-function pinCheck(pin) {
-  const now = Date.now(); tries = tries.filter((t) => now - t < 5 * 60e3);
-  if (tries.length >= 5) return { ok: false, error: 'Too many tries. Wait a few minutes.' };
+const FREE = 5, ALL_FREE = 20, DAY = 24 * 3600e3;
+const waitFor = (n, free) => (n < free ? 0 : Math.min(60e3 * 2 ** (n - free), DAY));
+function pinCheck(pin, who) {
+  const now = Date.now(), w = String(who || '').slice(0, 80) || 'unknown';
+  const t = (kept.pinTries ||= { all: { n: 0, until: 0 }, by: {} });
+  const mine = t.by[w] || { n: 0, until: 0 };
+  const until = Math.max(mine.until, t.all.until);
+  if (until > now) { const m = Math.ceil((until - now) / 60e3); return { ok: false, wait: until - now, error: `Too many tries. Try again in ${m < 60 ? `${m} minute${m === 1 ? '' : 's'}` : `${Math.ceil(m / 60)} hours`}.` }; }
   if (!kept.pin) return { ok: false, error: 'No PIN is set.' };
   const ok = validPin(pin) && crypto.timingSafeEqual(Buffer.from(hashPin(pin, Buffer.from(kept.pin.salt, 'hex')), 'hex'), Buffer.from(kept.pin.hash, 'hex'));
-  if (!ok) tries.push(now); else tries = [];
+  if (ok) {
+    if (t.by[w] || t.all.n) { delete t.by[w]; t.all = { n: 0, until: 0 }; save(); }
+    return { ok };
+  }
+  mine.n++; mine.until = now + waitFor(mine.n, FREE); mine.at = now; t.by[w] = mine;
+  t.all.n++; t.all.until = now + waitFor(t.all.n, ALL_FREE);
+  // (a bounded list: devices not seen for a day and not waiting go, and never more than 200)
+  const names = Object.keys(t.by).filter((k) => k === w || t.by[k].until > now || now - (t.by[k].at || 0) < DAY);
+  t.by = Object.fromEntries(names.slice(-200).map((k) => [k, t.by[k]]));
+  save();
   return { ok };
+}
+
+// A lost PIN is forgotten only from the hub's console: a file named forget-pin in the keeper's own folder, which
+// only the keeper's user (or root) can make on a Linux hub (hub/install.sh), never with the bridge's token alone.
+const FORGET = path.join(DIR, 'forget-pin');
+function forgetPin() {
+  let st; try { st = fs.statSync(FORGET); } catch { return false; }
+  fs.rmSync(FORGET, { force: true });
+  if (Date.now() - st.mtimeMs > 3600e3) return false; // (one left from long ago)
+  delete kept.pin; delete kept.pinTries; save();
+  log('the PIN is forgotten (from the console)');
+  return true;
 }
 
 // --- to the bridge, as the shell does (its secret) ---------------------------------------------------------
@@ -413,7 +447,10 @@ const cards = () => [...waiting.values()].map((w) => ({ ...w.card, pin: w.card.p
 function answerCard(b = {}) {
   const w = waiting.get(String(b.id || ''));
   if (!w) return [400, { error: 'That question is no longer waiting.' }];
-  if (b.yes === true && w.card.pin && kept.pin && !pinCheck(b.pin).ok) return [403, { error: 'That PIN isn\'t right.', pin: true }];
+  if (b.yes === true && w.card.pin && kept.pin) {
+    const c = pinCheck(b.pin, b.who);
+    if (!c.ok) return [403, { error: c.error || 'That PIN isn\'t right.', pin: true }];
+  }
   w.done(b.yes === true ? { yes: true, answered: true } : b.later === true ? { yes: false, answered: false } : { yes: false, answered: true });
   return [200, { ok: true }];
 }
@@ -498,8 +535,8 @@ async function route(p, b) {
       kept.pin = { salt: salt.toString('hex'), hash: hashPin(b.pin, salt) }; save();
       return [200, { ok: true }];
     }
-    case '/pin/check': return [200, pinCheck(b.pin)];
-    case '/pin/clear': delete kept.pin; save(); return [200, { ok: true }];
+    case '/pin/check': return [200, pinCheck(b.pin, b.who)];
+    case '/pin/clear': return forgetPin() ? [200, { ok: true }] : [403, { error: 'Only from the hub itself: hub/owner-code.sh --forget-pin there.' }];
     case '/sync': syncCalendars(); syncAlbums(); return [200, { ok: true }];
     case '/calendar/accounts': return [200, { accounts: kept.accounts.map(publicAccount) }];
     case '/calendar/request': return [200, await calRequest(b)];

@@ -64,7 +64,7 @@ Claude or ChatGPT on a computer, and the connector at the household's own addres
 | Saying yes to a new device | Allow on the tablet | Allow on the settings page |
 | Opie | wake word on the tablet, or a tap | a tap on the pill, in any browser that may use the microphone; "Hey Opie" on a screen that listens |
 | Backups to a drive | a USB drive the shell owns | a folder: a mounted drive, a share, a Docker volume (`OPENHOUSE_BACKUP_DIR`) |
-| Updates | the shell's self-update | Docker: a newer image. Linux or a Mac: Update on the settings page (git pull, build, restart) |
+| Updates | the shell's self-update | Docker: a newer image. Linux or a Mac: Update on the settings page (the newest release, build, restart) |
 | The bridge's secret | a new one each boot from the shell | one kept in the data folder (`.bridge-token`, 0600) |
 
 Not on the hub, by design: control of Android apps (device_action, the shell's accessibility service) and Android's
@@ -78,7 +78,21 @@ household's own OpenAI key and the PIN. On a hub that's the keeper, `hub/keeper.
 is sealed (AES-256-GCM) in its own folder beside the data folder, never inside it, so the assistant's file tools and
 backups never reach it (`OPENHOUSE_KEEPER_DIR`: `<data>-keeper` by default; Docker `/keeper`; a Mac
 `~/Library/Application Support/OpenHouse Keeper`). The seal key is in the login Keychain on a Mac and in a 0600 file
-in the keeper's folder on Linux. Like the shell, it reads the calendars and albums itself and hands the bridge only
+in the keeper's folder on Linux.
+
+On Linux (`hub/install.sh`) the keeper is a service of its own, `openhouse-keeper`, as a user of its own: its folder
+(`/var/lib/openhouse-keeper`, the seal key in it) is that user's, 0700, so nothing run as the `openhouse` user (the
+bridge, the household's apps, the assistant's tools) can read the seal key or what's sealed. It runs a copy of its code
+in `/opt/openhouse-keeper` that only root can change, since the checkout in `/opt/openhouse` is the `openhouse` user's
+(the settings page updates it). The trade-off: Update on the settings page moves the bridge on, never the keeper;
+`sudo hub/install.sh` again moves the keeper on. Its token is in `/etc/openhouse/keeper.token` (the bridge reads it to
+call the keeper, which never answers back what it keeps), and it's in the `openhouse` group only to read the bridge's
+secret. Deriving the seal key from something the bridge can't read wouldn't need the second user, but every such
+thing (a TPM, systemd's credentials) is opened by whatever process the key's user runs, so the bridge would open it
+too. On a Mac (the login Keychain, as the bridge's user) and in Docker (one container, as root) the keeper is still the
+bridge's user: its folder keeps it out of the assistant's file tools and the backups, not out of code run as that user.
+
+Like the shell, it reads the calendars and albums itself and hands the bridge only
 what they say, and it adds the OpenAI key to the bridge's calls at OpenAI's fixed addresses; nothing it keeps is ever
 answered back. It answers the same requests as the tablet's shell, the same way (host.md), so add_calendar,
 add_photo_album, the own key, the cards and the setup work the same way; it holds the cards until a person answers
@@ -95,8 +109,13 @@ running starts one of its own (a laptop trying it).
   sent by the assistant) shows on the settings page and on adults' phones (`chat/src/asks.jsx`), with its yes and No; one that needs the PIN asks for it there. Nobody
   answering is a no. On a hub, a fix from the workshop never goes in without a yes.
 - **The PIN.** Once one is set (in the setup or on the settings page), a settings device asks for it before changing
-  settings, and again after 10 minutes. Cards that need it ask for it on the card. A lost PIN: run
-  `hub/owner-code.sh --forget-pin` on the hub.
+  settings, and again after 10 minutes. Cards that need it ask for it on the card. The keeper counts wrong tries per
+  device, kept sealed through restarts: after 5 in a row that device waits a minute, then twice as long after each
+  further wrong one, up to a day; a right one starts it again. All devices together get 20 before everyone waits the
+  same way (the bridge says which device a try is from, so that's the bound if it made names up). A lost PIN: on the
+  hub, as root on Linux (`sudo touch /var/lib/openhouse-keeper/forget-pin`, then `owner-code.sh --forget-pin`), or
+  `hub/owner-code.sh --forget-pin` in Docker or on a Mac. The keeper forgets it only after that file is in its folder,
+  never on the bridge's secret alone.
 
 - **Signing in to calendars and Google Photos.** iCloud: the Apple ID and an app-specific password, typed on the
   settings device, kept by the keeper, which signs every CalDAV request the bridge's `calendar-sync.js` makes. Google
@@ -110,16 +129,16 @@ running starts one of its own (a laptop trying it).
   its name. Then it sends its microphone, a third of a second at a time and sealed, to the hub's wake model
   (`/voice/listen`, the tablet's `voice-worker.js`), and the name starts Opie's live voice on that screen. The sound
   is scored and dropped. `hub/build.sh` fetches the model (about 4 MB) and onnxruntime-node into `runtime/hub-voice`.
-- **A bad update.** `hub/update.sh` keeps the version before; if the new one stops within a minute of starting,
-  `hub/start.sh` goes back to it by itself, once. The settings page has Go back too.
+- **A bad update.** `hub/update.sh` keeps the version before; a build that fails puts it back at once, and if the new
+  one stops within a minute of starting, `hub/start.sh` goes back to it by itself, once. The settings page has Go back
+  too; going back forgets the version before only once that one has built.
 
 Not on the hub yet:
 - **A microphone on the hub itself.** "Hey Opie" is heard by a screen that's listening, not by the hub's own box.
 - **Speech out on its own.** What Opie says unasked (a follow-up's time, an app's `say`) goes to the tablet's speaker;
   a hub has none, and screens don't say it yet.
 - **The devices sheet, mail attachments, health check-ins** to the cloud: the tablet's shell does these; untouched here.
-- **A separate user for the keeper on Linux.** It runs as the hub's user, in its own folder; a user of its own would
-  keep even code run as the hub's user away from what it keeps.
+- **A separate user for the keeper on a Mac or in Docker** (Linux has one, above).
 - Untried: a real Google sign-in (needs a linked hub), a real "Hey Opie" (synthetic voices don't wake the model, and
   the test browser blocks the microphone), Linux, Docker, the LaunchAgent.
 
@@ -164,11 +183,13 @@ code on the settings page), and more settings devices.
 curl -fsSL https://raw.githubusercontent.com/mrubens/opie/main/hub/install.sh | sudo bash
 ```
 
-Or from a checkout: `sudo hub/install.sh`. It installs git and Node 22, clones Opie into `/opt/openhouse`, builds
-it, and starts it as the `openhouse` service, with its data in `/var/lib/openhouse`. The code is in
+Or from a checkout: `sudo hub/install.sh`. It installs git and Node 22 (checked against Node's own sha256), clones
+Opie into `/opt/openhouse` at the newest release, builds it, and starts it as the `openhouse` service (and the keeper
+as `openhouse-keeper`), with its data in `/var/lib/openhouse`. The code is in
 `journalctl -u openhouse` and `/var/lib/openhouse/hub-setup.txt`. Backups go to `/var/lib/openhouse/backups` unless
 `OPENHOUSE_BACKUP_DIR` is set in `/etc/default/openhouse` (a USB drive's mount point, say). Update from the settings page,
-or `sudo -u openhouse /opt/openhouse/hub/update.sh && sudo systemctl restart openhouse`.
+or `sudo -u openhouse /opt/openhouse/hub/update.sh && sudo systemctl restart openhouse`; `sudo hub/install.sh` again
+also moves the keeper on.
 
 ### Docker on Linux
 
@@ -225,8 +246,9 @@ On the hub itself: `docker exec openhouse /opt/openhouse/hub/owner-code.sh`; on 
 ## Updates and identity
 
 - **Updates.** A Docker hub is its image: a release is a new image, and the household (or Watchtower, if they run it)
-  pulls it; the data volume stays. A hub installed on Linux or a Mac is a git checkout: Update on the settings page runs `hub/update.sh` (a
-  fast-forward pull and a build), then the bridge exits and systemd or launchd starts it on the new code; `hub/start.sh` copies the
+  pulls it; the data volume stays. A hub installed on Linux or a Mac is a git checkout: Update on the settings page runs `hub/update.sh` (to the
+  newest release tag, `v*`, on its branch and only ever forward, then a build; the tags aren't signed yet, so it trusts
+  GitHub's https for what a tag points at), then the bridge exits and systemd or launchd starts it on the new code; `hub/start.sh` copies the
   new bridge into the data folder each start, as the tablet's shell does from a new app. Images aren't published yet:
   build from a checkout.
 - **Linking to the cloud.** The same device link as the tablet: the settings page asks for a link code
@@ -242,6 +264,10 @@ On the hub itself: `docker exec openhouse /opt/openhouse/hub/owner-code.sh`; on 
 - **Two ports, nothing else.** The bridge itself listens on 127.0.0.1 inside the hub. 8788 serves the pages and one
   sealed route; every request on it is sealed with the device's own key, and a device's scopes are an allowlist of
   routes (`screens.js` RULES). 8789 is only the connector, and only when turned on.
+- **Tailscale is the computer's own.** Away from home with Tailscale (the settings page) uses Tailscale installed and
+  signed in on the hub's computer (in Docker, its socket and CLI shared in, `hub/compose.yml`), never one Opie runs
+  itself: that one, in userspace networking, would put every port on the computer's 127.0.0.1 on the tailnet
+  ([networking.md](networking.md#limits-and-security)).
 - **The settings device.** Only a device with the `admin` scope reaches the hub's settings: the one that typed the code
   printed on the hub's console (so whoever has the console, or the box, is the owner), and the ones it adds. Phones,
   screens and TVs never get it. A new code needs the bridge's secret, which is only on the hub.
