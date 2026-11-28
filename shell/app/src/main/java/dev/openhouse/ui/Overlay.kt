@@ -142,6 +142,8 @@ fun ShellOverlay() {
             // An app being made: a quiet chip in the corner, not the face (it's at rest; the tablet says when it's ready).
             if (!o.dark && !o.sleeping && !o.showConversation && o.typing == null)
                 BuildChip(Modifier.align(Alignment.BottomEnd).padding(end = 24.u, bottom = 24.u))
+            // A household app open over the home: the rail's Talk and Type, in the same places (RailTools).
+            if (o.appOpen && !RailTools.stepAside()) RailToolsOverApp()
             // Typing: a tap anywhere outside the box puts it away (so does a tap on the assistant).
             if (o.typing != null) Box(Modifier.fillMaxSize().clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { o.closeTyping() })
             // Above the on-screen keyboard (the window doesn't shrink for it: MainActivity.immersive), never under it.
@@ -286,7 +288,7 @@ private fun Caption(live: Boolean, heard: Heard?, reply: Answer? = null, build: 
 }
 
 @Composable
-private fun TypeBox(note: String) {
+internal fun TypeBox(note: String) {
     val o = Openhouse
     var value by remember { mutableStateOf(TextFieldValue(o.draft, TextRange(o.draft.length))) }
     val focus = remember { FocusRequester() }

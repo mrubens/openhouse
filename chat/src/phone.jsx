@@ -23,6 +23,8 @@ import { AlarmsSheet, nextAlarm, ringTime } from './alarms.jsx';
 const CLOUD_RELAY = document.querySelector('meta[name="openhouse-relay"]')?.content || '';
 // Inside the iPhone app (ios/, docs/iphone-app.md): it turns on notes, the share sheet and the home screen itself.
 const IN_APP = !!window.openhouseApp;
+// In the iPhone app the page is the app: it doesn't zoom (pinch or a double tap), as an app's own screens don't.
+if (IN_APP) document.querySelector('meta[name="viewport"]')?.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover');
 const STORE = 'openhouse.phone', CACHE = 'openhouse.phone.house', CACHE_AT = 'openhouse.phone.house-at', QUEUE = 'openhouse.phone.queue';
 const get = (k, d = null) => { try { return JSON.parse(localStorage.getItem(k) || 'null') ?? d; } catch { return d; } };
 const put = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };

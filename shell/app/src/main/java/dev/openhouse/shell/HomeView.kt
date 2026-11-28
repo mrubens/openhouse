@@ -61,6 +61,13 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         @JavascriptInterface fun makeApp(g: String?, note: String) { if (ok(g)) main.post { PluginsMenu.makeApp(note.take(200)) } }
         @JavascriptInterface fun type(g: String?) { if (ok(g)) main.post { o.openTyping() } } // the sidebar's keyboard button
         @JavascriptInterface fun talk(g: String?) { if (ok(g)) main.post { o.tapToTalk() } } // the sidebar's Talk button (with the voice off: how to turn it on)
+        /** Where the rail's Talk and Type are and in what colors, as its layout changes ({} upright on a phone: no rail),
+         *  so they float in the same places over an app (dev.openhouse.ui.RailTools). */
+        @JavascriptInterface fun railTools(g: String?, j: String) { if (ok(g) && j.length < 2000) main.post {
+            val at = IntArray(2); web?.getLocationOnScreen(at)
+            dev.openhouse.ui.RailTools.spots = dev.openhouse.ui.RailTools.parse(j, at[0], at[1])
+            Buddy.window?.refresh()
+        } }
         @JavascriptInterface fun sleep(g: String?) { if (ok(g)) main.post { o.sleepNow(); dev.openhouse.ui.Heartbeat.sleep() } } // the sidebar's moon
         @JavascriptInterface fun weather(g: String?) { if (ok(g)) main.post { o.showWeather = true } }
         /** Today's card while Opie's voice can't answer ([why]: the bridge's voiceNeed): the key's own screen, behind the PIN. */

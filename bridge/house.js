@@ -171,7 +171,8 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       calendarTargets: board.sync?.targets() || [], // two-way calendars new events can go into (calendar-sync.js)
       things: (() => { try { return things ? things.strip({ events, reminders }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Home)
       night: data.settings.night === false ? null : data.settings.night || NIGHT,
-      reminders, flyer: house.flyerNow(), email: house.mailAddress(), // the household's address, while email is on (mail.js) calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
+      reminders, flyer: house.flyerNow(), email: house.mailAddress(), // (email: the household's address, while email is on: mail.js)
+      calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
       removed: house.removedPhotos(), albums: data.albums, linked: house.albums.view(), captions: data.captions, screensaver: house.screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
       ai: !['off', 'none'].includes(agentName()) && !!currentAgent,
       voice: (() => { try { return voiceNeed(); } catch { return null; } })(), // why Opie's voice can't answer (cloud.js voiceNeed): Today's card

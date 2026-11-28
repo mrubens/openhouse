@@ -87,6 +87,17 @@ function LessMinute({ t, onClick }) {
   return <button onClick={onClick} disabled={t.endAt <= now + 60e3}>−1 min</button>;
 }
 
+/** CSS colors laid over each other, as one solid "#rrggbb" (the rail's see-through tint on its world). */
+const solid = (() => {
+  let x = null;
+  return (...colors) => {
+    try {
+      x ||= Object.assign(document.createElement('canvas'), { width: 1, height: 1 }).getContext('2d', { willReadFrequently: true });
+      x.clearRect(0, 0, 1, 1); for (const c of colors) { x.fillStyle = c; x.fillRect(0, 0, 1, 1); }
+      const d = x.getImageData(0, 0, 1, 1).data; return '#' + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, '0')).join('');
+    } catch { return null; }
+  };
+})();
 /** A phone (its short side under 600 px, as the shell's Calm.compact): the glance and a bar of tabs upright, the rail on its side. */
 const compactNow = () => Math.min(innerWidth, innerHeight) < 600;
 function useCompact() {
@@ -154,6 +165,25 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
     setTimerOpen(endAt);
     c.json('POST', '/home/timer', { cancel: t.endAt }).then(() => c.json('POST', '/home/timer', { start: { label: t.label, total, endAt } })).catch(() => {});
   };
+  // Talk and Type float in the same places over an app (the shell draws them: HomeView.railTools, RailTools.kt): where
+  // they are and in what colors, whenever that changes. Upright on a phone there's no rail, so nothing floats.
+  const toolsRef = useRef(null);
+  useEffect(() => {
+    if (!shell?.railTools) return;
+    if (bar) { shell.railTools({}); return; }
+    const el = toolsRef.current; if (!el) return;
+    const send = () => {
+      const t = el.querySelector('[data-tool="talk"]'), y = el.querySelector('[data-tool="type"]'), b = t || y;
+      if (!b) return shell.railTools({});
+      const at = (x) => { if (!x) return null; const r = x.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10); };
+      const cs = getComputedStyle(b), home = el.closest('.home');
+      shell.railTools({ dpr: devicePixelRatio, talk: at(t), type: at(y), inset: parseFloat(cs.paddingLeft) / b.offsetWidth || 0.25,
+        fill: solid(home ? getComputedStyle(home).backgroundColor : '#fff', cs.backgroundColor), ink: solid(cs.color) });
+    };
+    send(); const later = setTimeout(send, 500); // (and once the world's color has eased to the tab's)
+    const o = new ResizeObserver(send); o.observe(el); addEventListener('resize', send);
+    return () => { clearTimeout(later); o.disconnect(); removeEventListener('resize', send); };
+  }, [shell, bar, idle, cur, st]);
   if (idle) return ambient;
   // Someone's AI (Claude, ChatGPT, a computer) is changing an app (workshop.js): its tab pulses gently, or Apps for
   // one that isn't a tab (a new app goes there first). No words: the family sees where, and it stops when it's done.
@@ -174,7 +204,7 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           {railShown < tabs.length && <button className={'h-tab' + (more || inMore.some((t) => t.id === cur) ? ' on' : '')} onClick={() => setMore(!more)}><svg className="h-tab-i" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round"><path d="M5.5 12h.01M12 12h.01M18.5 12h.01" /></svg>More</button>}
         </nav>
         <BatteryLine shell={shell} />
-        <div className="h-tools">
+        <div className="h-tools" ref={toolsRef}>
           {/* On the display there's no assistant button (say "Hey Opie" or just type; the shell shows it only while it's
               busy, Overlay.kt). On another screen this page has its own, which opens the asking panel. */}
           {!shell && <button className="h-voice own" onClick={() => onAsk()} aria-label="Ask"><i /><i /><i /><i /></button>}
@@ -635,11 +665,14 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
       : <div className="t-invite"><div className="t-line">Nothing to get</div><div className="t-soft">Add things as you run out</div></div>}
     {ticked && <span className="t-undo" role="button" onClick={untick}>Got {ticked.text} · Put it back</span>}
     {refused && !ticked && <span className="t-undo">{refused}</span>}
-    {adding !== null && <div className="h-veil" onClick={(e) => { e.stopPropagation(); setAdding(null); }}>
+    {/* On an iPhone a tap on a button first closes the keyboard, the sheet moves, and the tap lands on the veil (closing
+        it, nothing added): the buttons keep the field's focus (no keyboard closing under the finger), and the veil
+        closes only for a tap that started on it. */}
+    {adding !== null && <div className="h-veil" onPointerDown={(e) => { e.currentTarget.dataset.down = e.target === e.currentTarget ? '1' : ''; }} onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget && e.currentTarget.dataset.down === '1') setAdding(null); }}>
       <form className="h-note-full t-addsheet" onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); add(); }}>
         <h2>Add to {list.name}</h2>
         <input autoFocus value={adding} onChange={(e) => setAdding(e.target.value)} placeholder="Milk" aria-label={'Add to ' + list.name} />
-        <div className="t-nacts"><button type="button" className="h-chip" onClick={() => setAdding(null)}>Cancel</button><button type="submit" className="h-chip on">Add</button></div>
+        <div className="t-nacts"><button type="button" className="h-chip" onPointerDown={(e) => e.preventDefault()} onClick={() => setAdding(null)}>Cancel</button><button type="submit" className="h-chip on" onPointerDown={(e) => e.preventDefault()}>Add</button></div>
       </form>
     </div>}
   </div>);
