@@ -91,7 +91,7 @@ On the tablet:
       one was chosen; Home comes back. Both can be skipped.
    **Opie is ready** (`CloudVoiceMenu.ready`, since 2026-11-27, in place of the Talk to Opie step): once the setup
       ends (Done, or Later), where the voice can work (the tablet linked and its household has the voice, or the
-      household's own key in) it's turned on, with Hey Opie listening (or, with Tap to talk, the pill showing it), and a small dialog says
+      household's own key in) it's turned on, with Hey Opie listening (or, with Tap to talk, the rail's Talk button), and a small dialog says
       "Opie is ready": say “Hey Opie” to use it (or tap Opie to talk), and what follows goes to OpenAI. **OK**, or **Turn off** (Settings → Opie → Voice's Off, kept as an
       Off in `OpieChoice`, so it isn't turned on by itself later). Where it can't (no account and no key, or the
       household doesn't have the voice yet), no dialog shows; with no account and no key, Today's first card is

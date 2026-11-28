@@ -134,9 +134,9 @@ fun ShellOverlay() {
             // The assistant: no button at rest (the user: "it would be cleaner to just get rid of it"). Say "Hey Opie", or
             // just type; it shows in the bottom-left corner only while it listens, works or answers.
             // 24u from the left and from the bottom: its 58u circle's centre at (53u, 53u) of the 92u box.
-            // With Tap to talk (no "Hey Opie") it stays at rest too, saying so: it's the way to start talking.
+            // To start talking without "Hey Opie": the rail's Talk button (home.jsx).
             val engaged = awaiting || hearing || o.handsFreeUntil > o.now
-            AnimatedVisibility(engaged || dev.openhouse.shell.assistantEngaged(o.now) || tapToTalk(),Modifier.align(Alignment.BottomCenter).padding(bottom = 10.u), enter = fadeIn(), exit = fadeOut()) {
+            AnimatedVisibility(engaged || dev.openhouse.shell.assistantEngaged(o.now), Modifier.align(Alignment.BottomCenter).padding(bottom = 10.u), enter = fadeIn(), exit = fadeOut()) {
                 MicButton(engaged)
             }
             // An app being made: a quiet chip in the corner, not the face (it's at rest; the tablet says when it's ready).
@@ -189,12 +189,9 @@ private fun MicButton(active: Boolean) {
     // On the dark screen at night (or "Sleep now") it all but goes too: a bright button there was the only light.
     val faded by animateFloatAsState(if (o.dark && !(active || dev.openhouse.shell.assistantEngaged(o.now))) 0.08f else 1f, label = "dark")
     Box(Modifier.size(172.u, 76.u).graphicsLayer { alpha = faded }, contentAlignment = Alignment.Center) {
-        dev.openhouse.shell.AssistantFace(onLongPress = { o.openTyping() }, wide = true, label = if (tapToTalk()) "Tap to talk" else null)
+        dev.openhouse.shell.AssistantFace(onLongPress = { o.openTyping() }, wide = true)
     }
 }
-
-/** Opie's voice is on and "Hey Opie" isn't: nothing listens until a tap, so the pill shows at rest and says so. */
-private fun tapToTalk() = !Openhouse.heyOpie && Openhouse.host.hasAssistant() && !Setup.hushed
 
 /** What someone is saying: a dark pill along the bottom, apart from the assistant's own words (a white card at the left). */
 @Composable

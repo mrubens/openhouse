@@ -60,6 +60,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         /** The Apps tab's "Make an app": the typing box, its note an example, "Make " already typed (PluginsMenu.makeApp). */
         @JavascriptInterface fun makeApp(g: String?, note: String) { if (ok(g)) main.post { PluginsMenu.makeApp(note.take(200)) } }
         @JavascriptInterface fun type(g: String?) { if (ok(g)) main.post { o.openTyping() } } // the sidebar's keyboard button
+        @JavascriptInterface fun talk(g: String?) { if (ok(g)) main.post { o.tapToTalk() } } // the sidebar's Talk button (with the voice off: how to turn it on)
         @JavascriptInterface fun sleep(g: String?) { if (ok(g)) main.post { o.sleepNow(); dev.openhouse.ui.Heartbeat.sleep() } } // the sidebar's moon
         @JavascriptInterface fun weather(g: String?) { if (ok(g)) main.post { o.showWeather = true } }
         /** Today's card while Opie's voice can't answer ([why]: the bridge's voiceNeed): the key's own screen, behind the PIN. */

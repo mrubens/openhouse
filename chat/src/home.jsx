@@ -186,10 +186,11 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           {/* On the display there's no assistant button (say "Hey Opie" or just type; the shell shows it only while it's
               busy, Overlay.kt). On another screen this page has its own, which opens the asking panel. */}
           {!shell && <button className="h-voice own" onClick={() => onAsk()} aria-label="Ask"><i /><i /><i /><i /></button>}
-          {/* Type a question (no keyboard needed), at the left, where Opie shows up while it's busy; sleep the screen. */}
-          {shell?.type && <button className="h-tool h-type" onClick={() => shell.type()} aria-label="Type to Opie"><Keys /></button>}
-          {shell?.sleep && <button className="h-tool" onClick={() => shell.sleep()} aria-label="Sleep"><Moon /></button>}
+          {/* Settings, sleep the screen, type a question (no keyboard needed), and talk (no "Hey Opie" needed): always here. */}
           {shell && <button className="h-tool" onClick={() => shell.settings()} aria-label="Settings"><Gear /></button>}
+          {shell?.sleep && <button className="h-tool" onClick={() => shell.sleep()} aria-label="Sleep"><Moon /></button>}
+          {shell?.type && <button className="h-tool h-type" onClick={() => shell.type()} aria-label="Type to Opie"><Keys /></button>}
+          {shell?.talk && <button className="h-tool" onClick={() => shell.talk()} aria-label="Talk to Opie"><Bars /></button>}
         </div>
       </aside>}
       <main className="h-sheet">
@@ -220,8 +221,10 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           {bar && <BatteryLine shell={shell} />}
           {bar && <div className="h-tools">
             {!shell && <button className="h-voice own" onClick={() => { setMore(false); onAsk(); }} aria-label="Ask"><i /><i /><i /><i /></button>}
-            {shell?.sleep && <button className="h-tool" onClick={() => { setMore(false); shell.sleep(); }} aria-label="Sleep"><Moon /></button>}
             {shell && <button className="h-tool" onClick={() => { setMore(false); shell.settings(); }} aria-label="Settings"><Gear /></button>}
+            {shell?.sleep && <button className="h-tool" onClick={() => { setMore(false); shell.sleep(); }} aria-label="Sleep"><Moon /></button>}
+            {shell?.type && <button className="h-tool h-type" onClick={() => { setMore(false); shell.type(); }} aria-label="Type to Opie"><Keys /></button>}
+            {shell?.talk && <button className="h-tool" onClick={() => { setMore(false); shell.talk(); }} aria-label="Talk to Opie"><Bars /></button>}
           </div>}
         </div>
       </div>}
@@ -1047,6 +1050,8 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
 }
 
 const Keys = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2" /><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8" /></svg>;
+// Opie's own mark: the voice pill's four bars.
+const Bars = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M5 10.5v3M9.67 7.5v9M14.33 6v12M19 9.5v5" /></svg>;
 const Moon = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" /></svg>;
 const Chevron = ({ up }) => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d={up ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6'} /></svg>;
 const Cross = () => <svg viewBox="0 0 24 24" width="100%" height="100%" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M7 7l10 10M17 7L7 17" /></svg>;

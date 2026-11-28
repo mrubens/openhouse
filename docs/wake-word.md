@@ -8,7 +8,7 @@ assistant another display name, but the words it answers to can't change.
 **"Hey Opie" or Tap to talk (2026-11-28).** Whether the wake word is used at all is the household's choice, one line on
 the setup's last step and **Talk to Opie** in Settings → Opie (shown while the voice is on), or ask Opie (`hey_opie`).
 The two are offered side by side, neither as the fallback. With **Tap to talk** the microphone is closed: the shell doesn't stream it to
-the bridge, the wake model doesn't run, and the pill on the home screen stays at rest saying "Tap to talk". A tap opens
+the bridge, the wake model doesn't run, and the home screen's rail has a Talk button (always there, under the keyboard). A tap opens
 a live session with its own microphone at once (no kept audio to catch up on), and when the session ends its page
 goes, and the microphone with it. `MainActivity.micWanted()` is false while `heyOpie` is off; the bridge's
 `/voice/wake` follows the choice too. Adjust to the room hears the room through the same stream, so with Tap to talk
