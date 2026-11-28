@@ -10,6 +10,8 @@
 #   HUB_TLS_CERT, HUB_TLS_KEY  serve the home network on https (for live voice in phone browsers)
 #   PORT, VITE_PORT, SCREENS_PORT  the bridge (8787) and apps' server (5173) on loopback, the home network's (8788)
 #   OPENHOUSE_KEEPER_DIR, KEEPER_PORT  the keeper's folder (default <data>-keeper) and loopback port (default PORT+3)
+#   OPENHOUSE_KEEPER, OPENHOUSE_KEEPER_TOKEN_FILE  a keeper already running as a user of its own (hub/install.sh's
+#                       openhouse-keeper service): its address and its token's file; none is started here then
 set -euo pipefail
 C=${OPENHOUSE_CODE_DIR:-$(cd "$(dirname "$0")/.." && pwd)}
 D=${OPENHOUSE_DATA:-/data}
@@ -46,11 +48,18 @@ if [ -z "${OPENHOUSE_BACKUP_DIR:-}" ]; then if [ -d /backups ]; then export OPEN
 # folder of its own beside the data folder (never inside it, where the assistant's tools and backups reach), run from
 # the code rather than the data folder's copy. A new token each start, for the bridge alone.
 export OPENHOUSE_KEEPER_DIR=${OPENHOUSE_KEEPER_DIR:-${D%/}-keeper}
-KEEPER_PORT=${KEEPER_PORT:-$((PORT + 3))}
-export OPENHOUSE_KEEPER="http://127.0.0.1:$KEEPER_PORT"
-export OPENHOUSE_KEEPER_TOKEN=$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64url'))")
-(KEEPER_PORT=$KEEPER_PORT BRIDGE_URL="http://127.0.0.1:$PORT" OPENHOUSE_DATA="$D" exec node "$C/hub/keeper.mjs" >> keeper.log 2>&1) &
-KEEPER=$!
+if [ -n "${OPENHOUSE_KEEPER:-}" ] && [ -n "${OPENHOUSE_KEEPER_TOKEN_FILE:-}" ]; then
+  # Its own user's (a Linux hub): it reads the bridge's secret through the group, and we read its token.
+  export OPENHOUSE_KEEPER_TOKEN=$(cat "$OPENHOUSE_KEEPER_TOKEN_FILE")
+  chmod 640 .bridge-token
+  KEEPER=
+else
+  KEEPER_PORT=${KEEPER_PORT:-$((PORT + 3))}
+  export OPENHOUSE_KEEPER="http://127.0.0.1:$KEEPER_PORT"
+  export OPENHOUSE_KEEPER_TOKEN=$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('base64url'))")
+  (KEEPER_PORT=$KEEPER_PORT BRIDGE_URL="http://127.0.0.1:$PORT" OPENHOUSE_DATA="$D" exec node "$C/hub/keeper.mjs" >> keeper.log 2>&1) &
+  KEEPER=$!
+fi
 
 (cd webapp && exec node node_modules/vite/bin/vite.js --config ../vite.config.mjs --host 127.0.0.1 --port $VITE_PORT --strictPort >> ../vite.log 2>&1) &
 VITE=$!
@@ -63,7 +72,7 @@ trap 'kill $VITE $BRIDGE $KEEPER 2>/dev/null; exit 0' TERM INT
 # a crash). Polled rather than `wait -n`, which the Mac's own bash (3.2) doesn't have.
 STARTED=$(date +%s)
 ( sleep 120; rm -f "$(git -C "$C" rev-parse --absolute-git-dir 2>/dev/null)/opie-updated" ) & # still running two minutes after an update: it's good
-while kill -0 $VITE 2>/dev/null && kill -0 $BRIDGE 2>/dev/null && kill -0 $KEEPER 2>/dev/null; do sleep 2; done
+while kill -0 $VITE 2>/dev/null && kill -0 $BRIDGE 2>/dev/null && { [ -z "$KEEPER" ] || kill -0 $KEEPER 2>/dev/null; }; do sleep 2; done
 echo "$(date '+%F %T') hub stopping"
 kill $VITE $BRIDGE $KEEPER 2>/dev/null || true
 wait $VITE $BRIDGE $KEEPER 2>/dev/null || true

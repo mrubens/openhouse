@@ -624,8 +624,9 @@ async function route(req, res, url) {
     }
     // A settings device (screens.js 'admin', with a host that has no screen): what the tablet's Settings reach on its loopback.
     if (hub) {
-      // The console only (the bridge's secret, never a device's): a lost PIN, forgotten with a new settings code (hub/owner-code.sh --forget-pin).
-      if (req.method === 'POST' && url.pathname === '/hub/forget-pin' && !req.headers['x-openhouse-screen']) { const r = await headless.keeper('/pin/clear'); await headless.refresh(); json(res, r.ok ? 200 : 503, r.body || {}); return true; }
+      // The console only: a lost PIN, forgotten with a new settings code (hub/owner-code.sh --forget-pin). The keeper
+      // forgets it only once the console made forget-pin in its own folder: the bridge's secret alone isn't enough.
+      if (req.method === 'POST' && url.pathname === '/hub/forget-pin' && !req.headers['x-openhouse-screen']) { const r = await headless.keeper('/pin/clear'); await headless.refresh(); json(res, r.ok ? 200 : r.status || 503, r.body || {}); return true; }
       if (await hub(req, res, url)) return true;
       if (url.pathname.startsWith('/hub/') && await headless.handle(req, res, url, String(req.headers['x-openhouse-screen'] || ''))) return true;
       if (/^\/screens(\/|$)/.test(url.pathname) && await screens(req, res, url)) return true;

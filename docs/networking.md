@@ -308,7 +308,10 @@ check, and only for requests that came over the tailnet; the page rules (`connec
 MCP gets it in its welcome and keeps it in `pairing.json`.
 
 **A computer with Tailscale of its own** (a hub on a Mac or Linux box): `tailscale` on its PATH, or the Mac app's, is
-used through the same calls instead of a download. It has to be signed in there already: Opie never signs it in
+used through the same calls instead of a download. A hub needs it: it never downloads and runs one of its own (below,
+"Every port"), and with none installed Turn on says to install it; one left from before is signed out and removed when
+the hub starts. A Docker hub reaches the computer's through its socket and CLI (commented lines in
+`hub/compose.yml`). It has to be signed in there already: Opie never signs it in
 or changes its settings (no `up`). Its serve goes on the home network's port (8788), not 443, so
 whatever it serves at https stays as it is; turning it off here takes only that address away (`serve --https=8788
 off`), never the computer's own sign-in. A Mac with no Tailscale says to install it.
@@ -338,11 +341,14 @@ over it, and a hub with its own Tailscale.
 
 - **Every port of the tablet's loopback is on its tailnet address.** Userspace networking passes any TCP connection to
   the node's 100.x address on to `127.0.0.1:<port>` (tailscale's `wgengine/netstack/netstack.go`, v1.104.7; there's no
-  switch to turn that off, and `--shields-up` would turn serve off too). Any app on an Android tablet could already
-  reach its loopback, so everything listening there already asks for a secret: the bridge (8787), the shell's device
-  server, the backup drive's. The one that doesn't: the apps' dev server (5173) serves the household's own apps' files
-  (its `/bridge` passes on to the bridge, which still asks for keys). Over the tailnet, that's the household's own
-  devices. A household that wants only the https address reachable can say so in its tailnet's access controls, for
+  switch to turn that off, and `--shields-up` would turn serve off too). That's why only a tablet runs it. On the
+  tablet, any app could already reach its loopback, so everything listening there already asks for a secret: the
+  bridge (8787), the shell's device server, the backup drive's. The one that doesn't: the apps' dev server (5173)
+  serves the household's own apps' files (its `/bridge` passes on to the bridge, which still asks for keys). Over the
+  tailnet, that's the household's own devices. A computer is different: a NAS or a home server often has databases,
+  admin pages and other services on 127.0.0.1 that trust whatever reaches them there, and our userspace node would put
+  every one of them on the tailnet. So a hub uses the computer's own Tailscale (a normal node: what listens on its
+  tailnet address or on all addresses, as on the home network, and our serve on 8788; nothing that's only on loopback), never ours. A household that wants only the https address reachable can say so in its tailnet's access controls, for
   example: `{"action": "accept", "src": ["autogroup:member"], "dst": ["opie:443"]}` in place of the default allow-all
   (with a `hosts` entry for `opie`, its 100.x address).
 - **Two places to remove a lost phone or laptop:** Tailscale's admin console (else it still reaches the tablet's

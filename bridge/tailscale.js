@@ -7,7 +7,10 @@
 // downloaded from pkgs.tailscale.com only when someone turns it on, and checked against the version and sha256 pinned
 // here. Its state (the node's key) is in .tailscale, never in a backup. A computer that has Tailscale of its own (a hub
 // on a Mac or Linux box with `tailscale` installed) uses that one instead, through the same calls; turning it off there
-// only takes our https address away, never the computer's own sign-in.
+// only takes our https address away, never the computer's own sign-in. A hub (OPENHOUSE_HOST=keeper) never runs our
+// own: userspace networking passes every port of 127.0.0.1 to the tailnet, and on a computer (a NAS, a box with
+// databases and admin pages that trust loopback) that's far more than Opie's port. So a hub needs its own Tailscale,
+// and one left from before is signed out and removed at start.
 //
 // `tailscale serve` gives the home network's port (screens.js, 8788) an https address with Tailscale's own certificate,
 // https://<machine>.<tailnet>.ts.net; with HTTPS turned off for the tailnet, http://<100.x address>:8788 instead.
@@ -64,7 +67,9 @@ export function tailscaleRoutes({ DISPLAY, json, body, screens, PORT = Number(pr
   const SETTINGS = path.join(STATE, 'opie.json');
   // (a unix socket's path is at most ~108 bytes: a long data folder's goes in the temp folder instead)
   const SOCK = (() => { const s = path.join(STATE, 'tailscaled.sock'); return s.length < 100 ? s : path.join(os.tmpdir(), `opie-ts-${crypto.createHash('sha256').update(STATE).digest('hex').slice(0, 12)}.sock`); })();
-  const own = !system; // our own tailscaled (the tablet), or this computer's Tailscale (a hub that has it)
+  const hub = env.OPENHOUSE_HOST === 'keeper';
+  const own = !system && !hub; // our own tailscaled (the tablet), or this computer's Tailscale (a hub must have it)
+  const NEEDS_OWN = 'Install Tailscale on this computer and sign in there first.';
   // What serve gives an address on: 443 with our own node; another port on a computer's own Tailscale, so whatever it
   // already serves at https stays as it is.
   const SERVE_PORT = own ? 443 : PORT;
@@ -206,6 +211,7 @@ export function tailscaleRoutes({ DISPLAY, json, body, screens, PORT = Number(pr
   /** One look at where it is, and the next step. */
   async function step() {
     if (!on()) return;
+    if (!own && !system) { set('error', NEEDS_OWN); return; }
     if (own) { await binary(); await startDaemon(); }
     const st = await status();
     if (!st) { set(own ? 'starting' : 'error', own ? null : "Tailscale isn't running on this computer."); return later(own ? 2e3 : 30e3); }
@@ -265,7 +271,19 @@ export function tailscaleRoutes({ DISPLAY, json, body, screens, PORT = Number(pr
 
   const view = () => ({ on: on(), state: on() ? state : 'off', login: on() && state === 'signin' ? login : null, address: on() ? address : null, https: on() && https, name: on() ? name : null, error: on() ? error : null, own });
 
-  if (on()) kick();
+  /** A hub's own tailscaled from before it needed the computer's: signed out, stopped, and its state and download gone. */
+  async function retire() {
+    log("signing out Opie's own Tailscale: on a hub, it would put every port of this computer's loopback on the tailnet. Install Tailscale on the computer to use it.");
+    const old = path.join(BIN, 'tailscale');
+    if (fs.existsSync(old) && fs.existsSync(SOCK)) await new Promise((r) => execFile(old, [`--socket=${SOCK}`, 'logout'], { timeout: 15e3 }, () => r()));
+    stopDaemon();
+    await new Promise((r) => setTimeout(r, 300));
+    fs.rmSync(STATE, { recursive: true, force: true });
+    fs.rmSync(BIN_ROOT, { recursive: true, force: true });
+    try { fs.rmSync(SOCK, { force: true }); } catch {}
+  }
+  if (hub && fs.existsSync(BIN_ROOT)) retire().catch((e) => log('retiring:', e.message)).finally(() => { if (on()) kick(); });
+  else if (on()) kick();
   process.on('exit', () => { try { daemon?.kill(); } catch {} try { up?.kill(); } catch {} });
 
   async function handle(req, res, url) {
@@ -277,6 +295,7 @@ export function tailscaleRoutes({ DISPLAY, json, body, screens, PORT = Number(pr
     if (b.on === true) {
       const key = b.key == null || b.key === '' ? null : String(b.key).trim();
       if (key && !AUTH_KEY.test(key)) { json(res, 400, { error: "That isn't a Tailscale auth key. It starts with tskey-." }); return true; }
+      if (!own && !system) { json(res, 400, { error: NEEDS_OWN }); return true; }
       if (key && !own) { json(res, 400, { error: 'Sign in to Tailscale on this computer instead.' }); return true; }
       await turnOn(key);
     } else if (b.on === false) await turnOff();

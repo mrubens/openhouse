@@ -17,6 +17,10 @@ services:
       - ./data:/data          # the household's things, the bridge's state
       - ./keeper:/keeper      # the keeper's sealed links, key and PIN (hub/keeper.mjs): never in a backup
       - ./backups:/backups    # encrypted backups (point it at a USB drive or a share)
+      # Away from home with Tailscale: the computer's own, installed and signed in there, shared with the hub (a hub
+      # never runs one of its own, docs/networking.md):
+      # - /var/run/tailscale/tailscaled.sock:/var/run/tailscale/tailscaled.sock
+      # - /usr/bin/tailscale:/usr/bin/tailscale:ro
     environment:
       TZ: ${TZ:-UTC}
       OPENHOUSE_KEEPER_DIR: /keeper
