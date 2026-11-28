@@ -180,7 +180,7 @@ async function findAndSay(q) {
   if (!q) return 'Find what?';
   if (cooking) stop();
   $search.value = q; webFind(q);
-  if (!H?.ai) return 'Finding recipes needs the assistant turned on.';
+  if (!H?.ai) return 'Finding recipes needs an Opie account or your own OpenAI key (Settings → Opie → Voice).';
   for (let t = 0; t < 104; t++) { // up to 26 s
     await new Promise((r) => setTimeout(r, 250));
     const f = H?.recipeFind;
@@ -341,7 +341,7 @@ $app.append($top, $body);
 
 /** Recipes found on the web for these words (the bridge searches through the household's text model: findRecipes). */
 function webFind(q) {
-  if (!H?.ai) { openCard((close) => [h('h2', null, 'Search the web'), h('p', { class: 'note' }, 'Finding recipes on the web needs the assistant (Settings, Voice).'), h('div', { class: 'actions' }, btn('OK', close))]); return; }
+  if (!H?.ai) { openCard((close) => [h('h2', null, 'Search the web'), h('p', { class: 'note' }, 'Finding recipes on the web needs an Opie account or your own OpenAI key (Settings → Opie → Voice).'), h('div', { class: 'actions' }, btn('OK', close))]); return; }
   H.recipeFind = { query: q, state: 'working', at: Date.now() }; draw();
   house.findRecipes(q);
 }
@@ -504,7 +504,7 @@ function addCard() {
   const card = openCard((close) => [
     h('h2', null, 'Add a recipe'),
     text,
-    !H?.ai ? h('p', { class: 'note' }, 'Adding recipes needs the assistant (Settings, Grown-ups, Live voice).') : null,
+    !H?.ai ? h('p', { class: 'note' }, 'Adding recipes needs an Opie account or your own OpenAI key (Settings → Opie → Voice).') : null,
     h('div', { class: 'actions' },
       btn('Cancel', () => { document.activeElement?.blur(); close(); }, { soft: true }),
       btn('Add', () => {

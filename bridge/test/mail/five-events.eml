@@ -1,0 +1,18 @@
+Authentication-Results: mx.example.net; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=example.com; dmarc=pass header.from=example.com
+From: Sam <sam@example.com>
+To: maple-otter-42@email.openhouse.computer
+Subject: Fwd: Coming up at Maple
+Date: Mon, 30 Nov 2026 08:12:00 -0600
+Message-ID: <7063675017648746631@mail.example.com>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+
+---------- Forwarded message ---------
+From: Maple Elementary <office@maple-elementary.example>
+
+Coming up:
+- Mon Dec 7: Pajama day
+- Tue Dec 8: Picture day
+- Wed Dec 9, 6 pm: PTA meeting, cafeteria
+- Fri Dec 11, 2:30 pm: Early dismissal
+- Fri Dec 18: Winter party, bring a snack to share

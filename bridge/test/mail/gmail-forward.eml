@@ -1,0 +1,37 @@
+Authentication-Results: mx.example.net; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=example.com; dmarc=pass header.from=example.com
+From: Sam <sam@example.com>
+To: maple-otter-42@email.openhouse.computer
+Subject: Fwd: Maple Elementary news, December
+Date: Mon, 30 Nov 2026 08:12:00 -0600
+Message-ID: <2794382402835417797@mail.example.com>
+MIME-Version: 1.0
+Content-Type: multipart/alternative; boundary="000000000000g1"
+
+--000000000000g1
+Content-Type: text/plain; charset="UTF-8"
+
+For the calendar
+
+---------- Forwarded message ---------
+From: Maple Elementary PTA <news@maple-elementary.example>
+Date: Fri, Nov 27, 2026 at 4:02 PM
+Subject: Maple Elementary news, December
+To: <sam@example.com>
+
+
+Hello Maple families!
+
+Book fair: Thursday, December 10, 3:00 to 5:00 pm in the school library.
+Bring a few dollars if you'd like a book.
+
+--000000000000g1
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">For the calendar<br><br><div class=3D"gmail_quote"><div dir=
+=3D"ltr" class=3D"gmail_attr">---------- Forwarded message ---------<br>From=
+: <strong>Maple Elementary PTA</strong> &lt;news@maple-elementary.example&gt;=
+<br></div><p>Hello Maple families!</p><p><b>Book fair:</b> Thursday, Decembe=
+r 10, 3:00 to 5:00 pm in the school library.</p></div></div>
+
+--000000000000g1--

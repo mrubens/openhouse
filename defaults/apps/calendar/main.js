@@ -584,10 +584,11 @@ function guard(fn) {
   if (!phone.unlock()) { afterPin = null; openCard((close) => [h('h2', null, 'The calendar is locked'), h('p', { class: 'line light' }, 'Enter the PIN on the display.'), h('div', { class: 'actions' }, btn('OK', close))]); }
 }
 
+const NEEDS_OPIE = 'Reading a flyer needs an Opie account or your own OpenAI key (Settings → Opie → Voice).';
 /** A flyer, school notice or invitation, photographed on a phone: the assistant reads its events, and they're added
  *  only once someone says which (the card below). */
 function fromPhoto() {
-  if (!H?.ai) return openCard((close) => [h('h2', null, 'A flyer to the calendar'), h('p', { class: 'line light' }, 'Reading a flyer needs the assistant, and it isn’t set up on this display.'), h('div', { class: 'actions' }, btn('OK', close))]);
+  if (!H?.ai) return openCard((close) => [h('h2', null, 'A flyer to the calendar'), h('p', { class: 'line light' }, NEEDS_OPIE), h('div', { class: 'actions' }, btn('OK', close))]);
   if (!phone.flyer()) openCard((close) => [h('h2', null, 'A flyer to the calendar'), h('p', { class: 'line light' }, 'This works on the display itself: a phone sends it the photo.'), h('div', { class: 'actions' }, btn('OK', close))]);
 }
 let flyerShown = null, flyerCard = null, flyerPick = null; // flyerPick: which of its events are ticked, and whose
@@ -610,10 +611,13 @@ function showFlyer() {
     const when = (e) => { const t = Date.parse(e.allDay ? e.start + 'T12:00' : e.start); return fmt(t, { weekday: 'short', month: 'short', day: 'numeric' }) + (e.allDay ? '' : ' · ' + timeOf(t) + (e.end ? ' – ' + timeOf(Date.parse(e.end)) : '')); };
     const n = flyerPick.on.size;
     return [
-      h('h2', null, evs.length === 1 ? 'Add this from the flyer?' : 'Add these from the flyer?'),
+      h('h2', null, evs.length === 1 ? 'Add this to the calendar?' : 'Add these to the calendar?'),
       h('div', { class: 'flyer-list' }, evs.map((e, i) => h('button', { class: 'flyer-ev' + (flyerPick.on.has(i) ? ' on' : ''), tap: () => { flyerPick.on.has(i) ? flyerPick.on.delete(i) : flyerPick.on.add(i); redraw(); } },
         h('span', { class: 'q-check' + (flyerPick.on.has(i) ? ' on' : '') }, icon('check')),
         h('span', { class: 'fwhat' }, h('b', null, e.title), h('span', null, [when(e), e.place].filter(Boolean).join(' · ')), e.notes ? h('span', { class: 'n' }, e.notes) : null)))),
+      // Where they came from, to check against (the photo, or the email): on the display, while it's kept.
+      (() => { const from = onScreen ? [] : [...new Map(evs.filter((e) => e.src).map((e) => [e.src, e.from || 'The photo'])).entries()];
+        return from.length ? h('div', { class: 'row' }, h('span', { class: 'label' }, 'From'), h('div', { class: 'chips' }, from.map(([src, label]) => chip(label, false, () => openSource(src, label))))) : null; })(),
       h('div', { class: 'row' }, h('span', { class: 'label' }, 'Whose'), h('div', { class: 'chips' }, chip('Everyone', flyerPick.who == null, () => { flyerPick.who = null; redraw(); }),
         (H.family || []).map((p) => who(p.name, same(flyerPick.who, p.name), () => { flyerPick.who = p.name; redraw(); })))),
       h('div', { class: 'actions' }, btn('Not now', () => done(close), { soft: true }),
@@ -626,6 +630,20 @@ function showFlyer() {
         }), { disabled: n === 0 })),
     ];
   }, { width: 940, onOutside: (close) => { close(); flyerCard = null; } });
+}
+
+/** The photo or email an offered event came from, to check its dates against. */
+function openSource(src, label) {
+  let got; // undefined: loading; null: gone
+  const s = openCard((close) => {
+    const ok = h('div', { class: 'actions' }, btn('OK', close));
+    if (got === undefined) return [h('h2', null, label), ok];
+    if (!got) return [h('h2', null, label), h('p', { class: 'line light' }, 'That isn’t kept any more.'), ok];
+    if (got.photo) return [h('img', { class: 'source-pic', src: got.photo, alt: label }), ok];
+    return [h('h2', null, got.subject || label), h('p', { class: 'line light' }, [label, fmt(got.at, { weekday: 'short', month: 'short', day: 'numeric' })].join(' · ')),
+      h('div', { class: 'source' }, got.text ? h('p', { class: 'line notes' }, got.text) : null, got.pictures.map((u) => h('img', { class: 'source-pic', src: u, alt: '' }))), ok];
+  }, { width: 940 });
+  house.flyerSource(src).then((r) => { got = r; s.redraw(); });
 }
 
 /** "Until" for a repeating event, from its start: [days, label]; null: always. */

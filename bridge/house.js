@@ -25,6 +25,9 @@
 //                             (POST /house/meal {cook: meal, force?} makes the steps again; {find: words} finds recipes
 //                             on the web, shown as recipeFind; {findDone: true} puts them away; cooking.js)
 // POST /house/flyer/clear      {}  the flyer's events put away (added, or not wanted)
+// GET  /house/flyer/source?src= what a waiting event came from (its src: the flyer's photo, or the email: {email:
+//                              {from, subject, at, text, invites, pictures: n}}; &n=i its ith picture), the
+//                              household's own apps on the display only (apps.js own)
 // POST /house/lock             { calendar: bool }  the display only (not an app): a PIN for calendar changes in the apps
 // POST /house/unlock           {}  the display only, after the PIN: apps may change the calendar for 5 minutes
 //   view(): calendarLock, unlockedUntil (ms; 0 when locked or no lock)
@@ -220,6 +223,14 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       } catch { json(res, 404, { error: 'not found' }); }
       return true;
     }
+    if (req.method === 'GET' && p === '/house/flyer/source') {
+      const n = url.searchParams.get('n'), r = await house.flyerSource(String(url.searchParams.get('src') || ''), n == null ? null : Number(n));
+      const img = r?.photo || r?.picture;
+      if (img) { res.writeHead(200, { 'content-type': img.type, 'cache-control': 'no-store' }); res.end(img.bytes); }
+      else if (r?.email) json(res, 200, r.email);
+      else json(res, 404, { error: 'That isn’t kept any more.' });
+      return true;
+    }
     if (req.method !== 'POST') return false;
     if (p === '/house/photo') { // raw image body
       const name = String(url.searchParams.get('name') || '').replace(/[^\w.-]/g, '_').slice(-80);
@@ -305,7 +316,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   // Asks left from before a restart: nobody is looking at a card for them any more (the kid asks again).
   data.asks = [];
   kept = structuredClone(data);
-  for (const k of ['context', 'settings', 'putAway', 'addFlyer', 'readEmail', 'addRecipePhoto', 'prepareCook', 'addRecipeLink', 'findRecipes',
+  for (const k of ['context', 'settings', 'putAway', 'addFlyer', 'readEmail', 'flyerSource', 'addRecipePhoto', 'prepareCook', 'addRecipeLink', 'findRecipes',
     'changeAlbums', 'caption', 'addPhoto', 'serveVideo', 'stills', 'removePhoto', 'restorePhoto', 'albums']) handle[k] = house[k];
   // A tool whose change wasn't saved says so (isError, with why), as a tap is told: never "Done" for what a restart loses.
   handle.call = async (...a) => {
@@ -317,6 +328,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
   handle.answer = (...a) => house.answer(...a); // one answer from the assistant (the music tool's Spotify search: devices/index.js)
   handle.changed = changed;
   handle.setVoice = (fn) => { voiceNeed = fn; };
+  handle.setMail = (m) => house.setMail(m); // mail.js: an offered event's email, to open (flyers.js)
   handle.tick = tick; // (tests: what the 30 s clock does)
   handle.events = () => house.events(); // the calendar as screens get it (tests)
   handle.reminders = (now) => house.reminders(now); // the reminders due now (phone-buzz.js: they buzz the phones of the people on them)

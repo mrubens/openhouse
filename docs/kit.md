@@ -96,6 +96,7 @@ reject.
 | `house.countdown({id?, uid?}, on = true)` | an event added here (`id`) or a synced one (`uid`) | change |
 | `house.remind({id?, uid?}, minutes)` | minutes before; 0 at the start, -1 none, null the usual | change |
 | `house.flyerDone()` | | change |
+| `house.flyerSource(src)` | `src` of one of `data.flyer.events` (there while its photo or email is kept); the household's own apps on the display only | `{photo: url}`, or the email `{from, subject, at, text, invites, pictures: [urls]}`; null once it's gone |
 | `house.putAway(key)` | a key from `data.reminders` | change |
 | `house.showFromApp(app, show)` | `'week'`, `'today'` or `'off'` | change |
 | `house.orderFromApps(ids)` | app ids, first first | change |

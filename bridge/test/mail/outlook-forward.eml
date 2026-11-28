@@ -1,0 +1,17 @@
+Authentication-Results: mx.example.net; dkim=pass header.d=example.com; spf=pass smtp.mailfrom=example.com; dmarc=pass header.from=example.com
+From: Sam <sam@example.com>
+To: maple-otter-42@email.openhouse.computer
+Subject: FW: Winter concert
+Date: Mon, 30 Nov 2026 08:12:00 -0600
+Message-ID: <7100014940870424320@mail.example.com>
+MIME-Version: 1.0
+Content-Type: text/html; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+
+<html><head><style>p{margin:0}</style></head><body><div>Can we go?</div>
+<hr style=3D"display:inline-block;width:98%"><div id=3D"divRplyFwdMsg"><b>F=
+rom:</b> Springfield Schools &lt;office@springfield-schools.example&gt;<br>=
+<b>Sent:</b> Wednesday, November 25, 2026 2:14 PM<br><b>To:</b> Sam<br=
+><b>Subject:</b> Winter concert</div><p>The winter concert is Thursday, Dece=
+mber 17 at 6:30 pm in the Springfield High auditorium. It=92s free; doors o=
+pen at 6.</p></body></html>
