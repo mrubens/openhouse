@@ -65,6 +65,9 @@ throws the rest away.
 
 ## The address
 
+- **Where it shows:** Settings → Account → Email; the phone page, with Copy; one line on an empty Calendar (nothing
+  coming up) and an empty Photos; and Opie says it when asked (family_things). Only while email is on. Shared apps
+  never see it.
 - **Chosen for them, changeable.** When the household links its tablet, it gets two random words and a number
   (`maple-otter-42`), from a word list for addresses only, with nothing about the household in it. In Settings → Account → Email
   they can take another random one or type their own (letters, digits, dashes, 4 to 30 characters, not already taken,

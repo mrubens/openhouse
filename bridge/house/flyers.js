@@ -112,5 +112,6 @@ export default function (house) {
     return { email: { ...rest, pictures: pictures.length } };
   }
   function clearFlyer() { flyer = null; keepFlyer(); }
-  return { photoBytes, latestFlyer, addFlyer, readEmail, flyerPhoto, keepFlyer, flyerNow, clearFlyer, flyerSource, setMail: (m) => { mail = m; } };
+  const mailAddress = () => { try { return mail?.address?.() || null; } catch { return null; } };
+  return { photoBytes, latestFlyer, addFlyer, readEmail, flyerPhoto, keepFlyer, flyerNow, clearFlyer, flyerSource, mailAddress, setMail: (m) => { mail = m; } };
 }

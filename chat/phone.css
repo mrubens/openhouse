@@ -29,6 +29,8 @@ header { display: flex; justify-content: space-between; align-items: flex-end; g
 .status { margin: 4px 16px 8px; padding: 10px 14px; border-radius: 16px; background: var(--tint); color: var(--soft); font-size: 15px; }
 .pushrow { margin: 6px 20px 4px; padding: 16px; border-radius: 20px; background: var(--card); box-shadow: var(--shadow); display: grid; gap: 10px; font-size: 15px; }
 .pushrow button { padding: 10px 16px; width: auto; justify-self: start; }
+.pushrow button.tinted { background: var(--tint); color: var(--ink); box-shadow: none; }
+.pushrow .addr { overflow-wrap: anywhere; }
 .page { padding: 4px 20px 20px; }
 h2 { font-size: 12.5px; font-weight: 650; letter-spacing: .13em; text-transform: uppercase; color: var(--soft); margin: 22px 0 6px; }
 .page p { margin: 4px 0; }

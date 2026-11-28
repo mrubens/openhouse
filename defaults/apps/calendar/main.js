@@ -455,7 +455,7 @@ function dayList(first, n, today, done) {
       list.map((e) => eventRow(e, isPast(e, now))),
       notesEl(day, 'list'));
   }
-  return h('div', { class: 'agenda', 'data-keep': 'agenda' }, out.length ? out : h('p', { class: 'nothing' }, done ? 'Nothing these days' : 'Nothing coming up'));
+  return h('div', { class: 'agenda', 'data-keep': 'agenda' }, out.length ? out : [h('p', { class: 'nothing' }, done ? 'Nothing these days' : 'Nothing coming up'), byEmail()]);
 }
 
 /** The List view, as a schedule: each day with something on it is a row, its weekday and date in a column on the left
@@ -480,8 +480,10 @@ function schedule(first, n, today) {
           h('b', null, e.title), h('span', null, timeOf(e.t0) + (e.t1 ? ' – ' + timeOf(e.t1) : '')))),
         notesEl(day, 'list'))));
   }
-  return h('div', { class: 'agenda schedule', 'data-keep': 'agenda' }, out.length ? out : h('p', { class: 'nothing' }, 'Nothing coming up'));
+  return h('div', { class: 'agenda schedule', 'data-keep': 'agenda' }, out.length ? out : [h('p', { class: 'nothing' }, 'Nothing coming up'), byEmail()]);
 }
+/** With nothing coming up and email on: the one quiet line that says events can come by email. */
+const byEmail = () => (H?.email ? h('p', { class: 'line light small' }, `Forward invitations to ${H.email} to add them here.`) : null);
 
 /** One day up close: everything on it, and adding to it. */
 /** A new event's start when nothing was tapped at a time: today, the next half hour (if the day isn't nearly over);

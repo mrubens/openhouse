@@ -30,7 +30,8 @@
 //                              household's own apps on the display only (apps.js own)
 // POST /house/lock             { calendar: bool }  the display only (not an app): a PIN for calendar changes in the apps
 // POST /house/unlock           {}  the display only, after the PIN: apps may change the calendar for 5 minutes
-//   view(): calendarLock, unlockedUntil (ms; 0 when locked or no lock)
+//   view(): calendarLock, unlockedUntil (ms; 0 when locked or no lock); email: the household's address while email
+//   is on (mail.js), for the Calendar, Photos and the phone page to say; never in a shared app's view (apps.js houseFor)
 // POST /house/remind           { done: key }  a reminder put away, on every screen (its key from view().reminders)
 // POST /house/thing            { take: id }  one of the things on Home taken down (view().things: things.js)
 // GET  /house/photo/<name>     one of the family's photos (files in display/photos/)
@@ -169,7 +170,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       calendarTargets: board.sync?.targets() || [], // two-way calendars new events can go into (calendar-sync.js)
       things: (() => { try { return things ? things.strip({ events, reminders }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Home)
       night: data.settings.night === false ? null : data.settings.night || NIGHT,
-      reminders, flyer: house.flyerNow(), calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
+      reminders, flyer: house.flyerNow(), email: house.mailAddress(), // the household's address, while email is on (mail.js) calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
       removed: house.removedPhotos(), albums: data.albums, linked: house.albums.view(), captions: data.captions, screensaver: house.screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
       ai: !['off', 'none'].includes(agentName()) && !!currentAgent,
       voice: (() => { try { return voiceNeed(); } catch { return null; } })(), // why Opie's voice can't answer (cloud.js voiceNeed): Today's card

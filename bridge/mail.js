@@ -183,7 +183,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     const r = await cloud.mailApi('POST', '/v1/mail', { on: true, key: k.pub });
     st.cloud = { address: String(r.address || ''), hashKey: String(r.hashKey || ''), key: k.pub };
     for (const a of Array.isArray(r.accounts) ? r.accounts : []) { const x = String(a).trim().toLowerCase(); if (EMAIL.test(x) && !whoOf(x)) st.senders.push({ address: x, who: '', account: true }); }
-    save();
+    save(); house.changed?.(); // (the address shows in the house's view)
     await syncSenders();
   }
   async function syncSenders() {
@@ -246,7 +246,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
       limits: LIMITS,
     };
   }
-  async function set(b) { return change(() => setting(b)); }
+  async function set(b) { const r = await change(() => setting(b)); house.changed?.(); return r; }
   async function setting(b) {
     if (Array.isArray(b.senders)) {
       const seen = new Set();
@@ -289,5 +289,7 @@ export function mailRoutes({ DISPLAY, json, body, house, cloud = null, shell = n
     json(res, 404, { error: 'not found' }); return true;
   }
 
-  return { handle, receive, held, poll, tidy, view, set, has, source, nudge: () => poll(), stop: () => timer && clearInterval(timer) };
+  /** The household's address while email is on through the cloud (Calendar, Photos, the phone page and Opie say it), else null. */
+  const address = () => (linked() && !st.off && st.cloud?.address) || null;
+  return { handle, receive, held, poll, tidy, view, set, has, source, address, nudge: () => poll(), stop: () => timer && clearInterval(timer) };
 }

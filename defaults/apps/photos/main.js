@@ -190,6 +190,7 @@ function empty() {
     h('h1', null, 'No photos yet'),
     h('p', null, 'Photos added to the display show here, and when nobody’s using it.'),
     btn('Add photos', addPhotos, { ic: 'plus' }),
+    H?.email ? h('p', { class: 'note small' }, `Or email them to ${H.email}.`) : null,
     unread());
 }
 /** Linked albums that have never read (no album here yet, so nothing else shows them): why, and a way to take each off. */

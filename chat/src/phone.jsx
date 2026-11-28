@@ -154,6 +154,7 @@ function Today({ me, h, c, onOpen, tabs, apps, go, style }) {
           {homeScreen?.alarms && <AlarmsRow c={c} me={me} alarms={homeScreen.alarms.list} family={house.family || []} now={now} />}
           {(CLOUD_RELAY || !cloudLink(me)) && <PushRow c={c} me={me} />}
           <SendToOpie me={me} c={c} ai={!!house.ai} />
+          {house.email && <EmailRow email={house.email} />}
         </div>
       </div>
     </>
@@ -298,6 +299,17 @@ function PushRow({ c, me }) {
 
 // ---- setup: from the phone or computer the tablet was set up with (its 'setup' scope) --------------------------
 const DONE = 'openhouse.phone.setupDone';
+
+/** The household's email address (while email is on, mail.js): forwarded invitations and photos go to it. */
+function EmailRow({ email }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="pushrow">
+      <span className="addr">Forward invitations and photos to {email}</span>
+      <button className="tinted" onClick={() => { navigator.clipboard?.writeText(email).then(() => setCopied(true), () => {}); }}>{copied ? 'Copied' : 'Copy'}</button>
+    </div>
+  );
+}
 
 // ---- Send to Opie from an iPhone's share sheet (docs/phones.md; the cloud's send.ts, the bridge's phone-share.js) ----
 /** One row: copy this phone's key, then add the shortcut, which asks for it. Only on the cloud's copy, on an iPhone,
