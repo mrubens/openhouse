@@ -146,7 +146,7 @@ object GeminiKey {
     )
     private val STOPS = listOf(500, 1000, 2000, 5000, 10000, 20000) // (bridge cloud.js STOPS)
     private fun dollars(cents: Int) = "$${cents / 100}"
-    private const val MORE = "Make a key in Google's AI Studio (aistudio.google.com, API keys), in a project with billing turned on: on a free project Google may use what's said to improve its products. What's said after “Hey Opie” then goes to Google on your own account, not through Opie's cloud, and Google bills you. Opie's voice stops for the month at the monthly stop set here."
+    private const val MORE = "Make a key in Google's AI Studio (aistudio.google.com, API keys), in a project with billing turned on: on a free project Google may use what's said to improve its products. What's said to Opie then goes to Google on your own account, not through Opie's cloud, and Google bills you. Opie's voice stops for the month at the monthly stop set here."
 
     /** Today's card while the voice can't answer ([why]: the bridge's voiceNeed, one of [NEED]'s). */
     fun fromToday(act: MainActivity, why: String) {
@@ -241,10 +241,10 @@ object GeminiKey {
             }
             Unit
         }
-        if (act.lock.asks(PinChoices.SETTINGS)) return PinPrompt.ask(act, act, "Use the Gemini key sent from the phone? What's said after “Hey Opie” then goes to Google.", { go() }, cancelled = { done("Nobody typed the PIN on the device, so the key wasn't kept.") })
+        if (act.lock.asks(PinChoices.SETTINGS)) return PinPrompt.ask(act, act, "Use the Gemini key sent from the phone? What's said to Opie then goes to Google.", { go() }, cancelled = { done("Nobody typed the PIN on the device, so the key wasn't kept.") })
         var answered = false
         CalmDialog(act).setForPerson().setTitle("Use the Gemini key sent from the phone?")
-            .setMessage("What's said after “Hey Opie” then goes to Google, on your own account, and Google bills you.")
+            .setMessage("What's said to Opie then goes to Google, on your own account, and Google bills you.")
             .setPositiveButton("Use it") { _, _ -> if (!DeviceServer.personOnly("Putting in a Gemini key")) { answered = true; go() } }
             .setNegativeButton("Not now", null)
             .setOnDismissListener { if (!answered) done("Nobody said yes on the device, so the key wasn't kept.") }.show()
