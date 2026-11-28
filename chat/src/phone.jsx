@@ -203,7 +203,7 @@ function Said({ text }) {
 
 /** What someone sent Opie, as they'd recognise it: a turn from the share sheet without its framing for Opie. */
 const shownAsked = (t) => String(t || '').replace(/^\(Shared from their phone's share sheet[^)]*\)\s*/, (x) => (x ? 'You shared ' : '')).replace(/\n\n\(Do what they most likely want[\s\S]*$/, '').slice(0, 280);
-function Ask({ me, c, onClose, convoId = null }) {
+function Ask({ me, c, onClose, convoId = null, onCalendar = null }) {
   const [text, setText] = useState(''), [turns, setTurns] = useState([]); // {q, a, status, live, ok}
   const ctl = useRef(null), convo = useRef(convoId), end = useRef(null);
   // Opened onto a conversation (Opie's answer to something shared): what was said in it, to answer back.
@@ -225,7 +225,7 @@ function Ask({ me, c, onClose, convoId = null }) {
     try {
       const r = await c.json('POST', '/phone/share', { text: q });
       if (r.json?.id) convo.current = r.json.id; // (answering back goes on in the same conversation)
-      set(() => ({ a: r.json?.text || r.json?.error || 'That didn’t go through.', live: false }));
+      set(() => ({ a: r.json?.text || r.json?.error || 'That didn’t go through.', live: false, offers: r.json?.offers || 0, did: r.json?.did || [] })); // (a share's events wait to be ticked: share-guard.js)
     } catch { set(() => ({ a: 'Not in touch with home right now. Try again in a moment.', live: false })); }
   }
   async function ask(e) {
@@ -255,7 +255,9 @@ function Ask({ me, c, onClose, convoId = null }) {
           {turns.map((t, i) => (
             <div key={i} className="turn">
               <div className="you">{t.q}</div>
-              <div className="said">{t.a ? <Said text={t.a} /> : t.live ? <p className="soft">{t.status || 'Thinking'}</p> : null}</div>
+              <div className="said">{t.a ? <Said text={t.a} /> : t.live ? <p className="soft">{t.status || 'Thinking'}</p> : null}
+                {t.did?.length > 0 && <p className="soft">{t.did.join(', ').replace(/^./, (x) => x.toUpperCase())}.</p>}
+                {t.offers > 0 && <><p className="soft">{t.offers === 1 ? '1 event waits' : `${t.offers} events wait`} in the Calendar.</p>{onCalendar && <button className="go" onClick={onCalendar}>{t.offers === 1 ? 'Tick it' : 'Tick them'}</button>}</>}</div>
             </div>
           ))}
           <div ref={end} />
@@ -446,7 +448,7 @@ function Phone({ me, c, onRemoved }) {
       {canAsk(me) && !asking && !more && (canTalk(talkScopes(me))
         ? <Talk c={c} scopes={talkScopes(me)} onType={() => setAsking(true)} />
         : <button className="opie" onClick={() => setAsking(true)}><span className="bars"><i /><i /><i /><i /></span>Ask Opie</button>)}
-      {asking && <Ask key={asking.convo || 'new'} me={me} c={c} convoId={asking.convo || null} onClose={() => setAsking(false)} />}
+      {asking && <Ask key={asking.convo || 'new'} me={me} c={c} convoId={asking.convo || null} onClose={() => setAsking(false)} onCalendar={() => { setAsking(false); open('calendar'); }} />}
       <nav>
         {bar.map((t) => <button key={t.id} className={!opened && !more && tab === t.id ? 'here' : ''} onClick={() => go(t.id)}><TabIcon t={t} /><span>{t.name}</span></button>)}
         {bar.length < tabs.length && <button className={more || opened || !bar.some((t) => t.id === tab) ? 'here' : ''} onClick={() => setMore(true)}><MoreIcon /><span>More</span></button>}

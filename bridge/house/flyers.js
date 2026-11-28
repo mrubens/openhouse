@@ -81,6 +81,28 @@ export default function (house) {
     if (photos.length || evs.length) changed();
     return { photos, events: evs.length };
   }
+  // ---- something shared from someone's phone (phone-share.js): the events Opie finds in it are offered like an email's,
+  // never added; what was shared is kept (data.shared, the latest 10; a photo in FLYERS, as a flyer's) so the offer can show it ----
+  /** events: as calendar_event's add; share: {id, who, text, image?: Buffer, type?, at} -> {offered: n} | {error} */
+  function offerShared(list, share) {
+    const evs = flyerEvents(list);
+    if (!evs.length) return { error: 'An event needs a title and a start (a local date-time, or a date for an all-day one).' };
+    data.shared = Array.isArray(data.shared) ? data.shared : [];
+    if (!data.shared.some((x) => x.id === share.id)) {
+      let photo = null;
+      if (share.image) try {
+        fs.mkdirSync(FLYERS, { recursive: true });
+        photo = `${Date.now()}${share.type === 'image/png' ? '.png' : share.type === 'image/webp' ? '.webp' : '.jpg'}`;
+        fs.writeFileSync(path.join(FLYERS, photo), share.image);
+        for (const f of fs.readdirSync(FLYERS).sort().slice(0, -5)) try { fs.unlinkSync(path.join(FLYERS, f)); } catch {}
+      } catch { photo = null; }
+      data.shared = [...data.shared, { id: share.id, from: str(share.who, 40) || null, at: share.at || Date.now(), text: String(share.text || '').slice(0, 4000), ...(photo ? { photo } : {}) }].slice(-10);
+    }
+    const was = flyer?.state === 'done' ? flyer.events || [] : [];
+    flyer = { state: 'done', at: Date.now(), events: [...was, ...evs.map((e) => ({ ...e, from: share.who ? `${str(share.who, 40)}'s share` : 'A share', src: `share:${share.id}` }))].slice(-24) };
+    keepFlyer(); changed();
+    return { offered: evs.length };
+  }
   /** The album emailed photos go in: Email (made the first time; renamed or turned off like any other). */
   function intoEmailAlbum(file) {
     let a = data.albums.find((x) => x.email);
@@ -98,7 +120,8 @@ export default function (house) {
   // Where an offered event came from, while it's still kept (else the offer has no src for it).
   let mail = null; // mail.js {has, source} (server.js: setMail)
   const kept = (src) => { const [kind, x] = String(src || '').split(/:(.*)/s);
-    return kind === 'photo' ? PHOTO.test(x) && !x.includes('/') && fs.existsSync(path.join(FLYERS, x)) : kind === 'email' ? !!mail?.has(x) : false; };
+    return kind === 'photo' ? PHOTO.test(x) && !x.includes('/') && fs.existsSync(path.join(FLYERS, x)) : kind === 'email' ? !!mail?.has(x) : kind === 'share' ? !!sharedOf(x) : false; };
+  const sharedOf = (id) => (Array.isArray(data.shared) ? data.shared.find((s) => s.id === id) : null) || null;
   const flyerNow = () => (flyer?.events ? { ...flyer, events: flyer.events.map(({ src, ...e }) => (kept(src) ? { ...e, src } : e)) } : flyer);
   /** GET /house/flyer/source: what an offered event came from, only while one waiting names it. n: an email's nth
    *  picture. An added event's too (events.js keeps its src). -> {photo: {bytes, type}} | {email: {from, subject, at, text, invites, pictures: n}} | {picture} | null */
@@ -110,6 +133,11 @@ export default function (house) {
     const onEvent = (s) => data.events.some((e) => e.src === s) || Object.values(data.srcs || {}).some((x) => x.src === s);
     if (!(offered(src) || onEvent(src)) || !kept(src)) return null;
     const [kind, x] = String(src).split(/:(.*)/s);
+    if (kind === 'share') { // shown as an email is: who, when, what they shared, and its photo
+      const sh = sharedOf(x), pic = sh.photo && PHOTO.test(sh.photo) && fs.existsSync(path.join(FLYERS, sh.photo)) ? sh.photo : null;
+      if (n != null) { if (n !== 0 || !pic) return null; const ext = path.extname(pic).slice(1).toLowerCase(); return { picture: { bytes: fs.readFileSync(path.join(FLYERS, pic)), type: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg' } }; }
+      return { email: { from: sh.from || '', subject: '', at: sh.at, text: sh.text, invites: [], pictures: pic ? 1 : 0 } };
+    }
     if (kind === 'photo') { const ext = path.extname(x).slice(1).toLowerCase(); return { photo: { bytes: fs.readFileSync(path.join(FLYERS, x)), type: ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg' } }; }
     const m = await mail.source(x); if (!m) return null;
     if (n != null) return m.pictures[n] ? { picture: m.pictures[n] } : null;
@@ -121,5 +149,5 @@ export default function (house) {
     flyer = null; keepFlyer();
   }
   const mailAddress = () => { try { return mail?.address?.() || null; } catch { return null; } };
-  return { photoBytes, latestFlyer, addFlyer, readEmail, flyerPhoto, keepFlyer, flyerNow, clearFlyer, flyerSource, mailAddress, offered, sourceKept: kept, setMail: (m) => { mail = m; } };
+  return { photoBytes, latestFlyer, addFlyer, readEmail, offerShared, flyerPhoto, keepFlyer, flyerNow, clearFlyer, flyerSource, mailAddress, offered, sourceKept: kept, setMail: (m) => { mail = m; } };
 }

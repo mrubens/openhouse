@@ -34,6 +34,7 @@ import { readJson, writeJson, unsaved } from './store.js';
 import { registered } from './stores.js';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { shareGate } from './share-guard.js';
 import * as G from './grid.js';
 
 /** /door, /door/x (the first names, which older phones, shells and the cloud's phone page still call) as /home, /home/x. */
@@ -552,6 +553,9 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   async function call(name, a, context) {
     // A background run (the heartbeat, heartbeat.js) gets only the tools its level allows, and a few notes a day.
     if (context?.allow && !context.allow.has(name)) return { content: [{ type: 'text', text: `Not in the background: ${name} isn't allowed at this level.` }], isError: true };
+    // A turn from a share from someone's phone: offers and adding only, whatever the shared thing says (share-guard.js).
+    if (context?.share) { const g = shareGate(name, a, context.share, { offer: (evs, s) => handle.offerShared?.(evs, s) || { error: 'The calendar can\'t take offers right now.' } }); if (g?.result) return g.result; if (g?.args) a = g.args;
+      if (g?.did) { const r = await call(name, a, { ...context, share: null }); if (!r?.isError) context.share.did?.push(g.did); return r; } }
     if (extraCall.has(name)) return extraCall.get(name)(name, a, context === NOBODY ? null : context);
     const ok = (t) => ({ content: [{ type: 'text', text: t }] });
     const err = (t) => ({ content: [{ type: 'text', text: t }], isError: true });

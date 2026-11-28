@@ -18,6 +18,7 @@ import crypto from 'node:crypto';
 import { weatherRoutes } from './weather.js';
 import { boardRoutes, personLine } from './board.js';
 import { voiceRoutes } from './voice.js';
+import { shareGate } from './share-guard.js';
 import { homeScreenRoutes, requestApp, showingTab, isTab } from './home-screen.js';
 import { houseRoutes } from './house.js';
 import { mapRoutes } from './maps.js';
@@ -70,6 +71,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const notes = dayNotes({ DIR, onChange: () => house?.changed() });
   const appName = (id) => { try { return JSON.parse(fs.readFileSync(path.join(APP_DIR || WORK, 'apps', id, 'app.json'), 'utf8')).name || id; } catch { return id; } };
   house = houseRoutes({ DIR, json, body, board, homeScreen, currentAgent, agentName, WORK, things, notes, appName });
+  homeScreen.offerShared = (evs, share) => house.offerShared(evs, share); // a share's events, offered (share-guard.js)
   things.setPutAway((k) => house.putAway(k));
   homeScreen.addTools([things.tools[1]], (name, a) => things.call(name, a, { by: 'assistant', house: house.view() }));
   board.localEvents = house.localEvents; board.houseContext = house.context;
@@ -118,6 +120,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       return { text: (r?.content || []).map((c) => c.text || '').join('\n').slice(0, 8000), isError: !!r?.isError };
     }
     if (TYPED.includes(name)) return { text: `${name} needs a conversation.`, isError: true };
+    if (run?.share) { const g = shareGate(name, args, run.share, { offer: () => ({ error: 'no' }) }); if (g?.result) return { text: g.result.content[0].text, isError: true }; } // (only looking gets here)
     // (a typed turn's: make_app's build then answers in writing, in this conversation, not aloud)
     return live.callTool(name, args, run && run.by === 'chat' && !run.spoken ? { typed: { conversation: run.conversation || null } } : {});
   }
@@ -351,8 +354,8 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
       });
     } catch {}
     try { // whatever goes wrong, the conversation is free again afterwards (else it answers "busy" forever)
-    ({ result, notes, ctx: run } = await homeScreen.during({ by: 'chat', who, conversation: c.id, spoken, send, turn: editTurn, signal: abort.signal, app: /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(b.app || '')) ? String(b.app) : null, crash: b.crash ? String(b.crash).slice(0, 2000) : null }, (run1) => agent.chat({
-      prompt, cwd: WORK, systemPrompt: systemPrompt(), signal: abort.signal, resume: c.sessions?.[name] || null, homeToken: run1.token, history, route: !onboard,
+    ({ result, notes, ctx: run } = await homeScreen.during({ by: 'chat', who, conversation: c.id, spoken, send, share: req.shareTurn || null, turn: editTurn, signal: abort.signal, app: /^[a-z0-9][a-z0-9-]{0,60}$/.test(String(b.app || '')) ? String(b.app) : null, crash: b.crash ? String(b.crash).slice(0, 2000) : null }, (run1) => agent.chat({
+      prompt, cwd: WORK, systemPrompt: systemPrompt(), signal: abort.signal, resume: c.sessions?.[name] || null, homeToken: run1.token, history, route: !onboard && !req.shareTurn, // (a share's words never start an app being made)
       request: { text, who, app: b.app || null, conversation: spoken ? null : c.id }, // (what was asked, on its own: a request to make an app goes to the builder as asked; typed, how it went comes back here)
       onEvent: (e) => {
         if (e.kind === 'step') { if (steps.length < 80) steps.push([Date.now() - t0, String(e.text).slice(0, 80)]); return; }

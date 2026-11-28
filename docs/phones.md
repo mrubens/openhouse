@@ -182,6 +182,13 @@ again; it needs removing and adding again after the cloud deploy.
   turn from that person, with the household's tools (`save_recipe` is new: a recipe's link into the box). A photo is
   described first by the cloud's model, then the description is the item. If it's unclear, one short question. An
   answer within 14 seconds (looking at a photo included) goes straight back; a slower one, or a failure, comes as a message on their phone.
+- **A share only offers and adds** (`bridge/share-guard.js`, in code, so a shared page can't talk its way past it):
+  an event Opie finds is offered on the Calendar to tick, as an email's are (`house/flyers.js offerShared`), never
+  added; the offer keeps what was shared, so the Calendar can show it (`share:<id>`, the latest 10 in the household's
+  data). Things go onto a list (adding only), a recipe into Recipes, the photo into Photos, and a calendar or album
+  link to the device for a person's yes. Opie may look at anything; everything else, removing and changing included,
+  is refused for that turn. The phone's answer says how many events wait and opens the Calendar to tick them, and
+  lists what else went where; a message from the shortcut ends with how many wait.
 - **How it's sealed**: the shortcut's one setting is a key: `<relay id>.<phone id>.<relay token>.<share key>`. The
   share key comes from the phone's own key (HKDF, "openhouse share"), so removing the phone in Settings ends it. The
   cloud seals what was shared with it and passes it through the relay like any phone's request, and the tablet lets
@@ -195,7 +202,8 @@ again; it needs removing and adding again after the cloud deploy.
 
 Code: `openhouse-cloud/lambda/send.ts`, `bridge/phone-share.js`, `screens.js` (`shareKey`), the `SendToOpie` row in
 `chat/src/phone.jsx`. Tests: `bridge/test/phone-share.test.mjs` (what the key opens), `send-to-opie.test.mjs` (the
-whole way, with the real bridge and the service).
+whole way, with the real bridge and the service), `share-guard.test.mjs` (a share that says to add and delete ends in
+offers only).
 
 ## Every app on the phone (2026-11-23)
 

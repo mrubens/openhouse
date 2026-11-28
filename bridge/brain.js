@@ -372,11 +372,12 @@ const homeNotes = homeNoteRoutes({ homeScreen: chat.homeScreen, screens, json, b
 chat.homeScreen.typed = homeNotes; // Opie's put_note with at or aloud: the same
 chat.homeScreen.onNoteFor = (n) => { screens.notify(n.for, { title: n.title, body: String(n.content || '').replace(/```[\s\S]*?```/g, '').replace(/[#*_>`]/g, '').trim().split('\n')[0], tag: n.id }).catch(() => {}); };
 // Send to Opie (docs/phones.md): something shared from someone's phone is a typed turn as from them (phone-share.js).
-/** A typed turn run here, as a screen's POST /chat would: {ok, text, id}. */
-function chatTurn(text, who, id) {
+/** A typed turn run here, as a screen's POST /chat would: {ok, text, id}. share: a share from a phone (share-guard.js:
+ *  what its turn may do is held to offers and adding, in code; only this in-process request can carry it). */
+function chatTurn(text, who, id, share = null) {
   return new Promise((resolve) => {
     const req = new Readable({ read() {} });
-    Object.assign(req, { method: 'POST', url: '/chat', headers: { host: '127.0.0.1', 'content-type': 'application/json' } });
+    Object.assign(req, { method: 'POST', url: '/chat', headers: { host: '127.0.0.1', 'content-type': 'application/json' }, shareTurn: share });
     req.push(Buffer.from(JSON.stringify({ text, who, ...(id ? { id } : {}) }))); req.push(null);
     let out = '';
     const res = new Writable({ write(c, e, cb) { out += c; cb(); } });
