@@ -24,7 +24,7 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 **Connections** (shell/SettingsLock.kt `connections`, rows in shell/Lines.kt) keeps each part's own PIN:
 - Calendars: with Change settings asking (the default), the section is one row (how many, Unlock) until the PIN is
   typed, as the Calendars tab asked before; then the accounts (Sign out), their calendars (a box to show each, a tap
-  for more) and the links (a tap: Color, Remove). Add is Google, iCloud or a link.
+  for more) and the links (a tap: Color, Remove). Add (Google, iCloud or a link) asks for the PIN the same way.
 - Photo albums: each album with Remove; Add sends the link from a phone (or pastes it). Adding or removing asks when
   Add photo albums does, as the Photos app does; the Photos tab keeps its own Add photos and Stop keeping it here.
   Google Photos copies photos once and keeps no connection, so it isn't here (Photos' Add photos has it).

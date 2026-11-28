@@ -11,12 +11,17 @@ import dev.openhouse.ui.Calm
 internal class Lines(private val a: Activity) {
     val col: LinearLayout = Calm.column(a)
 
-    /** A section's label, with a quiet [action] at its right (Add). */
+    /** A section's label, with its own [action] at its right (Add), tinted and no taller than the label's line. */
     fun header(label: String, action: String? = null, onAction: (() -> Unit)? = null) {
         col.addView(Calm.row(a).apply {
-            gravity = Gravity.CENTER_VERTICAL; setPadding(Calm.px(a, 16), Calm.px(a, if (col.childCount == 0) 4 else 28), Calm.px(a, 4), Calm.px(a, 4))
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(Calm.px(a, 16), Calm.px(a, if (col.childCount == 0) 4 else 28), Calm.px(a, 4), Calm.px(a, 4))
             addView(Calm.eyebrow(a, label), LinearLayout.LayoutParams(0, -2, 1f))
-            if (action != null && onAction != null) addView(Calm.quiet(a, action) { onAction() })
+            // (with no action, the same height, so every section starts alike)
+            if (action != null && onAction != null) addView(Calm.quiet(a, action) { onAction() }.apply {
+                setTextColor(Calm.ACCENT); minHeight = Calm.px(a, 48); minimumHeight = Calm.px(a, 48)
+            }, LinearLayout.LayoutParams(-2, Calm.px(a, 48)))
+            else addView(View(a), LinearLayout.LayoutParams(0, Calm.px(a, 48)))
         }, LinearLayout.LayoutParams(-1, -2))
     }
 

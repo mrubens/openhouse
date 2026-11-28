@@ -439,12 +439,13 @@ internal class SettingsLock(private val act: MainActivity) {
         var page: android.app.Dialog? = null
         val again = { connections(); Unit }
         val l = Lines(act)
-        // Calendars: what their tab showed. Behind Change settings' PIN, as it was: a row to unlock them, then the rows.
+        // Calendars: what their tab showed. Behind Change settings' PIN, as it was: a row to unlock them, then the rows;
+        // Add asks for it too.
         val open = !asks(PinChoices.SETTINGS) || ParentGrace.isOpen()
-        l.header("Calendars", "Add".takeIf { open }) { CalendarAccounts.choose(act, act::immersive) }
+        l.header("Calendars", "Add") { withPin { CalendarAccounts.choose(act, act::immersive) } }
         when {
-            !open -> l.line(if (cals.none) "None yet" else if (cals.count == 1) "1 calendar" else "${cals.count} calendars", value = "Unlock") { withPin { connections() } }
             cals.none -> l.note("None yet")
+            !open -> l.line(if (cals.count == 1) "1 calendar" else "${cals.count} calendars", value = "Unlock") { withPin { connections() } }
             else -> CalendarAccounts.fill(act, l, cals, act::immersive, again, close = { page?.dismiss() })
         }
         // The household's shared albums (PhotoAlbums): in or out behind Add photo albums' PIN, as in the Photos app.
