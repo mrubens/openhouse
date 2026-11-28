@@ -47,6 +47,7 @@ function Join({ onJoined, removed }) {
       const w = via.relay && CLOUD_RELAY ? await relayPair({ url: CLOUD_RELAY, ...via, name, onAsked: () => setStep('asked') })
         : await pair({ ...via, name, onAsked: () => setStep('asked') });
       if (w.refused) return setStep('refused');
+      if (moveHome(w)) return;
       put(STORE, w); onJoined(w);
     } catch { setStep('ended'); }
   }
@@ -476,14 +477,35 @@ function fromCloudHash() {
   return { id: m[1], key: m[2], person: about.person || '', scopes: about.scopes || [], kind: 'phone', relay: { url: CLOUD_RELAY, relay: m[3], token: m[4] } };
 }
 
+// A page opened at a name anyone on the Wi-Fi can answer (opie.local): its pairing moves to the tablet's own address
+// (its https name, else its Wi-Fi address: the welcome's base), carried after # as the cloud's copy's is, and nothing
+// of it stays at the name, where whoever answered next could serve a page that reads it.
+const byName = () => !CLOUD_RELAY && /\.local$/i.test(location.hostname);
+function moveHome(w) {
+  if (!byName() || !/^https?:\/\/[\w.:[\]-]+$/.test(w?.base || '') || new URL(w.base).origin === location.origin) return false;
+  put(STORE, null); put(CACHE, null); put(QUEUE, null);
+  location.replace(`${w.base}/phone/${location.search}#move.${b64u.enc(JSON.stringify(w))}`);
+  return true;
+}
+/** The pairing a page at a name handed over (moveHome), once, when this page has none of its own. */
+const moved = (() => {
+  const m = !CLOUD_RELAY && location.hash.match(/^#move\.([\w-]+)$/);
+  if (!m) return null;
+  history.replaceState(null, '', location.pathname + location.search);
+  try { const w = JSON.parse(b64u.dec(m[1])); return typeof w?.id === 'string' && typeof w?.key === 'string' && !get(STORE) ? w : null; } catch { return null; }
+})();
+if (moved) put(STORE, moved);
+
 function App() {
   const [me, setMe] = useState(() => (CLOUD_RELAY ? fromCloudHash() || get(STORE) : get(STORE))), [removed, setRemoved] = useState(false);
+  const [moving] = useState(() => !!me && moveHome(me)); // (one kept at a name from before, once it knows where home is)
   const [invite] = useState(() => !!CLOUD_RELAY && /^#[\w-]+\.[\w-]{43}\.[\w-]+$/.test(location.hash)); // (Join takes it off the address)
   useEffect(() => { if (CLOUD_RELAY && me) put(STORE, me); }, []);
   const c = useMemo(() => me && (CLOUD_RELAY
     ? client({ id: me.id, key: me.key, relay: me.relay, onlyRelay: true, api: location.origin }) // (the cloud's copy: big replies may come as boxes)
     : client({ id: me.id, key: me.key, relay: me.relay || null, onRelay: (r) => { const n = { ...(get(STORE) || me), relay: r || undefined }; put(STORE, n); setMe(n); },
       tailnet: me.tailnet || null, onTailnet: (t) => { const n = { ...(get(STORE) || me), tailnet: t || undefined }; put(STORE, n); setMe(n); } })), [me?.id, me?.relay?.token, me?.tailnet]); // (the household's Tailscale: bridge/tailscale.js)
+  if (moving) return <main className="join"><div className="brand">Opie</div><h1>One moment</h1></main>;
   if (CLOUD_RELAY && !me && invite) return <Join onJoined={(w) => { put(STORE, w); setMe(w); tellApp(w); }} />; // an invite, opened anywhere
   if (CLOUD_RELAY && !me) return <main className="join"><div className="brand">Opie</div><h1>Not linked to a home yet</h1><p>On the device: Settings, Devices, Add, Someone's phone. Scan the code with this phone's camera.</p></main>;
   if (!c) return <Join removed={removed} onJoined={(w) => { setRemoved(false); setMe(w); }} />;

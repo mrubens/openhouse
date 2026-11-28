@@ -8,6 +8,9 @@ let HUB = false;
 export const onTheHub = () => { HUB = true; };
 const THE = () => (HUB ? 'the hub' : 'the device');
 const The = () => (HUB ? 'The hub' : 'The device');
+/** This page came over plain http (the tablet's address on the Wi-Fi): anyone there could have served it, so the PIN and
+ *  iCloud's password are typed at the device instead (bridge brain.js /setup/pin, /setup/icloud). */
+const AT_DEVICE = () => !HUB && !window.isSecureContext;
 const mine = (me, who) => String(who || '').toLowerCase() === String(me?.person || '').toLowerCase();
 /** The tablet's next setup step after one sent from here (Setup.kt STEPS). ai and voice: a tablet from before they
  *  left the setup (this page may be the cloud's copy, newer than the tablet), moved on past them from here. */
@@ -26,7 +29,8 @@ export function SetupFlow({ me, c, h, onDone }) {
       try {
         const r = await c.json('GET', '/setup/step');
         if (live && r.status === 200) setTablet(r.json || { step: null });
-        else if (live && (r.status === 403 || r.status === 404)) setTablet(null);
+        else if (live && r.status === 403) setTablet({ step: null }); // the setup is over there: this is a person's own now
+        else if (live && r.status === 404) setTablet(null);
       } catch { if (live) setTablet((x) => (x === undefined ? null : x)); } // not in touch: the four steps, as before
       if (live) t = setTimeout(look, 2500);
     };
@@ -34,7 +38,8 @@ export function SetupFlow({ me, c, h, onDone }) {
     return () => { live = false; clearTimeout(t); };
   }, []);
   const [i, setI] = useState(0);
-  const steps = tablet === null ? ['calendars', 'photos', 'invite', 'apps'] : ['invite', 'apps']; // (then the home screen, as for every phone: AddToHome)
+  // (then the home screen, as for every phone: AddToHome). Invites go while the tablet's setup lasts (its last step).
+  const steps = tablet === null ? ['calendars', 'photos', 'invite', 'apps'] : HUB ? ['invite', 'apps'] : ['apps'];
   const next = () => (i + 1 < steps.length ? setI(i + 1) : onDone());
   const family = (h.house?.family || []).filter((f) => !mine(me, f.name));
   const step = tablet?.step;
@@ -56,7 +61,8 @@ export function SetupFlow({ me, c, h, onDone }) {
           : <p className="soft">First tap Let phones send photos on the device.</p>}</>}
       </>}
       {step === 'pin' && <PinHere c={c} />}
-      {step === 'android' && <><h1>Last, at the device</h1><p>Two Android settings only the device can change. Tap Done there when you’re finished.</p></>}
+      {step === 'android' && <><h1>Last, at the device</h1><p>Two Android settings only the device can change. Tap Done there when you’re finished.</p>
+        <Invite c={c} family={family} sub /></>}
       {step === 'people' && <SetupPeople c={c} />}
       {step === 'place' && <SetupPlace c={c} />}
       {!['calendar', 'photos', 'people', 'place', 'pin', 'android'].includes(step) && <>
@@ -123,18 +129,19 @@ export function SignIns({ c, family = [], linked: given }) {
   const known = useLinked(c), linked = given ?? known;
   const [g, setG] = useState(null), [ic, setIc] = useState(false), [f, setF] = useState({ user: '', pass: '', who: '' }), [st, setSt] = useState(null);
   const google = () => googleFrom(c, {}, setG, HUB ? 'Sign in to Google in the new tab.' : 'Sign in to Google in the new tab, then choose the calendars on the device.');
-  async function icloud() {
+  async function icloud(here = false) {
     setSt('sending');
     try {
-      const r = await c.json('POST', '/setup/icloud', f);
-      if (r.status === 200) { setF({ user: '', pass: '', who: '' }); setIc(false); setSt(HUB ? 'Signed in.' : 'Signed in. Choose the calendars on the device.'); }
+      const r = await c.json('POST', '/setup/icloud', here ? {} : f);
+      if (r.status === 200 && r.json?.here) { setF({ user: '', pass: '', who: '' }); setIc(false); setSt('Sign in on the device.'); }
+      else if (r.status === 200) { setF({ user: '', pass: '', who: '' }); setIc(false); setSt(HUB ? 'Signed in.' : 'Signed in. Choose the calendars on the device.'); }
       else setSt(r.json?.error || 'That didn’t work.');
     } catch { setSt(`${The()} isn’t in touch right now.`); }
   }
   return <>
     <div className="setuprow">
       {linked && <button className="quiet" onClick={google}>Sign in with Google</button>}
-      <button className="quiet" onClick={() => setIc(!ic)}>{linked ? 'iCloud' : 'Sign in to iCloud'}</button>
+      <button className="quiet" onClick={() => (AT_DEVICE() ? icloud(true) : setIc(!ic))}>{linked ? 'iCloud' : 'Sign in to iCloud'}</button>
     </div>
     <Opened st={g} />
     {ic && <>
@@ -276,8 +283,11 @@ function SetupPlace({ c }) {
 /** The PIN, chosen here: it guards the tablet's Settings and saying yes to new apps. On a tablet without an account, its
  *  recovery code is shown here once, to keep. */
 function PinHere({ c }) {
-  const [a, setA] = useState(''), [b, setB] = useState(''), [st, setSt] = useState(null), [code, setCode] = useState(null);
-  // One button: Next sets the PIN (and shows the recovery code, if any, before moving on). A tablet doesn't go past
+  const [a, setA] = useState(''), [b, setB] = useState(''), [st, setSt] = useState(null), [code, setCode] = useState(null), [here, setHere] = useState(AT_DEVICE);
+  // Over plain http: the device's own PIN pad (it moves on by itself once the PIN is set there).
+  const pad = () => c.json('POST', '/setup/pin', {}).catch(() => {});
+  useEffect(() => { if (here) pad(); }, []);
+  // One button: Next sets the PIN (and shows the recovery code, if any, before moving on). A device doesn't go past
   // this step without one (Setup.kt allowed); with nothing typed, Next moves on only where one is set already.
   const go = () => c.json('POST', '/setup/go', { step: AFTER.pin }).catch(() => {});
   async function next() {
@@ -289,10 +299,12 @@ function PinHere({ c }) {
       const r = await c.json('POST', '/setup/pin', { pin: a });
       if (r.status !== 200) return setSt(r.json?.error || 'That didn’t work.');
       setA(''); setB('');
+      if (r.json?.here) { setSt(null); return setHere(true); }
       if (r.json?.recovery) { setSt('done'); setCode(r.json.recovery); } else { setSt(null); go(); }
     } catch { setSt(`${The()} isn’t in touch right now.`); }
   }
   const row = (f) => <div className="setuprow"><span className="grow" /><button className="go small" disabled={st === '…'} onClick={f}>Next</button></div>;
+  if (here) return <><h1>Choose a PIN</h1><p>Type it on the device.</p><button className="quiet" onClick={pad}>Show it again</button></>;
   if (st === 'done') return <><h1>PIN set</h1>
     <p>If it’s forgotten, this code is the only way back. Keep it somewhere safe, away from the device.</p><p className="code">{code}</p>
     {row(go)}</>;
@@ -325,7 +337,7 @@ export function AddKey({ c, computer }) {
     {state && state !== 'sending' && <p className="soft">{state}</p>}
   </>;
 }
-function Invite({ c, family }) {
+function Invite({ c, family, sub = false }) {
   const [sent, setSent] = useState({}), [link, setLink] = useState(null);
   async function invite(f) {
     try {
@@ -344,7 +356,7 @@ function Invite({ c, family }) {
   }
   const people = family.filter((f) => (f.kind || 'adult') === 'adult'); // phones are for adults
   return <>
-    <h1>Invite your household</h1>
+    {sub ? <h2>Invite your household</h2> : <h1>Invite your household</h1>}
     <p>Each one gets their own link, for their phone.</p>
     {people.length ? people.map((f) => <div key={f.name} className="inviterow"><span>{f.name}</span><button className="chip" onClick={() => invite(f)}>{sent[f.name] ? 'Send again' : 'Send'}</button></div>)
       : <p className="soft">{HUB ? 'Nobody else yet.' : 'Nobody else yet. Add them on the device, in Settings, Household.'}</p>}

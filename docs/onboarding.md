@@ -36,16 +36,18 @@ On the tablet:
    to 5 below are of what the phone or computer shows.
    1. **Set up Opie from your phone or computer** (`devices`): first, and not skipped (Next once one is in; it moves on
       by itself when one connects). Whose it is, then two ways
-      in, each its own line. A phone scans the code; a computer goes to **opie.local:8788** and types the code (the
-      bridge answers `opie.local`, and `openhouse.local` from before, over mDNS while the code lasts, and the bare
-      address goes to the page for the code: `connect-page.js`, `screens.js`). Android won't let an app listen on port
-      80, so the port stays in the address. The tablet's raw Wi-Fi address is never shown; without the name answered, a
-      phone it is. Either joins at once as that person's, with the `setup` scope (no Allow: the code was only on the
-      tablet). The card shows who's connected, and makes a fresh code when one has been used. The phone or computer
+      in, each its own line. A phone scans the code; a computer goes to the tablet's address and types the code: its
+      https name while it has one, else its Wi-Fi address and port (`SetupDevice.pair`; the bare address goes to the
+      page for the code: `screens.js`). Never `opie.local`: a name over mDNS is anyone's to answer on the Wi-Fi, and
+      whoever answered would read the code. Android won't let an app listen on port 80, so the port stays in the
+      address. Either then asks to join, and the tablet shows what it is ("Let “Sam's phone” set up Opie?"): a
+      person's Allow lets it in as that person's, with the `setup` scope. The scope goes when the setup ends
+      (`screens.js` setupOver), and until then `/setup/*` answers only while a step shows (`brain.js`). The card
+      shows who's connected, and makes a fresh code when one has been used. The phone or computer
       then **follows the tablet's setup** rather than starting its own (`chat/src/phone.jsx` SetupFlow, GET
       `/setup/step`): on the calendar step it shows the box for a calendar's link, on the photos step the one for an
-      album's link and, once photos from phones are on, Choose photos; on any other step, "carry on at the tablet". Once
-      the tablet's setup is over, it offers what's only for there: inviting the family, and making apps. (A tablet from
+      album's link and, once photos from phones are on, Choose photos; on the last (Android's settings), inviting the
+      family; on any other step, "carry on at the tablet". Once the tablet's setup is over, making apps. (A tablet from
       before, with no step to follow, gets the four steps as before.)
    2. **Who lives here** and 3. **Where do you live**, typed on the phone or computer (`SetupPeople`, `SetupPlace`,
       `/setup/household`; the address field starts with the tablet's guess from Android's location, `/setup/guess`).
@@ -55,7 +57,10 @@ On the tablet:
    with Google** for the calendar and **Pick from Google Photos** (`/setup/google`: the tablet's Google page, on the
    home Wi-Fi, opens there in a new tab instead of a code to scan; the calendars are chosen at the tablet) and
    **iCloud** (`/setup/icloud`: the Apple ID and app-specific password typed there, sealed to the shell's
-   `CalendarAccounts.addICloudFrom`, never kept by the bridge; Apple's page for the password is a link there). The
+   `CalendarAccounts.addICloudFrom`, never kept by the bridge; Apple's page for the password is a link there). Only on
+   a page that came over https, from a device that joined over https: on the Wi-Fi's plain http address anyone there
+   could have served the page, so iCloud's sign-in opens on the tablet instead, and so does the PIN's pad. A calendar's
+   link sent from there asks for a yes on the tablet, as any other. The
    new tab is opened at the tap itself and pointed at the page once the tablet says where (`tabForLater`): a phone's
    browser blocks a tab opened after the round trip (Safari always), which on 1.0.55 left "Sign in to Google on the
    page that opened" with no page open. Where even that's blocked, the page is a link to tap. The link box's words

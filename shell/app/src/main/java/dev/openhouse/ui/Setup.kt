@@ -119,7 +119,7 @@ internal fun SetupSheet() {
     // The phone or computer's Next (bridge /setup/go): the tablet follows it.
     LaunchedEffect(Unit) {
         while (true) {
-            val want = withContext(Dispatchers.IO) { getJson("/setup/want") }?.optString("step")?.takeIf { it in Setup.STEPS }
+            val want = withContext(Dispatchers.IO) { getJson("/setup/want?step=${Openhouse.setupStep.orEmpty()}") }?.optString("step")?.takeIf { it in Setup.STEPS }
             val to = want?.let { Setup.allowed(it) }
             if (to != null && to != Openhouse.setupStep) Setup.go(to)
             delay(1500)
@@ -313,9 +313,9 @@ private fun AndroidStep() {
 }
 
 /** Connecting a phone or computer, for the rest of the setup and after: whose it is, then two ways in, each on its
- *  own line: a phone scans the code; a computer goes to the tablet's name (opie.local:8788, answered on the Wi-Fi
- *  while the code lasts: bridge connect-page.js) and types the code. The calendar and photos steps then send their
- *  links from it. What's connected shows here as it comes in. */
+ *  own line: a phone scans the code; a computer goes to the tablet's address (SetupDevice.pair) and types the code.
+ *  Either then asks to join, and someone taps Allow here. The calendar and photos steps then send their links from
+ *  it. What's connected shows here as it comes in. */
 @Composable
 private fun DevicesStep() {
     val o = Openhouse
@@ -333,13 +333,18 @@ private fun DevicesStep() {
         who = names.firstOrNull() ?: "Me"
     }
     var used by remember { mutableStateOf(0) } // devices joined with a code from here: each code works once, so a new one
+    val asked = remember { mutableSetOf<String>() } // codes whose Allow was shown
     LaunchedEffect(who, used) { val w = who ?: return@LaunchedEffect; pair = null; pair = withContext(Dispatchers.IO) { o.host.setupPair(w) } }
     LaunchedEffect(Unit) {
         while (true) {
-            count = withContext(Dispatchers.IO) {
-                getJson("/screens")?.optJSONArray("screens")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
-                    .count { d -> d.optJSONArray("scopes")?.let { sc -> (0 until sc.length()).any { sc.optString(it) == "setup" } } == true }
-            }
+            val s = withContext(Dispatchers.IO) { getJson("/screens") }
+            count = s?.optJSONArray("screens")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
+                .count { d -> d.optJSONArray("scopes")?.let { sc -> (0 until sc.length()).any { sc.optString(it) == "setup" } } == true }
+            // The code was used: someone allows what joined, seeing its name (the code alone could have reached anyone).
+            val p = pair?.optString("pair").orEmpty()
+            s?.optJSONArray("asking")?.let { a -> (0 until a.length()).mapNotNull { a.optJSONObject(it) } }.orEmpty()
+                .firstOrNull { p.isNotEmpty() && it.optString("pair") == p && p !in asked }
+                ?.let { asked += p; o.host.setupConfirm(p, it.optString("name")) }
             if (count > used) used = count
             delay(2000)
         }
@@ -363,7 +368,7 @@ private fun DevicesStep() {
             Column(m, verticalArrangement = Arrangement.spacedBy(18.u)) {
                 Text("On a phone, scan this code.", style = calmText(Calm.LEAD))
                 pair?.let { p ->
-                    // Only the tablet's name, never its raw Wi-Fi address; without a name, a phone it is.
+                    // Its https name, else its address on the Wi-Fi: never a name anyone there could answer (opie.local).
                     p.optString("address").takeIf { it.isNotBlank() }?.let { addr ->
                         Text(androidx.compose.ui.text.buildAnnotatedString {
                             append("On a computer, go to ")

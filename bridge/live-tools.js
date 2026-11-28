@@ -194,7 +194,7 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
   // Which setup step the tablet shows, whatever it is (the setup phone or computer follows it: chat/src/phone.jsx).
   // On the photos step, the household's photo page (PhotoShare's link) once someone turned it on there: the setup
   // phone or computer opens it, rather than a second code to scan.
-  let shownStep = null, shownAt = 0, shownPhotos = null;
+  let shownStep = null, shownAt = 0, shownPhotos = null, setupOver = () => {};
   let guess = null; // where the tablet guesses it is ({address, town, zip}: Setup.kt), for the place step on the phone
   let wanted = null; // the step the setup phone or computer moved on to (its Next: server.js /setup/go), for the tablet to show
   // Whether to stop listening is a small yes-or-no model's call (the cloud's decide, about a hundred-thousandth of a
@@ -380,13 +380,18 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
       const b = await body(req); const s = String(b.step || '');
       shownStep = /^[a-z]{1,20}$/.test(s) ? s : null; shownAt = Date.now();
       shownPhotos = shownStep === 'photos' && /^https?:\/\/[^\s"'<>]{1,600}$/.test(String(b.photos || '')) ? String(b.photos) : null;
+      if (!shownStep) try { setupOver(); } catch {} // the setup ended: its phone or computer keeps no setup powers (screens.js)
       json(res, 200, { ok: true, step: shownStep }); return true;
     }
     if (req.method === 'POST' && url.pathname === '/setup/guess') { // the display: where it guesses it is, for the place step on the phone
       const b = await body(req), t = (v) => String(v || '').trim().slice(0, 120);
       guess = { address: t(b.address), town: t(b.town), zip: t(b.zip) }; json(res, 200, { ok: true }); return true;
     }
-    if (req.method === 'GET' && url.pathname === '/setup/want') { const w = wanted; wanted = null; json(res, 200, { step: w }); return true; } // the display: once
+    if (req.method === 'GET' && url.pathname === '/setup/want') { // the display, while a step shows: the step it shows (so a bridge started again knows it), and the step wanted, once
+      const at = String(url.searchParams.get('step') || '');
+      if (/^[a-z]{1,20}$/.test(at)) { if (at !== shownStep) shownPhotos = null; shownStep = at; shownAt = Date.now(); }
+      const w = wanted; wanted = null; json(res, 200, { step: w }); return true;
+    }
     if (req.method === 'GET' && url.pathname === '/live/setup') {
       convoStart = Date.now(); // a conversation begins (what it's given as earlier talk stays earlier)
       json(res, 200, await setupFor(req, url.searchParams.get('how') === 'wake')); return true;
@@ -434,6 +439,8 @@ export function liveToolRoutes({ HERE, homeScreen, weather, prefsBlock = () => '
     /** The setup step on the tablet's screen now, or null (none, or shown more than an hour ago). */
     /** The setup phone or computer's Next: the tablet goes to [s] at its next look (Setup.kt). */
     setupWant: (s) => { if (/^[a-z]{1,20}$/.test(String(s || ''))) wanted = String(s); },
+    /** What happens when the setup ends (the display says no step shows). */
+    onSetupOver: (f) => { setupOver = f; },
     setupHousehold: household,
     setupGuess: () => guess,
     setupShown: () => (shownStep && Date.now() - shownAt < 60 * 60e3 ? { step: shownStep, ...(shownPhotos ? { photos: shownPhotos } : {}) } : { step: null }) });

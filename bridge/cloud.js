@@ -120,7 +120,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // the tablet says yes (linkAnswer, from Settings → Account's person card). An older service that doesn't know
   // confirm answers 'linked' straight away, as before.
   // confirm: someone at the tablet says yes to the account that claimed the code (the code is on the tablet's screen,
-  // for anyone to see). Not for the setup's own phone or computer (/setup/link), the only place that code ever shows.
+  // for anyone to see).
   async function linkStart(name, { confirm = true } = {}) {
     const base = api();
     if (!base) throw new Error('No cloud address is set.');
@@ -485,7 +485,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const linkId = () => device()?.deviceId || null;
   return { counted, usageNow: async () => { const v = await voiceStatus(true), c = v.credit; // (and what's left of the Opie credit)
     const left = !c || v.own ? '' : c.frozen ? "\nOpie's credit is on hold while a payment is looked at." : !c.paid ? '' : c.cents > 0 ? `\n$${(c.cents / 100).toFixed(2)} of Opie credit left, about ${c.perMinuteCents}¢ a minute talking.` : "\nOpie's credit has run out. Someone can add more on the account page.";
-    return { ...v.month, text: v.month.text + left }; }, googleStart, setOwn, voiceOn, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), linkFromSetup: () => (device() ? Promise.resolve({ linked: true }) : linkStart('Opie', { confirm: false })), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+    return { ...v.month, text: v.month.text + left }; }, googleStart, setOwn, voiceOn, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

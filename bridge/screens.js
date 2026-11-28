@@ -87,11 +87,12 @@ const RULES = [
   // sending to Opie from the page itself (Android's share sheet). The shortcut's own requests reach only /phone/share.
   ['ask', 'GET', /^\/phone\/share-key$/], ['ask', 'POST', /^\/phone\/share$/],
   ['notify', 'GET', /^\/phone\/messages$/], // what Opie was asked to tell this phone's person lately (message_family, live-tools.js)
-  // 'setup': the phone or computer someone set the tablet up from (the setup's own code, scanned or typed): adds
-  // calendars and albums (server.js, straight to the shell) and invites the rest of the family (handle.invite).
+  // 'setup': the phone or computer someone set the tablet up from (the setup's own code, scanned or typed, then Allow
+  // on the tablet): adds calendars (a yes on the tablet) and albums, and invites the rest of the family
+  // (handle.invite). Only while the setup shows (brain.js), and gone when it ends (handle.setupOver).
   ['setup', 'POST', /^\/setup\/(calendar|album|invite)$/], // (a tablet's own OpenAI key goes in at the tablet: Settings, Voice)
   ['setup', 'GET', /^\/setup\/step$/], // which setup step the tablet shows, to follow it
-  ['setup', 'GET', /^\/setup\/household$/], ['setup', 'POST', /^\/setup\/(household|go|link|google|icloud|pin)$/], // who lives here and where, typed there; its Next
+  ['setup', 'GET', /^\/setup\/household$/], ['setup', 'POST', /^\/setup\/(household|go|google|icloud|pin)$/], // who lives here and where, typed there; its Next
   // 'voice': talking to Opie from this device (chat/src/live-voice.js, docs/hub.md): the same live voice the tablet has,
   // its session started through the cloud (server.js /live/start) and its tools run here. A browser gives a page the
   // microphone only on https or localhost, so on the Wi-Fi's plain http address the page doesn't offer it.
@@ -114,7 +115,7 @@ const RULES = [
   ['admin', 'GET', /^\/tailscale$/], ['admin', 'POST', /^\/tailscale$/], // away from home with the household's own Tailscale (tailscale.js)
   // On a hub the settings device is also the setup's (headless.js drives the steps), answers the "Is this OK?" cards,
   // keeps the PIN and the household's own OpenAI key (in the keeper, hub/keeper.mjs: never here).
-  ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|link|google|icloud|pin)$/],
+  ['admin', 'GET', /^\/setup\/(step|household)$/], ['admin', 'POST', /^\/setup\/(calendar|album|invite|openai|household|go|google|icloud|pin)$/],
   ['ask', 'GET', /^\/hub\/asks$/], ['ask', 'POST', /^\/hub\/asks\/answer$/], // a hub's cards on adults' phones too (not kids' or TVs)
     ['admin', 'GET', /^\/hub\/(asks|keeper|calendars|google-photos)$/], ['admin', 'POST', /^\/hub\/(asks\/answer|unlock|pin|openai\/remove|calendar\/remove|album\/remove|google|calendar\/account\/remove)$/],
   ['admin', 'GET', /^\/calendar\/sync$/], ['admin', 'POST', /^\/calendar\/sync\/(set|now)$/], // which of a signed-in account's calendars show (calendar-sync.js)
@@ -276,12 +277,10 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
   const sweep = () => {
     for (const [id, p] of pairs) if (p.until < Date.now()) { pairs.delete(id); for (const w of p.waiters) w(); }
     if (connect && connect.until < Date.now()) closeConnect();
-    if (setupNamed && ![...pairs.values()].some((x) => x.setup)) { setupNamed = false; if (!connect && !tabletNamed) named.stop(); }
-    if (tabletNamed && ![...pairs.values()].some((x) => x.kind === 'tablet' && !x.answer)) { tabletNamed = false; if (!connect && !setupNamed) named.stop(); }
+    if (tabletNamed && ![...pairs.values()].some((x) => x.kind === 'tablet' && !x.answer)) { tabletNamed = false; if (!connect) named.stop(); }
     const n = state.invites.length; state.invites = state.invites.filter((v) => v.until > Date.now() && pairs.has(v.pair)); if (state.invites.length !== n) write();
   };
   let tabletNamed = false; // and while a tablet's code lasts (docs/multi-tablet.md)
-  let setupNamed = false; // opie.local answers while the setup's code lasts (a computer types the address)
   // The Connect screen's page (connect-page.js): open with one computer pairing, for as long as it lasts.
   let connect = null; // { pair, address, until, away } (never the code: the page mustn't have it)
   const named = responder();
@@ -390,11 +389,14 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     if (yes) {
       const computer = x.kind === 'computer';
       const s = { id: (computer ? 'c-' : 's-') + crypto.randomBytes(4).toString('hex'), name: x.typedName || x.name, kind: x.kind, key: b64(crypto.randomBytes(32)), scopes: [...(computer ? COMPUTER_SCOPES : x.kind === 'tv' ? TV_SCOPES : x.kind === 'tablet' ? TABLET_SCOPES : x.kind === 'phone' ? PHONE_SCOPES[x.grownup ? 'grownup' : 'kid'] : x.admin ? ADMIN_SCOPES : DEFAULT_SCOPES), ...(x.setup ? ['setup'] : [])], added: Date.now(), seen: null, high: 0, floor: 0,
-        ...(x.kind === 'phone' ? { person: x.person } : {}) };
+        ...(x.kind === 'phone' ? { person: x.person } : {}), ...(x.secure ? { secure: true } : {}) };
       state.screens.push(s); write(); changed();
       welcome = { id: s.id, key: s.key, scopes: s.scopes, name: s.name, kind: s.kind, ...(s.person ? { person: s.person } : {}) };
       // A computer may have paired through the cloud (the setup page's prompt, from a chat's sandbox or away from home):
       // where to find the tablet afterwards, on the Wi-Fi and through the relay (its token comes from the key).
+      // The setup's phone or computer: where it finds the tablet afterwards (its https name, else its address), so a page
+      // that came by a name anyone on the Wi-Fi can answer (opie.local) moves its pairing there (chat/src/phone.jsx).
+      if (x.setup) { const at = lanBase() || (x.address ? `http://${x.address}:${PORT}` : null); if (at) welcome.base = at; }
       if (x.kind === 'tablet') { // where the new tablet finds this one afterwards: the Wi-Fi, the relay, the tailnet
         const home = !TLS && lanTls?.base(); if (home) welcome.base = home; // its https name at home (else the address it joined at)
         const r = handle.relayAt?.();
@@ -446,11 +448,10 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
         connect = { pair, address, until: Date.now() + 10 * 60e3, away: handle.awayForConnect?.() || null };
         if (address) named.start(address);
       }
-      else if (setup) { // the setup's own: a phone scans it, or a computer types its code at opie.local:8788
+      else if (setup) { // the setup's own: a phone scans it, or a computer types its code at the tablet's address
+        // (never a name anyone on the Wi-Fi could answer: whoever answered would take the code and the setup)
         for (const [id, x] of pairs) if (x.setup) pairs.delete(id); // one at a time
         do { code = newCode(); ({ pair, key } = pairingFromCode(code)); } while (pairs.has(pair));
-        const address = /^\d{1,3}(\.\d{1,3}){3}$/.test(String(b.address || '')) ? String(b.address) : null;
-        if (address) { named.start(address); setupNamed = true; }
       }
       else if (tablet) { // another Opie tablet (docs/multi-tablet.md): it scans the code this tablet shows, or types it; one at a time
         for (const [id, x] of pairs) if (x.kind === 'tablet') pairs.delete(id);
@@ -462,14 +463,16 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
         do { code = newCode(); ({ pair, key } = pairingFromCode(code)); } while (pairs.has(pair));
       }
       else { pair = b64(crypto.randomBytes(6)); key = crypto.randomBytes(32); }
-      pairs.set(pair, { key, kind: computer ? 'computer' : tv ? 'tv' : tablet ? 'tablet' : phone ? 'phone' : 'screen', admin: !computer && !tv && !phone && !tablet && b.admin === true, person, grownup: phone && (b.grownup === true || setup), setup, pre: setup || phone || tablet, typed: tv, typedName: tv ? String(b.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) || null : null, until: Date.now() + 10 * 60e3, name: null, asked: false, answer: null, waiters: new Set(), misses: 0 });
+      // (the setup's own isn't let in by its code alone: someone taps Allow on the tablet, seeing what joined)
+      pairs.set(pair, { key, kind: computer ? 'computer' : tv ? 'tv' : tablet ? 'tablet' : phone ? 'phone' : 'screen', admin: !computer && !tv && !phone && !tablet && b.admin === true, person, grownup: phone && (b.grownup === true || setup), setup, pre: !setup && (phone || tablet),
+        address: setup && /^\d{1,3}(\.\d{1,3}){3}$/.test(String(b.address || '')) ? String(b.address) : null, typed: tv, typedName: tv ? String(b.name || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) || null : null, until: Date.now() + 10 * 60e3, name: null, asked: false, answer: null, waiters: new Set(), misses: 0 });
       if (!state.lan) { state.lan = true; write(); }
       startLan();
       if (computer) changed(); // the relay hears of the code (relay.js), for the web connector
       if (setup) pairs.get(pair).until = Date.now() + 30 * 60e3;
       json(res, 200, computer ? { pair, code, port: PORT, minutes: 10, host: connect.address ? HOSTNAME : null, away: connect.away, extension: httpsCopy()?.url || null } : tv ? { pair, port: PORT, minutes: 10 }
         : tablet ? { pair, code, port: PORT, minutes: 10, host: tabletNamed ? HOSTNAME : null, base: lanBase(), ...via() }
-        : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, host: setupNamed ? HOSTNAME : null, base: lanBase(), ...via() } : { pair, key: b64(key), port: PORT, minutes: 10, base: lanBase(), ...via(), ...(code ? { code } : {}) });
+        : setup ? { pair, key: b64(key), code, port: PORT, minutes: 30, base: lanBase(), ...via() } : { pair, key: b64(key), port: PORT, minutes: 10, base: lanBase(), ...via(), ...(code ? { code } : {}) });
       return true;
     }
     if (p === '/screens/pair/end') { closeConnect(String(b.pair || '')); json(res, 200, { ok: true }); return true; }
@@ -505,7 +508,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
   });
 
   /** A device's hello with its pairing's one-time key: from the home network, or (a computer's) through the relay. */
-  function hello(b, ip, { relayable = null } = {}) {
+  function hello(b, ip, { relayable = null, secure: tls = ip.startsWith('relay:') } = {}) {
     const x = pairs.get(String(b.pair || ''));
     const opened = x && !x.asked && (!relayable || relayable(x)) && open(x.key, `hello:${b.pair}`, Buffer.from(String(b.box || ''), 'base64url'));
     if (!opened) {
@@ -518,8 +521,9 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     // The name is the caller's own; how it came isn't: on the Wi-Fi, or through the cloud (the web connector). Either
     // way it had the code, which only the tablet's own screen shows.
     x.name = name; x.asked = true; x.via = ip.startsWith('relay:') ? 'cloud' : 'wifi';
+    x.secure = !!tls; // its page came over https (this port's own, the tailnet's, or the cloud's): what's typed on it is its own
     console.log('[screens] a screen asks to join');
-    if (x.typed || x.pre) answer(String(b.pair), x, true); // a TV whose code someone typed on the tablet; the setup's own code, an invite from it, or a phone's code the tablet showed for someone (whoever scans it is standing at the tablet)
+    if (x.typed || x.pre) answer(String(b.pair), x, true); // a TV whose code someone typed on the tablet; an invite from the setup's phone, or a phone's code the tablet showed for someone (whoever scans it is standing at the tablet). The setup's own waits for Allow there.
     return { status: 200, json: { ok: true } };
   }
 
@@ -538,7 +542,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
       }
       if (connect && connect.until < Date.now()) closeConnect();
       if (connect && req.method === 'GET' && (p === '/' || p === '/openhouse.mcpb' || p === '/openhouse-mcp.mjs')) return connectRoute(req, res, p);
-      // While the setup's code lasts, the bare address (opie.local:8788, typed on a computer) is the page to type it on.
+      // While the setup's code lasts, the bare address (typed on a computer) is the page to type it on.
       if (req.method === 'GET' && p === '/' && [...pairs.values()].some((x) => x.setup && x.until > Date.now())) { res.writeHead(302, { location: '/phone/' }); return res.end(); }
       // A host with no screen (a hub): Google's sign-in comes back to its bare address (the cloud's /g/done, #g=… or #gc=…), which hands it to the
       // settings page; anything else goes on to the home screen (hub/back.js). A fragment never reaches a server.
@@ -574,7 +578,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
       if (blocked(ip)) return plain(res, 429, { error: 'wait' });
       sweep();
       if (req.method === 'POST' && p === '/pair/hello') {
-        const r = hello(JSON.parse((await raw(req, 4096))?.toString() || '{}'), ip);
+        const r = hello(JSON.parse((await raw(req, 4096))?.toString() || '{}'), ip, { secure: secure(req) });
         return plain(res, r.status, r.json);
       }
       if (req.method === 'GET' && p === '/pair/about') return plain(res, 200, { hub: noScreen() }); // where a device says yes (docs/hub.md)
@@ -681,7 +685,10 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
 
     // The request, as the display's own: a body that's already read, and a 'close' when the screen goes away.
     const inner = new Readable({ read() {}, autoDestroy: false, emitClose: false });
-    Object.assign(inner, { method: msg.m, url: msg.p, headers: { host: '127.0.0.1', 'content-type': 'application/json', 'x-openhouse-screen': id, ...(fromApp ? { 'x-openhouse-screen-app': fromApp } : {}), ...(share ? { 'x-openhouse-share-at': String(Math.floor(msg.n / 1000)) } : {}) } });
+    // Over https from a device whose page joined over https too: what's typed there (the PIN, a password) is safe to
+    // send from it (brain.js /setup/pin, /setup/icloud). Plain http on the Wi-Fi isn't: anyone there can serve the page.
+    const tls = !!s.secure && (ip.startsWith('relay:') || secure(req));
+    Object.assign(inner, { method: msg.m, url: msg.p, headers: { host: '127.0.0.1', 'content-type': 'application/json', 'x-openhouse-screen': id, ...(tls ? { 'x-openhouse-secure': '1' } : {}), ...(fromApp ? { 'x-openhouse-screen-app': fromApp } : {}), ...(share ? { 'x-openhouse-share-at': String(Math.floor(msg.n / 1000)) } : {}) } });
     if (msg.m === 'POST') inner.push(Buffer.from(JSON.stringify(msg.b ?? {})));
     inner.push(null);
     let head = false;
@@ -827,6 +834,15 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     return { status: 200, json: { waiting: true } };
   };
   handle.stop = () => { closeConnect(); stopLan(); };
+  /** The tablet's setup ended: the phones and computers it was done from keep only what their person's would have, and
+   *  its code goes. */
+  handle.setupOver = () => {
+    for (const [id, x] of pairs) if (x.setup) pairs.delete(id);
+    let n = 0;
+    for (const s of state.screens) if ((s.scopes || []).includes('setup')) { s.scopes = s.scopes.filter((x) => x !== 'setup'); n++; }
+    if (n) { write(); changed(); }
+    return n;
+  };
   /** The home network's port on (Tailscale's address is passed on to it: tailscale.js). Screens stay as they are. */
   handle.lanOn = () => { if (!state.lan) { state.lan = true; write(); } startLan(); };
   /** A hub's first settings device (docs/hub.md): a code to type at /hub/, printed where only someone with the hub's console

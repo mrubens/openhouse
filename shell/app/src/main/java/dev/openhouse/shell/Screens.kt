@@ -329,6 +329,15 @@ internal object Screens {
             .setNegativeButton("Cancel", null).show().also { a.immersive() }
     }
 
+    /** The setup's phone or computer asked to join with its code (ui/Setup.kt DevicesStep): a person's Allow here first,
+     *  seeing what it is, since the code alone could have reached anyone on the Wi-Fi. */
+    fun confirmSetup(a: MainActivity, pair: String, name: String) {
+        CalmDialog(a).setForPerson().setTitle("Let “$name” set up Opie?")
+            .setPositiveButton("Allow") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", true)) } }
+            .setNegativeButton("Not now") { _, _ -> thread { post("/screens/answer", JSONObject().put("pair", pair).put("yes", false)) } }
+            .setCancelable(false).show().also { a.immersive() }
+    }
+
     private fun confirm(a: MainActivity, pair: String, name: String, computer: Boolean = false, tv: Boolean = false, via: String = "") {
         if (tv) {
             CalmDialog(a).setForPerson().setTitle("Let “$name” show photos and the calendar?").setMessage("It can't change anything.")

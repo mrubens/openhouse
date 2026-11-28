@@ -340,6 +340,13 @@ relay = relayRoutes({ DISPLAY, json, body, screens, cloud, onMail: () => mail.nu
 // cloud. Off until someone turns it on (Settings → Advanced); one more carrier for the same sealed requests.
 const tailscale = tailscaleRoutes({ DISPLAY, json, body, screens });
 chat.live.setWhoOf?.((id) => screens.who(id)); // Opie on someone's phone knows who it's talking with (live-tools.js)
+chat.live.onSetupOver?.(() => screens.setupOver()); // the setup ended on the tablet: its phone or computer is a person's own now
+/** The setup's phone or computer, as people would say it ("Sam's computer"), for the tablet's card; '' for anything else. */
+const setupDeviceName = (req) => {
+  const w = screens.who(String(req.headers['x-openhouse-screen'] || ''));
+  if (!w) return '';
+  return w.person && /^An? /.test(w.name) ? `${w.person}'s ${w.name.replace(/^An? /, '').toLowerCase()}` : w.name;
+};
 chat.live.setPhones?.({ phones: () => screens.phones(), message: (people, m) => screens.message(people, m) }); // message_family: a message to someone's phones (live-tools.js)
 // A note for someone: their phone gets it (Web Push from the tablet itself; only phones that allowed notifications).
 chat.homeScreen.onNoteFor = (n) => { screens.notify(n.for, { title: n.title, body: String(n.content || '').replace(/```[\s\S]*?```/g, '').replace(/[#*_>`]/g, '').trim().split('\n')[0], tag: n.id }).catch(() => {}); };
@@ -548,6 +555,13 @@ async function route(req, res, url) {
     if (headless && url.pathname === '/setup/step' && req.method === 'GET') { json(res, 200, { step: headless.setup.step() }); return true; } // no screen there: the setup's steps are driven here
     if (headless && url.pathname === '/setup/go' && req.method === 'POST') { headless.setup.go((await body(req)).step); json(res, 200, { ok: true, step: headless.setup.step() }); return true; }
     if (req.method === 'GET' && url.pathname === '/setup/step') { json(res, 200, chat.live.setupShown?.() || { step: null }); return true; }
+    // The setup's phone or computer reaches the rest only while a setup step shows on the tablet (it loses the scope
+    // when the setup ends too: screens.js setupOver). A hub's settings device is the hub's own (headless.js).
+    const fromSetup = !headless && !!req.headers['x-openhouse-screen'] && url.pathname.startsWith('/setup/');
+    if (fromSetup && !chat.live.setupShown?.()?.step) { json(res, 409, { error: 'The setup is over.' }); return true; }
+    // Typed on a page that came over plain http (anyone on the Wi-Fi can serve that page and read what's typed): the
+    // PIN and iCloud's password are typed at the device instead, never sent from there.
+    const atDevice = fromSetup && req.headers['x-openhouse-secure'] !== '1';
     // The setup is done from the phone or computer (docs/onboarding.md): who lives here and where are typed there, and
     // its Next moves the tablet on (Setup.kt looks at /setup/want).
     if (url.pathname === '/setup/household' && req.method === 'GET') {
@@ -561,13 +575,9 @@ async function route(req, res, url) {
       try { chat.live.setupHousehold?.save?.(put); } catch (e) { json(res, 400, { error: e.message }); return true; }
       json(res, 200, { ok: true }); return true;
     }
-    // The rest of what's signed in to is done there too: linking to an Opie account (the link page opens there, and no
-    // yes is asked at the tablet: its code shows only there), Google's sign-in (it opens there; the calendars are
-    // chosen at the tablet) and iCloud's (typed there, sealed, straight on to the shell, never kept here).
-    if (url.pathname === '/setup/link' && req.method === 'POST') {
-      try { json(res, 200, await cloud.linkFromSetup()); } catch (e) { json(res, 400, { error: 'The device couldn\'t reach Opie\'s service just now. Try again in a minute.' }); }
-      return true;
-    }
+    // The rest of what's signed in to is done there too: Google's sign-in (it opens there; the calendars are chosen at
+    // the tablet) and iCloud's (typed there over https, sealed, straight on to the shell, never kept here; else at the
+    // tablet). Linking to an Opie account is the tablet's own (Settings, Account: a yes there).
     if (url.pathname === '/setup/google' && req.method === 'POST') {
       const st = cloud.status();
       if (!st.linked) { json(res, 409, { error: 'Link the device to your Opie account first.' }); return true; }
@@ -581,12 +591,15 @@ async function route(req, res, url) {
     }
     if (url.pathname === '/setup/icloud' && req.method === 'POST') {
       const b = await body(req);
-      const r = await calendar.toShell('/setup/icloud', { user: String(b.user || '').slice(0, 200), pass: String(b.pass || '').slice(0, 100), who: String(b.who || '').slice(0, 40) });
+      const r = await calendar.toShell('/setup/icloud', atDevice ? { here: true, who: String(b.who || '').slice(0, 40) }
+        : { user: String(b.user || '').slice(0, 200), pass: String(b.pass || '').slice(0, 100), who: String(b.who || '').slice(0, 40) });
       json(res, r.error ? 400 : 200, r); return true;
     }
-    // The PIN, chosen there (the shell keeps only its hash; a recovery code comes back once, to be shown there). Never logged.
+    // The PIN, chosen there over https (the shell keeps only its hash; a recovery code comes back once, to be shown
+    // there), else on the tablet's own PIN pad. Never logged.
     if (url.pathname === '/setup/pin' && req.method === 'POST') {
-      const r = await calendar.toShell('/setup/pin', { pin: String((await body(req)).pin || '').slice(0, 8), linked: !!cloud.status().linked });
+      const pin = String((await body(req)).pin || '').slice(0, 8);
+      const r = await calendar.toShell('/setup/pin', atDevice ? { here: true } : { pin, linked: !!cloud.status().linked });
       json(res, r.error ? 400 : 200, r); return true;
     }
     if (url.pathname === '/setup/go' && req.method === 'POST') { chat.live.setupWant?.((await body(req)).step); json(res, 200, { ok: true }); return true; }
@@ -603,7 +616,10 @@ async function route(req, res, url) {
         if (!r.error) { const via = relay?.inviteVia?.(); if (via) { Object.assign(r, via); relay.changed(); } } // a link that works from anywhere
         json(res, r.error ? 400 : 200, r); return true;
       }
-      const r = await calendar.toShell(url.pathname === '/setup/calendar' ? '/calendar' : '/album', { url: String(b.link || '').trim(), who: String(b.who || '').trim().slice(0, 40), from: 'setup', trusted: true });
+      // A calendar's link from the setup's phone or computer: a yes on the tablet, as any other (it may be anyone's
+      // calendar, and its events are the household's from then on). A hub's settings device is the hub's own.
+      const cal = url.pathname === '/setup/calendar', from = setupDeviceName(req);
+      const r = await calendar.toShell(cal ? '/calendar' : '/album', { url: String(b.link || '').trim(), who: String(b.who || '').trim().slice(0, 40), from: cal && !headless ? from : 'setup', trusted: !cal || !!headless });
       json(res, r.error ? 400 : 200, r); return true;
     }
     // An iCloud shared album's link from an adult's own phone (the Photos app there): theirs to add, as the setup
