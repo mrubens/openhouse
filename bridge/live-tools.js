@@ -142,7 +142,7 @@ export const HA_TOOL = { name: 'home_assistant', description: "The household's H
     'on, off, brightness (level 0-100), play, pause, next, previous, volume (level 0-100), louder, quieter, mute, or status of one thing (on for a scene sets it); list says what you may use. ' +
     'Locks, garage doors, alarms and cameras are never reachable, and thermostats can\'t be changed: say so plainly. ' +
     'things lists everything that could be picked; use asks the people here to let you use one more (a card on the device), stop_using drops one. ' +
-    'connect puts Connect Home Assistant on the device\'s screen: the token is only ever typed or sent there by a person, never said to you.',
+    'connect puts Connect Home Assistant on the device\'s screen (on a hub, its settings page): the token is only ever typed or sent there by a person, never said to you.',
   inputSchema: { type: 'object', required: ['do'], properties: { do: { type: 'string', enum: ['list', 'on', 'off', 'brightness', 'play', 'pause', 'next', 'previous', 'volume', 'louder', 'quieter', 'mute', 'status', 'things', 'use', 'stop_using', 'connect'] },
     thing: { type: 'string', description: 'Which one, by its name or its id from list or things' }, level: { type: 'integer', description: 'For brightness and volume: 0-100' } } } };
 /** Does the tablet hear them? Settings → Opie → Voice's microphone check, on the screen: devices/index.js micCheckDo (the shell's /mic-check). */

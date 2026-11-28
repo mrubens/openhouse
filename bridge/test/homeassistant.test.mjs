@@ -147,3 +147,25 @@ test('only what the household picked can be used; Opie asks before picking more'
   assert.equal((await devices.homeAssistant({ do: 'stop_using', thing: 'Kitchen light' })).ok, true);
   assert.equal((await devices.homeAssistant({ do: 'on', thing: 'Kitchen light' })).ok, false);
 });
+
+test("a hub's settings page: the token goes on to the keeper and never comes back; only a settings device reaches it", async () => {
+  const { settingsRoutes } = await import('../headless.js');
+  const { allowed, ADMIN_SCOPES, DEFAULT_SCOPES, PHONE_SCOPES, TV_SCOPES } = await import('../screens.js');
+  for (const s of [DEFAULT_SCOPES, PHONE_SCOPES.grownup, PHONE_SCOPES.kid, TV_SCOPES]) assert.equal(allowed(s, 'POST', '/hub/homeassistant/connect'), false);
+  assert.equal(allowed(ADMIN_SCOPES, 'POST', '/hub/homeassistant/connect'), true);
+  const said = [], secret = TOKEN.split('.').slice(1);
+  const r = settingsRoutes({ call: host.call, json: (res, s, j) => { res.s = s; said.push(JSON.stringify(j)); }, body: async (req) => req.b,
+    ha: devices.homeAssistantSettings, haChanged: devices.homeAssistantCheck });
+  const ask = async (method, p, b) => { const res = {}; await r.handle({ method, b }, res, new URL(p, 'http://x'), 's-1'); return res.s; };
+  await host.call('/homeassistant/remove');
+  const connecting = ask('POST', '/hub/homeassistant/connect', { url: haUrl, token: TOKEN });
+  await answer(true);
+  assert.equal(await connecting, 200);
+  assert.equal((await host.call('/homeassistant/status')).body.set, true);
+  assert.equal(await ask('GET', '/hub/homeassistant'), 200);
+  assert.equal(await ask('GET', '/hub/homeassistant/things'), 200);
+  assert.equal(await ask('POST', '/hub/homeassistant/use', { entity: 'light.porch', use: true }), 200);
+  assert.ok(said.some((j) => j.includes('light.porch')));
+  for (const j of said) assert.ok(!secret.some((x) => j.includes(x)), 'never in an answer to the page');
+  assert.ok(!secret.some((x) => fs.readFileSync(process.env.DEVICES_FILE, 'utf8').includes(x)), 'never in what the bridge keeps');
+});
