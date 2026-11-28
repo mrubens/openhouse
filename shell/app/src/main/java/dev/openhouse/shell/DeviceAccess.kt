@@ -96,9 +96,14 @@ class DeviceAccess : AccessibilityService() {
     /** Nodes from the last [describe], by the number shown to the agent. */
     private val nodes = HashMap<Int, AccessibilityNodeInfo>()
 
-    fun foregroundPackage(): String? =
-        windows.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.isActive }?.root?.packageName?.toString()
-            ?: rootInActiveWindow?.packageName?.toString()
+    fun foregroundPackage(): String? {
+        val ws = windows
+        ws.firstOrNull { it.type == AccessibilityWindowInfo.TYPE_APPLICATION && it.isActive }?.root?.packageName?.toString()?.let { return it }
+        // Typing to the assistant over an app (Buddy's box has the keys): the app under it is still the one in front.
+        if (ws.any { it.type == AccessibilityWindowInfo.TYPE_ACCESSIBILITY_OVERLAY && it.isActive })
+            ws.filter { it.type == AccessibilityWindowInfo.TYPE_APPLICATION }.maxByOrNull { it.layer }?.root?.packageName?.toString()?.let { return it }
+        return rootInActiveWindow?.packageName?.toString()
+    }
 
     /** The visible screen as numbered lines the agent can refer to: `[7] Button "Start" (tap)`. */
     fun describe(): String {

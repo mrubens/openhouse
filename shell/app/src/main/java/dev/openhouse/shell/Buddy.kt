@@ -60,6 +60,8 @@ import dev.openhouse.ui.Segment
 import dev.openhouse.ui.ohText
 import dev.openhouse.ui.u
 import kotlin.math.PI
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import kotlin.math.sin
 
 /**
@@ -120,7 +122,7 @@ object Buddy {
     fun stopWorking() { step = null; DeviceServer.stop("Someone stopped it."); Openhouse.stopAnswer(); LiveVoice.tappedAway() }
 
     /** Hidden while a screenshot for the agent is taken (so it doesn't cover what it's looking at). */
-    fun hideForShot(hide: Boolean) = main.post { window?.view?.visibility = if (hide) View.INVISIBLE else View.VISIBLE }
+    fun hideForShot(hide: Boolean) = main.post { window?.let { it.view.visibility = if (hide) View.INVISIBLE else View.VISIBLE; it.shot = hide; it.refresh() } }
 }
 
 /** Compose needs a lifecycle; a window owned by a service has none, so give it one that is always resumed. */
@@ -151,18 +153,48 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
     private var anim: ValueAnimator? = null
     private val goHome = Runnable { moveTo(null) }
 
-    /** What people say (or type) as they say it, centered along the bottom, apart from the note and its words. */
+    /** Typing to it over an app: the same box as on the home screen (its keyboard comes up for it; a keyboard cover's
+     *  keys come in through device control), along the bottom. A tap outside puts it away. */
     private val words = ComposeView(svc).apply {
         setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner)
-        setContent { WordsCaption() }
+        setContent { TypingOverApps() }
+        setOnTouchListener { _, e -> if (e.action == android.view.MotionEvent.ACTION_OUTSIDE) { Openhouse.closeTyping(); true } else false }
     }
     private val wordsLp = WindowManager.LayoutParams(
-        WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+        WindowManager.LayoutParams.MATCH_PARENT, WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-        WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+        WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
         PixelFormat.TRANSLUCENT,
-    ).apply { gravity = Gravity.BOTTOM or Gravity.START; x = 40; y = 80 }
+    ).apply { gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; fitInsetsTypes = 0; softInputMode = WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE }
     private var wordsAdded = false
+
+    /** The home screen's Talk and Type (dev.openhouse.ui.RailTools), each in a small window of its own at its place. */
+    private inner class Tool(val talk: Boolean) {
+        val view = ComposeView(svc).apply {
+            setViewTreeLifecycleOwner(owner); setViewTreeSavedStateRegistryOwner(owner)
+            setContent { dev.openhouse.ui.RailTools.spots?.let { s -> Box(Modifier.padding(with(androidx.compose.ui.platform.LocalDensity.current) { edge.toDp() })) { dev.openhouse.ui.RailToolButton(talk, s) } } }
+        }
+        val lp = WindowManager.LayoutParams(
+            WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT,
+            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            PixelFormat.TRANSLUCENT,
+        ).apply { gravity = Gravity.TOP or Gravity.START; fitInsetsTypes = 0; layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS }
+        var added = false
+        /** Room around the button for its shadow. */
+        var edge = 0f
+        fun place(at: dev.openhouse.ui.RailTools.Spot?) {
+            if (at == null) { if (added) runCatching { wm.removeView(view) }; added = false; return }
+            edge = at.size / 8
+            lp.x = (at.x - edge).toInt(); lp.y = (at.y - edge).toInt(); lp.width = (at.size + 2 * edge).toInt(); lp.height = lp.width
+            if (added) runCatching { wm.updateViewLayout(view, lp) } else runCatching { wm.addView(view, lp); added = true }
+        }
+    }
+    private val talkTool = Tool(true)
+    private val typeTool = Tool(false)
+    /** Hidden for the agent's screenshot (Buddy.hideForShot). */
+    @Volatile var shot = false
+    private val scope = kotlinx.coroutines.MainScope()
 
     /** An app being made (dev.openhouse.ui.BuildChip): its quiet chip in the bottom corner, over whatever app is open. */
     private val chip = ComposeView(svc).apply {
@@ -178,7 +210,7 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
     private var chipAdded = false
 
 
-    fun close() { if (Buddy.window === this) Buddy.window = null; anim?.cancel(); if (added) runCatching { wm.removeView(view) }; added = false; if (wordsAdded) runCatching { wm.removeView(words) }; wordsAdded = false; if (chipAdded) runCatching { wm.removeView(chip) }; chipAdded = false }
+    fun close() { if (Buddy.window === this) Buddy.window = null; anim?.cancel(); scope.cancel(); talkTool.place(null); typeTool.place(null); if (added) runCatching { wm.removeView(view) }; added = false; if (wordsAdded) runCatching { wm.removeView(words) }; wordsAdded = false; if (chipAdded) runCatching { wm.removeView(chip) }; chipAdded = false }
 
     fun refresh() {
         val want = !Buddy.shellOnTop && !Buddy.covering
@@ -186,8 +218,16 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
             if (cx < 0) home().let { (x, y) -> cx = x; cy = y }
             layout(); runCatching { wm.addView(view, lp); added = true }
         } else if (!want && added) { runCatching { wm.removeView(view) }; added = false }
-        if (want && !wordsAdded) { wordsLp.gravity = Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL; wordsLp.x = 0; wordsLp.y = (20 * unit()).toInt(); runCatching { wm.addView(words, wordsLp); wordsAdded = true } } // their words: along the bottom, centred
-        else if (!want && wordsAdded) { runCatching { wm.removeView(words) }; wordsAdded = false }
+        val typing = want && Openhouse.typing != null
+        if (typing) { // above the on-screen keyboard (this window is above it, and gets no say in where it goes)
+            val r = android.graphics.Rect()
+            val ime = runCatching { svc.windows.firstOrNull { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_INPUT_METHOD }?.getBoundsInScreen(r) }.getOrNull()
+            val y = if (ime != null && !r.isEmpty) maxOf(0, screen().height() - r.top) else 0
+            if (!wordsAdded) { wordsLp.y = y; runCatching { wm.addView(words, wordsLp); wordsAdded = true } }
+            else if (wordsLp.y != y) { wordsLp.y = y; runCatching { wm.updateViewLayout(words, wordsLp) } }
+        } else if (wordsAdded) { runCatching { wm.removeView(words) }; wordsAdded = false }
+        val s = dev.openhouse.ui.RailTools.spots?.takeIf { want && !shot && !dev.openhouse.ui.RailTools.stepAside() }
+        talkTool.place(s?.talk); typeTool.place(s?.type)
         if (want && !chipAdded) { chipLp.x = (12 * unit()).toInt(); chipLp.y = (12 * unit()).toInt(); runCatching { wm.addView(chip, chipLp); chipAdded = true } }
         else if (!want && chipAdded) { runCatching { wm.removeView(chip) }; chipAdded = false }
     }
@@ -249,7 +289,11 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
 
     // Last, after every field of the window: Kotlin runs initializers in order, and refresh() uses the words window
     // (made while another app is in front, as when the accessibility service reconnects after an install, it crashed).
-    init { Buddy.window = this; refresh() }
+    init {
+        Buddy.window = this; refresh()
+        // Typing starting or ending, the rail's buttons moving, a sheet or the dark screen: the windows follow.
+        scope.launch { androidx.compose.runtime.snapshotFlow { Triple(Openhouse.typing != null, dev.openhouse.ui.RailTools.spots, dev.openhouse.ui.RailTools.stepAside()) }.collect { refresh() } }
+    }
 
     private fun layout() {
         lp.width = (32 * unit() + faceW() + (if (bubbleOn) (14 + BUBBLE_U) * unit() else 0f)).toInt() // the face, and the bubble beside it while it shows
@@ -263,13 +307,15 @@ internal class BuddyWindow(private val svc: AccessibilityService) {
 
 private const val BUBBLE_U = 620
 
-/** Over other apps: what they're saying or typing, in a bubble at the left edge, the mirror of the note's. */
+/** Over other apps: the typing box, as on the home screen (Overlay.kt TypeBox). What they said shows on the face. */
 @Composable
-private fun WordsCaption() {
-    // Nothing of what they said: the face shows it heard them, as on the home screen. Only a typed draft shows here.
-    val o = Openhouse
-    val text = o.draft.takeIf { o.typing != null }?.let { it + "▏" }
-    if (text != null) Box(Modifier.padding(14.u)) { dev.openhouse.ui.TheirWords(text) }
+private fun TypingOverApps() {
+    dev.openhouse.ui.OhScreen {
+        val note = Openhouse.typing ?: return@OhScreen
+        Box(Modifier.fillMaxWidth().padding(horizontal = (if (LocalConfiguration.current.smallestScreenWidthDp in 1..599) 16 else 260).u), contentAlignment = Alignment.Center) {
+            dev.openhouse.ui.TypeBox(note)
+        }
+    }
 }
 
 private enum class Mood { Asleep, Typing, Listening, Hearing, Talking, Thinking, Working, Replied }
