@@ -24,7 +24,7 @@ import path from 'node:path';
 import { calendars } from './calendar.js';
 import { calendarSync } from './calendar-sync.js';
 import { shellCall } from './calendar-links.js';
-import { DEFAULT_RULES, rulesNow } from './house-rules.js';
+import { DEFAULT_RULES, cleanRules, rulesNow } from './house-rules.js';
 
 // How much the household holds. Past one, a save is refused with the reason (a 400 for a tap, an error a tool says),
 // never cut short: nobody's chore or person is dropped to make room.

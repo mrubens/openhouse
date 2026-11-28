@@ -38,3 +38,22 @@ test('a yes on the tablet saves it, and putting back the defaults takes a yes to
   assert.equal(s.kept(), null);
   assert.equal(s.cards.length, 2);
 });
+
+test('POST /household/rules (the real route, to the real file): saves the text, and Defaults puts them back', async () => {
+  const fs = await import('node:fs'), os = await import('node:os'), path = await import('node:path');
+  const { boardRoutes } = await import('../board.js');
+  const { DEFAULT_RULES } = await import('../house-rules.js');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'oh-rules-')), DIR = path.join(root, 'chats');
+  fs.mkdirSync(DIR);
+  fs.writeFileSync(path.join(root, 'household.json'), JSON.stringify({ family: [{ name: 'Sam' }], chores: [] }));
+  const json = (res, code, obj) => { res.code = code; res.body = obj; };
+  const homeScreen = { migrate() {}, describe: () => '', during: async () => ({ result: { ok: false, text: 'no agent' }, notes: [] }) };
+  const board = boardRoutes({ HERE: root, DIR, WORK: root, currentAgent: async () => ({}), agentName: () => 'test', json, body: async (r) => r.body, homeScreen });
+  const call = async (method, p, b) => { const res = {}; await board({ method, body: b }, res, new URL('http://x' + p)); return res; };
+  assert.equal((await call('GET', '/household/rules')).body.text, DEFAULT_RULES);
+  const r = await call('POST', '/household/rules', { text: 'Adults use this too.' });
+  assert.equal(r.code, 200);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, 'household.json'), 'utf8')).rules, 'Adults use this too.');
+  await call('POST', '/household/rules', { defaults: true });
+  assert.equal((await call('GET', '/household/rules')).body.defaults, true);
+});
