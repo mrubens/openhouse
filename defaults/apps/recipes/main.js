@@ -386,7 +386,7 @@ function boxView() {
       link?.state === 'working' && !q ? h('div', { class: 'r-card r-skel' }, h('div', { class: 'r-spin' }), h('div', { class: 't' }, h('h2', null, 'Adding a recipe'), h('div', { class: 'm' }, link.link ? siteOf(link.link) : 'Finding it'))) : null,
       all.map(([key, r]) => recipeTile(key, r, when.get(key), !waiting && tonight?.key === key)))
       : q ? (f?.query === q ? null : btn(`Search the web for ${q}`, () => webFind(q), { soft: true, cls: 'webq' }))
-      : h('p', { class: 'r-none' }, 'No recipes yet. Find one, or add one by its link, a photo of the page, or by typing it. Each one is made into steps you can cook from, hands-free.'),
+      : h('div', { class: 'r-empty' }, h('h2', null, 'No recipes yet'), h('p', null, 'Find one above, or add your own. Each becomes steps to cook from, hands-free.')),
     hits?.some((x) => !x.key) ? h('p', { class: 'note' }, `Favorite meals: ${hits.filter((x) => !x.key).map((x) => x.name).join(', ')} (no recipe yet).`) : null);
 }
 /** One recipe in the box: its picture, its name, a few facts; when it's planned, and Cook on the one planned for now. */

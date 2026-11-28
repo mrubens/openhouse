@@ -48,6 +48,9 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 :root .r-card > .r-on, :root .r-card > .r-cook { position: absolute; top: calc(16 * var(--u)); z-index: 2; display: grid; place-items: center; white-space: nowrap; color: #15132b; font-weight: 700; }
 .r-on { left: calc(16 * var(--u)); height: calc(36 * var(--u)); padding: 0 calc(14 * var(--u)); border-radius: calc(18 * var(--u)); background: #ffc247; font-size: calc(16 * var(--u)); }
 .r-cook { right: calc(16 * var(--u)); height: calc(46 * var(--u)); padding: 0 calc(22 * var(--u)); border-radius: calc(23 * var(--u)); background: #fff; font-size: calc(17 * var(--u)); box-shadow: 0 8px 16px -8px rgba(20, 10, 0, .5); }
+.r-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: calc(10 * var(--u)); padding: calc(40 * var(--u)) calc(16 * var(--u)); }
+.r-empty h2 { margin: 0; font-size: calc(30 * var(--u)); font-weight: 600; }
+.r-empty p { margin: 0; color: var(--fg2); font-size: calc(21 * var(--u)); max-width: calc(560 * var(--u)); line-height: 1.4; }
 .r-none { color: var(--fg2); font-size: calc(22 * var(--u)); font-weight: 500; max-width: calc(820 * var(--u)); line-height: 1.4; padding: 0 calc(10 * var(--u)); }
 .recipe { white-space: pre-wrap; font-size: calc(21 * var(--u)); line-height: 1.45; max-height: calc(480 * var(--u)); user-select: text; -webkit-user-select: text; }
 .link { font-size: calc(19 * var(--u)); color: var(--ink-soft); overflow-wrap: anywhere; }

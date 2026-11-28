@@ -73,7 +73,7 @@ export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'whiteboard', 'recip
  * they change it: a new default never moves a household's own. Version 2 (2026-11-25): Dinner off (it can be added),
  * the Whiteboard and a recipe to try on, the list after them (smaller).
  */
-export const TODAY_DEFAULT = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'chores', 'photos', 'lists', 'notes'];
+export const TODAY_DEFAULT = ['calendar', 'weather', 'lunch', 'whiteboard', 'chores', 'photos', 'lists', 'notes'];
 /** The cards on Home now, in order: the household's list, else the default with the apps' cards that are on before the photos. */
 export function todayNow(st = {}) {
   if (Array.isArray(st.today)) return st.today;

@@ -85,7 +85,7 @@ person's; **screen, with the PIN** Opie opens it and carries on once someone typ
 | Photos: stop keeping an iCloud album | screen | On its card in Photos |
 | Weather: where home is | **new** | update_household location (was typed-only) |
 | Whiteboard: draw, clear, save | no | Drawing is the finger's; the board stays on that device (a small picture of it shows on Home's card) |
-| Recipes: take a starter recipe out | yes | remove_recipe; Opie's starters go in a new household's box once and never come back once taken out |
+| Recipes: take a starter recipe out | yes | remove_recipe; a new household's box starts empty (since 2026-11-28), and boxes that got Opie's starters before keep them until taken out |
 | TV app | yes | tv (the app itself only shows the week) |
 | A media app from Apps (music, audiobooks, podcasts): play something, pause, skip, back 30 seconds, what's playing | **new** | music (docs/music.md): plays from a search in the app, or opens one that can't take a search; the system's own media apps open only for someone, as from Apps |
 

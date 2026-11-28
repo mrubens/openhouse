@@ -20,23 +20,10 @@ const COOK_V = 2; // the shape of the steps (2: titles, parts, waiting, ahead, f
 
 export default function (house) {
   const { data, save, changed, mealWork, FLYERS } = house;
-  // A new household's box starts with Opie's starters (marked starter: a tap takes one out like any other), once: never
-  // into a box that already has recipes, and never again after (one taken out stays out). starters: the version put in.
+  // A new household's box starts empty (since 2026-11-28: the owner preferred a blank slate). Boxes that got Opie's
+  // starters before keep them, the household's to take out like any other; starters.json stays for those.
   if (!data.starters) {
     data.starters = 1;
-    if (!Object.keys(data.recipes).length) {
-      const at = Date.now();
-      for (const x of starterRecipes(house.STARTERS)) {
-        const name = str(x?.name, 80).trim(); if (!name || !Array.isArray(x.steps) || !x.steps.length) continue;
-        const ing = (i) => ({ item: str(i?.item, 80), amount: str(i?.amount, 90) });
-        const cook = { name, ...(Object.hasOwn(DISHES, x.dish) ? { dish: x.dish } : {}), serves: str(x.serves, 40), ...(x.minutes > 0 ? { minutes: Math.round(x.minutes) } : {}),
-          ingredients: (x.ingredients || []).map(ing).filter((i) => i.item),
-          steps: x.steps.map((st) => ({ text: str(st.text, 900), ...(st.title ? { title: str(st.title, 50) } : {}), ...(st.wait ? { wait: true } : {}), ...(st.ahead ? { ahead: str(st.ahead, 40) } : {}),
-            ...(st.uses?.length ? { uses: st.uses.map(ing).filter((i) => i.item) } : {}), ...(st.timer?.minutes > 0 ? { timer: { minutes: st.timer.minutes, label: str(st.timer.label, 40) } } : {}) })).filter((st) => st.text) };
-        const r = { text: name, notes: cookAsNotes(cook).slice(0, 4000), at, starter: true };
-        data.recipes[name.toLowerCase()] = { ...r, cook: { ...cook, v: COOK_V, for: cookSource(r), at } };
-      }
-    }
     try { save(); } catch (e) { console.error('[recipes] starters not saved:', e.message); }
   } else {
     // Starters put in before they had a kind of dish (cook.dish, their drawn mark): theirs from the file, once.
