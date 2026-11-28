@@ -28,6 +28,7 @@ import android.content.Intent
  * `--ez cloud_checkin true` sends a health check-in now (CloudHealth; only if the tablet is linked).
  * `--ez settings true` opens Settings.
  * `--es pin` with digits turns the lock on with that PIN; `--es pin ""` turns it off.
+ * `--es video_app <package> [--ez video_on false]`: an app in Apps is a video app, or not (VideoFloat), as its hold menu does.
  * `--es mail_host imap.example.com --es mail_user tablet@example.com --es mail_password <app password> [--ei mail_port 993]`:
  * the household's own mailbox (MailAccount, docs/tablet-email.md), as Settings → Account → Email's form adds it (signed in first,
  * sealed, from the mail after now); the result data says "ok" or what went wrong. `--ez mail_remove true` removes it.
@@ -36,6 +37,7 @@ class ConfigReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
         val prefs = ctx.getSharedPreferences("shell", Context.MODE_PRIVATE)
         intent.getStringExtra("pin")?.let { pin -> if (pin.isEmpty()) ParentPin.clear(ctx) else if (ParentPin.valid(pin)) ParentPin.set(ctx, pin); MainActivity.live?.lock?.changed() }
+        intent.getStringExtra("video_app")?.takeIf { VideoFloat.inApps(it) }?.let { VideoFloat.setVideo(ctx, it, intent.getBooleanExtra("video_on", true)) }
         val e = prefs.edit()
         for (k in listOf("ui", "bridge")) intent.getStringExtra(k)?.let { if (localUrl(it)) e.putString(k, it) } // the token goes to the bridge
         intent.getStringExtra("runtime")?.let { if (it.startsWith("http")) e.putString("runtime_url", it) }
