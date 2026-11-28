@@ -123,6 +123,7 @@ class MainActivity : androidx.activity.ComponentActivity() { // ComponentActivit
         Runtime.init(this)
         CalendarAccounts.init(this) // two-way calendars: the sign-ins (the bridge syncs, through DeviceServer)
         OwnKey.init(this) // the household's own OpenAI key, sealed here (never the bridge's)
+        GeminiKey.init(this) // and its own Gemini key, the same way
         OwnStorage.init(this) // and their own storage bucket's key, for backups
         HomeAssistant.init(this) // and their Home Assistant's token
         CalendarLinks.start(this) { bridge } // the family's calendar links: kept by the shell, read every 15 minutes

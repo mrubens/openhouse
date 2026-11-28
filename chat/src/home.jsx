@@ -534,6 +534,11 @@ const VOICE_NEED = {
   own_key_refused: ['OpenAI stopped accepting your key', 'Add a new key'],
   own_key_limit: ['Your OpenAI account is out of credit', 'Your key'],
   own_stop: ["This month's spending stop is reached", 'Change the stop'],
+  gemini_key_refused: ['Google stopped accepting your Gemini key', 'Add a new key'],
+  gemini_key_limit: ['Your Gemini project is over its limit', 'Your key'],
+  gemini_key_billing: ['Your Gemini project needs billing turned on', 'Your key'],
+  gemini_no_key: ['The Gemini key is gone from this device', 'Add a key'],
+  gemini_stop: ["This month's Gemini spending stop is reached", 'Change the stop'],
 };
 
 export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, addTo = go, openApp, shell, usePhoto, look, appsV, boardAt = 0 }) {

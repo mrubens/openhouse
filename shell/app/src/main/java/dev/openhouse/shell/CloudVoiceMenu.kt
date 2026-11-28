@@ -30,6 +30,14 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
             "harema" to "Harema · Japanese, feminine", "shida" to "Shida · Japanese, masculine",
             "noeul" to "Noeul · Korean, feminine",
         )
+        /** Google's voices for Gemini Live (Google's speech guide; bridge own-gemini.js GEMINI_VOICES), offered with a
+         *  Gemini key in: picking one is what moves Opie's voice to Google. */
+        val GEMINI_VOICES = listOf(
+            "kore" to "Kore · Google, firm", "puck" to "Puck · Google, upbeat", "zephyr" to "Zephyr · Google, bright",
+            "charon" to "Charon · Google, informative", "aoede" to "Aoede · Google, breezy", "leda" to "Leda · Google, youthful",
+            "orus" to "Orus · Google, firm", "achernar" to "Achernar · Google, soft", "schedar" to "Schedar · Google, even",
+            "gacrux" to "Gacrux · Google, mature",
+        )
     }
 
     private fun ui(f: () -> Unit) = act.runOnUiThread(f)
@@ -60,21 +68,31 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
         // Only once something's been used: a line nobody needs otherwise.
         val month = v?.optJSONObject("month")?.takeIf { m -> listOf("minutes", "questions", "apps", "cents").any { m.optInt(it) > 0 } }?.optString("text")?.takeIf { it.isNotBlank() }
         val credit = creditLine(v)
+        // With a Gemini key in, Google's voices come first, then OpenAI's (where there's an OpenAI key or Opie cloud).
+        val google = v?.optBoolean("gemini") == true
+        val openai = v == null || v.optBoolean("openaiKey") || v.optBoolean("linked") || !google
+        val voices = (if (google) GEMINI_VOICES else emptyList()) + (if (openai) VOICES else emptyList())
+        val toGoogle = v?.optString("vendor") == "Google"
         ui {
             if (now == null) return@ui say(noBridge)
-            val checked = if (!LiveVoice.chosen) 0 else 1 + VOICES.indexOfFirst { it.first == now }
-            val d = CalmDialog(act).setTitle("Voice").setMessage((if (OwnKey.has()) "What's said after “Hey Opie” goes to OpenAI, on your own account." else "What's said after “Hey Opie” goes to OpenAI.") + (credit?.let { "\n\n$it" } ?: "") + (month?.let { "\n\n$it" } ?: ""))
+            val checked = if (!LiveVoice.chosen) 0 else 1 + voices.indexOfFirst { it.first == now }
+            // (whose it is, by the voice picked: the consent names that vendor)
+            val goes = when { toGoogle -> "What's said after “Hey Opie” goes to Google, on your own account."
+                OwnKey.has() -> "What's said after “Hey Opie” goes to OpenAI, on your own account."
+                else -> "What's said after “Hey Opie” goes to OpenAI." }
+            val d = CalmDialog(act).setTitle("Voice").setMessage(goes + (credit?.let { "\n\n$it" } ?: "") + (month?.let { "\n\n$it" } ?: ""))
             // (Check the microphone and House rules are their own rows in Settings → Opie.)
-            d.setNeutralButton("Your own OpenAI key") { _, _ -> OwnKey.menu(act) }
-                .setSingleChoiceItems((listOf("Off") + VOICES.map { it.second }).toTypedArray(), checked) { d, i ->
+            d.setNeutralButton("Your own keys") { _, _ -> ownKeys() }
+                .setSingleChoiceItems((listOf("Off") + voices.map { it.second }).toTypedArray(), checked) { d, i ->
                     d.dismiss()
                     if (i == 0) { OpieChoice.set(act, false); off(); return@setSingleChoiceItems }
-                    val id = VOICES[i - 1].first
+                    val id = voices[i - 1].first
                     OpieChoice.set(act, true)
                     thread {
                         val (_, r) = CloudSetup.post("${act.bridge}/cloud/voice/name", JSONObject().put("voice", id))
                         ui {
                             if (r == null || r.has("error")) return@ui say(r?.optString("error")?.ifEmpty { null } ?: noBridge)
+                            LiveVoice.gemini = r.optString("vendor") == "Google" // (the next conversation is the new vendor's)
                             dev.openhouse.ui.Openhouse.settingsChanged()
                             if (LiveVoice.chosen) dev.openhouse.ui.Speech.say("Hi, I'm Opie. This is how I sound now.", null)
                             else turnOn() // linking first if need be; on, with Hey Opie listening
@@ -82,6 +100,13 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
                     }
                 }.setNegativeButton("Back", null).show()
         }
+    }
+
+    /** Voice → Your own keys: the household's own OpenAI key (the voice and the assistant) or Gemini key (the voice). */
+    private fun ownKeys() {
+        CalmDialog(act).setTitle("Your own keys")
+            .setItems(arrayOf(if (OwnKey.has()) "OpenAI key" else "Add an OpenAI key", if (GeminiKey.has()) "Gemini key" else "Add a Gemini key")) { _, i -> if (i == 0) OwnKey.menu(act) else GeminiKey.menu(act) }
+            .setNegativeButton("Back", null).show()
     }
 
     /** The household doesn't have Opie's voice yet: Ask for it (kept by the service, which emails the household once
@@ -156,7 +181,7 @@ internal class CloudVoiceMenu(private val act: MainActivity) {
             LiveVoice.chosen = true
             dev.openhouse.ui.Openhouse.settingsChanged()
             act.setListening(true); dev.openhouse.ui.Openhouse.setWakeWord(true)
-            CalmDialog(act).setTitle("Opie is ready").setMessage("Say “Hey Opie” to use it. What follows goes to OpenAI.")
+            CalmDialog(act).setTitle("Opie is ready").setMessage("Say “Hey Opie” to use it. What follows goes to ${if (v.optString("vendor") == "Google") "Google" else "OpenAI"}.")
                 .setPositiveButton("OK", null)
                 .setNegativeButton("Turn off") { _, _ -> OpieChoice.set(act, false); off() }.show()
         }

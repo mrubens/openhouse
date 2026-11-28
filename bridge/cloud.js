@@ -24,6 +24,8 @@
 //   POST /cloud/voice {on}           turn it on or off here and for the family
 //   POST /cloud/voice/name {voice}   which of OpenAI's voices it speaks with (Settings → Opie → Voice, no PIN; from the next session)
 //   POST /cloud/live/start {sdp, name, instructions, tools} -> {sessionId, sdp}   POST /cloud/live/usage {sessionId, seconds, backend}
+//   On the household's own Gemini key (own-gemini.js), the voice only: POST /cloud/gemini {on} (the shell), POST
+//   /cloud/gemini/stop {cents}; a live start answers {sessionId, gemini: {url, token, setup}} for gemini-session.cjs.
 //
 // The credential lives in display/.cloud/device.json (0600), never in a backup.
 import fs from 'node:fs';
@@ -33,6 +35,7 @@ import zlib from 'node:zlib';
 import { request } from './backup-format.js';
 import { host } from './host.js';
 import { ownOpenAI, tokensMc, COSTS } from './own-openai.js';
+import { ownGemini, geminiMc, COSTS as GEMINI_COSTS, isGeminiVoice, DEFAULT_VOICE as GEMINI_VOICE } from './own-gemini.js';
 import { usageCounter, monthWords, overWords, OWN_WORDS } from './usage.js';
 
 // The service a tablet links to unless someone sets another (Settings → Account → Address). Filled in after the
@@ -47,7 +50,8 @@ export const STOPS = [500, 1000, 2000, 5000, 10000, 20000];
 const LIVE_MAX_SECS = 5 * 60; // (a session's own length at most: LiveVoice MAX_MS)
 
 export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', backupBits = () => ({}), fixesFile = null, now = Date.now, tick = 15 * 60e3, defaultApi = process.env.OPENHOUSE_CLOUD_URL || DEFAULT_API,
-  openai = (kind, body) => host.call('/openai', { kind, body }, { ms: 125e3 }).then((r) => r || { status: 0, body: null }) }) {
+  openai = (kind, body) => host.call('/openai', { kind, body }, { ms: 125e3 }).then((r) => r || { status: 0, body: null }),
+  gemini = (kind, body) => host.call('/gemini', { kind, body }, { ms: 30e3 }).then((r) => r || { status: 0, body: null }) }) {
   const DIR = path.join(DISPLAY, '.cloud');
   const f = (n) => path.join(DIR, n);
   const read = (n) => readJson(f(n), null, { bak: false }); // (keys: no .bak copies lying around)
@@ -245,13 +249,20 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   // This month's use as people count it (usage.js): what this tablet did, and on the own key what it cost.
   const use = usageCounter({ DIR, now });
   const own = ownOpenAI({ openai, spent: (mc) => use.add({ mc }) });
+  // The household's own Gemini key (own-gemini.js): the voice only, on Google's account, chosen by picking one of
+  // Google's voices (Settings → Opie → Voice). The shell keeps the key the same way (POST /cloud/gemini {on}).
+  const geminiOn = () => read('own-gemini.json')?.on === true;
+  const gem = ownGemini({ gemini, now });
+  /** Whose live voice talks: Google's when a Gemini key is in and one of its voices is chosen, else OpenAI's. */
+  const vendor = () => (geminiOn() && isGeminiVoice(read('voice.json')?.voiceName) ? 'gemini' : 'openai');
   // What stops the spending on the household's own key (docs/assistant.md): OpenAI bills them, and nobody may be
   // watching. A monthly stop (Settings → Opie → Voice → Your own OpenAI key; STOP_CENTS until someone changes it),
   // checked before every live start, text model call and Decisions call against this month's estimate (usage.js); a
   // day's cap on minutes in conversations "Hey Opie" opened (a wake misfire opens one; a tap or a phone's start isn't
   // capped); and each app's small questions (the kit's decide) at most APP_DECIDES a day, on either bill.
-  const limits = () => ({ stopCents: STOP_CENTS, ...(read('own-limits.json') || {}) });
+  const limits = () => ({ stopCents: STOP_CENTS, geminiStopCents: STOP_CENTS, ...(read('own-limits.json') || {}) });
   const spentCents = () => use.read().mc / 1000;
+  const geminiSpentCents = () => use.read().gmc / 1000; // (the Gemini key's own month, against its own stop)
   const today = () => { const d = new Date(now()); return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`; };
   const wakeToday = () => { const w = read('wake-day.json'); return w?.day === today() ? Math.max(0, Number(w.secs) || 0) : 0; };
   const wakeIds = new Set(); // (the conversations "Hey Opie" opened, until their minutes come in)
@@ -260,6 +271,11 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   function ownLeft() {
     const left = limits().stopCents - spentCents();
     if (left <= 0) throw said('own_stop');
+    return left;
+  }
+  function geminiLeft() {
+    const left = limits().geminiStopCents - geminiSpentCents();
+    if (left <= 0) throw said('gemini_stop');
     return left;
   }
   // Why the own key last failed at OpenAI (refused, out of credit, no key on the device), for Today and Settings;
@@ -277,12 +293,26 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       throw e;
     }
   }
+  /** The same for the Gemini key: why Google last refused it, until the next start goes through. */
+  async function geminiCall(fn) {
+    try {
+      const r = await fn();
+      if (state().geminiProblem) { setState({ geminiProblem: null }); needCheck(); }
+      return r;
+    } catch (e) {
+      if (['gemini_key_refused', 'gemini_key_limit', 'gemini_key_billing', 'gemini_no_key'].includes(e.code)) { setState({ geminiProblem: e.code }); needCheck(); throw Object.assign(e, { message: OWN_WORDS[e.code], said: true }); }
+      if (e.code === 'gemini_stop') needCheck();
+      throw e;
+    }
+  }
   /**
    * Why Opie's voice can't answer here, for Today's card (house.js view().voice): 'no_key' (no account and no key), or,
    * on the household's own key, 'own_key_refused', 'own_key_limit', 'no_key' (the device lost it) or 'own_stop'; null
    * when it can (or it's Opie cloud's, which says its own).
    */
   function voiceNeed() {
+    // (on the Gemini key, Google's voice: its own reasons, 'gemini_…')
+    if (vendor() === 'gemini') return state().geminiProblem || (limits().geminiStopCents - geminiSpentCents() <= 0 ? 'gemini_stop' : null);
     if (!ownOn()) return device() ? null : 'no_key';
     return state().ownProblem || (limits().stopCents - spentCents() <= 0 ? 'own_stop' : null);
   }
@@ -302,30 +332,37 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
    *  voice; this tablet's own, on the household's own key or before the service has answered. */
   function monthOf(svc) {
     const u = use.read();
-    if (ownOn() || !svc?.used) return monthWords({ liveSecs: u.liveSecs, questions: u.questions, apps: u.apps, cents: ownOn() ? u.mc / 1000 : 0, stopCents: ownOn() ? limits().stopCents : 0 });
+    // what each key cost, by whose it is (Google's only once there's a Gemini key or it has cost something)
+    const g = geminiOn() || u.gmc > 0 ? [{ vendor: 'Google', cents: u.gmc / 1000, stopCents: geminiOn() ? limits().geminiStopCents : 0 }] : [];
+    if (ownOn() || !svc?.used) return monthWords({ liveSecs: u.liveSecs, questions: u.questions, apps: u.apps, costs: [...(ownOn() ? [{ vendor: 'OpenAI', cents: u.mc / 1000, stopCents: limits().stopCents }] : []), ...g] });
     const s = svc.used;
-    return monthWords({ liveSecs: s.liveSecs, cents: s.cents, questions: s.questions ?? u.questions, apps: s.apps ?? u.apps });
+    return monthWords({ liveSecs: s.liveSecs, questions: s.questions ?? u.questions, apps: s.apps ?? u.apps, costs: [{ vendor: svc.vendor || 'OpenAI', cents: s.cents }, ...g] });
   }
   const liveOn = () => (ownOn() || !!device()) && !!read('voice.json')?.on && read('voice.json')?.provider === 'openai-live'; // (an older "on" was for Deepgram, which is gone)
-  const voice = { used: () => (liveOn() ? 'live' : 'off') };
+  /** Opie's live voice is on: OpenAI's (as liveOn), or Google's on the household's Gemini key. */
+  const voiceLive = () => (vendor() === 'gemini' ? !!read('voice.json')?.on && read('voice.json')?.provider === 'openai-live' : liveOn());
+  const voice = { used: () => (voiceLive() ? 'live' : 'off') };
+  /** The Gemini key's part of what Settings reads: whether one is in, its monthly stop, whose voice talks. */
+  const geminiBits = () => ({ gemini: geminiOn(), geminiStopCents: limits().geminiStopCents, ...(vendor() === 'gemini' ? { vendor: 'Google' } : {}) });
   async function voiceStatus(check) {
     const mine = read('voice.json') || {};
     let svc = lastVoiceStatus;
-    if (ownOn()) return { linked: !!device(), own: true, on: liveOn(), provider: 'openai-live', vendor: 'OpenAI', available: true, offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null, asked: null, over: null, used: null, limits: null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(null),
-      stopCents: limits().stopCents, need: voiceNeed() }; // (the monthly stop, and why the key isn't working: Settings shows both)
+    if (ownOn() || (geminiOn() && !device())) return { linked: !!device(), own: true, openaiKey: ownOn(), on: voiceLive(), provider: 'openai-live', vendor: 'OpenAI', available: true, offWhy: !voiceLive() && mine.offWhy ? mine.offWhy : null, asked: null, over: null, used: null, limits: null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(null),
+      stopCents: limits().stopCents, need: voiceNeed(), ...geminiBits() }; // (the monthly stop, and why the key isn't working: Settings shows both)
     if (check && device()) { await reportUse().catch(() => {}); try { svc = lastVoiceStatus = await call('GET', '/v1/voice'); } catch {} }
     if (svc && svc.on === false && mine.on) { write('voice.json', { ...mine, on: false, offAt: iso(), offWhy: 'family' }); mine.on = false; } // turned off from the web
     // (credit: the household's Opie credit has run out or is on hold; month: the month's limit is reached)
     const over = svc?.credit && (svc.credit.frozen || svc.credit.cents <= 0) && svc.credit.paid ? 'credit' : svc?.used && svc?.limits && svc.used.cents >= svc.limits.cents ? 'month' : null;
     // offWhy: why it went off here when it wasn't this tablet's own Off ("family": from the web). The shell turning it
     // on by itself (CloudSetup.autoVoice) reads it, so it never undoes an Off said somewhere else.
-    return { linked: !!device(), on: liveOn(), provider: 'openai-live', vendor: svc?.vendor || mine.vendor || null, available: svc ? !!svc.available : null,
-      offWhy: !liveOn() && mine.offWhy ? mine.offWhy : null, asked: svc?.asked || null,
-      over, used: svc?.used || null, limits: svc?.limits || null, credit: svc?.credit || null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(svc) };
+    return { linked: !!device(), on: voiceLive(), provider: 'openai-live', vendor: svc?.vendor || mine.vendor || null, available: svc ? !!svc.available : null,
+      offWhy: !voiceLive() && mine.offWhy ? mine.offWhy : null, asked: svc?.asked || null,
+      over: vendor() === 'gemini' ? null : over, used: svc?.used || null, limits: svc?.limits || null, credit: svc?.credit || null, using: voice.used(), voiceName: mine.voiceName || 'marin', month: monthOf(svc),
+      ...geminiBits(), ...(vendor() === 'gemini' ? { need: voiceNeed() } : {}) };
   }
   async function voiceSet(on) {
-    if (on && !device() && !ownOn()) throw new Error('Opie’s voice needs an OpenAI key first (Settings → Opie → Voice).');
-    if (device() && !ownOn()) { try { lastVoiceStatus = await call('POST', '/v1/voice/setting', { on }); } catch (e) { if (on) throw e; } }
+    if (on && !device() && !ownOn() && !geminiOn()) throw new Error('Opie’s voice needs an OpenAI or Gemini key first (Settings → Opie → Voice).');
+    if (device() && !ownOn() && vendor() !== 'gemini') { try { lastVoiceStatus = await call('POST', '/v1/voice/setting', { on }); } catch (e) { if (on) throw e; } }
     const { offWhy, offAt, ...was } = read('voice.json') || {}; // (an Off from the web is answered by this one)
     write('voice.json', { ...was, on, provider: 'openai-live', vendor: lastVoiceStatus?.vendor || null, at: iso() }); // (keeps the chosen voice)
     return voiceStatus(false);
@@ -356,6 +393,17 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
     if (!on && !device() && v.on) write('voice.json', { ...v, on: false, at: iso() });
     return { own: ownOn(), voice: await voiceStatus(false) };
   }
+  /** Whether the household's own Gemini key is in (the shell's /cloud/gemini), never the key. A key put in (an adult,
+   *  with the PIN, after a yes that names Google) is the household's yes to Google: the voice comes on in Google's
+   *  default voice. Taken out, it goes back to OpenAI's voice, or off with nothing to fall back on. */
+  async function setGemini(on) {
+    if (on) write('own-gemini.json', { on: true, at: iso() }); else fs.rmSync(f('own-gemini.json'), { force: true });
+    setState({ geminiProblem: null });
+    const v = read('voice.json') || {}, was = isGeminiVoice(v.voiceName);
+    if (on) write('voice.json', { ...v, on: true, provider: 'openai-live', vendor: 'Google', voiceName: was ? v.voiceName : GEMINI_VOICE, ...(was ? {} : { openaiVoice: v.voiceName || 'marin' }), at: iso() });
+    else if (was) write('voice.json', { ...v, voiceName: v.openaiVoice || 'marin', vendor: ownOn() || device() ? 'OpenAI' : null, on: (ownOn() || !!device()) && !!v.on, at: iso() });
+    return { gemini: geminiOn(), voice: await voiceStatus(false) };
+  }
   /** Opie's voice on, in one of OpenAI's voices (a hub's setup: the tablet's CloudVoiceMenu does it there). */
   async function voiceOn(name) {
     const v = String(name || '').toLowerCase();
@@ -371,6 +419,17 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
       linking: linking ? { display: linking.display, url: linking.url, expiresAt: new Date(linking.until).toISOString(), confirm: linking.confirm } : null,
       iphoneApp: d ? s.iphoneApp || null : null,
     };
+  }
+
+  /** A live start on the household's Gemini key: within its monthly stop and today's "Hey Opie" cap, as ownLive. */
+  async function geminiLive(b, req) {
+    const left = geminiLeft(), wake = b.how === 'wake', wakeLeft = wake ? WAKE_DAY_SECS - wakeToday() : Infinity;
+    if (wakeLeft <= 0) throw said('wake_cap');
+    const s = req.liveSetup || b;
+    const r = await geminiCall(() => gem.liveStart({ name: b.name, instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], voice: read('voice.json')?.voiceName }));
+    if (wake) { wakeIds.add(r.sessionId); if (wakeIds.size > 20) wakeIds.delete(wakeIds.values().next().value); }
+    const bySpend = Math.floor(left * 1000 / GEMINI_COSTS.livePerSecond), secs = Math.min(bySpend, wakeLeft);
+    return secs < LIVE_MAX_SECS ? { ...r, creditSecs: Math.max(1, secs), creditWhy: OWN_WORDS[wakeLeft < bySpend ? 'wake_cap' : 'gemini_stop'] } : r;
   }
 
   const reply = async (res, fn) => {
@@ -465,14 +524,34 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         write('own-limits.json', { ...(read('own-limits.json') || {}), stopCents: c, at: iso() });
         json(res, 200, await voiceStatus(false)); return true;
       }
+      // The same for the household's own Gemini key, and its own monthly stop.
+      case '/cloud/gemini': {
+        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the device only' }); return true; }
+        if (typeof b.on !== 'boolean' || Object.keys(b).length !== 1) { json(res, 400, { error: 'on only' }); return true; }
+        json(res, 200, await setGemini(b.on)); return true;
+      }
+      case '/cloud/gemini/stop': {
+        if (req.headers?.['x-openhouse-screen']) { json(res, 403, { error: 'the device only' }); return true; }
+        const c = Math.round(Number(b.cents));
+        if (!STOPS.includes(c)) { json(res, 400, { error: 'cents', stops: STOPS }); return true; }
+        write('own-limits.json', { ...(read('own-limits.json') || {}), geminiStopCents: c, at: iso() });
+        json(res, 200, await voiceStatus(false)); return true;
+      }
       case '/cloud/voice': await reply(res, () => voiceSet(!!b.on)); return true;
       // A household that set up its own tablet asks for Opie's voice (the service keeps the ask; its owner turns it on).
       case '/cloud/voice/ask': await reply(res, async () => { lastVoiceStatus = await call('POST', '/v1/voice/ask'); return voiceStatus(false); }); return true;
-      case '/cloud/voice/name': await reply(res, async () => { const v = String(b.voice || '').toLowerCase(); if (!/^[a-z]{2,20}$/.test(v)) throw new Error('voice'); write('voice.json', { ...(read('voice.json') || {}), voiceName: v }); return voiceStatus(false); }); return true;
+      // (one of Google's voices only with a Gemini key in: picking it is what switches the voice to Google)
+      case '/cloud/voice/name': await reply(res, async () => {
+        const v = String(b.voice || '').toLowerCase(); if (!/^[a-z]{2,20}$/.test(v)) throw new Error('voice');
+        const g = isGeminiVoice(v);
+        if (g && !geminiOn()) throw new Error('That voice needs a Gemini key first.');
+        write('voice.json', { ...(read('voice.json') || {}), voiceName: v, ...(g ? { vendor: 'Google' } : { openaiVoice: v, vendor: ownOn() || device() ? 'OpenAI' : null }) });
+        return voiceStatus(false);
+      }); return true;
       // OpenAI's live voice (the trial): the shell's WebRTC offer to the service, which starts the session with OpenAI
       // (the key stays there) and answers with OpenAI's SDP; and, when the session ends, what it cost (OpenAI's count).
       // (One line per start, its outcome only, for when a device says it couldn't connect: no words, no addresses.)
-      case '/cloud/live/start': await reply(res, () => { if (ownOn()) return liveOn() ? ownLive(b, req) : Promise.reject(Object.assign(new Error('off'), { code: 'off' })); if (!liveOn()) throw Object.assign(new Error('off'), { code: 'off' }); const s = req.liveSetup || b; return call('POST', '/v1/voice/live/start', { sdp: String(b.sdp || ''), name: String(b.name || ''), instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], idleTimeoutS: Number(b.idleTimeoutS) || undefined, voice: read('voice.json')?.voiceName || undefined }).then((r) => { console.log(`[cloud] live start ok${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); return r; }, (e) => { console.log(`[cloud] live start failed: ${e.code || ''} ${String(e.message || '').slice(0, 80)}${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); throw e; }); }); return true;
+      case '/cloud/live/start': await reply(res, () => { if (vendor() === 'gemini') return voiceLive() ? geminiLive(b, req) : Promise.reject(Object.assign(new Error('off'), { code: 'off' })); if (ownOn()) return liveOn() ? ownLive(b, req) : Promise.reject(Object.assign(new Error('off'), { code: 'off' })); if (!liveOn()) throw Object.assign(new Error('off'), { code: 'off' }); const s = req.liveSetup || b; return call('POST', '/v1/voice/live/start', { sdp: String(b.sdp || ''), name: String(b.name || ''), instructions: s.instructions || '', tools: Array.isArray(s.tools) ? s.tools : [], idleTimeoutS: Number(b.idleTimeoutS) || undefined, voice: read('voice.json')?.voiceName || undefined }).then((r) => { console.log(`[cloud] live start ok${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); return r; }, (e) => { console.log(`[cloud] live start failed: ${e.code || ''} ${String(e.message || '').slice(0, 80)}${req.headers['x-openhouse-screen'] ? ' (from a paired device)' : ''}`); throw e; }); }); return true;
       // An app's small question (the kit's decide(); apps.js lets only the family's own apps and those that declare
       // "decide" reach this): {input, questions} -> {answers}. From an app (req.fromApp: brain.js appCall), counted
       // against its day's APP_DECIDES first.
@@ -482,6 +561,13 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
         const k = b.backend && typeof b.backend === 'object' ? b.backend : {};
         const backend = { model: String(k.model || '').slice(0, 60), ...Object.fromEntries(['input_tokens', 'output_tokens', 'cached_tokens', 'cache_write_tokens', 'ttl_12h_tokens', 'searches'].map((f) => [f, Math.max(0, Math.round(Number(k[f]) || 0))])) };
         const seconds = Math.max(0, Math.min(3600, Math.round(Number(b.seconds) || 0)));
+        // A conversation in Google's voice (gemini-session.cjs): Google's own counts of what it read and said.
+        if (/^gemini/.test(String(k.model || ''))) {
+          const g = Object.fromEntries(['audio_in', 'audio_out', 'text_in', 'text_out', 'searches'].map((x) => [x, Math.max(0, Math.round(Number(k[x]) || 0))]));
+          use.add({ liveSecs: seconds, gmc: geminiMc(g) });
+          if (wakeIds.delete(String(b.sessionId || ''))) write('wake-day.json', { day: today(), secs: wakeToday() + seconds });
+          needCheck(); json(res, 200, { ok: true, own: true }); return true;
+        }
         if (ownOn()) { // (OpenAI bills the household directly: counted here only for "This month")
           use.add({ liveSecs: seconds, mc: seconds * COSTS.livePerSecond + tokensMc(backend.model || 'gpt-6-luna', backend) + backend.searches * COSTS.searchPerCall });
           const id = String(b.sessionId || '');
@@ -568,7 +654,7 @@ export function cloudRoutes({ DISPLAY, json, body, agentName = () => 'off', back
   const linkId = () => device()?.deviceId || null;
   return { counted, usageNow: async () => { const v = await voiceStatus(true), c = v.credit; // (and what's left of the Opie credit)
     const left = !c || v.own ? '' : c.frozen ? "\nOpie's credit is on hold while a payment is looked at." : !c.paid ? '' : c.cents > 0 ? `\n$${(c.cents / 100).toFixed(2)} of Opie credit left, about ${c.perMinuteCents}¢ a minute talking.` : "\nOpie's credit has run out. Someone can add more on the account page.";
-    return { ...v.month, text: v.month.text + left }; }, googleStart, setOwn, voiceOn, voiceNeed, onNeed: (fn) => { onNeed = fn; }, lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
+    return { ...v.month, text: v.month.text + left }; }, googleStart, setOwn, voiceOn, voiceNeed, onNeed: (fn) => { onNeed = fn; }, setGemini, gemini: () => geminiOn(), voiceLive, liveVendor: () => vendor(), lan, linked, revoked, linkId, placesSuggest, placeOf, handle, status, destination, escrow, voice, ai, decide, apns, brainOn, own: ownKey, liveOn, voiceNow: () => voiceStatus(true), refresh, upkeep, relayAddress, relayBox, leaveBox, mailApi, mailFetch, credential, apiBase, stop: () => timer && clearInterval(timer) };
 }
 
 const okApi = (a) => /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(a) || /^http:\/\/(10\.0\.2\.2|127\.0\.0\.1|localhost)(:\d+)?$/.test(a);

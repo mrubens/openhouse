@@ -2,13 +2,15 @@
 // chat/live/live-session.cjs, the same copy the tablet's LiveVoice.kt runs; this is its Host, the part the tablet does
 // in Kotlin, with every request sealed to the hub the way the rest of this device's are (screen-client.js):
 //   GET  /live/setup     the household's tools, rules and what was said lately
-//   POST /live/start     the WebRTC offer, through Opie cloud (it holds OpenAI's key): OpenAI's answer back
+//   POST /live/start     the WebRTC offer, through Opie cloud (it holds OpenAI's key): OpenAI's answer back; on the
+//                        household's own Gemini key, Google's address and a one-use token (chat/live/gemini-session.cjs)
 //   POST /live/tool      one of the household's tools, run by the hub
 //   POST /live/said      what was heard and said, kept on the hub for half an hour (the next conversation knows it)
 //   POST /live/usage     how long it ran, for the household's allowance
 // Audio goes between this browser and OpenAI. A browser lets a page use the microphone only on https or localhost, so on
 // the Wi-Fi's plain http address `available()` is false and the button isn't shown.
 import { liveSession } from '../live/live-session.cjs';
+import { geminiSession } from '../live/gemini-session.cjs';
 
 export const available = () => !!(globalThis.isSecureContext && navigator.mediaDevices?.getUserMedia && globalThis.RTCPeerConnection);
 
@@ -76,7 +78,9 @@ export function talk(c, on = {}) {
     ended: (why) => end(why),
     idle: () => idleS,
   };
-  S = liveSession(Host);
+  // Whose voice it is comes with the setup: Google's on the household's Gemini key (gemini-session.cjs), else OpenAI's.
+  // (The tap still counts: a page that was tapped may start its sound a moment later.)
+  setup.then((s) => { if (!closed) S = (s?.vendor === 'gemini' ? geminiSession : liveSession)(Host); });
   const cap = setTimeout(() => end('five minutes'), 5 * 60e3);
   return { stop: () => { clearTimeout(cap); end('stopped'); } };
 }

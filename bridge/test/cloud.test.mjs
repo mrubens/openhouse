@@ -73,7 +73,7 @@ function tablet(D, opts = {}) {
   const json = (res, code, obj) => { res.code = code; res.obj = obj; };
   const body = async (req) => req.b || {};
   let backups = null;
-  const cloud = cloudRoutes({ DISPLAY: D, tick: 0, json, body, agentName: () => 'cloud', backupBits: () => backups.bits(), ...(opts.openai ? { openai: opts.openai } : {}) });
+  const cloud = cloudRoutes({ DISPLAY: D, tick: 0, json, body, agentName: () => 'cloud', backupBits: () => backups.bits(), ...(opts.openai ? { openai: opts.openai } : {}), ...(opts.gemini ? { gemini: opts.gemini } : {}) });
   backups = backupRoutes({ DISPLAY: D, tick: 0, json, body, destinations: [cloud.destination, driveDestination({ DISPLAY: D })], escrow: cloud.escrow, exit: () => { exited++; }, ...opts });
   const call = async (method, p, b) => { const res = {}; const h = p.startsWith('/cloud/') ? cloud : backups; assert.ok(await h.handle({ method, b }, res, new URL('http://x' + p)), p); return res; };
   return { cloud, backups, call, exited: () => exited };
@@ -414,4 +414,61 @@ test("the own key's spending stops: the monthly stop holds live starts, the text
   refuse = false;
   await t.cloud.ai({ input: [] });
   assert.equal(t.cloud.voiceNeed(), null);
+});
+
+test("the household's own Gemini key: only whether there is one reaches the bridge, each start is a one-use token, and its monthly stop holds", async () => {
+  const sent = [], toOpenAI = [];
+  let refuse = false;
+  const D = display(), t = tablet(D, {
+    openai: async (kind) => { toOpenAI.push(kind); return { status: 500, body: {} }; },
+    gemini: async (kind, body) => {
+      sent.push({ kind, body });
+      if (refuse) return { status: 400, body: { error: { status: 'INVALID_ARGUMENT', details: [{ reason: 'API_KEY_INVALID' }] } } };
+      return { status: 200, body: { name: `auth_tokens/one-use-${sent.length}` } };
+    } });
+  const handle = async (p, b, extra = {}) => { const res = {}; await t.cloud.handle({ method: 'POST', b, headers: {}, ...extra }, res, new URL('http://x' + p)); return res; };
+  const KEY = 'AIzaTESTKEYnevershown0123456789abcdefgh';
+  // A key sent here by mistake is refused and kept nowhere; a paired device can't say there is one.
+  assert.equal((await handle('/cloud/gemini', { on: true, key: KEY })).code, 400);
+  assert.equal((await handle('/cloud/gemini', { on: true }, { headers: { 'x-openhouse-screen': 'abc' } })).code, 403);
+  assert.equal(t.cloud.gemini(), false);
+  assert.equal((await handle('/cloud/gemini', { on: true })).code, 200);
+  assert.equal(t.cloud.voiceLive(), true); // the voice comes on with the key, in Google's voice
+  assert.equal((await t.call('GET', '/cloud/voice')).obj.vendor, 'Google');
+  assert.ok((await t.call('GET', '/cloud/voice')).obj.geminiStopCents > 0); // a stop from the start
+
+  // A start: one token, for one use and Opie's model, from the shell's route; the household's tools go to Google in
+  // the setup; nothing goes to OpenAI.
+  const tools = [{ type: 'function', name: 'change_list', description: 'Lists', parameters: { type: 'object', properties: { item: { type: ['string', 'null'] } } } }];
+  const s = await handle('/cloud/live/start', { name: 'Opie', how: 'tap' }, { liveSetup: { instructions: 'RULES', tools } });
+  assert.equal(s.code, 200);
+  assert.equal(sent[0].kind, 'token'); assert.equal(sent[0].body.uses, 1);
+  assert.match(sent[0].body.liveConnectConstraints.model, /^models\/gemini/);
+  assert.ok(s.obj.gemini.url.startsWith('wss://generativelanguage.googleapis.com/'));
+  assert.equal(s.obj.gemini.setup.tools[0].functionDeclarations[0].name, 'change_list');
+  assert.deepEqual(toOpenAI, []);
+  const everything = (dir) => fs.readdirSync(dir, { recursive: true, withFileTypes: true }).filter((e) => e.isFile()).map((e) => fs.readFileSync(path.join(e.parentPath ?? e.path, e.name), 'utf8')).join('\n');
+  assert.ok(!everything(D).includes(KEY) && !everything(D).includes('one-use'), 'neither the key nor a token is kept');
+
+  // Google's counts for a long conversation pass the stop: the next start is refused in words, and nothing reaches Google.
+  assert.equal((await handle('/cloud/live/usage', { sessionId: s.obj.sessionId, seconds: 600, backend: { model: 'gemini-3.8-live', audio_out: 2e6 } })).code, 200);
+  const before = sent.length;
+  const stopped = await handle('/cloud/live/start', { name: 'Opie', how: 'tap' });
+  assert.equal(stopped.obj.code, 'gemini_stop'); assert.equal(stopped.obj.said, true);
+  assert.equal(sent.length, before);
+  assert.equal(t.cloud.voiceNeed(), 'gemini_stop');
+  assert.equal((await handle('/cloud/gemini/stop', { cents: 123456 })).code, 400);
+  assert.equal((await handle('/cloud/gemini/stop', { cents: 5000 }, { headers: { 'x-openhouse-screen': 'abc' } })).code, 403);
+  assert.equal((await handle('/cloud/gemini/stop', { cents: 5000 })).code, 200);
+
+  // A key Google stopped accepting: said in words, and shown on Today.
+  refuse = true;
+  const r = await handle('/cloud/live/start', { name: 'Opie', how: 'tap' });
+  assert.equal(r.obj.code, 'gemini_key_refused'); assert.equal(r.obj.said, true);
+  assert.equal(t.cloud.voiceNeed(), 'gemini_key_refused');
+
+  // Taken out, with nothing to fall back on, the voice goes off.
+  assert.equal((await handle('/cloud/gemini', { on: false })).code, 200);
+  assert.equal(t.cloud.gemini(), false);
+  assert.equal(t.cloud.voiceLive(), false);
 });

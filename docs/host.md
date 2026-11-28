@@ -28,6 +28,7 @@ by these, never by the host's kind (`host.js CAPS`):
 | `calendar` | keeps calendar and album links (`/calendar`, `/album`) sealed after a yes | ✓ | ✓ |
 | `calendar-accounts` | signs in to Google and iCloud calendars (`/calendar/accounts`, `/calendar/request`, `/setup/icloud`) | ✓ | ✓ |
 | `openai` | keeps the household's own OpenAI key (`/ownkey`) and adds it to the bridge's calls (`/openai`) | ✓ | ✓ |
+| `gemini` | keeps the household's own Gemini key (`/geminikey`) and asks Google for a one-use token for each conversation (`/gemini`) | ✓ | |
 | `pin` | keeps the PIN (`/setup/pin`), only its hash, and checks it itself | ✓ | ✓ |
 | `google-signin` | starts Google's sign-in from the setup (`/setup/google`); else the bridge does, back to its own address | ✓ | |
 | `drive` | owns a USB drive for backups; else they go to a folder | ✓ | |
@@ -58,6 +59,9 @@ The same requests and answers on every host that has them (DeviceServer.kt `home
   request to that account's own service, signed in there; `/setup/icloud {user, pass, who}`.
 - `/openai {kind, body}` → OpenAI's status and answer, with the key added there; `/ownkey {key}` → `{added}`; the
   host tells the bridge only whether one is in (`POST /cloud/own {on}`).
+- `/gemini {kind: 'token', body}` → Google's answer to `/v1beta/auth_tokens` with the key added there (a token for one
+  conversation); `/geminikey {key}` → `{added}`, after a person's yes there; the host tells the bridge only whether one
+  is in (`POST /cloud/gemini {on}`).
 - `/setup/pin {pin}`: only while no PIN is set.
 - `/storage/status` → `{set, endpoint, region, bucket, prefix}` (never the key or the secret); `/storage/set {endpoint,
   region, bucket, prefix, keyId, secret}` → `{ok}` once the Check (write, read and delete a small file) works, else

@@ -149,10 +149,11 @@ object OwnKey {
 
     /** Today's card (the home page: HomeView ownKey) while the voice can't answer: [why] is the bridge's voiceNeed. */
     fun fromToday(act: MainActivity, why: String) {
+        if (why.startsWith("gemini_")) return GeminiKey.fromToday(act, why) // (Google's voice, on the household's Gemini key)
         if (why == "own_stop" && has()) act.lock.withPin("Monthly stop") { stop(act) } else menu(act)
     }
 
-    /** Settings → Opie → Voice → Your own OpenAI key, and turning the voice on where Opie cloud's voice isn't available:
+    /** Settings → Opie → Voice → Your own keys → OpenAI key, and turning the voice on where Opie cloud's voice isn't available:
      *  with a key in, its monthly stop, changing it and taking it out. */
     fun menu(act: MainActivity) = act.lock.withPin("Your own OpenAI key") {
         if (!has()) return@withPin enter(act)
