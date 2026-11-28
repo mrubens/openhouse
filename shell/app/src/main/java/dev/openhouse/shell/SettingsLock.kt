@@ -72,6 +72,7 @@ internal class SettingsLock(private val act: MainActivity) {
     fun open(id: String) {
         if (id.startsWith("unlink:")) return withPin { Screens.remove(act, id.removePrefix("unlink:")) }
         if (id.startsWith("uninvite:")) return withPin { Screens.uninvite(act, id.removePrefix("uninvite:")) }
+        if (id.startsWith("homeassistant:")) return HomeAssistant.menu(act, HomeAssistant.cleanUrl(id.removePrefix("homeassistant:")) ?: "") // (behind the PIN there)
         when (id) {
             "voice" -> withPin { CloudVoiceMenu(act).chooseVoice() }
             "connections" -> connections() // (no PIN to look: each part asks as it did on its own)

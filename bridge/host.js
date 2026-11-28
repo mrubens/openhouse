@@ -25,6 +25,7 @@ export const CAPS = {
   'google-signin': 'POST /setup/google: it starts Google\'s sign-in from the setup (else the bridge does, back to its own address)',
   drive: 'a USB drive it owns, for backups (else they go to a folder)',
   storage: 'POST /storage/status, /storage/set, /storage/sign, /storage/remove: the household\'s own storage bucket (S3), its key kept there; it signs one request at a time for backups',
+  homeassistant: 'POST /homeassistant/status, /homeassistant, /homeassistant/remove (and on a screen /homeassistant/connect): the household\'s Home Assistant, its token kept there; the bridge\'s calls go through devices/ha-rules.js there, the token added',
   updates: 'it updates the bridge (the app\'s releases); else the bridge updates itself (hub/update.sh)',
   'mail-convert': 'POST /mail/pdf, /mail/heic: mail attachments made readable',
   stills: 'POST /media/still: a video\'s still',

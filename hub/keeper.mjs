@@ -39,6 +39,10 @@
 //   /storage/set {endpoint, region, bucket, prefix, keyId, secret} -> {ok} once the Check (write, read, delete) works
 //   /storage/sign {method, name} or {method: 'GET', list: true, token?} -> {url}: one presigned request, for minutes
 //   /storage/remove
+//   The household's Home Assistant (the shell's HomeAssistant.kt, bridge/devices/ha-rules.js): its address and a
+//   long-lived token kept here; the bridge's calls go through those rules, with the token added here
+//   /homeassistant/status -> {set, url}   /homeassistant {method, path, body} -> {answer} or {error}
+//   /homeassistant/set {url, token, from?} -> {ok} once it answers and a person said yes (with the PIN)   /homeassistant/remove
 //   Google Photos (the shell's GooglePhotos.kt): /photos/google {token} picks with Google's Picker and copies what was
 //   picked into the household's photos; /photos/google/status -> {state, pickerUri?, done?, total?, error?}
 import http from 'node:http';
@@ -48,6 +52,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { publicGet } from '../bridge/app-web.js';
 import * as s3 from './s3.mjs';
+import * as ha from '../bridge/devices/ha-rules.js';
 
 const DATA = path.resolve(process.env.OPENHOUSE_DATA || '/data');
 const DIR = path.resolve(process.env.OPENHOUSE_KEEPER_DIR || `${DATA.replace(/\/+$/, '')}-keeper`);
@@ -428,7 +433,7 @@ async function pick(token) {
 // --- the cards (the shell's ApprovalCard) -------------------------------------------------------------------
 // Each waits for a person's answer on a settings device or a grown-up's phone (the bridge lists /cards there); one
 // that needs the PIN takes a yes only with it, checked here.
-const CAN = ['cards', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin', 'storage'];
+const CAN = ['cards', 'approve', 'calendar', 'calendar-accounts', 'openai', 'pin', 'storage', 'homeassistant'];
 const waiting = new Map(); // id -> { card, done, until, timer }
 function ask(b = {}) {
   const cid = crypto.randomBytes(6).toString('hex');
@@ -471,7 +476,7 @@ async function route(p, b) {
     case '/approve': return [200, await ask(b)];
     case '/cards': return [200, { cards: cards() }];
     case '/cards/answer': return answerCard(b);
-    case '/status': return [200, { openai: !!kept.openai, pin: !!kept.pin, calendars: kept.calendars.length, albums: kept.albums.length, storage: !!kept.storage }];
+    case '/status': return [200, { openai: !!kept.openai, pin: !!kept.pin, calendars: kept.calendars.length, albums: kept.albums.length, storage: !!kept.storage, homeassistant: !!kept.homeassistant }];
     case '/storage/status': return [200, s3.shown(kept.storage)];
     case '/storage/set': {
       const c = s3.cleanStorage(b);
@@ -487,6 +492,20 @@ async function route(p, b) {
       return r.error ? [400, r] : [200, r];
     }
     case '/storage/remove': delete kept.storage; save(); return [200, { ok: true }];
+    case '/homeassistant/status': return [200, { set: !!kept.homeassistant, url: kept.homeassistant?.url || null }];
+    case '/homeassistant': return ha.forward(kept.homeassistant, b);
+    case '/homeassistant/set': {
+      const url = ha.cleanUrl(b.url), token = ha.cleanToken(b.token);
+      if (!url) return [400, { error: "That isn't Home Assistant's address (like http://192.168.1.20:8123)." }];
+      if (!token) return [400, { error: 'That isn\'t a Home Assistant token. Make a long-lived one on your Home Assistant profile, under Security, and copy all of it.' }];
+      const why = await ha.check({ url, token });
+      if (why) return [400, { error: why }];
+      const a = await ask({ title: 'Connect Home Assistant?', detail: [new URL(url).host, b.from ? `Sent by ${String(b.from).slice(0, 40)}.` : ''].filter(Boolean).join('\n'), yes: 'Connect', pin: true, waitMs: 95e3 });
+      if (!a.yes) return [200, { ok: false, error: 'Nobody said yes on a settings device, so it wasn\'t kept.' }];
+      kept.homeassistant = { url, token }; save();
+      return [200, { ok: true }];
+    }
+    case '/homeassistant/remove': delete kept.homeassistant; save(); return [200, { ok: true }];
     case '/calendar': {
       const url = cleanCal(b.url);
       if (!url) return [400, { error: "That isn't a calendar link (an https:// or webcal:// address ending in .ics, usually)." }];

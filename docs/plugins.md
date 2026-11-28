@@ -614,6 +614,11 @@ An app can control the devices the tablet already controls (Sonos, Roku, Samsung
 speakers, a recipe's device), through the same drivers and the same asks as Opie (`bridge/devices/index.js`
 `forApp`). A remote for the Sonos on Home is the first use.
 
+The things the household picked for Opie in Home Assistant (`devices/drivers/homeassistant.js`: lights, switches,
+scenes, media players, thermostats to read) are devices here too, under the same right and the same asks: an app's
+first change to one asks the room for that app. The Home Assistant itself isn't listed, and what wasn't picked isn't
+a device, so no app reaches it; locks, doors, alarms and cameras are never reachable at all (`devices/ha-rules.js`).
+
 - **Kit** `devices.list({state?})`, `devices.get(id)`, `devices.do(id, action, args?)`; `POST /apps/devices`,
   `/apps/devices/get`, `/apps/devices/do`; `uses` `"devices"` (the card says "the home's speakers and TVs (it asks
   here before turning anything on)"). The family's own apps have it; a plugin's app only through its card.

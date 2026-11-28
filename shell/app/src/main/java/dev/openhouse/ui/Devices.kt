@@ -43,7 +43,9 @@ data class HomeDevice(
     val recipe: String? = null, val simple: List<String> = emptyList(),
     /** "wifi" or "bluetooth"; a Bluetooth one is paired with the tablet or not. */
     val transport: String = "wifi", val bonded: Boolean = false,
-) { val bluetooth get() = transport == "bluetooth" }
+    /** Paired or connected (a TV's yes; a Home Assistant's token kept on the device). */
+    val paired: Boolean = false, val driver: String? = null,
+) { val bluetooth get() = transport == "bluetooth"; val homeAssistant get() = driver == "homeassistant" }
 
 /** What the bridge knows about the devices in the house. Compose reads the state. */
 object Devices {
@@ -62,7 +64,7 @@ object Devices {
     private var loaded = false
 
     /** The devices worth a button: something openhouse can control, and not the display itself. */
-    val controllable get() = list.filter { it.present && !it.self && it.actions.any { a -> a !in setOf("status", "apps", "pair", "forget") } || it.kind == "printer" && it.present }
+    val controllable get() = list.filter { it.present && !it.self && it.actions.any { a -> a !in setOf("status", "apps", "pair", "forget") } || (it.kind == "printer" || it.transport == "homeassistant") && it.present }
 
     private fun call(method: String, path: String, body: JSONObject? = null, timeoutMs: Int = 20_000): JSONObject? = runCatching {
         BridgeClient.open(Openhouse.bridgeUrl + path).run {
@@ -79,7 +81,8 @@ object Devices {
             HomeDevice(d.optString("id"), d.optString("name"), d.optString("kind", "other"), d.opt("maker") as? String, d.opt("model") as? String,
                 d.opt("room") as? String, d.optString("address"), (0 until (acts?.length() ?: 0)).map { acts!!.optString(it) },
                 d.optBoolean("present", true), d.optBoolean("self"), d.opt("recipe") as? String,
-                (0 until (simple?.length() ?: 0)).map { simple!!.optString(it) }, d.optString("transport", "wifi"), d.optBoolean("bonded"))
+                (0 until (simple?.length() ?: 0)).map { simple!!.optString(it) }, d.optString("transport", "wifi"), d.optBoolean("bonded"),
+                d.optBoolean("paired"), d.opt("driver") as? String)
         }
         scannedAt = j.opt("scannedAt") as? String
     }
@@ -127,7 +130,11 @@ object Devices {
                 val what = listOfNotNull((r.opt("title") as? String)?.takeIf { it.isNotBlank() }).joinToString()
                 listOf(state, what, "volume ${r.optInt("volume")}${if (r.optBoolean("muted")) " (muted)" else ""}").filter { it.isNotBlank() }.joinToString(" · ")
             }
-            d.kind == "printer" -> listOfNotNull(r.optString("state").replaceFirstChar { it.uppercase() }, r.optJSONArray("problems")?.takeIf { it.length() > 0 }?.join(", ")?.replace("\"", "")).joinToString(" · ")
+            r.has("current_temperature") -> listOfNotNull( // a thermostat (Home Assistant: read only)
+                (r.opt("current_temperature") as? Number)?.let { "%.1f°".format(it.toDouble()) },
+                (r.opt("target") as? Number)?.let { "set to %.1f°".format(it.toDouble()) },
+            ).joinToString(" · ")
+            d.kind == "printer" ->listOfNotNull(r.optString("state").replaceFirstChar { it.uppercase() }, r.optJSONArray("problems")?.takeIf { it.length() > 0 }?.join(", ")?.replace("\"", "")).joinToString(" · ")
             r.has("app") -> listOfNotNull(if (power.contains("on")) "On" else "Off", (r.opt("app") as? String)?.takeIf { it != "nothing" }).joinToString(" · ")
             power.startsWith("on") -> "On"
             power.isNotBlank() -> "Off"
@@ -291,6 +298,11 @@ internal fun ColumnScope.DevicesContent(inSettings: Boolean = false, onBack: (()
                         Devices.busy[d.id]?.let { Text(it, style = calmText(16, FontWeight.Medium, Calm.soft), maxLines = 1) }
                             ?: DeviceButton("Pair") { Devices.act(d, "pair", doing = "Pairing…") }
                     }
+                    // A Home Assistant: connecting it, then choosing what Opie may use (behind the PIN, on the device).
+                    if (d.homeAssistant) {
+                        Spacer(Modifier.width(16.u))
+                        DeviceButton(if (d.paired) "Choose" else "Connect") { Openhouse.host.setting("homeassistant:" + d.address) }
+                    }
                 }
             }
         }
@@ -346,6 +358,7 @@ private fun DeviceCard(d: HomeDevice, modifier: Modifier) {
                 if ("volume_down" in a) DeviceButton("Quieter") { Devices.act(d, "volume_down", doing = "Quieter…") }
                 if ("volume_up" in a) DeviceButton("Louder") { Devices.act(d, "volume_up", doing = "Louder…") }
             }
+            if ("activate" in a) DeviceButton("Set", primary = true) { Devices.act(d, "activate", doing = "Setting…") } // a Home Assistant scene
             if ("press" in a && d.kind == "streamer") DeviceButton("Home") { Devices.act(d, "press", JSONObject().put("button", "home"), "Going home…") }
             val isOn = st?.startsWith("On") == true
             if ("power_off" in a && st?.startsWith("Off") != true) DeviceButton("Turn off", primary = true) { Devices.act(d, "power_off", doing = "Turning off…") }
