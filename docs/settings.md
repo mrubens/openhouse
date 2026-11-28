@@ -38,15 +38,13 @@ same line about OpenAI; the setup itself is quiet (no microphone, nothing said a
 Off, kept like this row's, so the voice isn't turned on by itself later; this row is the way to turn it on then, and to
 put in the household's own OpenAI key.
 
-**House rules** (Voice → House rules, shell/HouseRules.kt): a few lines of the household's own on how Opie answers,
-typed or spoken, on top of its defaults (docs/assistant.md, **In this home**). Empty by default, which means only the
-defaults; the box's placeholder gives an example ("Adults use this too; the news is fine to talk about."). Kept with
-the household (household.json `rules`, bridge/board.js; POST /household/rules), at most 600 characters. Opie can't
-tell an adult from a kid, so changing them always takes the PIN when one is set, whatever the PIN choices say: the editor
-asks for it first, and Opie's house_rules puts the tablet's own card up (a person's tap), showing the new text, wherever
-Opie was asked. Only the shell
-reaches POST /household/rules: no app, phone or screen scope has it. It's its own small file so it can move with
-Settings.
+**House rules** (Opie → House rules, shell/HouseRules.kt): how Opie answers, typed or spoken. The editor opens on the
+rules in force, which start as the defaults (docs/assistant.md, **House rules**), one rule a line; what's saved replaces
+them, and Defaults (shown once they've been changed) puts the original ones back. Kept with the household
+(household.json `rules`, missing for the defaults; bridge/board.js GET and POST /household/rules), at most 1500
+characters. Opie can't tell an adult from a kid, so changing them always takes the PIN when one is set, whatever the PIN
+choices say: the editor asks for it first, and Opie's house_rules puts the device's own card up (a person's tap),
+showing the new text.
 
 The tabs, the look and Home's cards have no panel on Home for now (since 2026-11-26, the user: "that stuff can just go
 through Opie instead of needing a clunky UI"): asking Opie does them (`set_home`, `today_card`).

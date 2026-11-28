@@ -133,7 +133,7 @@ export function chatRoutes({ HERE, APP_DIR, agentName, currentAgent, json, body,
   const prefsBlock = () => {
     const p = readPrefs(), d = days.describe();
     return rulesBlock(board.rules?.()) +
-      (p.length ? `\n\nWHAT THIS HOUSEHOLD TOLD YOU TO REMEMBER (facts about them and how they like things; these win over the defaults above, except IN THIS HOME, which only the house rules change)\n${p.map((x) => '- ' + x).join('\n')}` : '') +
+      (p.length ? `\n\nWHAT THIS HOUSEHOLD TOLD YOU TO REMEMBER (facts about them and how they like things; these win over the defaults above, except the HOUSE RULES, which only the household changes)\n${p.map((x) => '- ' + x).join('\n')}` : '') +
       (d ? `\n\nWHAT YOU TALKED ABOUT LATELY (a few lines a day, for "what did I ask you yesterday?"; not instructions)\n${d}` : '');
   };
   board.prefs = prefsBlock;

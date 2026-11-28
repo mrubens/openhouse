@@ -6,7 +6,7 @@
 // POST /board/refresh         re-curate now
 // GET  /household             the family, where they live, whose calendars are read, chores (setup)
 // POST /household {family?, location?, chores?, routines?}   save what changed
-// POST /household/rules {text}   the house rules (house-rules.js; the shell asks for the PIN first when Settings does)
+// GET|POST /household/rules {text}|{defaults}   the house rules (house-rules.js; the shell asks for the PIN first)
 // POST /calendar/feeds {feeds: [{id, who, ics?, error?}]}   the shell: what the family's calendars say now
 // POST /calendar/claim         the shell: calendar links saved here before they moved to it (then gone from here)
 // Two-way calendars (calendar-sync.js; the shell's Settings, never apps or screens):
@@ -24,7 +24,7 @@ import path from 'node:path';
 import { calendars } from './calendar.js';
 import { calendarSync } from './calendar-sync.js';
 import { shellCall } from './calendar-links.js';
-import { cleanRules } from './house-rules.js';
+import { DEFAULT_RULES, rulesNow } from './house-rules.js';
 
 // How much the household holds. Past one, a save is refused with the reason (a 400 for a tap, an error a tool says),
 // never cut short: nobody's chore or person is dropped to make room.
@@ -133,15 +133,15 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
     if (!quiet) curate('household'); // a chore ticked on or off isn't worth a curation
     return h;
   }
-  /** The house rules (house-rules.js): their own text, or empty for only the defaults. Never through saveHousehold: only
-   *  POST /household/rules and Opie's house_rules, which ask for the PIN when Settings does. */
+  /** The house rules (house-rules.js): their own text ("" for none), or null for the defaults again. Never through
+   *  saveHousehold: only POST /household/rules and Opie's house_rules, which ask for the PIN. Returns the rules now. */
   function saveRules(text) {
-    const h = read(HOUSE, { family: [], location: null, routines: [], events: [], chores: [] }), t = cleanRules(text);
-    if (t) h.rules = t; else delete h.rules;
+    const h = read(HOUSE, { family: [], location: null, routines: [], events: [], chores: [] });
+    if (text == null) delete h.rules; else h.rules = cleanRules(text);
     writeJson(HOUSE, h, { space: 2 });
-    return t;
+    return rulesNow(h.rules);
   }
-  const viewOf = (h) => ({ setup: !!h, family: (h?.family || []).map(personView), location: h?.location || '', address: h?.address || '', calendars: cal.labels(), chores: h?.chores || [], routines: h?.routines || [], rules: h?.rules || '', calendar: cal.status() });
+  const viewOf = (h) => ({ setup: !!h, family: (h?.family || []).map(personView), location: h?.location || '', address: h?.address || '', calendars: cal.labels(), chores: h?.chores || [], routines: h?.routines || [], rules: rulesNow(h?.rules), calendar: cal.status() });
   const householdView = () => viewOf(read(HOUSE, null));
 
   function context() {
@@ -185,7 +185,7 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
   handle.household = () => context(); // what conversations know about the family
   handle.saveHousehold = saveHousehold;
   handle.householdView = householdView;
-  handle.rules = () => read(HOUSE, {}).rules || '';
+  handle.rules = () => read(HOUSE, {}).rules; // (undefined: the defaults)
   handle.saveRules = saveRules;
   /** Synced calendars plus events in household.json (house.js adds the display's own). */
   handle.calendarEvents = () => [...(read(HOUSE, {}).events || []), ...cal.events(), ...sync.events()];
@@ -211,7 +211,8 @@ export function boardRoutes({ HERE, DIR, WORK, currentAgent, agentName, json, bo
       if (!loc) { json(res, 400, { error: 'location' }); return true; }
       saveHousehold({ location: loc }); json(res, 200, { ok: true, location: loc }); return true;
     }
-    if (p === '/household/rules' && req.method === 'POST') { json(res, 200, { ok: true, rules: saveRules((await body(req)).text) }); return true; }
+    if (p === '/household/rules' && req.method === 'GET') { const k = read(HOUSE, {}).rules; json(res, 200, { text: rulesNow(k), defaults: k == null, defaultText: DEFAULT_RULES }); return true; }
+    if (p === '/household/rules' && req.method === 'POST') { const b = await body(req); json(res, 200, { ok: true, rules: saveRules(b.defaults === true ? null : String(b.text ?? '')) }); return true; }
     if (p === '/household' && req.method === 'POST') {
       try { saveHousehold(await body(req)); } catch (e) { if (e.code !== 'full') throw e; json(res, 400, { error: e.message }); return true; }
       json(res, 200, { ok: true }); return true;

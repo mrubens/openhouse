@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { houseRulesCall } from '../house-rules.js';
 
 function setup({ yes = false, asks = true } = {}) {
-  let kept = '';
+  let kept; // (undefined: the defaults)
   const cards = [];
   const host = {
     there: () => true, can: () => true,
@@ -22,7 +22,7 @@ test('a no on the tablet changes nothing, even with the Change settings switch o
     const s = setup({ yes: false, asks });
     const r = await set(s, 'Anything goes.');
     assert.equal(r.isError, true);
-    assert.equal(s.kept(), '');
+    assert.equal(s.kept(), undefined);
     assert.equal(s.cards.length, 1);
     assert.equal(s.cards[0].pin, true);
     assert.equal(s.cards[0].grownup, true, 'a person\'s own tap');
@@ -30,8 +30,11 @@ test('a no on the tablet changes nothing, even with the Change settings switch o
   }
 });
 
-test('a yes on the tablet saves it', async () => {
+test('a yes on the tablet saves it, and putting back the defaults takes a yes too', async () => {
   const s = setup({ yes: true, asks: false });
   await set(s, 'Adults use this too.');
   assert.equal(s.kept(), 'Adults use this too.');
+  await s.call('house_rules', { do: 'defaults' });
+  assert.equal(s.kept(), null);
+  assert.equal(s.cards.length, 2);
 });

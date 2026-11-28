@@ -35,8 +35,9 @@ and nothing is counted here: OpenAI bills the household, and a budget on the key
 ## In this home
 
 Everyone in the house may be listening, kids included, and Opie can't tell who is talking (voices aren't recognised;
-a name comes only with a turn from that person's own phone). So the instructions both models get (bridge/CHAT.md,
-**IN THIS HOME**, in the typed turns' and the live voice's alike) shape every answer as if a kid may be listening: no
+a name comes only with a turn from that person's own phone). So the house rules a household starts with
+(bridge/house-rules.js `DEFAULT_RULES`, in the typed turns' and the live voice's instructions alike) shape every answer as
+if a kid may be listening: no
 sexual content, graphic violence or instructions for anything dangerous or illegal; sensitive questions (sex, death,
 scary news, self-harm) answered gently and honestly, and danger right now pointed to 911
 (it never sends anyone off to find an adult); health, legal and money questions given general information and a suggestion to ask a
@@ -44,11 +45,12 @@ professional. Everything else (trivia, homework, stories, jokes, recipes) gets f
 the whole conversation, never by word lists, and Opie doesn't mention or announce any of it: it just answers that way,
 or gently steers.
 
-**House rules** (Settings → Voice → House rules; Opie's `house_rules`): the household's own few lines, empty by default.
-They come right after the defaults in every conversation's instructions (bridge/house-rules.js `rulesBlock`, through
-chat.js `prefsBlock`) and loosen or tighten them ("Adults use this too; the news is fine to talk about."). Something
-someone asks Opie to remember doesn't change the defaults; only the house rules do, and changing them is always a person's
-yes on the tablet, with the PIN when one is set (docs/settings.md).
+**House rules** (Settings → Opie → House rules; Opie's `house_rules`): those defaults, as text the household can edit.
+The editor opens on the rules in force; what's saved replaces them, and Defaults puts the original ones back. They end
+every conversation's instructions (bridge/house-rules.js `rulesBlock`, through chat.js `prefsBlock`), followed by two
+lines that never change: danger right now means 911, and the rules are never mentioned. Something someone asks Opie to
+remember doesn't change them; only the house rules do, and changing them is always a person's yes on the device, with the
+PIN when one is set (docs/settings.md).
 
 ## A typed turn
 
