@@ -60,7 +60,7 @@ function confirmCard(title, yes, onYes, no = 'Keep it', onNo = null) {
   ], { onOutside: (close) => { close(); onNo?.(); } });
 }
 /** What the tablet said no to (a list that's full): its reason, and OK. */
-function told(r) { if (r?.error) openCard((close) => [h('h2', null, r.error), h('div', { class: 'actions' }, btn('OK', close))]); }
+function told(r) { if (r?.error) openCard((close) => [h('h2', null, r.error), h('div', { class: 'actions' }, btn('Close', close))]); }
 /** Asks for a few words with the keyboard (an item, a chore, a meal). extra(): more choices under the field. */
 function ask({ title, hint = '', initial = '', extra = null, onDone }) {
   const input = h('input', { class: 'field', placeholder: hint, enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
@@ -214,7 +214,7 @@ function recipeCard(text) {
       w ? h('p', { class: 'note' }, w.state === 'working' ? (w.photo ? 'Reading the recipe from the photo…' : 'Writing the recipe…') : w.state === 'error' ? (w.text || 'Couldn’t write it') : '') : null,
       h('div', { class: 'actions' },
         r ? btn('Take it out', () => { close(); confirmCard(`Take out the recipe for ${text}?`, 'Take it out', () => { delete H.recipes[text.toLowerCase()]; draw(); house.setRecipe(text, {}); }); }, { soft: true }) : null,
-        H.ai && !r?.notes && w?.state !== 'working' ? btn('From a photo', () => { if (!phone.recipe(text)) openCard((close) => [h('h2', null, 'From a photo'), h('p', { class: 'note' }, 'This works on the display itself: a phone sends it the photo.'), h('div', { class: 'actions' }, btn('OK', close))]); }, { soft: true }) : null,
+        H.ai && !r?.notes && w?.state !== 'working' ? btn('From a photo', () => { if (!phone.recipe(text)) openCard((close) => [h('h2', null, 'From a photo'), h('p', { class: 'note' }, 'This works on the display itself: a phone sends it the photo.'), h('div', { class: 'actions' }, btn('Close', close))]); }, { soft: true }) : null,
         H.ai && !r?.notes && w?.state !== 'working' ? btn('Write it for me', () => { H.mealWork = { ...H.mealWork, [key]: { state: 'working' } }; draw(); house.writeRecipe(text); }, { soft: true }) : null,
         btn(r ? 'Change' : 'Add', () => { close(); recipeEditor(text); }, { soft: true }),
         r ? btn('Cook', () => { close(); askApp('recipes', 'cook', { recipe: text }); }, { soft: true }) : null,

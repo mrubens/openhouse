@@ -140,7 +140,7 @@ function photo(name, cls = '', small = false) {
 /** Ways in: a phone on the Wi-Fi now; the household's phones any time; an iCloud shared album that keeps them coming;
  *  picked in Google Photos. All but the first are behind the PIN (the display asks). */
 function addPhotos() {
-  const later = (call, what) => () => { if (!call()) openCard((c) => [h('h2', null, what), h('p', { class: 'note' }, 'That’s on the display itself, with the PIN.'), h('div', { class: 'actions' }, btn('OK', c))]); };
+  const later = (call, what) => () => { if (!call()) openCard((c) => [h('h2', null, what), h('p', { class: 'note' }, 'That’s on the display itself, with the PIN.'), h('div', { class: 'actions' }, btn('Close', c))]); };
   const way = (title, line, tap) => h('div', { class: 'way', tap }, h('div', { class: 'way-title' }, title), h('div', { class: 'note small' }, line));
   openCard((close) => [
     h('h2', { class: 'big' }, 'Add photos'),
@@ -155,7 +155,7 @@ function addPhotos() {
 function albumByLink() {
   ask({ title: 'An iCloud shared album', hint: 'Paste its public link', extra: () => h('p', { class: 'note small' }, 'In Photos, the album’s sharing settings: turn on Public Website, then copy the link.'), onDone: async (link) => {
     const r = await house.addAlbumLink(link);
-    openCard((c) => [h('h2', null, r?.added ? 'Added' : 'Not added'), h('p', { class: 'note' }, r?.added ? 'Its photos come in over the next few minutes, and new ones within half an hour.' : r?.error || 'It wasn’t added.'), h('div', { class: 'actions' }, btn('OK', c))]);
+    openCard((c) => [h('h2', null, r?.added ? 'Added' : 'Not added'), h('p', { class: 'note' }, r?.added ? 'Its photos come in over the next few minutes, and new ones within half an hour.' : r?.error || 'It wasn’t added.'), h('div', { class: 'actions' }, btn('Close', c))]);
   } });
 }
 const linkOf = (a) => (a?.from && H?.linked?.find((l) => l.album === a.id)) || null;
@@ -190,7 +190,7 @@ function empty() {
     h('h1', null, 'No photos yet'),
     h('p', null, 'Photos added to the display show here, and when nobody’s using it.'),
     btn('Add photos', addPhotos, { ic: 'plus' }),
-    H?.email ? h('p', { class: 'note small' }, `Or email them to ${H.email}.`) : null,
+    H?.email ? h('p', { class: 'note small' }, 'Or email them to ', h('span', { class: 'addr' }, H.email), '.') : null,
     unread());
 }
 /** Linked albums that have never read (no album here yet, so nothing else shows them): why, and a way to take each off. */
@@ -262,7 +262,7 @@ function albumTile(x, kind, photos) {
 /** New album (with these photos in it). */
 function newAlbum(names) {
   ask({ title: names.length ? `A new album for ${names.length === 1 ? 'this photo' : `these ${names.length}`}` : 'A new album', hint: 'Summer, Grandma, The dog', onDone: async (name) => {
-    if ((H.albums || []).some((x) => same(x.name, name))) return openCard((close) => [h('h2', null, `There’s an album called ${name} already.`), h('div', { class: 'actions' }, btn('OK', close))]);
+    if ((H.albums || []).some((x) => same(x.name, name))) return openCard((close) => [h('h2', null, `There’s an album called ${name} already.`), h('div', { class: 'actions' }, btn('Close', close))]);
     picking = null;
     const r = await house.addAlbum(name, names);
     if (r?.album) { album = r.album.id; grid = true; }

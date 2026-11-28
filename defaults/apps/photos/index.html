@@ -139,6 +139,7 @@
     .sheet p { margin: 0; font-size: calc(18 * var(--u)); font-weight: 500; color: var(--fg2); }
     .note { margin: 0; font-size: calc(20 * var(--u)); color: var(--fg2); line-height: 1.4; }
     .note.small { font-size: calc(17 * var(--u)); }
+    .addr { white-space: nowrap; } /* the email address never breaks at its dashes */
     .unread { display: flex; flex-direction: column; flex: none; margin-bottom: calc(14 * var(--u)); }
     .unread-row { display: flex; align-items: center; justify-content: space-between; gap: calc(16 * var(--u)); padding: calc(10 * var(--u)) 0; border-top: 1px solid var(--hair); text-align: left; }
     .empty .unread { align-self: stretch; margin-top: calc(18 * var(--u)); }

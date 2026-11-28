@@ -268,7 +268,7 @@ function screen() {
 
 /** A calendar by its link: on the display, behind the PIN (the shell keeps the links, sealed). */
 function addCalendar() {
-  if (!phone.addCalendar()) openCard((close) => [h('h2', null, 'Add a calendar'), h('p', { class: 'line light' }, 'On the display: Add a calendar here, or Settings, Family. From a computer, ask Claude or ChatGPT to add it with the calendar’s link.'), h('div', { class: 'actions' }, btn('OK', close))]);
+  if (!phone.addCalendar()) openCard((close) => [h('h2', null, 'Add a calendar'), h('p', { class: 'line light' }, 'On the display: Add a calendar here, or Settings, Family. From a computer, ask Claude or ChatGPT to add it with the calendar’s link.'), h('div', { class: 'actions' }, btn('Close', close))]);
 }
 
 /** The weather: all of it (today's sunrise and sunset), and its days by date ("YYYY-MM-DD" -> {high, low, code, condition, rain}). */
@@ -483,7 +483,7 @@ function schedule(first, n, today) {
   return h('div', { class: 'agenda schedule', 'data-keep': 'agenda' }, out.length ? out : [h('p', { class: 'nothing' }, 'Nothing coming up'), byEmail()]);
 }
 /** With nothing coming up and email on: the one quiet line that says events can come by email. */
-const byEmail = () => (H?.email ? h('p', { class: 'line light small' }, `Forward invitations to ${H.email} to add them here.`) : null);
+const byEmail = () => (H?.email ? h('p', { class: 'line light small' }, 'Forward invitations to ', h('span', { class: 'addr' }, H.email), ' to add them here.') : null);
 
 /** One day up close: everything on it, and adding to it. */
 /** A new event's start when nothing was tapped at a time: today, the next half hour (if the day isn't nearly over);
@@ -584,15 +584,15 @@ const unlocked = () => !H?.calendarLock || H.unlockedUntil > Date.now();
 function guard(fn) {
   if (unlocked()) return fn();
   afterPin = fn; afterPinAt = Date.now();
-  if (!phone.unlock()) { afterPin = null; openCard((close) => [h('h2', null, 'The calendar is locked'), h('p', { class: 'line light' }, 'Enter the PIN on the display.'), h('div', { class: 'actions' }, btn('OK', close))]); }
+  if (!phone.unlock()) { afterPin = null; openCard((close) => [h('h2', null, 'The calendar is locked'), h('p', { class: 'line light' }, 'Enter the PIN on the display.'), h('div', { class: 'actions' }, btn('Close', close))]); }
 }
 
 const NEEDS_OPIE = 'Reading a flyer needs an Opie account or your own OpenAI key (Settings → Opie → Voice).';
 /** A flyer, school notice or invitation, photographed on a phone: the assistant reads its events, and they're added
  *  only once someone says which (the card below). */
 function fromPhoto() {
-  if (!H?.ai) return openCard((close) => [h('h2', null, 'A flyer to the calendar'), h('p', { class: 'line light' }, NEEDS_OPIE), h('div', { class: 'actions' }, btn('OK', close))]);
-  if (!phone.flyer()) openCard((close) => [h('h2', null, 'A flyer to the calendar'), h('p', { class: 'line light' }, 'This works on the display itself: a phone sends it the photo.'), h('div', { class: 'actions' }, btn('OK', close))]);
+  if (!H?.ai) return openCard((close) => [h('h2', null, 'A flyer to the calendar'), h('p', { class: 'line light' }, NEEDS_OPIE), h('div', { class: 'actions' }, btn('Close', close))]);
+  if (!phone.flyer()) openCard((close) => [h('h2', null, 'A flyer to the calendar'), h('p', { class: 'line light' }, 'This works on the display itself: a phone sends it the photo.'), h('div', { class: 'actions' }, btn('Close', close))]);
 }
 let flyerShown = null, flyerCard = null, flyerPick = null; // flyerPick: which of its events are ticked, and whose
 function showFlyer() {
@@ -607,9 +607,9 @@ function showFlyer() {
     if (!g) return [];
     if (g.state === 'working') return [h('h2', null, 'Reading the flyer…'), h('p', { class: 'line light' }, 'The assistant is finding its dates. This takes a moment; you can close this.'),
       h('div', { class: 'actions' }, btn('Close', () => { close(); flyerCard = null; }, { soft: true }))];
-    if (g.state === 'error') return [h('h2', null, 'Couldn’t read the flyer'), h('p', { class: 'line light' }, g.text || 'Try another photo, closer and straight on.'), h('div', { class: 'actions' }, btn('OK', () => done(close)))];
+    if (g.state === 'error') return [h('h2', null, 'Couldn’t read the flyer'), h('p', { class: 'line light' }, g.text || 'Try another photo, closer and straight on.'), h('div', { class: 'actions' }, btn('Close', () => done(close)))];
     const evs = g.events || [];
-    if (!evs.length) return [h('h2', null, 'No dates on that flyer'), h('p', { class: 'line light' }, 'The assistant didn’t find any events in it. A closer photo, straight on, may help.'), h('div', { class: 'actions' }, btn('OK', () => done(close)))];
+    if (!evs.length) return [h('h2', null, 'No dates on that flyer'), h('p', { class: 'line light' }, 'The assistant didn’t find any events in it. A closer photo, straight on, may help.'), h('div', { class: 'actions' }, btn('Close', () => done(close)))];
     const redraw = () => sheets.at(-1)?.redraw();
     const when = (e) => { const t = Date.parse(e.allDay ? e.start + 'T12:00' : e.start); return fmt(t, { weekday: 'short', month: 'short', day: 'numeric' }) + (e.allDay ? '' : ' · ' + timeOf(t) + (e.end ? ' – ' + timeOf(Date.parse(e.end)) : '')); };
     const n = flyerPick.on.size;
@@ -639,7 +639,7 @@ function showFlyer() {
 function openSource(src, label) {
   let got; // undefined: loading; null: gone
   const s = openCard((close) => {
-    const ok = h('div', { class: 'actions' }, btn('OK', close));
+    const ok = h('div', { class: 'actions' }, btn('Close', close));
     if (got === undefined) return [h('h2', null, label), ok];
     if (!got) return [h('h2', null, label), h('p', { class: 'line light' }, 'That isn’t kept any more.'), ok];
     if (got.photo) return [h('img', { class: 'source-pic', src: got.photo, alt: label }), ok];

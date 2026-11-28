@@ -77,7 +77,7 @@ function confirmCard(title, yes, onYes, no = 'Keep it', onNo = null) {
   ], { onOutside: (close) => { close(); onNo?.(); } });
 }
 /** What the tablet said no to (a list that's full): its reason, and OK. */
-function told(r) { if (r?.error) openCard((close) => [h('h2', null, r.error), h('div', { class: 'actions' }, btn('OK', close))]); }
+function told(r) { if (r?.error) openCard((close) => [h('h2', null, r.error), h('div', { class: 'actions' }, btn('Close', close))]); }
 /** Asks for a few words with the keyboard (an item, a chore, a meal). extra(): more choices under the field. */
 function ask({ title, hint = '', initial = '', extra = null, onDone }) {
   const input = h('input', { class: 'field', placeholder: hint, enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
