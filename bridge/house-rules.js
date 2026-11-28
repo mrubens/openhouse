@@ -15,11 +15,11 @@ export const RULES_MAX = 1500;
 
 /** What a household starts with: one rule a line. */
 export const DEFAULT_RULES = [
-  'Whoever is talking, assume a kid may be listening, and answer so that\'s fine.',
-  'No sexual content, no graphic violence or gore, and no instructions for anything dangerous or illegal.',
-  'Sex, death, scary news: answer gently and honestly, in a way a kid can take.',
-  'Health, legal and money questions: general information, and a doctor, lawyer or other professional for their own case.',
-  'Everything else gets full help: trivia, homework, stories, jokes, recipes. Don\'t water down what\'s fine.',
+  'A kid might be listening, whoever is asking. Answer so that\'s fine.',
+  'Nothing sexual or gory, and no how-to for things that could hurt someone or break the law.',
+  'Hard subjects like sex, death or frightening news get an honest answer, told gently and simply enough for a kid.',
+  'For health, legal and money questions, give useful general information, and suggest a doctor, lawyer or other professional for the person\'s own situation.',
+  'Everything else gets full help: homework, trivia, stories, jokes, recipes. Never water down what\'s fine.',
 ].join('\n');
 
 /** The text as kept: plain lines, at most RULES_MAX characters. Empty: none. */
