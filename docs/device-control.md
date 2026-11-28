@@ -133,8 +133,8 @@ way, used a shared anonymous account against Play's terms, and apps like YouTube
 - **Signing in**: Settings → Advanced → Google Play (always the PIN; a person's own tap, `personOnly`). It's Android's
   own add-account flow for Google, after one line: a Google account just for this tablet works best (docs/setup.md) (`AccountManager.addAccount`); Google's sign-in pages are let into lock task only
   until Opie is back in front. Nothing in Opie's device-owner policies stops adding an account (no
-  `DISALLOW_MODIFY_ACCOUNTS`, no account-management restrictions). Then it points to Play's own setting, Settings →
-  Authentication → Require authentication for purchases → For all purchases, which can't be set from outside Play.
+  `DISALLOW_MODIFY_ACCOUNTS`, no account-management restrictions). Play's own purchase password (Settings →
+  Authentication) is left to the household: Opie doesn't point to it.
   Signed in, the row shows the account, and Sign out takes it off.
 - **Adding an app**: Apps → Add apps (its search shows Google Play's results under Opie's list, and the Music and books
   suggestions) or `install_app` open that app's Play page, after the PIN when Add apps asks for it. Play is let into

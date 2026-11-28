@@ -69,14 +69,6 @@ object PlayStore {
         }.onFailure { Log.w(TAG, "open $pkg: $it") }.getOrDefault(false)
     }
 
-    /** Play itself (its settings, for purchases to need the password), right after someone signed in. */
-    fun openPlay(c: Context): Boolean {
-        if (!available(c)) return false
-        KioskApps.allowInKiosk(PKG, temporary = true)
-        val i = c.packageManager.getLaunchIntentForPackage(PKG) ?: return false
-        return runCatching { c.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)); true }.getOrDefault(false)
-    }
-
     /** Who installed [pkg] (Play, the shell, ...), or null. */
     fun installer(c: Context, pkg: String): String? = runCatching { c.packageManager.getInstallSourceInfo(pkg).installingPackageName }.getOrNull()
 }
