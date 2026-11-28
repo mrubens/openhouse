@@ -92,7 +92,7 @@ object DeviceServer {
     }
 
     /** Someone turned on "Opie uses apps" (Settings, This tablet; behind the lock when it's on). Off by default. */
-    fun appsOn(c: Context = ctx) = c.getSharedPreferences("shell", Context.MODE_PRIVATE).getBoolean("opie_apps", false)
+    fun appsOn(c: Context = ctx) = c.getSharedPreferences("shell", Context.MODE_PRIVATE).getBoolean("opie_apps", true) // on unless someone turned it off
     fun setAppsOn(c: Context, on: Boolean) { c.getSharedPreferences("shell", Context.MODE_PRIVATE).edit().putBoolean("opie_apps", on).apply(); if (!on) halt("Opie using apps was turned off.") }
 
     /** Stop what it's doing in an app at once, and stay where it is (said "Opie, stop"): the next request starts again. */

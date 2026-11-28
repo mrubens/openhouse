@@ -62,7 +62,7 @@ Two switches, both in Settings → Advanced (behind the lock when the lock is on
 
 - **Device control**: the accessibility service. On by default on a set-up tablet; it also carries the floating face
   and the keyboard's assistant key.
-- **Opie uses apps**: off until someone turns it on. With it off, every action is refused with where to turn it on
+- **Opie uses apps**: on by default (the owner, 2026-11-28); someone can turn it off. With it off, every action is refused with where to turn it on
   (the workshop's `look_at_tablet` picture still works).
 
 ## What it can do
@@ -127,8 +127,8 @@ task list lets it open). Back from an app's first screen and Home both land on O
 
 ## Video apps floating over Home
 
-An Android app in Apps can be a video app (its hold menu in Apps: Float its video over Home; or Opie's `video_app`;
-the PIN when Add apps asks for it). Going Home while it plays leaves its video in Android's floating
+Every Android app in Apps that supports picture-in-picture is a video app, unless someone turns it off for that app (its hold
+menu in Apps: Don't float its video; or Opie's `video_app`; the PIN when Add apps asks for it). Going Home while it plays leaves its video in Android's floating
 picture-in-picture window over Opie's home screen (`VideoFloat.kt`).
 
 Android ends picture-in-picture whenever lock task starts, so opening a video app lifts lock task for it

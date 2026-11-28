@@ -46,10 +46,16 @@ object VideoFloat {
     private val main = Handler(Looper.getMainLooper())
     private fun prefs(c: Context) = c.getSharedPreferences("store", Context.MODE_PRIVATE)
 
-    fun isVideo(c: Context, pkg: String) = pkg in prefs(c).getStringSet("video_apps", emptySet())!!
+    /** Every app that can float its video (Android's picture-in-picture) does, unless someone turned it off for it. */
+    fun isVideo(c: Context, pkg: String) = pkg !in prefs(c).getStringSet("video_off", emptySet())!! && canFloat(c, pkg)
+    /** Does any of [pkg]'s screens support picture-in-picture (ActivityInfo.FLAG_SUPPORTS_PICTURE_IN_PICTURE)? */
+    fun canFloat(c: Context, pkg: String): Boolean = runCatching {
+        @Suppress("DEPRECATION") val acts = c.packageManager.getPackageInfo(pkg, android.content.pm.PackageManager.GET_ACTIVITIES).activities
+        acts?.any { it.flags and 0x400000 != 0 } == true
+    }.getOrDefault(false)
     fun setVideo(c: Context, pkg: String, on: Boolean) {
-        val now = prefs(c).getStringSet("video_apps", emptySet())!!.toMutableSet()
-        if (if (on) now.add(pkg) else now.remove(pkg)) prefs(c).edit().putStringSet("video_apps", now).apply()
+        val now = prefs(c).getStringSet("video_off", emptySet())!!.toMutableSet()
+        if (if (on) now.remove(pkg) else now.add(pkg)) prefs(c).edit().putStringSet("video_off", now).apply()
         Log.i(TAG, "$pkg ${if (on) "is" else "isn't"} a video app")
         if (!on && floating == pkg) end("no longer a video app", pause = false)
     }

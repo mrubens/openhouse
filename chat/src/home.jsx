@@ -1024,7 +1024,7 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
   const [menu, setMenu] = useState(null);
   const inTabs = new Set(tabs.map((t) => t.id));
   const all = [...apps.filter((a) => a.id !== 'home' && !inTabs.has(a.id)).map((a) => ({ id: a.id, name: a.meta?.name || a.id, about: a.meta?.description || '', svg: a.icon, web: a.web !== false, today: a.today })),
-    ...android.map((a) => ({ id: a.id, name: a.name || a.id, img: a.icon, android: true, video: !!a.video }))]
+    ...android.map((a) => ({ id: a.id, name: a.name || a.id, img: a.icon, android: true, video: !!a.video, canFloat: !!a.canFloat }))]
     .sort((a, b) => a.name.localeCompare(b.name));
   const off = (a) => hid[a.id] ?? !!places['app:' + a.id]?.hidden;
   const here = all.filter((a) => !off(a));
@@ -1069,7 +1069,7 @@ function Apps({ c, shell, apps, tabs, places, cards, family }) {
           <div className="h-menu-head"><Icon a={menu} /><span>{menu.name}</span></div>
           {menu.old ? <div className="h-soft">This one can't open yet. Ask Opie to remake it.</div> : <>
             {menu.web && <button className="h-menu-row" onClick={() => toTab(menu)}>Make it a tab</button>}
-            {menu.android && shell?.videoApp && <button className="h-menu-row" onClick={() => toVideo(menu, !menu.video)}>{menu.video ? "Don't float its video" : 'Float its video over Home'}</button>}
+            {menu.android && menu.canFloat && shell?.videoApp && <button className="h-menu-row" onClick={() => toVideo(menu, !menu.video)}>{menu.video ? "Don't float its video" : 'Float its video over Home'}</button>}
             {menu.today && <button className="h-menu-row" onClick={() => toToday(menu, !isOn(menu))}>{isOn(menu) ? 'Take it off Home' : 'Add to Home'}</button>}
             <button className="h-menu-row" onClick={() => hide(menu, true)}>Take it off Apps</button></>}
           <button className="h-menu-row soft" onClick={() => setMenu(null)}>{menu.old ? 'Close' : 'Cancel'}</button>

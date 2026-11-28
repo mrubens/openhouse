@@ -112,7 +112,7 @@ class HomeView(private val act: ComponentActivity, private val ui: () -> String,
         /** Android apps added (Google Play, or opened by Opie), for the home screen: [{id: "android:<package>", name, icon}]. */
         @JavascriptInterface fun androidApps(g: String?): String = if (!ok(g)) "[]" else org.json.JSONArray(o.apps.filter { it.id.startsWith("android:") }.map {
             org.json.JSONObject().put("id", it.id).put("name", it.name).put("icon", androidIcon(it.id.removePrefix("android:")))
-                .put("video", VideoFloat.isVideo(act, it.id.removePrefix("android:")))
+                .put("video", VideoFloat.isVideo(act, it.id.removePrefix("android:"))).put("canFloat", VideoFloat.canFloat(act, it.id.removePrefix("android:")))
         }).toString()
         /** An Android app's hold menu in Apps: its video floats over Home, or not (VideoFloat). The PIN when Add apps asks. */
         @JavascriptInterface fun videoApp(g: String?, id: String, on: Boolean) { if (ok(g) && id.startsWith("android:")) main.post { (act as? MainActivity)?.videoApp(id.removePrefix("android:"), on) } }
