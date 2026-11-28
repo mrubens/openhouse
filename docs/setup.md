@@ -51,12 +51,17 @@ signing in inside the app itself. Apps with their own sign-in, like Netflix, don
 
 1. **Welcome to Opie**, with Get started.
 2. The setup, done from a phone or computer: the tablet shows a code to scan with a phone (or an address and code
-   for a computer). On it you type who lives here and where, add your calendar and photos, and choose a PIN; it moves
+   for a computer). On it you type who lives here and where, link to Opie Cloud, add your calendar and photos, and choose a PIN; it moves
    the tablet along as you go. Then, on the tablet: two of Android's settings. You need a phone or computer on the
    same Wi-Fi for this.
-   - **Your calendars**: on a tablet linked to an Opie account, Sign in with Google opens Google's sign-in in a new
-     tab; then choose the calendars on the tablet. Linking is free, and a tablet that isn't linked yet can link later
-     (Settings → Account, or Add a calendar → Google Calendar, which offers to). iCloud takes your Apple ID and an
+   - **Link to Opie Cloud**: free for every household, and no AI needed. It's what lets you sign in to Google Calendar
+     (two-way) and use Opie from phones away from home. **Link** opens Opie Cloud's page in a new tab with the tablet's
+     code filled in: sign in with your email (an account is made if you have none), then tap **Link** on the tablet to
+     say yes to that account. **Later** skips it; Settings → Account links later. A tablet set up from an account's
+     code comes linked and skips this step.
+   - **Your calendars**: on a linked tablet, Sign in with Google opens Google's sign-in in a new tab; then choose the
+     calendars on the tablet. A tablet that isn't linked yet can link later (Settings → Account, or Add a calendar →
+     Google Calendar, which offers to). iCloud takes your Apple ID and an
      app-specific password, made at account.apple.com (Sign-In and Security). Or paste a calendar's link.
    - **Two of Android's settings** opens Android's settings for each: letting Opie use other apps (switch on "Opie
      assistant" and tap Allow), and stopping charging at 80% ([where it is on each tablet](tablets.md#the-charge-limit-on-each)).

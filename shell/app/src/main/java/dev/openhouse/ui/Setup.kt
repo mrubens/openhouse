@@ -2,7 +2,8 @@ package dev.openhouse.ui
 
 // The first setup, right after the welcome (docs/onboarding.md), done from a phone or computer: connecting one comes
 // first (one code; the phone page then follows these steps: chat/src/phone.jsx SetupFlow), then, typed or sent there,
-// who lives here, where (a street address guessed from where the tablet is), the household's calendar (Google, iCloud,
+// who lives here, where (a street address guessed from where the tablet is), linking to Opie Cloud (free, no AI
+// needed; it's what makes Google's sign-in on the next step and using it away from home work; Later skips it), the household's calendar (Google, iCloud,
 // Outlook or a link, or none), photos (an iCloud shared album, Google Photos, or from that phone) and a PIN for settings
 // and approvals (PIN Lock: the one step that can't be skipped). Then what only the tablet can do: two of Android's own settings a
 // tablet set up by its household would otherwise never find (letting Opie use other apps, and the charge limit), with
@@ -46,11 +47,11 @@ internal object Setup {
     // it up", and "all of the steps are supposed to be on the computer"): connecting one comes first, and can't be
     // skipped; every step after is done there, and its Next moves the tablet on (/setup/want; chat/src/phone.jsx
     // SetupFlow follows the tablet's step). Last, the one thing Android lets only the tablet do: two of its settings.
-    val STEPS = listOf("devices", "people", "place", "calendar", "photos", "pin", "android")
+    val STEPS = listOf("devices", "people", "place", "link", "calendar", "photos", "pin", "android")
     /** Done on the phone or computer: the tablet shows only how far along it is (the owner: "no need to show a skeleton
      *  thing on the tablet during the flow - it should just be the instructions for how to set things up until it's
      *  ready, maybe with a progress bar"). */
-    val ON_PHONE = setOf("people", "place", "calendar", "photos", "pin")
+    val ON_PHONE = setOf("people", "place", "link", "calendar", "photos", "pin")
 
     /** A later step that sent someone back to connect a phone or computer: Next there comes back here. */
     private var resume: String? = null
@@ -126,6 +127,18 @@ internal fun SetupSheet() {
         }
     }
     val device = connectedDevice()
+    // Linking (started from the phone or computer, /setup/link): once someone there entered the code, the yes to that
+    // account is a person's tap here, the same card as Settings → Account's (CloudMenu.confirm). Asked once a code.
+    LaunchedEffect(step) {
+        if (step != "link") return@LaunchedEffect
+        var asked = ""
+        while (true) {
+            val l = withContext(Dispatchers.IO) { getJson("/cloud/status") }?.optJSONObject("linking")
+            val code = l?.optString("display").orEmpty()
+            if (l?.optJSONObject("confirm") != null && code != asked) { asked = code; Openhouse.host.setting("setupLink") }
+            delay(2000)
+        }
+    }
     CompositionLocalProvider(LocalPalette provides quietPalette()) {
         // From the top, not centered: the card's top stays put from step to step. Every step is the same width. The
         // card never runs past the screen, or past Android's on-screen keyboard when it's up (a tablet with no keyboard
@@ -186,7 +199,7 @@ private fun Progress(f: Float, modifier: Modifier = Modifier) {
 @Composable
 private fun PhoneProgress(step: String) {
     val now = when (step) {
-        "people" -> "Who lives here"; "place" -> "Where you live"; "calendar" -> "Your calendars"; "photos" -> "Your photos"
+        "people" -> "Who lives here"; "place" -> "Where you live"; "link" -> "Opie Cloud"; "calendar" -> "Your calendars"; "photos" -> "Your photos"
         else -> "A PIN"
     }
     var phonesOn by remember { mutableStateOf(true) }

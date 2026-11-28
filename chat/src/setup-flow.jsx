@@ -13,7 +13,7 @@ const AT_DEVICE = () => !HUB && !window.isSecureContext;
 const mine = (me, who) => String(who || '').toLowerCase() === String(me?.person || '').toLowerCase();
 /** The tablet's next setup step after one sent from here (Setup.kt STEPS). ai and voice: a tablet from before they
  *  left the setup (this page may be the cloud's copy, newer than the tablet), moved on past them from here. */
-const AFTER = { calendar: 'photos', photos: 'pin', pin: 'android', ai: 'pin', voice: 'android' };
+const AFTER = { link: 'calendar', calendar: 'photos', photos: 'pin', pin: 'android', ai: 'pin', voice: 'android' };
 export function SetupFlow({ me, c, h, onDone }) {
   const computer = !/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   // It carries on the tablet's setup rather than repeating it: the tablet's step ({step, photos?}, GET /setup/step)
@@ -64,14 +64,15 @@ export function SetupFlow({ me, c, h, onDone }) {
         <Invite c={c} family={family} sub /></>}
       {step === 'people' && <SetupPeople c={c} />}
       {step === 'place' && <SetupPlace c={c} />}
-      {!['calendar', 'photos', 'people', 'place', 'pin', 'android'].includes(step) && <>
+      {step === 'link' && <LinkHere c={c} />}
+      {!['calendar', 'photos', 'people', 'place', 'link', 'pin', 'android'].includes(step) && <>
         <h1>Connected</h1>
         <p>{step === 'devices' ? 'Starting…' : `Carry on at ${THE()}.`}</p>
       </>}
       <div className="setuprow">
         <span className="grow" />
         {/* The steps sent from here move the tablet on from here too (the tablet's own Next works as well). */}
-        {AFTER[step] && step !== 'pin' && <button className="go small" onClick={() => c.json('POST', '/setup/go', { step: AFTER[step] }).catch(() => {})}>Next</button>}
+        {AFTER[step] && step !== 'pin' && step !== 'link' && <button className="go small" onClick={() => c.json('POST', '/setup/go', { step: AFTER[step] }).catch(() => {})}>Next</button>}
       </div>
     </main>
   );
@@ -268,7 +269,9 @@ function SetupPlace({ c }) {
         const r = await c.json('POST', '/setup/household', { location: loc, address: street ? t : '' });
         if (r.status !== 200) return setState(r.json?.error || 'That didn’t save.');
       }
-      await c.json('POST', '/setup/go', { step: 'calendar' }); setState(null);
+      // Then linking, on a device that has that step and isn't linked yet (an older one, or a hub: on to the calendar).
+      const l = HUB ? null : await c.json('GET', '/setup/link').catch(() => null);
+      await c.json('POST', '/setup/go', { step: l?.status === 200 && !l.json?.linked ? 'link' : 'calendar' }); setState(null);
     } catch { setState(`${The()} isn’t in touch right now.`); }
   }
   return <>
@@ -277,6 +280,47 @@ function SetupPlace({ c }) {
     <input value={v} onChange={(e) => setV(e.target.value)} placeholder="Street address, town or zip" autoComplete="street-address" />
     <div className="setuprow"><span className="grow" /><button className="go small" disabled={state === 'saving'} onClick={next}>Next</button></div>
     {state && state !== 'saving' && <p className="soft">{state}</p>}
+  </>;
+}
+/** Linking the device to Opie Cloud (free, for every household): what makes Google's sign-ins and using it away from
+ *  home work. Link opens the cloud's page for the device's code in a new tab, to sign in and enter it there; the yes
+ *  to that account is a person's tap on the device (CloudMenu.confirm). Once linked, on to the calendar by itself. */
+function LinkHere({ c }) {
+  const [s, setS] = useState(null), [st, setSt] = useState(null);
+  const go = () => c.json('POST', '/setup/go', { step: AFTER.link }).catch(() => {});
+  useEffect(() => {
+    let live = true, t = null, was = null;
+    const look = async () => {
+      try {
+        const r = await c.json('GET', '/setup/link');
+        if (live && r.status === 200) { setS(r.json); if (r.json.linked && was === false) go(); was = !!r.json.linked; }
+      } catch {}
+      if (live) t = setTimeout(look, 2500);
+    };
+    look();
+    return () => { live = false; clearTimeout(t); };
+  }, []);
+  async function link() {
+    const tab = tabForLater();
+    setSt({ say: '…' });
+    try {
+      const r = await c.json('POST', '/setup/link', {});
+      if (r.status !== 200 || !r.json?.url) { tab.close(); return setSt({ say: r.json?.error || 'That didn’t work.' }); }
+      setSt(tab.go(r.json.url) ? { say: 'Sign in in the new tab.' } : { url: r.json.url, link: 'Open Opie Cloud' });
+    } catch { tab.close(); setSt({ say: `${The()} isn’t in touch right now.` }); }
+  }
+  if (!s) return <p className="soft">…</p>;
+  if (s.linked) return <><h1>Linked{s.family ? ` to ${s.family}` : ''}</h1>
+    <div className="setuprow"><span className="grow" /><button className="go small" onClick={go}>Next</button></div></>;
+  return <>
+    <h1>Link to Opie Cloud</h1>
+    <p>Free, no AI needed. For Google Calendar and Opie away from home.</p>
+    <div className="setuprow">
+      <button className="quiet" onClick={go}>Later</button>
+      <span className="grow" />
+      <button className="go small" disabled={st?.say === '…'} onClick={link}>Link</button>
+    </div>
+    {s.confirm ? <p className="soft">Now tap Link on {THE()}.</p> : <Opened st={st} />}
   </>;
 }
 /** The PIN, chosen here: it guards the tablet's Settings and saying yes to new apps. On a tablet without an account, its

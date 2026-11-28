@@ -118,6 +118,8 @@ internal class SettingsLock(private val act: MainActivity) {
                 if (act.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") == PackageManager.PERMISSION_GRANTED) { DeviceOwner.setDeviceControl(act, true); changed() }
                 else always { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             }
+            // The setup's link step (ui/Setup.kt): the account that entered the code, for a person's yes here.
+            "setupLink" -> if (Openhouse.setupStep == "link") CloudMenu(act).confirmWaiting()
             "setupCharge" -> if (Openhouse.setupStep == "android") always { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
             "ownKey" -> OwnKey.menu(act) // Settings → Opie → Voice (behind the PIN in OwnKey)
             "reloadHome" -> act.reloadHome()

@@ -599,9 +599,23 @@ async function route(req, res, url) {
       try { chat.live.setupHousehold?.save?.(put); } catch (e) { json(res, 400, { error: e.message }); return true; }
       json(res, 200, { ok: true }); return true;
     }
+    // Linking to Opie Cloud, the step before the calendar (Setup.kt "link"): the code's page opens there, someone signs
+    // in and enters it, and the yes to that account is a person's tap on the tablet (CloudMenu.confirm, as Settings →
+    // Account's). Here only the code's address and how far along it is.
+    if (url.pathname === '/setup/link' && req.method === 'GET') {
+      const st = cloud.status();
+      json(res, 200, { linked: !!st.linked, family: st.family || null, waiting: !!st.linking, confirm: !!st.linking?.confirm }); return true;
+    }
+    if (url.pathname === '/setup/link' && req.method === 'POST') {
+      const st = cloud.status();
+      if (st.linked) { json(res, 200, { linked: true, family: st.family || null }); return true; }
+      try { const l = await cloud.linkStart('Opie'); json(res, 200, { url: l.url }); }
+      catch { json(res, 502, { error: 'Opie Cloud can\'t be reached right now. Try again in a minute.' }); }
+      return true;
+    }
     // The rest of what's signed in to is done there too: Google's sign-in (it opens there; the calendars are chosen at
     // the tablet) and iCloud's (typed there over https, sealed, straight on to the shell, never kept here; else at the
-    // tablet). Linking to an Opie account is the tablet's own (Settings, Account: a yes there).
+    // tablet).
     if (url.pathname === '/setup/google' && req.method === 'POST') {
       const st = cloud.status();
       if (!st.linked) { json(res, 409, { error: 'Link the device to your Opie account first.' }); return true; }

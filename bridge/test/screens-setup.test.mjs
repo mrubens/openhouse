@@ -73,7 +73,10 @@ test('the setup: a yes at the tablet, /setup/* only while a step shows, nothing 
 
   await post('/setup/step', { step: 'people' });
   assert.equal((await c.json('POST', '/setup/household', { location: 'Springfield' })).status, 200, 'a step showing: in');
-  assert.equal((await c.json('POST', '/setup/link', {})).status, 403, 'linking to an account is the tablet\'s own, with its yes');
+  // Linking: the setup device may start it and see how far it is, but the yes to an account is a person's tap there.
+  assert.equal((await c.json('GET', '/setup/link')).json.linked, false);
+  assert.equal((await c.json('POST', '/cloud/link/confirm', { ok: true })).status, 403, 'the yes to an account is the tablet\'s own');
+  assert.equal((await c.json('POST', '/cloud/link/start', {})).status, 403);
 
   // Its page came over plain http: the PIN and iCloud's password are typed at the device, never sent from here.
   toShell.length = 0;

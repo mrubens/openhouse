@@ -94,7 +94,7 @@ const RULES = [
   // (handle.invite). Only while the setup shows (brain.js), and gone when it ends (handle.setupOver).
   ['setup', 'POST', /^\/setup\/(calendar|album|invite)$/], // (a tablet's own OpenAI key goes in at the tablet: Settings, Voice)
   ['setup', 'GET', /^\/setup\/step$/], // which setup step the tablet shows, to follow it
-  ['setup', 'GET', /^\/setup\/household$/], ['setup', 'POST', /^\/setup\/(household|go|google|icloud|pin)$/], // who lives here and where, typed there; its Next
+  ['setup', 'GET', /^\/setup\/(household|link)$/], ['setup', 'POST', /^\/setup\/(household|go|google|icloud|pin|link)$/], // who lives here and where, typed there; its Next
   // 'voice': talking to Opie from this device (chat/src/live-voice.js, docs/hub.md): the same live voice the tablet has,
   // its session started through the cloud (server.js /live/start) and its tools run here. A browser gives a page the
   // microphone only on https or localhost, so on the Wi-Fi's plain http address the page doesn't offer it.

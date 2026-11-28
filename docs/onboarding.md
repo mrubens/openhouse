@@ -17,7 +17,7 @@ On the tablet:
    to an Opie account has them, and one without adds its own key later, in Settings → Opie → Voice.
    **Done from a phone or computer** (since 2026-11-26; the owner: "it's ok to require a phone or computer to set it
    up. I think that would simplify things", and "all of the steps are supposed to be on the computer"). The steps in
-   order: `devices`, `people`, `place`, `calendar`, `photos`, `pin` (all on the phone or computer: the PIN is chosen
+   order: `devices`, `people`, `place`, `link`, `calendar`, `photos`, `pin` (all on the phone or computer: the PIN is chosen
    there and an unlinked tablet's recovery code shown there, `/setup/pin`), then `android` on the tablet, the one
    thing Android lets only the tablet do, with Done. (The phone page, which may be the cloud's copy and newer than the
    tablet, still moves an older tablet on past its `ai` and `voice` steps.) Who lives here is a name, Adult, Kid or Pet (the first row
@@ -65,10 +65,21 @@ On the tablet:
    browser blocks a tab opened after the round trip (Safari always), which on 1.0.55 left "Sign in to Google on the
    page that opened" with no page open. Where even that's blocked, the page is a link to tap. The link box's words
    leave out Google's secret address on a phone (Google Calendar's app has none; it's on calendar.google.com on a
-   computer), and say it's on a computer where the tablet isn't linked. Accounts are open to every household, free, since
-   2026-11-28, but the setup still offers none (a tablet set up from an account's setup code comes linked), so Google's
-   sign-ins show here only on a linked tablet. After the setup, Settings → Add a calendar → Google on an unlinked tablet
-   offers to link it first (`CalendarAccounts.linkFirst`), then goes on to Google's sign-in.
+   computer), and say it's on a computer where the tablet isn't linked. Google's sign-ins show only on a linked tablet,
+   which is why linking is its own step just before the calendar (below). After the setup, Settings → Add a calendar →
+   Google on an unlinked tablet offers to link it first (`CalendarAccounts.linkFirst`), then goes on to Google's sign-in.
+   **Link to Opie Cloud** (`link`, since 2026-11-28; the owner: the setup offers linking, free for every household, AI
+   still needing credit or the household's own key): after where you live, before the calendar, so the calendar step
+   can offer Google's sign-in. One line says what it gives (free, no AI needed: Google Calendar and Opie away from
+   home), then **Later** (quiet) and **Link** (`LinkHere`). Link starts the same link as Settings → Account
+   (`POST /setup/link`, the bridge's `linkStart` with confirm) and opens the cloud's page for the code in a new tab
+   (`tabForLater`), the code filled in: sign in by email there (an account is made for a new one) and enter it. The
+   yes to that account stays a person's tap on the tablet: during the step the tablet watches `/cloud/status`, and
+   once the code is claimed shows Settings → Account's own card (`CloudMenu.confirmWaiting`, personOnly). Linked, the
+   phone moves on to the calendar by itself. A tablet already linked (from an account's setup code), a hub, or an
+   older tablet without the step goes from where you live straight to the calendar (`SetupPlace` asks
+   `GET /setup/link`). The setup scope may start a link and see how far it is (`/setup/link`), never the yes
+   (`/cloud/link/confirm` stays the tablet's).
    4. **Do you have a family calendar?** Google, iCloud, Outlook, Another link, or Start one here, each with what to
       do in a few numbered lines: Google signs in through the account (`CalendarAccounts`, two-way) on a linked
       tablet, else its Secret address in iCal format, copied on the computer and pasted into Opie there (the connected
