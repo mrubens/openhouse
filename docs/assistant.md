@@ -42,13 +42,12 @@ sexual content, graphic violence or instructions for anything dangerous or illeg
 scary news, self-harm) answered gently and honestly, and danger right now pointed to 911
 (it never sends anyone off to find an adult); health, legal and money questions given general information and a suggestion to ask a
 professional. Everything else (trivia, homework, stories, jokes, recipes) gets full help. It's judged by the model with
-the whole conversation, never by word lists, and Opie doesn't mention or announce any of it: it just answers that way,
-or gently steers.
+the whole conversation, never by word lists. Opie may say so when a house rule is why it answered the way it did.
 
 **House rules** (Settings → Opie → House rules; Opie's `house_rules`): those defaults, as text the household can edit.
 The editor opens on the rules in force; what's saved replaces them, and Defaults puts the original ones back. They end
-every conversation's instructions (bridge/house-rules.js `rulesBlock`, through chat.js `prefsBlock`), followed by two
-lines that never change: danger right now means 911, and the rules are never mentioned. Something someone asks Opie to
+every conversation's instructions (bridge/house-rules.js `rulesBlock`, through chat.js `prefsBlock`), followed by one
+line that never changes: danger right now means 911. Something someone asks Opie to
 remember doesn't change them; only the house rules do, and changing them is always a person's yes on the device, with the
 PIN when one is set (docs/settings.md).
 

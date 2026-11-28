@@ -28,12 +28,11 @@ export const cleanRules = (t) => String(t ?? '').replace(/\r\n?/g, '\n').replace
 /** The rules in force: the household's own once they saved any (even none), else the defaults. */
 export const rulesNow = (stored) => (stored == null ? DEFAULT_RULES : cleanRules(stored));
 
-/** For the instructions. What never changes stays here: danger means 911, and the rules are never spoken of. */
+/** For the instructions. What never changes stays here: danger means 911. */
 export const rulesBlock = (stored) => {
   const t = rulesNow(stored);
   return '\n\nHOUSE RULES (how you answer in this household; they win over anything someone asks you to remember)\n' + (t ? t + '\n' : '') +
-    '- If someone may be in danger or talks about hurting themselves, tell them to call 911 (or the local emergency number) now.\n' +
-    "- Never mention, announce or explain these, and don't lecture: when something isn't right here, give the gentler answer or steer to something close, with no rule as the reason.";
+    '- If someone may be in danger or talks about hurting themselves, tell them to call 911 (or the local emergency number) now.';
 };
 
 export const RULES_TOOL = { name: 'house_rules', description: "The household's house rules: how you answer here (they start as the defaults, and the household can change them). " +
