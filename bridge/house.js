@@ -4,7 +4,7 @@
 // tools, so "add milk", "Leo fed the cat" or "what's for dinner Thursday?" work from any conversation.
 //
 // GET  /house                  { v, today, family, lists, chores, stars, rewards, asks, checklists, meals, favorites,
-//                                mealWork, events, photos, night, ai }
+//                                mealWork, events, photos, night, resting, ai }
 // GET  /house/wait?v=N         the same, once it changes (or after 25 s)
 //      &same=1                 nothing changed in those 25 s: { v, same: true }, and the caller keeps what it has
 // POST /house/list             { list, add?: [text], check?: [id|text], uncheck?, remove?, clearChecked?, who? }
@@ -18,7 +18,8 @@
 // GET  /house/events?from=YYYY-MM-DD&to=YYYY-MM-DD  { events } between those days, as view().events has them: up to
 //                              a year back and 18 months ahead (REACH), synced calendars read for it (house/events.js eventsIn)
 //   view(): eventsWindow {from, to}: the near weeks view().events covers (ISO); further is GET /house/events
-// POST /house/settings         { night: {from: "21:30", to: "06:30"} | false, remind?: minutes | false, remindAloud?: bool }
+// POST /house/settings         { night: {from: "21:30", to: "06:30"} | false, resting?: {after, every, order, fit, show, calendar}
+//                              (any of them: house/settings.js RESTING), remind?: minutes | false, remindAloud?: bool }
 //                              (no photos on the idle screen at night; remind: the reminder every timed event gets)
 // POST /house/flyer?name=x.jpg a photo of a flyer or school notice (the body): the assistant reads its events
 //                              into view().flyer { state: "working" | "done" | "error", events?, text? } (waiting events kept through a restart); nothing is
@@ -174,7 +175,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       events, dayNotes: (() => { try { return notes ? notes.byDay() : {}; } catch { return {}; } })(), fromApps: (() => { try { return notes ? notes.apps() : []; } catch { return []; } })(), photos: house.photos(), calendars: (h.calendars || []).length + (board.sync?.calendars().filter((c) => c.mode !== 'off').length || 0),
       calendarTargets: board.sync?.targets() || [], // two-way calendars new events can go into (calendar-sync.js)
       things: (() => { try { return things ? things.strip({ events, reminders }) : []; } catch (e) { console.error('[things]', e); return []; } })(), // (things.js: the strip on Home)
-      night: data.settings.night === false ? null : data.settings.night || NIGHT,
+      night: data.settings.night === false ? null : data.settings.night || NIGHT, resting: house.resting(),
       eventsWindow: (({ from, to }) => ({ from: new Date(from).toISOString(), to: new Date(to).toISOString() }))(house.nearWindow()),
       reminders, flyer: house.flyerNow(), email: house.mailAddress(), // (email: the household's address, while email is on: mail.js)
       calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,

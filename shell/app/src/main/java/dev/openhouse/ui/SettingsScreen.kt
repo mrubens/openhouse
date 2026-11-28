@@ -152,6 +152,9 @@ private fun Pane(t: SettingsTab, vals: Map<String, String>, compact: Boolean, lo
                     SettingsRow("Brightness", vals["brightness"], onClick = shell("brightness")) // not behind the PIN: anyone can see the screen better
                     SettingsRow("Volume", vals["volume"], onClick = shell("volume")) // (nor this: anyone can hear it)
                     SettingsRow("Time", vals["time"], asks, shell("time"))
+                    if (!sat) SettingsRow("Tabs", vals["tabs"], onClick = shell("tabs")) // (no PIN, as the Apps tab's Make it a tab; a satellite's tabs are the main device's)
+                    SettingsRow("Resting screen", vals["resting"], onClick = shell("resting")) // (no PIN, as Opie's resting_screen)
+                    SettingsRow("Night hours", vals["night"], onClick = shell("night")) // (no PIN, as Opie's night_hours)
                 }
                 else -> Waiting(t, lockOn && t.id != "connections")
             }

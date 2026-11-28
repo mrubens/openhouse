@@ -10,6 +10,7 @@ import { pair, client, Removed } from './screen-client.js';
 import { pairingFromCode } from './scrypt.js';
 import { Asks } from './asks.jsx';
 import { SetupFlow, AddLink, AddKey, SignIns, GooglePhotosHere, onTheHub } from './setup-flow.jsx';
+import { restingOf } from './now.js';
 
 onTheHub();
 
@@ -261,6 +262,52 @@ function Updates({ c, onRemoved }) {
   );
 }
 
+/** What the household's screens do when nobody's using them (bridge house/settings.js), as the device's Settings → Screen. */
+function Screen({ c, onRemoved }) {
+  const [h, reload] = useGet(c, '/house', 0, onRemoved), [err, setErr] = useState('');
+  const post = async (b) => { setErr(''); const r = await c.json('POST', '/house/settings', b).catch(() => null); if (r?.status !== 200) setErr(r?.json?.error || 'That didn\'t work.'); reload(); };
+  if (!h || h.error) return null;
+  const n = h.night, r = restingOf(h), rest = (part) => post({ resting: part });
+  const after = (m) => (m === 0 ? 'Never' : m === 1 ? '1 minute' : `${m} minutes`);
+  return (
+    <section>
+      <h2>Screen</h2>
+      <h3>Resting screen</h3>
+      <label className="check">Starts after <select value={r.after} onChange={(e) => rest({ after: Number(e.target.value) })}>{[1, 2, 5, 8, 10, 15, 30, 0].map((m) => <option key={m} value={m}>{after(m)}</option>)}</select></label>
+      <label className="check">Shows <select value={r.calendar ? 'calendar' : 'photos'} onChange={(e) => rest({ calendar: e.target.value === 'calendar' })}><option value="photos">Photos</option><option value="calendar">The calendar</option></select></label>
+      {!r.calendar && <>
+        <label className="check">Each photo <select value={r.every} onChange={(e) => rest({ every: Number(e.target.value) })}>{[...new Set([5, 10, 15, 20, 30, 60, 120, r.every])].sort((a, b) => a - b).map((s) => <option key={s} value={s}>{s % 60 ? `${s} seconds` : s === 60 ? '1 minute' : `${s / 60} minutes`}</option>)}</select></label>
+        <label className="check">Order <select value={r.order} onChange={(e) => rest({ order: e.target.value })}><option value="order">In order</option><option value="shuffle">Shuffled</option></select></label>
+        <label className="check">Photo <select value={r.fit} onChange={(e) => rest({ fit: e.target.value })}><option value="fit">Whole photo</option><option value="fill">Fills the screen</option></select></label>
+        {[['time', 'Time and date'], ['weather', 'Weather'], ['next', 'What’s next'], ['captions', 'Captions']].map(([k, label]) =>
+          <label key={k} className="check"><input type="checkbox" checked={!!r.show[k]} onChange={(e) => rest({ show: { [k]: e.target.checked } })} /> {label}</label>)}
+      </>}
+      <h3>Night</h3>
+      <label className="check"><input type="checkbox" checked={!!n} onChange={(e) => post({ night: e.target.checked ? { from: '21:30', to: '06:30' } : false })} /> Night hours</label>
+      {n && <div className="btns">
+        <input className="field" type="time" aria-label="From" value={n.from} onChange={(e) => e.target.value && post({ night: { from: e.target.value, to: n.to } })} />
+        <input className="field" type="time" aria-label="To" value={n.to} onChange={(e) => e.target.value && post({ night: { from: n.from, to: e.target.value } })} />
+      </div>}
+      {err && <p className="soft">{err}</p>}
+    </section>
+  );
+}
+
+/** The tabs and Home's own cards, each on or off (bridge home-screen.js switchOne), as the device's Settings → Screen → Tabs. */
+function Tabs({ c, onRemoved }) {
+  const [s, reload] = useGet(c, '/home/switches', 0, onRemoved);
+  if (!s || s.error) return null;
+  const flip = async (sw) => { await c.json('POST', '/home/look', { switch: sw }).catch(() => null); reload(); };
+  return (
+    <section>
+      <h2>Tabs</h2>
+      {s.tabs.filter((t) => !t.fixed).map((t) => <label key={t.id} className="check"><input type="checkbox" checked={t.on} onChange={() => flip({ tab: t.id, on: !t.on })} /> {t.name}</label>)}
+      <h3>Cards on Home</h3>
+      {s.cards.map((x) => <label key={x.id} className="check"><input type="checkbox" checked={x.on} onChange={() => flip({ card: x.id, on: !x.on })} /> {x.name}</label>)}
+    </section>
+  );
+}
+
 /** The calendars and iCloud albums the keeper holds (without their links), and adding one by its link. */
 function Calendars({ c, k, onRemoved }) {
   const [l, reload] = useGet(c, '/hub/calendars', 0, onRemoved), [h] = useGet(c, '/house', 0, onRemoved), [sync, reloadSync] = useGet(c, '/calendar/sync', 0, onRemoved), [adding, setAdding] = useState(null);
@@ -458,6 +505,8 @@ function Hub({ me, c, onRemoved }) {
             <Devices c={c} onRemoved={onRemoved} />
             <Calendars c={c} k={k} onRemoved={onRemoved} />
             <HomeAssistant c={c} onRemoved={onRemoved} />
+            <Screen c={c} onRemoved={onRemoved} />
+            <Tabs c={c} onRemoved={onRemoved} />
             <Account c={c} onRemoved={onRemoved} />
             <Keeper c={c} k={k} reload={reloadK} />
             <Backups c={c} onRemoved={onRemoved} />

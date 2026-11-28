@@ -205,6 +205,7 @@ chat.homeScreen.addTools(plugins.tools, plugins.call);
 apps.setRightsOf(plugins.rightsOf); apps.setFrozenOf(plugins.frozenOf);
 // Home's Whiteboard card: the drawing the Whiteboard app keeps for it (its own data), and a word each time it changes.
 chat.homeScreen.setWhiteboard(() => apps.readData('whiteboard', 'home')); apps.onData((app, name) => chat.homeScreen.appData(app, name));
+chat.homeScreen.setAppNames(() => apps.list().filter((a) => a.web !== false).map((a) => ({ id: a.id, name: a.meta?.name || a.id })));
 chat.homeScreen.setCardApps(() => apps.list().filter((a) => a.today).map((a) => ({ id: a.id, name: a.meta?.name || a.id })));
 plugins.start();
 chat.live.setExtra?.({ tools: plugins.voiceTools, call: plugins.callVoice });

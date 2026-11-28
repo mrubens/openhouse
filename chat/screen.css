@@ -510,6 +510,7 @@ input.t-write-box { margin-top: calc(var(--u) * 14); font-size: calc(var(--u) * 
 .ambient::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(8,10,24,.25) 0, rgba(8,10,24,0) 30%, rgba(8,10,24,.1) 50%, rgba(8,10,24,.78) 100%); }
 .ambient.night { background: #0b0b0d; } .ambient.night .ambient-time, .ambient.night .ambient-side { opacity: .6; }
 .ambient.night::after { display: none; }
+.ambient.fill > img, .ambient.fill > video { object-fit: cover; } /* the resting screen's Fill: the whole screen, cropped */
 .ambient-caption { position: absolute; left: calc(var(--u) * 70); top: calc(var(--u) * 56); right: 30vw; z-index: 1; font-size: calc(var(--u) * 24); font-weight: 650; text-shadow: 0 2px 16px rgba(0,0,20,.5); }
 .ambient.night .ambient-caption { display: none; }
 .ambient-time { position: absolute; left: calc(var(--u) * 70); bottom: calc(var(--u) * 62); z-index: 1; text-shadow: 0 4px 40px rgba(0,0,20,.35); }

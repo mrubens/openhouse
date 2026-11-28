@@ -186,7 +186,10 @@ object Openhouse : AnswerActions {
     /** The current time, updated every second (read it to tick a clock). */
     var now by mutableStateOf(System.currentTimeMillis()); private set
 
+    /** Before the resting screen when it's set to never: night hours still go dark after this. */
     const val IDLE_MS = 8 * 60_000L
+    /** How long nobody touches it before it rests: the household's minutes (House.restAfter), or at night [IDLE_MS] when it's never. */
+    private fun restMs(): Long? = House.restAfter.takeIf { it > 0 }?.let { it * 60_000L } ?: if (House.isNight()) IDLE_MS else null
 
     fun person(name: String?) = board?.family?.firstOrNull { it.name == name }
 
@@ -244,7 +247,7 @@ object Openhouse : AnswerActions {
                 if (timers.any { it.ringing }) touch()
                 if (now < appInUseUntil || now < videoUntil) lastTouch = now // an app in use hands-free (cooking): the screen stays as it is
                 if (showWelcome || setupStep != null) { lastTouch = now; if (idle) idle = false } // the welcome or setup showing: never the resting screen under it
-                if (!idle && now - lastTouch > IDLE_MS && answer?.live != true && !speaking) idle = true
+                if (!idle && restMs()?.let { now - lastTouch > it } == true && answer?.live != true && !speaking) idle = true
                 main.postDelayed(this, 1000)
             }
         })

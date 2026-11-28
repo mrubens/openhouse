@@ -20,3 +20,15 @@ export function useNow(step = 1000) {
 /** Midnight to 4am: still last night to the people up, so "today" and "tomorrow" would read a day off. Screens use
  *  the weekday's name instead ("Wednesday", "Thursday") until 4. */
 export const smallHours = (now) => new Date(now).getHours() < 4;
+
+/** Is [now] in the household's night hours ({from, to} "HH:MM", which may run past midnight)? */
+export function isNight(n, now) {
+  if (!n?.from || !n?.to) return false;
+  const d = new Date(now), m = d.getHours() * 60 + d.getMinutes(), min = (s) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
+  const f = min(n.from), t = min(n.to);
+  return f <= t ? m >= f && m < t : m >= f || m < t;
+}
+
+/** The resting screen as the household set it (bridge house/settings.js RESTING), with its defaults for an older bridge. */
+export const RESTING = { after: 8, every: 15, order: 'order', fit: 'fit', show: { time: true, weather: true, next: true, captions: true }, calendar: false };
+export const restingOf = (house) => ({ ...RESTING, ...(house?.resting || {}), show: { ...RESTING.show, ...(house?.resting?.show || {}) } });

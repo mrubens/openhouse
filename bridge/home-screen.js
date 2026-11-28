@@ -47,7 +47,7 @@ const SIZE_HELP = `cells across x down, on a ${G.COLS} x ${G.ROWS} grid (one cel
 export const BUILT_IN_WIDGETS = { calendar: '2x2', chores: '2x2', lists: '2x2', meals: '2x1', photos: '2x2' };
 /**
  * How the family wants the home screen to look (apps/home/style.json, which the assistant edits like an app; the
- * display's own "Tabs and look" sheet writes it too, through POST /home/look):
+ * switches in Settings → Screen → Tabs write it too, through POST /home/look {switch}):
  *   tabs      the tabs, in order: "today" (the day, and the notes put up), "apps" (every app that isn't a tab, and the
  *             Android apps added), or an app's id ("calendar", "homework"); an entry may be {"id": "homework",
  *             "name": "School"} to name it differently. Missing: today, the five starting apps, apps. A "board" tab
@@ -68,6 +68,8 @@ export const PALETTES = ['paper', 'linen', 'sage', 'mist', 'dusk'];
 export const TYPES = ['clean', 'serif', 'round', 'hand'];
 /** Home's own cards (chat/src/home.jsx TODAY_CARDS); an app's card is "app:<its id>". */
 export const TODAY_CARDS = ['calendar', 'weather', 'lunch', 'whiteboard', 'recipes', 'meals', 'lists', 'chores', 'notes', 'photos'];
+/** Their names in Settings → Screen → Tabs (chat/src/home.jsx TODAY_NAMES). */
+const CARD_NAMES = { calendar: 'Calendar', weather: 'Weather', lunch: 'App notes with a photo', whiteboard: 'Whiteboard', recipes: 'A recipe to try', meals: 'Dinner', lists: 'Groceries', chores: 'Chores', notes: 'Notes', photos: 'Photos' };
 /**
  * The cards Home shows, in order, while the household hasn't arranged them (style.json has no "today"; home.jsx
  * TODAY_DEFAULT). Arranging them in Tabs and look (or set_home, today_card) saves the whole list, and from then on only
@@ -99,6 +101,9 @@ export function cleanLook(s = {}) {
     cards: Array.isArray(s.cards) ? s.cards.filter((id, i, a) => typeof id === 'string' && TAB_ID.test(id) && id !== 'home' && a.indexOf(id) === i).slice(0, 9) : [],
     // which of Home's cards show, in order (null: all of them, in the usual order)
     today: Array.isArray(s.today) ? s.today.filter((id, i, a) => typeof id === 'string' && (TODAY_CARDS.includes(id) || (id.startsWith('app:') && TAB_ID.test(id.slice(4)))) && a.indexOf(id) === i).slice(0, 20) : null,
+    // where a tab or one of Home's cards switched off by touch was ("tab:chores": the tab before it, "" for the first),
+    // so switching it on puts it back there (switchOne)
+    was: s.was && typeof s.was === 'object' ? Object.fromEntries(Object.entries(s.was).filter(([k, v]) => /^(tab|card):[a-z0-9][a-z0-9-]{0,60}$/.test(k) && typeof v === 'string' && (v === '' || TAB_ID.test(v) || TODAY_CARDS.includes(v))).slice(0, 40)) : {},
   };
 }
 // What the display is showing: the home screen's tab ("today", "apps" or an app's id), so "make this bigger" means
@@ -311,12 +316,59 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   setInterval(expire, 20e3).unref?.();
 
   /**
-   * The home screen's tabs and look (apps/home/style.json), changed in one step: from the "Tabs and look" sheet
+   * A tab or one of Home's own cards switched off or on by touch (Settings → Screen → Tabs, a hub's settings page): off
+   * takes it out and remembers what was before it; on puts it back after that (else where the usual set has it). Home
+   * can't be switched off. One change, so asking can take it back. [s]: {tab | card: id, on}.
+   */
+  function switchOne(s, who = null) {
+    const kind = s?.tab != null ? 'tab' : s?.card != null ? 'card' : null, id = String(s?.tab ?? s?.card ?? '');
+    if (!kind || !TAB_ID.test(id) || (kind === 'card' && !TODAY_CARDS.includes(id))) return { error: 'Which tab or card?' };
+    if (kind === 'tab' && id === 'today') return { error: "Home can't be switched off." };
+    const st = readStyle(), was = { ...(cleanLook(st).was) }, key = `${kind}:${id}`;
+    const ids = kind === 'tab' ? (st.tabs || DEFAULT_TABS).map((t) => (typeof t === 'string' ? t : t.id)) : todayNow(st);
+    const named = kind === 'tab' ? new Map((st.tabs || []).filter((t) => t && typeof t === 'object' && t.name).map((t) => [t.id, t.name])) : new Map();
+    const at = ids.indexOf(id);
+    if (!s.on) {
+      if (at < 0) return { style: homeStyle() };
+      was[key] = at > 0 ? ids[at - 1] : '';
+      ids.splice(at, 1);
+    } else {
+      if (at >= 0) return { style: homeStyle() };
+      const usual = kind === 'tab' ? DEFAULT_TABS : TODAY_CARDS, before = was[key];
+      let pos = before === '' ? 0 : before != null && ids.includes(before) ? ids.indexOf(before) + 1 : -1;
+      if (pos < 0) { // where the usual set has it: after the nearest one before it that's there, else before Apps, else last
+        const prev = usual.slice(0, Math.max(0, usual.indexOf(id))).reverse().find((x) => ids.includes(x));
+        pos = prev ? ids.indexOf(prev) + 1 : kind === 'tab' && ids.includes('apps') ? ids.indexOf('apps') : ids.length;
+      }
+      if (kind === 'tab' && ids[0] === 'today') pos = Math.max(1, pos); // (Home stays first)
+      ids.splice(pos, 0, id);
+      delete was[key];
+    }
+    const list = kind === 'tab' ? ids.map((x) => (named.has(x) ? { id: x, name: named.get(x) } : x)) : ids;
+    return setLook(kind === 'tab' ? { tabs: list, was } : { today: list, was }, null, who);
+  }
+  /** What Settings → Screen → Tabs lists: the tabs (on, or off and could be on: the usual set's and those switched off
+   *  here, of apps that are there), then Home's own cards, each with whether it's on. */
+  function switches() {
+    const st = readStyle(), names = new Map(appNames().map((a) => [a.id, a.name])), cur = (st.tabs || DEFAULT_TABS).map((t) => (typeof t === 'string' ? { id: t } : t));
+    const there = (id) => id === 'today' || id === 'apps' || names.has(id);
+    const off = [...DEFAULT_TABS, ...Object.keys(cleanLook(st).was).filter((k) => k.startsWith('tab:')).map((k) => k.slice(4))]
+      .filter((id, i, a) => a.indexOf(id) === i && there(id) && !cur.some((t) => t.id === id));
+    const name = (t) => t.name || (t.id === 'today' ? 'Home' : t.id === 'apps' ? 'Apps' : names.get(t.id) || t.id);
+    const today = todayNow(st);
+    return {
+      tabs: [...cur.filter((t) => there(t.id)).map((t) => ({ id: t.id, name: name(t), on: true, ...(t.id === 'today' ? { fixed: true } : {}) })), ...off.map((id) => ({ id, name: name({ id }), on: false }))],
+      cards: TODAY_CARDS.map((id) => ({ id, name: CARD_NAMES[id] || id, on: today.includes(id) })),
+    };
+  }
+
+  /**
+   * The home screen's tabs and look (apps/home/style.json), changed in one step: from Settings → Screen → Tabs
    * (POST /home/look) and from the assistant (set_home). Only the keys given change. It's a change like any other,
    * so "undo" takes it back: its own commit, or part of the turn's when that turn is already editing.
    */
   function setLook(b, turn = null, who = null) {
-    const keys = ['tabs', 'palette', 'colors', 'type', 'density', 'backdrop', 'cards', 'today'].filter((k) => b[k] !== undefined);
+    const keys = ['tabs', 'palette', 'colors', 'type', 'density', 'backdrop', 'cards', 'today', 'was'].filter((k) => b[k] !== undefined);
     if (!keys.length) return { error: 'Nothing to change: give tabs, palette, colors, type, density, backdrop or cards.' };
     const next = { ...readStyle() };
     for (const k of keys) next[k] = b[k];
@@ -326,10 +378,11 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
       else if (k === 'tabs') { if (clean.tabs) next.tabs = clean.tabs.map((t) => (t.name ? t : t.id)); else delete next.tabs; }
       else if (k === 'cards' && !clean.cards.length) delete next.cards;
       else if (k === 'today' && !clean.today) delete next.today;
+      else if (k === 'was' && !Object.keys(clean.was).length) delete next.was;
       else next[k] = clean[k];
     }
     const holding = !!(turn && edits?.holder?.() === turn);
-    const owner = { id: 'look', kind: 'look', who, text: keys.includes('tabs') ? 'Change the tabs' : keys.every((k) => k === 'cards' || k === 'today') ? 'Change the cards on Home' : 'Change the look' };
+    const owner = { id: 'look', kind: 'look', who, text: keys.includes('tabs') ? 'Change the tabs' : keys.every((k) => k === 'cards' || k === 'today' || k === 'was') ? 'Change the cards on Home' : 'Change the look' };
     if (edits && !holding && !edits.tryAcquire(owner, { checkpoint: true })) return { error: edits.busyText?.() || 'Busy', busy: true };
     try {
       fs.mkdirSync(path.dirname(styleFile()), { recursive: true });
@@ -630,6 +683,7 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
     const p = url.pathname;
     if (p === '/home/mcp' && req.method === 'POST') { await mcp(req, res); return true; }
     if (req.method === 'GET' && p === '/home') { expire(); json(res, 200, view()); return true; }
+    if (req.method === 'GET' && p === '/home/switches') { json(res, 200, switches()); return true; } // Settings → Screen → Tabs
     if (req.method === 'GET' && p === '/home/timer') { expire(); json(res, 200, { timers: homeScreen.timers.map(({ label, total, endAt }) => ({ label, total, endAt })) }); return true; }
     if (req.method === 'GET' && p === '/home/whiteboard') { json(res, 200, whiteboard()); return true; }
     if (req.method === 'GET' && p === '/home/sketch') { json(res, 200, { v: homeScreen.sketch.v, strokes: homeScreen.sketch.strokes }); return true; }
@@ -663,8 +717,10 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
       showing = TAB_ID.test(t) ? { tab: t, at: Date.now() } : null;
       json(res, 200, { ok: true }); return true;
     }
-    if (p === '/home/look') { // the display's "Tabs and look" sheet: a change like any other, so "undo" takes it back
-      const r = setLook(b, null, b.who ? String(b.who).slice(0, 40) : null);
+    if (p === '/home/look') { // Settings' Tabs (switch: one tab or card on or off), or set_home's whole list: a change like any other, so "undo" takes it back
+      const who = b.who ? String(b.who).slice(0, 40) : null;
+      const r = b.switch ? switchOne(b.switch, who) : setLook(b, null, who);
+      if (r.error && !r.busy && b.switch) { json(res, 400, { error: r.error }); return true; }
       if (r.busy) { json(res, 409, { error: 'busy', text: r.error }); return true; }
       if (r.error) { json(res, 500, { error: r.error }); return true; }
       json(res, 200, { ok: true, style: r.style }); return true;
@@ -740,6 +796,10 @@ export function homeScreenRoutes({ DIR, json, body, edits = null, APP_DIR = null
   handle.appData = (app, name) => { if (app === 'whiteboard' && name === 'home') { boardAt = Date.now(); tell(); } };
   /** The apps that offer a card on Home ([{id, name}]: server.js, from apps.js list), for today_card. */
   let cardApps = () => [];
+  /** Every app's id and name ([{id, name}]: brain.js, from apps.js list), for the tabs Settings can switch on. */
+  let appNames = () => [];
+  handle.setAppNames = (fn) => { appNames = fn; };
+  handle.switches = () => switches();
   handle.setCardApps = (fn) => { cardApps = fn; };
   handle.setLook = setLook; // plugins.js: a plugin's look and tabs, inside its own change
   handle.arrange = arrange;

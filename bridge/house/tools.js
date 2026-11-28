@@ -30,6 +30,15 @@ export default function (house) {
   const TOOLS = [
     { name: 'night_hours', description: 'The screen\'s night hours: when nobody\'s using it, it dims and shows only the time (no photos), and the check-ins sleep. On by default, 9:30 PM to 6:30 AM. Pass from and to ("21:30", "06:30") to change them, off: true to turn night off, or nothing to say what they are. Change them only when they ask.',
       inputSchema: { type: 'object', properties: { from: { type: 'string', description: '"HH:MM", 24-hour' }, to: { type: 'string', description: '"HH:MM", 24-hour' }, off: { type: 'boolean' } } } },
+    { name: 'resting_screen', description: 'The resting screen: what every screen of the household shows when nobody has touched it for a while (Settings → Screen → Resting screen; the same there). ' +
+      'after: minutes before it starts (1, 2, 5, 8, 10, 15 or 30; 0 never: then only night hours make it dark); every: seconds each photo stays (5 to 120); order: "order" or "shuffle"; fit: "fit" (the whole photo) or "fill" (the whole screen, cropped); ' +
+      'show: what is over the photo, each on or off (time: the time and date, weather, next: what is coming up, captions); calendar: true shows the Calendar instead of the photos. Pass only what changes, or nothing to say how it is. ' +
+      'Which albums it shows is photos album show {sleep}. Change it only when they ask.',
+      inputSchema: { type: 'object', properties: {
+        after: { type: 'number', enum: [1, 2, 5, 8, 10, 15, 30, 0] }, every: { type: 'number', minimum: 5, maximum: 120 },
+        order: { type: 'string', enum: ['order', 'shuffle'] }, fit: { type: 'string', enum: ['fit', 'fill'] },
+        show: { type: 'object', properties: { time: { type: 'boolean' }, weather: { type: 'boolean' }, next: { type: 'boolean' }, captions: { type: 'boolean' } } },
+        calendar: { type: 'boolean' } } } },
     { name: 'family_things', description: "The family's lists (groceries, to-do...), today's chores with checkmarks and this week's stars, stars to spend and rewards, routines (morning/bedtime checklists), the meal plan and favorite meals, and events added on this display, and the household's email address (email; null when email is off: mail from the household's approved addresses to it offers its events on the Calendar and puts its photos in Photos). Read before changing them. The Calendar, Chores, Lists and Meals apps show exactly this.", inputSchema: { type: 'object', properties: {} } },
     { name: 'change_list', description: 'Add to, check off, uncheck, change or remove items on one of the family\'s lists (the Lists app; "add milk" means Groceries). Creates the list if it\'s new. Items match by their text.',
       inputSchema: { type: 'object', properties: {
@@ -118,7 +127,7 @@ export default function (house) {
     const ok = (t) => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t, null, 1) }] });
     const out = (r) => (r.error ? { content: [{ type: 'text', text: r.error }], isError: true } : ok(r));
     if (name === 'family_things') {
-      const v = view(); delete v.v; delete v.mealWork; delete v.ai; delete v.night; v.photos = v.photos.length; delete v.screensaver; delete v.aisles; delete v.removed;
+      const v = view(); delete v.v; delete v.mealWork; delete v.ai; delete v.night; delete v.resting; v.photos = v.photos.length; delete v.screensaver; delete v.aisles; delete v.removed;
       v.recipes = Object.fromEntries(Object.entries(v.recipes || {}).map(([k, { cook, ...r }]) => [k, { ...r, ...(cook ? { steps: cook.steps.length } : {}), needs: groceriesOf({ ...r, cook }) }])); // the cooking steps are the Recipes app's
       v.albums = v.albums.map((a) => ({ name: a.name, photos: a.photos.length }));
       // Events added here (changeable, by id), and the coming two weeks of everything else (synced: by uid, for a countdown).
@@ -150,6 +159,11 @@ export default function (house) {
       else if (a?.from || a?.to) { const cur = view().night || NIGHT; house.settings({ night: { from: a.from || cur.from, to: a.to || cur.to } }); }
       const n = view().night;
       return ok(n ? `Night: ${n.from} to ${n.to}.` : 'Night is off: the screen stays as it is all night.');
+    }
+    if (name === 'resting_screen') {
+      const part = Object.fromEntries(['after', 'every', 'order', 'fit', 'show', 'calendar'].filter((k) => a?.[k] !== undefined).map((k) => [k, a[k]]));
+      if (Object.keys(part).length) { const r = house.settings({ resting: part }); if (r.error) return { content: [{ type: 'text', text: r.error }], isError: true }; }
+      return ok(house.resting());
     }
     if (name === 'flyer_photo') return house.flyerPhoto();
     if (name === 'change_list') return out(house.changeList(a));
