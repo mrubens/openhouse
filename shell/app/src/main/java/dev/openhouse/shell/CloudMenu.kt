@@ -87,6 +87,13 @@ internal class CloudMenu(private val act: MainActivity) {
      *  itself if this household said yes to it and its account has it. */
     private fun done(s: JSONObject, then: (() -> Unit)?) { act.toast("Linked to ${s.optString("family")}"); CloudSetup.voiceSoon(); if (then != null) then() else linked(s) }
 
+    /** The setup's link step: a code started from the setup's phone or computer was entered; the same yes as here, and
+     *  then nothing more (the setup goes on). */
+    fun confirmWaiting() = thread {
+        val ask = get("/cloud/status", 5000)?.optJSONObject("linking")?.optJSONObject("confirm") ?: return@thread
+        ui { confirm(ask) {} }
+    }
+
     /** Someone entered the code: link to their account? A person's own yes, by hand (a person card; Opie's tap on it
      *  does nothing). No, or closing it, tells the cloud no. */
     private fun confirm(ask: JSONObject, then: (() -> Unit)?) {
