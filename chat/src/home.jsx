@@ -178,11 +178,12 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           {/* On the display there's no assistant button (say "Hey Opie" or just type; the shell shows it only while it's
               busy, Overlay.kt). On another screen this page has its own, which opens the asking panel. */}
           {!shell && <button className="h-voice own" onClick={() => onAsk()} aria-label="Ask"><i /><i /><i /><i /></button>}
-          {/* Settings, sleep the screen, type a question (no keyboard needed), and talk (no "Hey Opie" needed): always here. */}
-          {shell && <button className="h-tool" onClick={() => shell.settings()} aria-label="Settings"><Gear /></button>}
+          {/* Talk (no "Hey Opie" needed), type a question (no keyboard needed), sleep the screen, settings: always here.
+              Talk and Type float in these same places over an app (the shell, from railTools). */}
+          {shell?.talk && <button className="h-tool" data-tool="talk" onClick={() => shell.talk()} aria-label="Talk to Opie"><Bars /></button>}
+          {shell?.type && <button className="h-tool h-type" data-tool="type" onClick={() => shell.type()} aria-label="Type to Opie"><Keys /></button>}
           {shell?.sleep && <button className="h-tool" onClick={() => shell.sleep()} aria-label="Sleep"><Moon /></button>}
-          {shell?.type && <button className="h-tool h-type" onClick={() => shell.type()} aria-label="Type to Opie"><Keys /></button>}
-          {shell?.talk && <button className="h-tool" onClick={() => shell.talk()} aria-label="Talk to Opie"><Bars /></button>}
+          {shell && <button className="h-tool" onClick={() => shell.settings()} aria-label="Settings"><Gear /></button>}
         </div>
       </aside>}
       <main className="h-sheet">
@@ -213,10 +214,10 @@ export function Home({ c, brain, idle, onAsk, shell, ambient, usePhoto, PhotoSho
           {bar && <BatteryLine shell={shell} />}
           {bar && <div className="h-tools">
             {!shell && <button className="h-voice own" onClick={() => { setMore(false); onAsk(); }} aria-label="Ask"><i /><i /><i /><i /></button>}
-            {shell && <button className="h-tool" onClick={() => { setMore(false); shell.settings(); }} aria-label="Settings"><Gear /></button>}
-            {shell?.sleep && <button className="h-tool" onClick={() => { setMore(false); shell.sleep(); }} aria-label="Sleep"><Moon /></button>}
-            {shell?.type && <button className="h-tool h-type" onClick={() => { setMore(false); shell.type(); }} aria-label="Type to Opie"><Keys /></button>}
             {shell?.talk && <button className="h-tool" onClick={() => { setMore(false); shell.talk(); }} aria-label="Talk to Opie"><Bars /></button>}
+            {shell?.type && <button className="h-tool h-type" onClick={() => { setMore(false); shell.type(); }} aria-label="Type to Opie"><Keys /></button>}
+            {shell?.sleep && <button className="h-tool" onClick={() => { setMore(false); shell.sleep(); }} aria-label="Sleep"><Moon /></button>}
+            {shell && <button className="h-tool" onClick={() => { setMore(false); shell.settings(); }} aria-label="Settings"><Gear /></button>}
           </div>}
         </div>
       </div>}
