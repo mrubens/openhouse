@@ -75,8 +75,8 @@ same data in any new app that needs it, through the kit (version 2: a new app's 
 - Changes: `house.addItem(list, text, who)`, `check(list, id, done)`, `removeItem(list, id)`, `editItem(list, id,
   {text, who})`, `clearChecked(list)`, `addList(name)`, `renameList`, `deleteList`, `choreDone(who, task, done)`,
   `addChore(who, task, days, stars)`, `updateChore`, `skipChore`, `removeChore(who, task)`, `setMeal(date, meal,
-  text)`, `favorite(text, pinned)`, `addIngredients(date, meal)` (the assistant puts that meal's groceries on the
-  list), `addEvent({title, start, end, allDay, who, repeat, place, notes, remind, calendar})`, `updateEvent(id,
+  text)`, `favorite(text, pinned)`, `addIngredients(date, meal, items?)` (that meal's groceries on the
+  list: items, else what its recipe lists, else the assistant's guess), `addEvent({title, start, end, allDay, who, repeat, place, notes, remind, calendar})`, `updateEvent(id,
   fields)`, `removeEvent(id, date)` (events added on the display, and those in a two-way calendar; a calendar read
   from a link is read-only), `addReward(title, stars, who)`, `removeReward(id)`, `redeem(who, id)` (someone says yes
   on the display's own card, with the PIN: nothing in an app or a conversation can say yes for them),

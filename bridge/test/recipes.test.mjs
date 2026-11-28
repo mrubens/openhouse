@@ -1,10 +1,15 @@
-// Who may add a recipe by its link, ask another app, or keep the screen on hands-free (screens.js, apps.js).
+// Who may add a recipe by its link, ask another app, or keep the screen on hands-free (screens.js, apps.js); and a
+// recipe's groceries with no model (house/meals.js).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { allowed, PHONE_SCOPES } from '../screens.js';
 import { appAllowed } from '../apps.js';
 import { recipeLinkRefused } from '../app-web.js';
 import { readRecipeLink } from '../cooking.js';
+import { houseRoutes } from '../house.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 test('who may add a recipe by its link, and who may ask another app or be used hands-free', () => {
   assert.ok(allowed(PHONE_SCOPES.grownup, 'POST', '/house/recipe-link'), "an adult's phone");
@@ -47,4 +52,28 @@ test("a shared app's recipe link: what's checked is what's read, no sign-in in i
     : new Response('<title>Soup</title><p>Stir it.</p>', { status: 200, headers: { 'content-type': 'text/html' } }));
   await assert.rejects(readRecipeLink('https://www.example.com/soup', { fetch: get, lookup, reaches: some }), 'a redirect off its hosts');
   assert.ok((await readRecipeLink('https://www.example.com/soup', { fetch: get, lookup })).text, "the household's own link follows it");
+});
+
+/** A household in a temp folder with tonight's dinner planned and these recipes; asked counts the model's answers. */
+function kitchen(recipes, { lists } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x'); fs.mkdirSync(DIR);
+  const d = new Date(), date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  fs.writeFileSync(path.join(root, 'house.json'), JSON.stringify({ meals: { [date]: { dinner: 'Tacos' } }, recipes, starters: 1,
+    ...(lists ? { lists } : {}) }));
+  const k = { asked: 0, date };
+  const agent = { answer: async () => { k.asked++; return '["Sour cream"]'; } };
+  const board = { householdView: () => ({ family: [{ name: 'Sam' }], chores: [], calendars: [] }), saveHousehold: () => {}, calendarEvents: () => [] };
+  k.h = houseRoutes({ DIR, json: () => {}, body: async () => ({}), board, currentAgent: async () => agent, agentName: () => 'cloud' });
+  k.groceries = () => k.h.view().lists.find((l) => l.id === 'groceries').items.map((i) => i.text.toLowerCase()).sort();
+  return k;
+}
+
+test("Add to Groceries from a recipe's own ingredients never asks the model", async () => {
+  const k = kitchen({ tacos: { text: 'Tacos', notes: 'x', cook: { v: 2, name: 'Tacos', ingredients: [{ item: 'ground beef', amount: '1 lb' }, { item: 'tortillas', amount: '8' }, { item: 'onion, diced', amount: '1' }], steps: [{ text: 'Cook it.' }] } } },
+    { lists: [{ id: 'groceries', name: 'Groceries', items: [{ id: 'a', text: 'Tortillas', done: false }] }, { id: 'todo', name: 'To do', items: [] }] });
+  const r = await k.h.call('set_meals', { groceries: [{ date: k.date, meal: 'dinner' }] });
+  assert.ok(!r.isError, r.content[0].text);
+  await new Promise((ok) => setTimeout(ok, 50));
+  assert.equal(k.asked, 0, 'no model call');
+  assert.deepEqual(k.groceries(), ['ground beef', 'onion', 'tortillas'], 'what the recipe lists, each once');
 });

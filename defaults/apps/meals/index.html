@@ -54,6 +54,16 @@
     .recipe { white-space: pre-wrap; font-size: calc(21 * var(--u)); line-height: 1.45; max-height: calc(520 * var(--u)); overflow: auto; margin: calc(16 * var(--u)) 0; user-select: text; -webkit-user-select: text; }
     .note { color: var(--ink-soft); font-size: calc(20 * var(--u)); }
     .work { font-size: calc(17 * var(--u)); font-weight: 700; color: var(--ink-soft); padding-top: calc(8 * var(--u)); }
+    .g-rows { display: flex; flex-direction: column; max-height: calc(560 * var(--u)); }
+    .g-row { display: flex; align-items: center; gap: calc(18 * var(--u)); width: 100%; min-height: calc(76 * var(--u)); padding: calc(8 * var(--u)) 0; border-bottom: 1px solid var(--hair);
+      font-size: calc(28 * var(--u)); font-weight: 600; text-align: left; color: var(--ink-soft); }
+    .g-row:last-child { border-bottom: 0; }
+    .g-row .tick { flex: none; width: calc(46 * var(--u)); height: calc(46 * var(--u)); border-radius: 50%; border: calc(3 * var(--u)) solid rgba(36, 40, 42, .22); display: grid; place-items: center; color: transparent; }
+    .g-row .tick .icon { width: calc(28 * var(--u)); height: calc(28 * var(--u)); }
+    .g-row.on { color: var(--ink); }
+    .g-row.on .tick { background: var(--ink); border-color: var(--ink); color: #fff; }
+    .g-row .t { flex: 1; min-width: 0; }
+    .g-row .have { flex: none; font-size: calc(20 * var(--u)); font-weight: 700; color: var(--ink-soft); }
   </style>
   <link rel="stylesheet" href="/kit/quiet.css">
   <link rel="stylesheet" href="/kit/narrow.css">
