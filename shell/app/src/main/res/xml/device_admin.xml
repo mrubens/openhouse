@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Device owner is only used for kiosk mode (lock task, status bar, keyguard). It can be handed from one display
-     to another (Move.kt: the old package IDs to Opie's), which Android allows only to an admin that says so. -->
-<device-admin><uses-policies /><support-transfer-ownership /></device-admin>
+<!-- Device owner is only used for kiosk mode (lock task, status bar, keyguard) and Erase this device (wipe-data:
+     Android 10 to 13 refuse wipeData without it). It can be handed from one display to another (Move.kt: the old
+     package IDs to Opie's), which Android allows only to an admin that says so. -->
+<device-admin><uses-policies><wipe-data /></uses-policies><support-transfer-ownership /></device-admin>

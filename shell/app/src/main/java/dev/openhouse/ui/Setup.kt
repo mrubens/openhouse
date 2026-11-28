@@ -4,7 +4,7 @@ package dev.openhouse.ui
 // first (one code; the phone page then follows these steps: chat/src/phone.jsx SetupFlow), then, typed or sent there,
 // who lives here, where (a street address guessed from where the tablet is), the household's calendar (Google, iCloud,
 // Outlook or a link, or none), photos (an iCloud shared album, Google Photos, or from that phone) and a PIN for settings
-// and approvals (PIN Lock, which can be skipped). Then what only the tablet can do: two of Android's own settings a
+// and approvals (PIN Lock: the one step that can't be skipped). Then what only the tablet can do: two of Android's own settings a
 // tablet set up by its household would otherwise never find (letting Opie use other apps, and the charge limit). One
 // step on screen at a time.
 //
@@ -72,9 +72,15 @@ internal object Setup {
     }
 
     fun go(step: String?) { Openhouse.setupStep = step; shown(step) }
+
+    /** The PIN step can't be skipped (the owner, 2026-11-28): past it, or out of the setup, only once a PIN is set.
+     *  Else whoever first found Settings with no PIN could choose one and keep the household out. */
+    fun allowed(step: String?): String? =
+        if (!Openhouse.host.locked() && (step == null || STEPS.indexOf(step) > STEPS.indexOf("pin"))) "pin" else step
+
     fun next() {
         resume?.let { r -> resume = null; if (Openhouse.setupStep == "devices") { go(r); return } }
-        val i = STEPS.indexOf(Openhouse.setupStep); if (i + 1 < STEPS.size) go(STEPS[i + 1]) else finish()
+        val i = STEPS.indexOf(Openhouse.setupStep); if (i + 1 < STEPS.size) go(allowed(STEPS[i + 1])) else finish()
     }
     fun back(): Boolean {
         resume?.let { r -> resume = null; if (Openhouse.setupStep == "devices") { go(r); return true } }
@@ -82,6 +88,7 @@ internal object Setup {
     }
 
     fun finish() {
+        if (allowed(null) != null) { go("pin"); return }
         resume = null
         go(null)
         Openhouse.scope.launch(Dispatchers.IO) { Openhouse.post("/household", JSONObject()) } // set up: not asked again
@@ -113,7 +120,8 @@ internal fun SetupSheet() {
     LaunchedEffect(Unit) {
         while (true) {
             val want = withContext(Dispatchers.IO) { getJson("/setup/want") }?.optString("step")?.takeIf { it in Setup.STEPS }
-            if (want != null && want != Openhouse.setupStep) Setup.go(want)
+            val to = want?.let { Setup.allowed(it) }
+            if (to != null && to != Openhouse.setupStep) Setup.go(to)
             delay(1500)
         }
     }
@@ -124,12 +132,15 @@ internal fun SetupSheet() {
         // cover: imePadding, and nearer the top): what's in it scrolls, and Back, Skip and Next stay below it in reach.
         val ime = androidx.compose.foundation.layout.WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
         // The setup has the screen to itself: nothing of the home screen behind it.
-        val onPhone = step in Setup.ON_PHONE || step == "devices"
+        // The PIN can't wait (Setup.allowed): with no phone or computer in (Later from the first step), it's chosen here.
+        val pinHere = step == "pin" && device == null
+        val onPhone = (step in Setup.ON_PHONE || step == "devices") && !pinHere
         Box(Modifier.fillMaxSize().background(Calm.paper).clickable(enabled = false) {}.imePadding(), contentAlignment = Alignment.TopCenter) {
             QuietCard(Modifier.padding(top = if (ime) 16.u else 110.u, bottom = 16.u).width(fit(860.u)), padding = PaddingValues(horizontal = 56.u, vertical = if (ime) 28.u else 48.u)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.u)) {
                     Progress(Setup.STEPS.indexOf(step).toFloat() / Setup.STEPS.size, Modifier.weight(1f))
-                    if (step != "android") Chip("Later") { save[0](); Setup.finish() } // (the last step's Done does the same)
+                    // (to the PIN first, when there's none yet: Setup.finish; the last step's Done does the same)
+                    if (step != "android" && step != "pin") Chip("Later") { save[0](); Setup.finish() }
                 }
                 Spacer(Modifier.height(28.u))
                 Text(if (!onPhone) title else if (device != null && step != "devices") "Continue on $device" else "Set up on your phone or computer", style = calmText(Calm.DISPLAY, FontWeight.Medium))
@@ -137,6 +148,14 @@ internal fun SetupSheet() {
                 if (onPhone) {
                     // Until a phone or computer is in, how to connect one; then only what's happening there.
                     if (device == null || step == "devices") DevicesStep() else PhoneProgress(step)
+                } else if (pinHere) {
+                    Soft("It guards Settings and new apps.")
+                    Spacer(Modifier.height(28.u))
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.u)) {
+                        TextButton("Back") { Setup.back() }
+                        Spacer(Modifier.weight(1f))
+                        MainButton("Next") { Openhouse.host.setting("setupPin") } // (Next chooses it: SettingsLock setupPin)
+                    }
                 } else {
                     Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                         Spacer(Modifier.height(8.u))

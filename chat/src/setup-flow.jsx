@@ -277,10 +277,11 @@ function SetupPlace({ c }) {
  *  recovery code is shown here once, to keep. */
 function PinHere({ c }) {
   const [a, setA] = useState(''), [b, setB] = useState(''), [st, setSt] = useState(null), [code, setCode] = useState(null);
-  // One button: Next sets the PIN when one's typed (and shows the recovery code, if any, before moving on), or skips.
+  // One button: Next sets the PIN (and shows the recovery code, if any, before moving on). A tablet doesn't go past
+  // this step without one (Setup.kt allowed); with nothing typed, Next moves on only where one is set already.
   const go = () => c.json('POST', '/setup/go', { step: AFTER.pin }).catch(() => {});
   async function next() {
-    if (!a && !b) return go();
+    if (!a && !b) { setSt('4 to 8 digits.'); return go(); }
     if (a.length < 4) return setSt('4 to 8 digits.');
     if (a !== b) return setSt('The two don’t match.');
     setSt('…');
@@ -297,7 +298,7 @@ function PinHere({ c }) {
     {row(go)}</>;
   return <>
     <h1>Choose a PIN</h1>
-    <p>It guards Settings and new apps. You can skip it.</p>
+    <p>It guards Settings and new apps.</p>
     <input value={a} onChange={(e) => { setA(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="4 to 8 digits" type="password" inputMode="numeric" maxLength={8} autoComplete="new-password" />
     <input value={b} onChange={(e) => { setB(e.target.value.replace(/\D/g, '')); setSt(null); }} placeholder="Again" type="password" inputMode="numeric" maxLength={8} autoComplete="new-password" />
     {row(next)}

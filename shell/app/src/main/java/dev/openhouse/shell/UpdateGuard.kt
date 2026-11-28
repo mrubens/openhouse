@@ -3,7 +3,8 @@ package dev.openhouse.shell
 // After a self-update (Updater): watch the new display, and go back to the release's rescue build, staged before the
 // update, if it doesn't come up or can't check for updates (the rules, and why: UpdateHealth). The rescue is kept a
 // day either way. This runs in its own process (":guard"), apart from everything the display does on screen, so a
-// display that crashes as it starts still gets taken back. It's kept small, and changes rarely.
+// display that crashes as it starts still gets taken back. It's kept small, and changes rarely. After each start it
+// also looks, once, at whether the home screen came up at all (Kiosk.checkStuck).
 
 import android.app.PendingIntent
 import android.app.job.JobInfo
@@ -35,7 +36,7 @@ class UpdateGuard : BroadcastReceiver() {
                 if (st != PackageInstaller.STATUS_SUCCESS && st != PackageInstaller.STATUS_PENDING_USER_ACTION) tryFailed(c, "the install failed (${msg ?: st})")
             }
             Intent.ACTION_MY_PACKAGE_REPLACED, Intent.ACTION_BOOT_COMPLETED -> {
-                if (intent.action == Intent.ACTION_BOOT_COMPLETED) booted(c)
+                if (intent.action == Intent.ACTION_BOOT_COMPLETED) { booted(c); scheduleStuck(c) }
                 val p = watching(c) ?: return
                 // Going back, once begun, carries on after a restart (a try cut off by it is tried again).
                 val v = if (goingBack(p)) UpdateHealth.Verdict.Wait(30_000) else UpdateHealth.judge(watch(c, p))
@@ -165,6 +166,15 @@ class UpdateGuard : BroadcastReceiver() {
 
         fun cancel(c: Context) = c.getSystemService(JobScheduler::class.java).cancel(JOB)
 
+        /** A look, Kiosk.STUCK_MS after the device started, at whether its home screen came up (Kiosk.checkStuck). */
+        private fun scheduleStuck(c: Context) = runCatching {
+            c.getSystemService(JobScheduler::class.java).schedule(JobInfo.Builder(STUCK_JOB, ComponentName(c, GuardJob::class.java))
+                .setMinimumLatency(Kiosk.STUCK_MS).setOverrideDeadline(Kiosk.STUCK_MS + 60_000)
+                .setExtras(android.os.PersistableBundle().apply { putBoolean(STUCK, true) }).build())
+        }.onFailure { Log.w(TAG, "scheduling the stuck look: $it") }
+        const val STUCK = "stuck"
+        private const val STUCK_JOB = 0x0e0f
+
         /** Good: throw away the staged rescue (session and file) and stop watching. From the display or this process. */
         fun settle(c: Context, p: JSONObject) {
             p.optInt("session", -1).takeIf { it >= 0 }?.let { runCatching { c.packageManager.packageInstaller.abandonSession(it) } }
@@ -232,7 +242,8 @@ class UpdateGuard : BroadcastReceiver() {
 class GuardJob : JobService() {
     override fun onStartJob(params: JobParameters): Boolean {
         Thread {
-            runCatching { UpdateGuard.judge(this) }.onFailure { Log.w("UpdateGuard", "judge: $it") }
+            if (params.extras.getBoolean(UpdateGuard.STUCK)) runCatching { Kiosk.checkStuck(this) }.onFailure { Log.w("UpdateGuard", "stuck: $it") }
+            else runCatching { UpdateGuard.judge(this) }.onFailure { Log.w("UpdateGuard", "judge: $it") }
             jobFinished(params, false)
         }.start()
         return true

@@ -182,7 +182,7 @@ object ApprovalCard {
                     choosing.set(true); hide()
                     if (!act.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) KioskApps.goHome()
                     val back = { choosing.set(false); if (done.count > 0L) put() }
-                    PinPrompt.choose(act, act, then = back, back = back)
+                    act.lock.firstPin(then = { act.lock.changed(); back() }, back = back) // (a first PIN outside the setup: its warning, as from Settings)
                 }.also { it.filterTouchesWhenObscured = true; byHand = dev.openhouse.ui.PersonCards.yesOnlyByHand(it) })
             } else if (needPin) { // a yes: the PIN is the yes
                 col.addView(K.text(c, "Type the PIN to ${yes.lowercase()}.", 18f, 500, K.SOFT).apply { setPadding(0, K.px(c, 20), 0, 0) })

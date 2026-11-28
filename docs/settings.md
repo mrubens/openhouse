@@ -169,8 +169,9 @@ One switch, PIN Lock: Off or On.
   button, Android's own (saved networks, forgetting one, and a tap from the rest of Android's settings), is a way out
   as above. During the first setup, before the household is saved (the welcome screen's Join Wi-Fi, a tablet arriving
   from somewhere else), the button opens Android's Wi-Fi settings, since there's no PIN to ask for yet.
-- **The first PIN:** chosen in the first setup's Choose a PIN step (no account needed), or later from PIN Lock or
-  "Set a PIN first". A linked tablet's account can reset it if it's forgotten. On an unlinked tablet (one set up
+- **The first PIN:** chosen in the first setup's Choose a PIN step (no account needed; since 2026-11-28 the setup
+  doesn't end without one), or later, on a tablet set up before that or whose lock was turned off, from PIN Lock,
+  "Set a PIN first" or a card's Choose a PIN (all the same steps: `SettingsLock.firstPin`). A linked tablet's account can reset it if it's forgotten. On an unlinked tablet (one set up
   without an account, as a do-it-yourself tablet may be, now that the cloud lets households in a few at a time) a
   later first PIN is still allowed, after a line that it's for an adult of the household and that the recovery code
   is its only way back. Whoever chooses it first holds Settings, and nothing at the tablet tells an adult from
@@ -190,7 +191,7 @@ value says which are on. Permissive by default:
 
 | Switch | What it covers | Default |
 | --- | --- | --- |
-| Add apps | an Android app (Add apps or install_app opening its Google Play page; signing in to Google Play always asks), a plugin (add, an update, an app reaching a website), keeping an app Opie made (its Keep it), Apps' plugin gallery | Off |
+| Add apps | an Android app (Add apps or install_app opening its Google Play page; signing in to Google Play always asks), a plugin (add, an update, an app reaching a website), keeping an app Opie made (its Keep it), Apps' plugin gallery. An app already on the device goes into Apps the same way; one of the device's own (a browser, Files, a store) also takes a person's yes on its card | Off; On once a Google account is on the device |
 | Add photo albums | adding or taking off an iCloud album, phones sending photos, Google Photos | Off |
 | Change the calendar | any change to the calendar from the apps or Opie (the bridge's calendar lock, as before) | Off |
 | Give rewards | spending stars on a reward (Get it!), and changing the rewards | Off |

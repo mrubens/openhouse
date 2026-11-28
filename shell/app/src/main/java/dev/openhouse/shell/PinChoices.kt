@@ -6,7 +6,8 @@ import android.content.Context
  * Which everyday things ask for the PIN: Settings → Advanced → Ask for the PIN (docs/settings.md, "The lock"). They
  * matter only while PIN Lock is on; with no PIN nothing asks (the ways out wait for one to be set: withPinSet).
  *
- * The choices, permissive by default (the user, 2026-11-27: the PIN to install apps was annoying), except Settings:
+ * The choices, permissive by default (the user, 2026-11-27: the PIN to install apps was annoying), except Settings,
+ * and Add apps once a Google account is on the device (withAccount):
  *   apps      adding apps: an Android app (install_app and Add apps opening its Google Play page), a plugin (add, an update,
  *             an app reaching a website), an app Opie made going in, Apps' plugin gallery
  *   photos    photo albums: adding or removing one, phones sending photos, Google Photos
@@ -78,10 +79,17 @@ object PinChoices {
 
     private fun prefs(c: Context) = c.getSharedPreferences("shell", Context.MODE_PRIVATE)
 
-    /** What this tablet's people chose (the calendar's is the bridge's: House.calendarLock). */
-    fun saved(c: Context): (String) -> Boolean? = { k ->
+    /** What this tablet's people chose (the calendar's is the bridge's: House.calendarLock), with Add apps on by
+     *  default once a Google account is on the device ([withAccount]). */
+    fun saved(c: Context): (String) -> Boolean? = withAccount(PlayStore.signedIn(c)) { k ->
         if (k == CALENDAR) dev.openhouse.ui.House.calendarLock
         else prefs(c).takeIf { it.contains("pin_for_$k") }?.getBoolean("pin_for_$k", false)
+    }
+
+    /** With a Google account on the device, Play is the whole store behind a tap, and what it installs may take the
+     *  account (mail, files): so Add apps asks for the PIN unless someone chose otherwise. Plain Kotlin, for tests. */
+    fun withAccount(account: Boolean, saved: (String) -> Boolean?): (String) -> Boolean? = { k ->
+        saved(k) ?: if (k == APPS && account) true else null
     }
 
     /** Does [key] need the PIN now: one is set, and it asks. */

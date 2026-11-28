@@ -251,13 +251,23 @@ internal object Updater {
 
     // --- installing --------------------------------------------------------------------------------------------------
 
-    /** No turn running, no one talking or being heard, nobody at the screen for a while, no app open over the board. */
+    /** Since when the bridge hasn't answered /state (0: it answers). */
+    @Volatile private var bridgeDownSince = 0L
+    /** The bridge hasn't answered this long: it's stuck, and a downloaded update (perhaps the fix) goes in as soon as
+     *  nobody's at the screen, at any hour. */
+    private const val BRIDGE_STUCK_MS = 15 * 60_000L
+
+    /** No turn running, no one talking or being heard, nobody at the screen for a while, no app open over the board.
+     *  The bridge's /state is read every time, for [bridgeStuck]. */
     private fun quiet(bridge: String): Boolean {
-        val o = dev.openhouse.ui.Openhouse
-        if (!o.idle || o.speaking || System.currentTimeMillis() - o.hearingAt < 120_000) return false
         val st = runCatching { JSONObject(dev.openhouse.ui.BridgeClient.getText("$bridge/state", 3000, 5000)).optString("state") }.getOrNull()
-        return st == "idle"
+        val now = System.currentTimeMillis()
+        if (st != null) bridgeDownSince = 0L else if (bridgeDownSince == 0L) bridgeDownSince = now
+        val o = dev.openhouse.ui.Openhouse
+        if (!o.idle || o.speaking || now - o.hearingAt < 120_000) return false
+        return st == "idle" || bridgeStuck(now)
     }
+    private fun bridgeStuck(now: Long) = bridgeDownSince > 0L && now - bridgeDownSince >= BRIDGE_STUCK_MS
 
     private fun maybeInstall(c: Context, bridge: String) {
         val readyF = File(dir(c), "ready.json")
@@ -269,7 +279,8 @@ internal object Updater {
         val rescue = File(dir(c), "rescue.apk").takeIf { rescueCode > 0 && it.exists() }
         val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
         val asked = parentAsked
-        if (!Releases.mayInstall(quiet(bridge), asked, ready.optBoolean("urgent"), rescue != null, Releases.inWindow(hour, window(c)))) return
+        val quiet = quiet(bridge)
+        if (!Releases.mayInstall(quiet, asked, ready.optBoolean("urgent"), rescue != null, Releases.inWindow(hour, window(c)), bridgeStuck(System.currentTimeMillis()))) return
         parentAsked = false
         install(c, File(dir(c), "update.apk"), ready.getString("version"), code, rescue, rescueCode, ready.optString("rescueVersion"))
     }

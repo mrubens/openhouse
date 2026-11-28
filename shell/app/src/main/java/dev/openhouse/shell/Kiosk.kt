@@ -50,12 +50,51 @@ object Kiosk {
         }
     }
 
-    /** Kiosk mode on: the restrictions on. */
+    /** Kiosk mode on: the restrictions on (but recovery's wipe and safe mode while this start is stuck: [checkStuck]). */
     fun apply(c: Context) {
         if (!owner(c)) return
         on = true
-        ALWAYS.forEach { set(c, it, true) }
+        val stuck = stuckLifted(c)
+        ALWAYS.forEach { set(c, it, !(stuck && it in RECOVERY)) }
         set(c, UserManager.DISALLOW_DEBUGGING_FEATURES, !debugging(c))
+    }
+
+    // --- a device that never gets as far as its home screen ------------------------------------------------------
+    // With the two restrictions on and Opie not opening, recovery's wipe can be refused (Samsung does), and there would
+    // be no way back. So the guard's process (GuardJob), [STUCK_MS] after the device starts, lets them through if the
+    // home screen hasn't loaded this boot; they go back on once it does. Files, as both processes read them.
+
+    private val RECOVERY = listOf(UserManager.DISALLOW_FACTORY_RESET, UserManager.DISALLOW_SAFE_BOOT)
+    /** How long after the device starts its home screen has to load. */
+    const val STUCK_MS = 10 * 60_000L
+
+    private fun file(c: Context, name: String) = java.io.File(c.filesDir, "updates").apply { mkdirs() }.let { java.io.File(it, name) }
+    private fun read(c: Context, name: String) = runCatching { org.json.JSONObject(file(c, name).readText()) }.getOrNull()
+    private fun mark(c: Context, name: String) = runCatching {
+        file(c, name).writeText(org.json.JSONObject().put("boot", UpdateGuard.bootCount(c)).put("at", System.currentTimeMillis()).toString())
+    }
+    /** Written in this boot: Android's count of starts, else the wall clock against when this boot began. */
+    private fun thisBoot(c: Context, j: org.json.JSONObject?): Boolean {
+        if (j == null) return false
+        val boot = UpdateGuard.bootCount(c)
+        if (boot >= 0 && j.optInt("boot", -1) >= 0) return j.optInt("boot") == boot
+        return j.optLong("at") >= System.currentTimeMillis() - android.os.SystemClock.elapsedRealtime() - 5_000
+    }
+    private fun stuckLifted(c: Context) = thisBoot(c, read(c, "stuck.json"))
+
+    /** The home screen loaded (HomeView): this boot came up, and what [checkStuck] let through goes back on. */
+    fun displayUp(c: Context) {
+        if (!thisBoot(c, read(c, "up.json"))) mark(c, "up.json")
+        if (file(c, "stuck.json").delete() && on) apply(c)
+    }
+
+    /** [STUCK_MS] after the device started (GuardJob): no home screen yet this boot, so recovery's wipe and safe mode
+     *  are allowed until it loads. */
+    fun checkStuck(c: Context) {
+        if (!owner(c) || thisBoot(c, read(c, "up.json"))) return
+        mark(c, "stuck.json")
+        RECOVERY.forEach { set(c, it, false) }
+        Log.w(TAG, "no home screen ${STUCK_MS / 60_000} minutes after starting: recovery's wipe and safe mode allowed until it loads")
     }
 
     /** Someone left kiosk mode: everything back, except USB debugging (its own switch). */
