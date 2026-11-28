@@ -37,7 +37,10 @@ doesn't keep what's said or asked.
 
 ## The hosted service
 
-Everything here starts only when the household links its device to an account.
+Every device checks with us for updates, linked or not. The check carries the device's version and a random install
+id (a linked device's own id instead), used only to choose which release it gets. We count those checks by version
+each day, as numbers only, with no id kept. Everything else here starts only when the household links its device to
+an account.
 
 - **The account:** the email address used to sign in, and the household's name. Kept until the account is deleted.
 - **Devices:** each linked device's name and its latest health check-in (version, whether its parts are running,
@@ -111,11 +114,23 @@ This covers everything above, including data from Google (calendar events, photo
 - **Let's Encrypt**: issues the certificate that lets the household's phones reach the device securely at home. It
   sees only the device's random name, never the household's.
 
+## Services the device reaches itself
+
+The device asks these directly, not through our service. Each sees the device's internet address, as any website
+does, and handles it under its own terms.
+
+- **Open-Meteo**: the household's town, or a place someone asks about, for the weather.
+- **OpenStreetMap's services** (Nominatim, and the routing at routing.openstreetmap.de), once the Map is on: addresses
+  someone looks up or saves, and the two ends of a drive being worked out.
+- **OpenFreeMap**: the map itself, once the Map is on. It sees which part of the map is being shown.
+
 ## Deleting
 
 Remove a phone on the device (Settings, Devices) and it can no longer reach the household; deleting the app removes
 its pairing from the phone. Delete the account on the account page and we delete the account, its devices, backups,
-mail waiting for the device and any copy of the recovery code. The database's own restore copies, kept for disaster recovery, age out within 35 days. Its email address is never given to anyone else. The household's things on the device are the household's to keep or erase.
+mail waiting for the device, any copy of the recovery code, and its Opie credit and the record of its purchases (what's
+left isn't refunded: see the terms). We also delete its customer and saved card at Stripe, which keeps its own record
+of the payments. The database's own restore copies, kept for disaster recovery, age out within 35 days. Its email address is never given to anyone else. The household's things on the device are the household's to keep or erase.
 
 ## Children
 
