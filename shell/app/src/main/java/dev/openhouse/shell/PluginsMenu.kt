@@ -293,7 +293,7 @@ internal class PluginsMenu(private val act: MainActivity, private val fromApps: 
             addView(Calm.text(c, "Ask Opie for the app you want, out loud or typed, and it builds it here.", 21f, 400).apply { setPadding(0, Calm.px(c, 14), 0, Calm.px(c, 18)) })
             addView(Calm.primary(c, "Make an app") { go { makeApp("Say what app to make") } },
                 android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 18) })
-            addView(Calm.text(c, "For bigger work, connect Claude or ChatGPT on a computer (the connector is cloud.opie.house/mcp).", 17f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, 28), 0, 0) })
+            addView(Calm.text(c, "For bigger work, connect Claude, ChatGPT, or another AI app (the connector is cloud.opie.house/mcp).", 17f, 400, Calm.SOFT).apply { setPadding(0, Calm.px(c, 28), 0, 0) })
             addView(Calm.quiet(c, "Pair a computer") { go { Screens.computer(act) } }.apply { setPadding(0, Calm.px(c, 12), 0, 0) },
                 android.widget.LinearLayout.LayoutParams(-2, -2).apply { topMargin = Calm.px(c, 4) })
         }
