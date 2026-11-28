@@ -107,12 +107,25 @@ const START_VIEW = 'week';
 const narrow = () => matchMedia('(max-width: 700px)').matches;
 const REPEATS = [[null, 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month'], ['yearly', 'Every year']];
 
-let H = null, events = [], view = START_VIEW, weeks = 0, months = 0, days = 0;
+let H = null, events = [], allEvents = [], view = START_VIEW, weeks = 0, months = 0, days = 0;
+/** Whose events this screen leaves out (a tap on a person at the top): kept on this screen only, not for the household. */
+let hidden = new Set(); try { hidden = new Set(JSON.parse(localStorage.getItem('calendar-hidden') || '[]')); } catch {}
+const shownOn = (e) => { const ps = people(e); return !ps.length || ps.some((n) => !hidden.has(n.toLowerCase())); }; // nobody's: always shown
+function toggleHidden(name) {
+  const k = name.toLowerCase(); hidden.has(k) ? hidden.delete(k) : hidden.add(k);
+  try { localStorage.setItem('calendar-hidden', JSON.stringify([...hidden])); } catch {}
+  draw();
+}
+/** The family along the top, each in their color: a tap hides or shows their events. */
+const peopleRow = () => ((H?.family || []).length > 1 ? h('div', { class: 'people chips hscroll' },
+  H.family.map((p) => h('button', { class: 'q-who' + (hidden.has(p.name.toLowerCase()) ? ' off' : ''), 'aria-pressed': String(!hidden.has(p.name.toLowerCase())), tap: () => toggleHidden(p.name) },
+    h('span', { class: 'q-av sm', style: `background:${house.color(p.name)}` }, String(p.name).trim().charAt(0).toUpperCase()), p.name))) : null);
 /** The day view's hours (it scrolls to now; earlier and later are a scroll away). */
 const FIRST_HOUR = 0, HOURS = 24, HOUR_U = 60;
 let scrolledTo = null; // the day the day view last scrolled itself to (after that it stays where they put it)
 
 function draw() {
+  events = allEvents.filter(shownOn);
   keepScroll($app, () => $app.replaceChildren(screen()));
   for (const s of sheets) s.redraw?.();
 }
@@ -159,7 +172,7 @@ function bars(first, n, keep = () => true) {
 /** A bar's words: its title, after its start time when it isn't all day (a sleepover from 5 PM to 10 AM). Whose it is is its color. */
 /** What the household's apps put on a day (a school lunch, trash day): notes, not events (bridge day-notes.js), in the
  *  household's order. week: only the apps chosen for the week (Week and Home); else every one not turned off. */
-const notesOn = (day, week = false) => (H?.dayNotes?.[house.dayKey(new Date(day))] || []).filter((x) => (week ? x.show === 'week' : x.show !== 'off'));
+const notesOn = (day, week = false) => (H?.dayNotes?.[house.dayKey(new Date(day))] || []).filter((x) => (week ? x.show === 'week' : x.show !== 'off') && !(x.who && hidden.has(String(x.who).toLowerCase())));
 /** A note's label: "Lunch", and whose with their color ("Lunch · ● June") when it's one person's. */
 const noteLabel = (x, sep = ' ') => [x.label, x.who ? [sep, isPerson(x.who) ? h('span', { class: 'nkid', style: `background:${house.color(x.who)}` }) : null, x.who] : null];
 /** The whole text, each choice on its own line ("Popcorn Chicken / or Vegan Chic'n Nuggets", the "or" soft). */
@@ -256,6 +269,7 @@ function screen() {
       step ? [round('left', set(step.back), { disabled: step.noBack, label: 'Earlier' }), small ? null : chip('Today', false, set(step.home)), round('right', set(step.on), { disabled: step.noOn, label: 'Later' })] : null,
       small ? null : tools,
       round('plus', () => guard(() => { const d = view === 'day' ? oneDay : today; eventForm(null, d, startFor(d)); }), { dark: true, label: 'Add' })),
+    peopleRow(),
     view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? schedule(today, AGENDA_DAYS, today)
       : view === 'day' ? dayView(oneDay, today) : small ? [strip(from, today, today, openDay), dayList(from, DAYS, today, true)] : weekView(from, today),
     // (a phone has less of a top row: its tools are down here, and Home only once they've stepped away)
@@ -520,7 +534,7 @@ function openDay(day, min = null) {
 
 function openEvent(e) {
   const remove = (date = null) => {
-    events = events.filter((x) => x.id !== e.id || (date && x.date !== date)); draw(); house.removeEvent(e.id, date);
+    allEvents = allEvents.filter((x) => x.id !== e.id || (date && x.date !== date)); draw(); house.removeEvent(e.id, date);
   };
   const mine = (e.local || e.editable) && e.id; // added here, or in a two-way calendar: it can be changed; other synced ones change where they come from
   let counting = !!e.countdown;
@@ -697,7 +711,7 @@ function eventForm(e = null, startDay = null, startMin = null) {
     const fields = { title: f.title.trim(), start, end, allDay, who: f.people[0] || null, also: f.people.slice(1), repeat: f.repeat, until: f.repeat ? f.until : null, place: f.place.trim(), notes: f.notes.trim(), countdown: f.countdown, remind: allDay ? null : f.remind };
     s.close();
     if (e) { Object.assign(e, { ...fields, t0: start, t1: allDay ? dayStart(start, 1) : end }); draw(); house.updateEvent(e.id, { ...fields, repeat: f.repeat || 'none', ...(e.date ? { date: e.date } : {}) }); }
-    else { events.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent({ ...fields, calendar: f.calendar || 'here' }); }
+    else { allEvents.push({ id: null, ...fields, start: d.toISOString(), t0: start, t1: allDay ? dayStart(start, 1) : end, local: true }); draw(); house.addEvent({ ...fields, calendar: f.calendar || 'here' }); }
   };
   press(save, () => { if (!save.disabled) finish(); });
   const cancel = btn('Cancel', () => s.close(), { soft: true });
@@ -766,7 +780,7 @@ const linkAsked = new URLSearchParams(location.hash.slice(1)).get('do') === 'lin
 house.subscribe((d) => {
   H = d;
   if (addAsked) { const fresh = Date.now() - addAsked < 15e3; addAsked = 0; if (fresh) setTimeout(() => { if (linkAsked) { addCalendar(); return; } const d = dayStart(Date.now()); eventForm(null, d, startFor(d)); }, 0); }
-  events = (d.events || []).map((e) => ({ ...e, t0: Date.parse(e.start), t1: e.end ? Date.parse(e.end) : null })).filter((e) => !isNaN(e.t0));
+  allEvents = (d.events || []).map((e) => ({ ...e, t0: Date.parse(e.start), t1: e.end ? Date.parse(e.end) : null })).filter((e) => !isNaN(e.t0));
   draw(); showFlyer();
   if (afterPin && H.unlockedUntil > Date.now()) { const fn = afterPin; afterPin = null; if (Date.now() - afterPinAt < 120e3) fn(); } // the PIN was just given (not long after asking)
 });
