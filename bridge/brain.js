@@ -36,7 +36,7 @@ import { appFetch, reachMatches, recipeLinkRefused } from './app-web.js';
 import { pluginsRoutes } from './plugins.js';
 import { workshopRoutes, reopenChanges } from './workshop.js';
 import { webMcpRoutes } from './web-mcp.js';
-import { heartbeat } from './heartbeat.js';
+import { heartbeat, isNight } from './heartbeat.js';
 import { appChecks, dataReader } from './heartbeat-checks.js';
 import { fixQueue } from './heartbeat-fixes.js';
 import { snapshot } from './heartbeat-review.js';
@@ -50,6 +50,7 @@ import { tailscaleRoutes } from './tailscale.js';
 import { mailRoutes } from './mail.js';
 import { phoneBuzz } from './phone-buzz.js';
 import { phoneShareRoutes } from './phone-share.js';
+import { homeNoteRoutes } from './home-note.js';
 import { Readable, Writable } from 'node:stream';
 import { backupRoutes } from './backup.js';
 import { driveDestination } from './drive.js';
@@ -363,6 +364,12 @@ const setupDeviceName = (req) => {
 };
 chat.live.setPhones?.({ phones: () => screens.phones(), message: (people, m) => screens.message(people, m) }); // message_family: a message to someone's phones (live-tools.js)
 // A note for someone: their phone gets it (Web Push from the tablet itself; only phones that allowed notifications).
+// A note someone typed for Home (home-note.js), from their phone or the plus on Home: read aloud by the device's own
+// voice if they asked, never at night or after Sleep now.
+const homeNotes = homeNoteRoutes({ homeScreen: chat.homeScreen, screens, json, body, say: (t) => chat.voice.say(t, { own: true }),
+  quiet: (t) => (hb.state.sleepUntil || 0) > t || isNight(chat.house.night(), new Date(t)), people: () => (chat.board.householdView().family || []).map((p) => p.name).filter(Boolean),
+  every: process.env.HEARTBEAT === 'off' ? 0 : 20e3 });
+chat.homeScreen.typed = homeNotes; // Opie's put_note with at or aloud: the same
 chat.homeScreen.onNoteFor = (n) => { screens.notify(n.for, { title: n.title, body: String(n.content || '').replace(/```[\s\S]*?```/g, '').replace(/[#*_>`]/g, '').trim().split('\n')[0], tag: n.id }).catch(() => {}); };
 // Send to Opie (docs/phones.md): something shared from someone's phone is a typed turn as from them (phone-share.js).
 /** A typed turn run here, as a screen's POST /chat would: {ok, text, id}. */
@@ -668,6 +675,7 @@ async function route(req, res, url) {
     if (events.handle(req, res, url, json)) return true;
     if (await apps.handle(req, res, url)) return true;
     if (await devices(req, res, url)) return true;
+    if (await homeNotes(req, res, url)) return true;
     if (await chat(req, res, url)) return true;
     if (await workshop(req, res, url)) return true;
     if (await webMcp(req, res, url)) return true;

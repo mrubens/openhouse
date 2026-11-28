@@ -14,6 +14,7 @@ import { SpotifySlot, useSpotifyOn } from './spotify-player.jsx';
 import { useNow, smallHours } from './now.js';
 import { AlarmsSheet, nextAlarm, ringTime } from './alarms.jsx';
 import { AnswerBody } from './answer.jsx';
+import { NoteForm } from './note-form.jsx';
 import { TAB_ICONS, TAB_ICON_BY_ID } from './tab-icons.js';
 import { PALETTES, WHITE, paletteOf, worldOf } from './look.js';
 import { card as weatherCard, icon as weatherIcon } from '../../bridge/kit/weather-look.js';
@@ -692,7 +693,8 @@ export function Today({ c, house, now: given, notes, weather, tabs, appBy, go, a
   if (kinds.has('recipes')) cards.push(<RecipeCard key="recipes" house={h} t={t} dinner={dinner} tonight={tonight} {...card('recipes')}
     onOpen={(k) => addTo(kinds.get('recipes'), k ? 'recipe=' + encodeURIComponent(k) : '')} />);
   // The apps' own cards the household turned on, in their order, before the notes and the photo (wide: a row of its own).
-  if (notes.length) cards.push(<NotesCard key="notes" c={c} notes={notes} reminders={[]} />); // (reminders due are things on Home)
+  // (reminders due are things on Home). On the device, its plus puts up a note of their own (note-form.jsx), so it shows with none too.
+  if (notes.length || shell) cards.push(<NotesCard key="notes" c={c} notes={notes} reminders={[]} family={h.family} add={!!shell} />);
   if (shell?.ui) for (const id of look?.cards || []) { const a = appBy.get(id); if (a?.today) cards.push(<AppCard key={'app:' + id} c={c} shell={shell} app={a} look={look} v={appsV[id] || 0} openApp={openApp} wide={a.today === 'wide'} />); }
   // No photos yet: the card's frames, empty, and the ways in (Photos' Add photos).
   if (kinds.has('photos') && !(h.photos || []).length) cards.push(<div key="photos" {...card('photos', () => addTo(kinds.get('photos'), 'do=add'))} className="t-card t-photos-none">
@@ -985,8 +987,8 @@ export function Clip({ url, className }) {
 // ---- Notes: what the assistant put up for them, and reminders due now ------------------------------------------------
 /** The note's words without its layout: a line to show under its title. */
 const gist = (content) => String(content || '').replace(/```[\s\S]*?(```|$)/g, ' ').replace(/[#*_>`|-]+/g, ' ').replace(/\s+/g, ' ').trim();
-function NotesCard({ c, notes, reminders, style }) {
-  const [open, setOpen] = useState(null), [gone, setGone] = useState(() => new Set());
+function NotesCard({ c, notes, reminders, style, family = [], add = false }) {
+  const [open, setOpen] = useState(null), [gone, setGone] = useState(() => new Set()), [writing, setWriting] = useState(false);
   // Newest first (the bridge set aside the ones the assistant kept current for the old board).
   const shown = notes.filter((n) => !gone.has(n.id)).reverse().sort((a, b) => (b.at || 0) - (a.at || 0));
   const note = open && notes.find((n) => n.id === open);
@@ -994,7 +996,8 @@ function NotesCard({ c, notes, reminders, style }) {
   const room = Math.max(0, 3 - reminders.length);
   // The newest large, as a note on yellow; the next ones small under it.
   return <div className="t-card t-notes" style={style}>
-    <div className="h-label">{reminders.length && !shown.length ? 'Now' : shown.length > 1 ? 'Notes' : 'Note'}</div>
+    <div className="t-top"><div className="h-label">{reminders.length && !shown.length ? 'Now' : shown.length === 1 ? 'Note' : 'Notes'}</div>
+      {add && <span className="t-n t-add" role="button" aria-label="Add a note" onClick={(e) => { e.stopPropagation(); setWriting(true); }}>+ Add</span>}</div>
     <div className="t-rows">
       {reminders.slice(0, 3).map((r) => <div key={r.key} className="t-row t-due"><span className="t-when">{timeOf(r)}</span><span className="h-grow">{plain(r.title)}</span></div>)}
       {shown.slice(0, room).map((n, i) => (
@@ -1010,6 +1013,11 @@ function NotesCard({ c, notes, reminders, style }) {
           <button className="h-chip" onClick={() => down(note)}>Take it down</button>
           <button className="h-mini" onClick={() => setOpen(null)} aria-label="Close"><Cross /></button></div>
         <div className="h-note-body"><AnswerBody text={note.content} /></div>
+      </div>
+    </div>}
+    {writing && <div className="h-veil" onClick={() => setWriting(false)}>
+      <div className="h-note-full t-nsheet t-write" onClick={(e) => e.stopPropagation()}>
+        <NoteForm c={c} family={family} chip="h-chip" on="picked" go="h-chip on" chips="h-chips" area="t-write-box" row="t-nacts" autoFocus cancel={() => setWriting(false)} onDone={() => setWriting(false)} />
       </div>
     </div>}
   </div>;

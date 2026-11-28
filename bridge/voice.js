@@ -215,8 +215,9 @@ export function voiceRoutes({ HERE, DIR, json, body }) {
   handle.setNames = () => {}; // (the family's names helped the speech model: there's none now)
   handle.wakeOn = () => wakeOn;
   handle.log = vlog; // the speech log, for what Opie does in other apps (device-tools.js)
-  /** Words the display says, as /voice/say (later.js: a follow-up's time came). */
-  handle.say = (text) => { const t = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 600); if (t) emit({ type: 'say', text: t }); return !!t; };
+  /** Words the display says, as /voice/say (later.js: a follow-up's time came). own: in the device's own speech
+   *  engine only (shell Speech.kt), never the live voice (home-note.js: a note someone typed, read aloud). */
+  handle.say = (text, { own = false } = {}) => { const t = String(text || '').replace(/\s+/g, ' ').trim().slice(0, 600); if (t) emit({ type: 'say', text: t, ...(own ? { own: true } : {}) }); return !!t; };
   return handle;
   async function handle(req, res, url) {
     const p = url.pathname;

@@ -16,6 +16,7 @@ import { paletteOf, worldOf } from './look.js';
 import { SetupFlow } from './setup-flow.jsx';
 import { Asks } from './asks.jsx';
 import { AlarmsSheet, nextAlarm, ringTime } from './alarms.jsx';
+import { NoteForm } from './note-form.jsx';
 
 // Served by Opie's cloud (https, installable, notes by push): everything goes through the relay, and the
 // pairing comes in the address after # (#<id>.<key>.<relay>.<token>.<about>), handed over by this page on the Wi-Fi.
@@ -153,6 +154,7 @@ function Today({ me, h, c, onOpen, tabs, apps, go, style }) {
       <div className="page">
         {(h.messages || []).filter((m) => now - m.at < 12 * 3600e3).slice(-2).reverse().map((m) => <div key={m.id} className="card note" {...(m.open && onOpen ? { role: 'button', onClick: () => onOpen(m.open.slice(5)) } : {})}><div className="t">{m.text}</div><div className="soft">{m.title}, {new Date(m.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div></div>)}
         <div className="later">
+          {me.scopes?.includes('arrange') && <div className="pushrow notebox"><NoteForm c={c} family={house.family || []} chip="nchip" on="picked" go="go" chips="chips" area="nbox" row="nrow" /></div>}
           {homeScreen?.alarms && <AlarmsRow c={c} me={me} alarms={homeScreen.alarms.list} family={house.family || []} now={now} />}
           {(CLOUD_RELAY || !cloudLink(me)) && <PushRow c={c} me={me} />}
           <SendToOpie me={me} c={c} ai={!!house.ai} />
