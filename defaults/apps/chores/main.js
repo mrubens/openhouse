@@ -149,8 +149,34 @@ function whoDidIt(c) {
 /** A chore up close: change it, skip it today, or take it off. */
 /** Every few days: [days, label]. */
 const EVERY = [[2, '2 days'], [3, '3 days'], [7, 'week'], [14, '2 weeks'], [30, 'month']];
+/** A day as the app's own "YYYY-MM-DD" (the display's clock), n days from today. */
+const dayFrom = (n) => { const d = new Date((H.today || '') + 'T12:00'); if (isNaN(d)) d.setTime(Date.now()); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const dayName = (k) => (k === dayFrom(0) ? 'Today' : k === dayFrom(1) ? 'Tomorrow' : new Date(k + 'T12:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }));
+/** When a chore is up, for the add and change cards: Repeating (its days) or Once (a day), then a time and Remind me.
+ *  f: { once, date, days, every, after, keep, at, remind }; more(): what Repeating adds under its days (the change card's). */
+function whenRows(f, redraw, more = () => null) {
+  f.$time ||= (() => {
+    const t = h('input', { class: 'field time', type: 'time', 'aria-label': 'Time' });
+    t.addEventListener('change', () => { f.at = t.value; if (!f.at) f.remind = false; redraw(); });
+    return t;
+  })();
+  f.$time.value = f.at || '';
+  const days = [...Array(7)].map((_, i) => dayFrom(i));
+  if (f.date && !days.includes(f.date)) days.unshift(f.date); // (a day of its own that's past, or further off)
+  return [
+    h('div', { class: 'chips wrap' }, chip('Repeating', !f.once, () => { f.once = false; redraw(); }), chip('Once', f.once, () => { f.once = true; f.date ||= dayFrom(0); redraw(); })),
+    f.once ? h('div', { class: 'chips', 'data-keep': 'dates' }, days.map((k) => chip(dayName(k), f.date === k, () => { f.date = k; redraw(); })))
+      : [h('div', { class: 'chips wrap' }, chip('Every day', !f.days.length && !f.every, () => { f.days = []; f.every = 0; redraw(); }),
+        WEEK.map(([k, label]) => chip(label, !f.every && f.days.includes(k), () => { if (f.every) { f.every = 0; f.days = []; } f.days = f.days.includes(k) ? f.days.filter((x) => x !== k) : [...f.days, k]; redraw(); }))), more()],
+    h('div', { class: 'chips wrap' }, chip('No time', !f.at, () => { f.at = ''; f.remind = false; redraw(); }), f.$time,
+      f.at ? chip('Remind me', f.remind, () => { f.remind = !f.remind; redraw(); }) : null),
+  ].flat(2).filter(Boolean);
+}
+/** What the cards send for when: a day of its own, or the days it repeats on; its time and reminder. */
+const whenOf = (f) => ({ date: f.once ? f.date : '', at: f.at || '', remind: !!(f.at && f.remind) });
 function choreCard(c) {
-  const f = { task: c.task, who: c.who, days: [...(c.days || [])], stars: c.stars || 1, pic: c.pic || 'star', keep: !!c.keep, every: c.every || 0, after: !!c.after };
+  const f = { task: c.task, who: c.who, days: [...(c.days || [])], stars: c.stars || 1, pic: c.pic || 'star', keep: !!c.keep, every: c.every || 0, after: !!c.after,
+    once: !!c.date, date: c.date || '', at: c.at || '', remind: !!c.remind };
   const input = h('input', { class: 'field', enterkeyhint: 'done', autocapitalize: 'sentences', autocomplete: 'off', spellcheck: 'false' });
   input.value = f.task; input.addEventListener('input', () => { f.task = input.value; });
   const s = openCard((close) => [
@@ -158,13 +184,12 @@ function choreCard(c) {
     input,
     h('div', { class: 'chips wrap' }, (H.family || []).map((p) => chip(p.name, same(f.who, p.name), () => { f.who = p.name; s.redraw(); }, house.color(p.name))),
       chip('Anyone', !f.who.trim(), () => { f.who = ''; s.redraw(); })),
-    h('div', { class: 'chips wrap' }, chip('Every day', !f.days.length && !f.every, () => { f.days = []; f.every = 0; s.redraw(); }),
-      WEEK.map(([k, label]) => chip(label, !f.every && f.days.includes(k), () => { if (f.every) { f.every = 0; f.days = []; } f.days = f.days.includes(k) ? f.days.filter((x) => x !== k) : [...f.days, k]; s.redraw(); }))),
-    // or every few days: from today, or that long after it was last done (the sheets a week after they were changed)
-    h('div', { class: 'chips wrap' }, h('span', { class: 'chip-label' }, 'Or every'),
-      EVERY.map(([n, label]) => chip(label, f.every === n, () => { f.every = f.every === n ? 0 : n; f.days = []; s.redraw(); }))),
-    f.every ? h('div', { class: 'chips wrap' }, chip('Counting from today', !f.after, () => { f.after = false; s.redraw(); }), chip('Counting from when it’s done', f.after, () => { f.after = true; s.redraw(); })) : null,
-    f.days.length || (f.every && !f.after) ? h('div', { class: 'chips wrap' }, chip('Gone after its day', !f.keep, () => { f.keep = false; s.redraw(); }), chip('Stays until done', f.keep, () => { f.keep = true; s.redraw(); })) : null,
+    ...whenRows(f, () => s.redraw(), () => [
+      // or every few days: from today, or that long after it was last done (the sheets a week after they were changed)
+      h('div', { class: 'chips wrap' }, h('span', { class: 'chip-label' }, 'Or every'),
+        EVERY.map(([n, label]) => chip(label, f.every === n, () => { f.every = f.every === n ? 0 : n; f.days = []; s.redraw(); }))),
+      f.every ? h('div', { class: 'chips wrap' }, chip('Counting from today', !f.after, () => { f.after = false; s.redraw(); }), chip('Counting from when it’s done', f.after, () => { f.after = true; s.redraw(); })) : null,
+      f.days.length || (f.every && !f.after) ? h('div', { class: 'chips wrap' }, chip('Gone after its day', !f.keep, () => { f.keep = false; s.redraw(); }), chip('Stays until done', f.keep, () => { f.keep = true; s.redraw(); })) : null]),
     h('div', { class: 'chips wrap' }, h('span', { class: 'chip-label' }, 'Stars'), CHORE_STARS.map((n) => chip(String(n), f.stars === n, () => { f.stars = n; s.redraw(); }))),
     h('div', { class: 'pick-row hscroll', 'data-keep': 'chore-pics' },
       PICS.map((p) => h('button', { class: 'pick' + (p === f.pic ? ' on' : ''), 'aria-label': p, tap: () => { f.pic = p; s.redraw(); } }, gl(lineOf(p))))),
@@ -174,8 +199,8 @@ function choreCard(c) {
       btn('Cancel', close, { soft: true }),
       btn('Save', () => {
         const task = f.task.trim() || c.task; close();
-        const to = { task, who: f.who, days: f.every ? [] : f.days, stars: f.stars, pic: f.pic, keep: f.days.length || (f.every && !f.after) ? f.keep : false,
-          every: f.every, after: f.every ? f.after : false }, was = { who: c.who, task: c.task };
+        const rep = !f.once, to = { task, who: f.who, days: rep && !f.every ? f.days : [], stars: f.stars, pic: f.pic, keep: rep && (f.days.length || (f.every && !f.after)) ? f.keep : false,
+          every: rep ? f.every : 0, after: rep && f.every ? f.after : false, ...whenOf(f) }, was = { who: c.who, task: c.task };
         Object.assign(c, to); draw(); house.updateChore(was.who, was.task, to);
       })),
   ], { width: 860 });
@@ -305,26 +330,26 @@ function choreRow(c) {
   return h('div', { class: 'ch' + (c.done ? ' done' : '') + (c.skipped ? ' skipped' : '') + (fresh.has(c) ? ' pop' : ''), tap: () => (c.skipped ? choreCard(c) : choreDone(c, !c.done)), hold: () => choreCard(c) },
   h('span', { class: 'ck' }, c.done ? icon('check') : null),
   h('span', { class: 'task' }, h('span', { class: 't' }, c.task), c.skipped ? h('span', { class: 'sub' }, 'Skipped today') : c.by ? h('span', { class: 'sub' }, c.by)
-    : c.late ? h('span', { class: 'sub late' }, c.late === 1 ? 'From yesterday' : `${c.late} days late`) : null),
+    : c.late ? h('span', { class: 'sub late' }, c.late === 1 ? 'From yesterday' : `${c.late} days late`) : c.at && !c.done ? h('span', { class: 'sub' }, clock(c.at)) : null),
   (c.stars || 1) > 1 ? h('span', { class: 'worth' }, star('currentColor', 15), String(c.stars)) : null,
   h('button', { class: 'g', 'aria-label': 'Change', tap: () => choreCard(c) }, gl(lineOf(c.pic))));
 }
 
 function addChore() {
-  let who = H.family?.[0]?.name || '', days = [], stars = 1;
+  let who = H.family?.[0]?.name || '', stars = 1;
+  const f = { once: false, date: '', days: [], every: 0, at: '', remind: false };
   ask({ title: 'New chore', hint: 'Feed the cat',
     extra: (s) => [
       h('div', { class: 'chips', 'data-keep': 'who' },
         (H.family || []).map((p) => chip(p.name, who === p.name, () => { who = p.name; s.redraw(); }, house.color(p.name))),
         chip('Anyone', who === '', () => { who = ''; s.redraw(); })),
-      h('div', { class: 'chips', 'data-keep': 'days' },
-        chip('Every day', !days.length, () => { days = []; s.redraw(); }),
-        WEEK.map(([k, label]) => chip(label, days.includes(k), () => { days = days.includes(k) ? days.filter((x) => x !== k) : [...days, k]; s.redraw(); }))),
+      ...whenRows(f, () => s.redraw()),
       h('div', { class: 'chips', 'data-keep': 'stars' }, h('span', { class: 'chip-label' }, 'Stars'), CHORE_STARS.map((n) => chip(String(n), stars === n, () => { stars = n; s.redraw(); }))),
     ],
     onDone: (task) => {
-      H.chores = [...(H.chores || []), { who, task, today: true, done: false, week: 0, days, stars }]; draw();
-      house.addChore(who, task, days, stars).then(told);
+      const days = f.once ? [] : f.days, when = whenOf(f);
+      H.chores = [...(H.chores || []), { who, task, today: !f.once || f.date === dayFrom(0), done: false, week: 0, days, stars, ...when }]; draw();
+      house.addChore(who, task, days, stars, when).then(told);
     } });
 }
 

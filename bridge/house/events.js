@@ -54,11 +54,13 @@ export default function (house) {
       .sort((a, b) => new Date(a.start) - new Date(b.start));
   }
   const remindKey = (e) => `${e.uid || e.id}|${e.start}`;
-  /** The reminders due now: from their time until ten minutes after the start (or the end, if sooner), unless put away. [list]: the events, when a view has them already. */
+  /** The reminders due now: from their time until ten minutes after the start (or the end, if sooner), unless put away. [list]: the events, when a view has them already.
+   *  Then the chores' (chores.js choreReminders: open: "chores"). */
   function reminders(now = Date.now(), list = events()) {
     const away = new Set(data.reminded);
-    return list.filter((e) => e.remindAt && new Date(e.remindAt) <= now && now < Math.min(new Date(e.start).getTime() + 10 * 60e3, new Date(e.end || e.start).getTime() + 60e3) && !away.has(remindKey(e)))
-      .map((e) => ({ key: remindKey(e), title: e.title, start: e.start, who: [e.who, ...(e.also || [])].filter(Boolean).join(' & ') || null, ...(e.place ? { place: e.place } : {}) }));
+    return [...list.filter((e) => e.remindAt && new Date(e.remindAt) <= now && now < Math.min(new Date(e.start).getTime() + 10 * 60e3, new Date(e.end || e.start).getTime() + 60e3) && !away.has(remindKey(e)))
+      .map((e) => ({ key: remindKey(e), title: e.title, start: e.start, who: [e.who, ...(e.also || [])].filter(Boolean).join(' & ') || null, ...(e.place ? { place: e.place } : {}) })),
+      ...(house.choreReminders?.(now) || [])];
   }
   // ---- events added on the display ----
   /** An event's fields from what was asked (add, or an update over what it was). */

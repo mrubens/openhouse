@@ -269,3 +269,43 @@ test('view() has every key the header of house.js names', () => {
   const v = houseRoutes({ DIR, json: () => {}, body: async () => ({}), board }).view();
   for (const k of keys) assert.ok(k in v, `view() has ${k}`);
 });
+
+test('chores for one day: saved chores from before still load; a one-day chore stays late until done, then is gone for good; its day, time and reminder survive a save that leaves them out', async () => {
+  const { boardRoutes } = await import('../board.js');
+  const t0 = new Date(2026, 11, 7, 9, 0).getTime();
+  mock.timers.enable({ apis: ['Date'], now: t0 });
+  try {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'house-')), DIR = path.join(root, 'x'); fs.mkdirSync(DIR);
+    // household.json as an older release saved it
+    const old = { family: [{ name: 'Leo' }, { name: 'Maya' }], chores: [{ who: 'Leo', task: 'Feed the cat', days: ['mon'], stars: 2, keep: true }, { who: 'Maya', task: 'Sheets', every: 7, after: true }] };
+    fs.writeFileSync(path.join(root, 'household.json'), JSON.stringify(old));
+    const board = boardRoutes({ HERE: root, DIR, WORK: root, json: () => {}, body: async () => ({}), homeScreen: { migrate: () => {} } });
+    const h = houseRoutes({ DIR, json: () => {}, body: async () => ({}), board });
+    const chores = () => h.view().chores, saved = () => JSON.parse(fs.readFileSync(path.join(root, 'household.json'), 'utf8')).chores;
+    assert.equal(chores().length, 2);
+    await h.call('change_chores', { add: [{ who: 'Leo', task: 'Library books', date: '2026-12-07', at: '16:00', remind: true }] });
+    assert.deepEqual(saved().slice(0, 2), old.chores, 'the old ones as they were');
+    // the family sheet saves the list again with only whose, what and which days: the rest is kept
+    board.saveHousehold({ chores: saved().map(({ who, task, days }) => ({ who, task, days })) }, { quiet: true });
+    assert.deepEqual(saved()[2], { who: 'Leo', task: 'Library books', date: '2026-12-07', at: '16:00', remind: true });
+    assert.deepEqual(saved()[0], old.chores[0]);
+    // a reminder only for Leo, only at its time
+    assert.equal(h.reminders(Date.now()).length, 0);
+    assert.deepEqual(h.reminders(new Date(2026, 11, 7, 16, 5).getTime()).map((r) => r.who), ['Leo']);
+    // not done: still up days later, late
+    mock.timers.setTime(new Date(2026, 11, 10, 9, 0).getTime());
+    const books = () => chores().find((c) => c.task === 'Library books');
+    assert.equal(books().today, true); assert.equal(books().late, 3);
+    await h.call('change_chores', { done: [{ who: 'Leo', task: 'Library books' }] });
+    assert.equal(books().done, true, 'shown done the day it was done');
+    // the next day it's gone, and it stays gone once its checkmark is long pruned
+    mock.timers.setTime(new Date(2026, 11, 11, 9, 0).getTime());
+    assert.equal(books(), undefined);
+    mock.timers.setTime(new Date(2027, 2, 20, 9, 0).getTime());
+    await h.call('change_chores', { done: [{ who: 'Leo', task: 'Feed the cat' }] }); // (a save, which prunes)
+    assert.equal(books(), undefined);
+    // turned off by a tap (Stays until done off): off for good, not put back from what was saved
+    await h.call('change_chores', { update: [{ who: 'Leo', task: 'Feed the cat', to: { keep: false } }] });
+    assert.equal(saved()[0].keep, undefined);
+  } finally { mock.timers.reset(); }
+});

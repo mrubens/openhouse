@@ -1,6 +1,7 @@
 // A reminder that comes due buzzes the phones of the people on its event (docs/phones.md, "Notifications"): once
 // each, never in the household's night hours, and nobody's for an event with nobody on it (the tablet says those).
 // The words are the tablet's own ("Dentist in 15 minutes"); the push goes from the tablet itself (screens.notify).
+// A chore with a time and Remind me is one of these too, for whose chore it is, until it's done (house/chores.js).
 
 const MIN = 60e3, DAY = 24 * 60 * MIN;
 const toMin = (s) => Number(String(s).slice(0, 2)) * 60 + Number(String(s).slice(3, 5));
