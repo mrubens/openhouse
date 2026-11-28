@@ -15,7 +15,7 @@
 //                                  frame 0 is {status, type}, then data, then an empty end frame (type byte 0, 1, 2).
 // The loopback listener (the display's secret, so the shell's Settings) runs it:
 //   GET  /screens                  {lan, port, screens: [{id, name, scopes, added, seen}], asking: [{pair, name, via}]}
-//   POST /screens/lan {on}         the home-network listener on or off (screens stay paired)
+//   POST /screens/lan              the home-network listener on (it comes on by itself once something pairs; there's no off)
 //   POST /screens/pair             a new pairing, 10 min: {pair, key, port}; turns the listener on
 //   POST /screens/pair {kind: "computer"}   a computer's pairing (someone's own AI app, workshop.js): {pair, code,
 //                                  port, extension}. A person types the code, so it's short (12 characters, 60 bits); the pairing
@@ -428,7 +428,7 @@ export function screensRoutes({ noScreen = () => false, HERE, LAN_MS = LAN_TIMES
     const b = await body(req);
     // The tablet's address on the Wi-Fi, from the shell (as the router gives it): for its https name (lan-tls.js).
     if (p === '/screens/address') { const ok = !!lanTls?.address(b.address); json(res, ok ? 200 : 400, { ok, https: lanTls?.status() || null, base: lanBase(), ...via() }); return true; }
-    if (p === '/screens/lan') { state.lan = !!b.on; write(); state.lan ? startLan() : stopLan(); json(res, 200, { ok: true, lan: state.lan }); return true; }
+    if (p === '/screens/lan') { handle.lanOn(); json(res, 200, { ok: true, lan: true }); return true; } // (on only: there's no off)
     if (p === '/screens/pair') {
       const computer = b.kind === 'computer', tv = b.kind === 'tv', tablet = b.kind === 'tablet', phone = !tablet && (b.kind === 'phone' || b.setup === true), setup = !tablet && b.setup === true;
       const person = phone ? String(b.person || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40) : null;

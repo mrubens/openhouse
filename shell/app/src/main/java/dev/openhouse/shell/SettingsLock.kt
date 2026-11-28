@@ -154,6 +154,18 @@ internal class SettingsLock(private val act: MainActivity) {
             .setNegativeButton("Not now") { _, _ -> tablet() }.show()
     }
 
+    /** USB debugging on: Opie's block lifted, then Android's Developer options, where a person switches it on. */
+    private fun usbDebugging() {
+        Kiosk.setDebugging(act, true)
+        if (Kiosk.developerOptions(act)) { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)); return }
+        CalmDialog(act).setTitle("USB debugging")
+            .setMessage("1. In Android's settings, open About tablet or About phone (on a Samsung, then Software information) and tap Build number seven times.\n" +
+                "2. Go back, open Developer options, and switch on USB debugging.\n" +
+                "3. Press Home to come back.")
+            .setPositiveButton("Open Android's settings") { _, _ -> act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) }
+            .setNegativeButton("Not now") { _, _ -> tablet() }.show()
+    }
+
     private fun erase() {
         CalmDialog(act).setTitle("Erase this device?")
             .setMessage("Everything on it goes: the household, calendars, lists, photos and apps. It's unlinked from the account, whose backups stay there. This can't be undone.")
@@ -378,10 +390,9 @@ internal class SettingsLock(private val act: MainActivity) {
     /** Device control, the speech log, USB debugging, Android's settings, leaving kiosk mode. A switch here shows the
      *  list again, so it stays where you were. */
     private fun tablet(): Thread = thread {
-        val lan = get("/screens")?.optBoolean("lan") == true
         val plugins = get("/plugins")?.optJSONArray("plugins")?.length() ?: 0
         val ts = get("/tailscale")
-        act.runOnUiThread { tabletList(lan, plugins, ts) }
+        act.runOnUiThread { tabletList(plugins, ts) }
     }
 
     /**
@@ -468,7 +479,7 @@ internal class SettingsLock(private val act: MainActivity) {
 
     /** Settings → Advanced: the lock, plugins, this tablet's household, a report; then what's for developers. [lan]:
      *  other screens and phones on the Wi-Fi reach it (Devices). */
-    private fun tabletList(lan: Boolean, plugins: Int, ts: JSONObject?) {
+    private fun tabletList(plugins: Int, ts: JSONObject?) {
         val o = Openhouse
         fun onOff(b: Boolean) = if (b) "On" else "Off"
         fun again() = android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ tablet() }, 350)
@@ -492,15 +503,15 @@ internal class SettingsLock(private val act: MainActivity) {
             // Shown only once Android seems to have stopped the runtime with its child-process limit (Runtime.lost).
             CalmDialog.Row("Opie's software was stopped by Android") to { childLimit() },
         )) + listOf<Pair<CalmDialog.Row, () -> Unit>>(
-            head("For developers"),
-            CalmDialog.Row("Home network", value = onOff(lan)) to person("Home network") { thread { CloudSetup.post("${act.bridge}/screens/lan", JSONObject().put("on", !lan)) }; again() },
+            head("Tinkering"),
             // Away from home through the household's own Tailscale (TailscaleMenu, bridge/tailscale.js): it changes who can
-            // reach the tablet, so it's a person's own, as pairing is.
-            CalmDialog.Row("Tailscale", value = when { ts?.optBoolean("on") != true -> "Off"; ts.optString("state") == "on" -> "On"; ts.optString("state") == "signin" -> "Sign in"; else -> "Starting" }) to person("Tailscale") { TailscaleMenu(act) { tablet() }.show() },
-            CalmDialog.Row("Cloud address") to { CloudMenu(act).address() },
-            CalmDialog.Row("Speech log", value = onOff(o.speechLog)) to { o.setSpeechLog(!o.speechLog); again() },
-            CalmDialog.Row("USB debugging", value = onOff(Kiosk.debugging(act))) to person("USB debugging") {
-                if (Kiosk.debugging(act)) { Kiosk.setDebugging(act, false); again() } else withPinSet { Kiosk.setDebugging(act, true); again() }
+            // reach the device, so it's a person's own, as pairing is.
+            CalmDialog.Row("Reach it from away (Tailscale)", value = when { ts?.optBoolean("on") != true -> "Off"; ts.optString("state") == "on" -> "On"; ts.optString("state") == "signin" -> "Sign in"; else -> "Starting" }) to person("Tailscale") { TailscaleMenu(act) { tablet() }.show() },
+            CalmDialog.Row("Keep a log of what it hears", value = onOff(o.speechLog)) to { always { o.setSpeechLog(!o.speechLog); again() } }, // (switched only once the PIN is in: Cancel leaves it)
+            // Android's own switch, as it is (Kiosk.adbOn). Opie can only lift its block: Android 11 and later don't let
+            // an app turn USB debugging on, so On opens Developer options for a person to switch it on there.
+            CalmDialog.Row("USB debugging", value = onOff(Kiosk.adbOn(act))) to person("USB debugging") {
+                if (Kiosk.adbOn(act)) { Kiosk.setDebugging(act, false); again() } else withPinSet { usbDebugging() }
             },
             CalmDialog.Row("Android settings") to person("Android settings") { withPinSet { act.leaveKiosk(); act.startActivity(Intent(android.provider.Settings.ACTION_SETTINGS)) } },
             CalmDialog.Row("Leave kiosk mode") to person("Leave kiosk mode") { withPinSet {

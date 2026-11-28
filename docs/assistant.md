@@ -84,7 +84,7 @@ removes pi, SearXNG and Claude Code's leftovers from a runtime unpacked from an 
 - Web search: pi's (SearXNG) is gone with it. The live voice's text model has OpenAI's own web search (the service the
   family chose; the cloud adds it when a session starts): directions, travel times (typical, no live traffic), when to
   leave, opening hours. Typed turns answer from what they know.
-- The speech log (Settings → Speech log, on the tablet only) has each live conversation's words: what it heard
+- The speech log (Settings → Advanced → Keep a log of what it hears, on the device only) has each live conversation's words: what it heard
   (`live-heard`), what it said (`live-said`) and the tools its text model used (`live-tool`).
 - **Memory**, all on the tablet (and in its backups), going to OpenAI only as context. It belongs to the household,
   not to whoever is talking (voices aren't recognised).

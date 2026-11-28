@@ -34,7 +34,7 @@ Opie can do anything a person can do within its own app.
 - Settings and its own dialogs are now Opie's to use too (they were off limits in the first version). Its
   limits are a person's: Settings' rows ask for the PIN when the lock is on, and a PIN pad is the one thing Opie can't
   see or touch (any window with one: the screen list says a PIN is being asked for, every action is refused).
-- A few controls are a person's own, whoever's tap it is: Device control, Opie uses apps, Home network, USB debugging,
+- A few controls are a person's own, whoever's tap it is: Device control, Opie uses apps, USB debugging,
   Android settings, Leave kiosk mode, and "Add" on a calendar or album someone sent. They check
   `DeviceServer.personOnly` and do nothing when Opie's tap set them off in the last 2.5 s; Opie hears why.
 - Hard to take back on Opie's screen (a button labelled delete, remove, reset...): the tap answers "ask them
@@ -112,7 +112,7 @@ Enforced in the shell (where the bridge can't change them), and again where the 
   further action until the next request.
 - **Limits.** At most 60 actions for one request and 40 a minute; then it stops and says where it got to. A typed turn
   may take up to 40 model steps once it's using an app (8 otherwise).
-- **Logged.** Every action and what came of it goes to the speech log (Settings → Advanced → Speech log, kept on
+- **Logged.** Every action and what came of it goes to the speech log (Settings → Advanced → Keep a log of what it hears, kept on
   the tablet only): `device-tool` and `device-result` from the bridge, `device-action` from the shell, `device-stop`.
   The shell also logs each call to logcat.
 

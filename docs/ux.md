@@ -37,7 +37,7 @@ These guard the household, so they keep everything an adult must see, shorter:
 - A few sections with labels people would use; each row's current value on its right, never a paragraph under it.
 - A switch's row says what it does in two to four words ("Opie uses apps", "PIN Lock"). An explanation is at most a
   one-line subtitle, and only where the name can't carry it.
-- Rare and technical settings go in **Advanced**, under "For developers".
+- Rare and technical settings go in **Advanced**, under "Tinkering".
 
 ## Words
 

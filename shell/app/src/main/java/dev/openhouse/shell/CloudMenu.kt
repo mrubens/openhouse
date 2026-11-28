@@ -48,16 +48,6 @@ internal class CloudMenu(private val act: MainActivity) {
             .setNegativeButton("Back", null).open()
     }
 
-    /** The cloud's address, for people who run their own (Advanced). */
-    fun address() = thread { val s = get("/cloud/status", 5000); ui { if (s == null) say("Cloud address", noBridge) else address(s.optString("api")) } }
-
-    private fun address(now: String) {
-        val box = Calm.field(act, "https://…").apply { setText(now); inputType = InputType.TYPE_TEXT_VARIATION_URI }
-        CalmDialog(act).setTitle("Cloud address").setMessage("Only if you run your own.").setView(box)
-            .setPositiveButton("Save") { _, _ -> thread { val r = post("/cloud/config", JSONObject().put("api", box.text.toString().trim())); ui { if (r?.has("error") != false) say("Cloud address", r?.optString("error") ?: noBridge) else act.toast("Saved") } } }
-            .setNegativeButton("Cancel", null).open()
-    }
-
     /** Link with a code typed on a phone or computer; then [then] (turning on Live voice, from the welcome), or the
      *  Account menu. */
     fun startLink(why: String? = null, then: (() -> Unit)? = null) = thread {

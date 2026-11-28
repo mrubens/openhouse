@@ -31,6 +31,14 @@ object Kiosk {
         return p.getBoolean("debugging", true)
     }
 
+    /** Is Android's USB debugging actually on (and not blocked by Opie)? */
+    fun adbOn(c: Context): Boolean = debugging(c) &&
+        runCatching { android.provider.Settings.Global.getInt(c.contentResolver, android.provider.Settings.Global.ADB_ENABLED) == 1 }.getOrDefault(false)
+
+    /** Are Android's Developer options open (Build number tapped seven times)? */
+    fun developerOptions(c: Context): Boolean =
+        runCatching { android.provider.Settings.Global.getInt(c.contentResolver, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) == 1 }.getOrDefault(false)
+
     fun setDebugging(c: Context, allowed: Boolean) {
         prefs(c).edit().putBoolean("debugging", allowed).apply()
         set(c, UserManager.DISALLOW_DEBUGGING_FEATURES, !allowed)

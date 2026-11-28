@@ -19,7 +19,7 @@ Since 2026-11-27 (the user: "fewer levels… a full screen UI with side tabs", i
 | Screen | Brightness, Volume (with Adjust to the room), Time | Time: Change settings |
 | Devices | paired screens, TVs, phones and computers (Add, Remove), then the house's speakers, streamers and printers | Add always; Remove: Change settings |
 | Account | link or unlink, Backups, Email, Use it away from home | always |
-| Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Add this tablet to another Opie, Send a report; For developers: Home network, Tailscale, Cloud address, Speech log, USB debugging, Android settings, Leave kiosk mode, Erase this tablet | always |
+| Advanced | PIN Lock, PIN recovery code, Ask for the PIN, Plugins, Add this device to another Opie, Send a report; Tinkering: Reach it from away (Tailscale), Keep a log of what it hears, USB debugging, Android settings, Leave kiosk mode, Erase this device | always |
 
 **Connections** (shell/SettingsLock.kt `connections`, rows in shell/Lines.kt) keeps each part's own PIN:
 - Calendars: with Change settings asking (the default), the section is one row (how many, Unlock) until the PIN is
@@ -267,3 +267,11 @@ closes, and an app goes home.
 Nothing shown says "parent", and "adult" only where it matters who: the PIN is "the PIN", the menu is Settings, and the assistant's rules
 (bridge/CHAT.md, AGENT.md, WORKSHOP.md), its tools' answers and the connect pages say "someone at the tablet" or
 "in Settings" instead.
+
+### 2026-11-28: Tinkering
+
+Advanced's "For developers" became **Tinkering**, with plainer names: Reach it from away (Tailscale), Keep a log of what
+it hears. Home network went (the device's Wi-Fi listener comes on by itself once a phone, screen or TV pairs, and has
+no off), and so did Cloud address (the cloud is closed, so there's no other server to point at; a developer sets it from
+a computer). USB debugging shows Android's own switch as it is: Opie can lift its block, but Android 11 and later don't
+let an app turn USB debugging on, so On opens Developer options (or says how to open them) for a person to switch it on.

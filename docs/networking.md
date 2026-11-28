@@ -234,7 +234,7 @@ scripts/cloud.sh node lambda/local.ts --port 8797 --base http://localhost:8797
 adb reverse tcp:8797 tcp:8797
 ```
 
-Then Settings → Advanced → Cloud address → `http://localhost:8797`, link, and Account → Use it away from home → Turn on.
+Then point the device at it from the computer (`POST /cloud/config {"api": "http://localhost:8797"}` to its bridge; there's no row for it in Settings, since the cloud is closed), link, and Account → Use it away from home → Turn on.
 (Any port free on both sides; some emulator images already have something on 8790.) Tried this way on 2026-11-19: the
 tablet connected and reconnected by itself after a restart; a paired computer's MCP, with its Wi-Fi path cut, ran
 `about_household` and `look_at_tablet` (a screenshot, many relay messages, 0.4 s) through the relay, and Screens
