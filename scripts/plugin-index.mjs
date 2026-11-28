@@ -14,7 +14,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkPlugin, rightsMerged } from '../bridge/plugins.js';
+import { checkPlugin, rightsMerged, starterWords } from '../bridge/plugins.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2), names = [];
@@ -51,7 +51,7 @@ for (const n of wanted) {
   } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
   if (p.name !== pkg.name) throw new Error(`${file} holds ${p.name}, not ${pkg.name}`);
   const entry = { name: p.name, title: p.title, description: p.description, version: p.version, commit, tarball: base + file, sha256: sha(buf),
-    rights: [...rightsMerged(p.apps), ...(p.look ? ['Changes the look.'] : []), ...(p.tabs.length ? [`Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}.`] : [])] };
+    rights: [...rightsMerged(p.apps), ...(p.look ? ['Changes the look.'] : []), ...(p.tabs.length ? [`Adds ${p.tabs.length === 1 ? 'a tab' : 'tabs'}.`] : []), ...(p.starter ? [starterWords(p.starter)] : [])] };
   const pic = ['png', 'jpg', 'webp'].map((x) => path.join(ROOT, 'plugins', n, `preview.${x}`)).find((f) => fs.existsSync(f));
   if (pic) {
     const to = `${pkg.name}-${pkg.version}-${commit}${path.extname(pic)}`;

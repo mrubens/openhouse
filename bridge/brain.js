@@ -196,7 +196,9 @@ const plugins = pluginsRoutes({ APP_DIR, edits, homeScreen: chat.homeScreen, jso
   ai: async (q) => { if (!cloudRef?.brainOn?.()) throw new Error("Opie's cloud isn't set up"); return cloudRef.ai(q); },
   DATA: path.resolve(process.env.CHAT_DIR || path.join(HERE, '../chats'), '../appdata'), DEFAULTS, SEEDED: path.join(HERE, '../.defaults-seeded'),
   onChange: () => { emit({ type: 'state', ...events.state }); emit({ type: 'apps' }); },
-  household: () => { try { return JSON.parse(fs.readFileSync(path.join(HERE, '../household.json'), 'utf8')); } catch { return {}; } } });
+  household: () => { try { return JSON.parse(fs.readFileSync(path.join(HERE, '../household.json'), 'utf8')); } catch { return {}; } },
+  // a plugin's starter: routines and chores, added through the house's own tools (only names the household has none of)
+  house: { checklists: () => chat.house.checklists(), chores: () => chat.house.chores(), changeChecklists: (a) => chat.house.changeChecklists(a), changeChores: (a) => chat.house.changeChores(a) } });
 chat.homeScreen.addTools(plugins.tools, plugins.call);
 // An app's card on Home (its widget.html): a plugin's app only with "today-card" granted; the household turns each on (home-screen.js today_card).
 apps.setRightsOf(plugins.rightsOf); apps.setFrozenOf(plugins.frozenOf);

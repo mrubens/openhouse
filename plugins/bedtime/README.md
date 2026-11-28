@@ -3,8 +3,9 @@
 One tap at bedtime.
 
 - **Set up:** open Bedtime, Set up: the time and days, what each of the home's speakers, TVs and lights should do
-  (turn down to a volume, pause, turn off, dim), and the bedtime routine from Chores (make one there first, in
-  Routines).
+  (turn down to a volume, pause, turn off, dim), and the bedtime routine from Chores. It comes with one to start
+  from (`starter.json`: Bath, Pajamas, Brush teeth, Pick a book, Lights out), added only if there's no routine called
+  Bedtime yet.
 - **At bedtime:** from 15 minutes before, Today shows "Bedtime at 7:30: tap to start the bedtime scene" (tap opens
   Bedtime), and the small card for Home, if it's on, has a Start bedtime button. "Start bedtime" to the voice works
   too. Nothing changes until someone says yes.

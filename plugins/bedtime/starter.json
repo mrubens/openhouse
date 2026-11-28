@@ -1,0 +1,5 @@
+{
+  "routines": [
+    { "name": "Bedtime", "from": "19:00", "to": "21:00", "steps": ["Bath", "Pajamas", "Brush teeth", "Pick a book", "Lights out"] }
+  ]
+}

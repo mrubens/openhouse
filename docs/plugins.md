@@ -182,8 +182,7 @@ twins-chores/
 - house data, `appdata`, photos, notes, `household.json`, `preferences.md`, sign-ins
 - code for the bridge or the shell
 
-Starter data (a set of chores, a morning routine) is plausible later as a declared, previewed `data/` file that goes
-in through the house tools. It is left out of v1.
+Starter data (a set of chores, a morning routine) is a declared, previewed `starter.json` (§21).
 
 ## 4. Each kind of piece
 
@@ -852,3 +851,25 @@ which marks each call with the app. Nothing new is asked on the install card: a 
   === 'phone'` (from the kit) says where it is, to leave such a button out.
 - No `localStorage` surprises: it works, kept per app on that phone. No `indexedDB` or `caches` there.
 - An app that can't work on a phone says so: `"screens": ["tablet"]` in its app.json (add `"tv"` if it's for a TV too).
+
+## 21. A starter: routines and chores to begin with (2026-11-28)
+
+A plugin may carry a starter: `starter.json` at its root (or `"openhouse": {"starter": "<file>"}`), plain data:
+
+```json
+{ "routines": [{ "name": "Bedtime", "from": "19:00", "to": "21:00", "days": ["mon"], "steps": ["Bath", "Pajamas"] }],
+  "chores": [{ "task": "Set the table", "days": ["mon", "wed"] }, { "task": "Water the plants", "every": 3, "stars": 2 }] }
+```
+
+- **Checked like the rest** (`cleanStarter`): up to 4 routines of up to 10 steps, up to 20 chores, short plain text, times
+  as HH:MM. A chore in a starter is anyone's (no `who`): the household says whose later.
+- **Shown before it's added.** The card lists every routine with its steps and every chore (`starterWords`), as one of
+  its lines; so does Opie's `look_at_plugin`, and the list's `rights` (`scripts/plugin-index.mjs`), so opie.house/plugins
+  shows it too.
+- **Never overwrites.** On the yes, after the apps go in, each routine and chore is added through the house's own
+  tools (`changeChecklists`, `changeChores` add) only when the household has none by that name (any case, anyone's).
+  Nothing they have is changed, moved or removed. It's household data, not part of the plugin's change in `webapp/`.
+- **Only on adding**, never on an update. `add_plugin {starter: false}` leaves it out; Settings' Add takes `starter`
+  the same way (yes by default).
+- Example: `plugins/bedtime` comes with a Bedtime routine.
+- Test: `plugins.test.mjs` (a starter adds only what's missing and leaves the household's own as it was).
