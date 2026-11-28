@@ -7,7 +7,11 @@ import './pid-file.js'; // first: the process id, before anything else loads
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readPairing } from './satellite.js';
+import { guard } from './restore-guard.js';
 
 const DISPLAY = process.env.CLOUD_DISPLAY || path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 if (readPairing(DISPLAY)) await import('./satellite-server.js');
-else await import('./brain.js');
+else {
+  guard(DISPLAY); // (after a restore, before anything reads what came back: restore-guard.js)
+  await import('./brain.js');
+}

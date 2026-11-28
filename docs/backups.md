@@ -26,7 +26,14 @@ It never holds:
 - the sign-ins for Claude or ChatGPT (in the runtime and the agent's app, outside the display folder);
 - the agent's app or the runtime;
 - the bridge and its secret;
-- `.cloud/` (the device credential) or `.backup/` (the key).
+- `.cloud/` (the device credential) or `.backup/` (the key);
+- what the microphone heard or what was said: the wake clips (`chats/voice-clips/`), a test recording
+  (`chats/voice-rec/`), the speech log and the wake log (`chats/voice-log.jsonl`, `chats/voice-wakes.jsonl`), and the
+  day's talk before it's summed up (`chats/talk/`; the day's few lines in `chats/days.json` are backed up);
+- a TV's pairing (its token or key): `devices.json` goes in without them (a restore keeps this device's own), so a TV
+  asks once more after a restore on another device.
+
+A restore leaves this device's own of these as they are, with webapp/'s `node_modules` (built for this device).
 
 Symlinks are stored as links and never followed, so an app can't pull a sign-in in through a link. proot's `.l2s.*`
 hard-link stand-ins are skipped; inside the runtime the real files read normally.
@@ -42,7 +49,11 @@ The tablet packs the family's data with `tar` and encrypts it with AES-256-GCM. 
 The header is authenticated too. `keyId` is a hash of the key, so a restore can tell which recovery code fits
 without revealing anything about the key. A restore decrypts to a temporary file and unpacks it only after the tag
 checks out. Then it puts back only the entries listed in `INCLUDE`, keeps what was there in `.backup/before-restore/`
-until the next restore, and restarts the bridge. From the moment it starts putting files back until the bridge has
+until the next restore, and restarts the bridge. A backup that would unpack to more than the room left on the device
+isn't unpacked. A part of the backup that can't be checked (a path too long to read, say) stops the restore before
+anything is put back. If the bridge doesn't stay up on what came back (two starts in a row that don't last a minute),
+the third start puts back what was there before and keeps the restored things in `.backup/failed-restore/`
+(`bridge/restore-guard.js`). From the moment it starts putting files back until the bridge has
 restarted, every save to those files is refused (`holdWrites` in `bridge/store.js`), so nothing the bridge still held in
 memory is written over what came back; after the restart everything is read again from the restored files. The format is the same in every place, so a backup copied by hand
 from one place to another still restores.
@@ -81,7 +92,8 @@ USB-only families, and those with only their own storage, have no escrow, becaus
   says plainly what went wrong ("Plug in the drive", or that your own storage refused the key). The health check-in carries only the failure's type
   (`backup.drive.notready`).
 - **Keeping:** the newest 7 nightly and 5 manual backups in each place. On a drive, the tablet deletes older files
-  itself. In the cloud, the service does.
+  itself, only ones made with its own recovery code: another device's backups in the same place (an old tablet's,
+  waiting to be restored) are never deleted. In the cloud, the service does.
 
 ## The USB drive
 
@@ -138,7 +150,8 @@ bridge sends instead. The secret still never leaves the host, and each URL is go
 
 **In the bucket:** `<prefix>/display-backup-<time>-<kind>-<keyId>.backup`, the same encrypted files as on a USB drive or
 a hub's folder, so a file copied by hand from one place to another restores. The bucket only ever sees ciphertext.
-Same schedule and keeping as everywhere: the newest 7 nightly and 5 manual, the older ones deleted by the tablet.
+Same schedule and keeping as everywhere: the newest 7 nightly and 5 manual, the older ones made with the same code
+deleted by the tablet.
 Restore lists the bucket and pulls from it; a new tablet set up with the same storage and the recovery code restores
 an old one's backups.
 

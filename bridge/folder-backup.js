@@ -28,8 +28,9 @@ export function folderDestination({ dir, id = 'folder', label = 'A folder on the
       if (!parseName(item.id)) throw new Error('no such backup');
       fs.copyFileSync(path.join(root(), item.id), toFile);
     },
-    async prune(keepNightly, keepManual) {
-      const all = (await d.list()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    async prune(keepNightly, keepManual, keyId) { // (only this key's, as drive.js)
+      if (!keyId) return;
+      const all = (await d.list()).filter((x) => x.keyId === keyId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       for (const [kind, keep] of [['nightly', keepNightly], ['manual', keepManual]]) {
         for (const old of all.filter((x) => x.kind === kind).slice(keep)) fs.rmSync(path.join(root(), old.id), { force: true });
       }

@@ -121,9 +121,9 @@ test('a store saved by a newer release is never saved over by this one', async (
     assert.equal(fs.readFileSync(hf, 'utf8'), houseNewer);
     // An unstamped file (every file before versions) is version 0: read and saved as before.
     const g = registered('things', path.join(root, 'things.json'));
-    fs.writeFileSync(g, JSON.stringify({ items: [1] }));
+    fs.writeFileSync(g, JSON.stringify({ items: [{ id: 1 }] }));
     writeJson(g, { ...readJson(g, {}), more: true });
-    assert.deepEqual(readJson(g, {}), { items: [1], more: true });
+    assert.deepEqual(readJson(g, {}), { items: [{ id: 1 }], more: true });
   } finally {
     console.error = errors;
     fs.rmSync(root, { recursive: true, force: true });
@@ -170,8 +170,13 @@ test("a backup holds exactly the registry's household stores", async () => {
       if (s.dir) fs.mkdirSync(p, { recursive: true }); else { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, '{}'); }
       if (s.dir) fs.writeFileSync(path.join(p, 'x.txt'), 'x');
     }
+    // A TV's pairing is this device's own, like a key: the backup's devices.json has the household's yes, not the token.
+    fs.writeFileSync(path.join(D, 'devices.json'), JSON.stringify({ devices: [{ id: 'tv' }], pairing: { tv: { allowed: true, token: 'samsung-token' }, lg: { clientKey: 'lg-key' } } }));
     const tgz = path.join(root, 'b.tgz');
     await pack(D, tgz);
+    const devices = JSON.parse(execFileSync('tar', ['-xzOf', tgz, 'devices.json'], { encoding: 'utf8' }));
+    assert.deepEqual(devices.pairing, { tv: { allowed: true }, lg: {} });
+    assert.deepEqual(devices.devices, [{ id: 'tv' }]);
     const held = new Set(execFileSync('tar', ['-tzf', tgz], { encoding: 'utf8' }).split('\n').map((l) => l.replace(/\/$/, '')).filter(Boolean));
     for (const s of STORES) {
       const where = s.dir ? `${s.path}/x.txt` : s.path;

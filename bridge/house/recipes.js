@@ -76,7 +76,7 @@ export default function (house) {
         else if (r.link) page = await readRecipeLink(r.link, { reaches: r.reach }).catch(() => null);
         video ||= page?.video || null;
         if (!source.trim()) throw new Error('That recipe has nothing in it to cook from.');
-        let cook = parseCook(await house.answer(cookPrompt(r.text, source, page?.links || []), COOK_SYSTEM));
+        let cook = parseCook(await house.answer(cookPrompt(r.text, source, page?.links || []), COOK_SYSTEM), page?.links || []);
         if (page?.minutes) cook.minutes = page.minutes; // the page's own total time over the model's estimate
         // What it builds on ("make the Classic Pizza Sauce", linked on its page): each of those recipes read and made into
         // steps on its own (one answer for all of them takes longer than the cloud waits), as a part, in place of the step

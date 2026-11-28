@@ -12,9 +12,11 @@
 
 const LT = String.raw`(?:<|﹤|〈|〈|⟨|&lt;?|&#0*60;?|&#x0*3c;?|\\u003c|\\u\{0*3c\}|\\x3c)`;
 // Between the "<" and "data": spaces, slashes (any kind, escaped too) and anything that shows nothing or only marks
-// the letter before it: format characters (zero-width, bidi controls, tags) and combining marks (variation selectors).
-const GAP = String.raw`(?:\\u002f|\\x2f|\\u\{0*2f\}|[\s/\\／⁄∕⧸⟋\p{Cf}\p{M}])*`;
-const IN = String.raw`[\p{Cf}\p{M}]*`;
+// the letter before it: format characters (zero-width, bidi controls, tags), combining marks (variation selectors)
+// and the letters that are drawn blank (the Hangul fillers, the blank Braille cell).
+const BLANK = '\u115f\u1160\u3164\uffa0\u2800';
+const GAP = String.raw`(?:\\u002f|\\x2f|\\u\{0*2f\}|[\s/\\／⁄∕⧸⟋\p{Cf}\p{M}${BLANK}])*`;
+const IN = String.raw`[\p{Cf}\p{M}${BLANK}]*`;
 // Lookalike letters: Cyrillic, Greek and Latin ones that read as d, a and t.
 const D = String.raw`[dDԁꓒᑯ]`, A = String.raw`[aAаАɑαΑ⍺]`, T = String.raw`[tTтТτΤꓔ]`;
 const OPENER = new RegExp(`${LT}(?=${GAP}${D}${IN}${A}${IN}${T}${IN}${A})`, 'giu');

@@ -93,16 +93,58 @@ function parseFile(f) { // { ok, value } | { missing } | { bad }
   try { return { ok: true, value: JSON.parse(text) }; } catch (e) { return { bad: true, error: e }; }
 }
 
-/** The file's contents, else its .bak's, else `fallback` (missing, or unreadable with no good .bak). */
+// --- shapes (stores.js shape): a file that parses but has the wrong shape (a restored backup, a hand edit, a bug) is
+// read as the nearest right one, so no reader ever stops on it: a top level of the wrong kind reads as the caller's
+// default; a key of the wrong kind is left out at the top (the reader's own default takes its place) and is empty
+// below it; a list's or a map's entries of the wrong kind are dropped. Nothing is changed on disk until the next save.
+// A shape: {} an object ({key: shape} with its keys' shapes, {'*': shape} every value's), [] a list ([shape] of
+// those), '' a string.
+const kind = (x) => (x === null ? 'null' : Array.isArray(x) ? 'array' : typeof x);
+const fits = (v, shape) => kind(v) === kind(shape);
+const empty = (shape) => (Array.isArray(shape) ? [] : {});
+function coerce(v, shape, fixed, top = false) {
+  if (Array.isArray(shape)) {
+    if (!shape.length) return v;
+    const out = v.filter((x) => fits(x, shape[0]));
+    if (out.length !== v.length) fixed.n++;
+    return out.map((x) => coerce(x, shape[0], fixed));
+  }
+  if (kind(shape) !== 'object' || !Object.keys(shape).length) return v;
+  const out = { ...v };
+  for (const k of Object.keys(out)) {
+    const sh = Object.hasOwn(shape, k) && k !== '*' ? shape[k] : shape['*'];
+    if (sh === undefined) continue;
+    if (fits(out[k], sh)) { out[k] = coerce(out[k], sh, fixed); continue; }
+    fixed.n++;
+    if (top || kind(sh) !== 'object' && kind(sh) !== 'array' || Object.hasOwn(shape, '*') && !Object.hasOwn(shape, k)) delete out[k];
+    else out[k] = empty(sh);
+  }
+  return out;
+}
+/** The value as its store's shape says (a JSON store with none is an object at its top). */
+function inShape(file, value, entry, fallback) {
+  if (!entry || entry.text) return value;
+  const shape = entry.shape ?? {};
+  if (!fits(value, shape)) {
+    warn(file + '~', `${file} isn't the shape it should be (a ${kind(value)}); read as empty`);
+    return typeof fallback === 'function' ? fallback() : fallback;
+  }
+  const fixed = { n: 0 }, out = coerce(value, shape, fixed, true);
+  if (fixed.n) warn(file + '~', `${file} had ${fixed.n} part(s) of the wrong shape; read without them`);
+  return out;
+}
+
+/** The file's contents, else its .bak's, else `fallback` (missing, or unreadable with no good .bak). A store's file of
+ *  the wrong shape is read as the nearest right one (above). */
 export function readJson(file, fallback, { bak } = {}) {
   const entry = storeOf(file);
   bak ??= entry?.bak ?? true;
   const main = parseFile(file);
-  if (main.ok) { good.set(file, stamp(file)); damaged.delete(file); warned.delete(file); return shaped(file, main.value, entry, false); }
+  if (main.ok) { good.set(file, stamp(file)); damaged.delete(file); warned.delete(file); return inShape(file, shaped(file, main.value, entry, false), entry, fallback); }
   if (main.bad) warn(file, `${file} is unreadable (${main.error.message})${bak ? '; reading its .bak' : ''}`);
   if (bak) {
     const b = parseFile(file + '.bak');
-    if (b.ok) { if (main.missing) warn(file, `${file} is missing; reading its .bak`); return shaped(file, b.value, entry, true); }
+    if (b.ok) { if (main.missing) warn(file, `${file} is missing; reading its .bak`); return inShape(file, shaped(file, b.value, entry, true), entry, fallback); }
   }
   if (main.bad) { damaged.add(file); warn(file + '!', `${file} has no readable copy; it is kept aside at the next save`); }
   return typeof fallback === 'function' ? fallback() : fallback;

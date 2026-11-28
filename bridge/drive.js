@@ -43,8 +43,11 @@ export function driveDestination({ DISPLAY, id = 'drive', label = 'A USB drive' 
       return (r.files || []).map((x) => { const p = parseName(x.name); return p && { id: x.name, size: x.size, ...p }; }).filter(Boolean);
     },
     async get(item, toFile) { await call('/get', { name: item.id, path: toFile }, 30 * 60e3); },
-    async prune(keepNightly, keepManual) {
-      const all = (await d.list()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    /** The oldest of this key's backups past the newest few of each kind, deleted. Only this key's: another device's
+     *  (a household's old tablet, before its backup is restored here) are never touched. */
+    async prune(keepNightly, keepManual, keyId) {
+      if (!keyId) return;
+      const all = (await d.list()).filter((x) => x.keyId === keyId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       for (const [kind, keep] of [['nightly', keepNightly], ['manual', keepManual]]) {
         for (const old of all.filter((x) => x.kind === kind).slice(keep)) await call('/remove', { name: old.id });
       }

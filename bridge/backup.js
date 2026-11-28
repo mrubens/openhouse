@@ -16,34 +16,58 @@
 //   POST /backup/storage/remove               forgotten there, and off here
 //
 // A destination: { id, label, ready() -> {ok, why?, name?}, put(file, meta), list() -> [{id, kind, size, keyId,
-// createdAt, deviceId?, deviceName?}], get(item, toFile), prune?(keepNightly, keepManual) }.
+// createdAt, deviceId?, deviceName?}], get(item, toFile), prune?(keepNightly, keepManual, keyId) }.
 import fs from 'node:fs';
 import { readJson, writeJson, holdWrites, releaseWrites } from './store.js';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { quietRepo } from './edits.js';
-import { newRecoveryCode, keyFromCode, normalCode, encryptFile, decryptFile, pack, run, INCLUDE, VIDEO_BUDGET, keptVideos } from './backup-format.js';
+import { restored } from './restore-guard.js';
+import { leftOutOfBackups } from './stores.js';
+import zlib from 'node:zlib';
+import { pipeline } from 'node:stream/promises';
+import { Transform } from 'node:stream';
+import { newRecoveryCode, keyFromCode, normalCode, encryptFile, decryptFile, pack, INCLUDE, VIDEO_BUDGET, keptVideos } from './backup-format.js';
 
 export const KEEP = { nightly: 7, manual: 5 };
 
 /**
  * One thing a restore unpacked, made plain before it's put in place: whatever isn't a plain file or folder (a link,
- * a pipe, a device) is left out, as are node_modules folders and every .git below the thing's own top. Returns
- * whether the thing itself is still there (false when it was itself a link or the like).
+ * a pipe, a device) is left out, as are node_modules folders and every .git below the thing's own top (in any case:
+ * a disk may not tell .GIT from .git). Returns whether the thing itself is still there (false when it isn't in the
+ * backup, or was itself a link or the like). Anything it can't look at (a path too long, no permission) throws, so the
+ * restore stops rather than put back something unchecked.
  */
 export function plain(p, top = true) {
-  let st; try { st = fs.lstatSync(p); } catch { return false; }
+  let st; try { st = fs.lstatSync(p); } catch (e) { if (top && e.code === 'ENOENT') return false; throw new Error(`part of the backup can't be checked (${e.code || e.message})`); }
   if (st.isFile()) return true;
   if (!st.isDirectory()) { fs.rmSync(p, { force: true }); return false; }
   for (const e of fs.readdirSync(p, { withFileTypes: true })) {
-    const q = path.join(p, e.name);
-    if (e.name === 'node_modules' || (e.name === '.git' && !top)) fs.rmSync(q, { recursive: true, force: true });
+    const q = path.join(p, e.name), name = e.name.toLowerCase();
+    if (name === 'node_modules' || (name === '.git' && !top)) fs.rmSync(q, { recursive: true, force: true });
     else plain(q, false);
   }
   return true;
 }
 
-export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = null, busy = () => false, exit = () => process.exit(0), now = Date.now, tick = 15 * 60e3, videoBudget = VIDEO_BUDGET }) {
+/** Room for a restore to unpack into: what's free where the display folder is, less some to spare (none known: 20 GB). */
+function room(DISPLAY) {
+  try { const s = fs.statfsSync(DISPLAY); return Math.max(0, s.bavail * s.bsize - 512e6); } catch { return 20e9; }
+}
+
+/** A .tar.gz unpacked into out, stopping (and throwing) once it has unpacked more than max bytes of tar. */
+export async function unpack(tgz, out, max) {
+  const tar = spawn('tar', ['-xf', '-', '-C', out, '--no-same-owner'], { stdio: ['pipe', 'ignore', 'pipe'] });
+  let err = ''; tar.stderr.on('data', (d) => (err += d));
+  const done = new Promise((ok, no) => { tar.on('error', no); tar.on('close', (c) => (c === 0 ? ok() : no(new Error(`tar failed: ${err.slice(-300)}`)))); });
+  let n = 0;
+  const count = new Transform({ transform(chunk, _, next) { n += chunk.length; next(n > max ? Object.assign(new Error("the backup is bigger than the room on this device"), { code: 'toobig' }) : null, chunk); } });
+  try { await pipeline(fs.createReadStream(tgz), zlib.createGunzip(), count, tar.stdin); }
+  catch (e) { tar.kill(); await done.catch(() => {}); throw e.code === 'toobig' ? e : new Error(`the backup couldn't be unpacked (${e.message})`); }
+  await done;
+}
+
+export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = null, busy = () => false, exit = () => process.exit(0), now = Date.now, tick = 15 * 60e3, videoBudget = VIDEO_BUDGET, maxUnpack = null }) {
   const DIR = path.join(DISPLAY, '.backup'); // never in a backup (not in INCLUDE)
   const TMP = path.join(DIR, 'tmp');
   const f = (n) => path.join(DIR, n);
@@ -96,7 +120,7 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
           const r = await d.ready();
           if (!r.ok) throw Object.assign(new Error(r.why || `${d.label} isn't there.`), { code: 'notready' });
           await d.put(file, meta);
-          await d.prune?.(KEEP.nightly, KEEP.manual).catch((e) => console.log(`[backup] pruning ${d.id}:`, e.message));
+          await d.prune?.(KEEP.nightly, KEEP.manual, k.keyId).catch((e) => console.log(`[backup] pruning ${d.id}:`, e.message));
           results[d.id] = { at: iso(), ok: true, size, kind };
         } catch (e) {
           console.log(`[backup] ${d.id} failed:`, e.message);
@@ -155,10 +179,10 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
       fs.rmSync(file, { force: true });
       job.step = 'unpacking';
       fs.mkdirSync(out);
-      await run('tar', ['-xzf', tgz, '-C', out, '--no-same-owner']);
+      await unpack(tgz, out, maxUnpack ?? room(DISPLAY));
       fs.rmSync(tgz, { force: true });
       // Only what a backup may hold; what is there now is kept aside in .backup/before-restore until the next one.
-      // Only plain files and folders come back, with no node_modules (the next start installs them) and no repo inside
+      // Only plain files and folders come back, with no node_modules (this device's own stay, below) and no repo inside
       // another; and a repo that comes back (webapp/) runs nothing of its own.
       const entries = (header.entries || []).filter((e) => INCLUDE.includes(e) && plain(path.join(out, e)));
       for (const e of entries) quietRepo(path.join(out, e));
@@ -177,7 +201,25 @@ export function backupRoutes({ DISPLAY, json, body, destinations = [], escrow = 
         if (fs.existsSync(path.join(DISPLAY, e + '.bak'))) fs.renameSync(path.join(DISPLAY, e + '.bak'), path.join(aside, e + '.bak'));
         fs.renameSync(path.join(out, e), path.join(DISPLAY, e)); moved = true;
       }
-      if (entries.includes('photos')) keptVideos(path.join(aside, 'photos'), path.join(DISPLAY, 'photos')); // (videos the backup left out stay)
+      // This device's own things inside what came back stay as they were: the videos the backup left out, what a
+      // backup never holds (the speech log, the microphone's clips, caches: stores.js) and webapp/'s node_modules
+      // (built for this device, so the apps' dev server runs at once). kept: what came over, for restore-guard.js.
+      const kept = [];
+      if (entries.includes('photos')) kept.push(...keptVideos(path.join(aside, 'photos'), path.join(DISPLAY, 'photos')).map((n) => `photos/${n}`));
+      for (const p of [...leftOutOfBackups(), 'webapp/node_modules']) {
+        if (!entries.includes(p.split('/')[0]) || !fs.existsSync(path.join(aside, p)) || fs.existsSync(path.join(DISPLAY, p))) continue;
+        try { fs.renameSync(path.join(aside, p), path.join(DISPLAY, p)); kept.push(p); } catch (e) { console.log('[backup] kept aside:', p, e.message); }
+      }
+      // A TV's pairing isn't in a backup (stores.js devices copy): this device's own stay paired.
+      if (entries.includes('devices.json')) try {
+        const was = JSON.parse(fs.readFileSync(path.join(aside, 'devices.json'), 'utf8')), back = JSON.parse(fs.readFileSync(path.join(DISPLAY, 'devices.json'), 'utf8'));
+        let more = false;
+        for (const [id, p] of Object.entries(was?.pairing || {})) for (const secret of ['token', 'clientKey']) {
+          if (p?.[secret] && back && typeof back === 'object' && !back.pairing?.[id]?.[secret]) { ((back.pairing ||= {})[id] ||= {})[secret] = p[secret]; more = true; }
+        }
+        if (more) { const t = path.join(DISPLAY, 'devices.json.tmp'); fs.writeFileSync(t, JSON.stringify(back)); fs.renameSync(t, path.join(DISPLAY, 'devices.json')); }
+      } catch {}
+      restored(DISPLAY, { entries, kept }); // (the next starts are watched, and go back if they don't stay up)
       if (adopt) { setKey(adopt, true); escrowNow().catch(() => {}); } // the family's code is this tablet's code now
       setState({ lastRestore: { at: iso(), ok: true, dest, id, from: header.createdAt } });
       // Start fresh on what came back: the shell's watchdog starts the bridge again in a few seconds.

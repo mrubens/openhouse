@@ -77,10 +77,12 @@ test('backups to a folder: the same files as a USB drive, kept, listed, restored
   assert.equal((await d.ready()).ok, true);
   const src = path.join(dir, 'x.backup'); fs.writeFileSync(src, 'sealed');
   for (let i = 0; i < 3; i++) await d.put(src, { kind: 'manual', keyId: '0123456789abcdef', createdAt: `2026-11-2${i}T10:00:00.000Z` });
-  assert.equal((await d.list()).length, 3);
-  await d.prune(7, 2);
-  const left = await d.list();
-  assert.equal(left.length, 2);
+  await d.put(src, { kind: 'manual', keyId: 'fedcba9876543210', createdAt: '2026-11-01T10:00:00.000Z' }); // another device's, older
+  assert.equal((await d.list()).length, 4);
+  await d.prune(7, 2, '0123456789abcdef');
+  const left = (await d.list()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  assert.equal(left.length, 3);
+  assert.ok(left.some((x) => x.keyId === 'fedcba9876543210'), "another key's backup is never pruned");
   await d.get(left[0], path.join(dir, 'back'));
   assert.equal(fs.readFileSync(path.join(dir, 'back'), 'utf8'), 'sealed');
   fs.rmSync(dir, { recursive: true, force: true });

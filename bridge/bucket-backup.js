@@ -73,8 +73,11 @@ export function bucketDestination({ id = 'bucket', label = 'Your own storage', h
       const r = await request(await signed({ method: 'GET', name: item.id }), { saveTo: toFile, timeout: 30 * 60e3 });
       if (r.status !== 200) throw failed(r, 'give the backup back');
     },
-    async prune(keepNightly, keepManual) {
-      const all = (await d.list()).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    /** The oldest of this key's backups past the newest few of each kind, deleted. Only this key's: another device's
+     *  (a household's old tablet, before its backup is restored here) are never touched. */
+    async prune(keepNightly, keepManual, keyId) {
+      if (!keyId) return;
+      const all = (await d.list()).filter((x) => x.keyId === keyId).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       for (const [kind, keep] of [['nightly', keepNightly], ['manual', keepManual]]) {
         for (const old of all.filter((x) => x.kind === kind).slice(keep)) {
           const r = await request(await signed({ method: 'DELETE', name: old.id }), { method: 'DELETE', timeout: 30e3 });

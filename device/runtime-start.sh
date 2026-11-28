@@ -50,7 +50,16 @@ W=webapp
 if [ -f .satellite/pairing.json ]; then
   mkdir -p .satellite/webapp/apps && ln -sfn "$D/webapp/node_modules" .satellite/webapp/node_modules && W=.satellite/webapp
 fi
+# The dev server serves the webapp/ it started in: after a restore put another one in its place, it's stopped here and
+# started again in the new one.
+wid=$(stat -c %i "$W" 2>/dev/null)
+if [ -n "$wid" ] && [ -f .vite-webapp ] && [ "$(cat .vite-webapp)" != "$wid" ] && up 5173; then
+  echo "$(date '+%F %T') webapp/ changed (a restore): restarting the dev server"
+  pkill -f 'vite/bin/vite.js' 2>/dev/null
+  for i in $(seq 1 20); do up 5173 || break; sleep 0.5; done
+fi
 if ! up 5173; then
+  echo "$wid" > .vite-webapp
   (cd "$W" && setsid nohup node "$D/webapp/node_modules/vite/bin/vite.js" --config "$D/vite.config.mjs" --host 127.0.0.1 --port 5173 --strictPort < /dev/null >> "$D/vite.log" 2>&1 9>&- &) 9>&-
 fi
 # Until 1.0.9 the runtime had pi and SearXNG (its web search) for the tablet's own coding agent: gone from a runtime

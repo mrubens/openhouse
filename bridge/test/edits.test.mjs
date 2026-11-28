@@ -132,12 +132,13 @@ test('a restored tree: no repo inside the repo, no node_modules, nothing but pla
     execFileSync('git', ['config', 'filter.x.clean', run], { cwd: x });
     fs.writeFileSync(path.join(x, '.gitattributes'), '* filter=x\n');
     fs.mkdirSync(path.join(app, 'node_modules/vite'), { recursive: true }); fs.writeFileSync(path.join(app, 'node_modules/vite/vite.js'), run);
+    fs.mkdirSync(path.join(app, 'apps/y/.GIT/hooks'), { recursive: true }); fs.writeFileSync(path.join(app, 'apps/y/.GIT/config'), `[core]\n\thooksPath = ${run}\n`); // (a disk that doesn't tell .GIT from .git)
     fs.symlinkSync('/etc', path.join(app, 'apps/link'));
     execFileSync('mkfifo', [path.join(app, 'apps/pipe')]);
   });
   assert.equal(plain(app), true);
   assert.equal(quietRepo(app), true);
-  for (const gone of ['apps/x/.git', 'node_modules', 'apps/link', 'apps/pipe']) assert.equal(fs.existsSync(path.join(app, gone)) || isLink(path.join(app, gone)), false, gone);
+  for (const gone of ['apps/x/.git', 'apps/y/.GIT', 'node_modules', 'apps/link', 'apps/pipe']) assert.equal(fs.existsSync(path.join(app, gone)) || isLink(path.join(app, gone)), false, gone);
   assert.ok(fs.existsSync(path.join(app, 'apps/x/index.html')), 'the inner repo\'s files stay');
   changeOnce(root, app);
   assert.equal(fs.existsSync(mark), false, 'nothing ran');

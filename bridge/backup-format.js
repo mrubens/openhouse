@@ -12,7 +12,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { spawn } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
-import { backedUp, leftOutOfBackups } from './stores.js';
+import { backedUp, leftOutOfBackups, STORES } from './stores.js';
 
 // What a backup holds, relative to the display folder (the ones that exist): every store stores.js declares as the
 // household's (backup: true), so a new store can't be left out by forgetting a list here. The family's apps with their
@@ -107,27 +107,41 @@ export function videosLeftOut(DISPLAY, budget = VIDEO_BUDGET) {
   for (const v of st) { if (used + v.size > budget) out.push(v.n); else used += v.size; }
   return out;
 }
-/** The family's things from the display folder into a .tar.gz; the entries it holds. */
+/** The family's things from the display folder into a .tar.gz; the entries it holds. A store with a copy (stores.js)
+ *  goes in as that copy, made beside the .tar.gz first (one that doesn't parse is left out: its .bak isn't backed up
+ *  either, and the copy can't be made). */
 export async function pack(DISPLAY, tgz, { videoBudget = VIDEO_BUDGET } = {}) {
-  const entries = INCLUDE.filter((e) => fs.existsSync(path.join(DISPLAY, e)));
+  let entries = INCLUDE.filter((e) => fs.existsSync(path.join(DISPLAY, e)));
   if (!entries.length) throw new Error('nothing to back up');
+  const copies = path.join(path.dirname(tgz), 'copies'), copied = [];
+  fs.rmSync(copies, { recursive: true, force: true });
+  for (const s of STORES.filter((s) => s.copy && entries.includes(s.path))) {
+    let v; try { v = JSON.parse(fs.readFileSync(path.join(DISPLAY, s.path), 'utf8')); } catch { entries = entries.filter((e) => e !== s.path); continue; }
+    fs.mkdirSync(copies, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(copies, s.path), JSON.stringify(s.copy(v)), { mode: 0o600 });
+    copied.push(s.path);
+  }
   // (names in photos/ are only letters, digits, - _ and ., so none reads as a tar pattern)
   const out = videosLeftOut(DISPLAY, videoBudget).flatMap((n) => [`--exclude=photos/${n}`, `--exclude=photos/.stills/${n}.jpg`]);
-  await run('tar', ['-czf', tgz, ...EXCLUDE.map((x) => `--exclude=${x}`), '--exclude=photos/.incoming', ...out, '-C', DISPLAY, ...entries]); // links stay links: never followed
+  const here = entries.filter((e) => !copied.includes(e));
+  try {
+    await run('tar', ['-czf', tgz, ...EXCLUDE.map((x) => `--exclude=${x}`), '--exclude=photos/.incoming', ...out, '-C', DISPLAY, ...here, ...(copied.length ? ['-C', copies, ...copied] : [])]); // links stay links: never followed
+  } finally { fs.rmSync(copies, { recursive: true, force: true }); }
   return entries;
 }
 /** After a restore put [restored] photos in place: the videos (and their stills) that were on this tablet and aren't in
- *  it (left out of the backup for size, or newer than it) come back from [aside], so a restore never loses a video. */
+ *  it (left out of the backup for size, or newer than it) come back from [aside], so a restore never loses a video.
+ *  Returns what came over, relative to the photos folder. */
 export function keptVideos(aside, restored) {
-  let names; try { names = fs.readdirSync(aside).filter((n) => VIDEO.test(n) && !n.startsWith('.')); } catch { return 0; }
-  let n = 0;
+  let names; try { names = fs.readdirSync(aside).filter((n) => VIDEO.test(n) && !n.startsWith('.')); } catch { return []; }
+  const moved = [];
   for (const v of names) {
     if (fs.existsSync(path.join(restored, v))) continue;
-    try { fs.renameSync(path.join(aside, v), path.join(restored, v)); n++; } catch { continue; }
+    try { fs.renameSync(path.join(aside, v), path.join(restored, v)); moved.push(v); } catch { continue; }
     const still = path.join(aside, '.stills', v + '.jpg');
-    if (fs.existsSync(still)) { try { fs.mkdirSync(path.join(restored, '.stills'), { recursive: true }); fs.renameSync(still, path.join(restored, '.stills', v + '.jpg')); } catch {} }
+    if (fs.existsSync(still)) { try { fs.mkdirSync(path.join(restored, '.stills'), { recursive: true }); fs.renameSync(still, path.join(restored, '.stills', v + '.jpg')); moved.push(`.stills/${v}.jpg`); } catch {} }
   }
-  return n;
+  return moved;
 }
 
 /** Plain HTTP(S) to the service, the shell or a presigned URL, without fetch's limits on streaming bodies. */
