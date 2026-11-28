@@ -3,6 +3,7 @@
 import { DAY, WEEKDAYS, REPEATS, PICS, SHOWS, NIGHT, dayKey, daysFrom, localWhen, inLocal, str, objs, same, arr } from './util.js';
 import { asData } from '../as-data.js';
 import { groceriesOf } from '../kit/recipe-text.js';
+import { CALENDAR_VIEWS } from './settings.js';
 
 export default function (house) {
   const { data, view, board, notes, appEvents } = house;
@@ -98,8 +99,11 @@ export default function (house) {
         countdown: { type: 'object', properties: { id: { type: 'string' }, uid: { type: 'string' }, on: { type: 'boolean' } } },
         remind: { type: 'object', description: 'A reminder on any event, synced ones too: minutes before (0 at the start, -1 none, null the household\'s usual)', properties: { id: { type: 'string' }, uid: { type: 'string' }, minutes: { type: ['number', 'null'] } } },
         list: { type: 'object', required: ['from', 'to'], description: 'Read what is on the calendar between two days (YYYY-MM-DD, to not included), up to a year back and 18 months ahead: every calendar, as the Calendar app shows that month. family_things has only the coming two weeks.', properties: { from: { type: 'string' }, to: { type: 'string' } } },
-        settings: { type: 'object', description: 'The Calendar app\'s own settings, as its bell and its app-notes chips set them: the household\'s usual reminder (minutes before; -1 for none), whether reminders are also said aloud, and how much of each app\'s notes on the calendar\'s days shows (lunch menus, trash day: the week, today only, or off). Pass {} to hear them and the apps.',
-          properties: { remind: { type: 'number' }, remind_aloud: { type: 'boolean' }, app_notes: { type: 'array', items: { type: 'object', required: ['app', 'show'], properties: { app: { type: 'string', description: 'The app\'s id (settings {} lists them)' }, show: { type: 'string', enum: SHOWS } } } } } },
+        settings: { type: 'object', description: 'The Calendar app\'s own settings, as its bell, its settings card and its app-notes chips set them: the household\'s usual reminder (minutes before; -1 for none), whether reminders are also said aloud, the day weeks start on, the view it opens on, how many days its Hours view shows, and how much of each app\'s notes on the calendar\'s days shows (lunch menus, trash day: the week, today only, or off). The same on every screen. Pass {} to hear them and the apps.',
+          properties: { remind: { type: 'number' }, remind_aloud: { type: 'boolean' },
+            week_start: { type: 'string', enum: ['sunday', 'monday', 'automatic'], description: 'automatic: as the display\'s language has it' },
+            opens_on: { type: 'string', enum: CALENDAR_VIEWS, description: 'The view the Calendar opens on: day (one day by the hour, with what holds all day), week (seven days in morning, afternoon and evening), hours (one to seven days side by side by the hour), month, list' },
+            hours_days: { type: 'number', minimum: 1, maximum: 7, description: 'How many days the Hours view shows side by side (a phone shows up to 3)' }, app_notes: { type: 'array', items: { type: 'object', required: ['app', 'show'], properties: { app: { type: 'string', description: 'The app\'s id (settings {} lists them)' }, show: { type: 'string', enum: SHOWS } } } } } },
       } } },
     { name: 'photos', description: "The household's photos (the Photos app, and the slideshow on the sleep screen). list: the photos, newest first (name, when, caption, albums), the albums, and the photos taken off lately. " +
       'Then, by the photos\' names from list: take_off (kept 30 days and can be put back), put_back one taken off, caption one (empty text takes the caption off), or an album: add one (name, photos), rename it, put_in or take_out photos, ' +
@@ -194,10 +198,14 @@ export default function (house) {
         const s = a.settings, b = {};
         if (s.remind !== undefined) b.remind = s.remind;
         if (s.remind_aloud !== undefined) b.remindAloud = !!s.remind_aloud;
+        if (s.week_start !== undefined) b.weekStart = s.week_start;
+        if (s.opens_on !== undefined) b.opensOn = s.opens_on;
+        if (s.hours_days !== undefined) b.hoursDays = s.hours_days;
         for (const x of objs(s.app_notes)) house.settings({ fromApp: { app: x.app, show: x.show } });
         if (Object.keys(b).length) house.settings(b);
         const r = data.settings.remind, apps = (() => { try { return notes ? notes.apps() : []; } catch { return []; } })();
         const said = `Calendar settings: the usual reminder ${r == null ? 'none' : r === 0 ? 'at the start' : `${r} minutes before`}${data.settings.remindAloud ? ', said aloud too' : ''}. ` +
+          `Weeks start on ${data.settings.weekStart || 'the day the display\'s language uses'}; it opens on ${data.settings.calendarView || 'week'}; Hours shows ${data.settings.hoursDays || 7} days. ` +
           (apps.length ? `Apps' notes on the calendar: ${apps.map((x) => `${x.name} (${x.app}): ${x.show}`).join(', ')}.` : 'No app puts notes on the calendar.');
         const rest = Object.keys(a).filter((k) => k !== 'settings');
         if (!rest.length) return ok(said);

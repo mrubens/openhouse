@@ -103,6 +103,7 @@ reject.
 | `house.showFromApp(app, show)` | `'week'`, `'today'` or `'off'` | change |
 | `house.orderFromApps(ids)` | app ids, first first | change |
 | `house.setReminders({remind?, aloud?})` | minutes or null; true or false | change |
+| `house.setCalendarLook({weekStart?, opensOn?, hoursDays?})` | `'sunday'`, `'monday'` or null; `'day'`, `'week'`, `'hours'`, `'month'` or `'list'`; 1 to 7 | change |
 | `house.addReward(title, stars, who?)` | | change |
 | `house.removeReward(id)` | | change |
 | `house.redeem(who, id)` | someone says yes on the tablet's card, with the PIN | change |

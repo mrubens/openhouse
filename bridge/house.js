@@ -18,7 +18,8 @@
 // GET  /house/events?from=YYYY-MM-DD&to=YYYY-MM-DD  { events } between those days, as view().events has them: up to
 //                              a year back and 18 months ahead (REACH), synced calendars read for it (house/events.js eventsIn)
 //   view(): eventsWindow {from, to}: the near weeks view().events covers (ISO); further is GET /house/events
-// POST /house/settings         { night: {from: "21:30", to: "06:30"} | false, remind?: minutes | false, remindAloud?: bool }
+// POST /house/settings         { night: {from: "21:30", to: "06:30"} | false, remind?: minutes | false, remindAloud?: bool,
+//                                 weekStart?: 'sunday' | 'monday' | null, opensOn?: 'day' | 'week' | 'hours' | 'month' | 'list', hoursDays?: 1-7 }
 //                              (no photos on the idle screen at night; remind: the reminder every timed event gets)
 // POST /house/flyer?name=x.jpg a photo of a flyer or school notice (the body): the assistant reads its events
 //                              into view().flyer { state: "working" | "done" | "error", events?, text? } (waiting events kept through a restart); nothing is
@@ -179,6 +180,7 @@ export function houseRoutes({ DIR, json, body, board, homeScreen = null, current
       reminders, flyer: house.flyerNow(), email: house.mailAddress(), // (email: the household's address, while email is on: mail.js)
       calendarLock: !!data.settings.calendarLock, unlockedUntil: house.unlocked() > Date.now() ? house.unlocked() : 0,
       removed: house.removedPhotos(), albums: data.albums, linked: house.albums.view(), captions: data.captions, screensaver: house.screensaver(), remind: data.settings.remind ?? null, remindAloud: !!data.settings.remindAloud,
+      weekStart: data.settings.weekStart || null, calendarView: data.settings.calendarView || 'week', hoursDays: data.settings.hoursDays || 7, // (the Calendar's look: house/settings.js)
       ai: !['off', 'none'].includes(agentName()) && !!currentAgent,
       voice: (() => { try { return voiceNeed(); } catch { return null; } })(), // why Opie's voice can't answer (cloud.js voiceNeed): Today's card
     };

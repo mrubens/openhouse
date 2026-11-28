@@ -29,7 +29,7 @@ it is free and on the tablet.
 | Two-way sync | Google and iCloud | Read-only; events added on the tablet stay on it | Open, P3 (needs a Cloud project; parked) |
 | Past events | Shown | Shown (synced events were dropped once over) | Done |
 | Repeats | Via sync | Daily, weekly, monthly (the 31st skips short months, last day, last weekday, every Tuesday), yearly (Thanksgiving, Feb 29) | Done |
-| Views | Day, week, month, schedule | Day (by the hour, overlaps side by side, a line at now), week, month, list | Done |
+| Views | Day, week, month, schedule | Day (by the hour, overlaps side by side, a line at now), week (morning, afternoon, evening), Hours (1 to 7 days side by side by the hour), month, list; the view it opens on and the week's first day are the household's, set by the gear or by asking Opie | Done |
 | Weather by day | In the week's headers | Each day's high, and the chance of rain when likely | Done |
 | One event for two people | Shown in both colours | Pick several people; shown in each of their colours | Done |
 | Colour per person | Chosen per person | One palette everywhere; each person's colour picked in Settings › Family | Done |

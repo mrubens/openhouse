@@ -223,7 +223,7 @@ export const house = {
    *  today, done, week, days}], stars: {name: n}, rewards: [{id, title, stars, who}], asks, got, checklists: [{id, name, who,
    *  from, to, days, steps: [{text, pic}], now, done: ["step|who"]}], meals: {"YYYY-MM-DD": {dinner: "Tacos"}}, recipes: {"tacos": {text, link, notes, video?, cook?: {name, serves,
    *  ingredients: [{item, amount}], steps: [{text, uses?: [{item, amount}], timer?: {minutes, label}}]}}}, mealSlots, favorites:
-   *  [{text, pinned}], mealWork, events: [{id, title, start, end, allDay, who, place, local, repeat, date, remind?, remindAt?}], reminders, remind, remindAloud, photos: [names],
+   *  [{text, pinned}], mealWork, events: [{id, title, start, end, allDay, who, place, local, repeat, date, remind?, remindAt?}], reminders, remind, remindAloud, weekStart, calendarView, hoursDays, photos: [names],
    *  calendars, night: {from, to} | null, ai }. Null until loaded. */
   get data() { return data; },
   /** fn(data) now (if loaded) and on every change. Returns a function that stops it. */
@@ -323,6 +323,10 @@ export const house = {
   showFromApp: (app, show) => send('/house/settings', { fromApp: { app, show } }),
   orderFromApps: (ids) => send('/house/settings', { fromAppsOrder: ids }),
   setReminders: ({ remind, aloud } = {}) => send('/house/settings', { ...(remind !== undefined ? { remind: remind == null ? false : remind } : {}), ...(aloud !== undefined ? { remindAloud: !!aloud } : {}) }),
+  /** The Calendar's look, the same on every screen: the day weeks start on ('sunday', 'monday', or null for the
+   *  display's language's own; data.weekStart), the view it opens on (data.calendarView) and how many days its Hours
+   *  view shows (1 to 7; data.hoursDays). */
+  setCalendarLook: ({ weekStart, opensOn, hoursDays } = {}) => send('/house/settings', { ...(weekStart !== undefined ? { weekStart } : {}), ...(opensOn !== undefined ? { opensOn } : {}), ...(hoursDays !== undefined ? { hoursDays } : {}) }),
   // rewards (someone says yes on the display's own card, with the PIN: nothing in an app can say yes for them)
   addReward: (title, stars, who = null) => title?.trim() && send('/house/reward', { add: { title: title.trim(), stars, who } }),
   removeReward: (id) => send('/house/reward', { remove: id }),

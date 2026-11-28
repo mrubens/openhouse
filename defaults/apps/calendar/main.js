@@ -1,4 +1,4 @@
-// Calendar: one day by the hour, the week in columns, the whole month, or everything coming up as a list, each person in
+// Calendar: one day by the hour, the week in columns, one to seven days side by side by the hour, the whole month, or everything coming up as a list, each person in
 // their color. Tap a day to see all of it and add to it. Events come from the family's synced calendars (added in Settings) plus ones added here,
 // which can repeat and stay on this display. Events in a two-way calendar (Google or iCloud signed in on the display: editable)
 // change here like those; calendars read from a link are read-only here. The events live in the bridge, not here.
@@ -16,7 +16,8 @@ const ICONS = { plus: '<path d="M12 4.5v15M4.5 12h15"/>', edit: '<path d="M5 19h
   horizon: '<path d="M3 17h18M7 17a5 5 0 0110 0M12 6.5V9M5.4 10.4l1.7 1.7M18.6 10.4l-1.7 1.7M8 20.5h8"/>',
   moon: '<path d="M19.5 14.2A8 8 0 019.8 4.5a8 8 0 109.7 9.7z"/>',
   fork: '<path d="M7 3.5v17M4.5 3.5v4a2.5 2.5 0 005 0v-4M17.5 20.5v-17c-2.2 1.2-3.5 4-3.5 7.5v2h3.5"/>',
-  note: '<path d="M5 4.5h14v10l-5 5H5z"/><path d="M14 19.5v-5h5M8.5 9h7M8.5 12.5h4"/>' };
+  note: '<path d="M5 4.5h14v10l-5 5H5z"/><path d="M14 19.5v-5h5M8.5 9h7M8.5 12.5h4"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.6"/>' };
 const icon = (name, cls = '') => h('span', { class: 'icon ' + cls, 'aria-hidden': 'true',
   html: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>` });
 const STAR = [...Array(10)].map((_, i) => { const a = Math.PI / 5 * i - Math.PI / 2, r = i % 2 ? 22.5 : 50; return `${(50 + r * Math.cos(a)).toFixed(1)},${(50 + r * Math.sin(a)).toFixed(1)}`; }).join(' ');
@@ -101,7 +102,7 @@ function ask({ title, hint = '', initial = '', extra = null, onDone }) {
 const DAYS = 7;
 /** How far ahead the list goes. */
 const AGENDA_DAYS = 21;
-/** The view it opens on: "day", "week", "month" or "list". */
+/** The view it opens on: the household's (H.calendarView, set in the settings card), else this. */
 const START_VIEW = 'week';
 /** A phone (docs/phones.md, "Narrow screens"): the week is a list under its days, and the top row is shorter. */
 const narrow = () => matchMedia('(max-width: 700px)').matches;
@@ -109,7 +110,7 @@ const narrow = () => matchMedia('(max-width: 700px)').matches;
 const BACK_MONTHS = 12, AHEAD_MONTHS = 18;
 const REPEATS = [[null, 'Once'], ['daily', 'Every day'], ['weekdays', 'Weekdays'], ['weekly', 'Every week'], ['biweekly', 'Every 2 weeks'], ['monthly', 'Every month'], ['yearly', 'Every year']];
 
-let H = null, events = [], allEvents = [], view = START_VIEW, weeks = 0, months = 0, days = 0;
+let H = null, events = [], allEvents = [], view = START_VIEW, weeks = 0, months = 0, days = 0, hsteps = 0, viewChosen = false;
 /** Whose events this screen leaves out (a tap on a person at the top): kept on this screen only, not for the household. */
 let hidden = new Set(); try { hidden = new Set(JSON.parse(localStorage.getItem('calendar-hidden') || '[]')); } catch {}
 const shownOn = (e) => { const ps = people(e); return !ps.length || ps.some((n) => !hidden.has(n.toLowerCase())); }; // nobody's: always shown
@@ -164,13 +165,14 @@ function rebuild() {
 
 /** Go to a month: the years it reaches, a row of months each (the calendar's title opens it). */
 function monthsCard() {
-  const today = dayStart(Date.now()), first = monthStart(today, -BACK_MONTHS), cur = monthStart(view === 'month' ? monthStart(today, months) : view === 'day' ? dayStart(today, days) : dayStart(today, weeks * DAYS));
+  const today = dayStart(Date.now()), first = monthStart(today, -BACK_MONTHS), cur = monthStart(view === 'month' ? monthStart(today, months) : view === 'day' ? dayStart(today, days) : view === 'hours' ? hoursFrom(today) : dayStart(today, weeks * DAYS));
   const years = [...new Set([...Array(BACK_MONTHS + AHEAD_MONTHS + 1)].map((_, i) => new Date(monthStart(first, i)).getFullYear()))];
   const go = (m) => {
     const n = (new Date(m).getFullYear() - new Date(today).getFullYear()) * 12 + new Date(m).getMonth() - new Date(today).getMonth();
     if (view === 'list') view = 'month';
     if (view === 'month') months = n;
     else if (view === 'day') days = Math.round((m - today) / 864e5);
+    else if (view === 'hours') { const n = hoursN(); hsteps = n === 7 ? Math.floor(Math.round((weekStart(m) - weekStart(today)) / 864e5) / 7) : Math.floor(Math.round((m - today) / 864e5) / n); }
     else weeks = Math.floor(Math.round((weekStart(m) - weekStart(today)) / 864e5) / 7);
   };
   openCard((close) => [
@@ -200,8 +202,10 @@ addEventListener('resize', () => {
 // days, as the time of their midnight
 const dayStart = (t, plus = 0) => { const d = new Date(t); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + plus); return d.getTime(); };
 const monthStart = (t, plus = 0) => { const d = new Date(dayStart(t)); d.setDate(1); d.setMonth(d.getMonth() + plus); return d.getTime(); };
-const FIRST_DAY = (() => { try { const l = new Intl.Locale(navigator.language); const w = l.getWeekInfo?.() || l.weekInfo; return (w?.firstDay ?? 7) % 7; } catch { return 0; } })(); // 0: Sunday
-const weekStart = (t) => { let d = dayStart(t); while (new Date(d).getDay() !== FIRST_DAY) d = dayStart(d, -1); return d; };
+const LOCALE_FIRST = (() => { try { const l = new Intl.Locale(navigator.language); const w = l.getWeekInfo?.() || l.weekInfo; return (w?.firstDay ?? 7) % 7; } catch { return 0; } })(); // 0: Sunday
+/** The day weeks start on: the household's (the settings card; the same on every screen), else the language's. */
+const firstDay = () => (H?.weekStart === 'monday' ? 1 : H?.weekStart === 'sunday' ? 0 : LOCALE_FIRST);
+const weekStart = (t) => { let d = dayStart(t); const f = firstDay(); while (new Date(d).getDay() !== f) d = dayStart(d, -1); return d; };
 const fmt = (t, o) => new Date(t).toLocaleDateString(undefined, o);
 /** The time, short, for where there's little room: "9:15a", "5p". */
 const shortTime = (t) => { const d = new Date(t), hr = d.getHours(), m = d.getMinutes(); return `${hr % 12 || 12}${m ? ':' + String(m).padStart(2, '0') : ''}${hr < 12 ? 'a' : 'p'}`; };
@@ -310,7 +314,11 @@ function ruleWords(rule) {
 }
 const dayName = (d, today) => d === today ? 'Today' : d === dayStart(today, 1) ? 'Tomorrow' : null;
 
-const VIEWS = [['day', 'Day'], ['week', 'Week'], ['month', 'Month'], ['list', 'List']];
+const VIEWS = [['day', 'Day'], ['week', 'Week'], ['hours', 'Hours'], ['month', 'Month'], ['list', 'List']];
+/** How many days the Hours view shows (the household's, 1 to 7; a phone has room for 3). Seven is a week from the day
+ *  weeks start on; fewer start today. */
+const hoursN = () => Math.min(narrow() ? 3 : 7, Math.max(1, Math.round(H?.hoursDays || 7)));
+const hoursFrom = (today) => { const n = hoursN(); return n === 7 ? dayStart(weekStart(today), hsteps * 7) : dayStart(today, hsteps * n); };
 
 /** A swipe across the calendar steps it, as the arrows do: right for earlier, left for later (day, week and month). Seen
  *  in the capture phase, before a tapped event's own handler; a swipe never taps (press() lets a moved finger go). */
@@ -330,7 +338,8 @@ let swipeStep = null;
 function screen() {
   if (!H) return h('div');
   const today = dayStart(Date.now()), from = dayStart(today, weeks * DAYS), oneDay = dayStart(today, days), small = narrow();
-  const at = view === 'month' ? monthStart(today, months) : view === 'list' ? today : from;
+  const hn = hoursN(), hfrom = hoursFrom(today);
+  const at = view === 'month' ? monthStart(today, months) : view === 'list' ? today : view === 'hours' ? hfrom : from;
   const [name, rest] = view === 'day' ? [fmt(oneDay, { weekday: small ? 'short' : 'long' }), fmt(oneDay, { month: small ? 'short' : 'long', day: 'numeric' })] : [fmt(at, { month: 'long' }), small && new Date(at).getFullYear() === new Date(today).getFullYear() ? null : fmt(at, { year: 'numeric' })];
   const set = (f) => () => { f(); draw(); };
   // Stepping: earlier, later and back to today (how far each view goes is the same as ever).
@@ -338,11 +347,12 @@ function screen() {
   const earliest = monthStart(today, -BACK_MONTHS), latest = monthStart(today, AHEAD_MONTHS + 1);
   const step = view === 'day' ? { back: () => days--, noBack: dayStart(today, days - 1) < earliest, on: () => days++, noOn: dayStart(today, days + 1) >= latest, home: () => { days = 0; }, away: days !== 0 }
     : view === 'week' ? { back: () => weeks--, noBack: dayStart(from, -1) < earliest, on: () => weeks++, noOn: dayStart(from, DAYS) >= latest, home: () => { weeks = 0; }, away: weeks !== 0 }
+    : view === 'hours' ? { back: () => hsteps--, noBack: dayStart(hfrom, -1) < earliest, on: () => hsteps++, noOn: dayStart(hfrom, hn) >= latest, home: () => { hsteps = 0; }, away: hsteps !== 0 }
     : view === 'month' ? { back: () => months--, noBack: months <= -BACK_MONTHS, on: () => months++, noOn: months >= AHEAD_MONTHS, home: () => { months = 0; }, away: months !== 0 } : null;
-  { const a = view === 'month' ? weekStart(monthStart(today, months)) : view === 'day' ? oneDay : view === 'week' ? from : today;
-    wantFar(a, dayStart(a, view === 'month' ? 42 : view === 'day' ? 1 : view === 'week' ? DAYS : AGENDA_DAYS)); }
+  { const a = view === 'month' ? weekStart(monthStart(today, months)) : view === 'day' ? oneDay : view === 'week' ? from : view === 'hours' ? hfrom : today;
+    wantFar(a, dayStart(a, view === 'month' ? 42 : view === 'day' ? 1 : view === 'week' ? DAYS : view === 'hours' ? hn : AGENDA_DAYS)); }
   swipeStep = step && !sheets.length ? { back: step.noBack ? null : set(step.back), on: step.noOn ? null : set(step.on) } : null;
-  const tools = [round('photo', fromPhoto, { label: 'From a photo of a flyer' }), round('bell', remindersCard, { label: 'Reminders' })];
+  const tools = [round('photo', fromPhoto, { label: 'From a photo of a flyer' }), round('bell', remindersCard, { label: 'Reminders' }), round('gear', settingsCard, { label: 'Calendar settings' })];
   const link = (label, tap) => h('button', { class: 'quiet', tap }, label);
   return h('div', { class: 'screen' },
     h('div', { class: 'top' },
@@ -353,7 +363,7 @@ function screen() {
       round('plus', () => guard(() => { const d = view === 'day' ? oneDay : today; eventForm(null, d, startFor(d)); }), { dark: true, label: 'Add' })),
     peopleRow(),
     view === 'month' ? month(monthStart(today, months), today) : view === 'list' ? schedule(today, AGENDA_DAYS, today)
-      : view === 'day' ? dayView(oneDay, today) : small ? [strip(from, today, today, openDay), dayList(from, DAYS, today, true)] : weekView(from, today),
+      : view === 'day' ? dayView(oneDay, today) : view === 'hours' ? hoursView(hfrom, hn, today) : small ? [strip(from, today, today, openDay), dayList(from, DAYS, today, true)] : weekView(from, today),
     // (a phone has less of a top row: its tools are down here, and Home only once they've stepped away)
     h('div', { class: 'foot' },
       small && step?.away ? chip('Today', false, set(step.home)) : null,
@@ -482,6 +492,66 @@ function dayView(day, today) {
         h('div', { class: 'when' }, marks(cur, ''), [shortTime(cur.t0), whoText(cur), cur.place].filter(Boolean).join(' · '))) : null,
       rows.length ? h('div', { class: 'info q-panel', 'data-keep': 'info' }, rows) : null),
     grid);
+}
+
+/** A day's timed events, placed by their hours. Overlapping ones go side by side in lanes (n: how many lanes its run of
+ *  overlapping ones needs), each lane further right and over the one before, as calendars on a phone do: a narrow
+ *  column still shows each one's title. a, b: its top and bottom (ms), at least half an hour. */
+function placeByHour(list, top, end) {
+  const items = list.map((e) => { const a = Math.max(e.t0, top); return { e, a, b: Math.min(Math.max(e.t1 ?? e.t0 + 1800e3, a + 1800e3), end) }; })
+    .sort((x, y) => x.a - y.a || y.b - x.b);
+  let run = [], lanes = [], runEnd = -Infinity;
+  const close = () => { for (const x of run) x.n = lanes.length; };
+  for (const x of items) {
+    if (x.a >= runEnd) { close(); run = []; lanes = []; runEnd = -Infinity; }
+    let lane = lanes.findIndex((l) => l <= x.a); if (lane < 0) { lane = lanes.length; lanes.push(0); }
+    lanes[lane] = x.b; x.lane = lane; run.push(x); runEnd = Math.max(runEnd, x.b);
+  }
+  close();
+  return items;
+}
+let hoursScrolled = null; // the days the Hours view last scrolled itself to (after that it stays where they put it)
+/** One to seven days side by side, by the hour: the days' names, what holds all day (and what runs over several days) as
+ *  bars under them with the apps' notes, then the hours, each event where its hours are, overlapping ones side by side
+ *  (placeByHour), and a line at now. A tap on an empty hour adds an event then. */
+function hoursView(from, n, today) {
+  const now = Date.now(), top = bars(from, n), cols = `grid-template-columns:${U(74)} repeat(${n}, minmax(0, 1fr))`;
+  const anyNotes = [...Array(n)].some((_, i) => notesOn(dayStart(from, i), true).length);
+  const head = h('div', { class: 'hhead', style: `${cols};grid-template-rows:auto${top.lanes ? ` repeat(${top.lanes}, auto)` : ''}${anyNotes ? ' auto' : ''}` },
+    [...Array(n)].map((_, i) => {
+      const day = dayStart(from, i), isToday = day === today, f = forecastOn(day), notes = anyNotes ? notesEl(day, 'week') : null;
+      return [
+        h('div', { class: 'dh' + (isToday ? ' today' : ''), style: `grid-column:${i + 2};grid-row:1`, tap: () => openDay(day) },
+          h('div', { class: 'q-label' }, isToday ? 'Today' : fmt(day, { weekday: 'short' })),
+          h('div', { class: 'n' }, h('b', null, fmt(day, { day: 'numeric' })), f ? h('span', { class: 'wxm' }, skyMark(f.code), `${f.high}°`) : null)),
+        notes ? h('div', { class: 'wcell notes', style: `grid-column:${i + 2};grid-row:${top.lanes + 2}` }, notes) : null,
+      ];
+    }),
+    top.list.map(({ e, a, b, lane, cutL, cutR }) => h('div', { ...evLook(e, 'wbar' + (cutL ? ' cut-l' : '') + (cutR ? ' cut-r' : ''), isPast(e, now), `grid-column:${a + 2} / ${b + 3};grid-row:${lane + 2}`), tap: () => openEvent(e) }, barKids(e, cutL))));
+  const y = (t, day) => ((t - day) / 3600e3) * HOUR_U, nowIn = today >= from && today < dayStart(from, n);
+  const colLeft = (i) => `calc(${U(74)} + (100% - ${U(74)}) * ${i / n})`, colWidth = `calc((100% - ${U(74)}) / ${n})`;
+  const body = h('div', { class: 'hbody vscroll', 'data-keep': 'hgrid' },
+    h('div', { class: 'hours-in', style: `height:${U(HOURS * HOUR_U)}` },
+      [...Array(HOURS)].map((_, i) => h('div', { class: 'hour', style: `top:${U(i * HOUR_U)};height:${U(HOUR_U)}` },
+        nowIn && Math.abs(now - (today + i * 3600e3)) < 20 * 60e3 ? null : h('span', { class: 'hour-label' }, `${i % 12 || 12}${i < 12 ? 'a' : 'p'}`))),
+      [...Array(n)].map((_, i) => {
+        const day = dayStart(from, i), end = dayStart(day, 1), isToday = day === today;
+        const placed = placeByHour(eventsOn(day).filter((e) => !spans(e)), day, end);
+        return h('div', { class: 'hcol' + (isToday ? ' today' : ''), style: `left:${colLeft(i)};width:${colWidth}` },
+          h('div', { class: 'hcol-bg', tap: (ev) => { const r = ev.currentTarget.getBoundingClientRect(); const m = Math.floor(Math.min(0.999, Math.max(0, (ev.clientY - r.top) / r.height)) * 48) * 30; guard(() => eventForm(null, day, m)); } }),
+          placed.map(({ e, a, b, lane, n: k }) => {
+            const tall = Math.max(26, y(b, day) - y(a, day) - 4);
+            return h('div', { ...evLook(e, 'block hblock' + (k > 1 ? ' shared' : '') + (tall < 46 ? ' tight' : tall < 76 ? ' snug' : ''), isPast(e, now),
+              `top:${U(y(a, day) + 2)};height:${U(tall)};left:calc((100% - ${U(8)}) * ${lane / (k + 1)} + ${U(4)});right:${U(4)};z-index:${lane + 1}`), tap: () => openEvent(e) },
+              h('div', { class: 'block-what' }, e.title), h('div', { class: 'block-when' }, shortSpan(e)));
+          }),
+          isToday && nowIn ? h('div', { class: 'hnow', style: `top:${U(y(now, day))}` }) : null);
+      }),
+      nowIn ? h('div', { class: 'now-line hnow-at', style: `top:${U(y(now, today))}` }, h('b', null, timeOf(now).replace(/ [AP]M$/, ''))) : null));
+  // Opened on these days: from the morning on (today: with now in view), as the day view does.
+  const key = `${from}|${n}`;
+  if (hoursScrolled !== key) requestAnimationFrame(() => { hoursScrolled = key; const hr = new Date().getHours(); body.scrollTop = body.scrollHeight / HOURS * Math.max(0, !nowIn ? 6.75 : hr < 8 ? hr - 1 : hr >= 19 ? Math.min(hr - 10, 10.25) : 6.75); });
+  return h('div', { class: 'hgrid' + (n === 1 ? ' one' : '') }, head, body);
 }
 
 function eventChip(e, past) {
@@ -668,6 +738,23 @@ function remindersCard() {
       h('div', { class: 'row' }, h('span', { class: 'label' }, ''),
         h('div', { class: 'chips' }, chip('Say them out loud too', !!H.remindAloud, () => set(() => { H.remindAloud = !H.remindAloud; house.setReminders({ aloud: H.remindAloud }); })))),
       h('p', { class: 'line light small' }, 'An event can have its own: tap it, or set it when adding it.'),
+      h('div', { class: 'actions' }, btn('Done', close)),
+    ];
+  }, { width: 1040 });
+}
+
+/** The calendar's settings, the same on every screen: the view it opens on, how many days Hours shows, the week's first day. */
+function settingsCard() {
+  openCard((close) => {
+    const set = (b) => () => { Object.assign(H, b.opensOn !== undefined ? { calendarView: b.opensOn } : {}, b.hoursDays !== undefined ? { hoursDays: b.hoursDays } : {}, b.weekStart !== undefined ? { weekStart: b.weekStart } : {}); house.setCalendarLook(b); draw(); };
+    return [
+      h('h2', null, 'Calendar'),
+      h('div', { class: 'row' }, h('span', { class: 'label' }, 'Opens on'),
+        h('div', { class: 'chips' }, VIEWS.map(([k, l]) => chip(l, (H.calendarView || START_VIEW) === k, set({ opensOn: k }))))),
+      h('div', { class: 'row' }, h('span', { class: 'label' }, 'Hours'),
+        h('div', { class: 'chips' }, [...Array(7)].map((_, i) => chip(i ? `${i + 1} days` : '1 day', (H.hoursDays || 7) === i + 1, set({ hoursDays: i + 1 }))))),
+      h('div', { class: 'row' }, h('span', { class: 'label' }, 'Week starts'),
+        h('div', { class: 'chips' }, [[null, 'Automatic'], ['sunday', wdName('SU', 'long')], ['monday', wdName('MO', 'long')]].map(([k, l]) => chip(l, (H.weekStart || null) === k, set({ weekStart: k }))))),
       h('div', { class: 'actions' }, btn('Done', close)),
     ];
   }, { width: 1040 });
@@ -863,7 +950,7 @@ function eventForm(e = null, startDay = null, startMin = null) {
           h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'every'), h('div', { class: 'chips' }, step(c.every, (n) => setC((x) => { x.every = n; }), 1, 30),
             UNITS.map(([u, one, many]) => chip(c.every > 1 ? many : one, c.unit === u, setC((x) => { x.unit = u; }))))),
           c.unit === 'WEEKLY' ? h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'on'), h('div', { class: 'chips' },
-            [...Array(7)].map((_, i) => WD[(FIRST_DAY + i) % 7]).map((d) => chip(wdName(d), c.days.has(d), setC((x) => { x.days.has(d) ? x.days.delete(d) : x.days.add(d); if (!x.days.size) x.days.add(WD[new Date(f.day).getDay()]); }))))) : null,
+            [...Array(7)].map((_, i) => WD[(firstDay() + i) % 7]).map((d) => chip(wdName(d), c.days.has(d), setC((x) => { x.days.has(d) ? x.days.delete(d) : x.days.add(d); if (!x.days.size) x.days.add(WD[new Date(f.day).getDay()]); }))))) : null,
           h('div', { class: 'row' }, h('span', { class: 'label soft' }, 'ends'), h('div', { class: 'chips' },
             chip('Never', !c.count && !f.until, setC((x) => { x.count = null; f.until = null; })),
             h('span', { class: 'chip' + (f.until && !c.count ? ' on' : '') }, picker('date', f.until || house.dayKey(new Date(dayStart(f.day, 91))), f.until && !c.count ? `On ${fmt(Date.parse(f.until + 'T12:00'), { month: 'short', day: 'numeric' })}` : 'On a day', (v) => { c.count = null; f.until = v; f.ruleTouched = true; })),
@@ -886,6 +973,7 @@ let addAsked = Number(new URLSearchParams(location.hash.slice(1)).get('add')) ||
 const linkAsked = new URLSearchParams(location.hash.slice(1)).get('do') === 'link';
 house.subscribe((d) => {
   H = d;
+  if (!viewChosen) { viewChosen = true; if (VIEWS.some(([k]) => k === H.calendarView)) view = H.calendarView; } // (opens on the household's view; after that, theirs to change)
   if (addAsked) { const fresh = Date.now() - addAsked < 15e3; addAsked = 0; if (fresh) setTimeout(() => { if (linkAsked) { addCalendar(); return; } const d = dayStart(Date.now()); eventForm(null, d, startFor(d)); }, 0); }
   for (const f of far.values()) f.stale = true; // (something changed: the months on screen are read again)
   rebuild();

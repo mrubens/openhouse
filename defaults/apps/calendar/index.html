@@ -221,6 +221,36 @@
     .mark .itile .icon { width: calc(26 * var(--u)); height: calc(26 * var(--u)); }
     .now-line { position: absolute; left: 0; right: 0; height: 0; border-top: calc(2.5 * var(--u)) solid var(--accent); z-index: 3; pointer-events: none; }
     .now-line b { position: absolute; left: calc(14 * var(--u)); top: calc(-15.25 * var(--u)); height: calc(28 * var(--u)); padding: 0 calc(11 * var(--u)); border-radius: calc(14 * var(--u)); display: grid; place-items: center; background: var(--accent); color: var(--accent-ink, #fff); font-size: calc(15 * var(--u)); font-weight: 750; }
+    /* Hours: one to seven days side by side by the hour (main.js hoursView). The days' names, then what holds all day
+       as bars, then the hours: a column a day, each event where its hours are, overlapping ones side by side. */
+    .hgrid { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: calc(8 * var(--u)); padding-bottom: calc(16 * var(--u)); }
+    .hhead { flex: none; display: grid; padding-bottom: calc(4 * var(--u)); }
+    .hhead .wbar { margin: calc(4 * var(--u)) calc(4 * var(--u)) 0; padding: calc(8 * var(--u)) calc(12 * var(--u)); }
+    .hhead .wcell.notes { padding: calc(8 * var(--u)) calc(4 * var(--u)) 0; }
+    .hbody { flex: 1; min-height: 0; border-radius: calc(28 * var(--u)); background: color-mix(in srgb, var(--card) 70%, transparent); }
+    .hcol { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--hair); }
+    .hcol.today { background: color-mix(in srgb, var(--card) 85%, transparent); }
+    .hcol-bg { position: absolute; inset: 0; }
+    .hblock { border-radius: calc(14 * var(--u)); padding: calc(8 * var(--u)) calc(10 * var(--u)); z-index: 1; }
+    .hblock .block-what { margin: 0; font-size: calc(18 * var(--u)); line-height: 1.15; }
+    .hblock .block-when { margin-top: calc(2 * var(--u)); font-size: calc(14 * var(--u)); }
+    .hblock.snug { padding: calc(4 * var(--u)) calc(10 * var(--u)); }
+    .hblock.snug .block-what { font-size: calc(17 * var(--u)); }
+    .hblock.tight { padding: 0 calc(10 * var(--u)); gap: calc(8 * var(--u)); border-radius: calc(10 * var(--u)); }
+    .hblock.tight .block-what { font-size: calc(15 * var(--u)); }
+    .hblock.tight .block-when { margin: 0; font-size: calc(13 * var(--u)); }
+    .hgrid.one .hblock .block-what { font-size: calc(24 * var(--u)); }
+    /* over another (overlapping): an edge of the column's color between them; the title on one line */
+    .hblock.shared { box-shadow: 0 0 0 calc(2 * var(--u)) var(--card); }
+    .hblock.shared .block-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; hyphens: none; overflow-wrap: normal; }
+    .hblock.shared.tight .block-when { display: none; }
+    /* over: faded with a veil, not see-through (one over another would show both) */
+    .hblock.past { opacity: 1; }
+    .hblock.past::after { content: ''; position: absolute; inset: 0; border-radius: inherit; background: var(--card); opacity: .5; pointer-events: none; }
+    .hnow { position: absolute; left: 0; right: 0; height: 0; border-top: calc(2.5 * var(--u)) solid var(--accent); z-index: 3; pointer-events: none; }
+    .hnow::before { content: ''; position: absolute; left: calc(-5 * var(--u)); top: calc(-6.75 * var(--u)); width: calc(11 * var(--u)); height: calc(11 * var(--u)); border-radius: 50%; background: var(--accent); }
+    .now-line.hnow-at { right: auto; width: calc(74 * var(--u)); border-top-color: transparent; }
+    .now-line.hnow-at b { left: calc(6 * var(--u)); }
 
     /* the cards: a day, an event, the form */
     .card-top { display: flex; align-items: baseline; gap: calc(12 * var(--u)); }
@@ -303,6 +333,8 @@
       .hour-label { font-size: calc(19 * var(--u)); }
       .block-when { font-size: calc(18 * var(--u)); } .block-what { font-size: calc(26 * var(--u)); }
       .mark { display: none; }
+      .hbody { border-radius: calc(34 * var(--u)); }
+      .hblock .block-what { font-size: calc(21 * var(--u)); } .hblock .block-when { font-size: calc(16 * var(--u)); }
       .month { gap: calc(6 * var(--u)); }
       .mhead, .mweek { column-gap: calc(5 * var(--u)); }
       .mdow { padding-left: calc(8 * var(--u)); }
